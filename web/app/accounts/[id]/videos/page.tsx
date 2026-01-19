@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 
 interface Video {
   id: string;
+  variant_id: string;
   google_drive_url: string;
   caption_used: string;
   hashtags_used: string;
@@ -18,10 +19,11 @@ export default function UploaderPortalPage() {
   
   const [readyVideos, setReadyVideos] = useState<Video[]>([]);
   const [postedVideos, setPostedVideos] = useState<Video[]>([]);
+  const [needsEditVideos, setNeedsEditVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ttPostUrls, setTtPostUrls] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<'ready' | 'posted'>('ready');
+  const [activeTab, setActiveTab] = useState<'ready' | 'posted' | 'needs_edit'>('ready');
 
   const fetchVideos = async () => {
     try {
@@ -34,6 +36,14 @@ export default function UploaderPortalPage() {
       } else {
         setError(readyResult.error);
         return;
+      }
+
+      // Fetch needs edit videos
+      const needsEditResponse = await fetch(`/api/videos?account_id=${accountId}&status=needs_edit`);
+      const needsEditResult = await needsEditResponse.json();
+      
+      if (needsEditResult.ok) {
+        setNeedsEditVideos(needsEditResult.data);
       }
 
       // Fetch posted videos from last 7 days
@@ -90,6 +100,28 @@ export default function UploaderPortalPage() {
     }
   };
 
+  const markReadyToUpload = async (videoId: string) => {
+    try {
+      const response = await fetch(`/api/videos/${videoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'ready_to_upload'
+        })
+      });
+
+      const result = await response.json();
+      if (result.ok) {
+        await fetchVideos();
+        setError('Video marked as ready to upload');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Failed to mark video as ready to upload');
+    }
+  };
+
   useEffect(() => {
     if (accountId) {
       fetchVideos();
@@ -116,6 +148,18 @@ export default function UploaderPortalPage() {
           }}
         >
           Ready to Upload ({readyVideos.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('needs_edit')}
+          style={{ 
+            marginRight: '10px',
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'needs_edit' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'needs_edit' ? 'white' : 'black',
+            border: '1px solid #ccc'
+          }}
+        >
+          Needs Edit ({needsEditVideos.length})
         </button>
         <button 
           onClick={() => setActiveTab('posted')}
@@ -178,6 +222,59 @@ export default function UploaderPortalPage() {
                         style={{ padding: '5px 10px' }}
                       >
                         Mark Posted
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'needs_edit' && (
+        <div>
+          <h2>Videos Needing Edit</h2>
+          {needsEditVideos.length === 0 ? (
+            <p>No videos need editing.</p>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Video ID</th>
+                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Google Drive URL</th>
+                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Variant</th>
+                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Caption</th>
+                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Hashtags</th>
+                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {needsEditVideos.map((video) => (
+                  <tr key={video.id}>
+                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                      {video.id.slice(0, 8)}...
+                    </td>
+                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                      <a href={video.google_drive_url} target="_blank" rel="noopener noreferrer">
+                        {video.google_drive_url?.length > 50 
+                          ? video.google_drive_url.slice(0, 50) + '...' 
+                          : video.google_drive_url || 'N/A'}
+                      </a>
+                    </td>
+                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                      <a href={`/variants/${video.variant_id}`} target="_blank" rel="noopener noreferrer">
+                        Open Variant
+                      </a>
+                    </td>
+                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.caption_used || 'N/A'}</td>
+                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.hashtags_used || 'N/A'}</td>
+                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                      <button 
+                        onClick={() => markReadyToUpload(video.id)}
+                        style={{ padding: '5px 10px' }}
+                      >
+                        Mark Ready to Upload
                       </button>
                     </td>
                   </tr>

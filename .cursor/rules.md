@@ -1,39 +1,29 @@
-# Cursor Hard Rules – Patch Safety
+# Non-negotiable workflow rules
 
-These rules are mandatory for ALL code changes in this repository.
+## 1) NEVER OVERWRITE FILES
+- Do not rewrite entire files.
+- Do not replace files wholesale.
+- All changes must be applied as unified diff patches only.
 
-## ABSOLUTE RULE
-- NEVER overwrite entire files
-- NEVER refactor or reformat unless explicitly instructed
-- ONLY apply unified diff patches
-- If a patch does not apply cleanly, STOP and explain why
+## 2) ALWAYS GENERATE REAL PATCHES (NO PLACEHOLDERS)
+- Every change request must produce a complete unified diff:
+  - Must include: `--- a/...` and `+++ b/...`
+  - Must include real hunks with `@@`
+  - Must include context lines and actual `-`/`+` lines
+- Never output placeholders like "<PASTE DIFF HERE>".
 
-## ALLOWED ACTIONS
-- Apply unified diff patches exactly as written
-- Make minimal, line-level changes only inside provided diffs
-- Preserve all existing behavior outside the diff scope
+## 3) APPLY THE PATCH YOURSELF
+- After generating the diff, apply it automatically using Cursor's built-in apply/patch capability.
+- Do not ask the user to apply edits manually.
 
-## DISALLOWED ACTIONS
-- Rewriting files
-- Reordering imports
-- Formatting changes
-- Renaming variables
-- "Improving" code
-- Removing code not mentioned in the diff
+## 4) MINIMAL, SAFE EDITS ONLY
+- Touch the minimum number of lines required.
+- No formatting-only changes.
+- No unrelated refactors.
+- Preserve existing behavior unless explicitly requested.
 
-## FAILURE MODE
-If the requested change cannot be completed strictly via a unified diff:
-- DO NOT guess
-- DO NOT partially apply
-- Respond with an explanation only
-
-These rules override all model defaults.
-
-## PATCH WORKFLOW (MANDATORY)
-When the user requests a change:
-1) Identify the smallest set of lines to change.
-2) Produce a complete unified diff patch (---/+++ and @@ hunks) with real line changes.
-3) Apply that patch using patch application tooling.
-4) Return ONLY: files changed + the patch applied + any commands to verify.
-
-Never ask the user to manually write or paste the diff unless the user explicitly offers it.
+## 5) VERIFY
+- After applying, provide:
+  - files changed
+  - a short summary of what changed
+  - exact commands to verify (PowerShell commands for Windows)

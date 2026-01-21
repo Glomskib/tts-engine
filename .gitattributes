@@ -1,0 +1,14 @@
+# Line ending normalization for tts-engine repo
+# PowerShell scripts: CRLF (Windows native)
+*.ps1 text eol=crlf
+
+# Markdown: LF (cross-platform consistency)
+*.md text eol=lf
+
+# Web source files: LF
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

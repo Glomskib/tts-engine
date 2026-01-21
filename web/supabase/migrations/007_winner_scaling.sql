@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS public.iteration_groups (
   winner_variant_id uuid NOT NULL REFERENCES public.variants(id) ON DELETE CASCADE,
   concept_id uuid NOT NULL REFERENCES public.concepts(id) ON DELETE CASCADE,
   plan_json jsonb NULL,
+  status text DEFAULT 'processing',
+  error_message text NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -60,3 +62,4 @@ CREATE INDEX IF NOT EXISTS idx_variants_parent ON public.variants(parent_variant
 CREATE INDEX IF NOT EXISTS idx_variants_iteration_group ON public.variants(iteration_group_id);
 CREATE INDEX IF NOT EXISTS idx_iteration_groups_winner ON public.iteration_groups(winner_variant_id);
 CREATE INDEX IF NOT EXISTS idx_iteration_groups_concept ON public.iteration_groups(concept_id);
+CREATE INDEX IF NOT EXISTS idx_iteration_groups_status ON public.iteration_groups(status);

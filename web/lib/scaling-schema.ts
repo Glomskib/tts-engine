@@ -9,27 +9,26 @@ export async function getVariantsScalingColumns(): Promise<Set<string>> {
     return variantsScalingColumnsCache;
   }
 
+  const columns = new Set<string>();
+  
+  // Probe for parent_variant_id column
   try {
-    const { data, error } = await supabaseAdmin
-      .from('information_schema.columns')
-      .select('column_name')
-      .eq('table_name', 'variants')
-      .eq('table_schema', 'public');
-
-    if (error) {
-      console.error('Failed to fetch variants columns:', error);
-      variantsScalingColumnsCache = new Set([]);
-      return variantsScalingColumnsCache;
-    }
-
-    const columns = new Set(data?.map((row: any) => row.column_name) || []);
-    variantsScalingColumnsCache = columns;
-    return columns;
-  } catch (error) {
-    console.error('Error checking variants schema:', error);
-    variantsScalingColumnsCache = new Set([]);
-    return variantsScalingColumnsCache;
+    await supabaseAdmin.from('variants').select('parent_variant_id').limit(1);
+    columns.add('parent_variant_id');
+  } catch (e) {
+    // Column doesn't exist
   }
+  
+  // Probe for iteration_group_id column
+  try {
+    await supabaseAdmin.from('variants').select('iteration_group_id').limit(1);
+    columns.add('iteration_group_id');
+  } catch (e) {
+    // Column doesn't exist
+  }
+
+  variantsScalingColumnsCache = columns;
+  return columns;
 }
 
 export async function getIterationGroupsColumns(): Promise<Set<string>> {
@@ -37,29 +36,26 @@ export async function getIterationGroupsColumns(): Promise<Set<string>> {
     return iterationGroupsColumnsCache;
   }
 
+  const columns = new Set<string>();
+  
+  // Probe for iteration_groups table existence and basic columns
   try {
-    const { data, error } = await supabaseAdmin
-      .from('information_schema.columns')
-      .select('column_name')
-      .eq('table_name', 'iteration_groups')
-      .eq('table_schema', 'public');
-
-    if (error) {
-      console.error('Failed to fetch iteration_groups columns:', error);
-      // Return basic expected columns as fallback
-      iterationGroupsColumnsCache = new Set(['id', 'winner_variant_id', 'concept_id', 'plan_json', 'created_at', 'updated_at']);
-      return iterationGroupsColumnsCache;
-    }
-
-    const columns = new Set(data?.map((row: any) => row.column_name) || []);
-    iterationGroupsColumnsCache = columns;
-    return columns;
-  } catch (error) {
-    console.error('Error checking iteration_groups schema:', error);
-    // Return basic expected columns as fallback
-    iterationGroupsColumnsCache = new Set(['id', 'winner_variant_id', 'concept_id', 'plan_json', 'created_at', 'updated_at']);
-    return iterationGroupsColumnsCache;
+    await supabaseAdmin.from('iteration_groups').select('id').limit(1);
+    // If we get here, table exists - add expected columns
+    columns.add('id');
+    columns.add('winner_variant_id');
+    columns.add('concept_id');
+    columns.add('plan_json');
+    columns.add('status');
+    columns.add('error_message');
+    columns.add('created_at');
+    columns.add('updated_at');
+  } catch (e) {
+    // Table doesn't exist
   }
+
+  iterationGroupsColumnsCache = columns;
+  return columns;
 }
 
 // Clear cache when needed (e.g., after migrations)

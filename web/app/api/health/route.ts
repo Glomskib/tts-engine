@@ -11,6 +11,8 @@ export async function GET() {
       NEXT_PUBLIC_SUPABASE_URL: hasSupabaseUrl,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: hasAnonKey,
       SUPABASE_SERVICE_ROLE_KEY: hasServiceKey
-    }
+    },
+    SUPABASE_SERVICE_ROLE_KEY_PRESENT: hasServiceKey,
+    USING_SERVICE_ROLE_FOR_ADMIN: hasServiceKey
   });
 }

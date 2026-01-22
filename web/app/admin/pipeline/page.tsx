@@ -108,6 +108,24 @@ export default function AdminPipelinePage() {
     }
   };
 
+  const timeAgo = (dateStr: string) => {
+    try {
+      const now = new Date();
+      const date = new Date(dateStr);
+      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   const tableStyle = { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '20px' };
   const thStyle = { border: '1px solid #ccc', padding: '8px', textAlign: 'left' as const, backgroundColor: '#f5f5f5' };
   const tdStyle = { border: '1px solid #ccc', padding: '8px' };
@@ -169,8 +187,8 @@ export default function AdminPipelinePage() {
               <tr>
                 <th style={thStyle}>ID</th>
                 <th style={thStyle}>Claimed By</th>
-                <th style={thStyle}>Claimed At</th>
-                <th style={thStyle}>Updated At</th>
+                <th style={thStyle}>Claimed</th>
+                <th style={thStyle}>Updated</th>
               </tr>
             </thead>
             <tbody>
@@ -178,8 +196,8 @@ export default function AdminPipelinePage() {
                 <tr key={video.id}>
                   <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '12px' }}>{video.id}</td>
                   <td style={tdStyle}>{video.claimed_by}</td>
-                  <td style={tdStyle}>{formatDate(video.claimed_at)}</td>
-                  <td style={tdStyle}>{formatDate(video.updated_at)}</td>
+                  <td style={tdStyle} title={formatDate(video.claimed_at)}>{timeAgo(video.claimed_at)}</td>
+                  <td style={tdStyle} title={formatDate(video.updated_at)}>{timeAgo(video.updated_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -196,7 +214,7 @@ export default function AdminPipelinePage() {
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>Timestamp</th>
+                <th style={thStyle}>When</th>
                 <th style={thStyle}>Type</th>
                 <th style={thStyle}>Video ID</th>
                 <th style={thStyle}>Actor</th>
@@ -206,7 +224,7 @@ export default function AdminPipelinePage() {
             <tbody>
               {recentEvents.map((event) => (
                 <tr key={event.id}>
-                  <td style={tdStyle}>{formatDate(event.created_at)}</td>
+                  <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
                   <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '12px' }}>{event.video_id}</td>
                   <td style={tdStyle}>{event.actor}</td>

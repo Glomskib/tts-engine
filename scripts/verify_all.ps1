@@ -59,6 +59,8 @@ if (-not (Test-HealthEndpoint)) {
         $waited += $pollInterval
         if (Test-HealthEndpoint) {
             Write-Host "  Dev server is ready (took ${waited}s)" -ForegroundColor Green
+            Write-Host "  Allowing routes to compile (10s)..." -ForegroundColor Gray
+            Start-Sleep -Seconds 10
             break
         }
         Write-Host "    ... still waiting (${waited}s)" -ForegroundColor Gray

@@ -5,3 +5,7 @@
 .next
 dist
 supabase/.temp
+
+# Claude local config
+.claude/
+

@@ -35,6 +35,9 @@ export default function AdminPipelinePage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
+  const [videoIdFilter, setVideoIdFilter] = useState('');
+  const [claimedByFilter, setClaimedByFilter] = useState('');
+  const [eventTypeFilter, setEventTypeFilter] = useState('');
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -150,6 +153,33 @@ export default function AdminPipelinePage() {
   const tableStyle = { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '20px' };
   const thStyle = { border: '1px solid #ccc', padding: '8px', textAlign: 'left' as const, backgroundColor: '#f5f5f5' };
   const tdStyle = { border: '1px solid #ccc', padding: '8px' };
+  const inputStyle = { padding: '6px 10px', marginRight: '10px', border: '1px solid #ccc', borderRadius: '4px' };
+  const selectStyle = { padding: '6px 10px', marginRight: '10px', border: '1px solid #ccc', borderRadius: '4px' };
+
+  // Get distinct event types for dropdown
+  const eventTypes = Array.from(new Set(recentEvents.map(e => e.event_type))).sort();
+
+  // Apply filters
+  const filteredClaimedVideos = claimedVideos.filter(video => {
+    const matchesVideoId = !videoIdFilter || video.id.toLowerCase().includes(videoIdFilter.toLowerCase());
+    const matchesClaimedBy = !claimedByFilter || video.claimed_by.toLowerCase().includes(claimedByFilter.toLowerCase());
+    return matchesVideoId && matchesClaimedBy;
+  });
+
+  const filteredEvents = recentEvents.filter(event => {
+    const matchesVideoId = !videoIdFilter || event.video_id.toLowerCase().includes(videoIdFilter.toLowerCase());
+    const matchesEventType = !eventTypeFilter || event.event_type === eventTypeFilter;
+    const matchesActor = !claimedByFilter || event.actor.toLowerCase().includes(claimedByFilter.toLowerCase());
+    return matchesVideoId && matchesEventType && matchesActor;
+  });
+
+  const hasActiveFilters = videoIdFilter || claimedByFilter || eventTypeFilter;
+
+  const clearFilters = () => {
+    setVideoIdFilter('');
+    setClaimedByFilter('');
+    setEventTypeFilter('');
+  };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -180,6 +210,44 @@ export default function AdminPipelinePage() {
           {releaseMessage}
         </div>
       )}
+
+      {/* Filters */}
+      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <input
+            type="text"
+            placeholder="Filter by Video ID..."
+            value={videoIdFilter}
+            onChange={(e) => setVideoIdFilter(e.target.value)}
+            style={inputStyle}
+          />
+          <input
+            type="text"
+            placeholder="Filter by Claimed By / Actor..."
+            value={claimedByFilter}
+            onChange={(e) => setClaimedByFilter(e.target.value)}
+            style={inputStyle}
+          />
+          <select
+            value={eventTypeFilter}
+            onChange={(e) => setEventTypeFilter(e.target.value)}
+            style={selectStyle}
+          >
+            <option value="">All Event Types</option>
+            {eventTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Queue Summary */}
       <section style={{ marginBottom: '40px' }}>
@@ -213,19 +281,19 @@ export default function AdminPipelinePage() {
 
       {/* Claimed Videos */}
       <section style={{ marginBottom: '40px' }}>
-        <h2>Claimed Videos ({claimedVideos.length})</h2>
-        {claimedVideos.length > 0 ? (
+        <h2>Claimed Videos ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
+        {filteredClaimedVideos.length > 0 ? (
           <table style={tableStyle}>
             <thead>
               <tr>
                 <th style={thStyle}>ID</th>
                 <th style={thStyle}>Claimed By</th>
                 <th style={thStyle}>Claimed</th>
-                <th style={thStyle}>Updated</th>
+                <th style={thStyle}>Expires</th>
               </tr>
             </thead>
             <tbody>
-              {claimedVideos.map((video) => (
+              {filteredClaimedVideos.map((video) => (
                 <tr key={video.id}>
                   <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '12px' }}>{video.id}</td>
                   <td style={tdStyle}>{video.claimed_by}</td>
@@ -236,14 +304,14 @@ export default function AdminPipelinePage() {
             </tbody>
           </table>
         ) : (
-          <p style={{ color: '#666' }}>No videos currently claimed</p>
+          <p style={{ color: '#666' }}>{hasActiveFilters ? 'No matching claimed videos' : 'No videos currently claimed'}</p>
         )}
       </section>
 
       {/* Recent Events */}
       <section style={{ marginBottom: '40px' }}>
-        <h2>Recent Events ({recentEvents.length})</h2>
-        {recentEvents.length > 0 ? (
+        <h2>Recent Events ({filteredEvents.length}{hasActiveFilters ? ` of ${recentEvents.length}` : ''})</h2>
+        {filteredEvents.length > 0 ? (
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -255,7 +323,7 @@ export default function AdminPipelinePage() {
               </tr>
             </thead>
             <tbody>
-              {recentEvents.map((event) => (
+              {filteredEvents.map((event) => (
                 <tr key={event.id}>
                   <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
@@ -269,7 +337,7 @@ export default function AdminPipelinePage() {
             </tbody>
           </table>
         ) : (
-          <p style={{ color: '#666' }}>No recent events</p>
+          <p style={{ color: '#666' }}>{hasActiveFilters ? 'No matching events' : 'No recent events'}</p>
         )}
       </section>
 

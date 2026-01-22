@@ -1,31 +1,62 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { VIDEO_STATUSES, VideoStatus } from "@/lib/schema-migration";
+import { isValidStatus, assertVideoTransition, VideoStatus, allowedTransitions, QUEUE_STATUSES } from "@/lib/video-pipeline";
+import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+
+async function writeVideoEvent(
+  videoId: string,
+  eventType: string,
+  correlationId: string,
+  actor: string,
+  fromStatus: string | null,
+  toStatus: string | null,
+  details: Record<string, unknown>
+): Promise<void> {
+  try {
+    await supabaseAdmin.from("video_events").insert({
+      video_id: videoId,
+      event_type: eventType,
+      correlation_id: correlationId,
+      actor,
+      from_status: fromStatus,
+      to_status: toStatus,
+      details,
+    });
+  } catch (err) {
+    console.error("Failed to write video event:", err);
+  }
+}
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Generate or read correlation ID
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const { id } = await params;
 
   if (!id || typeof id !== "string") {
-    return NextResponse.json(
-      { ok: false, error: "Video ID is required" },
-      { status: 400 }
-    );
+    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON" },
-      { status: 400 }
-    );
+    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   const { 
@@ -40,21 +71,101 @@ export async function PATCH(
   } = body as Record<string, unknown>;
 
   // Validate status if provided
-  if (status !== undefined && (typeof status !== "string" || !VIDEO_STATUSES.includes(status as VideoStatus))) {
-    return NextResponse.json(
-      { 
-        ok: false, 
-        error: `Invalid status. Must be one of: ${VIDEO_STATUSES.join(", ")}` 
-      },
-      { status: 400 }
-    );
+  if (status !== undefined) {
+    if (typeof status !== "string" || !isValidStatus(status)) {
+      const err = apiError("INVALID_STATUS", "Invalid status value", 400, { provided: status });
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
   }
 
   // Build update payload - only use existing columns
   const updatePayload: Record<string, unknown> = {};
+  let previousStatus: VideoStatus | null = null;
 
-  // Only update fields that exist in current schema
+  // If status is changing, validate the transition
   if (status !== undefined) {
+    // Fetch current video to check transition and claim status
+    const { data: currentVideo, error: fetchError } = await supabaseAdmin
+      .from("videos")
+      .select("status,claimed_by,claim_expires_at")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !currentVideo) {
+      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    const currentStatus = currentVideo.status as VideoStatus;
+    previousStatus = currentStatus;
+
+    if (currentStatus && isValidStatus(currentStatus) && currentStatus !== status) {
+      try {
+        assertVideoTransition(currentStatus, status as VideoStatus);
+      } catch (err) {
+        // Write audit event for invalid transition
+        await writeVideoEvent(
+          id,
+          "error",
+          correlationId,
+          "api",
+          currentStatus,
+          status as string,
+          {
+            code: "INVALID_TRANSITION",
+            from_status: currentStatus,
+            to_status: status,
+            allowed: allowedTransitions[currentStatus],
+            message: (err as Error).message
+          }
+        );
+
+        const apiErr = apiError("INVALID_TRANSITION", (err as Error).message, 400, {
+          from: currentStatus,
+          to: status,
+          allowed: allowedTransitions[currentStatus]
+        });
+        return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+      }
+
+      // Enforce claim for transitions FROM queue statuses
+      if (QUEUE_STATUSES.includes(currentStatus as typeof QUEUE_STATUSES[number])) {
+        const now = new Date().toISOString();
+        const isClaimed = currentVideo.claimed_by && currentVideo.claim_expires_at && currentVideo.claim_expires_at > now;
+        
+        if (!isClaimed) {
+          // Write audit event for claim required error
+          await writeVideoEvent(
+            id,
+            "error",
+            correlationId,
+            "api",
+            currentStatus,
+            status as string,
+            {
+              code: "CLAIM_REQUIRED",
+              message: "Video must be claimed before changing status",
+              claimed_by: currentVideo.claimed_by,
+              claim_expires_at: currentVideo.claim_expires_at
+            }
+          );
+
+          const apiErr = apiError("BAD_REQUEST", "Video must be claimed before changing status", 409, {
+            status: currentStatus,
+            claimed_by: currentVideo.claimed_by,
+            claim_expires_at: currentVideo.claim_expires_at
+          });
+          return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+        }
+      }
+
+      // Auto-clear claim when transitioning to posted or failed
+      if (status === "posted" || status === "failed") {
+        updatePayload.claimed_by = null;
+        updatePayload.claimed_at = null;
+        updatePayload.claim_expires_at = null;
+      }
+    }
     updatePayload.status = status;
   }
 
@@ -69,10 +180,8 @@ export async function PATCH(
 
   // If no valid fields to update
   if (Object.keys(updatePayload).length === 0) {
-    return NextResponse.json(
-      { ok: false, error: "No valid fields provided for update" },
-      { status: 400 }
-    );
+    const err = apiError("BAD_REQUEST", "No valid fields provided for update", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   try {
@@ -88,26 +197,33 @@ export async function PATCH(
       console.error("PATCH /api/videos/[id] update payload:", updatePayload);
 
       if (error.code === "PGRST116") {
-        return NextResponse.json(
-          { ok: false, error: "Video not found" },
-          { status: 404 }
-        );
+        const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
 
-      return NextResponse.json(
-        { ok: false, error: error.message },
-        { status: 500 }
+      const err = apiError("DB_ERROR", error.message, 500);
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    // Write audit event for successful status change
+    if (status !== undefined && previousStatus !== null && previousStatus !== status) {
+      await writeVideoEvent(
+        id,
+        "status_change",
+        correlationId,
+        "api",
+        previousStatus,
+        status as string,
+        {}
       );
     }
 
-    return NextResponse.json({ ok: true, data });
+    return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 
   } catch (err) {
     console.error("PATCH /api/videos/[id] error:", err);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error" },
-      { status: 500 }
-    );
+    const error = apiError("DB_ERROR", "Internal server error", 500);
+    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
   }
 }
 

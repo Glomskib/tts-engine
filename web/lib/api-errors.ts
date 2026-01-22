@@ -1,0 +1,43 @@
+// api-errors.ts - Standardized API error codes and responses (Phase 8.2)
+
+export type ApiErrorCode =
+  | 'INVALID_UUID'
+  | 'INVALID_STATUS'
+  | 'INVALID_TRANSITION'
+  | 'DUPLICATE_QUEUE'
+  | 'NOT_FOUND'
+  | 'DB_ERROR'
+  | 'BAD_REQUEST';
+
+export interface ApiErrorResponse {
+  ok: false;
+  error: string;
+  code: ApiErrorCode;
+  details?: Record<string, unknown>;
+}
+
+export function apiError(
+  code: ApiErrorCode,
+  message: string,
+  httpStatus: number,
+  details?: Record<string, unknown>
+): { body: ApiErrorResponse; status: number } {
+  const body: ApiErrorResponse = {
+    ok: false,
+    error: message,
+    code,
+  };
+  if (details) {
+    body.details = details;
+  }
+  return { body, status: httpStatus };
+}
+
+export function generateCorrelationId(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let random = '';
+  for (let i = 0; i < 6; i++) {
+    random += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `vid_${Date.now()}_${random}`;
+}

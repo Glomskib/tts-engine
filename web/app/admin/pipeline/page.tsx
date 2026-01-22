@@ -11,7 +11,7 @@ interface ClaimedVideo {
   id: string;
   claimed_by: string;
   claimed_at: string;
-  updated_at: string;
+  claim_expires_at: string;
 }
 
 interface VideoEvent {
@@ -38,6 +38,7 @@ export default function AdminPipelinePage() {
   const [videoIdFilter, setVideoIdFilter] = useState('');
   const [claimedByFilter, setClaimedByFilter] = useState('');
   const [eventTypeFilter, setEventTypeFilter] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -181,6 +182,24 @@ export default function AdminPipelinePage() {
     setEventTypeFilter('');
   };
 
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(label);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const copyableCellStyle = {
+    ...tdStyle,
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    cursor: 'pointer',
+    position: 'relative' as const,
+  };
+
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -295,10 +314,17 @@ export default function AdminPipelinePage() {
             <tbody>
               {filteredClaimedVideos.map((video) => (
                 <tr key={video.id}>
-                  <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '12px' }}>{video.id}</td>
+                  <td
+                    style={copyableCellStyle}
+                    onClick={() => copyToClipboard(video.id, `vid-${video.id}`)}
+                    title="Click to copy"
+                  >
+                    {video.id}
+                    {copiedId === `vid-${video.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
+                  </td>
                   <td style={tdStyle}>{video.claimed_by}</td>
                   <td style={tdStyle} title={formatDate(video.claimed_at)}>{timeAgo(video.claimed_at)}</td>
-                  <td style={tdStyle} title={formatDate(video.updated_at)}>{timeAgo(video.updated_at)}</td>
+                  <td style={tdStyle} title={video.claim_expires_at ? formatDate(video.claim_expires_at) : ''}>{video.claim_expires_at ? timeAgo(video.claim_expires_at) : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -320,6 +346,7 @@ export default function AdminPipelinePage() {
                 <th style={thStyle}>Video ID</th>
                 <th style={thStyle}>Actor</th>
                 <th style={thStyle}>Transition</th>
+                <th style={thStyle}>Correlation</th>
               </tr>
             </thead>
             <tbody>
@@ -327,10 +354,25 @@ export default function AdminPipelinePage() {
                 <tr key={event.id}>
                   <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
-                  <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '12px' }}>{event.video_id}</td>
+                  <td
+                    style={copyableCellStyle}
+                    onClick={() => copyToClipboard(event.video_id, `evt-vid-${event.id}`)}
+                    title="Click to copy"
+                  >
+                    {event.video_id.slice(0, 8)}...
+                    {copiedId === `evt-vid-${event.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
+                  </td>
                   <td style={tdStyle}>{event.actor}</td>
                   <td style={tdStyle}>
                     {event.from_status || '-'} → {event.to_status || '-'}
+                  </td>
+                  <td
+                    style={copyableCellStyle}
+                    onClick={() => copyToClipboard(event.correlation_id, `corr-${event.id}`)}
+                    title="Click to copy"
+                  >
+                    {event.correlation_id.slice(0, 12)}...
+                    {copiedId === `corr-${event.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
                   </td>
                 </tr>
               ))}

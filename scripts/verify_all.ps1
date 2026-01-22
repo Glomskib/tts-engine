@@ -96,6 +96,19 @@ try {
     }
     Write-Host "`nPhase 8: PASS" -ForegroundColor Green
 
+    # Phase 9 (optional - only if script exists)
+    $phase9Script = Join-Path $scriptDir "verify_phase9.ps1"
+    if (Test-Path $phase9Script) {
+        Write-Host "`n[Phase 9]" -ForegroundColor Yellow
+        & $phase9Script
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "`nPhase 9: FAIL" -ForegroundColor Red
+            $finalExit = 1
+            return
+        }
+        Write-Host "`nPhase 9: PASS" -ForegroundColor Green
+    }
+
     Write-Host "`n====================================" -ForegroundColor Cyan
     Write-Host "All phases: PASS" -ForegroundColor Green
 } finally {

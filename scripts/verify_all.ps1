@@ -74,6 +74,21 @@ if (-not (Test-HealthEndpoint)) {
     Write-Host "  Dev server already running" -ForegroundColor Green
 }
 
+# Preflight cleanup: release any stale claims to ensure deterministic tests
+Write-Host "`n[Pre-check] Releasing stale claims..." -ForegroundColor Yellow
+try {
+    $releaseUrl = "http://localhost:3000/api/videos/release-stale"
+    $releaseResp = Invoke-WebRequest -Uri $releaseUrl -Method POST -ContentType "application/json" -Body "{}" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+    $releaseData = $releaseResp.Content | ConvertFrom-Json
+    if ($releaseData.ok) {
+        Write-Host "  Released $($releaseData.released_count) stale claim(s)" -ForegroundColor Green
+    } else {
+        Write-Host "  WARN: release-stale returned ok=false" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  WARN: Could not call release-stale endpoint (continuing anyway)" -ForegroundColor Yellow
+}
+
 $finalExit = 0
 try {
     # Phase 7

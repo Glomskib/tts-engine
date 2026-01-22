@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
@@ -25,30 +24,26 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Check if claim columns exist
-    const existingColumns = await getVideosColumns();
-    const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claimed_at");
-
-    if (!hasClaimColumns) {
-      return NextResponse.json({
-        ok: true,
-        data: [],
-        message: "Claim columns not yet migrated",
-        correlation_id: correlationId,
-      });
-    }
-
     const now = new Date().toISOString();
 
     const { data, error } = await supabaseAdmin
       .from("videos")
-      .select("id,claimed_by,claimed_at,updated_at")
+      .select("id,claimed_by,claimed_at,claim_expires_at")
       .not("claimed_by", "is", null)
       .gte("claim_expires_at", now)
       .order("claimed_at", { ascending: false })
       .limit(limit);
 
     if (error) {
+      // If columns don't exist, return gracefully
+      if (error.message?.includes("claimed_by") || error.message?.includes("claimed_at") || error.message?.includes("claim_expires_at")) {
+        return NextResponse.json({
+          ok: true,
+          data: [],
+          message: "Claim columns not yet migrated",
+          correlation_id: correlationId,
+        });
+      }
       console.error("GET /api/observability/claimed Supabase error:", error);
       const err = apiError("DB_ERROR", error.message, 500);
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

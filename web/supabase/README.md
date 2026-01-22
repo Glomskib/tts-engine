@@ -14,6 +14,16 @@ Creates `public.video_events` table used by Phase 9 observability.
 2. Copy and run the contents of `migrations/009_video_events_audit.sql`
 3. Restart dev server
 
+### 010_videos_editor_claim.sql
+Adds `claimed_by`, `claimed_at`, `claim_expires_at` columns to videos table for editor workflow.
+
+**If Admin UI shows "Claim columns not yet migrated":**
+1. Open Supabase Dashboard → SQL Editor
+2. Copy and run the contents of `migrations/010_videos_editor_claim.sql`
+3. Restart dev server
+
+Note: Without this migration, claim/release still works via in-memory fallback, but "Release stale claims" and persistent claims require the database columns.
+
 ## Migration Order
 
 | Migration | Description | Auto-applied |
@@ -35,3 +45,11 @@ SELECT to_regclass('public.video_events') AS table_exists;
 ```
 
 Returns `public.video_events` if exists, `NULL` if not.
+
+To check if claim columns exist:
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'videos' AND column_name IN ('claimed_by', 'claimed_at', 'claim_expires_at');
+```
+
+Should return 3 rows if migration 010 is applied.

@@ -33,6 +33,8 @@ export default function AdminPipelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [releasing, setReleasing] = useState(false);
+  const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -70,6 +72,25 @@ export default function AdminPipelinePage() {
       setLoading(false);
     }
   }, []);
+
+  const releaseStale = useCallback(async () => {
+    setReleasing(true);
+    setReleaseMessage(null);
+    try {
+      const res = await fetch('/api/videos/release-stale', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setReleaseMessage(`Released ${data.released_count} stale claim(s)`);
+        fetchData();
+      } else {
+        setReleaseMessage(`Error: ${data.message || 'Failed to release'}`);
+      }
+    } catch (err) {
+      setReleaseMessage('Error: Failed to release stale claims');
+    } finally {
+      setReleasing(false);
+    }
+  }, [fetchData]);
 
   useEffect(() => {
     checkAdminEnabled();
@@ -138,6 +159,13 @@ export default function AdminPipelinePage() {
           <button onClick={fetchData} style={{ padding: '8px 16px', marginRight: '10px' }}>
             Refresh
           </button>
+          <button
+            onClick={releaseStale}
+            disabled={releasing}
+            style={{ padding: '8px 16px', marginRight: '10px', backgroundColor: '#f0ad4e', border: '1px solid #eea236' }}
+          >
+            {releasing ? 'Releasing...' : 'Release stale claims'}
+          </button>
           {lastRefresh && (
             <span style={{ color: '#666', fontSize: '14px' }}>
               Last updated: {formatDate(lastRefresh.toISOString())}
@@ -147,6 +175,11 @@ export default function AdminPipelinePage() {
       </div>
 
       {error && <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>}
+      {releaseMessage && (
+        <div style={{ color: releaseMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '20px' }}>
+          {releaseMessage}
+        </div>
+      )}
 
       {/* Queue Summary */}
       <section style={{ marginBottom: '40px' }}>

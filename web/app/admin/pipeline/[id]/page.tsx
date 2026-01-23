@@ -469,6 +469,19 @@ export default function VideoDetailPage() {
       {videoDetail?.script_locked_text && (
         <section style={sectionStyle}>
           <h2 style={{ marginTop: 0 }}>Locked Script</h2>
+          <div style={{
+            marginBottom: '15px',
+            padding: '10px 15px',
+            backgroundColor: '#e8f4fd',
+            border: '1px solid #bee5eb',
+            borderRadius: '4px',
+            fontSize: '13px',
+            color: '#0c5460',
+          }}>
+            <strong>Script Lock Explained:</strong> This video has a locked copy of its script.
+            Even if the source script is later edited, this video&apos;s locked content won&apos;t change.
+            This ensures the video being produced matches exactly what was approved.
+          </div>
           {videoDetail.script_id && (
             <div style={{ marginBottom: '10px' }}>
               <span style={{ color: '#666' }}>Script ID: </span>

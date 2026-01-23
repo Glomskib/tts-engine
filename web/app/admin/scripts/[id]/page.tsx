@@ -79,6 +79,20 @@ export default function ScriptEditorPage() {
   const [rewritePrompt, setRewritePrompt] = useState('');
   const [productContext, setProductContext] = useState('');
 
+  // Rewrite history state
+  const [rewriteHistory, setRewriteHistory] = useState<Array<{
+    id: string;
+    rewrite_prompt: string;
+    rewrite_result_json: Record<string, unknown> | null;
+    rewrite_result_text: string | null;
+    model: string;
+    created_at: string;
+    error_metadata: Record<string, unknown> | null;
+  }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+
   const checkAdminEnabled = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/enabled');
@@ -278,6 +292,71 @@ export default function ScriptEditorPage() {
       setError('Failed to rewrite script');
     } finally {
       setRewriting(false);
+    }
+  };
+
+  const fetchRewriteHistory = useCallback(async () => {
+    if (!scriptId) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}/rewrites`);
+      const data = await res.json();
+      if (data.ok) {
+        setRewriteHistory(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch rewrite history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [scriptId]);
+
+  useEffect(() => {
+    if (showHistory && rewriteHistory.length === 0) {
+      fetchRewriteHistory();
+    }
+  }, [showHistory, rewriteHistory.length, fetchRewriteHistory]);
+
+  const handleRestore = async (rewriteId: string) => {
+    if (!confirm('Are you sure you want to restore this version? This will update the current script.')) {
+      return;
+    }
+    setRestoring(rewriteId);
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewrite_id: rewriteId }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        setSuccess(`Restored to version ${data.data.version} from ${data.meta.restored_from_date}`);
+        setScript(data.data);
+        // Reload form fields
+        if (data.data.script_json) {
+          setHook(data.data.script_json.hook || '');
+          setBody(data.data.script_json.body || '');
+          setCta(data.data.script_json.cta || '');
+          setBullets(data.data.script_json.bullets?.join('\n') || '');
+          setOnScreenText(data.data.script_json.on_screen_text?.join('\n') || '');
+          setBRoll(data.data.script_json.b_roll?.join('\n') || '');
+          setPacing(data.data.script_json.pacing || '');
+          setComplianceNotes(data.data.script_json.compliance_notes || '');
+          setUploaderInstructions(data.data.script_json.uploader_instructions || '');
+          setProductTags(data.data.script_json.product_tags?.join(', ') || '');
+        }
+        setTimeout(() => setSuccess(''), 5000);
+      } else {
+        setError(data.error || 'Failed to restore version');
+      }
+    } catch (err) {
+      setError('Failed to restore version');
+    } finally {
+      setRestoring(null);
     }
   };
 
@@ -525,6 +604,13 @@ export default function ScriptEditorPage() {
           >
             {showRewrite ? 'Cancel Rewrite' : 'AI Rewrite'}
           </button>
+          <button
+            type="button"
+            style={{ ...buttonStyle, backgroundColor: '#17a2b8' }}
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? 'Hide History' : 'View History'}
+          </button>
         </div>
       </form>
 
@@ -561,6 +647,111 @@ export default function ScriptEditorPage() {
           >
             {rewriting ? 'Rewriting...' : 'Generate Rewrite'}
           </button>
+        </section>
+      )}
+
+      {/* Rewrite History Section */}
+      {showHistory && (
+        <section style={{ ...sectionStyle, borderColor: '#17a2b8', backgroundColor: '#f0fbff' }}>
+          <h2 style={{ marginTop: 0, color: '#0c5460' }}>Rewrite History</h2>
+          <p style={{ color: '#666', marginBottom: '15px' }}>
+            View previous versions of this script. Click &quot;Restore&quot; to revert to a previous version.
+          </p>
+          {historyLoading ? (
+            <p>Loading history...</p>
+          ) : rewriteHistory.length === 0 ? (
+            <p style={{ color: '#666' }}>No rewrite history found.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {rewriteHistory.map((rewrite) => (
+                <div
+                  key={rewrite.id}
+                  style={{
+                    padding: '15px',
+                    backgroundColor: rewrite.error_metadata ? '#fff5f5' : '#fff',
+                    border: `1px solid ${rewrite.error_metadata ? '#f5c6cb' : '#e0e0e0'}`,
+                    borderRadius: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                    <div>
+                      <strong style={{ fontSize: '14px' }}>
+                        {displayDateTime(rewrite.created_at)}
+                      </strong>
+                      <span style={{ marginLeft: '10px', color: '#666', fontSize: '12px' }}>
+                        via {rewrite.model}
+                      </span>
+                      {rewrite.error_metadata && (
+                        <span style={{ marginLeft: '10px', color: '#dc3545', fontSize: '12px' }}>
+                          (Failed)
+                        </span>
+                      )}
+                    </div>
+                    {!rewrite.error_metadata && rewrite.rewrite_result_json && (
+                      <button
+                        onClick={() => handleRestore(rewrite.id)}
+                        disabled={restoring === rewrite.id}
+                        style={{
+                          padding: '4px 12px',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                        }}
+                      >
+                        {restoring === rewrite.id ? 'Restoring...' : 'Restore'}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ marginBottom: '10px' }}>
+                    <span style={{ fontSize: '12px', color: '#666' }}>Prompt: </span>
+                    <span style={{ fontSize: '13px' }}>
+                      {rewrite.rewrite_prompt.length > 200
+                        ? `${rewrite.rewrite_prompt.slice(0, 200)}...`
+                        : rewrite.rewrite_prompt}
+                    </span>
+                  </div>
+                  {rewrite.rewrite_result_text && (
+                    <details style={{ fontSize: '12px' }}>
+                      <summary style={{ cursor: 'pointer', color: '#0066cc' }}>View content preview</summary>
+                      <pre style={{
+                        marginTop: '10px',
+                        padding: '10px',
+                        backgroundColor: '#f5f5f5',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '4px',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: '11px',
+                        maxHeight: '200px',
+                        overflow: 'auto',
+                      }}>
+                        {rewrite.rewrite_result_text.slice(0, 1000)}
+                        {rewrite.rewrite_result_text.length > 1000 ? '...' : ''}
+                      </pre>
+                    </details>
+                  )}
+                  {rewrite.error_metadata && (
+                    <details style={{ fontSize: '12px' }}>
+                      <summary style={{ cursor: 'pointer', color: '#dc3545' }}>View error details</summary>
+                      <pre style={{
+                        marginTop: '10px',
+                        padding: '10px',
+                        backgroundColor: '#fff5f5',
+                        border: '1px solid #f5c6cb',
+                        borderRadius: '4px',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: '11px',
+                      }}>
+                        {JSON.stringify(rewrite.error_metadata, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>

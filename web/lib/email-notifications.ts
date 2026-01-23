@@ -1,10 +1,15 @@
 /**
  * Email notification triggers for assignments, handoffs, and admin actions.
  * All functions fail-safe: if email is not configured, they log and skip.
+ *
+ * NOTE: triggerEmailNotification now routes through the unified notify() system
+ * which also handles Slack notifications. Direct email functions remain available
+ * for email-only use cases.
  */
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEmail, isEmailEnabled, getAdminEmailRecipient, checkEmailCooldown, EmailResult } from "@/lib/email";
+import { notify, type NotifyEventType } from "@/lib/notify";
 
 // Event types that trigger email notifications
 type EmailTriggerEvent =
@@ -251,8 +256,9 @@ export async function sendAdminActionEmail(
 }
 
 /**
- * Trigger email notification based on event type.
+ * Trigger notification based on event type.
  * This is the main entry point for event-driven notifications.
+ * Routes through the unified notify() system which handles both email and Slack.
  */
 export async function triggerEmailNotification(
   eventType: EmailTriggerEvent,
@@ -266,31 +272,22 @@ export async function triggerEmailNotification(
   }
 ): Promise<void> {
   try {
-    switch (eventType) {
-      case "assigned":
-      case "assignment_reassigned":
-        if (details.assignedUserId && details.role) {
-          await sendAssignmentEmail(videoId, details.assignedUserId, details.role, eventType);
-        }
-        break;
-
-      case "assignment_expired":
-        await sendExpiryNotificationEmail(
-          videoId,
-          details.assignedUserId || null,
-          details.role || null
-        );
-        break;
-
-      case "admin_force_status":
-      case "admin_clear_claim":
-      case "admin_reset_assignments":
-        if (details.adminUserId) {
-          await sendAdminActionEmail(videoId, eventType, details.adminUserId, details);
-        }
-        break;
-    }
+    // Route through unified notification system
+    await notify(eventType as NotifyEventType, {
+      videoId,
+      recipientUserId: details.assignedUserId,
+      role: details.role,
+      adminUserId: details.adminUserId,
+      performedBy: (details.performed_by as string) || (details.reassignedBy as string) || details.adminUserId,
+      reason: details.reason,
+      fromStatus: details.from_status as string,
+      toStatus: details.to_status as string,
+      fromState: details.from_state as string,
+      toState: details.to_state as string,
+      mode: details.mode as string,
+      ...details,
+    });
   } catch (err) {
-    console.error(`Email notification trigger failed for ${eventType}:`, err);
+    console.error(`Notification trigger failed for ${eventType}:`, err);
   }
 }

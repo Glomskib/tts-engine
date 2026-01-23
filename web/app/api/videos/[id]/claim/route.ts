@@ -5,6 +5,7 @@ import { QUEUE_STATUSES } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
+import { getAssignmentTtlMinutes } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -96,7 +97,18 @@ export async function POST(
   }
 
   const validatedClaimRole = actorRole;
-  const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : 120;
+  // Get effective TTL: request body -> system setting -> env -> default (240)
+  let ttl = 240; // fallback default
+  if (typeof ttl_minutes === "number" && ttl_minutes > 0) {
+    ttl = ttl_minutes;
+  } else {
+    try {
+      ttl = await getAssignmentTtlMinutes();
+    } catch {
+      // Fallback to default on error
+      ttl = 240;
+    }
+  }
 
   try {
     // Check if claim columns exist (migration 010) and claim_role (migration 015)

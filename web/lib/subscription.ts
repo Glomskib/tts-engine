@@ -2,9 +2,12 @@
  * Subscription/Plan gating for role workbenches.
  * Fail-safe: if no subscription config, default to ALLOW.
  * Admin users always bypass gating.
+ *
+ * Resolution order: system_setting -> env -> default
  */
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getEffectiveBoolean } from "@/lib/settings";
 
 export type PlanType = "free" | "pro";
 
@@ -31,11 +34,10 @@ function getProUserIds(): Set<string> {
 }
 
 /**
- * Check if subscription gating is enabled.
- * If SUBSCRIPTION_GATING_ENABLED is explicitly "false" or "0", gating is disabled.
- * Default: enabled if PRO_USER_IDS is set, otherwise disabled (fail-safe allow all).
+ * Check if subscription gating is enabled (sync version for backwards compat).
+ * Uses env var only. For system settings support, use isSubscriptionGatingEnabledAsync.
  */
-export function isSubscriptionGatingEnabled(): boolean {
+export function isSubscriptionGatingEnabledSync(): boolean {
   const explicitSetting = process.env.SUBSCRIPTION_GATING_ENABLED;
 
   if (explicitSetting !== undefined) {
@@ -48,6 +50,26 @@ export function isSubscriptionGatingEnabled(): boolean {
 }
 
 /**
+ * Check if subscription gating is enabled.
+ * Resolution order: system_setting -> env -> default (false)
+ * If SUBSCRIPTION_GATING_ENABLED is explicitly "false" or "0", gating is disabled.
+ * Default: enabled if PRO_USER_IDS is set, otherwise disabled (fail-safe allow all).
+ */
+export async function isSubscriptionGatingEnabled(): Promise<boolean> {
+  try {
+    // Check system setting first (from video_events)
+    const settingValue = await getEffectiveBoolean("SUBSCRIPTION_GATING_ENABLED");
+    // getEffectiveBoolean returns the resolved value (system_setting -> env -> default)
+    // The settings resolver handles the env fallback internally
+    return settingValue;
+  } catch (err) {
+    // On error, fall back to sync version (env-only)
+    console.error("Error fetching SUBSCRIPTION_GATING_ENABLED setting, using env fallback:", err);
+    return isSubscriptionGatingEnabledSync();
+  }
+}
+
+/**
  * Get the user's subscription plan.
  * Checks (in order):
  * 1. video_events admin_set_plan events (most recent wins)
@@ -57,7 +79,8 @@ export function isSubscriptionGatingEnabled(): boolean {
  */
 export async function getUserPlan(userId: string): Promise<UserPlan> {
   // Fail-safe: if gating not enabled, everyone is pro
-  if (!isSubscriptionGatingEnabled()) {
+  const gatingEnabled = await isSubscriptionGatingEnabled();
+  if (!gatingEnabled) {
     return { plan: "pro", isActive: true };
   }
 
@@ -128,7 +151,8 @@ export async function canPerformGatedAction(
   }
 
   // Check if gating is enabled
-  if (!isSubscriptionGatingEnabled()) {
+  const gatingEnabled = await isSubscriptionGatingEnabled();
+  if (!gatingEnabled) {
     return { allowed: true };
   }
 
@@ -147,12 +171,13 @@ export async function canPerformGatedAction(
 /**
  * Get subscription gating config for debugging/admin UI.
  */
-export function getSubscriptionConfig(): {
+export async function getSubscriptionConfig(): Promise<{
   gatingEnabled: boolean;
   proUserCount: number;
-} {
+}> {
+  const gatingEnabled = await isSubscriptionGatingEnabled();
   return {
-    gatingEnabled: isSubscriptionGatingEnabled(),
+    gatingEnabled,
     proUserCount: getProUserIds().size,
   };
 }

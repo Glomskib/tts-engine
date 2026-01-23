@@ -1,7 +1,11 @@
 /**
  * Email sender wrapper for SendGrid integration.
  * Fails safe: if email config is missing, returns "skipped" result.
+ *
+ * Resolution order: system_setting -> env -> default
  */
+
+import { getEffectiveBoolean } from "@/lib/settings";
 
 // SendGrid import - dynamic to avoid errors if package not installed
 let sgMail: { setApiKey: (key: string) => void; send: (msg: object) => Promise<unknown> } | null = null;
@@ -26,8 +30,8 @@ export interface EmailResult {
   message?: string;
 }
 
-// Environment configuration
-export function getEmailConfig(): {
+// Environment configuration (sync version)
+export function getEmailConfigSync(): {
   enabled: boolean;
   apiKey: string | null;
   from: string;
@@ -55,10 +59,55 @@ export function getEmailConfig(): {
 }
 
 /**
- * Check if email sending is available
+ * Get email configuration with system settings support.
+ * Resolution order: system_setting -> env -> default
  */
-export function isEmailEnabled(): boolean {
-  const config = getEmailConfig();
+export async function getEmailConfig(): Promise<{
+  enabled: boolean;
+  apiKey: string | null;
+  from: string;
+  opsEmail: string | null;
+  defaultAdminEmail: string | null;
+}> {
+  const apiKey = process.env.SENDGRID_API_KEY || null;
+
+  // Check system setting first (uses resolution: system_setting -> env -> default)
+  let enabled = false;
+  try {
+    enabled = await getEffectiveBoolean("EMAIL_ENABLED");
+  } catch {
+    // Fallback to env-only logic on error
+    const explicitEnabled = process.env.EMAIL_ENABLED;
+    if (explicitEnabled !== undefined) {
+      enabled = explicitEnabled === "true" || explicitEnabled === "1";
+    } else if (apiKey) {
+      enabled = true;
+    }
+  }
+
+  return {
+    enabled,
+    apiKey,
+    from: process.env.EMAIL_FROM || "no-reply@tts-engine.local",
+    opsEmail: process.env.OPS_EMAIL_TO || null,
+    defaultAdminEmail: process.env.DEFAULT_ADMIN_EMAIL || null,
+  };
+}
+
+/**
+ * Check if email sending is available (sync version for backwards compat)
+ */
+export function isEmailEnabledSync(): boolean {
+  const config = getEmailConfigSync();
+  return config.enabled && config.apiKey !== null && sgMail !== null;
+}
+
+/**
+ * Check if email sending is available
+ * Resolution order: system_setting -> env -> default
+ */
+export async function isEmailEnabled(): Promise<boolean> {
+  const config = await getEmailConfig();
   return config.enabled && config.apiKey !== null && sgMail !== null;
 }
 
@@ -67,7 +116,7 @@ export function isEmailEnabled(): boolean {
  * Returns a result object indicating success or skip reason.
  */
 export async function sendEmail(params: EmailParams): Promise<EmailResult> {
-  const config = getEmailConfig();
+  const config = await getEmailConfig();
 
   // Check if email is disabled
   if (!config.enabled) {
@@ -114,7 +163,7 @@ export async function sendEmail(params: EmailParams): Promise<EmailResult> {
  * Returns OPS_EMAIL_TO > DEFAULT_ADMIN_EMAIL > null
  */
 export function getAdminEmailRecipient(): string | null {
-  const config = getEmailConfig();
+  const config = getEmailConfigSync();
   return config.opsEmail || config.defaultAdminEmail || null;
 }
 

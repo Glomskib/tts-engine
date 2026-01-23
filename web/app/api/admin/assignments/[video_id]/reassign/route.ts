@@ -4,13 +4,12 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { triggerEmailNotification } from "@/lib/email-notifications";
+import { getAssignmentTtlMinutes } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
 const VALID_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 type AssignRole = typeof VALID_ROLES[number];
-
-const DEFAULT_TTL_MINUTES = 240;
 
 interface RouteParams {
   params: Promise<{ video_id: string }>;
@@ -111,7 +110,18 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : DEFAULT_TTL_MINUTES;
+  // Get effective TTL: request body -> system setting -> env -> default (240)
+  let ttl = 240; // fallback default
+  if (typeof ttl_minutes === "number" && ttl_minutes > 0) {
+    ttl = ttl_minutes;
+  } else {
+    try {
+      ttl = await getAssignmentTtlMinutes();
+    } catch {
+      // Fallback to default on error
+      ttl = 240;
+    }
+  }
 
   try {
     const existingColumns = await getVideosColumns();

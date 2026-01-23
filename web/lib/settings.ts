@@ -215,6 +215,14 @@ export async function getEffectiveStringArray(key: SettingKey): Promise<string[]
 }
 
 /**
+ * Get the effective assignment TTL in minutes.
+ * Resolution order: system_setting -> env -> default (240 minutes = 4 hours)
+ */
+export async function getAssignmentTtlMinutes(): Promise<number> {
+  return getEffectiveNumber("ASSIGNMENT_TTL_MINUTES");
+}
+
+/**
  * Set a system setting (writes to video_events).
  * Returns the created event ID.
  */

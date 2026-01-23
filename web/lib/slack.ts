@@ -1,7 +1,11 @@
 /**
  * Slack notification sender (optional, fail-safe).
  * If SLACK_WEBHOOK_URL is not configured, all sends return "skipped" status.
+ *
+ * Resolution order: system_setting -> env -> default
  */
+
+import { getEffectiveBoolean } from "@/lib/settings";
 
 export interface SlackParams {
   text: string;
@@ -27,9 +31,9 @@ export interface SlackResult {
 }
 
 /**
- * Get Slack configuration from environment variables.
+ * Get Slack configuration from environment variables (sync version).
  */
-export function getSlackConfig(): {
+export function getSlackConfigSync(): {
   enabled: boolean;
   webhookUrl: string | null;
 } {
@@ -51,10 +55,49 @@ export function getSlackConfig(): {
 }
 
 /**
- * Check if Slack notifications are enabled.
+ * Get Slack configuration with system settings support.
+ * Resolution order: system_setting -> env -> default
  */
-export function isSlackEnabled(): boolean {
-  const config = getSlackConfig();
+export async function getSlackConfig(): Promise<{
+  enabled: boolean;
+  webhookUrl: string | null;
+}> {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL || null;
+
+  // Check system setting first (uses resolution: system_setting -> env -> default)
+  let enabled = false;
+  try {
+    enabled = await getEffectiveBoolean("SLACK_ENABLED");
+  } catch {
+    // Fallback to env-only logic on error
+    const explicitEnabled = process.env.SLACK_ENABLED;
+    if (explicitEnabled !== undefined) {
+      enabled = explicitEnabled === "true" || explicitEnabled === "1";
+    } else if (webhookUrl) {
+      enabled = true;
+    }
+  }
+
+  return {
+    enabled,
+    webhookUrl,
+  };
+}
+
+/**
+ * Check if Slack notifications are enabled (sync version for backwards compat).
+ */
+export function isSlackEnabledSync(): boolean {
+  const config = getSlackConfigSync();
+  return config.enabled && config.webhookUrl !== null;
+}
+
+/**
+ * Check if Slack notifications are enabled.
+ * Resolution order: system_setting -> env -> default
+ */
+export async function isSlackEnabled(): Promise<boolean> {
+  const config = await getSlackConfig();
   return config.enabled && config.webhookUrl !== null;
 }
 
@@ -63,7 +106,7 @@ export function isSlackEnabled(): boolean {
  * Returns a result object indicating success or skip reason.
  */
 export async function sendSlack(params: SlackParams): Promise<SlackResult> {
-  const config = getSlackConfig();
+  const config = await getSlackConfig();
 
   // Check if Slack is disabled
   if (!config.enabled) {

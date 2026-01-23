@@ -2,11 +2,14 @@
  * Unified Notification Router
  * Central hub for dispatching notifications to multiple channels (email, Slack).
  * Enforces cooldown and emits events for each channel.
+ *
+ * Resolution order for settings: system_setting -> env -> default
  */
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEmail, isEmailEnabled, getAdminEmailRecipient, checkEmailCooldown, EmailResult } from "@/lib/email";
 import { sendSlack, isSlackEnabled, buildSlackMessage, SlackResult } from "@/lib/slack";
+import { getEffectiveStringArray } from "@/lib/settings";
 
 // Notification event types supported by the router
 export type NotifyEventType =
@@ -20,8 +23,8 @@ export type NotifyEventType =
   | "user_upgrade_requested"
   | "user_upgrade_request_resolved";
 
-// Events that should notify ops via Slack
-const SLACK_OPS_EVENTS: NotifyEventType[] = [
+// Default events that should notify ops via Slack (can be overridden by system setting)
+const DEFAULT_SLACK_OPS_EVENTS: NotifyEventType[] = [
   "assignment_expired",
   "admin_force_status",
   "admin_clear_claim",
@@ -31,6 +34,18 @@ const SLACK_OPS_EVENTS: NotifyEventType[] = [
   "user_upgrade_requested",
   "user_upgrade_request_resolved",
 ];
+
+/**
+ * Get the effective SLACK_OPS_EVENTS list.
+ * Resolution order: system_setting -> env -> default
+ */
+async function getSlackOpsEvents(): Promise<string[]> {
+  try {
+    return await getEffectiveStringArray("SLACK_OPS_EVENTS");
+  } catch {
+    return DEFAULT_SLACK_OPS_EVENTS;
+  }
+}
 
 export interface NotifyPayload {
   videoId?: string | null;
@@ -378,7 +393,8 @@ export async function notify(
 
   // === EMAIL CHANNEL ===
   try {
-    if (isEmailEnabled()) {
+    const emailEnabled = await isEmailEnabled();
+    if (emailEnabled) {
       // Determine email recipient
       let recipientEmail = payload.recipientEmail;
 
@@ -440,7 +456,9 @@ export async function notify(
 
   // === SLACK CHANNEL ===
   try {
-    if (isSlackEnabled() && SLACK_OPS_EVENTS.includes(eventType)) {
+    const slackEnabled = await isSlackEnabled();
+    const slackOpsEvents = await getSlackOpsEvents();
+    if (slackEnabled && slackOpsEvents.includes(eventType)) {
       // Check cooldown (5 minutes for Slack to prevent spam, skip if no videoId)
       let inCooldown = false;
       if (payload.videoId) {

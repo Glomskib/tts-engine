@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 
 interface ClaimedVideo {
   id: string;
@@ -49,6 +50,7 @@ export default function VideoDetailPage() {
   const params = useParams();
   const router = useRouter();
   const videoId = params.id as string;
+  const hydrated = useHydrated();
 
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [claimedInfo, setClaimedInfo] = useState<ClaimedVideo | null>(null);
@@ -241,29 +243,10 @@ export default function VideoDetailPage() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleString();
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const timeAgo = (dateStr: string) => {
-    try {
-      const now = new Date();
-      const date = new Date(dateStr);
-      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      const days = Math.floor(hours / 24);
-      return `${days}d ago`;
-    } catch {
-      return dateStr;
-    }
+  // Use hydration-safe time display
+  const displayTime = (dateStr: string) => {
+    if (!hydrated) return formatDateString(dateStr);
+    return getTimeAgo(dateStr);
   };
 
   // Derive current status from most recent event
@@ -344,11 +327,11 @@ export default function VideoDetailPage() {
               <>
                 <tr>
                   <td style={{ padding: '5px 20px 5px 0', fontWeight: 'bold' }}>Claimed At:</td>
-                  <td title={formatDate(claimedInfo.claimed_at)}>{timeAgo(claimedInfo.claimed_at)}</td>
+                  <td title={formatDateString(claimedInfo.claimed_at)}>{displayTime(claimedInfo.claimed_at)}</td>
                 </tr>
                 <tr>
                   <td style={{ padding: '5px 20px 5px 0', fontWeight: 'bold' }}>Expires:</td>
-                  <td title={formatDate(claimedInfo.claim_expires_at)}>{timeAgo(claimedInfo.claim_expires_at)}</td>
+                  <td title={formatDateString(claimedInfo.claim_expires_at)}>{displayTime(claimedInfo.claim_expires_at)}</td>
                 </tr>
               </>
             )}
@@ -538,7 +521,7 @@ export default function VideoDetailPage() {
             <tbody>
               {events.map((event) => (
                 <tr key={event.id}>
-                  <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
+                  <td style={tdStyle} title={formatDateString(event.created_at)}>{displayTime(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
                   <td style={tdStyle}>{event.actor}</td>
                   <td style={tdStyle}>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 
 interface ScriptTemplate {
   id: string;
@@ -30,6 +31,7 @@ interface Script {
 }
 
 export default function ScriptsLibraryPage() {
+  const hydrated = useHydrated();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [templates, setTemplates] = useState<ScriptTemplate[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -116,29 +118,10 @@ export default function ScriptsLibraryPage() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString();
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const timeAgo = (dateStr: string) => {
-    try {
-      const now = new Date();
-      const date = new Date(dateStr);
-      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      const days = Math.floor(hours / 24);
-      return `${days}d ago`;
-    } catch {
-      return dateStr;
-    }
+  // Use hydration-safe time display
+  const displayTime = (dateStr: string) => {
+    if (!hydrated) return formatDateString(dateStr);
+    return getTimeAgo(dateStr);
   };
 
   const handleCreateScript = async (e: React.FormEvent) => {
@@ -447,7 +430,7 @@ export default function ScriptsLibraryPage() {
                       <td style={tdStyle}>{script.title || <span style={{ color: '#999' }}>Untitled</span>}</td>
                       <td style={tdStyle}>{statusBadge(script.status)}</td>
                       <td style={tdStyle}>v{script.version}</td>
-                      <td style={tdStyle} title={formatDate(script.updated_at)}>{timeAgo(script.updated_at)}</td>
+                      <td style={tdStyle} title={formatDateString(script.updated_at)}>{displayTime(script.updated_at)}</td>
                       <td style={tdStyle}>
                         <Link href={`/admin/scripts/${script.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
                           Edit
@@ -606,7 +589,7 @@ export default function ScriptsLibraryPage() {
                           <span style={{ color: '#999' }}>-</span>
                         )}
                       </td>
-                      <td style={tdStyle} title={formatDate(template.updated_at)}>{timeAgo(template.updated_at)}</td>
+                      <td style={tdStyle} title={formatDateString(template.updated_at)}>{displayTime(template.updated_at)}</td>
                       <td style={tdStyle}>
                         <Link href={`/admin/scripts/templates/${template.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
                           Edit

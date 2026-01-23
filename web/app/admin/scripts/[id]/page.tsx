@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useHydrated, formatDateString } from '@/lib/useHydrated';
 
 interface ScriptJson {
   hook?: string;
@@ -48,6 +49,7 @@ export default function ScriptEditorPage() {
   const params = useParams();
   const router = useRouter();
   const scriptId = params.id as string;
+  const hydrated = useHydrated();
 
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [script, setScript] = useState<Script | null>(null);
@@ -279,7 +281,9 @@ export default function ScriptEditorPage() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  // Hydration-safe date display: show static format during SSR, dynamic after hydration
+  const displayDateTime = (dateStr: string) => {
+    if (!hydrated) return formatDateString(dateStr);
     try {
       return new Date(dateStr).toLocaleString();
     } catch {
@@ -347,8 +351,8 @@ export default function ScriptEditorPage() {
       {/* Metadata */}
       <div style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
         <span>ID: <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '3px' }}>{script.id}</code></span>
-        <span style={{ marginLeft: '20px' }}>Created: {formatDate(script.created_at)}</span>
-        <span style={{ marginLeft: '20px' }}>Updated: {formatDate(script.updated_at)}</span>
+        <span style={{ marginLeft: '20px' }}>Created: {displayDateTime(script.created_at)}</span>
+        <span style={{ marginLeft: '20px' }}>Updated: {displayDateTime(script.updated_at)}</span>
       </div>
 
       {error && <div style={{ color: 'red', marginBottom: '20px', padding: '10px', backgroundColor: '#fee', borderRadius: '4px' }}>{error}</div>}

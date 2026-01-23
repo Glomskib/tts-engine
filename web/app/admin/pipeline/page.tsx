@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -27,6 +28,7 @@ interface VideoEvent {
 }
 
 export default function AdminPipelinePage() {
+  const hydrated = useHydrated();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [queueSummary, setQueueSummary] = useState<QueueSummary | null>(null);
   const [claimedVideos, setClaimedVideos] = useState<ClaimedVideo[]>([]);
@@ -126,30 +128,10 @@ export default function AdminPipelinePage() {
     return <div style={{ padding: '20px' }}>Loading observability data...</div>;
   }
 
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleString();
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const timeAgo = (dateStr: string) => {
-    try {
-      const now = new Date();
-      const date = new Date(dateStr);
-      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      const days = Math.floor(hours / 24);
-      return `${days}d ago`;
-    } catch {
-      return dateStr;
-    }
+  // Use hydration-safe time display
+  const displayTime = (dateStr: string) => {
+    if (!hydrated) return formatDateString(dateStr);
+    return getTimeAgo(dateStr);
   };
 
   const tableStyle = { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '20px' };
@@ -218,7 +200,7 @@ export default function AdminPipelinePage() {
           </button>
           {lastRefresh && (
             <span style={{ color: '#666', fontSize: '14px' }}>
-              Last updated: {formatDate(lastRefresh.toISOString())}
+              Last updated: {hydrated ? lastRefresh.toLocaleString() : formatDateString(lastRefresh.toISOString())}
             </span>
           )}
         </div>
@@ -329,8 +311,8 @@ export default function AdminPipelinePage() {
                     {copiedId === `vid-${video.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
                   </td>
                   <td style={tdStyle}>{video.claimed_by}</td>
-                  <td style={tdStyle} title={formatDate(video.claimed_at)}>{timeAgo(video.claimed_at)}</td>
-                  <td style={tdStyle} title={video.claim_expires_at ? formatDate(video.claim_expires_at) : ''}>{video.claim_expires_at ? timeAgo(video.claim_expires_at) : '-'}</td>
+                  <td style={tdStyle} title={formatDateString(video.claimed_at)}>{displayTime(video.claimed_at)}</td>
+                  <td style={tdStyle} title={video.claim_expires_at ? formatDateString(video.claim_expires_at) : ''}>{video.claim_expires_at ? displayTime(video.claim_expires_at) : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -358,7 +340,7 @@ export default function AdminPipelinePage() {
             <tbody>
               {filteredEvents.map((event) => (
                 <tr key={event.id}>
-                  <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
+                  <td style={tdStyle} title={formatDateString(event.created_at)}>{displayTime(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
                   <td style={copyableCellStyle}>
                     <Link href={`/admin/pipeline/${event.video_id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>

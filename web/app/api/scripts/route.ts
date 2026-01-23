@@ -1,12 +1,16 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
+import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const conceptId = searchParams.get("concept_id");
-  const hookId = searchParams.get("hook_id");
+  const productId = searchParams.get("product_id");
+  const status = searchParams.get("status");
+  const templateId = searchParams.get("template_id");
 
   let query = supabaseAdmin
     .from("scripts")
@@ -17,51 +21,100 @@ export async function GET(request: Request) {
     query = query.eq("concept_id", conceptId);
   }
 
-  // Note: hook_id column doesn't exist in scripts table based on schema inspection
-  // Only filter by concept_id for now
+  if (productId) {
+    query = query.eq("product_id", productId);
+  }
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  if (templateId) {
+    query = query.eq("template_id", templateId);
+  }
 
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: error.message },
-      { status: 500 }
-    );
+    const err = apiError("DB_ERROR", error.message, 500);
+    return NextResponse.json(err.body, { status: err.status });
   }
 
   return NextResponse.json({ ok: true, data });
 }
 
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON" },
-      { status: 400 }
-    );
+    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const { concept_id, on_screen_text, caption, hashtags, cta } = body as Record<string, unknown>;
+  const {
+    concept_id,
+    template_id,
+    product_id,
+    title,
+    script_json,
+    on_screen_text,
+    caption,
+    hashtags,
+    cta,
+    spoken_script,
+    status: scriptStatus,
+    created_by,
+  } = body as Record<string, unknown>;
 
-  if (typeof concept_id !== "string" || concept_id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "concept_id is required and must be a non-empty string" },
-      { status: 400 }
-    );
-  }
-
-  // Build insert payload based on existing schema columns
+  // Build insert payload
   const insertPayload: Record<string, unknown> = {
-    concept_id: concept_id.trim(),
+    version: 1,
+    status: typeof scriptStatus === "string" ? scriptStatus : "DRAFT",
   };
 
-  // Add optional fields that exist in schema
+  // concept_id is optional now (can create scripts without concept)
+  if (typeof concept_id === "string" && concept_id.trim()) {
+    insertPayload.concept_id = concept_id.trim();
+  }
+
+  // title is required for new script system
+  if (typeof title === "string" && title.trim()) {
+    insertPayload.title = title.trim();
+  }
+
+  // template_id reference
+  if (typeof template_id === "string" && template_id.trim()) {
+    insertPayload.template_id = template_id.trim();
+  }
+
+  // product_id reference
+  if (typeof product_id === "string" && product_id.trim()) {
+    insertPayload.product_id = product_id.trim();
+  }
+
+  // Handle script_json - validate and render to script_text
+  if (script_json !== undefined && script_json !== null) {
+    const validation = validateScriptJson(script_json);
+    if (!validation.valid) {
+      const err = apiError("INVALID_SCRIPT_JSON", `Invalid script_json: ${validation.errors.join(", ")}`, 400);
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+    insertPayload.script_json = script_json;
+    insertPayload.script_text = renderScriptText(script_json as Parameters<typeof renderScriptText>[0]);
+  }
+
+  // Legacy fields for backwards compatibility
   if (on_screen_text !== undefined) insertPayload.on_screen_text = on_screen_text;
   if (caption !== undefined) insertPayload.caption = caption;
   if (hashtags !== undefined) insertPayload.hashtags = hashtags;
   if (cta !== undefined) insertPayload.cta = cta;
+  if (spoken_script !== undefined) insertPayload.spoken_script = spoken_script;
+  if (typeof created_by === "string" && created_by.trim()) {
+    insertPayload.created_by = created_by.trim();
+  }
 
   const { data, error } = await supabaseAdmin
     .from("scripts")
@@ -72,14 +125,11 @@ export async function POST(request: Request) {
   if (error) {
     console.error("POST /api/scripts Supabase error:", error);
     console.error("POST /api/scripts insert payload:", insertPayload);
-
-    return NextResponse.json(
-      { ok: false, error: error.message },
-      { status: 500 }
-    );
+    const err = apiError("DB_ERROR", error.message, 500);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }
 
 /*

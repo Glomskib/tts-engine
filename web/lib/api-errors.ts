@@ -10,7 +10,12 @@ export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'ALREADY_CLAIMED'
   | 'NOT_CLAIMED'
-  | 'CLAIM_NOT_OWNED';
+  | 'CLAIM_NOT_OWNED'
+  | 'INVALID_SCRIPT_JSON'
+  | 'SCRIPT_NOT_APPROVED'
+  | 'SCRIPT_ALREADY_LOCKED'
+  | 'AI_ERROR'
+  | 'VALIDATION_ERROR';
 
 export interface ApiErrorResponse {
   ok: false;

@@ -22,6 +22,22 @@ interface VideoEvent {
   created_at: string;
 }
 
+interface VideoDetail {
+  id: string;
+  script_id: string | null;
+  script_locked_json: Record<string, unknown> | null;
+  script_locked_text: string | null;
+  status: string | null;
+}
+
+interface Script {
+  id: string;
+  title: string | null;
+  status: string;
+  version: number;
+  script_text: string | null;
+}
+
 export default function VideoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -29,12 +45,22 @@ export default function VideoDetailPage() {
 
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [claimedInfo, setClaimedInfo] = useState<ClaimedVideo | null>(null);
+  const [videoDetail, setVideoDetail] = useState<VideoDetail | null>(null);
   const [events, setEvents] = useState<VideoEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
+
+  // Script attachment state
+  const [showAttachScript, setShowAttachScript] = useState(false);
+  const [availableScripts, setAvailableScripts] = useState<Script[]>([]);
+  const [scriptsLoading, setScriptsLoading] = useState(false);
+  const [selectedScriptId, setSelectedScriptId] = useState<string>('');
+  const [attaching, setAttaching] = useState(false);
+  const [attachMessage, setAttachMessage] = useState<string | null>(null);
+  const [forceOverwrite, setForceOverwrite] = useState(false);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -50,14 +76,16 @@ export default function VideoDetailPage() {
     if (!videoId) return;
     setLoading(true);
     try {
-      const [claimedRes, eventsRes] = await Promise.all([
+      const [claimedRes, eventsRes, videoRes] = await Promise.all([
         fetch('/api/observability/claimed'),
         fetch('/api/observability/recent-events?limit=100'),
+        fetch(`/api/videos/${videoId}`),
       ]);
 
-      const [claimedData, eventsData] = await Promise.all([
+      const [claimedData, eventsData, videoData] = await Promise.all([
         claimedRes.json(),
         eventsRes.json(),
+        videoRes.json(),
       ]);
 
       // Find if this video is currently claimed
@@ -72,6 +100,11 @@ export default function VideoDetailPage() {
         setEvents(videoEvents);
       }
 
+      // Set video details (for script info)
+      if (videoData.ok && videoData.data) {
+        setVideoDetail(videoData.data);
+      }
+
       setError('');
     } catch (err) {
       setError('Failed to fetch video data');
@@ -79,6 +112,56 @@ export default function VideoDetailPage() {
       setLoading(false);
     }
   }, [videoId]);
+
+  const fetchAvailableScripts = useCallback(async () => {
+    setScriptsLoading(true);
+    try {
+      const res = await fetch('/api/scripts?status=APPROVED');
+      const data = await res.json();
+      if (data.ok) {
+        setAvailableScripts(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch scripts:', err);
+    } finally {
+      setScriptsLoading(false);
+    }
+  }, []);
+
+  const attachScript = async () => {
+    if (!selectedScriptId) return;
+    setAttaching(true);
+    setAttachMessage(null);
+    try {
+      const payload: { script_id: string; force?: boolean } = { script_id: selectedScriptId };
+      if (forceOverwrite) {
+        payload.force = true;
+      }
+      const res = await fetch(`/api/videos/${videoId}/attach-script`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAttachMessage('Script attached successfully');
+        setShowAttachScript(false);
+        setSelectedScriptId('');
+        setForceOverwrite(false);
+        fetchData();
+      } else if (data.code === 'SCRIPT_ALREADY_LOCKED') {
+        setAttachMessage('This video already has a locked script. Check "Overwrite existing" to replace it.');
+      } else if (data.code === 'SCRIPT_NOT_APPROVED') {
+        setAttachMessage(`Script is not approved (status: ${data.details?.status || 'unknown'}). Check "Force attach" to attach anyway.`);
+      } else {
+        setAttachMessage(`Error: ${data.error || 'Failed to attach script'}`);
+      }
+    } catch (err) {
+      setAttachMessage('Error: Failed to attach script');
+    } finally {
+      setAttaching(false);
+    }
+  };
 
   useEffect(() => {
     checkAdminEnabled();
@@ -89,6 +172,12 @@ export default function VideoDetailPage() {
       fetchData();
     }
   }, [adminEnabled, fetchData]);
+
+  useEffect(() => {
+    if (showAttachScript) {
+      fetchAvailableScripts();
+    }
+  }, [showAttachScript, fetchAvailableScripts]);
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -242,7 +331,7 @@ export default function VideoDetailPage() {
       {/* Actions */}
       <section style={sectionStyle}>
         <h2 style={{ marginTop: 0 }}>Actions</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={releaseVideo}
             disabled={!claimedInfo || releasing}
@@ -257,11 +346,142 @@ export default function VideoDetailPage() {
           >
             {releasing ? 'Releasing...' : 'Release Claim'}
           </button>
-          <span style={{ color: '#666', fontSize: '14px', alignSelf: 'center' }}>
-            {claimedInfo ? `Currently claimed by ${claimedInfo.claimed_by}` : 'No active claim to release'}
-          </span>
+          <button
+            onClick={() => setShowAttachScript(!showAttachScript)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#0066cc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            {showAttachScript ? 'Cancel' : 'Attach Script'}
+          </button>
+          <Link
+            href="/admin/scripts"
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              textDecoration: 'none',
+              display: 'inline-block',
+            }}
+          >
+            Scripts Library
+          </Link>
         </div>
+        {claimedInfo && (
+          <div style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
+            Currently claimed by {claimedInfo.claimed_by}
+          </div>
+        )}
       </section>
+
+      {/* Attach Script Form */}
+      {showAttachScript && (
+        <section style={{ ...sectionStyle, borderColor: '#0066cc', backgroundColor: '#f0f7ff' }}>
+          <h2 style={{ marginTop: 0, color: '#004085' }}>Attach Approved Script</h2>
+          {attachMessage && (
+            <div style={{ color: attachMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '15px' }}>
+              {attachMessage}
+            </div>
+          )}
+          {scriptsLoading ? (
+            <p>Loading approved scripts...</p>
+          ) : availableScripts.length === 0 ? (
+            <p style={{ color: '#666' }}>No approved scripts available. <Link href="/admin/scripts" style={{ color: '#0066cc' }}>Create one</Link></p>
+          ) : (
+            <>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Script</label>
+                <select
+                  value={selectedScriptId}
+                  onChange={(e) => setSelectedScriptId(e.target.value)}
+                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '300px' }}
+                >
+                  <option value="">-- Select a script --</option>
+                  {availableScripts.map((script) => (
+                    <option key={script.id} value={script.id}>
+                      {script.title || script.id.slice(0, 8)} (v{script.version})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedScriptId && (
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}>
+                  <strong>Preview:</strong>
+                  <pre style={{ marginTop: '10px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px', maxHeight: '150px', overflow: 'auto' }}>
+                    {availableScripts.find(s => s.id === selectedScriptId)?.script_text || 'No preview available'}
+                  </pre>
+                </div>
+              )}
+              {videoDetail?.script_locked_json && (
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px' }}>
+                  <strong style={{ color: '#856404' }}>Warning:</strong>
+                  <span style={{ color: '#856404', marginLeft: '5px' }}>This video already has a locked script.</span>
+                </div>
+              )}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={forceOverwrite}
+                    onChange={(e) => setForceOverwrite(e.target.checked)}
+                  />
+                  <span>Overwrite existing / Force attach unapproved script</span>
+                </label>
+              </div>
+              <button
+                onClick={attachScript}
+                disabled={!selectedScriptId || attaching}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: selectedScriptId ? '#28a745' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: selectedScriptId ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {attaching ? 'Attaching...' : 'Attach Script to Video'}
+              </button>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* Locked Script Section */}
+      {videoDetail?.script_locked_text && (
+        <section style={sectionStyle}>
+          <h2 style={{ marginTop: 0 }}>Locked Script</h2>
+          {videoDetail.script_id && (
+            <div style={{ marginBottom: '10px' }}>
+              <span style={{ color: '#666' }}>Script ID: </span>
+              <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '3px', fontSize: '12px' }}>
+                {videoDetail.script_id}
+              </code>
+              <Link href={`/admin/scripts/${videoDetail.script_id}`} style={{ marginLeft: '10px', color: '#0066cc', fontSize: '12px' }}>
+                View Script
+              </Link>
+            </div>
+          )}
+          <pre style={{ backgroundColor: '#fff', padding: '15px', border: '1px solid #ddd', borderRadius: '4px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '13px', maxHeight: '300px', overflow: 'auto' }}>
+            {videoDetail.script_locked_text}
+          </pre>
+          {videoDetail.script_locked_json && (
+            <details style={{ marginTop: '15px' }}>
+              <summary style={{ cursor: 'pointer', color: '#0066cc' }}>View JSON Structure</summary>
+              <pre style={{ marginTop: '10px', backgroundColor: '#f9f9f9', padding: '10px', borderRadius: '4px', fontSize: '11px', overflow: 'auto' }}>
+                {JSON.stringify(videoDetail.script_locked_json, null, 2)}
+              </pre>
+            </details>
+          )}
+        </section>
+      )}
 
       {/* Event Timeline */}
       <section style={{ marginBottom: '40px' }}>

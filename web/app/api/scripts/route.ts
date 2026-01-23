@@ -6,6 +6,7 @@ import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
   const conceptId = searchParams.get("concept_id");
   const productId = searchParams.get("product_id");
@@ -37,10 +38,10 @@ export async function GET(request: Request) {
 
   if (error) {
     const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json(err.body, { status: err.status });
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }
 
 export async function POST(request: Request) {

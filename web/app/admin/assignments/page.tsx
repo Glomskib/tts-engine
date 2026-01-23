@@ -296,6 +296,8 @@ export default function AssignmentsPage() {
           <span style={{ color: '#ccc' }}>|</span>
           <Link href="/admin/pipeline" style={{ color: '#228be6', fontSize: '13px' }}>Pipeline</Link>
           <span style={{ color: '#ccc' }}>|</span>
+          <Link href="/admin/events" style={{ color: '#228be6', fontSize: '13px' }}>Events</Link>
+          <span style={{ color: '#ccc' }}>|</span>
           <NotificationBadge />
         </div>
       </div>

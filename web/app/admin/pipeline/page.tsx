@@ -977,6 +977,10 @@ export default function AdminPipelinePage() {
               <Link href="/admin/assignments" style={{ color: '#1971c2', fontSize: '13px' }}>
                 Assignments
               </Link>
+              <span style={{ color: '#ccc' }}>|</span>
+              <Link href="/admin/events" style={{ color: '#1971c2', fontSize: '13px' }}>
+                Events
+              </Link>
             </>
           )}
 

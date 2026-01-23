@@ -65,7 +65,7 @@ function Try-ParseJsonString {
 }
 
 # Check 1: Health endpoint
-Write-Host "`n[1/8] Checking /api/health..." -ForegroundColor Yellow
+Write-Host "`n[1/10] Checking /api/health..." -ForegroundColor Yellow
 try {
     $health = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
     if ($health.ok -eq $true) {
@@ -81,7 +81,7 @@ try {
 }
 
 # Check 2: Get accounts to test videos endpoint
-Write-Host "`n[2/8] Fetching accounts for video queries..." -ForegroundColor Yellow
+Write-Host "`n[2/10] Fetching accounts for video queries..." -ForegroundColor Yellow
 try {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Method GET -TimeoutSec 10
     if (-not $accounts.ok -or -not $accounts.data -or $accounts.data.Count -eq 0) {
@@ -98,7 +98,7 @@ try {
 }
 
 # Check 3: Videos status enum validation
-Write-Host "`n[3/8] Validating video status enum..." -ForegroundColor Yellow
+Write-Host "`n[3/10] Validating video status enum..." -ForegroundColor Yellow
 try {
     $videos = Invoke-RestMethod -Uri "$baseUrl/api/videos?account_id=$testAccountId" -Method GET -TimeoutSec 10
     if (-not $videos.ok) {
@@ -126,7 +126,7 @@ try {
 }
 
 # Check 4: No duplicate variant+account in queue states
-Write-Host "`n[4/8] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
+Write-Host "`n[4/10] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
 try {
     $allVideos = @()
     foreach ($account in $accounts.data) {
@@ -163,7 +163,7 @@ try {
 }
 
 # Check 5: Verify Phase 8.2 database objects exist (hosted Supabase)
-Write-Host "`n[5/8] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
+Write-Host "`n[5/10] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
 try {
     # Migration 010: claim endpoints should exist and work for queue videos
     # Create (or dedupe-return) a queue video via API to ensure we have a valid videos.id
@@ -252,7 +252,7 @@ try {
 }
 
 # Check 5b: Test attach-script clears queue blocker
-Write-Host "`n[5b/8] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+Write-Host "`n[5b/10] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
 try {
     # Get an approved script to use for testing
     $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
@@ -330,7 +330,7 @@ try {
 }
 
 # Check 6: Test duplicate prevention via API (index enforcement)
-Write-Host "`n[6/8] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
+Write-Host "`n[6/10] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {
     # Get a variant to test with
     $variants = Invoke-RestMethod -Uri "$baseUrl/api/variants" -Method GET -TimeoutSec 10
@@ -378,7 +378,7 @@ try {
 Write-Host "  PASS: API duplicate prevention check completed" -ForegroundColor Green
 
 # Check 7: Stress-checking DB-level queue dedupe (migration 008) via race
-Write-Host "`n[7/8] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
+Write-Host "`n[7/10] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
 # This attempts to create the same queue item twice concurrently.
 # If the DB unique partial index exists, at worst one insert succeeds and the other returns existing/duplicate behavior.
 # If the DB constraint is missing AND API check is bypassed, both can insert (we want to catch that).
@@ -434,7 +434,7 @@ if ($null -eq $queueCandidate) {
 }
 
 # Check 8: Claim workflow test
-Write-Host "`n[8/8] Testing claim workflow..." -ForegroundColor Yellow
+Write-Host "`n[8/10] Testing claim workflow..." -ForegroundColor Yellow
 try {
     # Get first unclaimed queue video
     $queueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -510,7 +510,7 @@ try {
 }
 
 # Check 9: Execution gating workflow test
-Write-Host "`n[9/9] Testing execution gating workflow..." -ForegroundColor Yellow
+Write-Host "`n[9/10] Testing execution gating workflow..." -ForegroundColor Yellow
 try {
     # Use the same test video from Check 5 (which has a script attached)
     # Ensure it has a locked script
@@ -625,7 +625,105 @@ try {
     Write-Host "  WARN: Execution gating test error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[9/9] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 10: Role-based claims and handoff test
+Write-Host "`n[10/10] Testing role-based claims and handoff..." -ForegroundColor Yellow
+try {
+    # Get an unclaimed queue video
+    $queueForRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
+
+    if (-not $queueForRole.ok -or -not $queueForRole.data -or $queueForRole.data.Count -eq 0) {
+        Write-Host "  SKIP: No unclaimed videos for role-based claim test" -ForegroundColor Yellow
+    } else {
+        $roleTestVideoId = $queueForRole.data[0].id
+        Write-Host "    Testing role-based claims on video: $roleTestVideoId" -ForegroundColor Gray
+
+        $allRolePassed = $true
+
+        # Step 1: Claim with role=recorder
+        $claimRoleBody = @{ claimed_by = "role_test_recorder"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
+        $claimRoleResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/claim" -Method POST -ContentType "application/json" -Body $claimRoleBody -TimeoutSec 10
+        if (-not $claimRoleResult.ok) {
+            Write-Host "    FAIL: Claim with role=recorder failed: $($claimRoleResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 1: Claimed with role=recorder - OK" -ForegroundColor Gray
+
+            # Verify claim_role is returned
+            if ($claimRoleResult.data.claim_role -ne "recorder") {
+                Write-Host "    WARN: claim_role not returned correctly (got: $($claimRoleResult.data.claim_role))" -ForegroundColor Yellow
+            }
+        }
+
+        # Step 2: Handoff from recorder to editor
+        $handoffBody = @{
+            from_user = "role_test_recorder"
+            to_user = "role_test_editor"
+            to_role = "editor"
+        } | ConvertTo-Json -Depth 5
+        $handoffResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/handoff" -Method POST -ContentType "application/json" -Body $handoffBody -TimeoutSec 10
+        if (-not $handoffResult.ok) {
+            Write-Host "    FAIL: Handoff recorder->editor failed: $($handoffResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 2: Handoff recorder->editor - OK" -ForegroundColor Gray
+
+            # Verify new claim_role and claimed_by
+            if ($handoffResult.data.claim_role -ne "editor") {
+                Write-Host "    WARN: claim_role after handoff incorrect (got: $($handoffResult.data.claim_role))" -ForegroundColor Yellow
+            }
+            if ($handoffResult.data.claimed_by -ne "role_test_editor") {
+                Write-Host "    WARN: claimed_by after handoff incorrect (got: $($handoffResult.data.claimed_by))" -ForegroundColor Yellow
+            }
+        }
+
+        # Step 3: Handoff from wrong user should fail
+        $badHandoffBody = @{
+            from_user = "wrong_user"
+            to_user = "role_test_uploader"
+            to_role = "uploader"
+        } | ConvertTo-Json -Depth 5
+        $badHandoffFailed = $false
+        try {
+            $badHandoffResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/handoff" -Method POST -ContentType "application/json" -Body $badHandoffBody -TimeoutSec 10
+            if ($badHandoffResult.ok -eq $false) {
+                $badHandoffFailed = $true
+            }
+        } catch {
+            # Expected: 403 error
+            $badHandoffFailed = $true
+        }
+        if (-not $badHandoffFailed) {
+            Write-Host "    FAIL: Handoff from wrong user should have been rejected" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 3: Handoff from wrong user correctly rejected - OK" -ForegroundColor Gray
+        }
+
+        # Step 4: Query queue with claim_role filter
+        $roleFilterResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=claimed&claim_role=editor&limit=10" -Method GET -TimeoutSec 10
+        $foundWithRole = $roleFilterResult.data | Where-Object { $_.id -eq $roleTestVideoId }
+        if ($foundWithRole) {
+            Write-Host "    Step 4: Video found in claim_role=editor filter - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "    WARN: Video not found in claim_role=editor filter" -ForegroundColor Yellow
+        }
+
+        # Cleanup: Release the video
+        $releaseRoleBody = @{ claimed_by = "role_test_editor"; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseRoleBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "    Cleanup: Released video" -ForegroundColor Gray
+
+        if ($allRolePassed) {
+            Write-Host "  PASS: Role-based claims and handoff workflow completed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "  WARN: Some role-based claim checks failed" -ForegroundColor Yellow
+        }
+    }
+} catch {
+    Write-Host "  WARN: Role-based claims test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[10/10] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

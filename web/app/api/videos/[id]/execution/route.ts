@@ -8,8 +8,11 @@ import {
   type RecordingStatus,
   type VideoForValidation,
 } from "@/lib/execution-stages";
+import { getVideosColumns } from "@/lib/videosSchema";
 
 export const runtime = "nodejs";
+
+const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 
 async function writeVideoEvent(
   videoId: string,
@@ -75,7 +78,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
     posting_error,
     updated_by,
     force,
+    require_claim,
   } = body as Record<string, unknown>;
+
+  // Check if claim enforcement is enabled (default: true)
+  const enforceClaimCheck = require_claim !== false;
 
   // Validate recording_status if provided
   if (recording_status !== undefined && !isValidRecordingStatus(recording_status)) {
@@ -100,6 +107,61 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
     const err = apiError("DB_ERROR", fetchError.message, 500);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Role-based claim enforcement
+  const existingColumns = await getVideosColumns();
+  const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at") && existingColumns.has("claim_role");
+
+  if (enforceClaimCheck && hasClaimColumns && recording_status !== undefined) {
+    const now = new Date().toISOString();
+    const isClaimedByUser =
+      currentVideo.claimed_by &&
+      currentVideo.claimed_by === (typeof updated_by === "string" ? updated_by : null) &&
+      currentVideo.claim_expires_at &&
+      currentVideo.claim_expires_at > now;
+
+    if (!isClaimedByUser && force !== true) {
+      const err = apiError(
+        "CLAIM_NOT_OWNED",
+        `You must claim this video before updating execution status. Current claimant: ${currentVideo.claimed_by || "none"}`,
+        403,
+        {
+          claimed_by: currentVideo.claimed_by || null,
+          claim_expires_at: currentVideo.claim_expires_at || null,
+          updated_by: updated_by || null,
+        }
+      );
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    // Validate role matches the action (optional: role-based gating)
+    const claimRole = currentVideo.claim_role as typeof VALID_CLAIM_ROLES[number] | null;
+    if (claimRole && claimRole !== "admin" && force !== true) {
+      // Map recording_status transitions to expected roles
+      const roleForStatus: Record<string, typeof VALID_CLAIM_ROLES[number][]> = {
+        RECORDED: ["recorder", "admin"],
+        EDITED: ["editor", "admin"],
+        READY_TO_POST: ["editor", "admin"],
+        POSTED: ["uploader", "admin"],
+        REJECTED: ["recorder", "editor", "uploader", "admin"],
+      };
+
+      const allowedRoles = roleForStatus[recording_status as string];
+      if (allowedRoles && !allowedRoles.includes(claimRole)) {
+        const err = apiError(
+          "ROLE_MISMATCH",
+          `Your claim role (${claimRole}) does not match the required role for this action. Expected: ${allowedRoles.join(" or ")}`,
+          403,
+          {
+            claim_role: claimRole,
+            required_roles: allowedRoles,
+            recording_status,
+          }
+        );
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      }
+    }
   }
 
   const previousRecordingStatus = currentVideo.recording_status;

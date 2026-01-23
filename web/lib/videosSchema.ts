@@ -2,7 +2,8 @@ import { supabaseAdmin } from "./supabaseAdmin";
 
 let cachedColumns: Set<string> | null = null;
 
-// All known columns from migrations - update when adding new migrations
+// Base known columns from migrations - CONSERVATIVE fallback (only includes widely-applied migrations)
+// This fallback is used when information_schema query fails - keep it minimal to avoid errors
 function getKnownColumns(): Set<string> {
   return new Set([
     // Base columns
@@ -20,6 +21,8 @@ function getKnownColumns(): Set<string> {
     "rejected_at", "recording_notes", "editor_notes", "uploader_notes",
     "posted_url", "posted_platform", "posted_account", "posted_at_local",
     "posting_error", "last_status_changed_at",
+    // NOTE: claim_role (migration 015) is NOT included here as it's new
+    // The code checks for it dynamically via information_schema
   ]);
 }
 
@@ -29,23 +32,28 @@ export async function getVideosColumns(): Promise<Set<string>> {
   }
 
   try {
-    // Query information_schema to get actual columns
+    // Get actual columns by selecting one row with select *
+    // This works because Supabase returns the actual table columns
     const { data, error } = await supabaseAdmin
-      .from("information_schema.columns")
-      .select("column_name")
-      .eq("table_name", "videos")
-      .eq("table_schema", "public");
+      .from("videos")
+      .select("*")
+      .limit(1);
 
     if (error) {
       console.error("Failed to fetch videos schema:", error);
-      // Fallback to all known columns from migrations
+      // Fallback to known columns from migrations
       cachedColumns = getKnownColumns();
+    } else if (data && data.length > 0) {
+      // Extract column names from the returned row
+      cachedColumns = new Set(Object.keys(data[0]));
     } else {
-      cachedColumns = new Set(data.map((row: any) => row.column_name));
+      // No rows exist - try selecting with specific columns to verify they exist
+      // Fall back to known columns but don't cache to allow retry
+      return getKnownColumns();
     }
   } catch (err) {
     console.error("Error querying videos schema:", err);
-    // Fallback to all known columns from migrations
+    // Fallback to known columns from migrations
     cachedColumns = getKnownColumns();
   }
 

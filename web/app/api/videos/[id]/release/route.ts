@@ -6,7 +6,8 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const VIDEO_SELECT = "id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at";
+const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at";
+const VIDEO_SELECT_ROLE = ",claim_role";
 
 async function writeVideoEvent(
   videoId: string,
@@ -66,9 +67,10 @@ export async function POST(
   const forceRelease = force === true;
 
   try {
-    // Check if claim columns exist (migration 010)
+    // Check if claim columns exist (migration 010) and claim_role (migration 015)
     const existingColumns = await getVideosColumns();
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
+    const hasClaimRoleColumn = existingColumns.has("claim_role");
 
     if (!hasClaimColumns) {
       const { data: video, error: fetchError } = await supabaseAdmin
@@ -116,14 +118,20 @@ export async function POST(
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
+    // Build update payload - only include claim_role if column exists
+    const updatePayload: Record<string, unknown> = {
+      claimed_by: null,
+      claimed_at: null,
+      claim_expires_at: null,
+    };
+    if (hasClaimRoleColumn) {
+      updatePayload.claim_role = null;
+    }
+
     // Release the claim
     let query = supabaseAdmin
       .from("videos")
-      .update({
-        claimed_by: null,
-        claimed_at: null,
-        claim_expires_at: null
-      })
+      .update(updatePayload)
       .eq("id", id);
 
     // If not forcing, also require claimed_by match
@@ -131,8 +139,10 @@ export async function POST(
       query = query.eq("claimed_by", claimed_by.trim());
     }
 
+    const selectCols = hasClaimRoleColumn ? VIDEO_SELECT_BASE + VIDEO_SELECT_ROLE : VIDEO_SELECT_BASE;
+
     const { data: updated, error: updateError } = await query
-      .select(VIDEO_SELECT)
+      .select(selectCols)
       .single();
 
     if (updateError || !updated) {

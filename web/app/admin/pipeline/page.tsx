@@ -37,6 +37,7 @@ interface QueueVideo {
   claimed_by: string | null;
   claimed_at: string | null;
   claim_expires_at: string | null;
+  claim_role: string | null;
   recording_status: string | null;
   last_status_changed_at: string | null;
   posted_url: string | null;
@@ -69,6 +70,11 @@ interface AvailableScript {
 }
 
 const RECORDING_STATUS_TABS = ['ALL', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
+const CLAIM_ROLE_TABS = ['all', 'recorder', 'editor', 'uploader'] as const;
+type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
+
+// localStorage key for active user
+const ACTIVE_USER_KEY = 'pipeline_active_user';
 
 // Status badge color helper (matches detail page)
 function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
@@ -115,6 +121,12 @@ export default function AdminPipelinePage() {
   const [activeRecordingTab, setActiveRecordingTab] = useState<typeof RECORDING_STATUS_TABS[number]>('ALL');
   const [claimedFilter, setClaimedFilter] = useState<'any' | 'unclaimed' | 'claimed'>('any');
 
+  // Role-based filtering state
+  const [activeRoleTab, setActiveRoleTab] = useState<typeof CLAIM_ROLE_TABS[number]>('all');
+  const [myWorkOnly, setMyWorkOnly] = useState(false);
+  const [activeUser, setActiveUser] = useState<string>(ADMIN_IDENTIFIER);
+  const [showUserSelector, setShowUserSelector] = useState(false);
+
   // Per-row claim/release state
   const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
@@ -141,6 +153,24 @@ export default function AdminPipelinePage() {
   const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
 
+  // Load active user from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem(ACTIVE_USER_KEY);
+      if (savedUser) {
+        setActiveUser(savedUser);
+      }
+    }
+  }, []);
+
+  // Save active user to localStorage
+  const updateActiveUser = (user: string) => {
+    setActiveUser(user);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ACTIVE_USER_KEY, user);
+    }
+  };
+
   const checkAdminEnabled = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/enabled');
@@ -161,6 +191,17 @@ export default function AdminPipelinePage() {
       params.set('claimed', claimedFilter);
       params.set('limit', '100');
 
+      // Add role filter
+      if (activeRoleTab !== 'all') {
+        params.set('claim_role', activeRoleTab);
+      }
+
+      // Add "My Work" filter
+      if (myWorkOnly && activeUser) {
+        params.set('claimed_by', activeUser);
+        params.set('claimed', 'claimed'); // My Work implies claimed
+      }
+
       const res = await fetch(`/api/videos/queue?${params.toString()}`);
       const data = await res.json();
       if (data.ok) {
@@ -171,7 +212,7 @@ export default function AdminPipelinePage() {
     } finally {
       setQueueLoading(false);
     }
-  }, [activeRecordingTab, claimedFilter]);
+  }, [activeRecordingTab, claimedFilter, activeRoleTab, myWorkOnly, activeUser]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -220,15 +261,18 @@ export default function AdminPipelinePage() {
     }
   }, [fetchData, fetchQueueVideos]);
 
-  // Claim a video
-  const claimVideo = async (videoId: string) => {
+  // Claim a video with role
+  const claimVideo = async (videoId: string, role?: ClaimRole) => {
     setClaimingVideoId(videoId);
     setClaimError(null);
     try {
+      // Determine claim_role: use provided role, or infer from activeRoleTab, or default to 'admin'
+      const claimRole: ClaimRole = role || (activeRoleTab !== 'all' ? activeRoleTab : 'admin');
+
       const res = await fetch(`/api/videos/${videoId}/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ claimed_by: ADMIN_IDENTIFIER }),
+        body: JSON.stringify({ claimed_by: activeUser, claim_role: claimRole }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -259,7 +303,7 @@ export default function AdminPipelinePage() {
       const res = await fetch(`/api/videos/${videoId}/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ claimed_by: ADMIN_IDENTIFIER }),
+        body: JSON.stringify({ claimed_by: activeUser }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -376,7 +420,7 @@ export default function AdminPipelinePage() {
       const res = await fetch(`/api/videos/${videoId}/execution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recording_status: targetStatus }),
+        body: JSON.stringify({ recording_status: targetStatus, updated_by: activeUser }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -422,6 +466,7 @@ export default function AdminPipelinePage() {
           recording_status: 'POSTED',
           posted_url: postUrl.trim(),
           posted_platform: postPlatform,
+          updated_by: activeUser,
         }),
       });
       const data = await res.json();
@@ -462,7 +507,7 @@ export default function AdminPipelinePage() {
     if (adminEnabled === true) {
       fetchQueueVideos();
     }
-  }, [activeRecordingTab, claimedFilter, adminEnabled, fetchQueueVideos]);
+  }, [activeRecordingTab, claimedFilter, activeRoleTab, myWorkOnly, activeUser, adminEnabled, fetchQueueVideos]);
 
   if (adminEnabled === null) {
     return <div style={{ padding: '20px' }}>Checking access...</div>;
@@ -536,12 +581,12 @@ export default function AdminPipelinePage() {
     position: 'relative' as const,
   };
 
-  // Check if a video is claimed by current admin
-  const isClaimedByMe = (video: QueueVideo) => video.claimed_by === ADMIN_IDENTIFIER;
+  // Check if a video is claimed by current user
+  const isClaimedByMe = (video: QueueVideo) => video.claimed_by === activeUser;
 
   // Check if a video is claimed by someone else (and not expired)
   const isClaimedByOther = (video: QueueVideo) => {
-    if (!video.claimed_by || video.claimed_by === ADMIN_IDENTIFIER) return false;
+    if (!video.claimed_by || video.claimed_by === activeUser) return false;
     if (!video.claim_expires_at) return true;
     return new Date(video.claim_expires_at) > new Date();
   };
@@ -606,6 +651,98 @@ export default function AdminPipelinePage() {
       <section style={{ marginBottom: '30px' }}>
         <h2>Video Queue</h2>
 
+        {/* Active User Selector */}
+        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Active User:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              padding: '4px 12px',
+              backgroundColor: '#fff',
+              borderRadius: '4px',
+              border: '1px solid #74c0fc',
+              fontWeight: 'bold',
+              color: '#1971c2'
+            }}>
+              {activeUser}
+            </span>
+            <button
+              onClick={() => setShowUserSelector(!showUserSelector)}
+              style={{
+                padding: '4px 10px',
+                backgroundColor: '#228be6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Change
+            </button>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
+            <input
+              type="checkbox"
+              checked={myWorkOnly}
+              onChange={(e) => setMyWorkOnly(e.target.checked)}
+            />
+            <span style={{ fontSize: '14px', fontWeight: myWorkOnly ? 'bold' : 'normal', color: myWorkOnly ? '#1971c2' : '#333' }}>
+              My Work Only
+            </span>
+          </label>
+        </div>
+
+        {/* User Selector Modal */}
+        {showUserSelector && (
+          <div style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+            <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>Set Active User:</div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {['admin', 'recorder1', 'recorder2', 'editor1', 'editor2', 'uploader1'].map(user => (
+                <button
+                  key={user}
+                  onClick={() => { updateActiveUser(user); setShowUserSelector(false); }}
+                  style={{
+                    padding: '6px 16px',
+                    backgroundColor: activeUser === user ? '#228be6' : '#fff',
+                    color: activeUser === user ? 'white' : '#333',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  {user}
+                </button>
+              ))}
+              <input
+                type="text"
+                placeholder="Custom user..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                    updateActiveUser((e.target as HTMLInputElement).value.trim());
+                    setShowUserSelector(false);
+                  }
+                }}
+                style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '13px' }}
+              />
+              <button
+                onClick={() => setShowUserSelector(false)}
+                style={{
+                  padding: '6px 16px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Recording Status Tabs */}
         <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {RECORDING_STATUS_TABS.map(tab => {
@@ -632,6 +769,39 @@ export default function AdminPipelinePage() {
           })}
         </div>
 
+        {/* Role Tabs */}
+        <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', marginRight: '8px' }}>Role:</span>
+          {CLAIM_ROLE_TABS.map(role => {
+            const isActive = activeRoleTab === role;
+            const roleColors: Record<string, string> = {
+              all: '#495057',
+              recorder: '#228be6',
+              editor: '#fab005',
+              uploader: '#40c057',
+            };
+            return (
+              <button
+                key={role}
+                onClick={() => setActiveRoleTab(role)}
+                style={{
+                  padding: '6px 14px',
+                  border: isActive ? `2px solid ${roleColors[role]}` : '1px solid #dee2e6',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? roleColors[role] : '#fff',
+                  color: isActive ? '#fff' : roleColors[role],
+                  cursor: 'pointer',
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  fontSize: '13px',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {role}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Claimed filter */}
         <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Claim Status:</span>
@@ -642,8 +812,9 @@ export default function AdminPipelinePage() {
                 name="claimedFilter"
                 checked={claimedFilter === filter}
                 onChange={() => setClaimedFilter(filter)}
+                disabled={myWorkOnly} // Disable when My Work is active
               />
-              <span style={{ fontSize: '14px' }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</span>
+              <span style={{ fontSize: '14px', color: myWorkOnly ? '#999' : '#333' }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</span>
             </label>
           ))}
           {queueLoading && <span style={{ color: '#666', fontSize: '12px', marginLeft: '10px' }}>Loading...</span>}
@@ -744,10 +915,36 @@ export default function AdminPipelinePage() {
                       {unclaimed ? (
                         <span style={{ color: '#28a745', fontSize: '12px' }}>Unclaimed</span>
                       ) : claimedByMe ? (
-                        <span style={{ color: '#0066cc', fontSize: '12px', fontWeight: 'bold' }}>Claimed by you</span>
+                        <div style={{ fontSize: '12px' }}>
+                          <span style={{ color: '#0066cc', fontWeight: 'bold' }}>Claimed by you</span>
+                          {video.claim_role && (
+                            <span style={{
+                              marginLeft: '6px',
+                              padding: '2px 6px',
+                              backgroundColor: '#e7f5ff',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              textTransform: 'capitalize',
+                            }}>
+                              {video.claim_role}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <div style={{ fontSize: '12px' }}>
                           <span style={{ color: '#dc3545' }}>Claimed by {video.claimed_by}</span>
+                          {video.claim_role && (
+                            <span style={{
+                              marginLeft: '6px',
+                              padding: '2px 6px',
+                              backgroundColor: '#fff3cd',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              textTransform: 'capitalize',
+                            }}>
+                              {video.claim_role}
+                            </span>
+                          )}
                           {video.claim_expires_at && (
                             <div style={{ color: '#666', fontSize: '11px' }} title={formatDateString(video.claim_expires_at)}>
                               Expires: {displayTime(video.claim_expires_at)}

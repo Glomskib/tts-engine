@@ -7,7 +7,10 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const VIDEO_SELECT = "id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at";
+const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at";
+const VIDEO_SELECT_ROLE = ",claim_role";
+const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
+type ClaimRole = typeof VALID_CLAIM_ROLES[number];
 
 async function writeVideoEvent(
   videoId: string,
@@ -57,19 +60,27 @@ export async function POST(
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const { claimed_by, ttl_minutes } = body as Record<string, unknown>;
+  const { claimed_by, claim_role, ttl_minutes } = body as Record<string, unknown>;
 
   if (typeof claimed_by !== "string" || claimed_by.trim() === "") {
     const err = apiError("BAD_REQUEST", "claimed_by is required and must be a non-empty string", 400);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
+  // Validate claim_role if provided
+  if (claim_role !== undefined && !VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)) {
+    const err = apiError("INVALID_ROLE", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claim_role });
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  const validatedClaimRole = claim_role as ClaimRole | undefined;
   const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : 120;
 
   try {
-    // Check if claim columns exist (migration 010)
+    // Check if claim columns exist (migration 010) and claim_role (migration 015)
     const existingColumns = await getVideosColumns();
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
+    const hasClaimRoleColumn = existingColumns.has("claim_role");
 
     const now = new Date().toISOString();
 
@@ -167,21 +178,39 @@ export async function POST(
       `claimed_by.eq.${claimed_by.trim()}`
     ];
 
+    // Build update payload - only include claim_role if column exists
+    const updatePayload: Record<string, unknown> = {
+      claimed_by: claimed_by.trim(),
+      claimed_at: now,
+      claim_expires_at: expiresAt,
+    };
+    if (hasClaimRoleColumn) {
+      updatePayload.claim_role = validatedClaimRole || null;
+    }
+
+    const selectCols = hasClaimRoleColumn ? VIDEO_SELECT_BASE + VIDEO_SELECT_ROLE : VIDEO_SELECT_BASE;
+
     const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from("videos")
-      .update({
-        claimed_by: claimed_by.trim(),
-        claimed_at: now,
-        claim_expires_at: expiresAt
-      })
+      .update(updatePayload)
       .eq("id", id)
       .or(filterParts.join(","))
-      .select(VIDEO_SELECT);
+      .select(selectCols);
 
     // Check if update succeeded (at least one row returned)
     const updated = updatedRows && updatedRows.length > 0 ? updatedRows[0] : null;
 
     if (updateError || !updated) {
+      // Log update failure for debugging
+      console.error("Claim update failed:", {
+        videoId: id,
+        updateError: updateError?.message || updateError,
+        updatedRowsCount: updatedRows?.length ?? 0,
+        filterParts,
+        updatePayload,
+        selectCols,
+      });
+
       // Race condition: someone else claimed it — re-fetch for claimed_by/claim_expires_at
       const { data: conflict } = await supabaseAdmin
         .from("videos")
@@ -200,6 +229,7 @@ export async function POST(
     // Write audit event
     await writeVideoEvent(id, "claim", correlationId, "api", {
       claimed_by: claimed_by.trim(),
+      claim_role: validatedClaimRole || null,
       ttl_minutes: ttl
     });
 

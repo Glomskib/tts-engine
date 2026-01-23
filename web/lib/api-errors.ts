@@ -19,7 +19,10 @@ export type ApiErrorCode =
   | 'INVALID_RECORDING_STATUS'
   | 'MISSING_POSTED_FIELDS'
   | 'MISSING_VIDEO_URL'
-  | 'MISSING_REJECTION_NOTES';
+  | 'MISSING_REJECTION_NOTES'
+  | 'ROLE_MISMATCH'
+  | 'INVALID_ROLE'
+  | 'HANDOFF_NOT_ALLOWED';
 
 export interface ApiErrorResponse {
   ok: false;

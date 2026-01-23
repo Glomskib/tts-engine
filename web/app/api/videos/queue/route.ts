@@ -9,7 +9,10 @@ export const runtime = "nodejs";
 
 const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at,final_video_url,concept_id,product_id";
 const VIDEO_SELECT_CLAIM = ",claimed_by,claimed_at,claim_expires_at";
+const VIDEO_SELECT_CLAIM_ROLE = ",claim_role";
 const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,recording_notes,editor_notes,uploader_notes";
+
+const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -20,6 +23,8 @@ export async function GET(request: Request) {
   const claimedParam = searchParams.get("claimed") || "unclaimed";
   const accountId = searchParams.get("account_id");
   const limitParam = searchParams.get("limit");
+  const claimRoleParam = searchParams.get("claim_role");
+  const claimedByParam = searchParams.get("claimed_by");
 
   // Validate pipeline status if provided
   if (statusParam && !QUEUE_STATUSES.includes(statusParam as typeof QUEUE_STATUSES[number])) {
@@ -40,6 +45,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
+  // Validate claim_role param if provided
+  if (claimRoleParam && !VALID_CLAIM_ROLES.includes(claimRoleParam as typeof VALID_CLAIM_ROLES[number])) {
+    const err = apiError("BAD_REQUEST", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claimRoleParam });
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
   // Parse and validate limit
   let limit = 50;
   if (limitParam) {
@@ -52,13 +63,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Check if claim columns exist (migration 010)
+    // Check if claim columns exist (migration 010) and claim_role (migration 015)
     const existingColumns = await getVideosColumns();
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
+    const hasClaimRoleColumn = existingColumns.has("claim_role");
     const hasExecutionColumns = existingColumns.has("recording_status") && existingColumns.has("last_status_changed_at");
 
     let selectCols = VIDEO_SELECT_BASE;
-    if (hasClaimColumns) selectCols += VIDEO_SELECT_CLAIM;
+    if (hasClaimColumns) {
+      selectCols += VIDEO_SELECT_CLAIM;
+      if (hasClaimRoleColumn) selectCols += VIDEO_SELECT_CLAIM_ROLE;
+    }
     if (hasExecutionColumns) selectCols += VIDEO_SELECT_EXECUTION;
 
     // Order by last_status_changed_at if filtering by recording_status, otherwise by created_at
@@ -99,6 +114,16 @@ export async function GET(request: Request) {
         query = query.not("claimed_by", "is", null).gte("claim_expires_at", now);
       }
       // "any" - no additional filter
+
+      // Filter by claim_role if provided and column exists
+      if (claimRoleParam && hasClaimRoleColumn) {
+        query = query.eq("claim_role", claimRoleParam);
+      }
+
+      // Filter by claimed_by (for "My Work" view)
+      if (claimedByParam) {
+        query = query.eq("claimed_by", claimedByParam);
+      }
     }
 
     const { data, error } = await query;

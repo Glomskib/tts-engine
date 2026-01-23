@@ -22,7 +22,26 @@ export type ApiErrorCode =
   | 'MISSING_REJECTION_NOTES'
   | 'ROLE_MISMATCH'
   | 'INVALID_ROLE'
-  | 'HANDOFF_NOT_ALLOWED';
+  | 'HANDOFF_NOT_ALLOWED'
+  | 'MISSING_ACTOR'
+  | 'FORBIDDEN'
+  | 'NOT_CLAIM_OWNER';
+
+// Admin users who can use force=true bypass (environment-configurable)
+export function getAdminUsers(): string[] {
+  const envAdmins = process.env.ADMIN_USERS || '';
+  const adminList = envAdmins.split(',').map(s => s.trim()).filter(Boolean);
+  // Always include 'admin' as a default admin user
+  if (!adminList.includes('admin')) {
+    adminList.push('admin');
+  }
+  return adminList;
+}
+
+export function isAdminUser(actor: string | null | undefined): boolean {
+  if (!actor) return false;
+  return getAdminUsers().includes(actor);
+}
 
 export interface ApiErrorResponse {
   ok: false;

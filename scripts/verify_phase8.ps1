@@ -65,7 +65,7 @@ function Try-ParseJsonString {
 }
 
 # Check 1: Health endpoint
-Write-Host "`n[1/10] Checking /api/health..." -ForegroundColor Yellow
+Write-Host "`n[1/12] Checking /api/health..." -ForegroundColor Yellow
 try {
     $health = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
     if ($health.ok -eq $true) {
@@ -81,7 +81,7 @@ try {
 }
 
 # Check 2: Get accounts to test videos endpoint
-Write-Host "`n[2/10] Fetching accounts for video queries..." -ForegroundColor Yellow
+Write-Host "`n[2/12] Fetching accounts for video queries..." -ForegroundColor Yellow
 try {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Method GET -TimeoutSec 10
     if (-not $accounts.ok -or -not $accounts.data -or $accounts.data.Count -eq 0) {
@@ -98,7 +98,7 @@ try {
 }
 
 # Check 3: Videos status enum validation
-Write-Host "`n[3/10] Validating video status enum..." -ForegroundColor Yellow
+Write-Host "`n[3/12] Validating video status enum..." -ForegroundColor Yellow
 try {
     $videos = Invoke-RestMethod -Uri "$baseUrl/api/videos?account_id=$testAccountId" -Method GET -TimeoutSec 10
     if (-not $videos.ok) {
@@ -126,7 +126,7 @@ try {
 }
 
 # Check 4: No duplicate variant+account in queue states
-Write-Host "`n[4/10] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
+Write-Host "`n[4/12] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
 try {
     $allVideos = @()
     foreach ($account in $accounts.data) {
@@ -163,7 +163,7 @@ try {
 }
 
 # Check 5: Verify Phase 8.2 database objects exist (hosted Supabase)
-Write-Host "`n[5/10] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
+Write-Host "`n[5/12] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
 try {
     # Migration 010: claim endpoints should exist and work for queue videos
     # Create (or dedupe-return) a queue video via API to ensure we have a valid videos.id
@@ -184,7 +184,7 @@ try {
     if (!$vid) { throw "Create video did not return data.id" }
 
     # Force-release the video first to ensure clean state (handles leftover claims from previous test runs)
-    $forceReleasePayload = @{ claimed_by = "verify_phase8"; force = $true } | ConvertTo-Json -Depth 5
+    $forceReleasePayload = @{ released_by = "admin"; force = $true } | ConvertTo-Json -Depth 5
     try {
         $forceReleaseResp = Invoke-RestMethod -Uri "$baseUrl/api/videos/$vid/release" -Method POST -ContentType "application/json" -Body $forceReleasePayload -TimeoutSec 10 -ErrorAction SilentlyContinue
         # Ignore result - just ensuring clean state
@@ -192,7 +192,7 @@ try {
         # Ignore errors - video may not have been claimed
     }
 
-    $claimPayload = @{ claimed_by = "verify_phase8" } | ConvertTo-Json -Depth 5
+    $claimPayload = @{ claimed_by = "verify_phase8"; claim_role = "admin" } | ConvertTo-Json -Depth 5
         try {
             $claimResp = Invoke-RestMethod -Uri "$baseUrl/api/videos/$vid/claim" -Method POST -ContentType "application/json" -Body $claimPayload -TimeoutSec 15
             if ($claimResp.ok -ne $true) {
@@ -211,7 +211,7 @@ try {
         }
 
         # Immediately release so verification does not consume the queue
-        $releasePayload = @{ claimed_by = "verify_phase8" } | ConvertTo-Json -Depth 5
+        $releasePayload = @{ released_by = "verify_phase8" } | ConvertTo-Json -Depth 5
         try {
             $releaseResp = Invoke-RestMethod -Uri "$baseUrl/api/videos/$vid/release" -Method POST -ContentType "application/json" -Body $releasePayload -TimeoutSec 10
             if ($releaseResp.ok -ne $true) {
@@ -252,7 +252,7 @@ try {
 }
 
 # Check 5b: Test attach-script clears queue blocker
-Write-Host "`n[5b/10] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+Write-Host "`n[5b/12] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
 try {
     # Get an approved script to use for testing
     $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
@@ -330,7 +330,7 @@ try {
 }
 
 # Check 6: Test duplicate prevention via API (index enforcement)
-Write-Host "`n[6/10] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
+Write-Host "`n[6/12] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {
     # Get a variant to test with
     $variants = Invoke-RestMethod -Uri "$baseUrl/api/variants" -Method GET -TimeoutSec 10
@@ -378,7 +378,7 @@ try {
 Write-Host "  PASS: API duplicate prevention check completed" -ForegroundColor Green
 
 # Check 7: Stress-checking DB-level queue dedupe (migration 008) via race
-Write-Host "`n[7/10] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
+Write-Host "`n[7/12] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
 # This attempts to create the same queue item twice concurrently.
 # If the DB unique partial index exists, at worst one insert succeeds and the other returns existing/duplicate behavior.
 # If the DB constraint is missing AND API check is bypassed, both can insert (we want to catch that).
@@ -434,7 +434,7 @@ if ($null -eq $queueCandidate) {
 }
 
 # Check 8: Claim workflow test
-Write-Host "`n[8/10] Testing claim workflow..." -ForegroundColor Yellow
+Write-Host "`n[8/12] Testing claim workflow..." -ForegroundColor Yellow
 try {
     # Get first unclaimed queue video
     $queueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -451,7 +451,7 @@ try {
         Write-Host "  Testing claim on video: $testVideoId" -ForegroundColor Gray
         
         # Step 1: Claim it
-        $claimBody1 = @{ claimed_by = "smoke_test" } | ConvertTo-Json
+        $claimBody1 = @{ claimed_by = "smoke_test"; claim_role = "admin" } | ConvertTo-Json
         $claimResult1 = Invoke-RestMethod -Uri "$baseUrl/api/videos/$testVideoId/claim" -Method POST -ContentType "application/json" -Body $claimBody1 -TimeoutSec 10
         
         if (-not $claimResult1.ok) {
@@ -463,7 +463,7 @@ try {
         Write-Host "    Step 1: Claimed by smoke_test - OK" -ForegroundColor Gray
         
         # Step 2: Try to re-claim with different user (should fail 409)
-        $claimBody2 = @{ claimed_by = "other_user" } | ConvertTo-Json
+        $claimBody2 = @{ claimed_by = "other_user"; claim_role = "admin" } | ConvertTo-Json
         $claimFailed = $false
         try {
             $claimResult2 = Invoke-RestMethod -Uri "$baseUrl/api/videos/$testVideoId/claim" -Method POST -ContentType "application/json" -Body $claimBody2 -TimeoutSec 10
@@ -482,7 +482,7 @@ try {
         Write-Host "    Step 2: Re-claim by other_user rejected - OK" -ForegroundColor Gray
         
         # Step 3: Release with original claimer
-        $releaseBody = @{ claimed_by = "smoke_test" } | ConvertTo-Json
+        $releaseBody = @{ released_by = "smoke_test" } | ConvertTo-Json
         $releaseResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$testVideoId/release" -Method POST -ContentType "application/json" -Body $releaseBody -TimeoutSec 10
         
         if (-not $releaseResult.ok) {
@@ -510,7 +510,7 @@ try {
 }
 
 # Check 9: Execution gating workflow test
-Write-Host "`n[9/10] Testing execution gating workflow..." -ForegroundColor Yellow
+Write-Host "`n[9/12] Testing execution gating workflow..." -ForegroundColor Yellow
 try {
     # Use the same test video from Check 5 (which has a script attached)
     # Ensure it has a locked script
@@ -528,8 +528,8 @@ try {
         $statusesToTest = @("NOT_RECORDED", "RECORDED", "EDITED", "READY_TO_POST")
         $allPassed = $true
 
-        # Reset to NOT_RECORDED first (with force to bypass validation, require_claim=false to skip claim check)
-        $resetPayload = @{ recording_status = "NOT_RECORDED"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
+        # Reset to NOT_RECORDED first (with admin + force to bypass validation, require_claim=false to skip claim check)
+        $resetPayload = @{ recording_status = "NOT_RECORDED"; updated_by = "admin"; actor_role = "admin"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
         $resetResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $resetPayload -TimeoutSec 10
         if (-not $resetResult.ok) {
             Write-Host "    WARN: Could not reset to NOT_RECORDED: $($resetResult.error)" -ForegroundColor Yellow
@@ -616,7 +616,7 @@ try {
         }
 
         # Restore original status
-        $restorePayload = @{ recording_status = $originalStatus; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
+        $restorePayload = @{ recording_status = $originalStatus; updated_by = "admin"; actor_role = "admin"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $restorePayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
         Write-Host "    Restored to original status: $originalStatus" -ForegroundColor Gray
 
@@ -631,7 +631,7 @@ try {
 }
 
 # Check 10: Role-based claim enforcement and handoff workflow
-Write-Host "`n[10/10] Testing role-based claim enforcement..." -ForegroundColor Yellow
+Write-Host "`n[10/12] Testing role-based claim enforcement..." -ForegroundColor Yellow
 try {
     # First check if claim_role column exists by attempting a claim with role
     $testClaimBody = @{ claimed_by = "migration_check"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
@@ -648,7 +648,7 @@ try {
                     $hasClaimRoleColumn = $true
                 }
                 # Release the test claim
-                $releaseTestBody = @{ claimed_by = "migration_check"; force = $true } | ConvertTo-Json -Depth 5
+                $releaseTestBody = @{ released_by = "admin"; force = $true } | ConvertTo-Json -Depth 5
                 Invoke-RestMethod -Uri "$baseUrl/api/videos/$testVid/release" -Method POST -ContentType "application/json" -Body $releaseTestBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
             }
         } catch {
@@ -674,11 +674,11 @@ try {
         $allRolePassed = $true
 
         # Cleanup: Force release any existing claim
-        $forceReleaseBody = @{ claimed_by = "cleanup"; force = $true } | ConvertTo-Json -Depth 5
+        $forceReleaseBody = @{ released_by = "admin"; force = $true } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/release" -Method POST -ContentType "application/json" -Body $forceReleaseBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
 
         # Reset to NOT_RECORDED for clean state
-        $resetPayload = @{ recording_status = "NOT_RECORDED"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
+        $resetPayload = @{ recording_status = "NOT_RECORDED"; updated_by = "admin"; actor_role = "admin"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $resetPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
 
         # Step 1: Claim as recorder
@@ -806,7 +806,7 @@ try {
         }
 
         # Clear posted_url/platform to ensure Step 9 tests correctly
-        $clearFieldsPayload = @{ posted_url = $null; posted_platform = $null; require_claim = $false; force = $true } | ConvertTo-Json -Depth 5
+        $clearFieldsPayload = @{ posted_url = $null; posted_platform = $null; updated_by = "admin"; actor_role = "admin"; require_claim = $false; force = $true } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $clearFieldsPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
 
         # Step 9: Uploader -> POSTED without posted_url should FAIL (MISSING_POSTED_FIELDS)
@@ -854,9 +854,9 @@ try {
         }
 
         # Cleanup: Restore original status and release
-        $restorePayload = @{ recording_status = $originalStatus; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
+        $restorePayload = @{ recording_status = $originalStatus; updated_by = "admin"; actor_role = "admin"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $restorePayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
-        $releaseBody = @{ claimed_by = "verify_uploader"; force = $true } | ConvertTo-Json -Depth 5
+        $releaseBody = @{ released_by = "admin"; force = $true } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
         Write-Host "    Cleanup: Restored status and released claim" -ForegroundColor Gray
 
@@ -873,7 +873,207 @@ try {
     exit 1
 }
 
-Write-Host "`n[10/10] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 11: Actor validation and admin-only force bypass
+Write-Host "`n[11/12] Testing actor validation and admin-only force..." -ForegroundColor Yellow
+try {
+    # Find a video with script for testing
+    $queueForActor = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
+    $videoForActorTest = $queueForActor.data | Where-Object { $null -ne $_.script_locked_text -and $_.script_locked_text -ne "" } | Select-Object -First 1
+
+    if ($null -eq $videoForActorTest) {
+        Write-Host "  SKIP: No video with script found for actor validation test" -ForegroundColor Yellow
+    } else {
+        $actorTestVideoId = $videoForActorTest.id
+        Write-Host "    Testing actor validation on video: $actorTestVideoId" -ForegroundColor Gray
+
+        $allActorPassed = $true
+
+        # Cleanup: Force release any existing claim (as admin)
+        $cleanupBody = @{ released_by = "admin"; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/release" -Method POST -ContentType "application/json" -Body $cleanupBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+
+        # Reset to NOT_RECORDED (as admin with force)
+        $resetPayload = @{ recording_status = "NOT_RECORDED"; updated_by = "admin"; actor_role = "admin"; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $resetPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+
+        # Step 1: Attempt execution with missing actor -> expect MISSING_ACTOR
+        $noActorPayload = @{ recording_status = "RECORDED" } | ConvertTo-Json -Depth 5
+        $missingActorFailed = $false
+        $missingActorCode = $null
+        try {
+            $noActorResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $noActorPayload -TimeoutSec 10
+            if ($noActorResult.ok -eq $false -and $noActorResult.code -eq "MISSING_ACTOR") {
+                $missingActorFailed = $true
+                $missingActorCode = $noActorResult.code
+            }
+        } catch {
+            $body = Read-HttpErrorBody $_
+            if ($body) {
+                $errJson = Try-ParseJsonString $body
+                if ($errJson -and $errJson.code -eq "MISSING_ACTOR") {
+                    $missingActorFailed = $true
+                    $missingActorCode = $errJson.code
+                }
+            }
+        }
+        if (-not $missingActorFailed) {
+            Write-Host "    FAIL: Execution without actor should return MISSING_ACTOR" -ForegroundColor Red
+            $allActorPassed = $false
+        } else {
+            Write-Host "    Step 1: Missing actor rejected with $missingActorCode - OK" -ForegroundColor Gray
+        }
+
+        # Step 2: Claim as user1 (recorder)
+        $claimUser1Body = @{ claimed_by = "user1"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
+        $claimUser1Result = Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/claim" -Method POST -ContentType "application/json" -Body $claimUser1Body -TimeoutSec 10
+        if (-not $claimUser1Result.ok) {
+            Write-Host "    FAIL: Claim as user1 failed: $($claimUser1Result.error)" -ForegroundColor Red
+            $allActorPassed = $false
+        } else {
+            Write-Host "    Step 2: Claimed as user1 (recorder) - OK" -ForegroundColor Gray
+        }
+
+        # Step 3: Attempt release as different user -> expect NOT_CLAIM_OWNER
+        $releaseOtherBody = @{ released_by = "user2" } | ConvertTo-Json -Depth 5
+        $notOwnerFailed = $false
+        $notOwnerCode = $null
+        try {
+            $releaseOtherResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseOtherBody -TimeoutSec 10
+            if ($releaseOtherResult.ok -eq $false -and $releaseOtherResult.code -eq "NOT_CLAIM_OWNER") {
+                $notOwnerFailed = $true
+                $notOwnerCode = $releaseOtherResult.code
+            }
+        } catch {
+            $body = Read-HttpErrorBody $_
+            if ($body) {
+                $errJson = Try-ParseJsonString $body
+                if ($errJson -and $errJson.code -eq "NOT_CLAIM_OWNER") {
+                    $notOwnerFailed = $true
+                    $notOwnerCode = $errJson.code
+                }
+            }
+        }
+        if (-not $notOwnerFailed) {
+            Write-Host "    FAIL: Release by different user should return NOT_CLAIM_OWNER" -ForegroundColor Red
+            $allActorPassed = $false
+        } else {
+            Write-Host "    Step 3: Release by user2 rejected with $notOwnerCode - OK" -ForegroundColor Gray
+        }
+
+        # Step 4: Attempt force=true with non-admin user -> expect FORBIDDEN
+        $forceNonAdminPayload = @{ recording_status = "RECORDED"; updated_by = "user1"; force = $true } | ConvertTo-Json -Depth 5
+        $forbiddenFailed = $false
+        $forbiddenCode = $null
+        try {
+            $forceNonAdminResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $forceNonAdminPayload -TimeoutSec 10
+            if ($forceNonAdminResult.ok -eq $false -and $forceNonAdminResult.code -eq "FORBIDDEN") {
+                $forbiddenFailed = $true
+                $forbiddenCode = $forceNonAdminResult.code
+            }
+        } catch {
+            $body = Read-HttpErrorBody $_
+            if ($body) {
+                $errJson = Try-ParseJsonString $body
+                if ($errJson -and $errJson.code -eq "FORBIDDEN") {
+                    $forbiddenFailed = $true
+                    $forbiddenCode = $errJson.code
+                }
+            }
+        }
+        if (-not $forbiddenFailed) {
+            Write-Host "    FAIL: Force=true with non-admin should return FORBIDDEN" -ForegroundColor Red
+            $allActorPassed = $false
+        } else {
+            Write-Host "    Step 4: Force by non-admin rejected with $forbiddenCode - OK" -ForegroundColor Gray
+        }
+
+        # Step 5: Force with admin user should succeed
+        # First release the claim so admin can force the execution
+        $releaseUser1Body = @{ released_by = "user1" } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseUser1Body -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+
+        $forceAdminPayload = @{ recording_status = "RECORDED"; updated_by = "admin"; actor_role = "admin"; force = $true } | ConvertTo-Json -Depth 5
+        $forceAdminResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $forceAdminPayload -TimeoutSec 10
+        if (-not $forceAdminResult.ok) {
+            Write-Host "    FAIL: Force with admin should succeed: $($forceAdminResult.error)" -ForegroundColor Red
+            $allActorPassed = $false
+        } else {
+            Write-Host "    Step 5: Force with admin succeeded - OK" -ForegroundColor Gray
+        }
+
+        # Cleanup: Reset status
+        $restorePayload = @{ recording_status = "NOT_RECORDED"; updated_by = "admin"; actor_role = "admin"; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$actorTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $restorePayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "    Cleanup: Reset video status" -ForegroundColor Gray
+
+        if ($allActorPassed) {
+            Write-Host "  PASS: Actor validation and admin-only force checks completed" -ForegroundColor Green
+        } else {
+            Write-Host "  FAIL: Some actor validation checks failed" -ForegroundColor Red
+            exit 1
+        }
+    }
+} catch {
+    Write-Host "  FAIL: Actor validation test error: $_" -ForegroundColor Red
+    exit 1
+}
+
+# Check 12: claim_role is now required for claims
+Write-Host "`n[12/12] Testing claim_role requirement..." -ForegroundColor Yellow
+try {
+    # Find an unclaimed video
+    $queueForClaimRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
+    if (-not $queueForClaimRole.ok -or -not $queueForClaimRole.data -or $queueForClaimRole.data.Count -eq 0) {
+        Write-Host "  SKIP: No unclaimed videos available for claim_role test" -ForegroundColor Yellow
+    } else {
+        $claimRoleTestVideoId = $queueForClaimRole.data[0].id
+        Write-Host "    Testing claim_role requirement on video: $claimRoleTestVideoId" -ForegroundColor Gray
+
+        # Attempt claim without claim_role -> should fail
+        $noRoleClaimBody = @{ claimed_by = "test_user" } | ConvertTo-Json -Depth 5
+        $noRoleFailed = $false
+        try {
+            $noRoleResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$claimRoleTestVideoId/claim" -Method POST -ContentType "application/json" -Body $noRoleClaimBody -TimeoutSec 10
+            if ($noRoleResult.ok -eq $false) {
+                $noRoleFailed = $true
+            }
+        } catch {
+            $noRoleFailed = $true
+        }
+
+        if (-not $noRoleFailed) {
+            Write-Host "    FAIL: Claim without claim_role should have failed" -ForegroundColor Red
+            # Release if it somehow succeeded
+            $releaseBody = @{ released_by = "test_user" } | ConvertTo-Json -Depth 5
+            Invoke-RestMethod -Uri "$baseUrl/api/videos/$claimRoleTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+            exit 1
+        } else {
+            Write-Host "    Claim without claim_role correctly rejected - OK" -ForegroundColor Gray
+        }
+
+        # Claim with claim_role should succeed
+        $withRoleClaimBody = @{ claimed_by = "test_user"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
+        $withRoleResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$claimRoleTestVideoId/claim" -Method POST -ContentType "application/json" -Body $withRoleClaimBody -TimeoutSec 10
+        if (-not $withRoleResult.ok) {
+            Write-Host "    FAIL: Claim with claim_role should succeed: $($withRoleResult.error)" -ForegroundColor Red
+            exit 1
+        } else {
+            Write-Host "    Claim with claim_role succeeded - OK" -ForegroundColor Gray
+        }
+
+        # Cleanup: release
+        $releaseBody = @{ released_by = "test_user" } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$claimRoleTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "    Cleanup: Released claim" -ForegroundColor Gray
+
+        Write-Host "  PASS: claim_role requirement check completed" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "  FAIL: claim_role requirement test error: $_" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "`n[12/12] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

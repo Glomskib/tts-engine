@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { getMemoryClaim, clearMemoryClaim } from "@/lib/claimCache";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -57,14 +57,30 @@ export async function POST(
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const { claimed_by, force } = body as Record<string, unknown>;
+  // Support both claimed_by (legacy) and released_by (preferred)
+  const { claimed_by, released_by, force } = body as Record<string, unknown>;
+  const actor = typeof released_by === "string" ? released_by.trim()
+    : typeof claimed_by === "string" ? claimed_by.trim()
+    : "";
 
-  if (typeof claimed_by !== "string" || claimed_by.trim() === "") {
-    const err = apiError("BAD_REQUEST", "claimed_by is required and must be a non-empty string", 400);
+  if (!actor) {
+    const err = apiError("MISSING_ACTOR", "released_by is required and must be a non-empty string", 400);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const forceRelease = force === true;
+  const forceRequested = force === true;
+  const isAdmin = isAdminUser(actor);
+
+  // Force is only allowed for admin users
+  if (forceRequested && !isAdmin) {
+    const err = apiError(
+      "FORBIDDEN",
+      "force=true is only allowed for admin users",
+      403,
+      { actor, hint: "Only users in ADMIN_USERS env can use force" }
+    );
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
 
   try {
     // Check if claim columns exist (migration 010) and claim_role (migration 015)
@@ -85,9 +101,10 @@ export async function POST(
       }
 
       const existingClaim = getMemoryClaim(id);
-      if (existingClaim && !forceRelease && existingClaim.claimed_by !== claimed_by.trim()) {
-        const err = apiError("BAD_REQUEST", "Claimed by another user", 409, {
-          current_claimed_by: existingClaim.claimed_by
+      if (existingClaim && !(forceRequested && isAdmin) && existingClaim.claimed_by !== actor) {
+        const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${existingClaim.claimed_by}, not ${actor}`, 403, {
+          current_claimed_by: existingClaim.claimed_by,
+          actor,
         });
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
@@ -111,9 +128,10 @@ export async function POST(
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    if (!forceRelease && video.claimed_by !== claimed_by.trim()) {
-      const err = apiError("BAD_REQUEST", "Claimed by another user", 409, {
-        current_claimed_by: video.claimed_by
+    if (!(forceRequested && isAdmin) && video.claimed_by !== actor) {
+      const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${video.claimed_by}, not ${actor}`, 403, {
+        current_claimed_by: video.claimed_by,
+        actor,
       });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
@@ -134,9 +152,9 @@ export async function POST(
       .update(updatePayload)
       .eq("id", id);
 
-    // If not forcing, also require claimed_by match
-    if (!forceRelease) {
-      query = query.eq("claimed_by", claimed_by.trim());
+    // If not forcing (or not admin), also require claimed_by match
+    if (!(forceRequested && isAdmin)) {
+      query = query.eq("claimed_by", actor);
     }
 
     const selectCols = hasClaimRoleColumn ? VIDEO_SELECT_BASE + VIDEO_SELECT_ROLE : VIDEO_SELECT_BASE;
@@ -151,9 +169,9 @@ export async function POST(
     }
 
     // Write audit event
-    await writeVideoEvent(id, "release", correlationId, "api", {
-      claimed_by: claimed_by.trim(),
-      force: forceRelease
+    await writeVideoEvent(id, "release", correlationId, actor, {
+      released_by: actor,
+      force: forceRequested && isAdmin,
     });
 
     return NextResponse.json({ ok: true, data: updated, correlation_id: correlationId });

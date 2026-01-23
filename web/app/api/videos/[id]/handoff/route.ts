@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -79,7 +79,19 @@ export async function POST(
   }
 
   const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : 120;
-  const forceHandoff = force === true;
+  const forceRequested = force === true;
+  const isAdmin = isAdminUser(from_user as string);
+
+  // Force is only allowed for admin users
+  if (forceRequested && !isAdmin) {
+    const err = apiError(
+      "FORBIDDEN",
+      "force=true is only allowed for admin users",
+      403,
+      { from_user, hint: "Only users in ADMIN_USERS env can use force" }
+    );
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
 
   try {
     // Check if claim columns exist (migration 010 + 015)
@@ -112,7 +124,8 @@ export async function POST(
       video.claim_expires_at &&
       video.claim_expires_at > now;
 
-    if (!forceHandoff) {
+    // Admin with force can bypass ownership checks
+    if (!(forceRequested && isAdmin)) {
       if (!hasValidClaim) {
         const err = apiError("NOT_CLAIMED", "Video is not currently claimed", 409, {
           claimed_by: video.claimed_by || null,
@@ -121,10 +134,10 @@ export async function POST(
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
 
-      if (video.claimed_by !== from_user.trim()) {
-        const err = apiError("CLAIM_NOT_OWNED", `Video is claimed by ${video.claimed_by}, not ${from_user}`, 403, {
+      if (video.claimed_by !== (from_user as string).trim()) {
+        const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${video.claimed_by}, not ${from_user}`, 403, {
           claimed_by: video.claimed_by,
-          from_user: from_user.trim(),
+          from_user: (from_user as string).trim(),
         });
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
@@ -151,13 +164,13 @@ export async function POST(
     }
 
     // Write audit event
-    await writeVideoEvent(id, "handoff", correlationId, from_user.trim(), {
-      from_user: from_user.trim(),
+    await writeVideoEvent(id, "handoff", correlationId, (from_user as string).trim(), {
+      from_user: (from_user as string).trim(),
       from_role: video.claim_role || null,
-      to_user: to_user.trim(),
+      to_user: (to_user as string).trim(),
       to_role,
       ttl_minutes: ttl,
-      force: forceHandoff,
+      force: forceRequested && isAdmin,
     });
 
     return NextResponse.json({

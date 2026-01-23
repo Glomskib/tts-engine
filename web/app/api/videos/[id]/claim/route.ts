@@ -82,6 +82,14 @@ export async function POST(
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
     const hasClaimRoleColumn = existingColumns.has("claim_role");
 
+    // When claim_role column exists, it is required
+    if (hasClaimRoleColumn && !validatedClaimRole) {
+      const err = apiError("BAD_REQUEST", "claim_role is required (one of: recorder, editor, uploader, admin)", 400, {
+        valid_roles: VALID_CLAIM_ROLES,
+      });
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
     const now = new Date().toISOString();
 
     if (!hasClaimColumns) {

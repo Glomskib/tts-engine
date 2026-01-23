@@ -73,8 +73,13 @@ const RECORDING_STATUS_TABS = ['ALL', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'REA
 const CLAIM_ROLE_TABS = ['all', 'recorder', 'editor', 'uploader'] as const;
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
-// localStorage key for active user
+// VA Mode types
+const VA_MODES = ['admin', 'recorder', 'editor', 'uploader'] as const;
+type VAMode = typeof VA_MODES[number];
+
+// localStorage keys
 const ACTIVE_USER_KEY = 'pipeline_active_user';
+const VA_MODE_KEY = 'pipeline_va_mode';
 
 // Status badge color helper (matches detail page)
 function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
@@ -127,6 +132,9 @@ export default function AdminPipelinePage() {
   const [activeUser, setActiveUser] = useState<string>(ADMIN_IDENTIFIER);
   const [showUserSelector, setShowUserSelector] = useState(false);
 
+  // VA Mode state (Admin / Recorder / Editor / Uploader)
+  const [vaMode, setVaMode] = useState<VAMode>('admin');
+
   // Per-row claim/release state
   const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
@@ -162,12 +170,16 @@ export default function AdminPipelinePage() {
   const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
 
-  // Load active user from localStorage on mount
+  // Load active user and VA mode from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedUser = localStorage.getItem(ACTIVE_USER_KEY);
       if (savedUser) {
         setActiveUser(savedUser);
+      }
+      const savedMode = localStorage.getItem(VA_MODE_KEY);
+      if (savedMode && VA_MODES.includes(savedMode as VAMode)) {
+        setVaMode(savedMode as VAMode);
       }
     }
   }, []);
@@ -179,6 +191,21 @@ export default function AdminPipelinePage() {
       localStorage.setItem(ACTIVE_USER_KEY, user);
     }
   };
+
+  // Save VA mode to localStorage
+  const updateVaMode = (mode: VAMode) => {
+    setVaMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(VA_MODE_KEY, mode);
+    }
+    // Auto-set role tab to match VA mode (except admin which shows all)
+    if (mode !== 'admin') {
+      setActiveRoleTab(mode);
+    }
+  };
+
+  // Helper to check if current VA mode is admin
+  const isAdminMode = vaMode === 'admin';
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -686,18 +713,23 @@ export default function AdminPipelinePage() {
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Admin: Video Pipeline</h1>
+        <h1>
+          {isAdminMode ? 'Admin: Video Pipeline' : `${vaMode.charAt(0).toUpperCase() + vaMode.slice(1)} Dashboard`}
+        </h1>
         <div>
           <button onClick={() => { fetchData(); fetchQueueVideos(); }} style={{ padding: '8px 16px', marginRight: '10px' }}>
             Refresh
           </button>
-          <button
-            onClick={releaseStale}
-            disabled={releasing}
-            style={{ padding: '8px 16px', marginRight: '10px', backgroundColor: '#f0ad4e', border: '1px solid #eea236' }}
-          >
-            {releasing ? 'Releasing...' : 'Release stale claims'}
-          </button>
+          {/* Release stale claims - Admin only */}
+          {isAdminMode && (
+            <button
+              onClick={releaseStale}
+              disabled={releasing}
+              style={{ padding: '8px 16px', marginRight: '10px', backgroundColor: '#f0ad4e', border: '1px solid #eea236' }}
+            >
+              {releasing ? 'Releasing...' : 'Release stale claims'}
+            </button>
+          )}
           {lastRefresh && (
             <span style={{ color: '#666', fontSize: '14px' }}>
               Last updated: {hydrated ? lastRefresh.toLocaleString() : formatDateString(lastRefresh.toISOString())}
@@ -736,9 +768,39 @@ export default function AdminPipelinePage() {
       <section style={{ marginBottom: '30px' }}>
         <h2>Video Queue</h2>
 
-        {/* Active User Selector */}
-        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Active User:</span>
+        {/* VA Mode + Active User Selector */}
+        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc', flexWrap: 'wrap' }}>
+          {/* VA Mode Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Mode:</span>
+            <select
+              value={vaMode}
+              onChange={(e) => updateVaMode(e.target.value as VAMode)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '4px',
+                border: '1px solid #74c0fc',
+                fontWeight: 'bold',
+                color: vaMode === 'admin' ? '#e03131' : vaMode === 'recorder' ? '#228be6' : vaMode === 'editor' ? '#fab005' : '#40c057',
+                backgroundColor: '#fff',
+                fontSize: '14px',
+                textTransform: 'capitalize',
+              }}
+            >
+              {VA_MODES.map(mode => (
+                <option key={mode} value={mode}>{mode.charAt(0).toUpperCase() + mode.slice(1)}</option>
+              ))}
+            </select>
+            {vaMode !== 'admin' && (
+              <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
+                (Safe mode - force actions hidden)
+              </span>
+            )}
+          </div>
+
+          <span style={{ color: '#ccc' }}>|</span>
+
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>User:</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{
               padding: '4px 12px',
@@ -1486,16 +1548,19 @@ export default function AdminPipelinePage() {
                   </div>
                 )}
 
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={forceOverwrite}
-                      onChange={(e) => setForceOverwrite(e.target.checked)}
-                    />
-                    <span style={{ fontSize: '13px' }}>Overwrite existing / Force attach unapproved</span>
-                  </label>
-                </div>
+                {/* Force checkbox - only visible in Admin mode */}
+                {isAdminMode && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={forceOverwrite}
+                        onChange={(e) => setForceOverwrite(e.target.checked)}
+                      />
+                      <span style={{ fontSize: '13px' }}>Overwrite existing / Force attach unapproved</span>
+                    </label>
+                  </div>
+                )}
 
                 {attachMessage && (
                   <div style={{

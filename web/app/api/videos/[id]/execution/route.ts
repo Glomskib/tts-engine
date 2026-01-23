@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import {
   RECORDING_STATUSES,
   isValidRecordingStatus,
@@ -13,6 +13,7 @@ import { getVideosColumns } from "@/lib/videosSchema";
 export const runtime = "nodejs";
 
 const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
+type ClaimRole = typeof VALID_CLAIM_ROLES[number];
 
 async function writeVideoEvent(
   videoId: string,
@@ -77,12 +78,43 @@ export async function PUT(request: Request, { params }: RouteParams) {
     posted_at_local,
     posting_error,
     updated_by,
+    actor_role,
     force,
     require_claim,
   } = body as Record<string, unknown>;
 
   // Check if claim enforcement is enabled (default: true)
   const enforceClaimCheck = require_claim !== false;
+
+  // Actor validation: when claim enforcement is enabled and changing status, actor is required
+  const actor = typeof updated_by === "string" ? updated_by.trim() : null;
+  const actorRole = typeof actor_role === "string" && VALID_CLAIM_ROLES.includes(actor_role as ClaimRole)
+    ? (actor_role as ClaimRole)
+    : null;
+
+  // If changing recording_status with claim enforcement, require actor
+  if (enforceClaimCheck && recording_status !== undefined && !actor) {
+    const err = apiError(
+      "MISSING_ACTOR",
+      "updated_by (actor) is required when updating recording_status with claim enforcement",
+      400,
+      { hint: "Provide updated_by field with user identifier, or set require_claim=false" }
+    );
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Force bypass is only allowed for admin users
+  const forceRequested = force === true;
+  const isAdmin = isAdminUser(actor) || actorRole === "admin";
+  if (forceRequested && !isAdmin) {
+    const err = apiError(
+      "FORBIDDEN",
+      "force=true is only allowed for admin users",
+      403,
+      { actor, actor_role: actorRole, hint: "Only users in ADMIN_USERS env or with actor_role=admin can use force" }
+    );
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
 
   // Validate recording_status if provided
   if (recording_status !== undefined && !isValidRecordingStatus(recording_status)) {
@@ -117,11 +149,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const now = new Date().toISOString();
     const isClaimedByUser =
       currentVideo.claimed_by &&
-      currentVideo.claimed_by === (typeof updated_by === "string" ? updated_by : null) &&
+      currentVideo.claimed_by === actor &&
       currentVideo.claim_expires_at &&
       currentVideo.claim_expires_at > now;
 
-    if (!isClaimedByUser && force !== true) {
+    // Admin users with force can bypass claim ownership check
+    if (!isClaimedByUser && !(forceRequested && isAdmin)) {
       const err = apiError(
         "CLAIM_NOT_OWNED",
         `You must claim this video before updating execution status. Current claimant: ${currentVideo.claimed_by || "none"}`,
@@ -129,17 +162,18 @@ export async function PUT(request: Request, { params }: RouteParams) {
         {
           claimed_by: currentVideo.claimed_by || null,
           claim_expires_at: currentVideo.claim_expires_at || null,
-          updated_by: updated_by || null,
+          actor: actor || null,
         }
       );
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    // Validate role matches the action (optional: role-based gating)
-    const claimRole = currentVideo.claim_role as typeof VALID_CLAIM_ROLES[number] | null;
-    if (claimRole && claimRole !== "admin" && force !== true) {
+    // Validate role matches the action (role-based gating)
+    // Admin users with force can bypass role checks
+    const claimRole = currentVideo.claim_role as ClaimRole | null;
+    if (claimRole && claimRole !== "admin" && !(forceRequested && isAdmin)) {
       // Map recording_status transitions to expected roles
-      const roleForStatus: Record<string, typeof VALID_CLAIM_ROLES[number][]> = {
+      const roleForStatus: Record<string, ClaimRole[]> = {
         RECORDED: ["recorder", "admin"],
         EDITED: ["editor", "admin"],
         READY_TO_POST: ["editor", "admin"],
@@ -184,7 +218,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const validation = validateStatusTransition(
       recording_status as RecordingStatus,
       videoForValidation,
-      force === true
+      forceRequested && isAdmin
     );
 
     if (!validation.valid && validation.code) {
@@ -273,7 +307,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       id,
       "recording_status_changed",
       correlationId,
-      typeof updated_by === 'string' ? updated_by : "api",
+      actor || "api",
       previousRecordingStatus,
       recording_status as string,
       {
@@ -282,7 +316,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         uploader_notes: uploader_notes || null,
         posted_url: posted_url || null,
         posted_platform: posted_platform || null,
-        force: force === true,
+        force: forceRequested,
+        actor_role: actorRole,
       }
     );
   }

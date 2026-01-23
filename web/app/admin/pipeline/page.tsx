@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import NotificationBadge from '../components/NotificationBadge';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -926,6 +927,8 @@ export default function AdminPipelinePage() {
               Sign Out
             </button>
           </div>
+
+          <NotificationBadge />
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
             <input

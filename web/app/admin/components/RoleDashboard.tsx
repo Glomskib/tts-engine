@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import NotificationBadge from './NotificationBadge';
 
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
@@ -356,6 +357,8 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
         >
           Sign Out
         </button>
+        <span style={{ color: '#ccc' }}>|</span>
+        <NotificationBadge />
         <span style={{ color: '#ccc' }}>|</span>
         <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>
           Full Pipeline View

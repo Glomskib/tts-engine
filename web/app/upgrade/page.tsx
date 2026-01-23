@@ -16,11 +16,22 @@ interface PlanStatus {
   gatingEnabled: boolean;
 }
 
+interface RuntimeConfig {
+  is_admin: boolean;
+  subscription_gating_enabled: boolean;
+  email_enabled: boolean;
+  slack_enabled: boolean;
+  assignment_ttl_minutes: number;
+  user_plan: string;
+  user_plan_active: boolean;
+}
+
 export default function UpgradePage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Self-service upgrade request state
@@ -51,6 +62,15 @@ export default function UpgradePage() {
           const planData = await planRes.json();
           if (planData.ok) {
             setPlanStatus(planData.data);
+          }
+        }
+
+        // Fetch runtime config
+        const configRes = await fetch('/api/auth/runtime-config');
+        if (configRes.ok) {
+          const configData = await configRes.json();
+          if (configData.ok) {
+            setRuntimeConfig(configData.data);
           }
         }
       } catch (err) {
@@ -331,26 +351,62 @@ Thank you!`;
         </>
       )}
 
-      {/* Gating Status Info */}
-      <div style={{
-        marginTop: '30px',
-        padding: '15px 20px',
-        backgroundColor: gatingEnabled ? '#fff3bf' : '#d3f9d8',
-        borderRadius: '6px',
-        border: `1px solid ${gatingEnabled ? '#ffd43b' : '#69db7c'}`,
-        fontSize: '13px',
-      }}>
-        <strong>Subscription Gating:</strong>{' '}
-        {gatingEnabled ? (
-          <span style={{ color: '#e67700' }}>
-            Enabled - Pro subscription required for workbench actions
-          </span>
-        ) : (
-          <span style={{ color: '#2b8a3e' }}>
-            Disabled - All users have full access
-          </span>
-        )}
-      </div>
+      {/* Runtime Config Summary */}
+      {runtimeConfig && (
+        <div style={{
+          marginTop: '30px',
+          padding: '15px 20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #dee2e6',
+        }}>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#495057' }}>
+            System Configuration
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: runtimeConfig.subscription_gating_enabled ? '#fff3bf' : '#d3f9d8',
+              borderRadius: '4px',
+            }}>
+              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Subscription Gating</div>
+              <div style={{ fontWeight: 'bold', color: runtimeConfig.subscription_gating_enabled ? '#e67700' : '#2b8a3e' }}>
+                {runtimeConfig.subscription_gating_enabled ? 'Enabled' : 'Disabled'}
+              </div>
+            </div>
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: runtimeConfig.email_enabled ? '#d3f9d8' : '#f8f9fa',
+              borderRadius: '4px',
+            }}>
+              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Email Notifications</div>
+              <div style={{ fontWeight: 'bold', color: runtimeConfig.email_enabled ? '#2b8a3e' : '#6c757d' }}>
+                {runtimeConfig.email_enabled ? 'Enabled' : 'Disabled'}
+              </div>
+            </div>
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: runtimeConfig.slack_enabled ? '#d3f9d8' : '#f8f9fa',
+              borderRadius: '4px',
+            }}>
+              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Slack Notifications</div>
+              <div style={{ fontWeight: 'bold', color: runtimeConfig.slack_enabled ? '#2b8a3e' : '#6c757d' }}>
+                {runtimeConfig.slack_enabled ? 'Enabled' : 'Disabled'}
+              </div>
+            </div>
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: '#e7f5ff',
+              borderRadius: '4px',
+            }}>
+              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Assignment TTL</div>
+              <div style={{ fontWeight: 'bold', color: '#1971c2' }}>
+                {runtimeConfig.assignment_ttl_minutes} min
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* User Info */}
       <div style={{

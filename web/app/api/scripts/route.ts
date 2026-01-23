@@ -103,7 +103,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
     insertPayload.script_json = script_json;
-    insertPayload.script_text = renderScriptText(script_json as Parameters<typeof renderScriptText>[0]);
+    const renderedText = renderScriptText(script_json as Parameters<typeof renderScriptText>[0]);
+    insertPayload.script_text = renderedText;
+
+    // Backwards compatibility: populate spoken_script from script_json.body if not provided
+    const scriptJsonTyped = script_json as { body?: string; hook?: string };
+    if (spoken_script === undefined && scriptJsonTyped.body) {
+      insertPayload.spoken_script = scriptJsonTyped.body;
+    }
   }
 
   // Legacy fields for backwards compatibility

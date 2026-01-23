@@ -147,6 +147,8 @@ export default function AdminPipelinePage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
+  const [reclaiming, setReclaiming] = useState(false);
+  const [reclaimMessage, setReclaimMessage] = useState<string | null>(null);
   const [videoIdFilter, setVideoIdFilter] = useState('');
   const [claimedByFilter, setClaimedByFilter] = useState('');
   const [eventTypeFilter, setEventTypeFilter] = useState('');
@@ -383,6 +385,26 @@ export default function AdminPipelinePage() {
       setReleaseMessage('Error: Failed to release stale claims');
     } finally {
       setReleasing(false);
+    }
+  }, [fetchData, fetchQueueVideos]);
+
+  const reclaimExpired = useCallback(async () => {
+    setReclaiming(true);
+    setReclaimMessage(null);
+    try {
+      const res = await fetch('/api/videos/reclaim-expired', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setReclaimMessage(`Reclaimed ${data.reclaimed_count} expired assignment(s)`);
+        fetchData();
+        fetchQueueVideos();
+      } else {
+        setReclaimMessage(`Error: ${data.error || 'Failed to reclaim'}`);
+      }
+    } catch (err) {
+      setReclaimMessage('Error: Failed to reclaim expired assignments');
+    } finally {
+      setReclaiming(false);
     }
   }, [fetchData, fetchQueueVideos]);
 
@@ -804,6 +826,16 @@ export default function AdminPipelinePage() {
               {releasing ? 'Releasing...' : 'Release stale claims'}
             </button>
           )}
+          {/* Reclaim expired assignments - Admin only */}
+          {isAdminMode && (
+            <button
+              onClick={reclaimExpired}
+              disabled={reclaiming}
+              style={{ padding: '8px 16px', marginRight: '10px', backgroundColor: '#17a2b8', color: 'white', border: '1px solid #138496' }}
+            >
+              {reclaiming ? 'Reclaiming...' : 'Reclaim expired'}
+            </button>
+          )}
           {lastRefresh && (
             <span style={{ color: '#666', fontSize: '14px' }}>
               Last updated: {hydrated ? lastRefresh.toLocaleString() : formatDateString(lastRefresh.toISOString())}
@@ -816,6 +848,11 @@ export default function AdminPipelinePage() {
       {releaseMessage && (
         <div style={{ color: releaseMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '20px' }}>
           {releaseMessage}
+        </div>
+      )}
+      {reclaimMessage && (
+        <div style={{ color: reclaimMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '20px' }}>
+          {reclaimMessage}
         </div>
       )}
 

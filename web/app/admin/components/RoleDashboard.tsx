@@ -27,6 +27,14 @@ interface QueueVideo {
   posted_platform: string | null;
   script_locked_text: string | null;
   script_locked_version: number | null;
+  // Assignment fields
+  assigned_to: string | null;
+  assigned_at: string | null;
+  assigned_expires_at: string | null;
+  assigned_role: string | null;
+  assignment_state: string | null;
+  assignment_time_left_minutes: number | null;
+  is_assigned_to_me: boolean;
   // Computed fields
   can_move_next: boolean;
   blocked_reason: string | null;
@@ -99,6 +107,10 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
   // Action states
   const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ videoId: string; message: string } | null>(null);
+
+  // Dispatch state
+  const [dispatching, setDispatching] = useState(false);
+  const [dispatchMessage, setDispatchMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -234,6 +246,50 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
     }
   };
 
+  // Dispatch next action
+  const dispatchNext = async () => {
+    setDispatching(true);
+    setDispatchMessage(null);
+
+    try {
+      const res = await fetch('/api/videos/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        const expiresAt = new Date(data.data.assigned_expires_at);
+        const expiresTime = expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setDispatchMessage({
+          type: 'success',
+          text: `Assigned to you until ${expiresTime}`,
+        });
+        // Navigate to the video
+        router.push(`/admin/pipeline/${data.data.video_id}`);
+      } else if (data.code === 'NO_WORK_AVAILABLE') {
+        setDispatchMessage({
+          type: 'error',
+          text: 'No work available in your lane right now',
+        });
+      } else {
+        setDispatchMessage({
+          type: 'error',
+          text: data.error || 'Failed to dispatch',
+        });
+      }
+    } catch (err) {
+      setDispatchMessage({
+        type: 'error',
+        text: 'Network error',
+      });
+    } finally {
+      setDispatching(false);
+    }
+  };
+
   // Release action
   const releaseVideo = async (videoId: string) => {
     setClaimingVideoId(videoId);
@@ -293,6 +349,22 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
         <h1 style={{ margin: 0 }}>{title}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <button
+            onClick={dispatchNext}
+            disabled={dispatching}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: dispatching ? '#6c757d' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: dispatching ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              fontSize: '14px',
+            }}
+          >
+            {dispatching ? 'Dispatching...' : 'Dispatch Next'}
+          </button>
+          <button
             onClick={fetchVideos}
             style={{ padding: '8px 16px', cursor: 'pointer' }}
           >
@@ -305,6 +377,32 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
           )}
         </div>
       </div>
+
+      {/* Dispatch message */}
+      {dispatchMessage && (
+        <div style={{
+          marginBottom: '15px',
+          padding: '12px 16px',
+          backgroundColor: dispatchMessage.type === 'success' ? '#d4edda' : '#f8d7da',
+          color: dispatchMessage.type === 'success' ? '#155724' : '#721c24',
+          borderRadius: '4px',
+          border: `1px solid ${dispatchMessage.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
+        }}>
+          {dispatchMessage.text}
+          <button
+            onClick={() => setDispatchMessage(null)}
+            style={{
+              marginLeft: '15px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+            }}
+          >
+            dismiss
+          </button>
+        </div>
+      )}
 
       {/* User info bar */}
       <div style={{
@@ -508,16 +606,43 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
                     {formatDuration(video.age_minutes_in_stage)}
                   </td>
 
-                  {/* Claim status */}
+                  {/* Claim/Assignment status */}
                   <td style={{ border: '1px solid #ccc', padding: '10px', fontSize: '12px' }}>
-                    {unclaimed ? (
-                      <span style={{ color: '#28a745' }}>Unclaimed</span>
+                    {/* Show assignment status if available */}
+                    {video.assignment_state === 'ASSIGNED' && video.assigned_to === authUser.id && video.assignment_time_left_minutes !== null ? (
+                      <div>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          backgroundColor: '#d4edda',
+                          color: '#155724',
+                          borderRadius: '4px',
+                          fontWeight: 'bold',
+                        }}>
+                          Assigned to you
+                        </span>
+                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#666' }}>
+                          ({formatDuration(video.assignment_time_left_minutes)} left)
+                        </span>
+                      </div>
+                    ) : video.assignment_state === 'EXPIRED' ? (
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '3px 8px',
+                        backgroundColor: '#fff3cd',
+                        color: '#856404',
+                        borderRadius: '4px',
+                      }}>
+                        Expired
+                      </span>
+                    ) : unclaimed ? (
+                      <span style={{ color: '#28a745' }}>Unassigned</span>
                     ) : claimedByMe ? (
                       <span style={{ color: '#0066cc', fontWeight: 'bold' }}>You</span>
                     ) : (
                       <div>
-                        <span style={{ color: '#dc3545' }}>{video.claimed_by?.slice(0, 8)}...</span>
-                        {video.claim_role && (
+                        <span style={{ color: '#dc3545' }}>{video.claimed_by?.slice(0, 8) || video.assigned_to?.slice(0, 8)}...</span>
+                        {(video.claim_role || video.assigned_role) && (
                           <span style={{
                             marginLeft: '4px',
                             padding: '1px 4px',
@@ -525,7 +650,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
                             borderRadius: '4px',
                             fontSize: '10px',
                           }}>
-                            {video.claim_role}
+                            {video.claim_role || video.assigned_role}
                           </span>
                         )}
                       </div>

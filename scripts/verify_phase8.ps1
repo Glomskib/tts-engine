@@ -528,8 +528,8 @@ try {
         $statusesToTest = @("NOT_RECORDED", "RECORDED", "EDITED", "READY_TO_POST")
         $allPassed = $true
 
-        # Reset to NOT_RECORDED first (with force to bypass validation)
-        $resetPayload = @{ recording_status = "NOT_RECORDED"; force = $true } | ConvertTo-Json -Depth 5
+        # Reset to NOT_RECORDED first (with force to bypass validation, require_claim=false to skip claim check)
+        $resetPayload = @{ recording_status = "NOT_RECORDED"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
         $resetResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $resetPayload -TimeoutSec 10
         if (-not $resetResult.ok) {
             Write-Host "    WARN: Could not reset to NOT_RECORDED: $($resetResult.error)" -ForegroundColor Yellow
@@ -537,8 +537,8 @@ try {
             Write-Host "    Reset to NOT_RECORDED - OK" -ForegroundColor Gray
         }
 
-        # Transition: NOT_RECORDED -> RECORDED
-        $recordPayload = @{ recording_status = "RECORDED" } | ConvertTo-Json -Depth 5
+        # Transition: NOT_RECORDED -> RECORDED (require_claim=false for this test - role enforcement tested in Check 10)
+        $recordPayload = @{ recording_status = "RECORDED"; require_claim = $false } | ConvertTo-Json -Depth 5
         $recordResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $recordPayload -TimeoutSec 10
         if (-not $recordResult.ok) {
             Write-Host "    FAIL: NOT_RECORDED -> RECORDED failed: $($recordResult.error)" -ForegroundColor Red
@@ -548,7 +548,7 @@ try {
         }
 
         # Transition: RECORDED -> EDITED
-        $editPayload = @{ recording_status = "EDITED" } | ConvertTo-Json -Depth 5
+        $editPayload = @{ recording_status = "EDITED"; require_claim = $false } | ConvertTo-Json -Depth 5
         $editResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $editPayload -TimeoutSec 10
         if (-not $editResult.ok) {
             Write-Host "    FAIL: RECORDED -> EDITED failed: $($editResult.error)" -ForegroundColor Red
@@ -558,7 +558,7 @@ try {
         }
 
         # Transition: EDITED -> READY_TO_POST (video has google_drive_url so should work)
-        $readyPayload = @{ recording_status = "READY_TO_POST" } | ConvertTo-Json -Depth 5
+        $readyPayload = @{ recording_status = "READY_TO_POST"; require_claim = $false } | ConvertTo-Json -Depth 5
         $readyResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $readyPayload -TimeoutSec 10
         if (-not $readyResult.ok) {
             Write-Host "    FAIL: EDITED -> READY_TO_POST failed: $($readyResult.error)" -ForegroundColor Red
@@ -567,8 +567,12 @@ try {
             Write-Host "    EDITED -> READY_TO_POST - OK" -ForegroundColor Gray
         }
 
+        # Clear posted_url/platform first so the POSTED test is valid
+        $clearPostedPayload = @{ posted_url = $null; posted_platform = $null; require_claim = $false } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $clearPostedPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+
         # Transition: READY_TO_POST -> POSTED (should FAIL without posted_url/platform)
-        $postFailPayload = @{ recording_status = "POSTED" } | ConvertTo-Json -Depth 5
+        $postFailPayload = @{ recording_status = "POSTED"; require_claim = $false } | ConvertTo-Json -Depth 5
         $postFailResult = $null
         $postFailedAsExpected = $false
         try {
@@ -592,6 +596,7 @@ try {
             recording_status = "POSTED"
             posted_url = "https://test.example.com/video-$(Get-Random)"
             posted_platform = "tiktok"
+            require_claim = $false
         } | ConvertTo-Json -Depth 5
         $postResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $postPayload -TimeoutSec 10
         if (-not $postResult.ok) {
@@ -611,7 +616,7 @@ try {
         }
 
         # Restore original status
-        $restorePayload = @{ recording_status = $originalStatus; force = $true } | ConvertTo-Json -Depth 5
+        $restorePayload = @{ recording_status = $originalStatus; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
         Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $restorePayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
         Write-Host "    Restored to original status: $originalStatus" -ForegroundColor Gray
 
@@ -799,6 +804,10 @@ try {
         } else {
             Write-Host "    Step 8: Handoff editor->uploader - OK" -ForegroundColor Gray
         }
+
+        # Clear posted_url/platform to ensure Step 9 tests correctly
+        $clearFieldsPayload = @{ posted_url = $null; posted_platform = $null; require_claim = $false; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $clearFieldsPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
 
         # Step 9: Uploader -> POSTED without posted_url should FAIL (MISSING_POSTED_FIELDS)
         $postedNoUrlPayload = @{ recording_status = "POSTED"; updated_by = "verify_uploader" } | ConvertTo-Json -Depth 5

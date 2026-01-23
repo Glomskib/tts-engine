@@ -32,25 +32,22 @@ export async function getVideosColumns(): Promise<Set<string>> {
   }
 
   try {
-    // Get actual columns by selecting one row with select *
-    // This works because Supabase returns the actual table columns
-    const { data, error } = await supabaseAdmin
+    // Start with known columns
+    const columns = getKnownColumns();
+
+    // Explicitly check for claim_role column (migration 015)
+    // We can't rely on select * because Supabase may omit null columns
+    const { error: claimRoleError } = await supabaseAdmin
       .from("videos")
-      .select("*")
+      .select("claim_role")
       .limit(1);
 
-    if (error) {
-      console.error("Failed to fetch videos schema:", error);
-      // Fallback to known columns from migrations
-      cachedColumns = getKnownColumns();
-    } else if (data && data.length > 0) {
-      // Extract column names from the returned row
-      cachedColumns = new Set(Object.keys(data[0]));
-    } else {
-      // No rows exist - try selecting with specific columns to verify they exist
-      // Fall back to known columns but don't cache to allow retry
-      return getKnownColumns();
+    if (!claimRoleError) {
+      // claim_role column exists
+      columns.add("claim_role");
     }
+
+    cachedColumns = columns;
   } catch (err) {
     console.error("Error querying videos schema:", err);
     // Fallback to known columns from migrations

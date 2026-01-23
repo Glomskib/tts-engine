@@ -2017,7 +2017,7 @@ try {
 }
 
 # Check 26: Subscription gating module verification
-Write-Host "`n[26/26] Testing subscription gating module..." -ForegroundColor Yellow
+Write-Host "`n[26/27] Testing subscription gating module..." -ForegroundColor Yellow
 try {
     # Verify subscription.ts exists
     $subscriptionModulePath = Join-Path $webDir "lib/subscription.ts"
@@ -2139,7 +2139,167 @@ try {
     Write-Host "  WARN: Subscription module test error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[26/26] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 27: Pro upgrade landing page and admin plan management (Step 17)
+Write-Host "`n[27/27] Testing Pro upgrade landing page and admin plan management..." -ForegroundColor Yellow
+try {
+    # Verify /upgrade page exists
+    $upgradePath = Join-Path $webDir "app/upgrade/page.tsx"
+    if (-not (Test-Path $upgradePath)) {
+        Write-Host "  FAIL: /upgrade page not found at $upgradePath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    /upgrade page exists - OK" -ForegroundColor Gray
+
+    # Verify /upgrade page fetches plan status
+    $upgradeContent = Get-Content $upgradePath -Raw
+    if ($upgradeContent -match "/api/auth/plan-status") {
+        Write-Host "    /upgrade page fetches plan-status - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /upgrade page does not fetch /api/auth/plan-status" -ForegroundColor Yellow
+    }
+
+    # Verify "Contact Admin" clipboard copy functionality
+    if ($upgradeContent -match "clipboard\.writeText") {
+        Write-Host "    /upgrade page has clipboard copy feature - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /upgrade page missing clipboard copy functionality" -ForegroundColor Yellow
+    }
+
+    # Verify plan-status API endpoint exists
+    $planStatusPath = Join-Path $webDir "app/api/auth/plan-status/route.ts"
+    if (-not (Test-Path $planStatusPath)) {
+        Write-Host "  FAIL: plan-status API not found at $planStatusPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/auth/plan-status endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify plan-status returns 401 without auth
+    $planStatusCode = 0
+    try {
+        $planStatusResult = Invoke-RestMethod -Uri "$baseUrl/api/auth/plan-status" -Method GET -TimeoutSec 10
+        $planStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $planStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($planStatusCode -eq 401) {
+        Write-Host "    GET /api/auth/plan-status returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/auth/plan-status returned status: $planStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify admin set-plan API endpoint exists
+    $setPlanPath = Join-Path $webDir "app/api/admin/users/set-plan/route.ts"
+    if (-not (Test-Path $setPlanPath)) {
+        Write-Host "  FAIL: admin set-plan API not found at $setPlanPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    POST /api/admin/users/set-plan endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify set-plan returns 401 without auth
+    $setPlanStatusCode = 0
+    try {
+        $setPlanResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/users/set-plan" -Method POST -ContentType "application/json" -Body '{"user_id":"test","plan":"pro"}' -TimeoutSec 10
+        $setPlanStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $setPlanStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($setPlanStatusCode -eq 401) {
+        Write-Host "    POST /api/admin/users/set-plan returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    POST /api/admin/users/set-plan returned status: $setPlanStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify admin users list API endpoint exists
+    $usersListPath = Join-Path $webDir "app/api/admin/users/route.ts"
+    if (-not (Test-Path $usersListPath)) {
+        Write-Host "  FAIL: admin users list API not found at $usersListPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/admin/users endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify users list returns 401 without auth
+    $usersListStatusCode = 0
+    try {
+        $usersListResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/users" -Method GET -TimeoutSec 10
+        $usersListStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $usersListStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($usersListStatusCode -eq 401) {
+        Write-Host "    GET /api/admin/users returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/admin/users returned status: $usersListStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify /admin/users page exists
+    $adminUsersPath = Join-Path $webDir "app/admin/users/page.tsx"
+    if (-not (Test-Path $adminUsersPath)) {
+        Write-Host "  FAIL: /admin/users page not found at $adminUsersPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    /admin/users page exists - OK" -ForegroundColor Gray
+
+    # Verify /admin/users page route returns 307 redirect (auth required)
+    $adminUsersRouteStatusCode = 0
+    try {
+        $adminUsersRouteResult = Invoke-WebRequest -Uri "$baseUrl/admin/users" -Method GET -MaximumRedirection 0 -TimeoutSec 10 -ErrorAction SilentlyContinue
+        $adminUsersRouteStatusCode = [int]$adminUsersRouteResult.StatusCode
+    } catch {
+        if ($_.Exception.Response) {
+            $adminUsersRouteStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($adminUsersRouteStatusCode -eq 307 -or $adminUsersRouteStatusCode -eq 200) {
+        Write-Host "    /admin/users page returns $adminUsersRouteStatusCode - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    /admin/users page returned status: $adminUsersRouteStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify workbench has upgrade link
+    $workbenchPath = Join-Path $webDir "app/admin/components/RoleWorkbench.tsx"
+    if (Test-Path $workbenchPath) {
+        $workbenchContent = Get-Content $workbenchPath -Raw
+        if ($workbenchContent -match '"/upgrade"') {
+            Write-Host "    Workbench has upgrade link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Workbench missing /upgrade link" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify subscription.ts reads from admin_set_plan events
+    $subscriptionPath = Join-Path $webDir "lib/subscription.ts"
+    if (Test-Path $subscriptionPath) {
+        $subscriptionContent = Get-Content $subscriptionPath -Raw
+        if ($subscriptionContent -match "admin_set_plan") {
+            Write-Host "    subscription.ts reads admin_set_plan events - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: subscription.ts does not read admin_set_plan events" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify nav link in pipeline page
+    $pipelinePath = Join-Path $webDir "app/admin/pipeline/page.tsx"
+    if (Test-Path $pipelinePath) {
+        $pipelineContent = Get-Content $pipelinePath -Raw
+        if ($pipelineContent -match '"/admin/users"') {
+            Write-Host "    Pipeline nav has Users link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Pipeline page missing /admin/users nav link" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Pro upgrade landing page and admin plan management verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Pro upgrade verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[27/27] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

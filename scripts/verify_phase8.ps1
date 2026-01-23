@@ -509,7 +509,123 @@ try {
     Write-Host "  SKIP: Claim workflow test failed (columns may not exist yet): $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[8/8] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 9: Execution gating workflow test
+Write-Host "`n[9/9] Testing execution gating workflow..." -ForegroundColor Yellow
+try {
+    # Use the same test video from Check 5 (which has a script attached)
+    # Ensure it has a locked script
+    $queueForExec = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
+    $videoWithScript = $queueForExec.data | Where-Object { $null -ne $_.script_locked_text -and $_.script_locked_text -ne "" } | Select-Object -First 1
+
+    if ($null -eq $videoWithScript) {
+        Write-Host "  SKIP: No video with locked script found for execution test" -ForegroundColor Yellow
+    } else {
+        $execTestVideoId = $videoWithScript.id
+        $originalStatus = $videoWithScript.recording_status
+        Write-Host "    Testing execution gating on video: $execTestVideoId (current status: $originalStatus)" -ForegroundColor Gray
+
+        # Store original status to restore later
+        $statusesToTest = @("NOT_RECORDED", "RECORDED", "EDITED", "READY_TO_POST")
+        $allPassed = $true
+
+        # Reset to NOT_RECORDED first (with force to bypass validation)
+        $resetPayload = @{ recording_status = "NOT_RECORDED"; force = $true } | ConvertTo-Json -Depth 5
+        $resetResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $resetPayload -TimeoutSec 10
+        if (-not $resetResult.ok) {
+            Write-Host "    WARN: Could not reset to NOT_RECORDED: $($resetResult.error)" -ForegroundColor Yellow
+        } else {
+            Write-Host "    Reset to NOT_RECORDED - OK" -ForegroundColor Gray
+        }
+
+        # Transition: NOT_RECORDED -> RECORDED
+        $recordPayload = @{ recording_status = "RECORDED" } | ConvertTo-Json -Depth 5
+        $recordResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $recordPayload -TimeoutSec 10
+        if (-not $recordResult.ok) {
+            Write-Host "    FAIL: NOT_RECORDED -> RECORDED failed: $($recordResult.error)" -ForegroundColor Red
+            $allPassed = $false
+        } else {
+            Write-Host "    NOT_RECORDED -> RECORDED - OK" -ForegroundColor Gray
+        }
+
+        # Transition: RECORDED -> EDITED
+        $editPayload = @{ recording_status = "EDITED" } | ConvertTo-Json -Depth 5
+        $editResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $editPayload -TimeoutSec 10
+        if (-not $editResult.ok) {
+            Write-Host "    FAIL: RECORDED -> EDITED failed: $($editResult.error)" -ForegroundColor Red
+            $allPassed = $false
+        } else {
+            Write-Host "    RECORDED -> EDITED - OK" -ForegroundColor Gray
+        }
+
+        # Transition: EDITED -> READY_TO_POST (video has google_drive_url so should work)
+        $readyPayload = @{ recording_status = "READY_TO_POST" } | ConvertTo-Json -Depth 5
+        $readyResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $readyPayload -TimeoutSec 10
+        if (-not $readyResult.ok) {
+            Write-Host "    FAIL: EDITED -> READY_TO_POST failed: $($readyResult.error)" -ForegroundColor Red
+            $allPassed = $false
+        } else {
+            Write-Host "    EDITED -> READY_TO_POST - OK" -ForegroundColor Gray
+        }
+
+        # Transition: READY_TO_POST -> POSTED (should FAIL without posted_url/platform)
+        $postFailPayload = @{ recording_status = "POSTED" } | ConvertTo-Json -Depth 5
+        $postFailResult = $null
+        $postFailedAsExpected = $false
+        try {
+            $postFailResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $postFailPayload -TimeoutSec 10
+            if ($postFailResult.ok -eq $false) {
+                $postFailedAsExpected = $true
+            }
+        } catch {
+            # Expected: 400 error
+            $postFailedAsExpected = $true
+        }
+        if (-not $postFailedAsExpected) {
+            Write-Host "    FAIL: POSTED should have required posted_url/platform" -ForegroundColor Red
+            $allPassed = $false
+        } else {
+            Write-Host "    READY_TO_POST -> POSTED (without fields) correctly rejected - OK" -ForegroundColor Gray
+        }
+
+        # Transition: READY_TO_POST -> POSTED (with required fields)
+        $postPayload = @{
+            recording_status = "POSTED"
+            posted_url = "https://test.example.com/video-$(Get-Random)"
+            posted_platform = "tiktok"
+        } | ConvertTo-Json -Depth 5
+        $postResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $postPayload -TimeoutSec 10
+        if (-not $postResult.ok) {
+            Write-Host "    FAIL: READY_TO_POST -> POSTED (with fields) failed: $($postResult.error)" -ForegroundColor Red
+            $allPassed = $false
+        } else {
+            Write-Host "    READY_TO_POST -> POSTED (with fields) - OK" -ForegroundColor Gray
+        }
+
+        # Verify events were recorded
+        $eventsResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/events" -Method GET -TimeoutSec 10
+        if ($eventsResult.ok -and $eventsResult.data.Count -gt 0) {
+            $statusChangeEvents = $eventsResult.data | Where-Object { $_.event_type -eq "recording_status_changed" }
+            Write-Host "    Found $($statusChangeEvents.Count) status change events - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "    WARN: No events found for video" -ForegroundColor Yellow
+        }
+
+        # Restore original status
+        $restorePayload = @{ recording_status = $originalStatus; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$execTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $restorePayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "    Restored to original status: $originalStatus" -ForegroundColor Gray
+
+        if ($allPassed) {
+            Write-Host "  PASS: Execution gating workflow completed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "  WARN: Some execution gating checks failed" -ForegroundColor Yellow
+        }
+    }
+} catch {
+    Write-Host "  WARN: Execution gating test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[9/9] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

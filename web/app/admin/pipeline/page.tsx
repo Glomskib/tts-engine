@@ -49,6 +49,13 @@ interface QueueVideo {
   can_move_next: boolean;
   blocked_reason: string | null;
   next_action: string;
+  next_status: string | null;
+  // Individual action flags
+  can_record: boolean;
+  can_mark_edited: boolean;
+  can_mark_ready_to_post: boolean;
+  can_mark_posted: boolean;
+  required_fields: string[];
 }
 
 interface AvailableScript {
@@ -121,6 +128,18 @@ export default function AdminPipelinePage() {
   const [attaching, setAttaching] = useState(false);
   const [attachMessage, setAttachMessage] = useState<string | null>(null);
   const [forceOverwrite, setForceOverwrite] = useState(false);
+
+  // Post modal state (for READY_TO_POST -> POSTED)
+  const [postModalVideoId, setPostModalVideoId] = useState<string | null>(null);
+  const [postModalVideo, setPostModalVideo] = useState<QueueVideo | null>(null);
+  const [postUrl, setPostUrl] = useState('');
+  const [postPlatform, setPostPlatform] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [postMessage, setPostMessage] = useState<string | null>(null);
+
+  // Execution action state (for quick transitions)
+  const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
+  const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -346,6 +365,79 @@ export default function AdminPipelinePage() {
       setAttachMessage('Error: Failed to attach script');
     } finally {
       setAttaching(false);
+    }
+  };
+
+  // Quick execution transition (for record, edit, ready_to_post)
+  const executeTransition = async (videoId: string, targetStatus: string) => {
+    setExecutingVideoId(videoId);
+    setExecutionError(null);
+    try {
+      const res = await fetch(`/api/videos/${videoId}/execution`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recording_status: targetStatus }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchQueueVideos();
+      } else {
+        setExecutionError({ videoId, message: data.error || 'Failed to update status' });
+      }
+    } catch (err) {
+      setExecutionError({ videoId, message: 'Network error' });
+    } finally {
+      setExecutingVideoId(null);
+    }
+  };
+
+  // Open post modal
+  const openPostModal = (video: QueueVideo) => {
+    setPostModalVideoId(video.id);
+    setPostModalVideo(video);
+    setPostUrl(video.posted_url || '');
+    setPostPlatform(video.posted_platform || '');
+    setPostMessage(null);
+  };
+
+  // Close post modal
+  const closePostModal = () => {
+    setPostModalVideoId(null);
+    setPostModalVideo(null);
+    setPostUrl('');
+    setPostPlatform('');
+    setPostMessage(null);
+  };
+
+  // Submit post (READY_TO_POST -> POSTED)
+  const submitPost = async () => {
+    if (!postModalVideoId || !postUrl.trim() || !postPlatform) return;
+    setPosting(true);
+    setPostMessage(null);
+    try {
+      const res = await fetch(`/api/videos/${postModalVideoId}/execution`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recording_status: 'POSTED',
+          posted_url: postUrl.trim(),
+          posted_platform: postPlatform,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setPostMessage('Marked as posted!');
+        fetchQueueVideos();
+        setTimeout(() => {
+          closePostModal();
+        }, 1500);
+      } else {
+        setPostMessage(`Error: ${data.error || 'Failed to mark as posted'}`);
+      }
+    } catch (err) {
+      setPostMessage('Error: Network error');
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -703,23 +795,149 @@ export default function AdminPipelinePage() {
                         {claimedByOther && (
                           <span style={{ color: '#999', fontSize: '11px', fontStyle: 'italic' }}>Locked</span>
                         )}
-                        {/* Attach Script button for videos needing script */}
-                        {!video.script_locked_text && (
-                          <button
-                            onClick={() => openAttachModal(video)}
-                            style={{
-                              padding: '4px 10px',
-                              backgroundColor: '#17a2b8',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                            }}
-                          >
-                            Attach Script
-                          </button>
-                        )}
+                        {/* Action button based on next_action */}
+                        {(() => {
+                          const isExecuting = executingVideoId === video.id;
+                          const execError = executionError?.videoId === video.id ? executionError.message : null;
+
+                          // Attach Script
+                          if (!video.script_locked_text) {
+                            return (
+                              <button
+                                onClick={() => openAttachModal(video)}
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#17a2b8',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                Attach Script
+                              </button>
+                            );
+                          }
+
+                          // Record (NOT_RECORDED -> RECORDED)
+                          if (video.can_record) {
+                            return (
+                              <button
+                                onClick={() => executeTransition(video.id, 'RECORDED')}
+                                disabled={isExecuting}
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#228be6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: isExecuting ? 'not-allowed' : 'pointer',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                {isExecuting ? '...' : 'Mark Recorded'}
+                              </button>
+                            );
+                          }
+
+                          // Edit (RECORDED -> EDITED)
+                          if (video.can_mark_edited) {
+                            return (
+                              <button
+                                onClick={() => executeTransition(video.id, 'EDITED')}
+                                disabled={isExecuting}
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#fab005',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: isExecuting ? 'not-allowed' : 'pointer',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                {isExecuting ? '...' : 'Mark Edited'}
+                              </button>
+                            );
+                          }
+
+                          // Ready to Post (EDITED -> READY_TO_POST)
+                          if (video.can_mark_ready_to_post) {
+                            return (
+                              <button
+                                onClick={() => executeTransition(video.id, 'READY_TO_POST')}
+                                disabled={isExecuting}
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#40c057',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: isExecuting ? 'not-allowed' : 'pointer',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                {isExecuting ? '...' : 'Mark Ready'}
+                              </button>
+                            );
+                          }
+
+                          // Post (READY_TO_POST -> POSTED) - requires modal
+                          if (video.recording_status === 'READY_TO_POST') {
+                            return (
+                              <button
+                                onClick={() => openPostModal(video)}
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#1971c2',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                Post...
+                              </button>
+                            );
+                          }
+
+                          // Rejected - link to details
+                          if (video.recording_status === 'REJECTED') {
+                            return (
+                              <Link
+                                href={`/admin/pipeline/${video.id}`}
+                                target="_blank"
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#e03131',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  textDecoration: 'none',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                View Notes
+                              </Link>
+                            );
+                          }
+
+                          // Posted - done
+                          if (video.recording_status === 'POSTED') {
+                            return (
+                              <span style={{ color: '#40c057', fontSize: '12px', fontWeight: 'bold' }}>Done</span>
+                            );
+                          }
+
+                          // Fallback: show exec error if any
+                          if (execError) {
+                            return <span style={{ color: '#dc3545', fontSize: '11px' }}>{execError}</span>;
+                          }
+
+                          return null;
+                        })()}
                         <Link
                           href={`/admin/pipeline/${video.id}`}
                           style={{
@@ -736,6 +954,9 @@ export default function AdminPipelinePage() {
                         </Link>
                         {hasError && (
                           <span style={{ color: '#dc3545', fontSize: '11px' }}>{claimError?.message}</span>
+                        )}
+                        {executionError?.videoId === video.id && (
+                          <span style={{ color: '#dc3545', fontSize: '11px' }}>{executionError.message}</span>
                         )}
                       </div>
                     </td>
@@ -1030,6 +1251,127 @@ export default function AdminPipelinePage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Post Modal (READY_TO_POST -> POSTED) */}
+      {postModalVideoId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '450px',
+            width: '90%',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: '#1971c2' }}>Mark as Posted</h2>
+              <button
+                onClick={closePostModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Video: <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>{postModalVideoId.slice(0, 8)}...</code>
+            </p>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Platform <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <select
+                value={postPlatform}
+                onChange={(e) => setPostPlatform(e.target.value)}
+                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px' }}
+              >
+                <option value="">-- Select Platform --</option>
+                <option value="tiktok">TikTok</option>
+                <option value="instagram">Instagram</option>
+                <option value="youtube">YouTube</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Posted URL <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={postUrl}
+                onChange={(e) => setPostUrl(e.target.value)}
+                placeholder="https://..."
+                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {postMessage && (
+              <div style={{
+                marginBottom: '15px',
+                padding: '10px',
+                borderRadius: '4px',
+                backgroundColor: postMessage.includes('Error') ? '#f8d7da' : '#d4edda',
+                color: postMessage.includes('Error') ? '#721c24' : '#155724',
+                fontSize: '13px',
+              }}>
+                {postMessage}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={submitPost}
+                disabled={!postUrl.trim() || !postPlatform || posting}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: postUrl.trim() && postPlatform && !posting ? '#1971c2' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: postUrl.trim() && postPlatform && !posting ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {posting ? 'Posting...' : 'Mark as Posted'}
+              </button>
+              <button
+                onClick={closePostModal}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

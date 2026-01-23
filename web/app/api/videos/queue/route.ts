@@ -128,9 +128,18 @@ export async function GET(request: Request) {
 
       return {
         ...video,
+        // Stage info computed fields
         can_move_next: stageInfo.can_move_next,
         blocked_reason: stageInfo.blocked_reason,
         next_action: stageInfo.next_action,
+        next_status: stageInfo.next_status,
+        // Individual action flags
+        can_record: stageInfo.can_record,
+        can_mark_edited: stageInfo.can_mark_edited,
+        can_mark_ready_to_post: stageInfo.can_mark_ready_to_post,
+        can_mark_posted: stageInfo.can_mark_posted,
+        // Required fields for next step
+        required_fields: stageInfo.required_fields,
       };
     });
 

@@ -34,10 +34,10 @@ const NEXT_STATUS_MAP: Record<RecordingStatus, RecordingStatus | null> = {
 const NEXT_ACTION_MAP: Record<RecordingStatus, string> = {
   'NOT_RECORDED': 'Record the video',
   'RECORDED': 'Edit the video',
-  'EDITED': 'Mark as ready to post',
-  'READY_TO_POST': 'Post to platform',
-  'POSTED': 'Complete - no action needed',
-  'REJECTED': 'Rejected - review notes',
+  'EDITED': 'Mark ready to post',
+  'READY_TO_POST': 'Post the video',
+  'POSTED': 'Done',
+  'REJECTED': 'Review rejection notes',
 };
 
 export interface VideoForValidation {
@@ -134,6 +134,13 @@ export interface StageInfo {
   blocked_reason: string | null;
   next_action: string;
   next_status: RecordingStatus | null;
+  // Individual action flags
+  can_record: boolean;
+  can_mark_edited: boolean;
+  can_mark_ready_to_post: boolean;
+  can_mark_posted: boolean;
+  // Required fields for next step
+  required_fields: string[];
 }
 
 /**
@@ -142,7 +149,34 @@ export interface StageInfo {
 export function computeStageInfo(video: VideoForValidation): StageInfo {
   const currentStatus = (video.recording_status || 'NOT_RECORDED') as RecordingStatus;
   const nextStatus = NEXT_STATUS_MAP[currentStatus];
-  const nextAction = NEXT_ACTION_MAP[currentStatus];
+  let nextAction = NEXT_ACTION_MAP[currentStatus];
+
+  // Check if script is locked (required before recording)
+  const hasLockedScript = !!video.script_locked_text;
+
+  // Compute individual action flags
+  const can_record = currentStatus === 'NOT_RECORDED' && hasLockedScript;
+  const can_mark_edited = currentStatus === 'RECORDED';
+
+  // READY_TO_POST requires video URL
+  const hasVideoUrl = !!(video.final_video_url?.trim() || video.google_drive_url?.trim());
+  const can_mark_ready_to_post = currentStatus === 'EDITED' && hasVideoUrl;
+
+  // POSTED requires posted_url and posted_platform
+  const hasPostedUrl = !!video.posted_url?.trim();
+  const hasPlatform = !!video.posted_platform?.trim();
+  const can_mark_posted = currentStatus === 'READY_TO_POST' && hasPostedUrl && hasPlatform;
+
+  // Compute required_fields for next step
+  let required_fields: string[] = [];
+  if (currentStatus === 'NOT_RECORDED' && !hasLockedScript) {
+    required_fields = ['script'];
+  } else if (currentStatus === 'EDITED' && !hasVideoUrl) {
+    required_fields = ['final_video_url', 'google_drive_url'];
+  } else if (currentStatus === 'READY_TO_POST') {
+    if (!hasPostedUrl) required_fields.push('posted_url');
+    if (!hasPlatform) required_fields.push('posted_platform');
+  }
 
   // Terminal states
   if (!nextStatus) {
@@ -151,6 +185,27 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
       blocked_reason: null,
       next_action: nextAction,
       next_status: null,
+      can_record: false,
+      can_mark_edited: false,
+      can_mark_ready_to_post: false,
+      can_mark_posted: false,
+      required_fields: [],
+    };
+  }
+
+  // Override next_action if script is needed
+  if (currentStatus === 'NOT_RECORDED' && !hasLockedScript) {
+    nextAction = 'Attach and lock a script';
+    return {
+      can_move_next: false,
+      blocked_reason: 'Script must be attached and locked before recording',
+      next_action: nextAction,
+      next_status: nextStatus,
+      can_record: false,
+      can_mark_edited: false,
+      can_mark_ready_to_post: false,
+      can_mark_posted: false,
+      required_fields,
     };
   }
 
@@ -163,16 +218,11 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
       blocked_reason: validation.error,
       next_action: nextAction,
       next_status: nextStatus,
-    };
-  }
-
-  // Additional check: script should be locked before RECORDED
-  if (currentStatus === 'NOT_RECORDED' && !video.script_locked_text) {
-    return {
-      can_move_next: false,
-      blocked_reason: 'Script must be attached and locked before recording',
-      next_action: 'Attach and lock a script',
-      next_status: nextStatus,
+      can_record,
+      can_mark_edited,
+      can_mark_ready_to_post,
+      can_mark_posted,
+      required_fields,
     };
   }
 
@@ -181,5 +231,10 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
     blocked_reason: null,
     next_action: nextAction,
     next_status: nextStatus,
+    can_record,
+    can_mark_edited,
+    can_mark_ready_to_post,
+    can_mark_posted,
+    required_fields,
   };
 }

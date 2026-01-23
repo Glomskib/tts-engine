@@ -50,6 +50,26 @@ interface VideoDetail {
 const RECORDING_STATUSES = ['NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
 const PLATFORMS = ['tiktok', 'instagram', 'youtube', 'other'] as const;
 
+// Status badge color helper
+function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
+  switch (status) {
+    case 'NOT_RECORDED':
+      return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+    case 'RECORDED':
+      return { bg: '#e7f5ff', border: '#74c0fc', badge: '#228be6' };
+    case 'EDITED':
+      return { bg: '#fff3bf', border: '#ffd43b', badge: '#fab005' };
+    case 'READY_TO_POST':
+      return { bg: '#d3f9d8', border: '#69db7c', badge: '#40c057' };
+    case 'POSTED':
+      return { bg: '#d0ebff', border: '#339af0', badge: '#1971c2' };
+    case 'REJECTED':
+      return { bg: '#ffe3e3', border: '#ff8787', badge: '#e03131' };
+    default:
+      return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+  }
+}
+
 interface ScriptInfo {
   id: string;
   title: string | null;
@@ -122,7 +142,7 @@ export default function VideoDetailPage() {
     try {
       const [claimedRes, eventsRes, videoRes] = await Promise.all([
         fetch('/api/observability/claimed'),
-        fetch('/api/observability/recent-events?limit=100'),
+        fetch(`/api/videos/${videoId}/events`),
         fetch(`/api/videos/${videoId}`),
       ]);
 
@@ -138,10 +158,9 @@ export default function VideoDetailPage() {
         setClaimedInfo(claimed || null);
       }
 
-      // Filter events for this video
+      // Set events for this video (already filtered by the API)
       if (eventsData.ok && eventsData.data) {
-        const videoEvents = eventsData.data.filter((e: VideoEvent) => e.video_id === videoId);
-        setEvents(videoEvents);
+        setEvents(eventsData.data);
       }
 
       // Set video details (for script info)
@@ -240,7 +259,35 @@ export default function VideoDetailPage() {
     }
   };
 
+  // Client-side validation for status transitions
+  const validateStatusTransition = (status: string): string | null => {
+    if (status === 'POSTED') {
+      if (!executionForm.posted_url || !executionForm.posted_url.trim()) {
+        return 'Posted URL is required when setting status to POSTED';
+      }
+      if (!executionForm.posted_platform) {
+        return 'Platform is required when setting status to POSTED';
+      }
+    }
+    if (status === 'REJECTED') {
+      const hasNotes = (executionForm.recording_notes && executionForm.recording_notes.trim()) ||
+                       (executionForm.editor_notes && executionForm.editor_notes.trim()) ||
+                       (executionForm.uploader_notes && executionForm.uploader_notes.trim());
+      if (!hasNotes) {
+        return 'At least one notes field (Recording, Editor, or Uploader Notes) is required when setting status to REJECTED';
+      }
+    }
+    return null;
+  };
+
   const saveExecution = async () => {
+    // Client-side validation
+    const validationError = validateStatusTransition(executionForm.recording_status);
+    if (validationError) {
+      setExecutionMessage(`Error: ${validationError}`);
+      return;
+    }
+
     setSavingExecution(true);
     setExecutionMessage(null);
     try {
@@ -286,6 +333,13 @@ export default function VideoDetailPage() {
     };
     const newStatus = statusMap[field];
 
+    // Client-side validation for POSTED and REJECTED
+    const validationError = validateStatusTransition(newStatus);
+    if (validationError) {
+      setExecutionMessage(`Error: ${validationError}`);
+      return;
+    }
+
     setSavingExecution(true);
     setExecutionMessage(null);
     try {
@@ -299,7 +353,13 @@ export default function VideoDetailPage() {
         payload.posted_url = executionForm.posted_url || null;
         payload.posted_platform = executionForm.posted_platform || null;
         payload.posted_account = executionForm.posted_account || null;
-        payload.force = !executionForm.posted_url || !executionForm.posted_platform; // Force if missing required fields
+      }
+
+      // If setting to REJECTED, include notes
+      if (newStatus === 'REJECTED') {
+        payload.recording_notes = executionForm.recording_notes || null;
+        payload.editor_notes = executionForm.editor_notes || null;
+        payload.uploader_notes = executionForm.uploader_notes || null;
       }
 
       const res = await fetch(`/api/videos/${videoId}/execution`, {
@@ -418,6 +478,45 @@ export default function VideoDetailPage() {
       </div>
 
       <h1>Video Details</h1>
+
+      {/* Recording Status Badge - Prominent Display */}
+      {videoDetail && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '15px 20px',
+          backgroundColor: getStatusBadgeColor(videoDetail.recording_status).bg,
+          border: `2px solid ${getStatusBadgeColor(videoDetail.recording_status).border}`,
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>Recording Status:</span>
+            <span style={{
+              padding: '6px 14px',
+              borderRadius: '20px',
+              backgroundColor: getStatusBadgeColor(videoDetail.recording_status).badge,
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '14px',
+              letterSpacing: '0.5px',
+            }}>
+              {videoDetail.recording_status?.replace(/_/g, ' ') || 'NOT RECORDED'}
+            </span>
+          </div>
+          {videoDetail.last_status_changed_at && (
+            <div style={{ fontSize: '13px', color: '#555' }}>
+              <span style={{ fontWeight: '500' }}>Last changed:</span>{' '}
+              <span title={formatDateString(videoDetail.last_status_changed_at)}>
+                {hydrated ? getTimeAgo(videoDetail.last_status_changed_at) : formatDateString(videoDetail.last_status_changed_at)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>}
       {releaseMessage && (
@@ -668,6 +767,17 @@ export default function VideoDetailPage() {
               <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
             ))}
           </select>
+          {/* Required fields hint */}
+          {executionForm.recording_status === 'POSTED' && (
+            <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', fontSize: '13px', color: '#856404' }}>
+              <strong>Required for POSTED:</strong> Platform and Posted URL must be filled in below.
+            </div>
+          )}
+          {executionForm.recording_status === 'REJECTED' && (
+            <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '4px', fontSize: '13px', color: '#721c24' }}>
+              <strong>Required for REJECTED:</strong> At least one Notes field must be filled in to explain the reason.
+            </div>
+          )}
         </div>
 
         {/* Timestamps */}
@@ -752,44 +862,99 @@ export default function VideoDetailPage() {
         {/* Notes */}
         <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Recording Notes</label>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>
+              Recording Notes
+              {executionForm.recording_status === 'REJECTED' && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
+            </label>
             <textarea
               value={executionForm.recording_notes}
               onChange={(e) => setExecutionForm(prev => ({ ...prev, recording_notes: e.target.value }))}
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', resize: 'vertical' }}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: executionForm.recording_status === 'REJECTED' && !executionForm.recording_notes.trim() && !executionForm.editor_notes.trim() && !executionForm.uploader_notes.trim()
+                  ? '2px solid #dc3545'
+                  : '1px solid #ccc',
+                borderRadius: '4px',
+                minHeight: '60px',
+                resize: 'vertical',
+              }}
               placeholder="Notes from recording..."
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Editor Notes</label>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>
+              Editor Notes
+              {executionForm.recording_status === 'REJECTED' && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
+            </label>
             <textarea
               value={executionForm.editor_notes}
               onChange={(e) => setExecutionForm(prev => ({ ...prev, editor_notes: e.target.value }))}
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', resize: 'vertical' }}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: executionForm.recording_status === 'REJECTED' && !executionForm.recording_notes.trim() && !executionForm.editor_notes.trim() && !executionForm.uploader_notes.trim()
+                  ? '2px solid #dc3545'
+                  : '1px solid #ccc',
+                borderRadius: '4px',
+                minHeight: '60px',
+                resize: 'vertical',
+              }}
               placeholder="Notes from editing..."
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Uploader Notes</label>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>
+              Uploader Notes
+              {executionForm.recording_status === 'REJECTED' && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
+            </label>
             <textarea
               value={executionForm.uploader_notes}
               onChange={(e) => setExecutionForm(prev => ({ ...prev, uploader_notes: e.target.value }))}
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', resize: 'vertical' }}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: executionForm.recording_status === 'REJECTED' && !executionForm.recording_notes.trim() && !executionForm.editor_notes.trim() && !executionForm.uploader_notes.trim()
+                  ? '2px solid #dc3545'
+                  : '1px solid #ccc',
+                borderRadius: '4px',
+                minHeight: '60px',
+                resize: 'vertical',
+              }}
               placeholder="Notes from uploading..."
             />
           </div>
         </div>
 
         {/* Posting Fields */}
-        <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px', fontSize: '14px' }}>Posting Details</h3>
+        <div style={{
+          marginBottom: '20px',
+          padding: '15px',
+          backgroundColor: executionForm.recording_status === 'POSTED' ? '#f0f7ff' : '#fff',
+          border: executionForm.recording_status === 'POSTED' ? '2px solid #0066cc' : '1px solid #ddd',
+          borderRadius: '4px',
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', fontSize: '14px' }}>
+            Posting Details
+            {executionForm.recording_status === 'POSTED' && <span style={{ color: '#0066cc', marginLeft: '8px', fontSize: '12px' }}>(Required for POSTED)</span>}
+          </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Platform</label>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>
+                Platform
+                {executionForm.recording_status === 'POSTED' && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
+              </label>
               <select
                 value={executionForm.posted_platform}
                 onChange={(e) => setExecutionForm(prev => ({ ...prev, posted_platform: e.target.value }))}
-                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: executionForm.recording_status === 'POSTED' && !executionForm.posted_platform
+                    ? '2px solid #dc3545'
+                    : '1px solid #ccc',
+                  borderRadius: '4px',
+                }}
               >
                 <option value="">-- Select --</option>
                 {PLATFORMS.map(p => (
@@ -798,12 +963,22 @@ export default function VideoDetailPage() {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Posted URL</label>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>
+                Posted URL
+                {executionForm.recording_status === 'POSTED' && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
+              </label>
               <input
                 type="text"
                 value={executionForm.posted_url}
                 onChange={(e) => setExecutionForm(prev => ({ ...prev, posted_url: e.target.value }))}
-                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: executionForm.recording_status === 'POSTED' && !executionForm.posted_url.trim()
+                    ? '2px solid #dc3545'
+                    : '1px solid #ccc',
+                  borderRadius: '4px',
+                }}
                 placeholder="https://..."
               />
               {videoDetail?.posted_url && videoDetail.recording_status === 'POSTED' && (
@@ -867,9 +1042,9 @@ export default function VideoDetailPage() {
         </button>
       </section>
 
-      {/* Event Timeline */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2>Event Timeline ({events.length})</h2>
+      {/* Events / Audit Log */}
+      <section style={{ ...sectionStyle, borderColor: '#6c757d' }}>
+        <h2 style={{ marginTop: 0 }}>Events / Audit Log ({events.length})</h2>
         {events.length > 0 ? (
           <table style={tableStyle}>
             <thead>

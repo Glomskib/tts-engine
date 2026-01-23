@@ -138,6 +138,19 @@ export default function VideoDetailPage() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState<string | null>(null);
 
+  // Admin Actions state
+  const [showAdminActions, setShowAdminActions] = useState(false);
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [adminActionMessage, setAdminActionMessage] = useState<string | null>(null);
+  const [forceStatusTarget, setForceStatusTarget] = useState('');
+  const [forceStatusReason, setForceStatusReason] = useState('');
+  const [forceStatusPostedUrl, setForceStatusPostedUrl] = useState('');
+  const [forceStatusPostedPlatform, setForceStatusPostedPlatform] = useState('');
+  const [clearClaimReason, setClearClaimReason] = useState('');
+  const [resetMode, setResetMode] = useState<'expire' | 'unassign'>('expire');
+  const [resetReason, setResetReason] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState<'clear-claim' | 'reset' | null>(null);
+
   const checkAdminEnabled = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/enabled');
@@ -260,6 +273,115 @@ export default function VideoDetailPage() {
       setTimelineLoading(false);
     }
   }, [videoId]);
+
+  // Admin Action Handlers
+  const handleForceStatus = async () => {
+    if (!forceStatusTarget || !forceStatusReason.trim()) {
+      setAdminActionMessage('Error: Target status and reason are required');
+      return;
+    }
+    if (forceStatusTarget === 'POSTED' && (!forceStatusPostedUrl.trim() || !forceStatusPostedPlatform)) {
+      setAdminActionMessage('Error: Posted URL and platform are required for POSTED status');
+      return;
+    }
+
+    setAdminActionLoading(true);
+    setAdminActionMessage(null);
+    try {
+      const payload: Record<string, string> = {
+        target_status: forceStatusTarget,
+        reason: forceStatusReason.trim(),
+      };
+      if (forceStatusTarget === 'POSTED') {
+        payload.posted_url = forceStatusPostedUrl.trim();
+        payload.posted_platform = forceStatusPostedPlatform;
+      }
+
+      const res = await fetch(`/api/admin/videos/${videoId}/force-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAdminActionMessage(`Success: Status forced to ${forceStatusTarget}`);
+        setForceStatusTarget('');
+        setForceStatusReason('');
+        setForceStatusPostedUrl('');
+        setForceStatusPostedPlatform('');
+        fetchData();
+        fetchTimeline();
+      } else {
+        setAdminActionMessage(`Error: ${data.message || data.error || 'Failed to force status'}`);
+      }
+    } catch (err) {
+      setAdminActionMessage('Error: Failed to force status');
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleClearClaim = async () => {
+    if (!clearClaimReason.trim()) {
+      setAdminActionMessage('Error: Reason is required');
+      return;
+    }
+
+    setAdminActionLoading(true);
+    setAdminActionMessage(null);
+    setShowConfirmModal(null);
+    try {
+      const res = await fetch(`/api/admin/videos/${videoId}/clear-claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: clearClaimReason.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAdminActionMessage('Success: Claim cleared');
+        setClearClaimReason('');
+        fetchData();
+        fetchTimeline();
+      } else {
+        setAdminActionMessage(`Error: ${data.message || data.error || 'Failed to clear claim'}`);
+      }
+    } catch (err) {
+      setAdminActionMessage('Error: Failed to clear claim');
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleResetAssignments = async () => {
+    if (!resetReason.trim()) {
+      setAdminActionMessage('Error: Reason is required');
+      return;
+    }
+
+    setAdminActionLoading(true);
+    setAdminActionMessage(null);
+    setShowConfirmModal(null);
+    try {
+      const res = await fetch(`/api/admin/videos/${videoId}/reset-assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: resetMode, reason: resetReason.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAdminActionMessage(`Success: Assignments reset (${resetMode})`);
+        setResetReason('');
+        fetchData();
+        fetchTimeline();
+      } else {
+        setAdminActionMessage(`Error: ${data.message || data.error || 'Failed to reset assignments'}`);
+      }
+    } catch (err) {
+      setAdminActionMessage('Error: Failed to reset assignments');
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
 
   const attachScript = async () => {
     if (!selectedScriptId) return;
@@ -655,6 +777,260 @@ export default function VideoDetailPage() {
         {claimedInfo && (
           <div style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
             Currently claimed by {claimedInfo.claimed_by}
+          </div>
+        )}
+      </section>
+
+      {/* Admin Actions Card */}
+      <section style={{ ...sectionStyle, borderColor: '#e03131', backgroundColor: '#fff5f5' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h2 style={{ marginTop: 0, color: '#c92a2a' }}>Admin Actions</h2>
+          <button
+            onClick={() => setShowAdminActions(!showAdminActions)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: showAdminActions ? '#868e96' : '#e03131',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+            }}
+          >
+            {showAdminActions ? 'Hide' : 'Show Actions'}
+          </button>
+        </div>
+
+        <div style={{ padding: '10px', backgroundColor: '#ffe8cc', border: '1px solid #ffa94d', borderRadius: '4px', marginBottom: '15px', fontSize: '13px' }}>
+          <strong>Warning:</strong> Admin actions are for fixing stuck items only. All actions are logged.
+        </div>
+
+        {adminActionMessage && (
+          <div style={{
+            marginBottom: '15px',
+            padding: '10px',
+            backgroundColor: adminActionMessage.startsWith('Error') ? '#fff5f5' : '#d3f9d8',
+            border: `1px solid ${adminActionMessage.startsWith('Error') ? '#ff8787' : '#69db7c'}`,
+            borderRadius: '4px',
+            color: adminActionMessage.startsWith('Error') ? '#c92a2a' : '#2f9e44',
+            fontSize: '13px',
+          }}>
+            {adminActionMessage}
+          </div>
+        )}
+
+        {showAdminActions && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Force Status */}
+            <div style={{ padding: '15px', backgroundColor: '#fff', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px' }}>Force Status</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Target Status</label>
+                  <select
+                    value={forceStatusTarget}
+                    onChange={(e) => setForceStatusTarget(e.target.value)}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '150px' }}
+                  >
+                    <option value="">Select...</option>
+                    <option value="NOT_RECORDED">NOT_RECORDED</option>
+                    <option value="RECORDED">RECORDED</option>
+                    <option value="EDITED">EDITED</option>
+                    <option value="READY_TO_POST">READY_TO_POST</option>
+                    <option value="POSTED">POSTED</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reason *</label>
+                  <input
+                    type="text"
+                    value={forceStatusReason}
+                    onChange={(e) => setForceStatusReason(e.target.value)}
+                    placeholder="Why is this change needed?"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                  />
+                </div>
+                <button
+                  onClick={handleForceStatus}
+                  disabled={adminActionLoading || !forceStatusTarget || !forceStatusReason.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: forceStatusTarget && forceStatusReason.trim() ? '#e03131' : '#ccc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: forceStatusTarget && forceStatusReason.trim() ? 'pointer' : 'not-allowed',
+                    opacity: adminActionLoading ? 0.7 : 1,
+                  }}
+                >
+                  {adminActionLoading ? 'Processing...' : 'Force Status'}
+                </button>
+              </div>
+              {forceStatusTarget === 'POSTED' && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Posted URL *</label>
+                    <input
+                      type="text"
+                      value={forceStatusPostedUrl}
+                      onChange={(e) => setForceStatusPostedUrl(e.target.value)}
+                      placeholder="https://..."
+                      style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '250px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Platform *</label>
+                    <select
+                      value={forceStatusPostedPlatform}
+                      onChange={(e) => setForceStatusPostedPlatform(e.target.value)}
+                      style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                    >
+                      <option value="">Select...</option>
+                      <option value="tiktok">TikTok</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="youtube">YouTube</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Clear Claim */}
+            <div style={{ padding: '15px', backgroundColor: '#fff', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px' }}>Clear Claim</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reason *</label>
+                  <input
+                    type="text"
+                    value={clearClaimReason}
+                    onChange={(e) => setClearClaimReason(e.target.value)}
+                    placeholder="Why clear this claim?"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                  />
+                </div>
+                <button
+                  onClick={() => clearClaimReason.trim() && setShowConfirmModal('clear-claim')}
+                  disabled={adminActionLoading || !clearClaimReason.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: clearClaimReason.trim() ? '#fd7e14' : '#ccc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: clearClaimReason.trim() ? 'pointer' : 'not-allowed',
+                    opacity: adminActionLoading ? 0.7 : 1,
+                  }}
+                >
+                  Clear Claim...
+                </button>
+              </div>
+            </div>
+
+            {/* Reset Assignments */}
+            <div style={{ padding: '15px', backgroundColor: '#fff', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px' }}>Reset Assignments</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Mode</label>
+                  <select
+                    value={resetMode}
+                    onChange={(e) => setResetMode(e.target.value as 'expire' | 'unassign')}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                  >
+                    <option value="expire">Expire (mark as EXPIRED)</option>
+                    <option value="unassign">Unassign (clear all)</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reason *</label>
+                  <input
+                    type="text"
+                    value={resetReason}
+                    onChange={(e) => setResetReason(e.target.value)}
+                    placeholder="Why reset assignments?"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                  />
+                </div>
+                <button
+                  onClick={() => resetReason.trim() && setShowConfirmModal('reset')}
+                  disabled={adminActionLoading || !resetReason.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: resetReason.trim() ? '#fd7e14' : '#ccc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: resetReason.trim() ? 'pointer' : 'not-allowed',
+                    opacity: adminActionLoading ? 0.7 : 1,
+                  }}
+                >
+                  Reset...
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '25px',
+              borderRadius: '8px',
+              maxWidth: '400px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            }}>
+              <h3 style={{ marginTop: 0, color: '#e03131' }}>Confirm Action</h3>
+              <p style={{ color: '#495057' }}>
+                {showConfirmModal === 'clear-claim'
+                  ? 'Are you sure you want to clear the claim on this video? This action will be logged.'
+                  : `Are you sure you want to ${resetMode === 'expire' ? 'expire' : 'unassign'} this video? This action will be logged.`}
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button
+                  onClick={() => setShowConfirmModal(null)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#868e96',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={showConfirmModal === 'clear-claim' ? handleClearClaim : handleResetAssignments}
+                  disabled={adminActionLoading}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#e03131',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    opacity: adminActionLoading ? 0.7 : 1,
+                  }}
+                >
+                  {adminActionLoading ? 'Processing...' : 'Confirm'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </section>

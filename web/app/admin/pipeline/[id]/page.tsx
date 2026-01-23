@@ -85,6 +85,13 @@ interface Script {
   script_text: string | null;
 }
 
+interface TimelineItem {
+  ts: string;
+  type: 'event' | 'assignment' | 'video_snapshot';
+  label: string;
+  metadata: Record<string, unknown>;
+}
+
 export default function VideoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -125,6 +132,11 @@ export default function VideoDetailPage() {
   });
   const [savingExecution, setSavingExecution] = useState(false);
   const [executionMessage, setExecutionMessage] = useState<string | null>(null);
+
+  // Timeline state
+  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -223,6 +235,31 @@ export default function VideoDetailPage() {
       setScriptsLoading(false);
     }
   }, []);
+
+  const fetchTimeline = useCallback(async () => {
+    if (!videoId) return;
+    setTimelineLoading(true);
+    setTimelineError(null);
+    try {
+      const res = await fetch(`/api/admin/videos/${videoId}/timeline?limit=50`);
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          // Not admin or not authenticated, skip timeline
+          setTimelineItems([]);
+          return;
+        }
+        throw new Error('Failed to fetch timeline');
+      }
+      const data = await res.json();
+      if (data.ok && data.data?.items) {
+        setTimelineItems(data.data.items);
+      }
+    } catch (err) {
+      setTimelineError(err instanceof Error ? err.message : 'Failed to fetch timeline');
+    } finally {
+      setTimelineLoading(false);
+    }
+  }, [videoId]);
 
   const attachScript = async () => {
     if (!selectedScriptId) return;
@@ -390,8 +427,9 @@ export default function VideoDetailPage() {
   useEffect(() => {
     if (adminEnabled === true) {
       fetchData();
+      fetchTimeline();
     }
-  }, [adminEnabled, fetchData]);
+  }, [adminEnabled, fetchData, fetchTimeline]);
 
   useEffect(() => {
     if (showAttachScript) {
@@ -1081,6 +1119,104 @@ export default function VideoDetailPage() {
           <p style={{ color: '#666' }}>No events found for this video</p>
         )}
       </section>
+
+      {/* Timeline Panel (Admin Only) */}
+      {timelineItems.length > 0 && (
+        <section style={{ ...sectionStyle, borderColor: '#6610f2' }}>
+          <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>Timeline</span>
+            <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
+              ({timelineItems.length} items)
+            </span>
+            <button
+              onClick={fetchTimeline}
+              disabled={timelineLoading}
+              style={{
+                marginLeft: 'auto',
+                padding: '4px 10px',
+                fontSize: '12px',
+                backgroundColor: '#6610f2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: timelineLoading ? 'not-allowed' : 'pointer',
+                opacity: timelineLoading ? 0.7 : 1,
+              }}
+            >
+              {timelineLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </h2>
+          {timelineError && (
+            <div style={{ color: 'red', marginBottom: '10px', fontSize: '13px' }}>
+              Error: {timelineError}
+            </div>
+          )}
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {timelineItems.map((item, idx) => {
+              const typeColors: Record<string, { bg: string; border: string; text: string }> = {
+                event: { bg: '#e7f5ff', border: '#74c0fc', text: '#1971c2' },
+                assignment: { bg: '#d3f9d8', border: '#69db7c', text: '#2f9e44' },
+                video_snapshot: { bg: '#fff3bf', border: '#ffd43b', text: '#e67700' },
+              };
+              const colors = typeColors[item.type] || typeColors.event;
+              return (
+                <div
+                  key={`${item.ts}-${idx}`}
+                  style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '10px 12px',
+                    borderBottom: '1px solid #e9ecef',
+                    backgroundColor: idx % 2 === 0 ? '#fafafa' : '#fff',
+                  }}
+                >
+                  <div style={{ minWidth: '140px', fontSize: '12px', color: '#666' }} title={item.ts}>
+                    {hydrated ? new Date(item.ts).toLocaleString() : formatDateString(item.ts)}
+                  </div>
+                  <div style={{ minWidth: '90px' }}>
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.text,
+                        fontSize: '11px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {item.type}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px' }}>
+                      {item.label}
+                    </div>
+                    {item.metadata && Object.keys(item.metadata).length > 0 && (
+                      <details style={{ marginTop: '4px' }}>
+                        <summary style={{ cursor: 'pointer', fontSize: '11px', color: '#1971c2' }}>
+                          Details
+                        </summary>
+                        <pre style={{
+                          marginTop: '4px',
+                          padding: '6px',
+                          backgroundColor: '#f1f3f4',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          overflow: 'auto',
+                          maxHeight: '100px',
+                        }}>
+                          {JSON.stringify(item.metadata, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

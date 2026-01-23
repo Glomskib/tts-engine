@@ -26,18 +26,42 @@ export interface ScriptJson {
   }[];
 }
 
+// All allowed keys in ScriptJson (for strict validation)
+const ALLOWED_SCRIPT_JSON_KEYS = new Set([
+  'hook', 'body', 'cta', 'bullets',
+  'on_screen_text', 'b_roll',
+  'pacing', 'compliance_notes', 'uploader_instructions',
+  'product_tags', 'sections'
+]);
+
 /**
  * Validates that the provided object matches the ScriptJson schema.
  * Returns validation result with errors if invalid.
+ *
+ * @param json - The object to validate
+ * @param options.strict - If true, rejects unknown keys (default: false for backwards compat)
  */
-export function validateScriptJson(json: unknown): { valid: boolean; errors: string[] } {
+export function validateScriptJson(
+  json: unknown,
+  options: { strict?: boolean } = {}
+): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
+  const { strict = false } = options;
 
   if (typeof json !== 'object' || json === null) {
     return { valid: false, errors: ['script_json must be an object'] };
   }
 
   const obj = json as Record<string, unknown>;
+
+  // Strict mode: reject unknown keys
+  if (strict) {
+    for (const key of Object.keys(obj)) {
+      if (!ALLOWED_SCRIPT_JSON_KEYS.has(key)) {
+        errors.push(`Unknown key '${key}' is not allowed`);
+      }
+    }
+  }
 
   // Check optional string fields
   const stringFields = ['hook', 'body', 'cta', 'pacing', 'compliance_notes', 'uploader_instructions'];

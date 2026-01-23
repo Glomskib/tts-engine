@@ -212,8 +212,8 @@ All fields are optional except hook and body. No markdown. No code fences. No ex
 
     console.log(`JSON parse strategy used: ${parseResult.strategy}`);
 
-    // Validate the generated JSON matches our schema
-    const validation = validateScriptJson(parseResult.data);
+    // Validate the generated JSON matches our schema (strict mode rejects unknown keys)
+    const validation = validateScriptJson(parseResult.data, { strict: true });
     if (!validation.valid) {
       const err = apiError("VALIDATION_ERROR", `AI output validation failed: ${validation.errors.join(", ")}`, 500, {
         rawPreview: generatedContent.slice(0, 500),

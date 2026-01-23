@@ -1536,6 +1536,9 @@ export default function VideoDetailPage() {
                 email_sent: { bg: '#d0f0fd', border: '#38bdf8', text: '#0369a1' },
                 email_skipped: { bg: '#fef3c7', border: '#fcd34d', text: '#b45309' },
                 email_failed: { bg: '#fee2e2', border: '#fca5a5', text: '#dc2626' },
+                slack_sent: { bg: '#c6f6d5', border: '#68d391', text: '#22543d' },
+                slack_skipped: { bg: '#e9d8fd', border: '#b794f4', text: '#553c9a' },
+                slack_failed: { bg: '#fed7d7', border: '#fc8181', text: '#c53030' },
                 admin_action: { bg: '#fce7f3', border: '#f9a8d4', text: '#be185d' },
               };
               // Determine display type for styling based on event_type metadata
@@ -1547,6 +1550,12 @@ export default function VideoDetailPage() {
                 displayType = 'email_skipped';
               } else if (eventType === 'email_failed') {
                 displayType = 'email_failed';
+              } else if (eventType === 'slack_sent') {
+                displayType = 'slack_sent';
+              } else if (eventType.startsWith('slack_skipped') || eventType === 'slack_skipped_no_config' || eventType === 'slack_skipped_disabled') {
+                displayType = 'slack_skipped';
+              } else if (eventType === 'slack_failed') {
+                displayType = 'slack_failed';
               } else if (eventType.startsWith('admin_')) {
                 displayType = 'admin_action';
               }
@@ -1580,6 +1589,9 @@ export default function VideoDetailPage() {
                       {displayType === 'email_sent' ? 'email' :
                        displayType === 'email_skipped' ? 'email' :
                        displayType === 'email_failed' ? 'email' :
+                       displayType === 'slack_sent' ? 'slack' :
+                       displayType === 'slack_skipped' ? 'slack' :
+                       displayType === 'slack_failed' ? 'slack' :
                        displayType === 'admin_action' ? 'admin' :
                        item.type}
                     </span>

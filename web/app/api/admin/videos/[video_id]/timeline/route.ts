@@ -161,6 +161,14 @@ export async function GET(request: Request, { params }: RouteParams) {
         label = `Email skipped (disabled): ${event.details?.original_event || "notification"}`;
       } else if (event.event_type === "email_failed") {
         label = `Email failed: ${event.details?.message || "unknown error"}`;
+      } else if (event.event_type === "slack_sent") {
+        label = `Slack sent: ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "slack_skipped_no_config") {
+        label = `Slack skipped (no config): ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "slack_skipped_disabled") {
+        label = `Slack skipped (disabled): ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "slack_failed") {
+        label = `Slack failed: ${event.details?.message || "unknown error"}`;
       }
 
       items.push({

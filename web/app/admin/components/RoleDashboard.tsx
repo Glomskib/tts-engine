@@ -363,6 +363,14 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
         <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>
           Full Pipeline View
         </Link>
+        {authUser.role === 'admin' && (
+          <>
+            <span style={{ color: '#ccc' }}>|</span>
+            <Link href="/admin/ops" style={{ color: '#e03131', fontSize: '13px', fontWeight: 'bold' }}>
+              Ops
+            </Link>
+          </>
+        )}
       </div>
 
       {/* Filters */}

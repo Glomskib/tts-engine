@@ -930,6 +930,15 @@ export default function AdminPipelinePage() {
 
           <NotificationBadge />
 
+          {isUserAdmin && (
+            <>
+              <span style={{ color: '#ccc' }}>|</span>
+              <Link href="/admin/ops" style={{ color: '#e03131', fontSize: '13px', fontWeight: 'bold' }}>
+                Ops
+              </Link>
+            </>
+          )}
+
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
             <input
               type="checkbox"

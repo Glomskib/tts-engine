@@ -49,9 +49,9 @@ export function isSubscriptionGatingEnabled(): boolean {
 
 /**
  * Get the user's subscription plan.
- * Checks:
- * 1. PRO_USER_IDS env allowlist
- * 2. user_profiles table (if plan column exists) - future
+ * Checks (in order):
+ * 1. video_events admin_set_plan events (most recent wins)
+ * 2. PRO_USER_IDS env allowlist
  *
  * Fail-safe: returns { plan: "pro", isActive: true } if gating is not enabled.
  */
@@ -67,26 +67,36 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
 
   const normalizedUserId = userId.toLowerCase();
 
+  // Check video_events for admin_set_plan events (most recent first)
+  try {
+    const { data: planEvent } = await supabaseAdmin
+      .from("video_events")
+      .select("details")
+      .eq("event_type", "admin_set_plan")
+      .eq("actor", normalizedUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (planEvent?.details) {
+      const details = planEvent.details as { plan?: PlanType; is_active?: boolean };
+      if (details.plan === "pro" || details.plan === "free") {
+        return {
+          plan: details.plan,
+          isActive: details.is_active !== false,
+        };
+      }
+    }
+  } catch (err) {
+    // Table doesn't exist or error, fall through to env check
+    console.error("Error checking admin_set_plan events:", err);
+  }
+
   // Check PRO_USER_IDS env allowlist
   const proUserIds = getProUserIds();
   if (proUserIds.has(normalizedUserId)) {
     return { plan: "pro", isActive: true };
   }
-
-  // Future: Check user_profiles table for plan field
-  // This is disabled for now to avoid schema changes
-  // try {
-  //   const { data: profile } = await supabaseAdmin
-  //     .from("user_profiles")
-  //     .select("plan, plan_active")
-  //     .eq("user_id", userId)
-  //     .single();
-  //   if (profile?.plan) {
-  //     return { plan: profile.plan as PlanType, isActive: profile.plan_active ?? true };
-  //   }
-  // } catch {
-  //   // Table or column doesn't exist, continue with default
-  // }
 
   // Default: free plan
   return { plan: "free", isActive: true };

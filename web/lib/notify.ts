@@ -15,7 +15,8 @@ export type NotifyEventType =
   | "assignment_expired"
   | "admin_force_status"
   | "admin_clear_claim"
-  | "admin_reset_assignments";
+  | "admin_reset_assignments"
+  | "admin_set_plan";
 
 // Events that should notify ops via Slack
 const SLACK_OPS_EVENTS: NotifyEventType[] = [
@@ -24,10 +25,11 @@ const SLACK_OPS_EVENTS: NotifyEventType[] = [
   "admin_clear_claim",
   "admin_reset_assignments",
   "assignment_reassigned",
+  "admin_set_plan",
 ];
 
 export interface NotifyPayload {
-  videoId: string;
+  videoId?: string | null;
   // Email-specific
   recipientEmail?: string | null;
   recipientUserId?: string | null;
@@ -46,6 +48,10 @@ export interface NotifyPayload {
   // Additional details
   expiresAt?: string;
   notes?: string | null;
+  // Plan management
+  targetUserId?: string;
+  plan?: string;
+  isActive?: boolean;
   [key: string]: unknown;
 }
 
@@ -147,7 +153,7 @@ function generateEmailContent(
   eventType: NotifyEventType,
   payload: NotifyPayload
 ): { subject: string; html: string } | null {
-  const videoIdShort = payload.videoId.slice(0, 8);
+  const videoIdShort = payload.videoId ? payload.videoId.slice(0, 8) : "N/A";
 
   switch (eventType) {
     case "assigned":
@@ -252,7 +258,7 @@ function generateSlackMessage(
   eventType: NotifyEventType,
   payload: NotifyPayload
 ): { text: string; details: Record<string, string | number | null | undefined> } | null {
-  const videoIdShort = payload.videoId.slice(0, 8);
+  const videoIdShort = payload.videoId ? payload.videoId.slice(0, 8) : "N/A";
 
   switch (eventType) {
     case "assignment_expired":
@@ -308,6 +314,17 @@ function generateSlackMessage(
         },
       };
 
+    case "admin_set_plan":
+      return {
+        text: `👤 Admin Set Plan: ${payload.plan?.toUpperCase() || "?"} for ${payload.targetUserId?.slice(0, 8) || "?"}...`,
+        details: {
+          "Target User": payload.targetUserId,
+          "Plan": payload.plan?.toUpperCase(),
+          "Active": payload.isActive !== false ? "Yes" : "No",
+          "By": payload.performedBy || "Admin",
+        },
+      };
+
     default:
       return null;
   }
@@ -347,14 +364,17 @@ export async function notify(
       }
 
       if (recipientEmail) {
-        // Check cooldown
-        const inCooldown = await checkEmailCooldown(
-          supabaseAdmin,
-          eventType,
-          payload.videoId,
-          recipientEmail,
-          60
-        );
+        // Check cooldown (skip if no videoId)
+        let inCooldown = false;
+        if (payload.videoId) {
+          inCooldown = await checkEmailCooldown(
+            supabaseAdmin,
+            eventType,
+            payload.videoId,
+            recipientEmail,
+            60
+          );
+        }
 
         if (inCooldown) {
           result.channels.email = { ok: true, status: "skipped_disabled", message: "Email cooldown active" };
@@ -371,10 +391,12 @@ export async function notify(
 
             result.channels.email = emailResult;
 
-            // Write event
-            await writeNotifyEvent(payload.videoId, "email", eventType, emailResult, {
-              recipient: recipientEmail,
-            });
+            // Write event (skip if no videoId - event written elsewhere)
+            if (payload.videoId) {
+              await writeNotifyEvent(payload.videoId, "email", eventType, emailResult, {
+                recipient: recipientEmail,
+              });
+            }
           }
         }
       } else {
@@ -389,8 +411,11 @@ export async function notify(
   // === SLACK CHANNEL ===
   try {
     if (isSlackEnabled() && SLACK_OPS_EVENTS.includes(eventType)) {
-      // Check cooldown (5 minutes for Slack to prevent spam)
-      const inCooldown = await checkCooldown("slack", eventType, payload.videoId, 300);
+      // Check cooldown (5 minutes for Slack to prevent spam, skip if no videoId)
+      let inCooldown = false;
+      if (payload.videoId) {
+        inCooldown = await checkCooldown("slack", eventType, payload.videoId, 300);
+      }
 
       if (inCooldown) {
         result.channels.slack = { ok: true, status: "skipped_disabled", message: "Slack cooldown active" };
@@ -404,10 +429,12 @@ export async function notify(
 
           result.channels.slack = slackResult;
 
-          // Write event
-          await writeNotifyEvent(payload.videoId, "slack", eventType, slackResult, {
-            event_type: eventType,
-          });
+          // Write event (skip if no videoId - event written elsewhere)
+          if (payload.videoId) {
+            await writeNotifyEvent(payload.videoId, "slack", eventType, slackResult, {
+              event_type: eventType,
+            });
+          }
         }
       }
     }

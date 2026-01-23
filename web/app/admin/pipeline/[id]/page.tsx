@@ -30,6 +30,13 @@ interface VideoDetail {
   status: string | null;
 }
 
+interface ScriptInfo {
+  id: string;
+  title: string | null;
+  status: string;
+  version: number;
+}
+
 interface Script {
   id: string;
   title: string | null;
@@ -46,6 +53,7 @@ export default function VideoDetailPage() {
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [claimedInfo, setClaimedInfo] = useState<ClaimedVideo | null>(null);
   const [videoDetail, setVideoDetail] = useState<VideoDetail | null>(null);
+  const [linkedScript, setLinkedScript] = useState<ScriptInfo | null>(null);
   const [events, setEvents] = useState<VideoEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -103,6 +111,26 @@ export default function VideoDetailPage() {
       // Set video details (for script info)
       if (videoData.ok && videoData.data) {
         setVideoDetail(videoData.data);
+
+        // If video has a linked script, fetch its current status/version
+        if (videoData.data.script_id) {
+          try {
+            const scriptRes = await fetch(`/api/scripts/${videoData.data.script_id}`);
+            const scriptData = await scriptRes.json();
+            if (scriptData.ok && scriptData.data) {
+              setLinkedScript({
+                id: scriptData.data.id,
+                title: scriptData.data.title,
+                status: scriptData.data.status,
+                version: scriptData.data.version,
+              });
+            }
+          } catch {
+            // Script fetch failed, leave linkedScript null
+          }
+        } else {
+          setLinkedScript(null);
+        }
       }
 
       setError('');
@@ -464,6 +492,16 @@ export default function VideoDetailPage() {
               <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '3px', fontSize: '12px' }}>
                 {videoDetail.script_id}
               </code>
+              {linkedScript && (
+                <>
+                  <span style={{ marginLeft: '10px', padding: '2px 8px', borderRadius: '4px', backgroundColor: linkedScript.status === 'APPROVED' ? '#d4edda' : '#fff3cd', color: linkedScript.status === 'APPROVED' ? '#155724' : '#856404', fontSize: '11px' }}>
+                    {linkedScript.status}
+                  </span>
+                  <span style={{ marginLeft: '6px', color: '#666', fontSize: '12px' }}>
+                    v{linkedScript.version}
+                  </span>
+                </>
+              )}
               <Link href={`/admin/scripts/${videoDetail.script_id}`} style={{ marginLeft: '10px', color: '#0066cc', fontSize: '12px' }}>
                 View Script
               </Link>

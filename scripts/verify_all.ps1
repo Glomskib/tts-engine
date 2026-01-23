@@ -91,6 +91,28 @@ try {
 
 $finalExit = 0
 try {
+    # Script Renderer Unit Tests (runs first, doesn't need dev server)
+    Write-Host "`n[Unit Tests]" -ForegroundColor Yellow
+    $webDir = Join-Path (Split-Path $scriptDir -Parent) "web"
+    $testScript = Join-Path $webDir "scripts\test-script-renderer.ts"
+    if (Test-Path $testScript) {
+        Write-Host "Running script-renderer unit tests..." -ForegroundColor Gray
+        Push-Location $webDir
+        try {
+            & npx tsx scripts/test-script-renderer.ts
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "`nUnit Tests: FAIL" -ForegroundColor Red
+                $finalExit = 1
+                return
+            }
+            Write-Host "`nUnit Tests: PASS" -ForegroundColor Green
+        } finally {
+            Pop-Location
+        }
+    } else {
+        Write-Host "  Skipping (test script not found)" -ForegroundColor Gray
+    }
+
     # Phase 7
     Write-Host "`n[Phase 7]" -ForegroundColor Yellow
     & "$scriptDir\verify_phase7.ps1"

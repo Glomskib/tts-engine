@@ -456,6 +456,10 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
           Sign Out
         </button>
         <span style={{ color: '#ccc' }}>|</span>
+        <Link href={`/admin/${role}/workbench`} style={{ color: '#228be6', fontSize: '13px', fontWeight: 'bold' }}>
+          Workbench
+        </Link>
+        <span style={{ color: '#ccc' }}>|</span>
         <NotificationBadge />
         <span style={{ color: '#ccc' }}>|</span>
         <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>

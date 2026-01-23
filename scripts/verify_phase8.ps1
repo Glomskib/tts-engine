@@ -65,7 +65,7 @@ function Try-ParseJsonString {
 }
 
 # Check 1: Health endpoint
-Write-Host "`n[1/23] Checking /api/health..." -ForegroundColor Yellow
+Write-Host "`n[1/24] Checking /api/health..." -ForegroundColor Yellow
 try {
     $health = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
     if ($health.ok -eq $true) {
@@ -81,7 +81,7 @@ try {
 }
 
 # Check 2: Get accounts to test videos endpoint
-Write-Host "`n[2/23] Fetching accounts for video queries..." -ForegroundColor Yellow
+Write-Host "`n[2/24] Fetching accounts for video queries..." -ForegroundColor Yellow
 try {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Method GET -TimeoutSec 10
     if (-not $accounts.ok -or -not $accounts.data -or $accounts.data.Count -eq 0) {
@@ -98,7 +98,7 @@ try {
 }
 
 # Check 3: Videos status enum validation
-Write-Host "`n[3/23] Validating video status enum..." -ForegroundColor Yellow
+Write-Host "`n[3/24] Validating video status enum..." -ForegroundColor Yellow
 try {
     $videos = Invoke-RestMethod -Uri "$baseUrl/api/videos?account_id=$testAccountId" -Method GET -TimeoutSec 10
     if (-not $videos.ok) {
@@ -126,7 +126,7 @@ try {
 }
 
 # Check 4: No duplicate variant+account in queue states
-Write-Host "`n[4/23] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
+Write-Host "`n[4/24] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
 try {
     $allVideos = @()
     foreach ($account in $accounts.data) {
@@ -163,7 +163,7 @@ try {
 }
 
 # Check 5: Verify Phase 8.2 database objects exist (hosted Supabase)
-Write-Host "`n[5/23] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
+Write-Host "`n[5/24] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
 try {
     # Migration 010: claim endpoints should exist and work for queue videos
     # Create (or dedupe-return) a queue video via API to ensure we have a valid videos.id
@@ -252,7 +252,7 @@ try {
 }
 
 # Check 5b: Test attach-script clears queue blocker
-Write-Host "`n[5b/23] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+Write-Host "`n[5b/24] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
 try {
     # Get an approved script to use for testing
     $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
@@ -330,7 +330,7 @@ try {
 }
 
 # Check 6: Test duplicate prevention via API (index enforcement)
-Write-Host "`n[6/23] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
+Write-Host "`n[6/24] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {
     # Get a variant to test with
     $variants = Invoke-RestMethod -Uri "$baseUrl/api/variants" -Method GET -TimeoutSec 10
@@ -378,7 +378,7 @@ try {
 Write-Host "  PASS: API duplicate prevention check completed" -ForegroundColor Green
 
 # Check 7: Stress-checking DB-level queue dedupe (migration 008) via race
-Write-Host "`n[7/23] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
+Write-Host "`n[7/24] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
 # This attempts to create the same queue item twice concurrently.
 # If the DB unique partial index exists, at worst one insert succeeds and the other returns existing/duplicate behavior.
 # If the DB constraint is missing AND API check is bypassed, both can insert (we want to catch that).
@@ -434,7 +434,7 @@ if ($null -eq $queueCandidate) {
 }
 
 # Check 8: Claim workflow test
-Write-Host "`n[8/23] Testing claim workflow..." -ForegroundColor Yellow
+Write-Host "`n[8/24] Testing claim workflow..." -ForegroundColor Yellow
 try {
     # Get first unclaimed queue video
     $queueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -510,7 +510,7 @@ try {
 }
 
 # Check 9: Execution gating workflow test
-Write-Host "`n[9/23] Testing execution gating workflow..." -ForegroundColor Yellow
+Write-Host "`n[9/24] Testing execution gating workflow..." -ForegroundColor Yellow
 try {
     # Use the same test video from Check 5 (which has a script attached)
     # Ensure it has a locked script
@@ -631,7 +631,7 @@ try {
 }
 
 # Check 10: Role-based claim enforcement and handoff workflow
-Write-Host "`n[10/23] Testing role-based claim enforcement..." -ForegroundColor Yellow
+Write-Host "`n[10/24] Testing role-based claim enforcement..." -ForegroundColor Yellow
 try {
     # First check if claim_role column exists by attempting a claim with role
     $testClaimBody = @{ claimed_by = "migration_check"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
@@ -874,7 +874,7 @@ try {
 }
 
 # Check 11: Actor validation and admin-only force bypass
-Write-Host "`n[11/23] Testing actor validation and admin-only force..." -ForegroundColor Yellow
+Write-Host "`n[11/24] Testing actor validation and admin-only force..." -ForegroundColor Yellow
 try {
     # Find a video with script for testing
     $queueForActor = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
@@ -1019,7 +1019,7 @@ try {
 }
 
 # Check 12: claim_role is now required for claims
-Write-Host "`n[12/23] Testing claim_role requirement..." -ForegroundColor Yellow
+Write-Host "`n[12/24] Testing claim_role requirement..." -ForegroundColor Yellow
 try {
     # Find an unclaimed video
     $queueForClaimRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -1074,7 +1074,7 @@ try {
 }
 
 # Check 13: SLA fields in queue API
-Write-Host "`n[13/23] Testing SLA fields in queue API..." -ForegroundColor Yellow
+Write-Host "`n[13/24] Testing SLA fields in queue API..." -ForegroundColor Yellow
 try {
     $slaQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?sort=priority&limit=10" -Method GET -TimeoutSec 10
     if (-not $slaQueueResult.ok) {
@@ -1144,7 +1144,7 @@ try {
 }
 
 # Check 14: Role dashboard routes exist
-Write-Host "`n[14/23] Testing role dashboard routes..." -ForegroundColor Yellow
+Write-Host "`n[14/24] Testing role dashboard routes..." -ForegroundColor Yellow
 try {
     # These routes require authentication, so we just check they don't return 500
     # They should redirect to login (302) or return the page (200)
@@ -1184,7 +1184,7 @@ try {
 }
 
 # Check 15: Notifications API endpoint
-Write-Host "`n[15/23] Testing notifications API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[15/24] Testing notifications API endpoint..." -ForegroundColor Yellow
 try {
     # The notifications endpoint requires auth, so without a session we expect 401
     # We're just checking the endpoint exists and returns proper error
@@ -1215,7 +1215,7 @@ try {
 }
 
 # Check 16: Assignment API endpoint
-Write-Host "`n[16/23] Testing assignment API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[16/24] Testing assignment API endpoint..." -ForegroundColor Yellow
 try {
     # Find a video to test with
     $assignQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=1" -Method GET -TimeoutSec 10
@@ -1261,7 +1261,7 @@ try {
 }
 
 # Check 17: Ops Metrics API endpoint (admin-only)
-Write-Host "`n[17/23] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[17/24] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
 try {
     # The ops-metrics endpoint requires admin auth, so without a session we expect 403
     $opsMetricsResult = $null
@@ -1338,7 +1338,7 @@ try {
 }
 
 # Check 18: Dispatch and assignment enforcement (skip if migration 019 not applied)
-Write-Host "`n[18/23] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
+Write-Host "`n[18/24] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
 try {
     # First test: dispatch endpoint exists and requires auth
     $dispatchStatusCode = 0
@@ -1400,7 +1400,7 @@ try {
 }
 
 # Check 19: Workbench routes and auto-handoff
-Write-Host "`n[19/23] Testing workbench routes and auto-handoff..." -ForegroundColor Yellow
+Write-Host "`n[19/24] Testing workbench routes and auto-handoff..." -ForegroundColor Yellow
 try {
     # Test workbench routes exist
     $workbenchRoutes = @("/admin/recorder/workbench", "/admin/editor/workbench", "/admin/uploader/workbench")
@@ -1480,7 +1480,7 @@ try {
 }
 
 # Check 20: Assignment expiry and sweep endpoint
-Write-Host "`n[20/23] Testing assignment expiry and sweep endpoint..." -ForegroundColor Yellow
+Write-Host "`n[20/24] Testing assignment expiry and sweep endpoint..." -ForegroundColor Yellow
 try {
     # Test notifications endpoint (requires auth, so expect 401 without)
     $notifStatusCode = 0
@@ -1528,7 +1528,7 @@ try {
 }
 
 # Check 21: Admin assignment dashboard endpoints
-Write-Host "`n[21/23] Testing admin assignment dashboard endpoints..." -ForegroundColor Yellow
+Write-Host "`n[21/24] Testing admin assignment dashboard endpoints..." -ForegroundColor Yellow
 try {
     # Test GET /api/admin/assignments (admin-only, expect 401/403 without auth)
     $assignmentsStatusCode = 0
@@ -1639,7 +1639,7 @@ try {
 }
 
 # Check 22: Admin events explorer and video timeline endpoints
-Write-Host "`n[22/23] Testing admin events explorer and video timeline..." -ForegroundColor Yellow
+Write-Host "`n[22/24] Testing admin events explorer and video timeline..." -ForegroundColor Yellow
 try {
     # Test GET /api/admin/events (admin-only, expect 401 without auth)
     $eventsStatusCode = 0
@@ -1708,7 +1708,7 @@ try {
 }
 
 # Check 23: Admin force-status, clear-claim, reset-assignments endpoints
-Write-Host "`n[23/23] Testing admin force-status, clear-claim, reset-assignments..." -ForegroundColor Yellow
+Write-Host "`n[23/24] Testing admin force-status, clear-claim, reset-assignments..." -ForegroundColor Yellow
 try {
     # Test POST /api/admin/videos/[id]/force-status (admin-only, expect 401 without auth)
     $forceStatusCode = 0
@@ -1778,7 +1778,123 @@ try {
     Write-Host "  WARN: Admin data repair tools test error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[23/23] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 24: Email notification module verification
+Write-Host "`n[24/24] Testing email notification module..." -ForegroundColor Yellow
+try {
+    # Verify email.ts exists
+    $emailModulePath = Join-Path $webDir "lib/email.ts"
+    if (-not (Test-Path $emailModulePath)) {
+        Write-Host "  FAIL: Email module not found at $emailModulePath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    Email module exists at lib/email.ts - OK" -ForegroundColor Gray
+
+    # Verify email-notifications.ts exists
+    $emailNotificationsPath = Join-Path $webDir "lib/email-notifications.ts"
+    if (-not (Test-Path $emailNotificationsPath)) {
+        Write-Host "  FAIL: Email notifications module not found at $emailNotificationsPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    Email notifications module exists at lib/email-notifications.ts - OK" -ForegroundColor Gray
+
+    # Verify email.ts exports required functions
+    $emailContent = Get-Content $emailModulePath -Raw
+    if ($emailContent -notmatch "export\s+(async\s+)?function\s+sendEmail") {
+        Write-Host "  FAIL: sendEmail function not exported from email.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    sendEmail function exported - OK" -ForegroundColor Gray
+
+    if ($emailContent -notmatch "export\s+function\s+isEmailEnabled") {
+        Write-Host "  FAIL: isEmailEnabled function not exported from email.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    isEmailEnabled function exported - OK" -ForegroundColor Gray
+
+    if ($emailContent -notmatch "export\s+function\s+getEmailConfig") {
+        Write-Host "  FAIL: getEmailConfig function not exported from email.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    getEmailConfig function exported - OK" -ForegroundColor Gray
+
+    if ($emailContent -notmatch "export\s+(async\s+)?function\s+checkEmailCooldown") {
+        Write-Host "  FAIL: checkEmailCooldown function not exported from email.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    checkEmailCooldown function exported - OK" -ForegroundColor Gray
+
+    # Verify email-notifications.ts exports required functions
+    $notificationsContent = Get-Content $emailNotificationsPath -Raw
+    if ($notificationsContent -notmatch "export\s+(async\s+)?function\s+triggerEmailNotification") {
+        Write-Host "  FAIL: triggerEmailNotification function not exported from email-notifications.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    triggerEmailNotification function exported - OK" -ForegroundColor Gray
+
+    if ($notificationsContent -notmatch "export\s+(async\s+)?function\s+sendAssignmentEmail") {
+        Write-Host "  FAIL: sendAssignmentEmail function not exported from email-notifications.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    sendAssignmentEmail function exported - OK" -ForegroundColor Gray
+
+    if ($notificationsContent -notmatch "export\s+(async\s+)?function\s+sendExpiryNotificationEmail") {
+        Write-Host "  FAIL: sendExpiryNotificationEmail function not exported from email-notifications.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    sendExpiryNotificationEmail function exported - OK" -ForegroundColor Gray
+
+    if ($notificationsContent -notmatch "export\s+(async\s+)?function\s+sendAdminActionEmail") {
+        Write-Host "  FAIL: sendAdminActionEmail function not exported from email-notifications.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    sendAdminActionEmail function exported - OK" -ForegroundColor Gray
+
+    # Verify fail-safe design (checks for isEmailEnabled)
+    if ($notificationsContent -notmatch "isEmailEnabled\(\)") {
+        Write-Host "  FAIL: email-notifications.ts does not check isEmailEnabled() for fail-safe" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    Fail-safe isEmailEnabled() check present - OK" -ForegroundColor Gray
+
+    # Verify email triggers are integrated in dispatch route
+    $dispatchPath = Join-Path $webDir "app/api/videos/dispatch/route.ts"
+    if (Test-Path $dispatchPath) {
+        $dispatchContent = Get-Content $dispatchPath -Raw
+        if ($dispatchContent -match "triggerEmailNotification") {
+            Write-Host "    Email trigger integrated in dispatch route - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: triggerEmailNotification not found in dispatch route" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify email triggers are integrated in reassign route
+    $reassignPath = Join-Path $webDir "app/api/admin/assignments/[video_id]/reassign/route.ts"
+    if (Test-Path $reassignPath) {
+        $reassignContent = Get-Content $reassignPath -Raw
+        if ($reassignContent -match "triggerEmailNotification") {
+            Write-Host "    Email trigger integrated in reassign route - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: triggerEmailNotification not found in reassign route" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify email events show in timeline API
+    $timelinePath = Join-Path $webDir "app/api/admin/videos/[video_id]/timeline/route.ts"
+    if (Test-Path $timelinePath) {
+        $timelineContent = Get-Content $timelinePath -Raw
+        if ($timelineContent -match "email_sent|email_skipped|email_failed") {
+            Write-Host "    Email event labels in timeline API - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: email event labels not found in timeline API" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Email notification module verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Email module test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[24/24] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

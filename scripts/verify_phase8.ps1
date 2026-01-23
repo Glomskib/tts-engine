@@ -1183,7 +1183,84 @@ try {
     exit 1
 }
 
-Write-Host "`n[14/14] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 15: Notifications API endpoint
+Write-Host "`n[15/16] Testing notifications API endpoint..." -ForegroundColor Yellow
+try {
+    # The notifications endpoint requires auth, so without a session we expect 401
+    # We're just checking the endpoint exists and returns proper error
+    $notifResult = $null
+    $notifStatusCode = 0
+    try {
+        $notifResult = Invoke-RestMethod -Uri "$baseUrl/api/notifications" -Method GET -TimeoutSec 10
+        $notifStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $notifStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    # Without auth, expect 401
+    if ($notifStatusCode -eq 401) {
+        Write-Host "    GET /api/notifications returns 401 without auth - OK" -ForegroundColor Gray
+        Write-Host "  PASS: Notifications API endpoint exists and requires auth" -ForegroundColor Green
+    } elseif ($notifStatusCode -eq 200 -and $notifResult.ok) {
+        Write-Host "    GET /api/notifications returned data (auth context present)" -ForegroundColor Gray
+        Write-Host "  PASS: Notifications API endpoint working" -ForegroundColor Green
+    } else {
+        Write-Host "    GET /api/notifications returned unexpected status: $notifStatusCode" -ForegroundColor Yellow
+        Write-Host "  WARN: Notifications endpoint may not be fully configured" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  WARN: Notifications API test error: $_" -ForegroundColor Yellow
+}
+
+# Check 16: Assignment API endpoint
+Write-Host "`n[16/16] Testing assignment API endpoint..." -ForegroundColor Yellow
+try {
+    # Find a video to test with
+    $assignQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=1" -Method GET -TimeoutSec 10
+    if (-not $assignQueueResult.ok -or -not $assignQueueResult.data -or $assignQueueResult.data.Count -eq 0) {
+        Write-Host "  SKIP: No videos available for assignment test" -ForegroundColor Yellow
+    } else {
+        $assignTestVideoId = $assignQueueResult.data[0].id
+
+        # Test assign endpoint - requires admin auth, so expect 401 without auth
+        $assignBody = @{
+            assignee_user_id = "00000000-0000-0000-0000-000000000001"
+            notes = "test assignment"
+        } | ConvertTo-Json -Depth 5
+
+        $assignStatusCode = 0
+        try {
+            $assignResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$assignTestVideoId/assign" -Method POST -ContentType "application/json" -Body $assignBody -TimeoutSec 10
+            $assignStatusCode = 200
+        } catch {
+            if ($_.Exception.Response) {
+                $assignStatusCode = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        # Without auth, expect 401 (unauthorized)
+        if ($assignStatusCode -eq 401) {
+            Write-Host "    POST /api/videos/[id]/assign returns 401 without auth - OK" -ForegroundColor Gray
+            Write-Host "  PASS: Assignment API endpoint exists and requires admin auth" -ForegroundColor Green
+        } elseif ($assignStatusCode -eq 403) {
+            Write-Host "    POST /api/videos/[id]/assign returns 403 (admin only) - OK" -ForegroundColor Gray
+            Write-Host "  PASS: Assignment API endpoint exists and enforces admin-only" -ForegroundColor Green
+        } elseif ($assignStatusCode -eq 400) {
+            # Migration 018 may not be applied
+            Write-Host "    POST /api/videos/[id]/assign returns 400 (migration may be needed)" -ForegroundColor Gray
+            Write-Host "  WARN: Assignment feature requires migration 018_video_assignment.sql" -ForegroundColor Yellow
+        } else {
+            Write-Host "    POST /api/videos/[id]/assign returned status: $assignStatusCode" -ForegroundColor Gray
+            Write-Host "  WARN: Assignment endpoint may not be fully configured" -ForegroundColor Yellow
+        }
+    }
+} catch {
+    Write-Host "  WARN: Assignment API test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[16/16] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

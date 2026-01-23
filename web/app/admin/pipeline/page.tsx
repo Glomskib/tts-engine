@@ -29,6 +29,8 @@ interface VideoEvent {
   created_at: string;
 }
 
+type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
+
 interface QueueVideo {
   id: string;
   variant_id: string;
@@ -59,6 +61,11 @@ interface QueueVideo {
   can_mark_ready_to_post: boolean;
   can_mark_posted: boolean;
   required_fields: string[];
+  // SLA fields
+  sla_deadline_at: string | null;
+  sla_status: SlaStatus;
+  age_minutes_in_stage: number;
+  priority_score: number;
 }
 
 interface AvailableScript {
@@ -106,6 +113,20 @@ function getStatusBadgeColor(status: string | null): { bg: string; border: strin
       return { bg: '#ffe3e3', border: '#ff8787', badge: '#e03131' };
     default:
       return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+  }
+}
+
+// SLA badge colors
+function getSlaColor(status: SlaStatus): { bg: string; text: string; border: string } {
+  switch (status) {
+    case 'overdue':
+      return { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' };
+    case 'due_soon':
+      return { bg: '#fff3bf', text: '#e67700', border: '#ffd43b' };
+    case 'on_track':
+      return { bg: '#d3f9d8', text: '#2b8a3e', border: '#69db7c' };
+    default:
+      return { bg: '#f8f9fa', text: '#495057', border: '#dee2e6' };
   }
 }
 
@@ -1000,6 +1021,7 @@ export default function AdminPipelinePage() {
           <table style={tableStyle}>
             <thead>
               <tr>
+                <th style={thStyle}>SLA</th>
                 <th style={thStyle}>Video ID</th>
                 <th style={thStyle}>Recording Status</th>
                 <th style={thStyle}>Next Action</th>
@@ -1012,6 +1034,7 @@ export default function AdminPipelinePage() {
             <tbody>
               {queueVideos.map((video) => {
                 const statusColors = getStatusBadgeColor(video.recording_status);
+                const slaColors = getSlaColor(video.sla_status);
                 const claimedByOther = isClaimedByOther(video);
                 const claimedByMe = isClaimedByMe(video);
                 const unclaimed = isUnclaimed(video);
@@ -1020,6 +1043,22 @@ export default function AdminPipelinePage() {
 
                 return (
                   <tr key={video.id} style={{ backgroundColor: claimedByMe ? '#e8f5e9' : claimedByOther ? '#fff3e0' : 'transparent' }}>
+                    <td style={tdStyle}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: slaColors.bg,
+                        color: slaColors.text,
+                        border: `1px solid ${slaColors.border}`,
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                      }}>
+                        {video.sla_status === 'overdue' ? 'OVERDUE' :
+                         video.sla_status === 'due_soon' ? 'DUE SOON' : 'ON TRACK'}
+                      </span>
+                    </td>
                     <td style={copyableCellStyle}>
                       <Link href={`/admin/pipeline/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
                         {video.id.slice(0, 8)}...

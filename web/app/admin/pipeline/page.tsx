@@ -316,7 +316,7 @@ export default function AdminPipelinePage() {
               {filteredClaimedVideos.map((video) => (
                 <tr key={video.id}>
                   <td style={copyableCellStyle}>
-                    <Link href={`/admin/pipeline/video/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
+                    <Link href={`/admin/pipeline/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
                       {video.id.slice(0, 8)}...
                     </Link>
                     <span
@@ -361,7 +361,7 @@ export default function AdminPipelinePage() {
                   <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
                   <td style={copyableCellStyle}>
-                    <Link href={`/admin/pipeline/video/${event.video_id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
+                    <Link href={`/admin/pipeline/${event.video_id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
                       {event.video_id.slice(0, 8)}...
                     </Link>
                     <span

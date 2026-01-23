@@ -65,7 +65,7 @@ function Try-ParseJsonString {
 }
 
 # Check 1: Health endpoint
-Write-Host "`n[1/25] Checking /api/health..." -ForegroundColor Yellow
+Write-Host "`n[1/26] Checking /api/health..." -ForegroundColor Yellow
 try {
     $health = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
     if ($health.ok -eq $true) {
@@ -81,7 +81,7 @@ try {
 }
 
 # Check 2: Get accounts to test videos endpoint
-Write-Host "`n[2/25] Fetching accounts for video queries..." -ForegroundColor Yellow
+Write-Host "`n[2/26] Fetching accounts for video queries..." -ForegroundColor Yellow
 try {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Method GET -TimeoutSec 10
     if (-not $accounts.ok -or -not $accounts.data -or $accounts.data.Count -eq 0) {
@@ -98,7 +98,7 @@ try {
 }
 
 # Check 3: Videos status enum validation
-Write-Host "`n[3/25] Validating video status enum..." -ForegroundColor Yellow
+Write-Host "`n[3/26] Validating video status enum..." -ForegroundColor Yellow
 try {
     $videos = Invoke-RestMethod -Uri "$baseUrl/api/videos?account_id=$testAccountId" -Method GET -TimeoutSec 10
     if (-not $videos.ok) {
@@ -126,7 +126,7 @@ try {
 }
 
 # Check 4: No duplicate variant+account in queue states
-Write-Host "`n[4/25] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
+Write-Host "`n[4/26] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
 try {
     $allVideos = @()
     foreach ($account in $accounts.data) {
@@ -163,7 +163,7 @@ try {
 }
 
 # Check 5: Verify Phase 8.2 database objects exist (hosted Supabase)
-Write-Host "`n[5/25] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
+Write-Host "`n[5/26] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
 try {
     # Migration 010: claim endpoints should exist and work for queue videos
     # Create (or dedupe-return) a queue video via API to ensure we have a valid videos.id
@@ -252,7 +252,7 @@ try {
 }
 
 # Check 5b: Test attach-script clears queue blocker
-Write-Host "`n[5b/25] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+Write-Host "`n[5b/26] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
 try {
     # Get an approved script to use for testing
     $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
@@ -330,7 +330,7 @@ try {
 }
 
 # Check 6: Test duplicate prevention via API (index enforcement)
-Write-Host "`n[6/25] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
+Write-Host "`n[6/26] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {
     # Get a variant to test with
     $variants = Invoke-RestMethod -Uri "$baseUrl/api/variants" -Method GET -TimeoutSec 10
@@ -378,7 +378,7 @@ try {
 Write-Host "  PASS: API duplicate prevention check completed" -ForegroundColor Green
 
 # Check 7: Stress-checking DB-level queue dedupe (migration 008) via race
-Write-Host "`n[7/25] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
+Write-Host "`n[7/26] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
 # This attempts to create the same queue item twice concurrently.
 # If the DB unique partial index exists, at worst one insert succeeds and the other returns existing/duplicate behavior.
 # If the DB constraint is missing AND API check is bypassed, both can insert (we want to catch that).
@@ -434,7 +434,7 @@ if ($null -eq $queueCandidate) {
 }
 
 # Check 8: Claim workflow test
-Write-Host "`n[8/25] Testing claim workflow..." -ForegroundColor Yellow
+Write-Host "`n[8/26] Testing claim workflow..." -ForegroundColor Yellow
 try {
     # Get first unclaimed queue video
     $queueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -510,7 +510,7 @@ try {
 }
 
 # Check 9: Execution gating workflow test
-Write-Host "`n[9/25] Testing execution gating workflow..." -ForegroundColor Yellow
+Write-Host "`n[9/26] Testing execution gating workflow..." -ForegroundColor Yellow
 try {
     # Use the same test video from Check 5 (which has a script attached)
     # Ensure it has a locked script
@@ -631,7 +631,7 @@ try {
 }
 
 # Check 10: Role-based claim enforcement and handoff workflow
-Write-Host "`n[10/25] Testing role-based claim enforcement..." -ForegroundColor Yellow
+Write-Host "`n[10/26] Testing role-based claim enforcement..." -ForegroundColor Yellow
 try {
     # First check if claim_role column exists by attempting a claim with role
     $testClaimBody = @{ claimed_by = "migration_check"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
@@ -874,7 +874,7 @@ try {
 }
 
 # Check 11: Actor validation and admin-only force bypass
-Write-Host "`n[11/25] Testing actor validation and admin-only force..." -ForegroundColor Yellow
+Write-Host "`n[11/26] Testing actor validation and admin-only force..." -ForegroundColor Yellow
 try {
     # Find a video with script for testing
     $queueForActor = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
@@ -1019,7 +1019,7 @@ try {
 }
 
 # Check 12: claim_role is now required for claims
-Write-Host "`n[12/25] Testing claim_role requirement..." -ForegroundColor Yellow
+Write-Host "`n[12/26] Testing claim_role requirement..." -ForegroundColor Yellow
 try {
     # Find an unclaimed video
     $queueForClaimRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -1074,7 +1074,7 @@ try {
 }
 
 # Check 13: SLA fields in queue API
-Write-Host "`n[13/25] Testing SLA fields in queue API..." -ForegroundColor Yellow
+Write-Host "`n[13/26] Testing SLA fields in queue API..." -ForegroundColor Yellow
 try {
     $slaQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?sort=priority&limit=10" -Method GET -TimeoutSec 10
     if (-not $slaQueueResult.ok) {
@@ -1144,7 +1144,7 @@ try {
 }
 
 # Check 14: Role dashboard routes exist
-Write-Host "`n[14/25] Testing role dashboard routes..." -ForegroundColor Yellow
+Write-Host "`n[14/26] Testing role dashboard routes..." -ForegroundColor Yellow
 try {
     # These routes require authentication, so we just check they don't return 500
     # They should redirect to login (302) or return the page (200)
@@ -1184,7 +1184,7 @@ try {
 }
 
 # Check 15: Notifications API endpoint
-Write-Host "`n[15/25] Testing notifications API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[15/26] Testing notifications API endpoint..." -ForegroundColor Yellow
 try {
     # The notifications endpoint requires auth, so without a session we expect 401
     # We're just checking the endpoint exists and returns proper error
@@ -1215,7 +1215,7 @@ try {
 }
 
 # Check 16: Assignment API endpoint
-Write-Host "`n[16/25] Testing assignment API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[16/26] Testing assignment API endpoint..." -ForegroundColor Yellow
 try {
     # Find a video to test with
     $assignQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=1" -Method GET -TimeoutSec 10
@@ -1261,7 +1261,7 @@ try {
 }
 
 # Check 17: Ops Metrics API endpoint (admin-only)
-Write-Host "`n[17/25] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[17/26] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
 try {
     # The ops-metrics endpoint requires admin auth, so without a session we expect 403
     $opsMetricsResult = $null
@@ -1338,7 +1338,7 @@ try {
 }
 
 # Check 18: Dispatch and assignment enforcement (skip if migration 019 not applied)
-Write-Host "`n[18/25] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
+Write-Host "`n[18/26] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
 try {
     # First test: dispatch endpoint exists and requires auth
     $dispatchStatusCode = 0
@@ -1400,7 +1400,7 @@ try {
 }
 
 # Check 19: Workbench routes and auto-handoff
-Write-Host "`n[19/25] Testing workbench routes and auto-handoff..." -ForegroundColor Yellow
+Write-Host "`n[19/26] Testing workbench routes and auto-handoff..." -ForegroundColor Yellow
 try {
     # Test workbench routes exist
     $workbenchRoutes = @("/admin/recorder/workbench", "/admin/editor/workbench", "/admin/uploader/workbench")
@@ -1480,7 +1480,7 @@ try {
 }
 
 # Check 20: Assignment expiry and sweep endpoint
-Write-Host "`n[20/25] Testing assignment expiry and sweep endpoint..." -ForegroundColor Yellow
+Write-Host "`n[20/26] Testing assignment expiry and sweep endpoint..." -ForegroundColor Yellow
 try {
     # Test notifications endpoint (requires auth, so expect 401 without)
     $notifStatusCode = 0
@@ -1528,7 +1528,7 @@ try {
 }
 
 # Check 21: Admin assignment dashboard endpoints
-Write-Host "`n[21/25] Testing admin assignment dashboard endpoints..." -ForegroundColor Yellow
+Write-Host "`n[21/26] Testing admin assignment dashboard endpoints..." -ForegroundColor Yellow
 try {
     # Test GET /api/admin/assignments (admin-only, expect 401/403 without auth)
     $assignmentsStatusCode = 0
@@ -1639,7 +1639,7 @@ try {
 }
 
 # Check 22: Admin events explorer and video timeline endpoints
-Write-Host "`n[22/25] Testing admin events explorer and video timeline..." -ForegroundColor Yellow
+Write-Host "`n[22/26] Testing admin events explorer and video timeline..." -ForegroundColor Yellow
 try {
     # Test GET /api/admin/events (admin-only, expect 401 without auth)
     $eventsStatusCode = 0
@@ -1708,7 +1708,7 @@ try {
 }
 
 # Check 23: Admin force-status, clear-claim, reset-assignments endpoints
-Write-Host "`n[23/25] Testing admin force-status, clear-claim, reset-assignments..." -ForegroundColor Yellow
+Write-Host "`n[23/26] Testing admin force-status, clear-claim, reset-assignments..." -ForegroundColor Yellow
 try {
     # Test POST /api/admin/videos/[id]/force-status (admin-only, expect 401 without auth)
     $forceStatusCode = 0
@@ -1779,7 +1779,7 @@ try {
 }
 
 # Check 24: Email notification module verification
-Write-Host "`n[24/25] Testing email notification module..." -ForegroundColor Yellow
+Write-Host "`n[24/26] Testing email notification module..." -ForegroundColor Yellow
 try {
     # Verify email.ts exists
     $emailModulePath = Join-Path $webDir "lib/email.ts"
@@ -1895,7 +1895,7 @@ try {
 }
 
 # Check 25: Slack notification module and unified notify router verification
-Write-Host "`n[25/25] Testing Slack notification module and notify router..." -ForegroundColor Yellow
+Write-Host "`n[25/26] Testing Slack notification module and notify router..." -ForegroundColor Yellow
 try {
     # Verify slack.ts exists
     $slackModulePath = Join-Path $webDir "lib/slack.ts"
@@ -2016,7 +2016,130 @@ try {
     Write-Host "  WARN: Slack/notify module test error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[25/25] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 26: Subscription gating module verification
+Write-Host "`n[26/26] Testing subscription gating module..." -ForegroundColor Yellow
+try {
+    # Verify subscription.ts exists
+    $subscriptionModulePath = Join-Path $webDir "lib/subscription.ts"
+    if (-not (Test-Path $subscriptionModulePath)) {
+        Write-Host "  FAIL: Subscription module not found at $subscriptionModulePath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    Subscription module exists at lib/subscription.ts - OK" -ForegroundColor Gray
+
+    # Verify subscription.ts exports required functions
+    $subscriptionContent = Get-Content $subscriptionModulePath -Raw
+    if ($subscriptionContent -notmatch "export\s+(async\s+)?function\s+getUserPlan") {
+        Write-Host "  FAIL: getUserPlan function not exported from subscription.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    getUserPlan function exported - OK" -ForegroundColor Gray
+
+    if ($subscriptionContent -notmatch "export\s+(async\s+)?function\s+isProUser") {
+        Write-Host "  FAIL: isProUser function not exported from subscription.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    isProUser function exported - OK" -ForegroundColor Gray
+
+    if ($subscriptionContent -notmatch "export\s+(async\s+)?function\s+canPerformGatedAction") {
+        Write-Host "  FAIL: canPerformGatedAction function not exported from subscription.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    canPerformGatedAction function exported - OK" -ForegroundColor Gray
+
+    if ($subscriptionContent -notmatch "export\s+function\s+isSubscriptionGatingEnabled") {
+        Write-Host "  FAIL: isSubscriptionGatingEnabled function not exported from subscription.ts" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    isSubscriptionGatingEnabled function exported - OK" -ForegroundColor Gray
+
+    # Verify fail-safe design (admin bypass check)
+    if ($subscriptionContent -notmatch "isAdmin") {
+        Write-Host "  FAIL: subscription.ts does not check isAdmin for bypass" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    Admin bypass check present - OK" -ForegroundColor Gray
+
+    # Verify dispatch route has subscription gating
+    $dispatchPath = Join-Path $webDir "app/api/videos/dispatch/route.ts"
+    if (Test-Path $dispatchPath) {
+        $dispatchContent = Get-Content $dispatchPath -Raw
+        if ($dispatchContent -match "canPerformGatedAction") {
+            Write-Host "    Subscription gating integrated in dispatch route - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: canPerformGatedAction not found in dispatch route" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify execution route has subscription gating
+    $executionPath = Join-Path $webDir "app/api/videos/[id]/execution/route.ts"
+    if (Test-Path $executionPath) {
+        $executionContent = Get-Content $executionPath -Raw
+        if ($executionContent -match "canPerformGatedAction") {
+            Write-Host "    Subscription gating integrated in execution route - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: canPerformGatedAction not found in execution route" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify workbench handles subscription_required
+    $workbenchPath = Join-Path $webDir "app/admin/components/RoleWorkbench.tsx"
+    if (Test-Path $workbenchPath) {
+        $workbenchContent = Get-Content $workbenchPath -Raw
+        if ($workbenchContent -match "subscription_required") {
+            Write-Host "    Workbench UI handles subscription_required - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: subscription_required handling not found in workbench" -ForegroundColor Yellow
+        }
+        if ($workbenchContent -match "subscriptionRequired") {
+            Write-Host "    Workbench has subscriptionRequired state - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: subscriptionRequired state not found in workbench" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify dispatch returns 401 without auth (existing behavior preserved)
+    $dispatchStatusCode = 0
+    try {
+        $dispatchResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/dispatch" -Method POST -ContentType "application/json" -Body '{"role":"recorder"}' -TimeoutSec 10
+        $dispatchStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $dispatchStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    if ($dispatchStatusCode -eq 401) {
+        Write-Host "    POST /api/videos/dispatch returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    POST /api/videos/dispatch returned status: $dispatchStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify execution returns 401 without auth (existing behavior preserved)
+    $executionStatusCode = 0
+    try {
+        $executionResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/00000000-0000-0000-0000-000000000001/execution" -Method PUT -ContentType "application/json" -Body '{"recording_status":"RECORDED"}' -TimeoutSec 10
+        $executionStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $executionStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    if ($executionStatusCode -eq 401) {
+        Write-Host "    PUT /api/videos/[id]/execution returns 401 without auth - OK" -ForegroundColor Gray
+    } elseif ($executionStatusCode -eq 404) {
+        Write-Host "    PUT /api/videos/[id]/execution returns 404 (video not found) - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    PUT /api/videos/[id]/execution returned status: $executionStatusCode" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Subscription gating module verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Subscription module test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[26/26] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

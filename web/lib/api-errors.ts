@@ -17,7 +17,9 @@ export type ApiErrorCode =
   | 'AI_ERROR'
   | 'VALIDATION_ERROR'
   | 'INVALID_RECORDING_STATUS'
-  | 'MISSING_POSTED_FIELDS';
+  | 'MISSING_POSTED_FIELDS'
+  | 'MISSING_VIDEO_URL'
+  | 'MISSING_REJECTION_NOTES';
 
 export interface ApiErrorResponse {
   ok: false;

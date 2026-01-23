@@ -43,6 +43,10 @@ interface QueueVideo {
   posted_platform: string | null;
   script_locked_text: string | null;
   script_locked_version: number | null;
+  // Computed fields from API
+  can_move_next: boolean;
+  blocked_reason: string | null;
+  next_action: string;
 }
 
 const RECORDING_STATUS_TABS = ['ALL', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
@@ -445,6 +449,7 @@ export default function AdminPipelinePage() {
               <tr>
                 <th style={thStyle}>Video ID</th>
                 <th style={thStyle}>Recording Status</th>
+                <th style={thStyle}>Next Action</th>
                 <th style={thStyle}>Last Changed</th>
                 <th style={thStyle}>Script</th>
                 <th style={thStyle}>Claim Status</th>
@@ -487,6 +492,26 @@ export default function AdminPipelinePage() {
                       }}>
                         {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
                       </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ fontSize: '12px' }}>
+                        <div style={{ fontWeight: video.can_move_next ? 'normal' : 'bold', color: video.can_move_next ? '#333' : '#856404' }}>
+                          {video.next_action}
+                        </div>
+                        {video.blocked_reason && (
+                          <div style={{
+                            marginTop: '4px',
+                            padding: '3px 6px',
+                            backgroundColor: '#fff3cd',
+                            border: '1px solid #ffc107',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            color: '#856404',
+                          }}>
+                            {video.blocked_reason}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td style={tdStyle}>
                       {video.last_status_changed_at ? (

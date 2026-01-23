@@ -1,24 +1,15 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import {
+  RECORDING_STATUSES,
+  isValidRecordingStatus,
+  validateStatusTransition,
+  type RecordingStatus,
+  type VideoForValidation,
+} from "@/lib/execution-stages";
 
 export const runtime = "nodejs";
-
-// Valid recording status values
-const VALID_RECORDING_STATUSES = [
-  'NOT_RECORDED',
-  'RECORDED',
-  'EDITED',
-  'READY_TO_POST',
-  'POSTED',
-  'REJECTED',
-] as const;
-
-type RecordingStatus = typeof VALID_RECORDING_STATUSES[number];
-
-function isValidRecordingStatus(status: unknown): status is RecordingStatus {
-  return typeof status === 'string' && VALID_RECORDING_STATUSES.includes(status as RecordingStatus);
-}
 
 async function writeVideoEvent(
   videoId: string,
@@ -88,9 +79,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   // Validate recording_status if provided
   if (recording_status !== undefined && !isValidRecordingStatus(recording_status)) {
-    const err = apiError("INVALID_RECORDING_STATUS", `Invalid recording_status. Must be one of: ${VALID_RECORDING_STATUSES.join(', ')}`, 400, {
+    const err = apiError("INVALID_RECORDING_STATUS", `Invalid recording_status. Must be one of: ${RECORDING_STATUSES.join(', ')}`, 400, {
       provided: recording_status,
-      allowed: VALID_RECORDING_STATUSES,
+      allowed: RECORDING_STATUSES,
     });
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
@@ -113,16 +104,34 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   const previousRecordingStatus = currentVideo.recording_status;
 
-  // If transitioning to POSTED, require posted_url and posted_platform unless force=true
-  if (recording_status === 'POSTED' && force !== true) {
-    const finalPostedUrl = posted_url ?? currentVideo.posted_url;
-    const finalPostedPlatform = posted_platform ?? currentVideo.posted_platform;
+  // If transitioning to a new status, validate the transition
+  if (recording_status !== undefined && recording_status !== previousRecordingStatus) {
+    // Build merged video state for validation (current + pending updates)
+    const videoForValidation: VideoForValidation = {
+      recording_status: recording_status as string,
+      recording_notes: (recording_notes as string | undefined) ?? currentVideo.recording_notes,
+      editor_notes: (editor_notes as string | undefined) ?? currentVideo.editor_notes,
+      uploader_notes: (uploader_notes as string | undefined) ?? currentVideo.uploader_notes,
+      posted_url: (posted_url as string | undefined) ?? currentVideo.posted_url,
+      posted_platform: (posted_platform as string | undefined) ?? currentVideo.posted_platform,
+      final_video_url: currentVideo.final_video_url,
+      google_drive_url: currentVideo.google_drive_url,
+      script_locked_text: currentVideo.script_locked_text,
+    };
 
-    if (!finalPostedUrl || !finalPostedPlatform) {
-      const err = apiError("MISSING_POSTED_FIELDS", "posted_url and posted_platform are required when setting status to POSTED (use force=true to override)", 400, {
-        posted_url: finalPostedUrl || null,
-        posted_platform: finalPostedPlatform || null,
-      });
+    const validation = validateStatusTransition(
+      recording_status as RecordingStatus,
+      videoForValidation,
+      force === true
+    );
+
+    if (!validation.valid && validation.code) {
+      const err = apiError(
+        validation.code,
+        `${validation.error} (use force=true to override)`,
+        400,
+        validation.details || {}
+      );
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
   }
@@ -133,6 +142,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   if (recording_status !== undefined) {
     updatePayload.recording_status = recording_status;
+
+    // Update last_status_changed_at if status is actually changing
+    if (recording_status !== previousRecordingStatus) {
+      updatePayload.last_status_changed_at = now;
+    }
 
     // Auto-set timestamps based on status if not provided
     if (recording_status === 'RECORDED' && recorded_at === undefined && !currentVideo.recorded_at) {
@@ -206,6 +220,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         uploader_notes: uploader_notes || null,
         posted_url: posted_url || null,
         posted_platform: posted_platform || null,
+        force: force === true,
       }
     );
   }

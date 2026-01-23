@@ -3,22 +3,13 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { QUEUE_STATUSES } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { computeStageInfo, RECORDING_STATUSES, type VideoForValidation } from "@/lib/execution-stages";
 
 export const runtime = "nodejs";
 
-const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at";
+const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at,final_video_url";
 const VIDEO_SELECT_CLAIM = ",claimed_by,claimed_at,claim_expires_at";
-const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version";
-
-// Valid recording status values
-const VALID_RECORDING_STATUSES = [
-  'NOT_RECORDED',
-  'RECORDED',
-  'EDITED',
-  'READY_TO_POST',
-  'POSTED',
-  'REJECTED',
-] as const;
+const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,recording_notes,editor_notes,uploader_notes";
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -37,8 +28,8 @@ export async function GET(request: Request) {
   }
 
   // Validate recording_status if provided
-  if (recordingStatusParam && !VALID_RECORDING_STATUSES.includes(recordingStatusParam as typeof VALID_RECORDING_STATUSES[number])) {
-    const err = apiError("BAD_REQUEST", `recording_status must be one of: ${VALID_RECORDING_STATUSES.join(", ")}`, 400, { provided: recordingStatusParam });
+  if (recordingStatusParam && !RECORDING_STATUSES.includes(recordingStatusParam as typeof RECORDING_STATUSES[number])) {
+    const err = apiError("BAD_REQUEST", `recording_status must be one of: ${RECORDING_STATUSES.join(", ")}`, 400, { provided: recordingStatusParam });
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
@@ -118,9 +109,34 @@ export async function GET(request: Request) {
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
+    // Compute stage info for each video
+    const videos = (data as unknown) as Record<string, unknown>[] | null;
+    const videosWithStageInfo = (videos || []).map((video) => {
+      const videoForValidation: VideoForValidation = {
+        recording_status: video.recording_status as string | null,
+        recording_notes: video.recording_notes as string | null,
+        editor_notes: video.editor_notes as string | null,
+        uploader_notes: video.uploader_notes as string | null,
+        posted_url: video.posted_url as string | null,
+        posted_platform: video.posted_platform as string | null,
+        final_video_url: video.final_video_url as string | null,
+        google_drive_url: video.google_drive_url as string | null,
+        script_locked_text: video.script_locked_text as string | null,
+      };
+
+      const stageInfo = computeStageInfo(videoForValidation);
+
+      return {
+        ...video,
+        can_move_next: stageInfo.can_move_next,
+        blocked_reason: stageInfo.blocked_reason,
+        next_action: stageInfo.next_action,
+      };
+    });
+
     return NextResponse.json({
       ok: true,
-      data: data || [],
+      data: videosWithStageInfo,
       correlation_id: correlationId
     });
 

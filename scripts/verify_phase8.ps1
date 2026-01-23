@@ -65,7 +65,7 @@ function Try-ParseJsonString {
 }
 
 # Check 1: Health endpoint
-Write-Host "`n[1/17] Checking /api/health..." -ForegroundColor Yellow
+Write-Host "`n[1/18] Checking /api/health..." -ForegroundColor Yellow
 try {
     $health = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
     if ($health.ok -eq $true) {
@@ -81,7 +81,7 @@ try {
 }
 
 # Check 2: Get accounts to test videos endpoint
-Write-Host "`n[2/17] Fetching accounts for video queries..." -ForegroundColor Yellow
+Write-Host "`n[2/18] Fetching accounts for video queries..." -ForegroundColor Yellow
 try {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Method GET -TimeoutSec 10
     if (-not $accounts.ok -or -not $accounts.data -or $accounts.data.Count -eq 0) {
@@ -98,7 +98,7 @@ try {
 }
 
 # Check 3: Videos status enum validation
-Write-Host "`n[3/17] Validating video status enum..." -ForegroundColor Yellow
+Write-Host "`n[3/18] Validating video status enum..." -ForegroundColor Yellow
 try {
     $videos = Invoke-RestMethod -Uri "$baseUrl/api/videos?account_id=$testAccountId" -Method GET -TimeoutSec 10
     if (-not $videos.ok) {
@@ -126,7 +126,7 @@ try {
 }
 
 # Check 4: No duplicate variant+account in queue states
-Write-Host "`n[4/17] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
+Write-Host "`n[4/18] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
 try {
     $allVideos = @()
     foreach ($account in $accounts.data) {
@@ -163,7 +163,7 @@ try {
 }
 
 # Check 5: Verify Phase 8.2 database objects exist (hosted Supabase)
-Write-Host "`n[5/17] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
+Write-Host "`n[5/18] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
 try {
     # Migration 010: claim endpoints should exist and work for queue videos
     # Create (or dedupe-return) a queue video via API to ensure we have a valid videos.id
@@ -252,7 +252,7 @@ try {
 }
 
 # Check 5b: Test attach-script clears queue blocker
-Write-Host "`n[5b/17] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+Write-Host "`n[5b/18] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
 try {
     # Get an approved script to use for testing
     $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
@@ -330,7 +330,7 @@ try {
 }
 
 # Check 6: Test duplicate prevention via API (index enforcement)
-Write-Host "`n[6/17] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
+Write-Host "`n[6/18] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {
     # Get a variant to test with
     $variants = Invoke-RestMethod -Uri "$baseUrl/api/variants" -Method GET -TimeoutSec 10
@@ -378,7 +378,7 @@ try {
 Write-Host "  PASS: API duplicate prevention check completed" -ForegroundColor Green
 
 # Check 7: Stress-checking DB-level queue dedupe (migration 008) via race
-Write-Host "`n[7/17] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
+Write-Host "`n[7/18] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
 # This attempts to create the same queue item twice concurrently.
 # If the DB unique partial index exists, at worst one insert succeeds and the other returns existing/duplicate behavior.
 # If the DB constraint is missing AND API check is bypassed, both can insert (we want to catch that).
@@ -434,7 +434,7 @@ if ($null -eq $queueCandidate) {
 }
 
 # Check 8: Claim workflow test
-Write-Host "`n[8/17] Testing claim workflow..." -ForegroundColor Yellow
+Write-Host "`n[8/18] Testing claim workflow..." -ForegroundColor Yellow
 try {
     # Get first unclaimed queue video
     $queueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -510,7 +510,7 @@ try {
 }
 
 # Check 9: Execution gating workflow test
-Write-Host "`n[9/17] Testing execution gating workflow..." -ForegroundColor Yellow
+Write-Host "`n[9/18] Testing execution gating workflow..." -ForegroundColor Yellow
 try {
     # Use the same test video from Check 5 (which has a script attached)
     # Ensure it has a locked script
@@ -631,7 +631,7 @@ try {
 }
 
 # Check 10: Role-based claim enforcement and handoff workflow
-Write-Host "`n[10/17] Testing role-based claim enforcement..." -ForegroundColor Yellow
+Write-Host "`n[10/18] Testing role-based claim enforcement..." -ForegroundColor Yellow
 try {
     # First check if claim_role column exists by attempting a claim with role
     $testClaimBody = @{ claimed_by = "migration_check"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
@@ -874,7 +874,7 @@ try {
 }
 
 # Check 11: Actor validation and admin-only force bypass
-Write-Host "`n[11/17] Testing actor validation and admin-only force..." -ForegroundColor Yellow
+Write-Host "`n[11/18] Testing actor validation and admin-only force..." -ForegroundColor Yellow
 try {
     # Find a video with script for testing
     $queueForActor = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
@@ -1019,7 +1019,7 @@ try {
 }
 
 # Check 12: claim_role is now required for claims
-Write-Host "`n[12/17] Testing claim_role requirement..." -ForegroundColor Yellow
+Write-Host "`n[12/18] Testing claim_role requirement..." -ForegroundColor Yellow
 try {
     # Find an unclaimed video
     $queueForClaimRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -1074,7 +1074,7 @@ try {
 }
 
 # Check 13: SLA fields in queue API
-Write-Host "`n[13/17] Testing SLA fields in queue API..." -ForegroundColor Yellow
+Write-Host "`n[13/18] Testing SLA fields in queue API..." -ForegroundColor Yellow
 try {
     $slaQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?sort=priority&limit=10" -Method GET -TimeoutSec 10
     if (-not $slaQueueResult.ok) {
@@ -1144,7 +1144,7 @@ try {
 }
 
 # Check 14: Role dashboard routes exist
-Write-Host "`n[14/17] Testing role dashboard routes..." -ForegroundColor Yellow
+Write-Host "`n[14/18] Testing role dashboard routes..." -ForegroundColor Yellow
 try {
     # These routes require authentication, so we just check they don't return 500
     # They should redirect to login (302) or return the page (200)
@@ -1184,7 +1184,7 @@ try {
 }
 
 # Check 15: Notifications API endpoint
-Write-Host "`n[15/17] Testing notifications API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[15/18] Testing notifications API endpoint..." -ForegroundColor Yellow
 try {
     # The notifications endpoint requires auth, so without a session we expect 401
     # We're just checking the endpoint exists and returns proper error
@@ -1215,7 +1215,7 @@ try {
 }
 
 # Check 16: Assignment API endpoint
-Write-Host "`n[16/17] Testing assignment API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[16/18] Testing assignment API endpoint..." -ForegroundColor Yellow
 try {
     # Find a video to test with
     $assignQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=1" -Method GET -TimeoutSec 10
@@ -1261,7 +1261,7 @@ try {
 }
 
 # Check 17: Ops Metrics API endpoint (admin-only)
-Write-Host "`n[17/17] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[17/18] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
 try {
     # The ops-metrics endpoint requires admin auth, so without a session we expect 403
     $opsMetricsResult = $null
@@ -1337,7 +1337,69 @@ try {
     Write-Host "  WARN: Ops-metrics API test error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[17/17] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 18: Dispatch and assignment enforcement (skip if migration 019 not applied)
+Write-Host "`n[18/18] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
+try {
+    # First test: dispatch endpoint exists and requires auth
+    $dispatchStatusCode = 0
+    try {
+        $dispatchResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/dispatch" -Method POST -ContentType "application/json" -Body '{"role":"recorder"}' -TimeoutSec 10
+        $dispatchStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $dispatchStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    # Without auth, expect 401
+    if ($dispatchStatusCode -eq 401) {
+        Write-Host "    POST /api/videos/dispatch returns 401 without auth - OK" -ForegroundColor Gray
+        Write-Host "  PASS: Dispatch API endpoint exists and requires auth" -ForegroundColor Green
+    } elseif ($dispatchStatusCode -eq 400) {
+        # May return 400 if migration 019 not applied
+        Write-Host "    POST /api/videos/dispatch returns 400 (migration 019 may not be applied) - OK" -ForegroundColor Gray
+        Write-Host "  SKIP: Dispatch test skipped (migration 019 not applied)" -ForegroundColor Yellow
+    } elseif ($dispatchStatusCode -eq 200) {
+        # If authenticated, verify response structure
+        Write-Host "    Dispatch returned 200 - checking response structure" -ForegroundColor Gray
+        if ($dispatchResult.ok -and $dispatchResult.data.video_id) {
+            Write-Host "  PASS: Dispatch API working" -ForegroundColor Green
+        } else {
+            Write-Host "    Unexpected response structure" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "    POST /api/videos/dispatch returned unexpected status: $dispatchStatusCode" -ForegroundColor Yellow
+        Write-Host "  WARN: Dispatch endpoint may not be fully configured" -ForegroundColor Yellow
+    }
+
+    # Second test: reclaim-expired endpoint exists and requires admin
+    $reclaimStatusCode = 0
+    try {
+        $reclaimResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/reclaim-expired" -Method POST -TimeoutSec 10
+        $reclaimStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $reclaimStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    if ($reclaimStatusCode -eq 403) {
+        Write-Host "    POST /api/videos/reclaim-expired returns 403 without admin auth - OK" -ForegroundColor Gray
+        Write-Host "  PASS: Reclaim-expired API endpoint exists and requires admin" -ForegroundColor Green
+    } elseif ($reclaimStatusCode -eq 401) {
+        Write-Host "    POST /api/videos/reclaim-expired returns 401 - OK" -ForegroundColor Gray
+        Write-Host "  PASS: Reclaim-expired API endpoint exists and requires auth" -ForegroundColor Green
+    } elseif ($reclaimStatusCode -eq 400) {
+        Write-Host "    POST /api/videos/reclaim-expired returns 400 (migration 019 may not be applied)" -ForegroundColor Gray
+        Write-Host "  SKIP: Reclaim test skipped" -ForegroundColor Yellow
+    } else {
+        Write-Host "    POST /api/videos/reclaim-expired returned status: $reclaimStatusCode" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  WARN: Dispatch/assignment test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[18/18] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

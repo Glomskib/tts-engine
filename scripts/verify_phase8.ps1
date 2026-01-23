@@ -183,6 +183,15 @@ try {
     $vid = $createResp.data.id
     if (!$vid) { throw "Create video did not return data.id" }
 
+    # Force-release the video first to ensure clean state (handles leftover claims from previous test runs)
+    $forceReleasePayload = @{ claimed_by = "verify_phase8"; force = $true } | ConvertTo-Json -Depth 5
+    try {
+        $forceReleaseResp = Invoke-RestMethod -Uri "$baseUrl/api/videos/$vid/release" -Method POST -ContentType "application/json" -Body $forceReleasePayload -TimeoutSec 10 -ErrorAction SilentlyContinue
+        # Ignore result - just ensuring clean state
+    } catch {
+        # Ignore errors - video may not have been claimed
+    }
+
     $claimPayload = @{ claimed_by = "verify_phase8" } | ConvertTo-Json -Depth 5
         try {
             $claimResp = Invoke-RestMethod -Uri "$baseUrl/api/videos/$vid/claim" -Method POST -ContentType "application/json" -Body $claimPayload -TimeoutSec 15

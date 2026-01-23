@@ -123,18 +123,51 @@ export async function POST(
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    if (video.claimed_by && video.claim_expires_at && video.claim_expires_at > now) {
-      const err = apiError("ALREADY_CLAIMED", `Video is already claimed by ${video.claimed_by}`, 409, {
-        claimed_by: video.claimed_by,
-        claim_expires_at: video.claim_expires_at
-      });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    // Check for valid active claim: claimed_by must be a non-empty string AND claim_expires_at must be in the future
+    const hasValidClaim =
+      typeof video.claimed_by === "string" &&
+      video.claimed_by.trim() !== "" &&
+      video.claim_expires_at &&
+      video.claim_expires_at > now;
+
+    if (hasValidClaim) {
+      // Allow same user to re-claim (extend)
+      if (video.claimed_by === claimed_by.trim()) {
+        // Same user re-claiming - allow extension
+      } else {
+        const err = apiError("ALREADY_CLAIMED", `Video is already claimed by ${video.claimed_by}`, 409, {
+          claimed_by: video.claimed_by,
+          claim_expires_at: video.claim_expires_at
+        });
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      }
     }
 
-    // Atomic claim: update only if unclaimed or expired
+    // Detect and auto-clear corrupt state: claim_expires_at set but claimed_by is null/empty
+    const isCorruptState =
+      (!video.claimed_by || (typeof video.claimed_by === "string" && video.claimed_by.trim() === "")) &&
+      video.claim_expires_at;
+
+    if (isCorruptState) {
+      // Auto-clear the corrupt claim_expires_at before proceeding
+      await supabaseAdmin
+        .from("videos")
+        .update({ claimed_by: null, claimed_at: null, claim_expires_at: null })
+        .eq("id", id);
+    }
+
+    // Atomic claim: update only if unclaimed, expired, or same user re-claiming
     const expiresAt = new Date(Date.now() + ttl * 60 * 1000).toISOString();
 
-    const { data: updated, error: updateError } = await supabaseAdmin
+    // Build filter: allow claim if claimed_by is null, claim_expires_at is null, claim_expires_at < now, or same user
+    const filterParts = [
+      "claimed_by.is.null",
+      "claim_expires_at.is.null",
+      `claim_expires_at.lt.${now}`,
+      `claimed_by.eq.${claimed_by.trim()}`
+    ];
+
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from("videos")
       .update({
         claimed_by: claimed_by.trim(),
@@ -142,9 +175,11 @@ export async function POST(
         claim_expires_at: expiresAt
       })
       .eq("id", id)
-      .or(`claimed_by.is.null,claim_expires_at.lt.${now}`)
-      .select(VIDEO_SELECT)
-      .single();
+      .or(filterParts.join(","))
+      .select(VIDEO_SELECT);
+
+    // Check if update succeeded (at least one row returned)
+    const updated = updatedRows && updatedRows.length > 0 ? updatedRows[0] : null;
 
     if (updateError || !updated) {
       // Race condition: someone else claimed it — re-fetch for claimed_by/claim_expires_at

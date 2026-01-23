@@ -16,7 +16,9 @@ export type NotifyEventType =
   | "admin_force_status"
   | "admin_clear_claim"
   | "admin_reset_assignments"
-  | "admin_set_plan";
+  | "admin_set_plan"
+  | "user_upgrade_requested"
+  | "user_upgrade_request_resolved";
 
 // Events that should notify ops via Slack
 const SLACK_OPS_EVENTS: NotifyEventType[] = [
@@ -26,6 +28,8 @@ const SLACK_OPS_EVENTS: NotifyEventType[] = [
   "admin_reset_assignments",
   "assignment_reassigned",
   "admin_set_plan",
+  "user_upgrade_requested",
+  "user_upgrade_request_resolved",
 ];
 
 export interface NotifyPayload {
@@ -52,6 +56,11 @@ export interface NotifyPayload {
   targetUserId?: string;
   plan?: string;
   isActive?: boolean;
+  // Upgrade request
+  userEmail?: string;
+  requestMessage?: string;
+  decision?: string;
+  requestEventId?: string;
   [key: string]: unknown;
 }
 
@@ -322,6 +331,27 @@ function generateSlackMessage(
           "Plan": payload.plan?.toUpperCase(),
           "Active": payload.isActive !== false ? "Yes" : "No",
           "By": payload.performedBy || "Admin",
+        },
+      };
+
+    case "user_upgrade_requested":
+      return {
+        text: `📤 Upgrade Request: ${payload.userEmail || payload.targetUserId?.slice(0, 8) || "?"}`,
+        details: {
+          "User ID": payload.targetUserId,
+          "Email": payload.userEmail,
+          "Message": payload.requestMessage || "(none)",
+        },
+      };
+
+    case "user_upgrade_request_resolved":
+      return {
+        text: `✅ Upgrade Request ${payload.decision?.toUpperCase() || "?"}: ${payload.targetUserId?.slice(0, 8) || "?"}...`,
+        details: {
+          "User ID": payload.targetUserId,
+          "Decision": payload.decision?.toUpperCase(),
+          "By": payload.performedBy || "Admin",
+          "Note": payload.notes,
         },
       };
 

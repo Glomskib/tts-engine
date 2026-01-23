@@ -34,6 +34,27 @@ const ALLOWED_SCRIPT_JSON_KEYS = new Set([
   'product_tags', 'sections'
 ]);
 
+// Length caps for strict validation
+const LENGTH_CAPS = {
+  hook: 1000,
+  body: 5000,
+  cta: 500,
+  pacing: 50,
+  compliance_notes: 2000,
+  uploader_instructions: 2000,
+  bullets_max_count: 20,
+  bullets_max_length: 500,
+  on_screen_text_max_count: 20,
+  on_screen_text_max_length: 200,
+  b_roll_max_count: 20,
+  b_roll_max_length: 300,
+  product_tags_max_count: 20,
+  product_tags_max_length: 100,
+  sections_max_count: 10,
+  section_name_max_length: 100,
+  section_content_max_length: 3000,
+};
+
 /**
  * Validates that the provided object matches the ScriptJson schema.
  * Returns validation result with errors if invalid.
@@ -64,24 +85,43 @@ export function validateScriptJson(
   }
 
   // Check optional string fields
-  const stringFields = ['hook', 'body', 'cta', 'pacing', 'compliance_notes', 'uploader_instructions'];
+  const stringFields = ['hook', 'body', 'cta', 'pacing', 'compliance_notes', 'uploader_instructions'] as const;
   for (const field of stringFields) {
-    if (obj[field] !== undefined && typeof obj[field] !== 'string') {
-      errors.push(`${field} must be a string`);
+    if (obj[field] !== undefined) {
+      if (typeof obj[field] !== 'string') {
+        errors.push(`${field} must be a string`);
+      } else if (strict) {
+        const cap = LENGTH_CAPS[field as keyof typeof LENGTH_CAPS] as number;
+        if (cap && (obj[field] as string).length > cap) {
+          errors.push(`${field} exceeds max length of ${cap} characters`);
+        }
+      }
     }
   }
 
   // Check string array fields
-  const stringArrayFields = ['bullets', 'on_screen_text', 'b_roll', 'product_tags'];
+  const stringArrayFields = ['bullets', 'on_screen_text', 'b_roll', 'product_tags'] as const;
   for (const field of stringArrayFields) {
     if (obj[field] !== undefined) {
       if (!Array.isArray(obj[field])) {
         errors.push(`${field} must be an array`);
       } else {
         const arr = obj[field] as unknown[];
+        // Strict mode: check array length cap
+        if (strict) {
+          const countCap = LENGTH_CAPS[`${field}_max_count` as keyof typeof LENGTH_CAPS] as number;
+          if (countCap && arr.length > countCap) {
+            errors.push(`${field} exceeds max count of ${countCap} items`);
+          }
+        }
+        const itemLengthCap = strict
+          ? (LENGTH_CAPS[`${field}_max_length` as keyof typeof LENGTH_CAPS] as number)
+          : 0;
         for (let i = 0; i < arr.length; i++) {
           if (typeof arr[i] !== 'string') {
             errors.push(`${field}[${i}] must be a string`);
+          } else if (strict && itemLengthCap && (arr[i] as string).length > itemLengthCap) {
+            errors.push(`${field}[${i}] exceeds max length of ${itemLengthCap} characters`);
           }
         }
       }
@@ -93,6 +133,10 @@ export function validateScriptJson(
     if (!Array.isArray(obj.sections)) {
       errors.push('sections must be an array');
     } else {
+      // Strict mode: check sections count cap
+      if (strict && obj.sections.length > LENGTH_CAPS.sections_max_count) {
+        errors.push(`sections exceeds max count of ${LENGTH_CAPS.sections_max_count} items`);
+      }
       for (let i = 0; i < obj.sections.length; i++) {
         const section = obj.sections[i];
         if (typeof section !== 'object' || section === null) {
@@ -101,9 +145,13 @@ export function validateScriptJson(
           const sec = section as Record<string, unknown>;
           if (typeof sec.name !== 'string') {
             errors.push(`sections[${i}].name must be a string`);
+          } else if (strict && (sec.name as string).length > LENGTH_CAPS.section_name_max_length) {
+            errors.push(`sections[${i}].name exceeds max length of ${LENGTH_CAPS.section_name_max_length} characters`);
           }
           if (typeof sec.content !== 'string') {
             errors.push(`sections[${i}].content must be a string`);
+          } else if (strict && (sec.content as string).length > LENGTH_CAPS.section_content_max_length) {
+            errors.push(`sections[${i}].content exceeds max length of ${LENGTH_CAPS.section_content_max_length} characters`);
           }
         }
       }
@@ -111,6 +159,67 @@ export function validateScriptJson(
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Normalizes a ScriptJson object by:
+ * - Trimming all string values
+ * - Removing empty strings from arrays
+ * - Removing undefined/empty optional fields
+ * - Filtering out empty sections
+ *
+ * Call this BEFORE validation to ensure clean data.
+ */
+export function normalizeScriptJson(json: unknown): ScriptJson {
+  if (typeof json !== 'object' || json === null) {
+    return {};
+  }
+
+  const obj = json as Record<string, unknown>;
+  const result: ScriptJson = {};
+
+  // Normalize string fields
+  const stringFields = ['hook', 'body', 'cta', 'pacing', 'compliance_notes', 'uploader_instructions'] as const;
+  for (const field of stringFields) {
+    if (typeof obj[field] === 'string') {
+      const trimmed = (obj[field] as string).trim();
+      if (trimmed) {
+        (result as Record<string, string>)[field] = trimmed;
+      }
+    }
+  }
+
+  // Normalize string array fields
+  const arrayFields = ['bullets', 'on_screen_text', 'b_roll', 'product_tags'] as const;
+  for (const field of arrayFields) {
+    if (Array.isArray(obj[field])) {
+      const filtered = (obj[field] as unknown[])
+        .filter((item): item is string => typeof item === 'string')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      if (filtered.length > 0) {
+        (result as Record<string, string[]>)[field] = filtered;
+      }
+    }
+  }
+
+  // Normalize sections
+  if (Array.isArray(obj.sections)) {
+    const normalizedSections = (obj.sections as unknown[])
+      .filter((sec): sec is { name: unknown; content: unknown } =>
+        typeof sec === 'object' && sec !== null
+      )
+      .map(sec => ({
+        name: typeof sec.name === 'string' ? sec.name.trim() : '',
+        content: typeof sec.content === 'string' ? sec.content.trim() : '',
+      }))
+      .filter(sec => sec.name && sec.content);
+    if (normalizedSections.length > 0) {
+      result.sections = normalizedSections;
+    }
+  }
+
+  return result;
 }
 
 /**

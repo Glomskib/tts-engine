@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
-import { validateScriptJson, renderScriptText, ScriptJson } from "@/lib/script-renderer";
+import { validateScriptJson, normalizeScriptJson, renderScriptText, ScriptJson } from "@/lib/script-renderer";
 
 export const runtime = "nodejs";
 
@@ -10,7 +10,7 @@ interface RouteParams {
 }
 
 // Safe JSON parser with repair logic (same pattern as scripts/generate)
-function safeParseJSON(content: string): { success: boolean; data: unknown; strategy: string } {
+function safeParseJSON(content: string): { success: boolean; data: unknown; strategy: string; error?: string } {
   // First attempt: direct parse
   try {
     const parsed = JSON.parse(content);
@@ -42,9 +42,70 @@ function safeParseJSON(content: string): { success: boolean; data: unknown; stra
     return { success: true, data: parsed, strategy: "repair" };
   } catch (error) {
     console.log(`Repair JSON parse failed: ${error}`);
+    return { success: false, data: null, strategy: "failed", error: String(error) };
   }
+}
 
-  return { success: false, data: null, strategy: "failed" };
+// Helper to call AI API
+async function callAI(
+  prompt: string,
+  anthropicKey: string | undefined,
+  openaiKey: string | undefined
+): Promise<{ content: string; model: string }> {
+  if (anthropicKey) {
+    const model = "claude-3-haiku-20240307";
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 3000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Anthropic API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const content = result.content?.[0]?.text || "";
+    if (!content) {
+      throw new Error("No content returned from Anthropic");
+    }
+    return { content, model };
+  } else if (openaiKey) {
+    const model = "gpt-3.5-turbo";
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 3000,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content || "";
+    if (!content) {
+      throw new Error("No content returned from OpenAI");
+    }
+    return { content, model };
+  }
+  throw new Error("No AI API key configured");
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
@@ -111,7 +172,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       ? `\n\nProduct Context:\n${JSON.stringify(product_context, null, 2)}`
       : "";
 
-    const prompt = `You are a professional TikTok script writer. Rewrite the following script based on the user's instructions.
+    const basePrompt = `You are a professional TikTok script writer. Rewrite the following script based on the user's instructions.
 
 Current Script (JSON format):
 ${JSON.stringify(currentScriptJson, null, 2)}
@@ -144,84 +205,97 @@ All fields are optional except hook and body. No markdown. No code fences. No ex
 
     let generatedContent: string = "";
     let modelUsed: string = "";
+    let parseResult: ReturnType<typeof safeParseJSON> = { success: false, data: null, strategy: "not_run" };
+    let validation: ReturnType<typeof validateScriptJson> = { valid: false, errors: ["not validated"] };
+    let normalizedData: ScriptJson = {};
+    let attempt = 0;
+    const maxAttempts = 2;
+    let lastParseError: string | undefined;
+    let lastValidationErrors: string[] = [];
 
-    if (anthropicKey) {
-      modelUsed = "claude-3-haiku-20240307";
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: modelUsed,
-          max_tokens: 3000,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
+    while (attempt < maxAttempts) {
+      attempt++;
 
-      if (!response.ok) {
-        throw new Error(`Anthropic API error: ${response.status}`);
+      // Build prompt - on retry, add fix instructions
+      let prompt = basePrompt;
+      if (attempt > 1) {
+        const errorDetails = lastParseError
+          ? `JSON parse error: ${lastParseError}`
+          : `Validation errors: ${lastValidationErrors.join(", ")}`;
+        prompt = `Your previous response had issues: ${errorDetails}
+
+Please fix and return ONLY valid JSON. ${basePrompt}`;
+        console.log(`Retry attempt ${attempt} with fix prompt`);
       }
 
-      const result = await response.json();
-      generatedContent = result.content?.[0]?.text || "";
+      // Call AI
+      const aiResult = await callAI(prompt, anthropicKey, openaiKey);
+      generatedContent = aiResult.content;
+      modelUsed = aiResult.model;
 
-      if (!generatedContent) {
-        throw new Error("No content returned from Anthropic");
-      }
-    } else if (openaiKey) {
-      modelUsed = "gpt-3.5-turbo";
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelUsed,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 3000,
-          temperature: 0.7,
-        }),
-      });
+      console.log(`AI response (attempt ${attempt}) length: ${generatedContent.length}, preview: ${generatedContent.slice(0, 400)}`);
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+      // Parse the AI response
+      parseResult = safeParseJSON(generatedContent);
+      if (!parseResult.success) {
+        lastParseError = parseResult.error || "Unknown parse error";
+        lastValidationErrors = [];
+        console.log(`Parse failed on attempt ${attempt}: ${lastParseError}`);
+        continue; // Retry
       }
 
-      const result = await response.json();
-      generatedContent = result.choices?.[0]?.message?.content || "";
+      console.log(`JSON parse strategy used: ${parseResult.strategy}`);
 
-      if (!generatedContent) {
-        throw new Error("No content returned from OpenAI");
+      // Normalize the data (trim strings, remove empty values)
+      normalizedData = normalizeScriptJson(parseResult.data);
+
+      // Validate the normalized JSON matches our schema (strict mode rejects unknown keys)
+      validation = validateScriptJson(normalizedData, { strict: true });
+      if (!validation.valid) {
+        lastParseError = undefined;
+        lastValidationErrors = validation.errors;
+        console.log(`Validation failed on attempt ${attempt}: ${validation.errors.join(", ")}`);
+        continue; // Retry
       }
+
+      // Success!
+      break;
     }
 
-    console.log(`AI response length: ${generatedContent.length}, preview: ${generatedContent.slice(0, 400)}`);
+    // If we exhausted retries, store the failed attempt and return error
+    if (!parseResult!.success || !validation!.valid) {
+      const errorReason = lastParseError
+        ? `JSON parse failed: ${lastParseError}`
+        : `Validation failed: ${lastValidationErrors.join(", ")}`;
 
-    // Parse the AI response
-    const parseResult = safeParseJSON(generatedContent);
-    if (!parseResult.success) {
-      const err = apiError("AI_ERROR", "Failed to parse AI response as JSON", 500, {
+      // Store failed attempt with error metadata
+      const { error: failedInsertError } = await supabaseAdmin.from("script_rewrites").insert({
+        script_id: id,
+        product_context_json: product_context || null,
+        rewrite_prompt: rewrite_prompt.trim(),
+        rewrite_result_json: null,
+        rewrite_result_text: null,
+        model: modelUsed,
+        created_by: typeof created_by === "string" ? created_by.trim() : null,
+        error_metadata: {
+          error: errorReason,
+          raw_response_preview: generatedContent.slice(0, 1000),
+          attempts: attempt,
+        },
+      });
+
+      if (failedInsertError) {
+        console.error("Failed to insert failed rewrite record:", failedInsertError);
+      }
+
+      const err = apiError("AI_ERROR", `Rewrite failed after ${attempt} attempts: ${errorReason}`, 500, {
         rawPreview: generatedContent.slice(0, 500),
+        attempts: attempt,
       });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    console.log(`JSON parse strategy used: ${parseResult.strategy}`);
-
-    // Validate the generated JSON matches our schema (strict mode rejects unknown keys)
-    const validation = validateScriptJson(parseResult.data, { strict: true });
-    if (!validation.valid) {
-      const err = apiError("VALIDATION_ERROR", `AI output validation failed: ${validation.errors.join(", ")}`, 500, {
-        rawPreview: generatedContent.slice(0, 500),
-      });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
-    const rewriteResultJson = parseResult.data as ScriptJson;
+    const rewriteResultJson = normalizedData!;
     const rewriteResultText = renderScriptText(rewriteResultJson);
 
     // Store the rewrite record

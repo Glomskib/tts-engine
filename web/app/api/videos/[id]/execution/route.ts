@@ -9,6 +9,7 @@ import {
   type VideoForValidation,
 } from "@/lib/execution-stages";
 import { getVideosColumns } from "@/lib/videosSchema";
+import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -77,41 +78,53 @@ export async function PUT(request: Request, { params }: RouteParams) {
     posted_account,
     posted_at_local,
     posting_error,
+    // Legacy fields (still accepted for test compatibility, but auth takes precedence)
     updated_by,
     actor_role,
     force,
     require_claim,
   } = body as Record<string, unknown>;
 
+  // Get authentication context from session
+  const authContext = await getApiAuthContext();
+
+  // Determine actor: prefer authenticated user, fallback to legacy updated_by for tests
+  const isAuthenticated = authContext.user !== null;
+  const actor = authContext.user
+    ? authContext.user.id
+    : (typeof updated_by === "string" ? updated_by.trim() : null);
+
+  // Determine role: prefer authenticated role, fallback to legacy actor_role for tests
+  const actorRole: UserRole | null = isAuthenticated
+    ? authContext.role
+    : (typeof actor_role === "string" && VALID_CLAIM_ROLES.includes(actor_role as ClaimRole)
+      ? (actor_role as UserRole)
+      : null);
+
   // Check if claim enforcement is enabled (default: true)
   const enforceClaimCheck = require_claim !== false;
 
-  // Actor validation: when claim enforcement is enabled and changing status, actor is required
-  const actor = typeof updated_by === "string" ? updated_by.trim() : null;
-  const actorRole = typeof actor_role === "string" && VALID_CLAIM_ROLES.includes(actor_role as ClaimRole)
-    ? (actor_role as ClaimRole)
-    : null;
-
-  // If changing recording_status with claim enforcement, require actor
+  // If require_claim=true and not authenticated and no legacy actor, require auth
   if (enforceClaimCheck && recording_status !== undefined && !actor) {
     const err = apiError(
       "MISSING_ACTOR",
-      "updated_by (actor) is required when updating recording_status with claim enforcement",
-      400,
-      { hint: "Provide updated_by field with user identifier, or set require_claim=false" }
+      "Authentication required. Please sign in to update recording status.",
+      401,
+      { hint: "Sign in or set require_claim=false for test mode" }
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Force bypass is only allowed for admin users
   const forceRequested = force === true;
-  const isAdmin = isAdminUser(actor) || actorRole === "admin";
+  // Admin check: prefer role check, fallback to legacy ADMIN_USERS check for tests
+  const isAdmin = actorRole === "admin" || (!isAuthenticated && isAdminUser(actor));
   if (forceRequested && !isAdmin) {
     const err = apiError(
       "FORBIDDEN",
       "force=true is only allowed for admin users",
       403,
-      { actor, actor_role: actorRole, hint: "Only users in ADMIN_USERS env or with actor_role=admin can use force" }
+      { actor, actor_role: actorRole, hint: "Only admin users can use force" }
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
@@ -318,6 +331,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         posted_platform: posted_platform || null,
         force: forceRequested,
         actor_role: actorRole,
+        authenticated: isAuthenticated,
       }
     );
   }

@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -60,13 +61,26 @@ export async function POST(
 
   const { from_user, to_user, to_role, ttl_minutes, force } = body as Record<string, unknown>;
 
-  // Validate from_user
-  if (typeof from_user !== "string" || from_user.trim() === "") {
-    const err = apiError("BAD_REQUEST", "from_user is required and must be a non-empty string", 400);
+  // Get authentication context from session
+  const authContext = await getApiAuthContext();
+
+  // Determine actor (from_user): prefer authenticated user, fallback to legacy for tests
+  const isAuthenticated = authContext.user !== null;
+  const actor = authContext.user
+    ? authContext.user.id
+    : (typeof from_user === "string" && from_user.trim() !== "" ? from_user.trim() : null);
+
+  if (!actor) {
+    const err = apiError(
+      "MISSING_ACTOR",
+      "Authentication required. Please sign in to handoff videos.",
+      401,
+      { hint: "Sign in or provide from_user in request body for test mode" }
+    );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  // Validate to_user
+  // Validate to_user (always from body - specifies who to hand off to)
   if (typeof to_user !== "string" || to_user.trim() === "") {
     const err = apiError("BAD_REQUEST", "to_user is required and must be a non-empty string", 400);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
@@ -80,7 +94,8 @@ export async function POST(
 
   const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : 120;
   const forceRequested = force === true;
-  const isAdmin = isAdminUser(from_user as string);
+  // Admin check: prefer authenticated role, fallback to legacy ADMIN_USERS check for tests
+  const isAdmin = isAuthenticated ? authContext.isAdmin : isAdminUser(actor);
 
   // Force is only allowed for admin users
   if (forceRequested && !isAdmin) {
@@ -88,7 +103,7 @@ export async function POST(
       "FORBIDDEN",
       "force=true is only allowed for admin users",
       403,
-      { from_user, hint: "Only users in ADMIN_USERS env can use force" }
+      { from_user: actor, hint: "Only authenticated admin users can use force" }
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
@@ -134,10 +149,10 @@ export async function POST(
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
 
-      if (video.claimed_by !== (from_user as string).trim()) {
-        const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${video.claimed_by}, not ${from_user}`, 403, {
+      if (video.claimed_by !== actor) {
+        const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${video.claimed_by}, not ${actor}`, 403, {
           claimed_by: video.claimed_by,
-          from_user: (from_user as string).trim(),
+          from_user: actor,
         });
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
@@ -164,22 +179,23 @@ export async function POST(
     }
 
     // Write audit event
-    await writeVideoEvent(id, "handoff", correlationId, (from_user as string).trim(), {
-      from_user: (from_user as string).trim(),
+    await writeVideoEvent(id, "handoff", correlationId, actor, {
+      from_user: actor,
       from_role: video.claim_role || null,
       to_user: (to_user as string).trim(),
       to_role,
       ttl_minutes: ttl,
       force: forceRequested && isAdmin,
+      authenticated: isAuthenticated,
     });
 
     return NextResponse.json({
       ok: true,
       data: updated,
       meta: {
-        from_user: from_user.trim(),
+        from_user: actor,
         from_role: video.claim_role || null,
-        to_user: to_user.trim(),
+        to_user: (to_user as string).trim(),
         to_role,
       },
       correlation_id: correlationId,

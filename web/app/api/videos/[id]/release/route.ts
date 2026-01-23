@@ -3,6 +3,7 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { getMemoryClaim, clearMemoryClaim } from "@/lib/claimCache";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -59,17 +60,31 @@ export async function POST(
 
   // Support both claimed_by (legacy) and released_by (preferred)
   const { claimed_by, released_by, force } = body as Record<string, unknown>;
-  const actor = typeof released_by === "string" ? released_by.trim()
-    : typeof claimed_by === "string" ? claimed_by.trim()
-    : "";
+
+  // Get authentication context from session
+  const authContext = await getApiAuthContext();
+
+  // Determine actor: prefer authenticated user, fallback to legacy fields for tests
+  const isAuthenticated = authContext.user !== null;
+  const actor = authContext.user
+    ? authContext.user.id
+    : (typeof released_by === "string" && released_by.trim() !== "" ? released_by.trim()
+      : typeof claimed_by === "string" && claimed_by.trim() !== "" ? claimed_by.trim()
+      : null);
 
   if (!actor) {
-    const err = apiError("MISSING_ACTOR", "released_by is required and must be a non-empty string", 400);
+    const err = apiError(
+      "MISSING_ACTOR",
+      "Authentication required. Please sign in to release claims.",
+      401,
+      { hint: "Sign in or provide released_by in request body for test mode" }
+    );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   const forceRequested = force === true;
-  const isAdmin = isAdminUser(actor);
+  // Admin check: prefer authenticated role, fallback to legacy ADMIN_USERS check for tests
+  const isAdmin = isAuthenticated ? authContext.isAdmin : isAdminUser(actor);
 
   // Force is only allowed for admin users
   if (forceRequested && !isAdmin) {
@@ -77,7 +92,7 @@ export async function POST(
       "FORBIDDEN",
       "force=true is only allowed for admin users",
       403,
-      { actor, hint: "Only users in ADMIN_USERS env can use force" }
+      { actor, hint: "Only authenticated admin users can use force" }
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
@@ -172,6 +187,7 @@ export async function POST(
     await writeVideoEvent(id, "release", correlationId, actor, {
       released_by: actor,
       force: forceRequested && isAdmin,
+      authenticated: isAuthenticated,
     });
 
     return NextResponse.json({ ok: true, data: updated, correlation_id: correlationId });

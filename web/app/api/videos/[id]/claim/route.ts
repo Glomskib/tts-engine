@@ -4,6 +4,7 @@ import { getMemoryClaim, setMemoryClaim } from "@/lib/claimCache";
 import { QUEUE_STATUSES } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -62,18 +63,39 @@ export async function POST(
 
   const { claimed_by, claim_role, ttl_minutes } = body as Record<string, unknown>;
 
-  if (typeof claimed_by !== "string" || claimed_by.trim() === "") {
-    const err = apiError("BAD_REQUEST", "claimed_by is required and must be a non-empty string", 400);
+  // Get authentication context from session
+  const authContext = await getApiAuthContext();
+
+  // Determine actor: prefer authenticated user, fallback to legacy claimed_by for tests
+  const isAuthenticated = authContext.user !== null;
+  const actor = authContext.user
+    ? authContext.user.id
+    : (typeof claimed_by === "string" && claimed_by.trim() !== "" ? claimed_by.trim() : null);
+
+  if (!actor) {
+    const err = apiError(
+      "MISSING_ACTOR",
+      "Authentication required. Please sign in to claim videos.",
+      401,
+      { hint: "Sign in or provide claimed_by in request body for test mode" }
+    );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  // Validate claim_role if provided
-  if (claim_role !== undefined && !VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)) {
+  // Determine role: prefer authenticated role, fallback to legacy claim_role for tests
+  const actorRole: UserRole | null = isAuthenticated
+    ? authContext.role
+    : (typeof claim_role === "string" && VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)
+      ? (claim_role as UserRole)
+      : null);
+
+  // Validate claim_role if provided in body (for non-authenticated requests)
+  if (!isAuthenticated && claim_role !== undefined && !VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)) {
     const err = apiError("INVALID_ROLE", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claim_role });
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const validatedClaimRole = claim_role as ClaimRole | undefined;
+  const validatedClaimRole = actorRole;
   const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : 120;
 
   try {
@@ -110,14 +132,14 @@ export async function POST(
       }
 
       const existingClaim = getMemoryClaim(id);
-      if (existingClaim && existingClaim.claimed_by !== claimed_by.trim()) {
+      if (existingClaim && existingClaim.claimed_by !== actor) {
         const err = apiError("ALREADY_CLAIMED", `Video is already claimed by ${existingClaim.claimed_by}`, 409, {
           claimed_by: existingClaim.claimed_by,
           claim_expires_at: existingClaim.claim_expires_at
         });
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
-      setMemoryClaim(id, claimed_by.trim(), ttl);
+      setMemoryClaim(id, actor, ttl);
       const { data: fullVideo } = await supabaseAdmin
         .from("videos")
         .select("*")
@@ -151,7 +173,7 @@ export async function POST(
 
     if (hasValidClaim) {
       // Allow same user to re-claim (extend)
-      if (video.claimed_by === claimed_by.trim()) {
+      if (video.claimed_by === actor) {
         // Same user re-claiming - allow extension
       } else {
         const err = apiError("ALREADY_CLAIMED", `Video is already claimed by ${video.claimed_by}`, 409, {
@@ -183,12 +205,12 @@ export async function POST(
       "claimed_by.is.null",
       "claim_expires_at.is.null",
       `claim_expires_at.lt.${now}`,
-      `claimed_by.eq.${claimed_by.trim()}`
+      `claimed_by.eq.${actor}`
     ];
 
     // Build update payload - only include claim_role if column exists
     const updatePayload: Record<string, unknown> = {
-      claimed_by: claimed_by.trim(),
+      claimed_by: actor,
       claimed_at: now,
       claim_expires_at: expiresAt,
     };
@@ -235,10 +257,11 @@ export async function POST(
     }
 
     // Write audit event
-    await writeVideoEvent(id, "claim", correlationId, "api", {
-      claimed_by: claimed_by.trim(),
+    await writeVideoEvent(id, "claim", correlationId, actor, {
+      claimed_by: actor,
       claim_role: validatedClaimRole || null,
-      ttl_minutes: ttl
+      ttl_minutes: ttl,
+      authenticated: isAuthenticated,
     });
 
     return NextResponse.json({ ok: true, data: updated, correlation_id: correlationId });

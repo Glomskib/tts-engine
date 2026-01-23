@@ -149,6 +149,15 @@ export default function AdminPipelinePage() {
   const [posting, setPosting] = useState(false);
   const [postMessage, setPostMessage] = useState<string | null>(null);
 
+  // Handoff modal state
+  const [handoffModalVideoId, setHandoffModalVideoId] = useState<string | null>(null);
+  const [handoffModalVideo, setHandoffModalVideo] = useState<QueueVideo | null>(null);
+  const [handoffToUser, setHandoffToUser] = useState('');
+  const [handoffToRole, setHandoffToRole] = useState<ClaimRole | ''>('');
+  const [handoffNotes, setHandoffNotes] = useState('');
+  const [handingOff, setHandingOff] = useState(false);
+  const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
+
   // Execution action state (for quick transitions)
   const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
@@ -191,21 +200,43 @@ export default function AdminPipelinePage() {
       params.set('claimed', claimedFilter);
       params.set('limit', '100');
 
-      // Add role filter
-      if (activeRoleTab !== 'all') {
-        params.set('claim_role', activeRoleTab);
-      }
-
       // Add "My Work" filter
       if (myWorkOnly && activeUser) {
         params.set('claimed_by', activeUser);
         params.set('claimed', 'claimed'); // My Work implies claimed
       }
 
+      // Lane-based filtering (role tabs now represent work lanes, not claim_role)
+      // These set recording_status filters to show recommended work for each role
+      if (activeRoleTab !== 'all' && activeRecordingTab === 'ALL') {
+        // Only apply lane filter if not already filtering by recording_status
+        if (activeRoleTab === 'recorder') {
+          params.set('recording_status', 'NOT_RECORDED');
+        } else if (activeRoleTab === 'editor') {
+          params.set('recording_status', 'RECORDED');
+        } else if (activeRoleTab === 'uploader') {
+          params.set('recording_status', 'READY_TO_POST');
+        }
+      }
+
       const res = await fetch(`/api/videos/queue?${params.toString()}`);
       const data = await res.json();
       if (data.ok) {
-        setQueueVideos(data.data || []);
+        let videos = data.data || [];
+
+        // Client-side filtering for lane-specific conditions
+        if (activeRoleTab === 'recorder') {
+          // Recorder lane: must have script and can_record
+          videos = videos.filter((v: QueueVideo) => v.script_locked_text && v.can_record);
+        } else if (activeRoleTab === 'editor') {
+          // Editor lane: can_mark_edited or recording_status=RECORDED
+          videos = videos.filter((v: QueueVideo) => v.can_mark_edited || v.recording_status === 'RECORDED');
+        } else if (activeRoleTab === 'uploader') {
+          // Uploader lane: can_mark_posted or recording_status=READY_TO_POST
+          videos = videos.filter((v: QueueVideo) => v.can_mark_posted || v.recording_status === 'READY_TO_POST');
+        }
+
+        setQueueVideos(videos);
       }
     } catch (err) {
       console.error('Failed to fetch queue videos:', err);
@@ -483,6 +514,60 @@ export default function AdminPipelinePage() {
       setPostMessage('Error: Network error');
     } finally {
       setPosting(false);
+    }
+  };
+
+  // Open handoff modal
+  const openHandoffModal = (video: QueueVideo) => {
+    setHandoffModalVideoId(video.id);
+    setHandoffModalVideo(video);
+    setHandoffToUser('');
+    setHandoffToRole('');
+    setHandoffNotes('');
+    setHandoffMessage(null);
+  };
+
+  // Close handoff modal
+  const closeHandoffModal = () => {
+    setHandoffModalVideoId(null);
+    setHandoffModalVideo(null);
+    setHandoffToUser('');
+    setHandoffToRole('');
+    setHandoffNotes('');
+    setHandoffMessage(null);
+  };
+
+  // Submit handoff
+  const submitHandoff = async () => {
+    if (!handoffModalVideoId || !handoffToUser.trim() || !handoffToRole) return;
+    setHandingOff(true);
+    setHandoffMessage(null);
+    try {
+      const res = await fetch(`/api/videos/${handoffModalVideoId}/handoff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_user: activeUser,
+          to_user: handoffToUser.trim(),
+          to_role: handoffToRole,
+          notes: handoffNotes.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setHandoffMessage('Handoff successful!');
+        fetchQueueVideos();
+        fetchData();
+        setTimeout(() => {
+          closeHandoffModal();
+        }, 1500);
+      } else {
+        setHandoffMessage(`Error: ${data.error || 'Failed to handoff'}`);
+      }
+    } catch (err) {
+      setHandoffMessage('Error: Network error');
+    } finally {
+      setHandingOff(false);
     }
   };
 
@@ -973,21 +1058,37 @@ export default function AdminPipelinePage() {
                           </button>
                         )}
                         {claimedByMe && (
-                          <button
-                            onClick={() => releaseVideo(video.id)}
-                            disabled={isProcessing}
-                            style={{
-                              padding: '4px 10px',
-                              backgroundColor: '#dc3545',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: isProcessing ? 'not-allowed' : 'pointer',
-                              fontSize: '12px',
-                            }}
-                          >
-                            {isProcessing ? '...' : 'Release'}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => releaseVideo(video.id)}
+                              disabled={isProcessing}
+                              style={{
+                                padding: '4px 10px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                fontSize: '12px',
+                              }}
+                            >
+                              {isProcessing ? '...' : 'Release'}
+                            </button>
+                            <button
+                              onClick={() => openHandoffModal(video)}
+                              style={{
+                                padding: '4px 10px',
+                                backgroundColor: '#6f42c1',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                              }}
+                            >
+                              Handoff...
+                            </button>
+                          </>
                         )}
                         {claimedByOther && (
                           <span style={{ color: '#999', fontSize: '11px', fontStyle: 'italic' }}>Locked</span>
@@ -1556,6 +1657,172 @@ export default function AdminPipelinePage() {
               </button>
               <button
                 onClick={closePostModal}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Handoff Modal */}
+      {handoffModalVideoId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '450px',
+            width: '90%',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: '#6f42c1' }}>Handoff Video</h2>
+              <button
+                onClick={closeHandoffModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Video: <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>{handoffModalVideoId.slice(0, 8)}...</code>
+              {handoffModalVideo?.claim_role && (
+                <span style={{
+                  marginLeft: '10px',
+                  padding: '2px 8px',
+                  backgroundColor: '#e7f5ff',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  textTransform: 'capitalize',
+                }}>
+                  Current role: {handoffModalVideo.claim_role}
+                </span>
+              )}
+            </p>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                To User <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={handoffToUser}
+                onChange={(e) => setHandoffToUser(e.target.value)}
+                placeholder="e.g., editor1, uploader2"
+                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+              <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {['recorder1', 'recorder2', 'editor1', 'editor2', 'uploader1', 'admin'].filter(u => u !== activeUser).map(user => (
+                  <button
+                    key={user}
+                    type="button"
+                    onClick={() => setHandoffToUser(user)}
+                    style={{
+                      padding: '4px 10px',
+                      backgroundColor: handoffToUser === user ? '#6f42c1' : '#f8f9fa',
+                      color: handoffToUser === user ? 'white' : '#333',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    {user}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                New Role <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <select
+                value={handoffToRole}
+                onChange={(e) => setHandoffToRole(e.target.value as ClaimRole | '')}
+                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px' }}
+              >
+                <option value="">-- Select Role --</option>
+                <option value="recorder">Recorder</option>
+                <option value="editor">Editor</option>
+                <option value="uploader">Uploader</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Notes (optional)
+              </label>
+              <textarea
+                value={handoffNotes}
+                onChange={(e) => setHandoffNotes(e.target.value)}
+                placeholder="Any handoff instructions..."
+                rows={3}
+                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
+              />
+            </div>
+
+            {handoffMessage && (
+              <div style={{
+                marginBottom: '15px',
+                padding: '10px',
+                borderRadius: '4px',
+                backgroundColor: handoffMessage.includes('Error') ? '#f8d7da' : '#d4edda',
+                color: handoffMessage.includes('Error') ? '#721c24' : '#155724',
+                fontSize: '13px',
+              }}>
+                {handoffMessage}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={submitHandoff}
+                disabled={!handoffToUser.trim() || !handoffToRole || handingOff}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: handoffToUser.trim() && handoffToRole && !handingOff ? '#6f42c1' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: handoffToUser.trim() && handoffToRole && !handingOff ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {handingOff ? 'Handing off...' : 'Handoff'}
+              </button>
+              <button
+                onClick={closeHandoffModal}
                 style={{
                   padding: '12px 20px',
                   backgroundColor: '#6c757d',

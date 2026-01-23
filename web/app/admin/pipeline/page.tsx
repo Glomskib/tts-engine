@@ -985,6 +985,10 @@ export default function AdminPipelinePage() {
               <Link href="/admin/users" style={{ color: '#1971c2', fontSize: '13px' }}>
                 Users
               </Link>
+              <span style={{ color: '#ccc' }}>|</span>
+              <Link href="/admin/upgrade-requests" style={{ color: '#1971c2', fontSize: '13px' }}>
+                Upgrades
+              </Link>
             </>
           )}
 

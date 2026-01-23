@@ -23,6 +23,11 @@ export default function UpgradePage() {
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Self-service upgrade request state
+  const [requestMessage, setRequestMessage] = useState('');
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'requested' | 'already_requested' | 'error'>('idle');
+
   // Fetch authenticated user
   useEffect(() => {
     const fetchAuthUser = async () => {
@@ -75,6 +80,46 @@ Thank you!`;
       setTimeout(() => setCopied(false), 3000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  const submitUpgradeRequest = async () => {
+    setRequestSubmitting(true);
+    setRequestStatus('idle');
+
+    try {
+      const res = await fetch('/api/auth/upgrade-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: requestMessage.trim() || null }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        if (data.status === 'already_requested') {
+          setRequestStatus('already_requested');
+        } else if (data.status === 'already_pro') {
+          // Refresh plan status
+          const planRes = await fetch('/api/auth/plan-status');
+          if (planRes.ok) {
+            const planData = await planRes.json();
+            if (planData.ok) {
+              setPlanStatus(planData.data);
+            }
+          }
+        } else {
+          setRequestStatus('requested');
+          setRequestMessage('');
+        }
+      } else {
+        setRequestStatus('error');
+      }
+    } catch (err) {
+      console.error('Request error:', err);
+      setRequestStatus('error');
+    } finally {
+      setRequestSubmitting(false);
     }
   };
 
@@ -167,35 +212,121 @@ Thank you!`;
             </ul>
           </div>
 
-          {/* Contact Admin */}
+          {/* Request Upgrade */}
           <div style={{
             padding: '25px',
             backgroundColor: '#f8f9fa',
             borderRadius: '8px',
             border: '1px solid #dee2e6',
-            textAlign: 'center',
           }}>
             <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>
-              Ready to upgrade?
+              Request Upgrade
             </h3>
-            <p style={{ color: '#6c757d', margin: '0 0 20px 0', fontSize: '14px' }}>
-              Contact your administrator to enable Pro features on your account.
-            </p>
-            <button
-              onClick={copyContactMessage}
-              style={{
-                padding: '12px 30px',
-                backgroundColor: copied ? '#28a745' : '#228be6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '15px',
-              }}
-            >
-              {copied ? 'Copied to Clipboard!' : 'Copy Contact Message'}
-            </button>
+
+            {/* Status messages */}
+            {requestStatus === 'requested' && (
+              <div style={{
+                marginBottom: '15px',
+                padding: '12px',
+                backgroundColor: '#d3f9d8',
+                border: '1px solid #69db7c',
+                borderRadius: '4px',
+                color: '#2b8a3e',
+              }}>
+                Your upgrade request has been submitted. An administrator will review it shortly.
+              </div>
+            )}
+
+            {requestStatus === 'already_requested' && (
+              <div style={{
+                marginBottom: '15px',
+                padding: '12px',
+                backgroundColor: '#fff3bf',
+                border: '1px solid #ffd43b',
+                borderRadius: '4px',
+                color: '#e67700',
+              }}>
+                You have already requested an upgrade within the last 24 hours. Please wait for admin review.
+              </div>
+            )}
+
+            {requestStatus === 'error' && (
+              <div style={{
+                marginBottom: '15px',
+                padding: '12px',
+                backgroundColor: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '4px',
+                color: '#721c24',
+              }}>
+                Failed to submit request. Please try again.
+              </div>
+            )}
+
+            {requestStatus !== 'requested' && (
+              <>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#495057' }}>
+                    Message (optional)
+                  </label>
+                  <textarea
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                    placeholder="Tell us why you need Pro access..."
+                    maxLength={500}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      minHeight: '80px',
+                      resize: 'vertical',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+
+                <button
+                  onClick={submitUpgradeRequest}
+                  disabled={requestSubmitting}
+                  style={{
+                    width: '100%',
+                    padding: '12px 30px',
+                    backgroundColor: requestSubmitting ? '#adb5bd' : '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: requestSubmitting ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                  }}
+                >
+                  {requestSubmitting ? 'Submitting...' : 'Request Upgrade'}
+                </button>
+              </>
+            )}
+
+            {/* Manual contact option */}
+            <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #dee2e6' }}>
+              <p style={{ color: '#6c757d', margin: '0 0 10px 0', fontSize: '13px', textAlign: 'center' }}>
+                Or contact your administrator directly:
+              </p>
+              <button
+                onClick={copyContactMessage}
+                style={{
+                  width: '100%',
+                  padding: '10px 20px',
+                  backgroundColor: copied ? '#28a745' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                {copied ? 'Copied!' : 'Copy Contact Message'}
+              </button>
+            </div>
           </div>
         </>
       )}

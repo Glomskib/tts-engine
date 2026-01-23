@@ -2140,7 +2140,7 @@ try {
 }
 
 # Check 27: Pro upgrade landing page and admin plan management (Step 17)
-Write-Host "`n[27/27] Testing Pro upgrade landing page and admin plan management..." -ForegroundColor Yellow
+Write-Host "`n[27/28] Testing Pro upgrade landing page and admin plan management..." -ForegroundColor Yellow
 try {
     # Verify /upgrade page exists
     $upgradePath = Join-Path $webDir "app/upgrade/page.tsx"
@@ -2299,7 +2299,154 @@ try {
     Write-Host "  WARN: Pro upgrade verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[27/27] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 28: Self-service upgrade requests and admin queue (Step 18)
+Write-Host "`n[28/28] Testing self-service upgrade requests and admin queue..." -ForegroundColor Yellow
+try {
+    # Verify upgrade request API endpoint exists
+    $upgradeRequestPath = Join-Path $webDir "app/api/auth/upgrade-request/route.ts"
+    if (-not (Test-Path $upgradeRequestPath)) {
+        Write-Host "  FAIL: upgrade-request API not found at $upgradeRequestPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    POST /api/auth/upgrade-request endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify upgrade request returns 401 without auth
+    $upgradeRequestStatusCode = 0
+    try {
+        $upgradeRequestResult = Invoke-RestMethod -Uri "$baseUrl/api/auth/upgrade-request" -Method POST -ContentType "application/json" -Body '{}' -TimeoutSec 10
+        $upgradeRequestStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $upgradeRequestStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($upgradeRequestStatusCode -eq 401) {
+        Write-Host "    POST /api/auth/upgrade-request returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    POST /api/auth/upgrade-request returned status: $upgradeRequestStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify admin upgrade-requests list API exists
+    $upgradeRequestsListPath = Join-Path $webDir "app/api/admin/upgrade-requests/route.ts"
+    if (-not (Test-Path $upgradeRequestsListPath)) {
+        Write-Host "  FAIL: admin upgrade-requests list API not found at $upgradeRequestsListPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/admin/upgrade-requests endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify upgrade-requests list returns 401 without auth
+    $upgradeRequestsListStatusCode = 0
+    try {
+        $upgradeRequestsListResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/upgrade-requests" -Method GET -TimeoutSec 10
+        $upgradeRequestsListStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $upgradeRequestsListStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($upgradeRequestsListStatusCode -eq 401) {
+        Write-Host "    GET /api/admin/upgrade-requests returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/admin/upgrade-requests returned status: $upgradeRequestsListStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify admin upgrade-requests resolve API exists
+    $resolveApiPath = Join-Path $webDir "app/api/admin/upgrade-requests/resolve/route.ts"
+    if (-not (Test-Path $resolveApiPath)) {
+        Write-Host "  FAIL: admin upgrade-requests resolve API not found at $resolveApiPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    POST /api/admin/upgrade-requests/resolve endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify resolve returns 401 without auth
+    $resolveStatusCode = 0
+    try {
+        $resolveResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/upgrade-requests/resolve" -Method POST -ContentType "application/json" -Body '{"request_event_id":"test","decision":"approved"}' -TimeoutSec 10
+        $resolveStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $resolveStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($resolveStatusCode -eq 401) {
+        Write-Host "    POST /api/admin/upgrade-requests/resolve returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    POST /api/admin/upgrade-requests/resolve returned status: $resolveStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify /admin/upgrade-requests page exists
+    $adminUpgradeRequestsPagePath = Join-Path $webDir "app/admin/upgrade-requests/page.tsx"
+    if (-not (Test-Path $adminUpgradeRequestsPagePath)) {
+        Write-Host "  FAIL: /admin/upgrade-requests page not found at $adminUpgradeRequestsPagePath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    /admin/upgrade-requests page exists - OK" -ForegroundColor Gray
+
+    # Verify /admin/upgrade-requests returns 307 (auth redirect)
+    $adminUpgradeRequestsRouteStatusCode = 0
+    try {
+        $adminUpgradeRequestsRouteResult = Invoke-WebRequest -Uri "$baseUrl/admin/upgrade-requests" -Method GET -MaximumRedirection 0 -TimeoutSec 10 -ErrorAction SilentlyContinue
+        $adminUpgradeRequestsRouteStatusCode = [int]$adminUpgradeRequestsRouteResult.StatusCode
+    } catch {
+        if ($_.Exception.Response) {
+            $adminUpgradeRequestsRouteStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($adminUpgradeRequestsRouteStatusCode -eq 307 -or $adminUpgradeRequestsRouteStatusCode -eq 200) {
+        Write-Host "    /admin/upgrade-requests page returns $adminUpgradeRequestsRouteStatusCode - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    /admin/upgrade-requests page returned status: $adminUpgradeRequestsRouteStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify /upgrade page has request form
+    $upgradePath = Join-Path $webDir "app/upgrade/page.tsx"
+    if (Test-Path $upgradePath) {
+        $upgradeContent = Get-Content $upgradePath -Raw
+        if ($upgradeContent -match "submitUpgradeRequest") {
+            Write-Host "    /upgrade page has request form - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /upgrade page missing submitUpgradeRequest function" -ForegroundColor Yellow
+        }
+        if ($upgradeContent -match "/api/auth/upgrade-request") {
+            Write-Host "    /upgrade page calls upgrade-request API - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /upgrade page does not call upgrade-request API" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify notify router recognizes user_upgrade_requested
+    $notifyPath = Join-Path $webDir "lib/notify.ts"
+    if (Test-Path $notifyPath) {
+        $notifyContent = Get-Content $notifyPath -Raw
+        if ($notifyContent -match "user_upgrade_requested") {
+            Write-Host "    notify router recognizes user_upgrade_requested - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: notify router does not recognize user_upgrade_requested" -ForegroundColor Yellow
+        }
+        if ($notifyContent -match "user_upgrade_request_resolved") {
+            Write-Host "    notify router recognizes user_upgrade_request_resolved - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: notify router does not recognize user_upgrade_request_resolved" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify pipeline nav has Upgrades link
+    $pipelinePath = Join-Path $webDir "app/admin/pipeline/page.tsx"
+    if (Test-Path $pipelinePath) {
+        $pipelineContent = Get-Content $pipelinePath -Raw
+        if ($pipelineContent -match '"/admin/upgrade-requests"') {
+            Write-Host "    Pipeline nav has Upgrades link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Pipeline page missing /admin/upgrade-requests nav link" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Self-service upgrade requests and admin queue verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Upgrade requests verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[28/28] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

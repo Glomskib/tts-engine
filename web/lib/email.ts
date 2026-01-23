@@ -124,7 +124,8 @@ export function getAdminEmailRecipient(): string | null {
  * This prevents duplicate emails in tight loops.
  */
 export async function checkEmailCooldown(
-  supabaseAdmin: { from: (table: string) => { select: (cols: string) => { eq: (col: string, val: string) => { eq: (col: string, val: string) => { gte: (col: string, val: string) => { limit: (n: number) => Promise<{ data: unknown[] | null }> } } } } } },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   eventType: string,
   videoId: string,
   recipientEmail: string,

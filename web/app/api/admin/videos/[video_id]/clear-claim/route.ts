@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export const runtime = "nodejs";
 
@@ -127,6 +128,14 @@ export async function POST(request: Request, { params }: RouteParams) {
       previous_claimed_by: previousClaimedBy,
       previous_claimed_at: previousClaimedAt,
       previous_claim_role: previousClaimRole,
+    });
+
+    // Trigger email notification (fail-safe)
+    triggerEmailNotification("admin_clear_claim", video_id, {
+      adminUserId: authContext.user.id,
+      performed_by: authContext.user.email || authContext.user.id,
+      reason: reason.trim(),
+      previous_claimed_by: previousClaimedBy,
     });
 
     return NextResponse.json({

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { getVideosColumns } from "@/lib/videosSchema";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export const runtime = "nodejs";
 
@@ -155,6 +156,12 @@ export async function POST(request: Request, { params }: RouteParams) {
     await insertNotification(assignee_user_id, "assigned", id, {
       assigned_by: authContext.user.email || authContext.user.id,
       notes: notes || null,
+    });
+
+    // Trigger email notification (fail-safe)
+    triggerEmailNotification("assigned", id, {
+      assignedUserId: assignee_user_id,
+      role: "assigned",
     });
 
     return NextResponse.json({

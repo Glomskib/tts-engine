@@ -3,6 +3,7 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export const runtime = "nodejs";
 
@@ -160,6 +161,16 @@ export async function POST(request: Request, { params }: RouteParams) {
       to_state: newState,
       previous_assigned_to: previousState.assigned_to,
       previous_assigned_role: previousState.assigned_role,
+    });
+
+    // Trigger email notification (fail-safe)
+    triggerEmailNotification("admin_reset_assignments", video_id, {
+      adminUserId: authContext.user.id,
+      performed_by: authContext.user.email || authContext.user.id,
+      reason: reason.trim(),
+      mode,
+      from_state: previousState.assignment_state,
+      to_state: newState,
     });
 
     return NextResponse.json({

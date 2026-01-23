@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export const runtime = "nodejs";
 
@@ -173,6 +174,15 @@ export async function POST(request: Request, { params }: RouteParams) {
         posted_platform: posted_platform || null,
       }
     );
+
+    // Trigger email notification (fail-safe)
+    triggerEmailNotification("admin_force_status", video_id, {
+      adminUserId: authContext.user.id,
+      performed_by: authContext.user.email || authContext.user.id,
+      reason: reason.trim(),
+      from_status: fromStatus,
+      to_status: target_status,
+    });
 
     return NextResponse.json({
       ok: true,

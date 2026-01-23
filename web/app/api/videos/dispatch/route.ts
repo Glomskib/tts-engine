@@ -9,6 +9,7 @@ import {
   type VideoForValidation,
 } from "@/lib/execution-stages";
 import { expireAssignmentsForRole } from "@/lib/assignment-expiry";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export const runtime = "nodejs";
 
@@ -280,6 +281,12 @@ export async function POST(request: Request) {
       role: dispatchRole,
       expires_at: expiresAt,
       sla_status: best.slaInfo.sla_status,
+    });
+
+    // Trigger email notification (fail-safe)
+    triggerEmailNotification("assigned", videoId, {
+      assignedUserId: userId,
+      role: dispatchRole,
     });
 
     return NextResponse.json({

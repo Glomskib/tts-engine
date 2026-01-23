@@ -3,6 +3,7 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export const runtime = "nodejs";
 
@@ -190,6 +191,13 @@ export async function POST(request: Request, { params }: RouteParams) {
         notes: notes || null,
       });
     }
+
+    // Trigger email notification (fail-safe)
+    triggerEmailNotification("assignment_reassigned", video_id, {
+      assignedUserId: to_user_id,
+      role: to_role,
+      reassignedBy: authContext.user.email || authContext.user.id,
+    });
 
     return NextResponse.json({
       ok: true,

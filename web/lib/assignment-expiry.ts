@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
+import { triggerEmailNotification } from "@/lib/email-notifications";
 
 export interface ExpireResult {
   expired_count: number;
@@ -142,6 +143,11 @@ export async function expireAssignmentsForRole(
       if (video.assigned_to) {
         await notifyAssignmentExpired(video.assigned_to, video.id, video.assigned_role);
       }
+      // Trigger email notification (fail-safe)
+      triggerEmailNotification("assignment_expired", video.id, {
+        assignedUserId: video.assigned_to || undefined,
+        role: video.assigned_role || undefined,
+      });
     }
 
     return { expired_count: expiredIds.length, expired_ids: expiredIds };
@@ -210,6 +216,11 @@ export async function expireAllAssignments(
       if (video.assigned_to) {
         await notifyAssignmentExpired(video.assigned_to, video.id, video.assigned_role);
       }
+      // Trigger email notification (fail-safe)
+      triggerEmailNotification("assignment_expired", video.id, {
+        assignedUserId: video.assigned_to || undefined,
+        role: video.assigned_role || undefined,
+      });
     }
 
     return { expired_count: expiredIds.length, expired_ids: expiredIds };
@@ -277,6 +288,11 @@ export async function checkAndExpireUserAssignment(
       );
       // Notification already goes to this user, so we send it
       await notifyAssignmentExpired(userId, video.id, video.assigned_role);
+      // Trigger email notification (fail-safe)
+      triggerEmailNotification("assignment_expired", video.id, {
+        assignedUserId: video.assigned_to || undefined,
+        role: video.assigned_role || undefined,
+      });
     }
 
     return { hadExpired: true, expiredVideoIds: expiredIds };

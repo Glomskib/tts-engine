@@ -59,6 +59,21 @@ export async function getVideosColumns(): Promise<Set<string>> {
       columns.add("assigned_by");
     }
 
+    // Explicitly check for work package columns (migration 019)
+    const { error: assignmentStateError } = await supabaseAdmin
+      .from("videos")
+      .select("assignment_state")
+      .limit(1);
+
+    if (!assignmentStateError) {
+      columns.add("assignment_state");
+      columns.add("assigned_expires_at");
+      columns.add("assigned_ttl_minutes");
+      columns.add("assigned_role");
+      columns.add("work_lane");
+      columns.add("work_priority");
+    }
+
     cachedColumns = columns;
   } catch (err) {
     console.error("Error querying videos schema:", err);

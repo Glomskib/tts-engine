@@ -145,6 +145,22 @@ export async function GET(request: Request, { params }: RouteParams) {
         label = `Assignment expired`;
       } else if (event.event_type === "force_release") {
         label = `Force released by admin`;
+      } else if (event.event_type === "admin_force_status") {
+        label = `Admin forced status: ${event.details?.from_status || "?"} → ${event.details?.to_status || "?"}`;
+      } else if (event.event_type === "admin_clear_claim") {
+        label = `Admin cleared claim`;
+      } else if (event.event_type === "admin_reset_assignments") {
+        label = `Admin reset assignments (${event.details?.mode || "?"})`;
+      } else if (event.event_type === "email_sent") {
+        label = `Email sent: ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "email_skipped_no_config") {
+        label = `Email skipped (no config): ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "email_skipped_no_recipient") {
+        label = `Email skipped (no recipient): ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "email_skipped_disabled") {
+        label = `Email skipped (disabled): ${event.details?.original_event || "notification"}`;
+      } else if (event.event_type === "email_failed") {
+        label = `Email failed: ${event.details?.message || "unknown error"}`;
       }
 
       items.push({

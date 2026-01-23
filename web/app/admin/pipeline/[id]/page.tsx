@@ -1533,8 +1533,24 @@ export default function VideoDetailPage() {
                 event: { bg: '#e7f5ff', border: '#74c0fc', text: '#1971c2' },
                 assignment: { bg: '#d3f9d8', border: '#69db7c', text: '#2f9e44' },
                 video_snapshot: { bg: '#fff3bf', border: '#ffd43b', text: '#e67700' },
+                email_sent: { bg: '#d0f0fd', border: '#38bdf8', text: '#0369a1' },
+                email_skipped: { bg: '#fef3c7', border: '#fcd34d', text: '#b45309' },
+                email_failed: { bg: '#fee2e2', border: '#fca5a5', text: '#dc2626' },
+                admin_action: { bg: '#fce7f3', border: '#f9a8d4', text: '#be185d' },
               };
-              const colors = typeColors[item.type] || typeColors.event;
+              // Determine display type for styling based on event_type metadata
+              const eventType = (item.metadata?.event_type as string) || '';
+              let displayType: string = item.type;
+              if (eventType.startsWith('email_sent')) {
+                displayType = 'email_sent';
+              } else if (eventType.startsWith('email_skipped') || eventType === 'email_skipped_no_config' || eventType === 'email_skipped_no_recipient' || eventType === 'email_skipped_disabled') {
+                displayType = 'email_skipped';
+              } else if (eventType === 'email_failed') {
+                displayType = 'email_failed';
+              } else if (eventType.startsWith('admin_')) {
+                displayType = 'admin_action';
+              }
+              const colors = typeColors[displayType] || typeColors[item.type] || typeColors.event;
               return (
                 <div
                   key={`${item.ts}-${idx}`}
@@ -1561,7 +1577,11 @@ export default function VideoDetailPage() {
                         fontWeight: 500,
                       }}
                     >
-                      {item.type}
+                      {displayType === 'email_sent' ? 'email' :
+                       displayType === 'email_skipped' ? 'email' :
+                       displayType === 'email_failed' ? 'email' :
+                       displayType === 'admin_action' ? 'admin' :
+                       item.type}
                     </span>
                   </div>
                   <div style={{ flex: 1 }}>

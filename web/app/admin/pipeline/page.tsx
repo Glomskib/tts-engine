@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -314,12 +315,17 @@ export default function AdminPipelinePage() {
             <tbody>
               {filteredClaimedVideos.map((video) => (
                 <tr key={video.id}>
-                  <td
-                    style={copyableCellStyle}
-                    onClick={() => copyToClipboard(video.id, `vid-${video.id}`)}
-                    title="Click to copy"
-                  >
-                    {video.id}
+                  <td style={copyableCellStyle}>
+                    <Link href={`/admin/pipeline/video/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
+                      {video.id.slice(0, 8)}...
+                    </Link>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(video.id, `vid-${video.id}`); }}
+                      style={{ marginLeft: '5px', cursor: 'pointer', color: '#666' }}
+                      title="Copy full ID"
+                    >
+                      [copy]
+                    </span>
                     {copiedId === `vid-${video.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
                   </td>
                   <td style={tdStyle}>{video.claimed_by}</td>
@@ -354,12 +360,17 @@ export default function AdminPipelinePage() {
                 <tr key={event.id}>
                   <td style={tdStyle} title={formatDate(event.created_at)}>{timeAgo(event.created_at)}</td>
                   <td style={tdStyle}>{event.event_type}</td>
-                  <td
-                    style={copyableCellStyle}
-                    onClick={() => copyToClipboard(event.video_id, `evt-vid-${event.id}`)}
-                    title="Click to copy"
-                  >
-                    {event.video_id.slice(0, 8)}...
+                  <td style={copyableCellStyle}>
+                    <Link href={`/admin/pipeline/video/${event.video_id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
+                      {event.video_id.slice(0, 8)}...
+                    </Link>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(event.video_id, `evt-vid-${event.id}`); }}
+                      style={{ marginLeft: '5px', cursor: 'pointer', color: '#666' }}
+                      title="Copy full ID"
+                    >
+                      [copy]
+                    </span>
                     {copiedId === `evt-vid-${event.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
                   </td>
                   <td style={tdStyle}>{event.actor}</td>

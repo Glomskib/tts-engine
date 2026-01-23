@@ -29,7 +29,26 @@ interface VideoDetail {
   script_locked_json: Record<string, unknown> | null;
   script_locked_text: string | null;
   status: string | null;
+  // Execution tracking fields
+  recording_status: string;
+  recorded_at: string | null;
+  edited_at: string | null;
+  ready_to_post_at: string | null;
+  posted_at: string | null;
+  rejected_at: string | null;
+  recording_notes: string | null;
+  editor_notes: string | null;
+  uploader_notes: string | null;
+  posted_url: string | null;
+  posted_platform: string | null;
+  posted_account: string | null;
+  posted_at_local: string | null;
+  posting_error: string | null;
+  last_status_changed_at: string | null;
 }
+
+const RECORDING_STATUSES = ['NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
+const PLATFORMS = ['tiktok', 'instagram', 'youtube', 'other'] as const;
 
 interface ScriptInfo {
   id: string;
@@ -72,6 +91,21 @@ export default function VideoDetailPage() {
   const [attachMessage, setAttachMessage] = useState<string | null>(null);
   const [forceOverwrite, setForceOverwrite] = useState(false);
 
+  // Execution tracking state
+  const [executionForm, setExecutionForm] = useState({
+    recording_status: 'NOT_RECORDED',
+    recording_notes: '',
+    editor_notes: '',
+    uploader_notes: '',
+    posted_url: '',
+    posted_platform: '',
+    posted_account: '',
+    posted_at_local: '',
+    posting_error: '',
+  });
+  const [savingExecution, setSavingExecution] = useState(false);
+  const [executionMessage, setExecutionMessage] = useState<string | null>(null);
+
   const checkAdminEnabled = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/enabled');
@@ -113,6 +147,19 @@ export default function VideoDetailPage() {
       // Set video details (for script info)
       if (videoData.ok && videoData.data) {
         setVideoDetail(videoData.data);
+
+        // Populate execution form with current values
+        setExecutionForm({
+          recording_status: videoData.data.recording_status || 'NOT_RECORDED',
+          recording_notes: videoData.data.recording_notes || '',
+          editor_notes: videoData.data.editor_notes || '',
+          uploader_notes: videoData.data.uploader_notes || '',
+          posted_url: videoData.data.posted_url || '',
+          posted_platform: videoData.data.posted_platform || '',
+          posted_account: videoData.data.posted_account || '',
+          posted_at_local: videoData.data.posted_at_local || '',
+          posting_error: videoData.data.posting_error || '',
+        });
 
         // If video has a linked script, fetch its current status/version
         if (videoData.data.script_id) {
@@ -190,6 +237,89 @@ export default function VideoDetailPage() {
       setAttachMessage('Error: Failed to attach script');
     } finally {
       setAttaching(false);
+    }
+  };
+
+  const saveExecution = async () => {
+    setSavingExecution(true);
+    setExecutionMessage(null);
+    try {
+      const payload: Record<string, unknown> = {
+        recording_status: executionForm.recording_status,
+        recording_notes: executionForm.recording_notes || null,
+        editor_notes: executionForm.editor_notes || null,
+        uploader_notes: executionForm.uploader_notes || null,
+        posted_url: executionForm.posted_url || null,
+        posted_platform: executionForm.posted_platform || null,
+        posted_account: executionForm.posted_account || null,
+        posted_at_local: executionForm.posted_at_local || null,
+        posting_error: executionForm.posting_error || null,
+      };
+
+      const res = await fetch(`/api/videos/${videoId}/execution`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setExecutionMessage('Execution status saved successfully');
+        fetchData();
+        setTimeout(() => setExecutionMessage(null), 3000);
+      } else {
+        setExecutionMessage(`Error: ${data.error || 'Failed to save'}`);
+      }
+    } catch (err) {
+      setExecutionMessage('Error: Failed to save execution status');
+    } finally {
+      setSavingExecution(false);
+    }
+  };
+
+  const setTimestampNow = async (field: 'recorded_at' | 'edited_at' | 'ready_to_post_at' | 'posted_at' | 'rejected_at') => {
+    const statusMap: Record<string, string> = {
+      recorded_at: 'RECORDED',
+      edited_at: 'EDITED',
+      ready_to_post_at: 'READY_TO_POST',
+      posted_at: 'POSTED',
+      rejected_at: 'REJECTED',
+    };
+    const newStatus = statusMap[field];
+
+    setSavingExecution(true);
+    setExecutionMessage(null);
+    try {
+      const payload: Record<string, unknown> = {
+        recording_status: newStatus,
+        [field]: new Date().toISOString(),
+      };
+
+      // If setting to POSTED, include the form fields
+      if (newStatus === 'POSTED') {
+        payload.posted_url = executionForm.posted_url || null;
+        payload.posted_platform = executionForm.posted_platform || null;
+        payload.posted_account = executionForm.posted_account || null;
+        payload.force = !executionForm.posted_url || !executionForm.posted_platform; // Force if missing required fields
+      }
+
+      const res = await fetch(`/api/videos/${videoId}/execution`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setExecutionMessage(`Set ${field.replace(/_/g, ' ')} to now`);
+        setExecutionForm(prev => ({ ...prev, recording_status: newStatus }));
+        fetchData();
+        setTimeout(() => setExecutionMessage(null), 3000);
+      } else {
+        setExecutionMessage(`Error: ${data.error || 'Failed to set timestamp'}`);
+      }
+    } catch (err) {
+      setExecutionMessage('Error: Failed to set timestamp');
+    } finally {
+      setSavingExecution(false);
     }
   };
 
@@ -516,6 +646,226 @@ export default function VideoDetailPage() {
           )}
         </section>
       )}
+
+      {/* Execution Tracking Section */}
+      <section style={{ ...sectionStyle, borderColor: '#28a745' }}>
+        <h2 style={{ marginTop: 0 }}>Execution Tracking</h2>
+        {executionMessage && (
+          <div style={{ color: executionMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '15px', padding: '10px', backgroundColor: executionMessage.startsWith('Error') ? '#fee' : '#efe', borderRadius: '4px' }}>
+            {executionMessage}
+          </div>
+        )}
+
+        {/* Recording Status */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Recording Status</label>
+          <select
+            value={executionForm.recording_status}
+            onChange={(e) => setExecutionForm(prev => ({ ...prev, recording_status: e.target.value }))}
+            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '200px' }}
+          >
+            {RECORDING_STATUSES.map(status => (
+              <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Timestamps */}
+        <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Recorded At</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#666' }}>
+                {videoDetail?.recorded_at ? (hydrated ? new Date(videoDetail.recorded_at).toLocaleString() : formatDateString(videoDetail.recorded_at)) : '-'}
+              </span>
+              <button
+                onClick={() => setTimestampNow('recorded_at')}
+                disabled={savingExecution}
+                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+              >
+                Set Now
+              </button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Edited At</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#666' }}>
+                {videoDetail?.edited_at ? (hydrated ? new Date(videoDetail.edited_at).toLocaleString() : formatDateString(videoDetail.edited_at)) : '-'}
+              </span>
+              <button
+                onClick={() => setTimestampNow('edited_at')}
+                disabled={savingExecution}
+                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+              >
+                Set Now
+              </button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Ready to Post At</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#666' }}>
+                {videoDetail?.ready_to_post_at ? (hydrated ? new Date(videoDetail.ready_to_post_at).toLocaleString() : formatDateString(videoDetail.ready_to_post_at)) : '-'}
+              </span>
+              <button
+                onClick={() => setTimestampNow('ready_to_post_at')}
+                disabled={savingExecution}
+                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+              >
+                Set Now
+              </button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Posted At</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#666' }}>
+                {videoDetail?.posted_at ? (hydrated ? new Date(videoDetail.posted_at).toLocaleString() : formatDateString(videoDetail.posted_at)) : '-'}
+              </span>
+              <button
+                onClick={() => setTimestampNow('posted_at')}
+                disabled={savingExecution}
+                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+              >
+                Set Now
+              </button>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Rejected At</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#666' }}>
+                {videoDetail?.rejected_at ? (hydrated ? new Date(videoDetail.rejected_at).toLocaleString() : formatDateString(videoDetail.rejected_at)) : '-'}
+              </span>
+              <button
+                onClick={() => setTimestampNow('rejected_at')}
+                disabled={savingExecution}
+                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+              >
+                Set Now
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Recording Notes</label>
+            <textarea
+              value={executionForm.recording_notes}
+              onChange={(e) => setExecutionForm(prev => ({ ...prev, recording_notes: e.target.value }))}
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', resize: 'vertical' }}
+              placeholder="Notes from recording..."
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Editor Notes</label>
+            <textarea
+              value={executionForm.editor_notes}
+              onChange={(e) => setExecutionForm(prev => ({ ...prev, editor_notes: e.target.value }))}
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', resize: 'vertical' }}
+              placeholder="Notes from editing..."
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>Uploader Notes</label>
+            <textarea
+              value={executionForm.uploader_notes}
+              onChange={(e) => setExecutionForm(prev => ({ ...prev, uploader_notes: e.target.value }))}
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', resize: 'vertical' }}
+              placeholder="Notes from uploading..."
+            />
+          </div>
+        </div>
+
+        {/* Posting Fields */}
+        <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', fontSize: '14px' }}>Posting Details</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Platform</label>
+              <select
+                value={executionForm.posted_platform}
+                onChange={(e) => setExecutionForm(prev => ({ ...prev, posted_platform: e.target.value }))}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              >
+                <option value="">-- Select --</option>
+                {PLATFORMS.map(p => (
+                  <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Posted URL</label>
+              <input
+                type="text"
+                value={executionForm.posted_url}
+                onChange={(e) => setExecutionForm(prev => ({ ...prev, posted_url: e.target.value }))}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                placeholder="https://..."
+              />
+              {videoDetail?.posted_url && videoDetail.recording_status === 'POSTED' && (
+                <a
+                  href={videoDetail.posted_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: '12px', color: '#0066cc', display: 'block', marginTop: '5px' }}
+                >
+                  Open posted video &rarr;
+                </a>
+              )}
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Account/Handle</label>
+              <input
+                type="text"
+                value={executionForm.posted_account}
+                onChange={(e) => setExecutionForm(prev => ({ ...prev, posted_account: e.target.value }))}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                placeholder="@username"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Posted At (Local)</label>
+              <input
+                type="text"
+                value={executionForm.posted_at_local}
+                onChange={(e) => setExecutionForm(prev => ({ ...prev, posted_at_local: e.target.value }))}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                placeholder="e.g., 3pm EST"
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Posting Error (if failed)</label>
+            <textarea
+              value={executionForm.posting_error}
+              onChange={(e) => setExecutionForm(prev => ({ ...prev, posting_error: e.target.value }))}
+              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '40px', resize: 'vertical' }}
+              placeholder="Error message if posting failed..."
+            />
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <button
+          onClick={saveExecution}
+          disabled={savingExecution}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: savingExecution ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+          }}
+        >
+          {savingExecution ? 'Saving...' : 'Save Execution Status'}
+        </button>
+      </section>
 
       {/* Event Timeline */}
       <section style={{ marginBottom: '40px' }}>

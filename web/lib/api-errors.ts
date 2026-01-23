@@ -15,7 +15,9 @@ export type ApiErrorCode =
   | 'SCRIPT_NOT_APPROVED'
   | 'SCRIPT_ALREADY_LOCKED'
   | 'AI_ERROR'
-  | 'VALIDATION_ERROR';
+  | 'VALIDATION_ERROR'
+  | 'INVALID_RECORDING_STATUS'
+  | 'MISSING_POSTED_FIELDS';
 
 export interface ApiErrorResponse {
   ok: false;

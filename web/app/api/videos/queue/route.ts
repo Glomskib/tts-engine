@@ -14,6 +14,7 @@ const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,crea
 const VIDEO_SELECT_CLAIM = ",claimed_by,claimed_at,claim_expires_at";
 const VIDEO_SELECT_CLAIM_ROLE = ",claim_role";
 const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,recording_notes,editor_notes,uploader_notes";
+const VIDEO_SELECT_ASSIGNMENT = ",assigned_to,assigned_at,assigned_expires_at,assigned_role,assignment_state";
 
 const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 
@@ -29,6 +30,8 @@ export async function GET(request: Request) {
   const claimRoleParam = searchParams.get("claim_role");
   const claimedByParam = searchParams.get("claimed_by");
   const sortParam = searchParams.get("sort") as SortValue | null;
+  const assignedParam = searchParams.get("assigned"); // me | any | unassigned
+  const assignedToParam = searchParams.get("assigned_to"); // specific user ID
 
   // Validate pipeline status if provided
   if (statusParam && !QUEUE_STATUSES.includes(statusParam as typeof QUEUE_STATUSES[number])) {
@@ -78,6 +81,7 @@ export async function GET(request: Request) {
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
     const hasClaimRoleColumn = existingColumns.has("claim_role");
     const hasExecutionColumns = existingColumns.has("recording_status") && existingColumns.has("last_status_changed_at");
+    const hasAssignmentColumns = existingColumns.has("assignment_state") && existingColumns.has("assigned_expires_at");
 
     let selectCols = VIDEO_SELECT_BASE;
     if (hasClaimColumns) {
@@ -85,6 +89,7 @@ export async function GET(request: Request) {
       if (hasClaimRoleColumn) selectCols += VIDEO_SELECT_CLAIM_ROLE;
     }
     if (hasExecutionColumns) selectCols += VIDEO_SELECT_EXECUTION;
+    if (hasAssignmentColumns) selectCols += VIDEO_SELECT_ASSIGNMENT;
 
     // Order by last_status_changed_at if filtering by recording_status, otherwise by created_at
     const orderColumn = recordingStatusParam && hasExecutionColumns ? "last_status_changed_at" : "created_at";
@@ -136,6 +141,23 @@ export async function GET(request: Request) {
       }
     }
 
+    // Apply assignment filter only if columns exist
+    if (hasAssignmentColumns) {
+      const now = new Date().toISOString();
+
+      if (assignedParam === "me" && assignedToParam) {
+        // Show videos assigned to the specified user
+        query = query.eq("assigned_to", assignedToParam).eq("assignment_state", "ASSIGNED");
+      } else if (assignedParam === "unassigned") {
+        // Show unassigned videos
+        query = query.or(`assignment_state.eq.UNASSIGNED,assignment_state.eq.EXPIRED,assigned_expires_at.lt.${now}`);
+      } else if (assignedToParam) {
+        // Filter by specific assigned_to user
+        query = query.eq("assigned_to", assignedToParam);
+      }
+      // "any" - no additional filter
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -167,6 +189,27 @@ export async function GET(request: Request) {
         now
       );
 
+      // Compute assignment info
+      const assignedTo = video.assigned_to as string | null;
+      const assignedExpiresAt = video.assigned_expires_at as string | null;
+      const assignmentState = video.assignment_state as string | null;
+
+      let assignmentTimeLeftMinutes: number | null = null;
+      let isAssignedToMe = false;
+
+      if (assignedExpiresAt && assignmentState === "ASSIGNED") {
+        const expiresTime = new Date(assignedExpiresAt).getTime();
+        const nowTime = now.getTime();
+        if (expiresTime > nowTime) {
+          assignmentTimeLeftMinutes = Math.floor((expiresTime - nowTime) / (1000 * 60));
+        }
+      }
+
+      // Note: is_assigned_to_me requires knowing current user - computed client-side or via param
+      if (assignedToParam && assignedTo === assignedToParam && assignmentState === "ASSIGNED" && assignmentTimeLeftMinutes !== null) {
+        isAssignedToMe = true;
+      }
+
       return {
         ...video,
         // Stage info computed fields
@@ -186,6 +229,9 @@ export async function GET(request: Request) {
         sla_status: slaInfo.sla_status,
         age_minutes_in_stage: slaInfo.age_minutes_in_stage,
         priority_score: slaInfo.priority_score,
+        // Assignment info (computed)
+        assignment_time_left_minutes: assignmentTimeLeftMinutes,
+        is_assigned_to_me: isAssignedToMe,
       };
     });
 

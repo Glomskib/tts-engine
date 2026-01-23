@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -77,9 +79,15 @@ type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 const VA_MODES = ['admin', 'recorder', 'editor', 'uploader'] as const;
 type VAMode = typeof VA_MODES[number];
 
-// localStorage keys
-const ACTIVE_USER_KEY = 'pipeline_active_user';
+// localStorage key (VA mode only - user comes from auth)
 const VA_MODE_KEY = 'pipeline_va_mode';
+
+// Auth user info type
+interface AuthUser {
+  id: string;
+  email: string | null;
+  role: 'admin' | 'recorder' | 'editor' | 'uploader' | null;
+}
 
 // Status badge color helper (matches detail page)
 function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
@@ -126,11 +134,17 @@ export default function AdminPipelinePage() {
   const [activeRecordingTab, setActiveRecordingTab] = useState<typeof RECORDING_STATUS_TABS[number]>('ALL');
   const [claimedFilter, setClaimedFilter] = useState<'any' | 'unclaimed' | 'claimed'>('any');
 
+  // Auth state
+  const router = useRouter();
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // Role-based filtering state
   const [activeRoleTab, setActiveRoleTab] = useState<typeof CLAIM_ROLE_TABS[number]>('all');
   const [myWorkOnly, setMyWorkOnly] = useState(false);
-  const [activeUser, setActiveUser] = useState<string>(ADMIN_IDENTIFIER);
-  const [showUserSelector, setShowUserSelector] = useState(false);
+
+  // Derived: active user is the authenticated user's ID
+  const activeUser = authUser?.id || '';
 
   // VA Mode state (Admin / Recorder / Editor / Uploader)
   const [vaMode, setVaMode] = useState<VAMode>('admin');
@@ -170,30 +184,58 @@ export default function AdminPipelinePage() {
   const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
 
-  // Load active user and VA mode from localStorage on mount
+  // Fetch authenticated user on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem(ACTIVE_USER_KEY);
-      if (savedUser) {
-        setActiveUser(savedUser);
-      }
-      const savedMode = localStorage.getItem(VA_MODE_KEY);
-      if (savedMode && VA_MODES.includes(savedMode as VAMode)) {
-        setVaMode(savedMode as VAMode);
-      }
-    }
-  }, []);
+    const fetchAuthUser = async () => {
+      try {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { user }, error } = await supabase.auth.getUser();
 
-  // Save active user to localStorage
-  const updateActiveUser = (user: string) => {
-    setActiveUser(user);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(ACTIVE_USER_KEY, user);
-    }
-  };
+        if (error || !user) {
+          // Redirect to login if not authenticated
+          router.push('/login?redirect=/admin/pipeline');
+          return;
+        }
 
-  // Save VA mode to localStorage
+        // Fetch user role from API
+        const roleRes = await fetch('/api/auth/me');
+        const roleData = await roleRes.json();
+
+        setAuthUser({
+          id: user.id,
+          email: user.email || null,
+          role: roleData.role || null,
+        });
+
+        // Set VA mode based on user's actual role (non-admins can't select admin mode)
+        const userRole = roleData.role as AuthUser['role'];
+        if (userRole && userRole !== 'admin') {
+          // Lock to user's role for non-admins
+          setVaMode(userRole);
+        } else {
+          // Admins can use saved preference
+          const savedMode = localStorage.getItem(VA_MODE_KEY);
+          if (savedMode && VA_MODES.includes(savedMode as VAMode)) {
+            setVaMode(savedMode as VAMode);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch auth user:', err);
+        router.push('/login?redirect=/admin/pipeline');
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    fetchAuthUser();
+  }, [router]);
+
+  // Save VA mode to localStorage (admins only can switch freely)
   const updateVaMode = (mode: VAMode) => {
+    // Non-admins cannot switch to admin mode
+    if (mode === 'admin' && authUser?.role !== 'admin') {
+      return;
+    }
     setVaMode(mode);
     if (typeof window !== 'undefined') {
       localStorage.setItem(VA_MODE_KEY, mode);
@@ -203,6 +245,9 @@ export default function AdminPipelinePage() {
       setActiveRoleTab(mode);
     }
   };
+
+  // Check if user is an admin
+  const isUserAdmin = authUser?.role === 'admin';
 
   // Helper to check if current VA mode is admin
   const isAdminMode = vaMode === 'admin';
@@ -327,10 +372,11 @@ export default function AdminPipelinePage() {
       // Determine claim_role: use provided role, or infer from activeRoleTab, or default to 'admin'
       const claimRole: ClaimRole = role || (activeRoleTab !== 'all' ? activeRoleTab : 'admin');
 
+      // Auth is handled server-side via session - claim_role tells the server what role to record
       const res = await fetch(`/api/videos/${videoId}/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ claimed_by: activeUser, claim_role: claimRole }),
+        body: JSON.stringify({ claim_role: claimRole }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -358,10 +404,11 @@ export default function AdminPipelinePage() {
     setClaimingVideoId(videoId);
     setClaimError(null);
     try {
+      // Auth is handled server-side via session
       const res = await fetch(`/api/videos/${videoId}/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ claimed_by: activeUser }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (data.ok) {
@@ -475,10 +522,11 @@ export default function AdminPipelinePage() {
     setExecutingVideoId(videoId);
     setExecutionError(null);
     try {
+      // Auth is handled server-side via session
       const res = await fetch(`/api/videos/${videoId}/execution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recording_status: targetStatus, updated_by: activeUser }),
+        body: JSON.stringify({ recording_status: targetStatus }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -517,6 +565,7 @@ export default function AdminPipelinePage() {
     setPosting(true);
     setPostMessage(null);
     try {
+      // Auth is handled server-side via session
       const res = await fetch(`/api/videos/${postModalVideoId}/execution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -524,7 +573,6 @@ export default function AdminPipelinePage() {
           recording_status: 'POSTED',
           posted_url: postUrl.trim(),
           posted_platform: postPlatform,
-          updated_by: activeUser,
         }),
       });
       const data = await res.json();
@@ -570,11 +618,11 @@ export default function AdminPipelinePage() {
     setHandingOff(true);
     setHandoffMessage(null);
     try {
+      // Auth is handled server-side via session - from_user is derived from auth
       const res = await fetch(`/api/videos/${handoffModalVideoId}/handoff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from_user: activeUser,
           to_user: handoffToUser.trim(),
           to_role: handoffToRole,
           notes: handoffNotes.trim() || undefined,
@@ -621,8 +669,12 @@ export default function AdminPipelinePage() {
     }
   }, [activeRecordingTab, claimedFilter, activeRoleTab, myWorkOnly, activeUser, adminEnabled, fetchQueueVideos]);
 
-  if (adminEnabled === null) {
+  if (adminEnabled === null || authLoading) {
     return <div style={{ padding: '20px' }}>Checking access...</div>;
+  }
+
+  if (!authUser) {
+    return <div style={{ padding: '20px' }}>Redirecting to login...</div>;
   }
 
   if (adminEnabled === false) {
@@ -768,7 +820,7 @@ export default function AdminPipelinePage() {
       <section style={{ marginBottom: '30px' }}>
         <h2>Video Queue</h2>
 
-        {/* VA Mode + Active User Selector */}
+        {/* VA Mode + Authenticated User Display */}
         <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc', flexWrap: 'wrap' }}>
           {/* VA Mode Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -776,18 +828,20 @@ export default function AdminPipelinePage() {
             <select
               value={vaMode}
               onChange={(e) => updateVaMode(e.target.value as VAMode)}
+              disabled={!isUserAdmin}
               style={{
                 padding: '4px 12px',
                 borderRadius: '4px',
                 border: '1px solid #74c0fc',
                 fontWeight: 'bold',
                 color: vaMode === 'admin' ? '#e03131' : vaMode === 'recorder' ? '#228be6' : vaMode === 'editor' ? '#fab005' : '#40c057',
-                backgroundColor: '#fff',
+                backgroundColor: isUserAdmin ? '#fff' : '#f0f0f0',
                 fontSize: '14px',
                 textTransform: 'capitalize',
+                cursor: isUserAdmin ? 'pointer' : 'not-allowed',
               }}
             >
-              {VA_MODES.map(mode => (
+              {VA_MODES.filter(mode => isUserAdmin || mode === authUser?.role).map(mode => (
                 <option key={mode} value={mode}>{mode.charAt(0).toUpperCase() + mode.slice(1)}</option>
               ))}
             </select>
@@ -796,27 +850,51 @@ export default function AdminPipelinePage() {
                 (Safe mode - force actions hidden)
               </span>
             )}
+            {!isUserAdmin && (
+              <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
+                (Locked to your role)
+              </span>
+            )}
           </div>
 
           <span style={{ color: '#ccc' }}>|</span>
 
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>User:</span>
+          {/* Authenticated User Display */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Signed in as:</span>
             <span style={{
               padding: '4px 12px',
               backgroundColor: '#fff',
               borderRadius: '4px',
               border: '1px solid #74c0fc',
               fontWeight: 'bold',
-              color: '#1971c2'
+              color: '#1971c2',
+              fontSize: '13px',
             }}>
-              {activeUser}
+              {authUser?.email || authUser?.id.slice(0, 8) || 'Loading...'}
             </span>
+            {authUser?.role && (
+              <span style={{
+                padding: '3px 8px',
+                backgroundColor: authUser.role === 'admin' ? '#ffe3e3' : '#d3f9d8',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                textTransform: 'capitalize',
+                color: authUser.role === 'admin' ? '#e03131' : '#40c057',
+              }}>
+                {authUser.role}
+              </span>
+            )}
             <button
-              onClick={() => setShowUserSelector(!showUserSelector)}
+              onClick={async () => {
+                const supabase = createBrowserSupabaseClient();
+                await supabase.auth.signOut();
+                router.push('/login');
+              }}
               style={{
                 padding: '4px 10px',
-                backgroundColor: '#228be6',
+                backgroundColor: '#6c757d',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -824,9 +902,10 @@ export default function AdminPipelinePage() {
                 fontSize: '12px',
               }}
             >
-              Change
+              Sign Out
             </button>
           </div>
+
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
             <input
               type="checkbox"
@@ -838,57 +917,6 @@ export default function AdminPipelinePage() {
             </span>
           </label>
         </div>
-
-        {/* User Selector Modal */}
-        {showUserSelector && (
-          <div style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-            <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>Set Active User:</div>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              {['admin', 'recorder1', 'recorder2', 'editor1', 'editor2', 'uploader1'].map(user => (
-                <button
-                  key={user}
-                  onClick={() => { updateActiveUser(user); setShowUserSelector(false); }}
-                  style={{
-                    padding: '6px 16px',
-                    backgroundColor: activeUser === user ? '#228be6' : '#fff',
-                    color: activeUser === user ? 'white' : '#333',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                  }}
-                >
-                  {user}
-                </button>
-              ))}
-              <input
-                type="text"
-                placeholder="Custom user..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                    updateActiveUser((e.target as HTMLInputElement).value.trim());
-                    setShowUserSelector(false);
-                  }
-                }}
-                style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '13px' }}
-              />
-              <button
-                onClick={() => setShowUserSelector(false)}
-                style={{
-                  padding: '6px 16px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Recording Status Tabs */}
         <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>

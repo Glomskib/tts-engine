@@ -30,6 +30,38 @@ async function writeVideoEvent(
   }
 }
 
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const { id } = await params;
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("videos")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      const err = apiError("NOT_FOUND", "Video not found", 404);
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+    const err = apiError("DB_ERROR", error.message, 500);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -249,6 +249,9 @@ export default function OpsPage() {
         <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>
           Pipeline View
         </Link>
+        <Link href="/admin/assignments" style={{ color: '#1971c2', fontSize: '13px' }}>
+          Assignments
+        </Link>
         <Link href="/admin/recorder" style={{ color: '#1971c2', fontSize: '13px' }}>
           Recorder
         </Link>

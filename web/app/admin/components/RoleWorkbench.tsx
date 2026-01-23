@@ -108,6 +108,9 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [previousExpiredMessage, setPreviousExpiredMessage] = useState<string | null>(null);
 
+  // Subscription gating state
+  const [subscriptionRequired, setSubscriptionRequired] = useState(false);
+
   // Fetch authenticated user
   useEffect(() => {
     const fetchAuthUser = async () => {
@@ -206,6 +209,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
     setVideo(null);
     setMessage(null);
     setPreviousExpiredMessage(null);
+    setSubscriptionRequired(false);
 
     try {
       // First check for active assignment
@@ -240,6 +244,10 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
           text: `New work assigned until ${expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         });
       } else if (dispatchData.code === 'NO_WORK_AVAILABLE') {
+        setError('');
+        setVideo(null);
+      } else if (dispatchData.error === 'subscription_required') {
+        setSubscriptionRequired(true);
         setError('');
         setVideo(null);
       } else {
@@ -349,6 +357,9 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         setTimeout(() => {
           loadWork();
         }, 1500);
+      } else if (data.error === 'subscription_required') {
+        setSubscriptionRequired(true);
+        setMessage({ type: 'error', text: 'Upgrade required to submit status changes.' });
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update' });
       }
@@ -590,6 +601,37 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         </div>
       )}
 
+      {/* Subscription required prompt */}
+      {subscriptionRequired && (
+        <div style={{
+          marginBottom: '15px',
+          padding: '20px',
+          backgroundColor: '#e7f5ff',
+          borderRadius: '8px',
+          border: '2px solid #228be6',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1971c2', marginBottom: '10px' }}>
+            Upgrade Required
+          </div>
+          <div style={{ color: '#495057', marginBottom: '15px' }}>
+            You need a Pro subscription to dispatch and complete tasks.
+            <br />
+            Contact your administrator to upgrade your account.
+          </div>
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#228be6',
+            color: 'white',
+            borderRadius: '4px',
+            display: 'inline-block',
+            fontWeight: 'bold',
+          }}>
+            Pro Plan Required
+          </div>
+        </div>
+      )}
+
       {/* Message */}
       {message && (
         <div style={{
@@ -612,7 +654,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
       )}
 
       {/* No work available */}
-      {!loading && !video && !error && (
+      {!loading && !video && !error && !subscriptionRequired && (
         <div style={{
           padding: '40px',
           textAlign: 'center',
@@ -956,19 +998,20 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
             {primaryAction && (
               <button
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || subscriptionRequired}
+                title={subscriptionRequired ? 'Upgrade to Pro to perform this action' : undefined}
                 style={{
                   padding: '12px 30px',
-                  backgroundColor: submitting ? '#adb5bd' : primaryAction.color,
+                  backgroundColor: (submitting || subscriptionRequired) ? '#adb5bd' : primaryAction.color,
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  cursor: (submitting || subscriptionRequired) ? 'not-allowed' : 'pointer',
                   fontWeight: 'bold',
                   fontSize: '16px',
                 }}
               >
-                {submitting ? 'Submitting...' : primaryAction.label}
+                {submitting ? 'Submitting...' : subscriptionRequired ? 'Upgrade Required' : primaryAction.label}
               </button>
             )}
           </div>

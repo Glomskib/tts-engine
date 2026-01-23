@@ -9,3 +9,6 @@ supabase/.temp
 # Claude local config
 .claude/
 
+# Windows reserved filenames (can't be deleted)
+nul
+

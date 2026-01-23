@@ -27,13 +27,58 @@ interface VideoEvent {
   created_at: string;
 }
 
+interface QueueVideo {
+  id: string;
+  variant_id: string;
+  account_id: string;
+  status: string;
+  google_drive_url: string;
+  created_at: string;
+  claimed_by: string | null;
+  claimed_at: string | null;
+  claim_expires_at: string | null;
+  recording_status: string | null;
+  last_status_changed_at: string | null;
+  posted_url: string | null;
+  posted_platform: string | null;
+  script_locked_text: string | null;
+  script_locked_version: number | null;
+}
+
+const RECORDING_STATUS_TABS = ['ALL', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
+
+// Status badge color helper (matches detail page)
+function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
+  switch (status) {
+    case 'NOT_RECORDED':
+      return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+    case 'RECORDED':
+      return { bg: '#e7f5ff', border: '#74c0fc', badge: '#228be6' };
+    case 'EDITED':
+      return { bg: '#fff3bf', border: '#ffd43b', badge: '#fab005' };
+    case 'READY_TO_POST':
+      return { bg: '#d3f9d8', border: '#69db7c', badge: '#40c057' };
+    case 'POSTED':
+      return { bg: '#d0ebff', border: '#339af0', badge: '#1971c2' };
+    case 'REJECTED':
+      return { bg: '#ffe3e3', border: '#ff8787', badge: '#e03131' };
+    default:
+      return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+  }
+}
+
+// Admin identifier - in a real app this would come from auth
+const ADMIN_IDENTIFIER = 'admin';
+
 export default function AdminPipelinePage() {
   const hydrated = useHydrated();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [queueSummary, setQueueSummary] = useState<QueueSummary | null>(null);
   const [claimedVideos, setClaimedVideos] = useState<ClaimedVideo[]>([]);
   const [recentEvents, setRecentEvents] = useState<VideoEvent[]>([]);
+  const [queueVideos, setQueueVideos] = useState<QueueVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [queueLoading, setQueueLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [releasing, setReleasing] = useState(false);
@@ -42,6 +87,14 @@ export default function AdminPipelinePage() {
   const [claimedByFilter, setClaimedByFilter] = useState('');
   const [eventTypeFilter, setEventTypeFilter] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Recording status tab state
+  const [activeRecordingTab, setActiveRecordingTab] = useState<typeof RECORDING_STATUS_TABS[number]>('ALL');
+  const [claimedFilter, setClaimedFilter] = useState<'any' | 'unclaimed' | 'claimed'>('any');
+
+  // Per-row claim/release state
+  const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -52,6 +105,28 @@ export default function AdminPipelinePage() {
       setAdminEnabled(false);
     }
   }, []);
+
+  const fetchQueueVideos = useCallback(async () => {
+    setQueueLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (activeRecordingTab !== 'ALL') {
+        params.set('recording_status', activeRecordingTab);
+      }
+      params.set('claimed', claimedFilter);
+      params.set('limit', '100');
+
+      const res = await fetch(`/api/videos/queue?${params.toString()}`);
+      const data = await res.json();
+      if (data.ok) {
+        setQueueVideos(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch queue videos:', err);
+    } finally {
+      setQueueLoading(false);
+    }
+  }, [activeRecordingTab, claimedFilter]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -89,6 +164,7 @@ export default function AdminPipelinePage() {
       if (data.ok) {
         setReleaseMessage(`Released ${data.released_count} stale claim(s)`);
         fetchData();
+        fetchQueueVideos();
       } else {
         setReleaseMessage(`Error: ${data.message || 'Failed to release'}`);
       }
@@ -97,7 +173,62 @@ export default function AdminPipelinePage() {
     } finally {
       setReleasing(false);
     }
-  }, [fetchData]);
+  }, [fetchData, fetchQueueVideos]);
+
+  // Claim a video
+  const claimVideo = async (videoId: string) => {
+    setClaimingVideoId(videoId);
+    setClaimError(null);
+    try {
+      const res = await fetch(`/api/videos/${videoId}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimed_by: ADMIN_IDENTIFIER }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchQueueVideos();
+        fetchData();
+      } else if (data.code === 'ALREADY_CLAIMED') {
+        setClaimError({
+          videoId,
+          message: `Already claimed by ${data.details?.claimed_by || 'someone else'}`,
+        });
+        // Refresh to show current state
+        fetchQueueVideos();
+      } else {
+        setClaimError({ videoId, message: data.error || 'Failed to claim' });
+      }
+    } catch (err) {
+      setClaimError({ videoId, message: 'Network error' });
+    } finally {
+      setClaimingVideoId(null);
+    }
+  };
+
+  // Release a video
+  const releaseVideo = async (videoId: string) => {
+    setClaimingVideoId(videoId);
+    setClaimError(null);
+    try {
+      const res = await fetch(`/api/videos/${videoId}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimed_by: ADMIN_IDENTIFIER }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchQueueVideos();
+        fetchData();
+      } else {
+        setClaimError({ videoId, message: data.error || 'Failed to release' });
+      }
+    } catch (err) {
+      setClaimError({ videoId, message: 'Network error' });
+    } finally {
+      setClaimingVideoId(null);
+    }
+  };
 
   useEffect(() => {
     checkAdminEnabled();
@@ -106,10 +237,21 @@ export default function AdminPipelinePage() {
   useEffect(() => {
     if (adminEnabled === true) {
       fetchData();
-      const interval = setInterval(fetchData, 10000);
+      fetchQueueVideos();
+      const interval = setInterval(() => {
+        fetchData();
+        fetchQueueVideos();
+      }, 10000);
       return () => clearInterval(interval);
     }
-  }, [adminEnabled, fetchData]);
+  }, [adminEnabled, fetchData, fetchQueueVideos]);
+
+  // Refetch queue when tab or claimed filter changes
+  useEffect(() => {
+    if (adminEnabled === true) {
+      fetchQueueVideos();
+    }
+  }, [activeRecordingTab, claimedFilter, adminEnabled, fetchQueueVideos]);
 
   if (adminEnabled === null) {
     return <div style={{ padding: '20px' }}>Checking access...</div>;
@@ -183,12 +325,29 @@ export default function AdminPipelinePage() {
     position: 'relative' as const,
   };
 
+  // Check if a video is claimed by current admin
+  const isClaimedByMe = (video: QueueVideo) => video.claimed_by === ADMIN_IDENTIFIER;
+
+  // Check if a video is claimed by someone else (and not expired)
+  const isClaimedByOther = (video: QueueVideo) => {
+    if (!video.claimed_by || video.claimed_by === ADMIN_IDENTIFIER) return false;
+    if (!video.claim_expires_at) return true;
+    return new Date(video.claim_expires_at) > new Date();
+  };
+
+  // Check if video is unclaimed
+  const isUnclaimed = (video: QueueVideo) => {
+    if (!video.claimed_by) return true;
+    if (!video.claim_expires_at) return false;
+    return new Date(video.claim_expires_at) <= new Date();
+  };
+
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Admin: Video Pipeline Observability</h1>
+        <h1>Admin: Video Pipeline</h1>
         <div>
-          <button onClick={fetchData} style={{ padding: '8px 16px', marginRight: '10px' }}>
+          <button onClick={() => { fetchData(); fetchQueueVideos(); }} style={{ padding: '8px 16px', marginRight: '10px' }}>
             Refresh
           </button>
           <button
@@ -213,9 +372,235 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Queue Summary */}
+      <section style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
+        <h2 style={{ marginTop: 0 }}>Queue Summary</h2>
+        {queueSummary ? (
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ fontSize: '18px' }}>
+              <strong>Total Queued:</strong> {queueSummary.total_queued}
+            </div>
+            {Object.entries(queueSummary.counts_by_status).map(([status, count]) => (
+              <div key={status} style={{ padding: '4px 10px', backgroundColor: '#e9ecef', borderRadius: '4px', fontSize: '14px' }}>
+                {status.replace(/_/g, ' ')}: <strong>{count}</strong>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No data available</p>
+        )}
+      </section>
+
+      {/* Video Queue with Recording Status Tabs */}
+      <section style={{ marginBottom: '30px' }}>
+        <h2>Video Queue</h2>
+
+        {/* Recording Status Tabs */}
+        <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {RECORDING_STATUS_TABS.map(tab => {
+            const colors = tab === 'ALL' ? { bg: '#f8f9fa', badge: '#495057' } : getStatusBadgeColor(tab);
+            const isActive = activeRecordingTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveRecordingTab(tab)}
+                style={{
+                  padding: '8px 16px',
+                  border: isActive ? `2px solid ${colors.badge}` : '1px solid #dee2e6',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? colors.badge : '#fff',
+                  color: isActive ? '#fff' : colors.badge,
+                  cursor: 'pointer',
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  fontSize: '13px',
+                }}
+              >
+                {tab.replace(/_/g, ' ')}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Claimed filter */}
+        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Claim Status:</span>
+          {(['any', 'unclaimed', 'claimed'] as const).map(filter => (
+            <label key={filter} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="claimedFilter"
+                checked={claimedFilter === filter}
+                onChange={() => setClaimedFilter(filter)}
+              />
+              <span style={{ fontSize: '14px' }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</span>
+            </label>
+          ))}
+          {queueLoading && <span style={{ color: '#666', fontSize: '12px', marginLeft: '10px' }}>Loading...</span>}
+        </div>
+
+        {/* Queue Table */}
+        {queueVideos.length > 0 ? (
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Video ID</th>
+                <th style={thStyle}>Recording Status</th>
+                <th style={thStyle}>Last Changed</th>
+                <th style={thStyle}>Script</th>
+                <th style={thStyle}>Claim Status</th>
+                <th style={thStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queueVideos.map((video) => {
+                const statusColors = getStatusBadgeColor(video.recording_status);
+                const claimedByOther = isClaimedByOther(video);
+                const claimedByMe = isClaimedByMe(video);
+                const unclaimed = isUnclaimed(video);
+                const isProcessing = claimingVideoId === video.id;
+                const hasError = claimError?.videoId === video.id;
+
+                return (
+                  <tr key={video.id} style={{ backgroundColor: claimedByMe ? '#e8f5e9' : claimedByOther ? '#fff3e0' : 'transparent' }}>
+                    <td style={copyableCellStyle}>
+                      <Link href={`/admin/pipeline/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
+                        {video.id.slice(0, 8)}...
+                      </Link>
+                      <span
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(video.id, `q-${video.id}`); }}
+                        style={{ marginLeft: '5px', cursor: 'pointer', color: '#666' }}
+                        title="Copy full ID"
+                      >
+                        [copy]
+                      </span>
+                      {copiedId === `q-${video.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: statusColors.badge,
+                        color: 'white',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                      }}>
+                        {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      {video.last_status_changed_at ? (
+                        <span title={formatDateString(video.last_status_changed_at)}>
+                          {displayTime(video.last_status_changed_at)}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td style={tdStyle}>
+                      {video.script_locked_version ? (
+                        <span style={{ padding: '2px 6px', backgroundColor: '#d4edda', borderRadius: '4px', fontSize: '11px' }}>
+                          v{video.script_locked_version} locked
+                        </span>
+                      ) : video.script_locked_text ? (
+                        <span style={{ padding: '2px 6px', backgroundColor: '#d4edda', borderRadius: '4px', fontSize: '11px' }}>
+                          Locked
+                        </span>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '12px' }}>No script</span>
+                      )}
+                    </td>
+                    <td style={tdStyle}>
+                      {unclaimed ? (
+                        <span style={{ color: '#28a745', fontSize: '12px' }}>Unclaimed</span>
+                      ) : claimedByMe ? (
+                        <span style={{ color: '#0066cc', fontSize: '12px', fontWeight: 'bold' }}>Claimed by you</span>
+                      ) : (
+                        <div style={{ fontSize: '12px' }}>
+                          <span style={{ color: '#dc3545' }}>Claimed by {video.claimed_by}</span>
+                          {video.claim_expires_at && (
+                            <div style={{ color: '#666', fontSize: '11px' }} title={formatDateString(video.claim_expires_at)}>
+                              Expires: {displayTime(video.claim_expires_at)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {unclaimed && (
+                          <button
+                            onClick={() => claimVideo(video.id)}
+                            disabled={isProcessing}
+                            style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: isProcessing ? 'not-allowed' : 'pointer',
+                              fontSize: '12px',
+                            }}
+                          >
+                            {isProcessing ? '...' : 'Claim'}
+                          </button>
+                        )}
+                        {claimedByMe && (
+                          <button
+                            onClick={() => releaseVideo(video.id)}
+                            disabled={isProcessing}
+                            style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: isProcessing ? 'not-allowed' : 'pointer',
+                              fontSize: '12px',
+                            }}
+                          >
+                            {isProcessing ? '...' : 'Release'}
+                          </button>
+                        )}
+                        {claimedByOther && (
+                          <span style={{ color: '#999', fontSize: '11px', fontStyle: 'italic' }}>Locked</span>
+                        )}
+                        <Link
+                          href={`/admin/pipeline/${video.id}`}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            textDecoration: 'none',
+                            fontSize: '12px',
+                          }}
+                        >
+                          Details
+                        </Link>
+                        {hasError && (
+                          <span style={{ color: '#dc3545', fontSize: '11px' }}>{claimError?.message}</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <p style={{ color: '#666' }}>
+            {queueLoading ? 'Loading...' : 'No videos in queue for this filter'}
+          </p>
+        )}
+        <div style={{ fontSize: '12px', color: '#666' }}>
+          Showing {queueVideos.length} video(s) with recording_status = {activeRecordingTab === 'ALL' ? 'any' : activeRecordingTab}
+        </div>
+      </section>
+
+      {/* Filters for legacy sections */}
       <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Filters:</span>
           <input
             type="text"
             placeholder="Filter by Video ID..."
@@ -251,39 +636,9 @@ export default function AdminPipelinePage() {
         </div>
       </div>
 
-      {/* Queue Summary */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2>Queue Summary</h2>
-        {queueSummary ? (
-          <div>
-            <p style={{ fontSize: '18px', marginBottom: '10px' }}>
-              <strong>Total Queued:</strong> {queueSummary.total_queued}
-            </p>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(queueSummary.counts_by_status).map(([status, count]) => (
-                  <tr key={status}>
-                    <td style={tdStyle}>{status.replace(/_/g, ' ').toUpperCase()}</td>
-                    <td style={tdStyle}>{count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No data available</p>
-        )}
-      </section>
-
       {/* Claimed Videos */}
       <section style={{ marginBottom: '40px' }}>
-        <h2>Claimed Videos ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
+        <h2>Currently Claimed ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
         {filteredClaimedVideos.length > 0 ? (
           <table style={tableStyle}>
             <thead>

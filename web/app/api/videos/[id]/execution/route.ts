@@ -157,6 +157,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   // Role-based claim enforcement
   const existingColumns = await getVideosColumns();
   const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at") && existingColumns.has("claim_role");
+  const hasAssignmentColumns = existingColumns.has("assignment_state") && existingColumns.has("assigned_expires_at");
 
   if (enforceClaimCheck && hasClaimColumns && recording_status !== undefined) {
     const now = new Date().toISOString();
@@ -179,6 +180,46 @@ export async function PUT(request: Request, { params }: RouteParams) {
         }
       );
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    // Assignment enforcement (if work package columns exist)
+    // For non-admins: if assigned_to exists and != actor => reject
+    if (hasAssignmentColumns && !(forceRequested && isAdmin)) {
+      const assignedTo = currentVideo.assigned_to as string | null;
+      const assignmentState = currentVideo.assignment_state as string | null;
+      const assignedExpiresAt = currentVideo.assigned_expires_at as string | null;
+
+      // Check if there's an active assignment
+      if (assignedTo && assignmentState === "ASSIGNED") {
+        // Check if assignment is expired
+        if (assignedExpiresAt && assignedExpiresAt < now) {
+          const err = apiError(
+            "ASSIGNMENT_EXPIRED",
+            "Your assignment has expired. Please dispatch again to get a new assignment.",
+            409,
+            {
+              assigned_to: assignedTo,
+              assigned_expires_at: assignedExpiresAt,
+              actor: actor,
+            }
+          );
+          return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        }
+
+        // Check if assigned to someone else
+        if (assignedTo !== actor) {
+          const err = apiError(
+            "NOT_ASSIGNED_TO_YOU",
+            `This video is assigned to another user. You cannot update its status.`,
+            403,
+            {
+              assigned_to: assignedTo,
+              actor: actor,
+            }
+          );
+          return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        }
+      }
     }
 
     // Validate role matches the action (role-based gating)

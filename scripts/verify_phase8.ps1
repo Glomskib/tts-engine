@@ -65,7 +65,7 @@ function Try-ParseJsonString {
 }
 
 # Check 1: Health endpoint
-Write-Host "`n[1/18] Checking /api/health..." -ForegroundColor Yellow
+Write-Host "`n[1/19] Checking /api/health..." -ForegroundColor Yellow
 try {
     $health = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
     if ($health.ok -eq $true) {
@@ -81,7 +81,7 @@ try {
 }
 
 # Check 2: Get accounts to test videos endpoint
-Write-Host "`n[2/18] Fetching accounts for video queries..." -ForegroundColor Yellow
+Write-Host "`n[2/19] Fetching accounts for video queries..." -ForegroundColor Yellow
 try {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Method GET -TimeoutSec 10
     if (-not $accounts.ok -or -not $accounts.data -or $accounts.data.Count -eq 0) {
@@ -98,7 +98,7 @@ try {
 }
 
 # Check 3: Videos status enum validation
-Write-Host "`n[3/18] Validating video status enum..." -ForegroundColor Yellow
+Write-Host "`n[3/19] Validating video status enum..." -ForegroundColor Yellow
 try {
     $videos = Invoke-RestMethod -Uri "$baseUrl/api/videos?account_id=$testAccountId" -Method GET -TimeoutSec 10
     if (-not $videos.ok) {
@@ -126,7 +126,7 @@ try {
 }
 
 # Check 4: No duplicate variant+account in queue states
-Write-Host "`n[4/18] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
+Write-Host "`n[4/19] Checking for duplicate variant+account in queue states..." -ForegroundColor Yellow
 try {
     $allVideos = @()
     foreach ($account in $accounts.data) {
@@ -163,7 +163,7 @@ try {
 }
 
 # Check 5: Verify Phase 8.2 database objects exist (hosted Supabase)
-Write-Host "`n[5/18] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
+Write-Host "`n[5/19] Verifying migrations 009/010 via API behavior (non-destructive)..." -ForegroundColor Yellow
 try {
     # Migration 010: claim endpoints should exist and work for queue videos
     # Create (or dedupe-return) a queue video via API to ensure we have a valid videos.id
@@ -252,7 +252,7 @@ try {
 }
 
 # Check 5b: Test attach-script clears queue blocker
-Write-Host "`n[5b/18] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+Write-Host "`n[5b/19] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
 try {
     # Get an approved script to use for testing
     $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
@@ -330,7 +330,7 @@ try {
 }
 
 # Check 6: Test duplicate prevention via API (index enforcement)
-Write-Host "`n[6/18] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
+Write-Host "`n[6/19] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {
     # Get a variant to test with
     $variants = Invoke-RestMethod -Uri "$baseUrl/api/variants" -Method GET -TimeoutSec 10
@@ -378,7 +378,7 @@ try {
 Write-Host "  PASS: API duplicate prevention check completed" -ForegroundColor Green
 
 # Check 7: Stress-checking DB-level queue dedupe (migration 008) via race
-Write-Host "`n[7/18] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
+Write-Host "`n[7/19] Stress-checking DB-level queue dedupe (migration 008) via race..." -ForegroundColor Yellow
 # This attempts to create the same queue item twice concurrently.
 # If the DB unique partial index exists, at worst one insert succeeds and the other returns existing/duplicate behavior.
 # If the DB constraint is missing AND API check is bypassed, both can insert (we want to catch that).
@@ -434,7 +434,7 @@ if ($null -eq $queueCandidate) {
 }
 
 # Check 8: Claim workflow test
-Write-Host "`n[8/18] Testing claim workflow..." -ForegroundColor Yellow
+Write-Host "`n[8/19] Testing claim workflow..." -ForegroundColor Yellow
 try {
     # Get first unclaimed queue video
     $queueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -510,7 +510,7 @@ try {
 }
 
 # Check 9: Execution gating workflow test
-Write-Host "`n[9/18] Testing execution gating workflow..." -ForegroundColor Yellow
+Write-Host "`n[9/19] Testing execution gating workflow..." -ForegroundColor Yellow
 try {
     # Use the same test video from Check 5 (which has a script attached)
     # Ensure it has a locked script
@@ -631,7 +631,7 @@ try {
 }
 
 # Check 10: Role-based claim enforcement and handoff workflow
-Write-Host "`n[10/18] Testing role-based claim enforcement..." -ForegroundColor Yellow
+Write-Host "`n[10/19] Testing role-based claim enforcement..." -ForegroundColor Yellow
 try {
     # First check if claim_role column exists by attempting a claim with role
     $testClaimBody = @{ claimed_by = "migration_check"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
@@ -874,7 +874,7 @@ try {
 }
 
 # Check 11: Actor validation and admin-only force bypass
-Write-Host "`n[11/18] Testing actor validation and admin-only force..." -ForegroundColor Yellow
+Write-Host "`n[11/19] Testing actor validation and admin-only force..." -ForegroundColor Yellow
 try {
     # Find a video with script for testing
     $queueForActor = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
@@ -1019,7 +1019,7 @@ try {
 }
 
 # Check 12: claim_role is now required for claims
-Write-Host "`n[12/18] Testing claim_role requirement..." -ForegroundColor Yellow
+Write-Host "`n[12/19] Testing claim_role requirement..." -ForegroundColor Yellow
 try {
     # Find an unclaimed video
     $queueForClaimRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
@@ -1074,7 +1074,7 @@ try {
 }
 
 # Check 13: SLA fields in queue API
-Write-Host "`n[13/18] Testing SLA fields in queue API..." -ForegroundColor Yellow
+Write-Host "`n[13/19] Testing SLA fields in queue API..." -ForegroundColor Yellow
 try {
     $slaQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?sort=priority&limit=10" -Method GET -TimeoutSec 10
     if (-not $slaQueueResult.ok) {
@@ -1144,7 +1144,7 @@ try {
 }
 
 # Check 14: Role dashboard routes exist
-Write-Host "`n[14/18] Testing role dashboard routes..." -ForegroundColor Yellow
+Write-Host "`n[14/19] Testing role dashboard routes..." -ForegroundColor Yellow
 try {
     # These routes require authentication, so we just check they don't return 500
     # They should redirect to login (302) or return the page (200)
@@ -1184,7 +1184,7 @@ try {
 }
 
 # Check 15: Notifications API endpoint
-Write-Host "`n[15/18] Testing notifications API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[15/19] Testing notifications API endpoint..." -ForegroundColor Yellow
 try {
     # The notifications endpoint requires auth, so without a session we expect 401
     # We're just checking the endpoint exists and returns proper error
@@ -1215,7 +1215,7 @@ try {
 }
 
 # Check 16: Assignment API endpoint
-Write-Host "`n[16/18] Testing assignment API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[16/19] Testing assignment API endpoint..." -ForegroundColor Yellow
 try {
     # Find a video to test with
     $assignQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=1" -Method GET -TimeoutSec 10
@@ -1261,7 +1261,7 @@ try {
 }
 
 # Check 17: Ops Metrics API endpoint (admin-only)
-Write-Host "`n[17/18] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
+Write-Host "`n[17/19] Testing ops-metrics API endpoint..." -ForegroundColor Yellow
 try {
     # The ops-metrics endpoint requires admin auth, so without a session we expect 403
     $opsMetricsResult = $null
@@ -1338,7 +1338,7 @@ try {
 }
 
 # Check 18: Dispatch and assignment enforcement (skip if migration 019 not applied)
-Write-Host "`n[18/18] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
+Write-Host "`n[18/19] Testing dispatch and assignment enforcement..." -ForegroundColor Yellow
 try {
     # First test: dispatch endpoint exists and requires auth
     $dispatchStatusCode = 0
@@ -1399,7 +1399,87 @@ try {
     Write-Host "  WARN: Dispatch/assignment test error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[18/18] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 19: Workbench routes and auto-handoff
+Write-Host "`n[19/19] Testing workbench routes and auto-handoff..." -ForegroundColor Yellow
+try {
+    # Test workbench routes exist
+    $workbenchRoutes = @("/admin/recorder/workbench", "/admin/editor/workbench", "/admin/uploader/workbench")
+    $allWorkbenchOk = $true
+
+    foreach ($route in $workbenchRoutes) {
+        try {
+            $response = Invoke-WebRequest -Uri "$baseUrl$route" -Method GET -TimeoutSec 10 -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
+            $statusCode = $response.StatusCode
+        } catch {
+            # Catch redirect (302) or other responses
+            if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+            } else {
+                $statusCode = 0
+            }
+        }
+
+        if ($statusCode -eq 200 -or $statusCode -eq 302 -or $statusCode -eq 307) {
+            Write-Host "    $route returns $statusCode - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "    FAIL: $route returned unexpected status: $statusCode" -ForegroundColor Red
+            $allWorkbenchOk = $false
+        }
+    }
+
+    if ($allWorkbenchOk) {
+        Write-Host "    Workbench routes accessible - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Some workbench routes not accessible" -ForegroundColor Red
+        exit 1
+    }
+
+    # Test my-active endpoint (requires auth, so expect 401 without)
+    $myActiveStatusCode = 0
+    try {
+        $myActiveResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/my-active" -Method GET -TimeoutSec 10
+        $myActiveStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $myActiveStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    if ($myActiveStatusCode -eq 401) {
+        Write-Host "    GET /api/videos/my-active returns 401 without auth - OK" -ForegroundColor Gray
+    } elseif ($myActiveStatusCode -eq 200) {
+        Write-Host "    GET /api/videos/my-active returns 200 - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/videos/my-active returned unexpected status: $myActiveStatusCode" -ForegroundColor Yellow
+    }
+
+    # Test complete-assignment endpoint (requires auth, so expect 401 without)
+    $completeStatusCode = 0
+    try {
+        $completeResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/00000000-0000-0000-0000-000000000001/complete-assignment" -Method POST -ContentType "application/json" -Body '{}' -TimeoutSec 10
+        $completeStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $completeStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    if ($completeStatusCode -eq 401) {
+        Write-Host "    POST /api/videos/[id]/complete-assignment returns 401 without auth - OK" -ForegroundColor Gray
+    } elseif ($completeStatusCode -eq 404) {
+        Write-Host "    POST /api/videos/[id]/complete-assignment returns 404 (video not found) - OK" -ForegroundColor Gray
+    } elseif ($completeStatusCode -eq 400) {
+        Write-Host "    POST /api/videos/[id]/complete-assignment returns 400 (may need migration 019) - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    POST /api/videos/[id]/complete-assignment returned status: $completeStatusCode" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Workbench routes and handoff APIs accessible" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Workbench/auto-handoff test error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[19/19] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

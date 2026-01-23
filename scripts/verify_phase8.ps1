@@ -251,6 +251,84 @@ try {
     throw "Check 5 failed: $($_.Exception.Message)"
 }
 
+# Check 5b: Test attach-script clears queue blocker
+Write-Host "`n[5b/8] Testing attach-script clears queue blocker..." -ForegroundColor Yellow
+try {
+    # Get an approved script to use for testing
+    $scriptsResult = Invoke-RestMethod -Uri "$baseUrl/api/scripts?status=APPROVED&limit=1" -Method GET -TimeoutSec 10
+
+    if (-not $scriptsResult.ok -or -not $scriptsResult.data -or $scriptsResult.data.Count -eq 0) {
+        Write-Host "  SKIP: No approved scripts available for blocker test" -ForegroundColor Yellow
+    } else {
+        $testScriptId = $scriptsResult.data[0].id
+
+        # Create a fresh test video without a script
+        $testDriveUrl = "https://drive.google.com/test/blocker-verify-$(Get-Random)"
+        $createPayload = @{
+            variant_id = $variantId
+            account_id = $testAccountId
+            status = "needs_edit"
+            google_drive_url = $testDriveUrl
+        } | ConvertTo-Json -Depth 5
+
+        $createResult = Invoke-RestMethod -Uri "$baseUrl/api/videos" -Method POST -ContentType "application/json" -Body $createPayload -TimeoutSec 10
+
+        if (-not $createResult.ok) {
+            Write-Host "  SKIP: Could not create test video: $($createResult.error)" -ForegroundColor Yellow
+        } else {
+            $blockerTestVideoId = $createResult.data.id
+            Write-Host "    Created test video: $blockerTestVideoId" -ForegroundColor Gray
+
+            # Check queue for this video - should have blocked_reason
+            $queueCheck1 = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
+            $videoInQueue1 = $queueCheck1.data | Where-Object { $_.id -eq $blockerTestVideoId }
+
+            if ($null -eq $videoInQueue1) {
+                Write-Host "  WARN: Test video not found in queue response" -ForegroundColor Yellow
+            } elseif ($null -eq $videoInQueue1.blocked_reason -or $videoInQueue1.blocked_reason -eq "") {
+                Write-Host "  WARN: Video should have blocked_reason before script attached (got: $($videoInQueue1.blocked_reason))" -ForegroundColor Yellow
+            } else {
+                Write-Host "    Before attach: blocked_reason = '$($videoInQueue1.blocked_reason)'" -ForegroundColor Gray
+
+                # Attach the script
+                $attachPayload = @{ script_id = $testScriptId } | ConvertTo-Json -Depth 5
+                $attachResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$blockerTestVideoId/attach-script" -Method POST -ContentType "application/json" -Body $attachPayload -TimeoutSec 10
+
+                if (-not $attachResult.ok) {
+                    Write-Host "  FAIL: Attach script failed: $($attachResult.error)" -ForegroundColor Red
+                } else {
+                    Write-Host "    Script attached successfully" -ForegroundColor Gray
+
+                    # Re-check queue - blocker should be cleared
+                    $queueCheck2 = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
+                    $videoInQueue2 = $queueCheck2.data | Where-Object { $_.id -eq $blockerTestVideoId }
+
+                    if ($null -eq $videoInQueue2) {
+                        Write-Host "  WARN: Test video not found in queue after attach" -ForegroundColor Yellow
+                    } elseif ($null -ne $videoInQueue2.blocked_reason -and $videoInQueue2.blocked_reason -ne "" -and $videoInQueue2.blocked_reason -like "*script*") {
+                        Write-Host "  FAIL: Script blocker not cleared after attach (blocked_reason = '$($videoInQueue2.blocked_reason)')" -ForegroundColor Red
+                    } else {
+                        Write-Host "    After attach: blocked_reason cleared or not script-related" -ForegroundColor Gray
+                        Write-Host "  PASS: Attach-script clears queue blocker" -ForegroundColor Green
+                    }
+                }
+            }
+
+            # Clean up: Delete the test video (or set to completed to remove from queue)
+            try {
+                $cleanupPayload = @{ status = "completed" } | ConvertTo-Json -Depth 5
+                Invoke-RestMethod -Uri "$baseUrl/api/videos/$blockerTestVideoId" -Method PATCH -ContentType "application/json" -Body $cleanupPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+                Write-Host "    Cleaned up test video" -ForegroundColor Gray
+            } catch {
+                # Ignore cleanup errors - video may not support PATCH
+            }
+        }
+    }
+} catch {
+    $errMsg = $_.Exception.Message
+    Write-Host "  WARN: Attach-script blocker test error: $errMsg" -ForegroundColor Yellow
+}
+
 # Check 6: Test duplicate prevention via API (index enforcement)
 Write-Host "`n[6/8] Confirming API-level duplicate prevention (idempotency)..." -ForegroundColor Yellow
 try {

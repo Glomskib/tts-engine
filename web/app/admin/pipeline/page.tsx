@@ -43,10 +43,22 @@ interface QueueVideo {
   posted_platform: string | null;
   script_locked_text: string | null;
   script_locked_version: number | null;
+  concept_id: string | null;
+  product_id: string | null;
   // Computed fields from API
   can_move_next: boolean;
   blocked_reason: string | null;
   next_action: string;
+}
+
+interface AvailableScript {
+  id: string;
+  title: string | null;
+  status: string;
+  version: number;
+  created_at: string;
+  concept_id: string | null;
+  product_id: string | null;
 }
 
 const RECORDING_STATUS_TABS = ['ALL', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
@@ -99,6 +111,16 @@ export default function AdminPipelinePage() {
   // Per-row claim/release state
   const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
+
+  // Attach script modal state
+  const [attachModalVideoId, setAttachModalVideoId] = useState<string | null>(null);
+  const [attachModalVideo, setAttachModalVideo] = useState<QueueVideo | null>(null);
+  const [availableScripts, setAvailableScripts] = useState<AvailableScript[]>([]);
+  const [scriptsLoading, setScriptsLoading] = useState(false);
+  const [selectedScriptId, setSelectedScriptId] = useState<string>('');
+  const [attaching, setAttaching] = useState(false);
+  const [attachMessage, setAttachMessage] = useState<string | null>(null);
+  const [forceOverwrite, setForceOverwrite] = useState(false);
 
   const checkAdminEnabled = useCallback(async () => {
     try {
@@ -231,6 +253,99 @@ export default function AdminPipelinePage() {
       setClaimError({ videoId, message: 'Network error' });
     } finally {
       setClaimingVideoId(null);
+    }
+  };
+
+  // Fetch available scripts for attach modal
+  const fetchAvailableScripts = useCallback(async (video: QueueVideo) => {
+    setScriptsLoading(true);
+    try {
+      const res = await fetch('/api/scripts?status=APPROVED');
+      const data = await res.json();
+      if (data.ok && data.data) {
+        const scripts = data.data as AvailableScript[];
+        setAvailableScripts(scripts);
+
+        // Auto-select best script
+        // Priority: 1) Most recent APPROVED matching concept_id, 2) Most recent APPROVED matching product_id, 3) Most recent APPROVED overall
+        let bestScript: AvailableScript | null = null;
+
+        if (video.concept_id) {
+          bestScript = scripts.find(s => s.concept_id === video.concept_id) || null;
+        }
+        if (!bestScript && video.product_id) {
+          bestScript = scripts.find(s => s.product_id === video.product_id) || null;
+        }
+        if (!bestScript && scripts.length > 0) {
+          // Most recent (already sorted by created_at desc from API)
+          bestScript = scripts[0];
+        }
+
+        if (bestScript) {
+          setSelectedScriptId(bestScript.id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch scripts:', err);
+    } finally {
+      setScriptsLoading(false);
+    }
+  }, []);
+
+  // Open attach script modal
+  const openAttachModal = (video: QueueVideo) => {
+    setAttachModalVideoId(video.id);
+    setAttachModalVideo(video);
+    setAttachMessage(null);
+    setForceOverwrite(false);
+    setSelectedScriptId('');
+    fetchAvailableScripts(video);
+  };
+
+  // Close attach script modal
+  const closeAttachModal = () => {
+    setAttachModalVideoId(null);
+    setAttachModalVideo(null);
+    setSelectedScriptId('');
+    setAttachMessage(null);
+    setForceOverwrite(false);
+  };
+
+  // Attach script to video
+  const attachScript = async () => {
+    if (!selectedScriptId || !attachModalVideoId) return;
+    setAttaching(true);
+    setAttachMessage(null);
+    try {
+      const payload: { script_id: string; force?: boolean } = { script_id: selectedScriptId };
+      if (forceOverwrite) {
+        payload.force = true;
+      }
+      const res = await fetch(`/api/videos/${attachModalVideoId}/attach-script`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAttachMessage('Script attached successfully!');
+        // Refresh queue to show updated blocker status
+        fetchQueueVideos();
+        // Close modal after short delay
+        setTimeout(() => {
+          closeAttachModal();
+        }, 1500);
+      } else if (data.code === 'SCRIPT_ALREADY_LOCKED') {
+        setAttachMessage('This video already has a locked script. Check "Overwrite existing" to replace it.');
+      } else if (data.code === 'SCRIPT_NOT_APPROVED') {
+        setAttachMessage(`Script is not approved (status: ${data.details?.status || 'unknown'}). Check "Force attach" to attach anyway.`);
+      } else {
+        setAttachMessage(`Error: ${data.error || 'Failed to attach script'}`);
+      }
+    } catch (err) {
+      setAttachMessage('Error: Failed to attach script');
+    } finally {
+      setAttaching(false);
     }
   };
 
@@ -588,6 +703,23 @@ export default function AdminPipelinePage() {
                         {claimedByOther && (
                           <span style={{ color: '#999', fontSize: '11px', fontStyle: 'italic' }}>Locked</span>
                         )}
+                        {/* Attach Script button for videos needing script */}
+                        {!video.script_locked_text && (
+                          <button
+                            onClick={() => openAttachModal(video)}
+                            style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#17a2b8',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                            }}
+                          >
+                            Attach Script
+                          </button>
+                        )}
                         <Link
                           href={`/admin/pipeline/${video.id}`}
                           style={{
@@ -759,6 +891,148 @@ export default function AdminPipelinePage() {
       <div style={{ color: '#999', fontSize: '12px' }}>
         Auto-refreshes every 10 seconds
       </div>
+
+      {/* Attach Script Modal */}
+      {attachModalVideoId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: '#004085' }}>Attach Script</h2>
+              <button
+                onClick={closeAttachModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Video: <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>{attachModalVideoId.slice(0, 8)}...</code>
+            </p>
+
+            {scriptsLoading ? (
+              <p>Loading scripts...</p>
+            ) : availableScripts.length === 0 ? (
+              <p style={{ color: '#856404', backgroundColor: '#fff3cd', padding: '10px', borderRadius: '4px' }}>
+                No approved scripts available. Please approve a script first.
+              </p>
+            ) : (
+              <>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Script</label>
+                  <select
+                    value={selectedScriptId}
+                    onChange={(e) => setSelectedScriptId(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px' }}
+                  >
+                    <option value="">-- Select a script --</option>
+                    {availableScripts.map(script => (
+                      <option key={script.id} value={script.id}>
+                        {script.title || script.id.slice(0, 8)} (v{script.version})
+                        {attachModalVideo?.concept_id && script.concept_id === attachModalVideo.concept_id && ' ★ matches concept'}
+                        {attachModalVideo?.product_id && script.product_id === attachModalVideo.product_id && ' ★ matches product'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {attachModalVideo?.script_locked_text && (
+                  <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', fontSize: '13px' }}>
+                    <span style={{ color: '#856404' }}>This video already has a locked script.</span>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={forceOverwrite}
+                      onChange={(e) => setForceOverwrite(e.target.checked)}
+                    />
+                    <span style={{ fontSize: '13px' }}>Overwrite existing / Force attach unapproved</span>
+                  </label>
+                </div>
+
+                {attachMessage && (
+                  <div style={{
+                    marginBottom: '15px',
+                    padding: '10px',
+                    borderRadius: '4px',
+                    backgroundColor: attachMessage.includes('Error') || attachMessage.includes('already') || attachMessage.includes('not approved')
+                      ? '#f8d7da'
+                      : '#d4edda',
+                    color: attachMessage.includes('Error') || attachMessage.includes('already') || attachMessage.includes('not approved')
+                      ? '#721c24'
+                      : '#155724',
+                    fontSize: '13px',
+                  }}>
+                    {attachMessage}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={attachScript}
+                    disabled={!selectedScriptId || attaching}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      backgroundColor: selectedScriptId && !attaching ? '#28a745' : '#ccc',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: selectedScriptId && !attaching ? 'pointer' : 'not-allowed',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {attaching ? 'Attaching...' : 'Attach Script'}
+                  </button>
+                  <button
+                    onClick={closeAttachModal}
+                    style={{
+                      padding: '12px 20px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

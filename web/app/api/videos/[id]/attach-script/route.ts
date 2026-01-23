@@ -52,9 +52,21 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   // Check if video already has a locked script (unless force=true)
-  if (video.script_locked_json && force !== true) {
+  const hadPreviousScript = video.script_locked_json != null;
+  const previousLockedScript = hadPreviousScript ? {
+    script_id: video.script_id,
+    script_locked_json: video.script_locked_json,
+    script_locked_text: video.script_locked_text,
+    script_locked_version: video.script_locked_version,
+  } : null;
+
+  if (hadPreviousScript && force !== true) {
     const err = apiError("SCRIPT_ALREADY_LOCKED", "Video already has a locked script. Use force=true to override.", 409);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return NextResponse.json({
+      ...err.body,
+      correlation_id: correlationId,
+      previous_locked_script: previousLockedScript,
+    }, { status: err.status });
   }
 
   // Fetch the script
@@ -106,6 +118,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       script_id: script_id,
       script_locked_json: lockedJson,
       script_locked_text: lockedText,
+      script_locked_version: script.version || 1,
     })
     .eq("id", videoId)
     .select()
@@ -117,6 +130,26 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
+  // Log video_event if this was a force overwrite
+  if (hadPreviousScript && force === true) {
+    const { error: eventError } = await supabaseAdmin.from("video_events").insert({
+      video_id: videoId,
+      event_type: "script_force_overwrite",
+      correlation_id: correlationId,
+      actor: "api",
+      details: {
+        previous_script_id: previousLockedScript?.script_id,
+        previous_script_version: previousLockedScript?.script_locked_version,
+        new_script_id: script_id,
+        new_script_version: script.version || 1,
+      },
+    });
+    if (eventError) {
+      console.error("Failed to log script_force_overwrite event:", eventError);
+      // Continue anyway - event logging is non-blocking
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     data: updatedVideo,
@@ -125,6 +158,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       script_version: script.version,
       script_status: script.status,
       locked_at: new Date().toISOString(),
+      force_overwrite: hadPreviousScript && force === true,
+      previous_locked_script: hadPreviousScript ? previousLockedScript : undefined,
     },
     correlation_id: correlationId,
   });

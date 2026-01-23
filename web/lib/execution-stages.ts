@@ -14,6 +14,33 @@ export const RECORDING_STATUSES = [
   'REJECTED',
 ] as const;
 
+/**
+ * SLA deadlines in minutes for each recording status
+ * These define how long a video should stay in each stage before becoming overdue
+ */
+export const SLA_DEADLINES_MINUTES: Record<string, number> = {
+  'NOT_RECORDED': 24 * 60,     // 24 hours
+  'RECORDED': 24 * 60,         // 24 hours
+  'EDITED': 24 * 60,           // 24 hours
+  'READY_TO_POST': 12 * 60,    // 12 hours
+  'REJECTED': 24 * 60,         // 24 hours followup
+  'POSTED': 0,                 // No SLA for terminal state
+};
+
+/**
+ * Threshold in minutes before deadline to show "due_soon" warning
+ */
+export const SLA_DUE_SOON_THRESHOLD_MINUTES = 60; // 1 hour before deadline
+
+export type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
+
+export interface SlaInfo {
+  sla_deadline_at: string | null;
+  sla_status: SlaStatus;
+  age_minutes_in_stage: number;
+  priority_score: number;
+}
+
 export type RecordingStatus = typeof RECORDING_STATUSES[number];
 
 export function isValidRecordingStatus(status: unknown): status is RecordingStatus {
@@ -236,5 +263,73 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
     can_mark_ready_to_post,
     can_mark_posted,
     required_fields,
+  };
+}
+
+/**
+ * Compute SLA info for a video
+ * @param recordingStatus - Current recording status
+ * @param lastStatusChangedAt - ISO timestamp of when status last changed
+ * @param now - Current timestamp (for testing, defaults to now)
+ */
+export function computeSlaInfo(
+  recordingStatus: string | null,
+  lastStatusChangedAt: string | null,
+  now: Date = new Date()
+): SlaInfo {
+  const status = recordingStatus || 'NOT_RECORDED';
+
+  // Terminal states have no SLA
+  if (status === 'POSTED') {
+    return {
+      sla_deadline_at: null,
+      sla_status: 'on_track',
+      age_minutes_in_stage: 0,
+      priority_score: 0,
+    };
+  }
+
+  // If no timestamp, treat as just entered (now)
+  const enteredAt = lastStatusChangedAt ? new Date(lastStatusChangedAt) : now;
+  const ageMs = now.getTime() - enteredAt.getTime();
+  const ageMinutes = Math.floor(ageMs / (1000 * 60));
+
+  // Get SLA deadline for this status
+  const slaMinutes = SLA_DEADLINES_MINUTES[status] || SLA_DEADLINES_MINUTES['NOT_RECORDED'];
+
+  // Compute deadline timestamp
+  const deadlineAt = new Date(enteredAt.getTime() + slaMinutes * 60 * 1000);
+  const minutesUntilDeadline = Math.floor((deadlineAt.getTime() - now.getTime()) / (1000 * 60));
+
+  // Determine SLA status
+  let slaStatus: SlaStatus;
+  if (minutesUntilDeadline < 0) {
+    slaStatus = 'overdue';
+  } else if (minutesUntilDeadline <= SLA_DUE_SOON_THRESHOLD_MINUTES) {
+    slaStatus = 'due_soon';
+  } else {
+    slaStatus = 'on_track';
+  }
+
+  // Compute priority score (higher = more urgent)
+  // Base: overdue items get high score, due_soon medium, on_track low
+  // Within each tier, older items get higher score
+  let priorityScore: number;
+  if (slaStatus === 'overdue') {
+    // Overdue: 1000 + minutes overdue (more overdue = higher priority)
+    priorityScore = 1000 + Math.abs(minutesUntilDeadline);
+  } else if (slaStatus === 'due_soon') {
+    // Due soon: 500 + (threshold - minutes remaining) (closer to deadline = higher)
+    priorityScore = 500 + (SLA_DUE_SOON_THRESHOLD_MINUTES - minutesUntilDeadline);
+  } else {
+    // On track: based on age (older = higher priority, but capped)
+    priorityScore = Math.min(ageMinutes, 499);
+  }
+
+  return {
+    sla_deadline_at: deadlineAt.toISOString(),
+    sla_status: slaStatus,
+    age_minutes_in_stage: ageMinutes,
+    priority_score: priorityScore,
   };
 }

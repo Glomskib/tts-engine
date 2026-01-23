@@ -3,7 +3,10 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { QUEUE_STATUSES } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
-import { computeStageInfo, RECORDING_STATUSES, type VideoForValidation } from "@/lib/execution-stages";
+import { computeStageInfo, computeSlaInfo, RECORDING_STATUSES, type VideoForValidation } from "@/lib/execution-stages";
+
+const VALID_SORT_VALUES = ["priority", "newest", "oldest"] as const;
+type SortValue = typeof VALID_SORT_VALUES[number];
 
 export const runtime = "nodejs";
 
@@ -25,6 +28,7 @@ export async function GET(request: Request) {
   const limitParam = searchParams.get("limit");
   const claimRoleParam = searchParams.get("claim_role");
   const claimedByParam = searchParams.get("claimed_by");
+  const sortParam = searchParams.get("sort") as SortValue | null;
 
   // Validate pipeline status if provided
   if (statusParam && !QUEUE_STATUSES.includes(statusParam as typeof QUEUE_STATUSES[number])) {
@@ -48,6 +52,12 @@ export async function GET(request: Request) {
   // Validate claim_role param if provided
   if (claimRoleParam && !VALID_CLAIM_ROLES.includes(claimRoleParam as typeof VALID_CLAIM_ROLES[number])) {
     const err = apiError("BAD_REQUEST", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claimRoleParam });
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Validate sort param if provided
+  if (sortParam && !VALID_SORT_VALUES.includes(sortParam)) {
+    const err = apiError("BAD_REQUEST", `sort must be one of: ${VALID_SORT_VALUES.join(", ")}`, 400, { provided: sortParam });
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
@@ -134,9 +144,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    // Compute stage info for each video
+    // Compute stage info and SLA info for each video
     const videos = (data as unknown) as Record<string, unknown>[] | null;
-    const videosWithStageInfo = (videos || []).map((video) => {
+    const now = new Date();
+    const videosWithInfo = (videos || []).map((video) => {
       const videoForValidation: VideoForValidation = {
         recording_status: video.recording_status as string | null,
         recording_notes: video.recording_notes as string | null,
@@ -150,6 +161,11 @@ export async function GET(request: Request) {
       };
 
       const stageInfo = computeStageInfo(videoForValidation);
+      const slaInfo = computeSlaInfo(
+        video.recording_status as string | null,
+        video.last_status_changed_at as string | null,
+        now
+      );
 
       return {
         ...video,
@@ -165,12 +181,34 @@ export async function GET(request: Request) {
         can_mark_posted: stageInfo.can_mark_posted,
         // Required fields for next step
         required_fields: stageInfo.required_fields,
+        // SLA info
+        sla_deadline_at: slaInfo.sla_deadline_at,
+        sla_status: slaInfo.sla_status,
+        age_minutes_in_stage: slaInfo.age_minutes_in_stage,
+        priority_score: slaInfo.priority_score,
       };
     });
 
+    // Apply sorting based on sort param
+    let sortedVideos = videosWithInfo;
+    if (sortParam === 'priority') {
+      // Sort by priority_score descending (highest priority first)
+      sortedVideos = [...videosWithInfo].sort((a, b) => b.priority_score - a.priority_score);
+    } else if (sortParam === 'oldest') {
+      // Sort by created_at ascending (oldest first)
+      sortedVideos = [...videosWithInfo].sort((a, b) => {
+        const aVideo = a as Record<string, unknown>;
+        const bVideo = b as Record<string, unknown>;
+        const aTime = new Date(aVideo.created_at as string).getTime();
+        const bTime = new Date(bVideo.created_at as string).getTime();
+        return aTime - bTime;
+      });
+    }
+    // 'newest' is already the default from the DB query (no additional sort needed)
+
     return NextResponse.json({
       ok: true,
-      data: videosWithStageInfo,
+      data: sortedVideos,
       correlation_id: correlationId
     });
 

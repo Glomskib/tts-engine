@@ -154,9 +154,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
           `Your claim role (${claimRole}) does not match the required role for this action. Expected: ${allowedRoles.join(" or ")}`,
           403,
           {
-            claim_role: claimRole,
-            required_roles: allowedRoles,
-            recording_status,
+            current_role: claimRole,
+            required_role: allowedRoles,
+            attempted_status: recording_status,
           }
         );
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

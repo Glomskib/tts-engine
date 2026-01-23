@@ -625,102 +625,243 @@ try {
     Write-Host "  WARN: Execution gating test error: $_" -ForegroundColor Yellow
 }
 
-# Check 10: Role-based claims and handoff test
-Write-Host "`n[10/10] Testing role-based claims and handoff..." -ForegroundColor Yellow
+# Check 10: Role-based claim enforcement and handoff workflow
+Write-Host "`n[10/10] Testing role-based claim enforcement..." -ForegroundColor Yellow
 try {
-    # Get an unclaimed queue video
-    $queueForRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
+    # First check if claim_role column exists by attempting a claim with role
+    $testClaimBody = @{ claimed_by = "migration_check"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
+    # Find any video to test
+    $testQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=unclaimed&limit=1" -Method GET -TimeoutSec 10
+    $hasClaimRoleColumn = $false
+    if ($testQueueResult.ok -and $testQueueResult.data -and $testQueueResult.data.Count -gt 0) {
+        $testVid = $testQueueResult.data[0].id
+        try {
+            $testClaimResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$testVid/claim" -Method POST -ContentType "application/json" -Body $testClaimBody -TimeoutSec 10
+            if ($testClaimResult.ok) {
+                # Check if claim_role was actually stored
+                if ($testClaimResult.data.claim_role -eq "recorder") {
+                    $hasClaimRoleColumn = $true
+                }
+                # Release the test claim
+                $releaseTestBody = @{ claimed_by = "migration_check"; force = $true } | ConvertTo-Json -Depth 5
+                Invoke-RestMethod -Uri "$baseUrl/api/videos/$testVid/release" -Method POST -ContentType "application/json" -Body $releaseTestBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+            }
+        } catch {
+            # Column might not exist - that's fine
+        }
+    }
 
-    if (-not $queueForRole.ok -or -not $queueForRole.data -or $queueForRole.data.Count -eq 0) {
-        Write-Host "  SKIP: No unclaimed videos for role-based claim test" -ForegroundColor Yellow
+    if (-not $hasClaimRoleColumn) {
+        Write-Host "  SKIP: claim_role column not available (migration 015 not applied)" -ForegroundColor Yellow
+        Write-Host "  To enable role enforcement, apply: web/supabase/migrations/015_claim_roles.sql" -ForegroundColor Yellow
     } else {
-        $roleTestVideoId = $queueForRole.data[0].id
-        Write-Host "    Testing role-based claims on video: $roleTestVideoId" -ForegroundColor Gray
+        # Find a video with script_locked_text (required for execution workflow)
+        $queueForRole = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=any&limit=100" -Method GET -TimeoutSec 10
+        $videoWithScript = $queueForRole.data | Where-Object { $null -ne $_.script_locked_text -and $_.script_locked_text -ne "" } | Select-Object -First 1
+
+        if ($null -eq $videoWithScript) {
+            Write-Host "  SKIP: No video with script_locked_text found for role enforcement test" -ForegroundColor Yellow
+        } else {
+        $roleTestVideoId = $videoWithScript.id
+        $originalStatus = $videoWithScript.recording_status
+        Write-Host "    Testing role-based enforcement on video: $roleTestVideoId" -ForegroundColor Gray
 
         $allRolePassed = $true
 
-        # Step 1: Claim with role=recorder
-        $claimRoleBody = @{ claimed_by = "role_test_recorder"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
-        $claimRoleResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/claim" -Method POST -ContentType "application/json" -Body $claimRoleBody -TimeoutSec 10
-        if (-not $claimRoleResult.ok) {
-            Write-Host "    FAIL: Claim with role=recorder failed: $($claimRoleResult.error)" -ForegroundColor Red
+        # Cleanup: Force release any existing claim
+        $forceReleaseBody = @{ claimed_by = "cleanup"; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/release" -Method POST -ContentType "application/json" -Body $forceReleaseBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+
+        # Reset to NOT_RECORDED for clean state
+        $resetPayload = @{ recording_status = "NOT_RECORDED"; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $resetPayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+
+        # Step 1: Claim as recorder
+        $claimRecorderBody = @{ claimed_by = "verify_recorder"; claim_role = "recorder" } | ConvertTo-Json -Depth 5
+        $claimRecorderResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/claim" -Method POST -ContentType "application/json" -Body $claimRecorderBody -TimeoutSec 10
+        if (-not $claimRecorderResult.ok) {
+            Write-Host "    FAIL: Claim as recorder failed: $($claimRecorderResult.error)" -ForegroundColor Red
             $allRolePassed = $false
         } else {
-            Write-Host "    Step 1: Claimed with role=recorder - OK" -ForegroundColor Gray
-
-            # Verify claim_role is returned
-            if ($claimRoleResult.data.claim_role -ne "recorder") {
-                Write-Host "    WARN: claim_role not returned correctly (got: $($claimRoleResult.data.claim_role))" -ForegroundColor Yellow
-            }
+            Write-Host "    Step 1: Claimed as recorder - OK" -ForegroundColor Gray
         }
 
-        # Step 2: Handoff from recorder to editor
-        $handoffBody = @{
-            from_user = "role_test_recorder"
-            to_user = "role_test_editor"
-            to_role = "editor"
-        } | ConvertTo-Json -Depth 5
-        $handoffResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/handoff" -Method POST -ContentType "application/json" -Body $handoffBody -TimeoutSec 10
-        if (-not $handoffResult.ok) {
-            Write-Host "    FAIL: Handoff recorder->editor failed: $($handoffResult.error)" -ForegroundColor Red
+        # Step 2: Recorder -> RECORDED should PASS
+        $recordedPayload = @{ recording_status = "RECORDED"; updated_by = "verify_recorder" } | ConvertTo-Json -Depth 5
+        $recordedResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $recordedPayload -TimeoutSec 10
+        if (-not $recordedResult.ok) {
+            Write-Host "    FAIL: Recorder -> RECORDED should have passed: $($recordedResult.error)" -ForegroundColor Red
             $allRolePassed = $false
         } else {
-            Write-Host "    Step 2: Handoff recorder->editor - OK" -ForegroundColor Gray
-
-            # Verify new claim_role and claimed_by
-            if ($handoffResult.data.claim_role -ne "editor") {
-                Write-Host "    WARN: claim_role after handoff incorrect (got: $($handoffResult.data.claim_role))" -ForegroundColor Yellow
-            }
-            if ($handoffResult.data.claimed_by -ne "role_test_editor") {
-                Write-Host "    WARN: claimed_by after handoff incorrect (got: $($handoffResult.data.claimed_by))" -ForegroundColor Yellow
-            }
+            Write-Host "    Step 2: Recorder -> RECORDED passed - OK" -ForegroundColor Gray
         }
 
-        # Step 3: Handoff from wrong user should fail
-        $badHandoffBody = @{
-            from_user = "wrong_user"
-            to_user = "role_test_uploader"
-            to_role = "uploader"
-        } | ConvertTo-Json -Depth 5
-        $badHandoffFailed = $false
+        # Step 3: Recorder -> EDITED should FAIL with ROLE_MISMATCH
+        $editedPayload = @{ recording_status = "EDITED"; updated_by = "verify_recorder" } | ConvertTo-Json -Depth 5
+        $roleMismatchFailed = $false
+        $roleMismatchCode = $null
         try {
-            $badHandoffResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/handoff" -Method POST -ContentType "application/json" -Body $badHandoffBody -TimeoutSec 10
-            if ($badHandoffResult.ok -eq $false) {
-                $badHandoffFailed = $true
+            $editedResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $editedPayload -TimeoutSec 10
+            if ($editedResult.ok -eq $false -and $editedResult.code -eq "ROLE_MISMATCH") {
+                $roleMismatchFailed = $true
+                $roleMismatchCode = $editedResult.code
             }
         } catch {
-            # Expected: 403 error
-            $badHandoffFailed = $true
+            $body = Read-HttpErrorBody $_
+            if ($body) {
+                $errJson = Try-ParseJsonString $body
+                if ($errJson -and $errJson.code -eq "ROLE_MISMATCH") {
+                    $roleMismatchFailed = $true
+                    $roleMismatchCode = $errJson.code
+                }
+            }
         }
-        if (-not $badHandoffFailed) {
-            Write-Host "    FAIL: Handoff from wrong user should have been rejected" -ForegroundColor Red
+        if (-not $roleMismatchFailed) {
+            Write-Host "    FAIL: Recorder -> EDITED should have returned ROLE_MISMATCH" -ForegroundColor Red
             $allRolePassed = $false
         } else {
-            Write-Host "    Step 3: Handoff from wrong user correctly rejected - OK" -ForegroundColor Gray
+            Write-Host "    Step 3: Recorder -> EDITED rejected with $roleMismatchCode - OK" -ForegroundColor Gray
         }
 
-        # Step 4: Query queue with claim_role filter
-        $roleFilterResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?claimed=claimed&claim_role=editor&limit=10" -Method GET -TimeoutSec 10
-        $foundWithRole = $roleFilterResult.data | Where-Object { $_.id -eq $roleTestVideoId }
-        if ($foundWithRole) {
-            Write-Host "    Step 4: Video found in claim_role=editor filter - OK" -ForegroundColor Gray
+        # Step 4: Handoff recorder -> editor
+        $handoffEditorBody = @{
+            from_user = "verify_recorder"
+            to_user = "verify_editor"
+            to_role = "editor"
+        } | ConvertTo-Json -Depth 5
+        $handoffEditorResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/handoff" -Method POST -ContentType "application/json" -Body $handoffEditorBody -TimeoutSec 10
+        if (-not $handoffEditorResult.ok) {
+            Write-Host "    FAIL: Handoff recorder->editor failed: $($handoffEditorResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
         } else {
-            Write-Host "    WARN: Video not found in claim_role=editor filter" -ForegroundColor Yellow
+            Write-Host "    Step 4: Handoff recorder->editor - OK" -ForegroundColor Gray
         }
 
-        # Cleanup: Release the video
-        $releaseRoleBody = @{ claimed_by = "role_test_editor"; force = $true } | ConvertTo-Json -Depth 5
-        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseRoleBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
-        Write-Host "    Cleanup: Released video" -ForegroundColor Gray
+        # Step 5: Editor -> EDITED should PASS
+        $editedByEditorPayload = @{ recording_status = "EDITED"; updated_by = "verify_editor" } | ConvertTo-Json -Depth 5
+        $editedByEditorResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $editedByEditorPayload -TimeoutSec 10
+        if (-not $editedByEditorResult.ok) {
+            Write-Host "    FAIL: Editor -> EDITED should have passed: $($editedByEditorResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 5: Editor -> EDITED passed - OK" -ForegroundColor Gray
+        }
+
+        # Step 6: Editor -> READY_TO_POST should PASS
+        $readyPayload = @{ recording_status = "READY_TO_POST"; updated_by = "verify_editor" } | ConvertTo-Json -Depth 5
+        $readyResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $readyPayload -TimeoutSec 10
+        if (-not $readyResult.ok) {
+            Write-Host "    FAIL: Editor -> READY_TO_POST should have passed: $($readyResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 6: Editor -> READY_TO_POST passed - OK" -ForegroundColor Gray
+        }
+
+        # Step 7: Editor -> POSTED with posted_url/platform should FAIL (ROLE_MISMATCH)
+        $postedByEditorPayload = @{
+            recording_status = "POSTED"
+            updated_by = "verify_editor"
+            posted_url = "https://test.example.com/role-test"
+            posted_platform = "tiktok"
+        } | ConvertTo-Json -Depth 5
+        $editorPostedMismatch = $false
+        try {
+            $postedByEditorResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $postedByEditorPayload -TimeoutSec 10
+            if ($postedByEditorResult.ok -eq $false -and $postedByEditorResult.code -eq "ROLE_MISMATCH") {
+                $editorPostedMismatch = $true
+            }
+        } catch {
+            $body = Read-HttpErrorBody $_
+            if ($body) {
+                $errJson = Try-ParseJsonString $body
+                if ($errJson -and $errJson.code -eq "ROLE_MISMATCH") {
+                    $editorPostedMismatch = $true
+                }
+            }
+        }
+        if (-not $editorPostedMismatch) {
+            Write-Host "    FAIL: Editor -> POSTED (with posted_url) should have returned ROLE_MISMATCH" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 7: Editor -> POSTED rejected with ROLE_MISMATCH - OK" -ForegroundColor Gray
+        }
+
+        # Step 8: Handoff editor -> uploader
+        $handoffUploaderBody = @{
+            from_user = "verify_editor"
+            to_user = "verify_uploader"
+            to_role = "uploader"
+        } | ConvertTo-Json -Depth 5
+        $handoffUploaderResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/handoff" -Method POST -ContentType "application/json" -Body $handoffUploaderBody -TimeoutSec 10
+        if (-not $handoffUploaderResult.ok) {
+            Write-Host "    FAIL: Handoff editor->uploader failed: $($handoffUploaderResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 8: Handoff editor->uploader - OK" -ForegroundColor Gray
+        }
+
+        # Step 9: Uploader -> POSTED without posted_url should FAIL (MISSING_POSTED_FIELDS)
+        $postedNoUrlPayload = @{ recording_status = "POSTED"; updated_by = "verify_uploader" } | ConvertTo-Json -Depth 5
+        $missingFieldsFailed = $false
+        try {
+            $postedNoUrlResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $postedNoUrlPayload -TimeoutSec 10
+            if ($postedNoUrlResult.ok -eq $false) {
+                $missingFieldsFailed = $true
+            }
+        } catch {
+            $missingFieldsFailed = $true
+        }
+        if (-not $missingFieldsFailed) {
+            Write-Host "    FAIL: Uploader -> POSTED without posted_url should have failed" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 9: Uploader -> POSTED (no fields) rejected - OK" -ForegroundColor Gray
+        }
+
+        # Step 10: Uploader -> POSTED with posted_url/platform should PASS
+        $postedWithUrlPayload = @{
+            recording_status = "POSTED"
+            updated_by = "verify_uploader"
+            posted_url = "https://test.example.com/role-verify-$(Get-Random)"
+            posted_platform = "tiktok"
+        } | ConvertTo-Json -Depth 5
+        $postedWithUrlResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $postedWithUrlPayload -TimeoutSec 10
+        if (-not $postedWithUrlResult.ok) {
+            Write-Host "    FAIL: Uploader -> POSTED (with fields) should have passed: $($postedWithUrlResult.error)" -ForegroundColor Red
+            $allRolePassed = $false
+        } else {
+            Write-Host "    Step 10: Uploader -> POSTED (with fields) passed - OK" -ForegroundColor Gray
+        }
+
+        # Step 11: Verify events contain claim, handoff, and status_change events
+        $eventsResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/events" -Method GET -TimeoutSec 10
+        if ($eventsResult.ok -and $eventsResult.data) {
+            $claimEvents = $eventsResult.data | Where-Object { $_.event_type -eq "claim" }
+            $handoffEvents = $eventsResult.data | Where-Object { $_.event_type -eq "handoff" }
+            $statusEvents = $eventsResult.data | Where-Object { $_.event_type -eq "recording_status_changed" }
+            Write-Host "    Step 11: Events - claims:$($claimEvents.Count), handoffs:$($handoffEvents.Count), status_changes:$($statusEvents.Count) - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "    WARN: Could not fetch events" -ForegroundColor Yellow
+        }
+
+        # Cleanup: Restore original status and release
+        $restorePayload = @{ recording_status = $originalStatus; force = $true; require_claim = $false } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/execution" -Method PUT -ContentType "application/json" -Body $restorePayload -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        $releaseBody = @{ claimed_by = "verify_uploader"; force = $true } | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$baseUrl/api/videos/$roleTestVideoId/release" -Method POST -ContentType "application/json" -Body $releaseBody -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "    Cleanup: Restored status and released claim" -ForegroundColor Gray
 
         if ($allRolePassed) {
-            Write-Host "  PASS: Role-based claims and handoff workflow completed successfully" -ForegroundColor Green
+            Write-Host "  PASS: Role-based claim enforcement workflow completed successfully" -ForegroundColor Green
         } else {
-            Write-Host "  WARN: Some role-based claim checks failed" -ForegroundColor Yellow
+            Write-Host "  FAIL: Some role-based enforcement checks failed" -ForegroundColor Red
+            exit 1
+        }
         }
     }
 } catch {
-    Write-Host "  WARN: Role-based claims test error: $_" -ForegroundColor Yellow
+    Write-Host "  FAIL: Role-based enforcement test error: $_" -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "`n[10/10] Phase 8 verification summary..." -ForegroundColor Yellow

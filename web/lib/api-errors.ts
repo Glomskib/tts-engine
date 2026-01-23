@@ -7,7 +7,10 @@ export type ApiErrorCode =
   | 'DUPLICATE_QUEUE'
   | 'NOT_FOUND'
   | 'DB_ERROR'
-  | 'BAD_REQUEST';
+  | 'BAD_REQUEST'
+  | 'ALREADY_CLAIMED'
+  | 'NOT_CLAIMED'
+  | 'CLAIM_NOT_OWNED';
 
 export interface ApiErrorResponse {
   ok: false;

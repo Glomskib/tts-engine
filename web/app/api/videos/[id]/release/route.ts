@@ -70,23 +70,18 @@ export async function POST(
     const existingColumns = await getVideosColumns();
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
 
-    // Build SELECT based on available columns
-    const selectCols = hasClaimColumns ? "id,claimed_by" : "id";
-
-    // Check video exists
-    const { data: video, error: fetchError } = await supabaseAdmin
-      .from("videos")
-      .select(selectCols)
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
-    // If claim columns don't exist, use in-memory cache for release
     if (!hasClaimColumns) {
+      const { data: video, error: fetchError } = await supabaseAdmin
+        .from("videos")
+        .select("id")
+        .eq("id", id)
+        .single();
+
+      if (fetchError || !video) {
+        const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      }
+
       const existingClaim = getMemoryClaim(id);
       if (existingClaim && !forceRelease && existingClaim.claimed_by !== claimed_by.trim()) {
         const err = apiError("BAD_REQUEST", "Claimed by another user", 409, {
@@ -103,7 +98,17 @@ export async function POST(
       return NextResponse.json({ ok: true, data: fullVideo, correlation_id: correlationId });
     }
 
-    // Check ownership unless force
+    const { data: video, error: fetchError } = await supabaseAdmin
+      .from("videos")
+      .select("id,claimed_by")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !video) {
+      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
     if (!forceRelease && video.claimed_by !== claimed_by.trim()) {
       const err = apiError("BAD_REQUEST", "Claimed by another user", 409, {
         current_claimed_by: video.claimed_by

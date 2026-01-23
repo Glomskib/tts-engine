@@ -71,35 +71,28 @@ export async function POST(
     const existingColumns = await getVideosColumns();
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
 
-    // Build SELECT based on available columns
-    const selectCols = hasClaimColumns
-      ? "id,status,claimed_by,claim_expires_at"
-      : "id,status";
-
-    // Check video exists and is in queue status
-    const { data: video, error: fetchError } = await supabaseAdmin
-      .from("videos")
-      .select(selectCols)
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
-    if (!QUEUE_STATUSES.includes(video.status as typeof QUEUE_STATUSES[number])) {
-      const err = apiError("BAD_REQUEST", "Video is not in a claimable queue status", 400, { status: video.status });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
     const now = new Date().toISOString();
 
-    // If claim columns don't exist, use in-memory cache for claim tracking
     if (!hasClaimColumns) {
+      // No claim columns: use literal select, then in-memory cache
+      const { data: video, error: fetchError } = await supabaseAdmin
+        .from("videos")
+        .select("id,status")
+        .eq("id", id)
+        .single();
+
+      if (fetchError || !video) {
+        const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      }
+      if (!QUEUE_STATUSES.includes(video.status as typeof QUEUE_STATUSES[number])) {
+        const err = apiError("BAD_REQUEST", "Video is not in a claimable queue status", 400, { status: video.status });
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      }
+
       const existingClaim = getMemoryClaim(id);
       if (existingClaim && existingClaim.claimed_by !== claimed_by.trim()) {
-        const err = apiError("BAD_REQUEST", "Video is already claimed", 409, {
+        const err = apiError("ALREADY_CLAIMED", `Video is already claimed by ${existingClaim.claimed_by}`, 409, {
           claimed_by: existingClaim.claimed_by,
           claim_expires_at: existingClaim.claim_expires_at
         });
@@ -114,9 +107,24 @@ export async function POST(
       return NextResponse.json({ ok: true, data: fullVideo, correlation_id: correlationId });
     }
 
-    // Check if already claimed and not expired
+    // Claim columns exist: use literal select with claimed_by, claim_expires_at
+    const { data: video, error: fetchError } = await supabaseAdmin
+      .from("videos")
+      .select("id,status,claimed_by,claim_expires_at")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !video) {
+      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+    if (!QUEUE_STATUSES.includes(video.status as typeof QUEUE_STATUSES[number])) {
+      const err = apiError("BAD_REQUEST", "Video is not in a claimable queue status", 400, { status: video.status });
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
     if (video.claimed_by && video.claim_expires_at && video.claim_expires_at > now) {
-      const err = apiError("BAD_REQUEST", "Video is already claimed", 409, {
+      const err = apiError("ALREADY_CLAIMED", `Video is already claimed by ${video.claimed_by}`, 409, {
         claimed_by: video.claimed_by,
         claim_expires_at: video.claim_expires_at
       });
@@ -139,8 +147,18 @@ export async function POST(
       .single();
 
     if (updateError || !updated) {
-      // Race condition: someone else claimed it
-      const err = apiError("BAD_REQUEST", "Video is already claimed", 409, { video_id: id });
+      // Race condition: someone else claimed it — re-fetch for claimed_by/claim_expires_at
+      const { data: conflict } = await supabaseAdmin
+        .from("videos")
+        .select("claimed_by,claim_expires_at")
+        .eq("id", id)
+        .single();
+      const err = apiError(
+        "ALREADY_CLAIMED",
+        `Video is already claimed by ${conflict?.claimed_by ?? "unknown"}`,
+        409,
+        { claimed_by: conflict?.claimed_by ?? null, claim_expires_at: conflict?.claim_expires_at ?? null }
+      );
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 

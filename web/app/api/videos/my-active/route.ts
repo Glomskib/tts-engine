@@ -3,6 +3,7 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { checkAndExpireUserAssignment } from "@/lib/assignment-expiry";
 
 export const runtime = "nodejs";
 
@@ -42,7 +43,16 @@ export async function GET(request: Request) {
       });
     }
 
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // Check and expire any expired assignments for this user (opportunistic cleanup)
+    const { hadExpired, expiredVideoIds } = await checkAndExpireUserAssignment(
+      userId,
+      userRole,
+      now,
+      correlationId
+    );
 
     // Find active assignment for this user
     let query = supabaseAdmin
@@ -50,7 +60,7 @@ export async function GET(request: Request) {
       .select("id,recording_status,assignment_state,assigned_expires_at,assigned_role,claimed_by,claim_expires_at")
       .eq("assigned_to", userId)
       .eq("assignment_state", "ASSIGNED")
-      .gt("assigned_expires_at", now)
+      .gt("assigned_expires_at", nowIso)
       .limit(1);
 
     // If user has a specific role (not admin), filter by lane
@@ -75,6 +85,8 @@ export async function GET(request: Request) {
       return NextResponse.json({
         ok: true,
         data: null,
+        previous_expired: hadExpired,
+        expired_video_ids: hadExpired ? expiredVideoIds : undefined,
         correlation_id: correlationId,
       });
     }

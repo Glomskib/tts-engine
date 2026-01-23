@@ -8,6 +8,7 @@ import {
   computeSlaInfo,
   type VideoForValidation,
 } from "@/lib/execution-stages";
+import { expireAssignmentsForRole } from "@/lib/assignment-expiry";
 
 export const runtime = "nodejs";
 
@@ -129,6 +130,9 @@ export async function POST(request: Request) {
     const laneConfig = LANE_CONFIG[dispatchRole];
     const now = new Date();
     const nowIso = now.toISOString();
+
+    // Opportunistically expire any expired assignments for this lane before selecting
+    await expireAssignmentsForRole(dispatchRole, now, correlationId);
 
     // Build query for eligible videos
     // Select videos in the appropriate recording_status for this role

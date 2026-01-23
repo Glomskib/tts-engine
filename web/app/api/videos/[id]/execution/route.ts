@@ -16,6 +16,48 @@ export const runtime = "nodejs";
 const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 type ClaimRole = typeof VALID_CLAIM_ROLES[number];
 
+// Lane boundaries for auto-handoff
+// Maps from_status -> to_status to the next role
+const HANDOFF_CONFIG: Record<string, { nextRole: ClaimRole | null }> = {
+  "NOT_RECORDED->RECORDED": { nextRole: "editor" },
+  "RECORDED->EDITED": { nextRole: null }, // Still editor, no handoff
+  "EDITED->READY_TO_POST": { nextRole: "uploader" },
+  "READY_TO_POST->POSTED": { nextRole: null }, // Terminal
+  // REJECTED has no handoff
+};
+
+// Default user IDs for each role (from env)
+function getDefaultUserForRole(role: ClaimRole): string | null {
+  switch (role) {
+    case "recorder":
+      return process.env.DEFAULT_RECORDER_USER_ID || null;
+    case "editor":
+      return process.env.DEFAULT_EDITOR_USER_ID || null;
+    case "uploader":
+      return process.env.DEFAULT_UPLOADER_USER_ID || null;
+    default:
+      return null;
+  }
+}
+
+async function insertNotification(
+  userId: string,
+  type: string,
+  videoId: string | null,
+  payload: Record<string, unknown>
+): Promise<void> {
+  try {
+    await supabaseAdmin.from("notifications").insert({
+      user_id: userId,
+      type,
+      video_id: videoId,
+      payload,
+    });
+  } catch (err) {
+    console.error("Failed to insert notification:", err);
+  }
+}
+
 async function writeVideoEvent(
   videoId: string,
   eventType: string,
@@ -375,6 +417,86 @@ export async function PUT(request: Request, { params }: RouteParams) {
         authenticated: isAuthenticated,
       }
     );
+
+    // Auto-handoff logic: complete current assignment and assign to next role
+    if (hasAssignmentColumns && previousRecordingStatus && recording_status) {
+      const transitionKey = `${previousRecordingStatus}->${recording_status}`;
+      const handoffConfig = HANDOFF_CONFIG[transitionKey];
+
+      // Complete current assignment if exists
+      if (currentVideo.assignment_state === "ASSIGNED" && currentVideo.assigned_to === actor) {
+        await supabaseAdmin
+          .from("videos")
+          .update({ assignment_state: "COMPLETED" })
+          .eq("id", id);
+
+        await writeVideoEvent(id, "assignment_completed", correlationId, actor || "api", null, null, {
+          role: currentVideo.assigned_role,
+          from_status: previousRecordingStatus,
+          to_status: recording_status,
+        });
+      }
+
+      // Set up next assignment if there's a handoff
+      if (handoffConfig?.nextRole) {
+        const nextRole = handoffConfig.nextRole;
+        const defaultUser = getDefaultUserForRole(nextRole);
+        const ttl = currentVideo.assigned_ttl_minutes || 240;
+        const expiresAt = new Date(Date.now() + ttl * 60 * 1000).toISOString();
+
+        if (defaultUser) {
+          // Auto-assign to default user for the role
+          await supabaseAdmin
+            .from("videos")
+            .update({
+              assigned_to: defaultUser,
+              assigned_at: now,
+              assigned_expires_at: expiresAt,
+              assigned_role: nextRole,
+              assignment_state: "ASSIGNED",
+              work_lane: nextRole,
+            })
+            .eq("id", id);
+
+          await writeVideoEvent(id, "auto_handoff", correlationId, actor || "api", null, null, {
+            from_role: currentVideo.assigned_role,
+            to_role: nextRole,
+            assigned_to: defaultUser,
+            from_status: previousRecordingStatus,
+            to_status: recording_status,
+          });
+
+          // Notify the next user
+          await insertNotification(defaultUser, "assigned", id, {
+            from_status: previousRecordingStatus,
+            to_status: recording_status,
+            role: nextRole,
+            auto_assigned: true,
+          });
+        } else {
+          // No default user - mark as unassigned and notify admins
+          await supabaseAdmin
+            .from("videos")
+            .update({
+              assigned_to: null,
+              assigned_at: null,
+              assigned_expires_at: null,
+              assigned_role: nextRole, // Keep role for dispatch targeting
+              assignment_state: "UNASSIGNED",
+              work_lane: nextRole,
+            })
+            .eq("id", id);
+
+          await writeVideoEvent(id, "handoff_pending", correlationId, actor || "api", null, null, {
+            from_role: currentVideo.assigned_role,
+            to_role: nextRole,
+            from_status: previousRecordingStatus,
+            to_status: recording_status,
+            reason: "no_default_user",
+          });
+        }
+      }
+    }
   }
 
   return NextResponse.json({

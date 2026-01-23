@@ -25,7 +25,9 @@ export type ApiErrorCode =
   | 'HANDOFF_NOT_ALLOWED'
   | 'MISSING_ACTOR'
   | 'FORBIDDEN'
-  | 'NOT_CLAIM_OWNER';
+  | 'NOT_CLAIM_OWNER'
+  | 'UNAUTHORIZED'
+  | 'NOT_AVAILABLE';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

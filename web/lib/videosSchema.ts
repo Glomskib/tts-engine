@@ -47,6 +47,18 @@ export async function getVideosColumns(): Promise<Set<string>> {
       columns.add("claim_role");
     }
 
+    // Explicitly check for assignment columns (migration 018)
+    const { error: assignedToError } = await supabaseAdmin
+      .from("videos")
+      .select("assigned_to")
+      .limit(1);
+
+    if (!assignedToError) {
+      columns.add("assigned_to");
+      columns.add("assigned_at");
+      columns.add("assigned_by");
+    }
+
     cachedColumns = columns;
   } catch (err) {
     console.error("Error querying videos schema:", err);

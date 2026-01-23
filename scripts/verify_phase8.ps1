@@ -1073,7 +1073,117 @@ try {
     exit 1
 }
 
-Write-Host "`n[12/12] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 13: SLA fields in queue API
+Write-Host "`n[13/14] Testing SLA fields in queue API..." -ForegroundColor Yellow
+try {
+    $slaQueueResult = Invoke-RestMethod -Uri "$baseUrl/api/videos/queue?sort=priority&limit=10" -Method GET -TimeoutSec 10
+    if (-not $slaQueueResult.ok) {
+        Write-Host "  FAIL: Queue API request failed" -ForegroundColor Red
+        exit 1
+    }
+
+    if ($slaQueueResult.data.Count -eq 0) {
+        Write-Host "  SKIP: No videos in queue to test SLA fields" -ForegroundColor Yellow
+    } else {
+        $slaTestVideo = $slaQueueResult.data[0]
+        $allSlaFieldsPresent = $true
+
+        # Check sla_deadline_at exists
+        if (-not $slaTestVideo.PSObject.Properties.Match("sla_deadline_at")) {
+            Write-Host "    FAIL: sla_deadline_at field missing" -ForegroundColor Red
+            $allSlaFieldsPresent = $false
+        }
+
+        # Check sla_status exists and has valid value
+        if (-not $slaTestVideo.PSObject.Properties.Match("sla_status")) {
+            Write-Host "    FAIL: sla_status field missing" -ForegroundColor Red
+            $allSlaFieldsPresent = $false
+        } elseif ($slaTestVideo.sla_status -notin @("on_track", "due_soon", "overdue")) {
+            Write-Host "    FAIL: sla_status has invalid value: $($slaTestVideo.sla_status)" -ForegroundColor Red
+            $allSlaFieldsPresent = $false
+        }
+
+        # Check priority_score exists
+        if (-not $slaTestVideo.PSObject.Properties.Match("priority_score")) {
+            Write-Host "    FAIL: priority_score field missing" -ForegroundColor Red
+            $allSlaFieldsPresent = $false
+        }
+
+        # Check age_minutes_in_stage exists
+        if (-not $slaTestVideo.PSObject.Properties.Match("age_minutes_in_stage")) {
+            Write-Host "    FAIL: age_minutes_in_stage field missing" -ForegroundColor Red
+            $allSlaFieldsPresent = $false
+        }
+
+        if ($allSlaFieldsPresent) {
+            Write-Host "    sla_deadline_at: $($slaTestVideo.sla_deadline_at)" -ForegroundColor Gray
+            Write-Host "    sla_status: $($slaTestVideo.sla_status)" -ForegroundColor Gray
+            Write-Host "    priority_score: $($slaTestVideo.priority_score)" -ForegroundColor Gray
+            Write-Host "    age_minutes_in_stage: $($slaTestVideo.age_minutes_in_stage)" -ForegroundColor Gray
+
+            # Verify priority sorting: first item should have highest priority_score
+            if ($slaQueueResult.data.Count -gt 1) {
+                $firstPriority = $slaQueueResult.data[0].priority_score
+                $secondPriority = $slaQueueResult.data[1].priority_score
+                if ($firstPriority -lt $secondPriority) {
+                    Write-Host "    WARN: Priority sorting may not be correct (first: $firstPriority, second: $secondPriority)" -ForegroundColor Yellow
+                } else {
+                    Write-Host "    Priority sorting verified (first: $firstPriority >= second: $secondPriority)" -ForegroundColor Gray
+                }
+            }
+
+            Write-Host "  PASS: SLA fields present and valid" -ForegroundColor Green
+        } else {
+            Write-Host "  FAIL: Some SLA fields missing or invalid" -ForegroundColor Red
+            exit 1
+        }
+    }
+} catch {
+    Write-Host "  FAIL: SLA fields test error: $_" -ForegroundColor Red
+    exit 1
+}
+
+# Check 14: Role dashboard routes exist
+Write-Host "`n[14/14] Testing role dashboard routes..." -ForegroundColor Yellow
+try {
+    # These routes require authentication, so we just check they don't return 500
+    # They should redirect to login (302) or return the page (200)
+    $roleDashboards = @("/admin/recorder", "/admin/editor", "/admin/uploader")
+    $allRoutesOk = $true
+
+    foreach ($route in $roleDashboards) {
+        try {
+            $response = Invoke-WebRequest -Uri "$baseUrl$route" -Method GET -TimeoutSec 10 -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
+            $statusCode = $response.StatusCode
+        } catch {
+            # Catch redirect (302) or other responses
+            if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+            } else {
+                $statusCode = 0
+            }
+        }
+
+        if ($statusCode -eq 200 -or $statusCode -eq 302 -or $statusCode -eq 307) {
+            Write-Host "    $route returns $statusCode - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "    FAIL: $route returned unexpected status: $statusCode" -ForegroundColor Red
+            $allRoutesOk = $false
+        }
+    }
+
+    if ($allRoutesOk) {
+        Write-Host "  PASS: Role dashboard routes accessible" -ForegroundColor Green
+    } else {
+        Write-Host "  FAIL: Some role dashboard routes not accessible" -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    Write-Host "  FAIL: Role dashboard routes test error: $_" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "`n[14/14] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

@@ -37,6 +37,15 @@ interface AuthUser {
   role: ClaimRole | null;
 }
 
+interface Notification {
+  id: string;
+  type: string;
+  video_id: string | null;
+  payload: Record<string, unknown>;
+  is_read: boolean;
+  created_at: string;
+}
+
 interface RoleWorkbenchProps {
   role: 'recorder' | 'editor' | 'uploader';
   title: string;
@@ -94,6 +103,11 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
   const [releasing, setReleasing] = useState(false);
   const [showScript, setShowScript] = useState(true);
 
+  // Notifications state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [previousExpiredMessage, setPreviousExpiredMessage] = useState<string | null>(null);
+
   // Fetch authenticated user
   useEffect(() => {
     const fetchAuthUser = async () => {
@@ -137,6 +151,27 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
     fetchAuthUser();
   }, [router, role]);
 
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications?limit=10');
+      const data = await res.json();
+      if (data.ok && data.data) {
+        setNotifications(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  }, []);
+
+  // Poll notifications every 45 seconds
+  useEffect(() => {
+    if (!authUser) return;
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 45000);
+    return () => clearInterval(interval);
+  }, [authUser, fetchNotifications]);
+
   // Fetch video data
   const fetchVideo = useCallback(async (videoId: string) => {
     try {
@@ -170,11 +205,17 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
     setLoading(true);
     setVideo(null);
     setMessage(null);
+    setPreviousExpiredMessage(null);
 
     try {
       // First check for active assignment
       const activeRes = await fetch('/api/videos/my-active');
       const activeData = await activeRes.json();
+
+      // Check if previous assignment expired
+      if (activeData.previous_expired) {
+        setPreviousExpiredMessage('Your previous assignment expired and was re-queued. Dispatching next task...');
+      }
 
       if (activeData.ok && activeData.data?.video_id) {
         // Load the assigned video
@@ -460,7 +501,94 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         >
           Sign Out
         </button>
+        <button
+          onClick={() => setShowNotifications(!showNotifications)}
+          style={{
+            marginLeft: '10px',
+            padding: '3px 10px',
+            backgroundColor: notifications.some(n => !n.is_read) ? '#fff3bf' : 'transparent',
+            border: '1px solid #74c0fc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+          }}
+        >
+          Notifications ({notifications.filter(n => !n.is_read).length})
+        </button>
       </div>
+
+      {/* Notifications panel */}
+      {showNotifications && (
+        <div style={{
+          marginBottom: '15px',
+          padding: '12px 16px',
+          backgroundColor: '#fff',
+          borderRadius: '4px',
+          border: '1px solid #dee2e6',
+          maxHeight: '300px',
+          overflow: 'auto',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <strong>Recent Notifications</strong>
+            <button
+              onClick={() => setShowNotifications(false)}
+              style={{
+                padding: '2px 8px',
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px',
+              }}
+            >
+              Close
+            </button>
+          </div>
+          {notifications.length === 0 ? (
+            <div style={{ color: '#6c757d', fontSize: '13px' }}>No notifications</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {notifications.map(notif => (
+                <div
+                  key={notif.id}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: notif.is_read ? '#f8f9fa' : '#e7f5ff',
+                    borderRadius: '4px',
+                    border: `1px solid ${notif.is_read ? '#dee2e6' : '#74c0fc'}`,
+                    fontSize: '12px',
+                  }}
+                >
+                  <div style={{ fontWeight: notif.is_read ? 'normal' : 'bold' }}>
+                    {notif.type === 'assigned' && 'New assignment'}
+                    {notif.type === 'assignment_expired' && 'Assignment expired'}
+                    {notif.type === 'handoff' && 'Work handed off to you'}
+                    {!['assigned', 'assignment_expired', 'handoff'].includes(notif.type) && notif.type}
+                  </div>
+                  <div style={{ color: '#6c757d', fontSize: '11px', marginTop: '2px' }}>
+                    {hydrated && formatDateString(notif.created_at)}
+                    {notif.video_id && ` • ${notif.video_id.slice(0, 8)}...`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Previous expired message */}
+      {previousExpiredMessage && (
+        <div style={{
+          marginBottom: '15px',
+          padding: '12px 16px',
+          backgroundColor: '#fff3bf',
+          color: '#e67700',
+          borderRadius: '4px',
+          border: '1px solid #ffd43b',
+        }}>
+          {previousExpiredMessage}
+        </div>
+      )}
 
       {/* Message */}
       {message && (

@@ -10,6 +10,7 @@ import {
 } from "@/lib/execution-stages";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
+import { canPerformGatedAction } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -169,6 +170,20 @@ export async function PUT(request: Request, { params }: RouteParams) {
       { actor, actor_role: actorRole, hint: "Only admin users can use force" }
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Subscription gating check (fail-safe: allows if not configured)
+  // Only check if we have an authenticated user and recording_status is changing
+  if (isAuthenticated && actor && recording_status !== undefined) {
+    const subscriptionCheck = await canPerformGatedAction(actor, isAdmin);
+    if (!subscriptionCheck.allowed) {
+      return NextResponse.json({
+        ok: false,
+        error: subscriptionCheck.reason || "subscription_required",
+        message: "Upgrade required to submit status changes.",
+        correlation_id: correlationId,
+      }, { status: 403 });
+    }
   }
 
   // Validate recording_status if provided

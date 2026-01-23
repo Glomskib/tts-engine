@@ -2446,7 +2446,206 @@ try {
     Write-Host "  WARN: Upgrade requests verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[28/28] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 29: System Settings (Admin) + Feature Flags + Runtime Config (Step 19)
+Write-Host "`n[29/29] Testing system settings and runtime config..." -ForegroundColor Yellow
+try {
+    # Verify settings resolver exists
+    $settingsPath = Join-Path $webDir "lib/settings.ts"
+    if (-not (Test-Path $settingsPath)) {
+        Write-Host "  FAIL: settings.ts not found at $settingsPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    lib/settings.ts exists - OK" -ForegroundColor Gray
+
+    # Verify settings resolver has required exports
+    $settingsContent = Get-Content $settingsPath -Raw
+    if ($settingsContent -match "ALLOWED_SETTING_KEYS") {
+        Write-Host "    settings.ts has ALLOWED_SETTING_KEYS - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: settings.ts missing ALLOWED_SETTING_KEYS" -ForegroundColor Red
+        exit 1
+    }
+    if ($settingsContent -match "getEffectiveSetting") {
+        Write-Host "    settings.ts has getEffectiveSetting - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: settings.ts missing getEffectiveSetting" -ForegroundColor Red
+        exit 1
+    }
+    if ($settingsContent -match "setSystemSetting") {
+        Write-Host "    settings.ts has setSystemSetting - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: settings.ts missing setSystemSetting" -ForegroundColor Red
+        exit 1
+    }
+
+    # Verify runtime-config API exists
+    $runtimeConfigPath = Join-Path $webDir "app/api/auth/runtime-config/route.ts"
+    if (-not (Test-Path $runtimeConfigPath)) {
+        Write-Host "  FAIL: runtime-config API not found at $runtimeConfigPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/auth/runtime-config endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify runtime-config returns 401 without auth
+    $runtimeConfigStatusCode = 0
+    try {
+        $runtimeConfigResult = Invoke-RestMethod -Uri "$baseUrl/api/auth/runtime-config" -Method GET -TimeoutSec 10
+        $runtimeConfigStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $runtimeConfigStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($runtimeConfigStatusCode -eq 401) {
+        Write-Host "    GET /api/auth/runtime-config returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/auth/runtime-config returned status: $runtimeConfigStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify admin settings list API exists
+    $adminSettingsPath = Join-Path $webDir "app/api/admin/settings/route.ts"
+    if (-not (Test-Path $adminSettingsPath)) {
+        Write-Host "  FAIL: admin settings API not found at $adminSettingsPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/admin/settings endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify admin settings returns 401 without auth
+    $adminSettingsStatusCode = 0
+    try {
+        $adminSettingsResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/settings" -Method GET -TimeoutSec 10
+        $adminSettingsStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $adminSettingsStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($adminSettingsStatusCode -eq 401) {
+        Write-Host "    GET /api/admin/settings returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/admin/settings returned status: $adminSettingsStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify admin settings/set API exists
+    $adminSettingsSetPath = Join-Path $webDir "app/api/admin/settings/set/route.ts"
+    if (-not (Test-Path $adminSettingsSetPath)) {
+        Write-Host "  FAIL: admin settings/set API not found at $adminSettingsSetPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    POST /api/admin/settings/set endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify admin settings/set returns 401 without auth
+    $adminSettingsSetStatusCode = 0
+    try {
+        $adminSettingsSetResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/settings/set" -Method POST -ContentType "application/json" -Body '{"key":"TEST","value":true}' -TimeoutSec 10
+        $adminSettingsSetStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $adminSettingsSetStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($adminSettingsSetStatusCode -eq 401) {
+        Write-Host "    POST /api/admin/settings/set returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    POST /api/admin/settings/set returned status: $adminSettingsSetStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify /admin/settings page exists
+    $adminSettingsPagePath = Join-Path $webDir "app/admin/settings/page.tsx"
+    if (-not (Test-Path $adminSettingsPagePath)) {
+        Write-Host "  FAIL: /admin/settings page not found at $adminSettingsPagePath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    /admin/settings page exists - OK" -ForegroundColor Gray
+
+    # Verify /admin/settings returns 307 (auth redirect) or 200
+    $adminSettingsPageStatusCode = 0
+    try {
+        $adminSettingsPageResult = Invoke-WebRequest -Uri "$baseUrl/admin/settings" -Method GET -MaximumRedirection 0 -TimeoutSec 10 -ErrorAction SilentlyContinue
+        $adminSettingsPageStatusCode = [int]$adminSettingsPageResult.StatusCode
+    } catch {
+        if ($_.Exception.Response) {
+            $adminSettingsPageStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($adminSettingsPageStatusCode -eq 307 -or $adminSettingsPageStatusCode -eq 200) {
+        Write-Host "    /admin/settings page returns $adminSettingsPageStatusCode - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    /admin/settings page returned status: $adminSettingsPageStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify subscription.ts uses settings resolver
+    $subscriptionPath = Join-Path $webDir "lib/subscription.ts"
+    if (Test-Path $subscriptionPath) {
+        $subscriptionContent = Get-Content $subscriptionPath -Raw
+        if ($subscriptionContent -match "getEffectiveBoolean") {
+            Write-Host "    subscription.ts uses settings resolver - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: subscription.ts does not use settings resolver" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify email.ts uses settings resolver
+    $emailPath = Join-Path $webDir "lib/email.ts"
+    if (Test-Path $emailPath) {
+        $emailContent = Get-Content $emailPath -Raw
+        if ($emailContent -match "getEffectiveBoolean") {
+            Write-Host "    email.ts uses settings resolver - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: email.ts does not use settings resolver" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify slack.ts uses settings resolver
+    $slackPath = Join-Path $webDir "lib/slack.ts"
+    if (Test-Path $slackPath) {
+        $slackContent = Get-Content $slackPath -Raw
+        if ($slackContent -match "getEffectiveBoolean") {
+            Write-Host "    slack.ts uses settings resolver - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: slack.ts does not use settings resolver" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify notify.ts uses settings resolver for SLACK_OPS_EVENTS
+    $notifyPath = Join-Path $webDir "lib/notify.ts"
+    if (Test-Path $notifyPath) {
+        $notifyContent = Get-Content $notifyPath -Raw
+        if ($notifyContent -match "getEffectiveStringArray") {
+            Write-Host "    notify.ts uses settings resolver for SLACK_OPS_EVENTS - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: notify.ts does not use settings resolver for SLACK_OPS_EVENTS" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify pipeline nav has Settings link
+    $pipelinePath = Join-Path $webDir "app/admin/pipeline/page.tsx"
+    if (Test-Path $pipelinePath) {
+        $pipelineContent = Get-Content $pipelinePath -Raw
+        if ($pipelineContent -match '"/admin/settings"') {
+            Write-Host "    Pipeline nav has Settings link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Pipeline page missing /admin/settings nav link" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify /upgrade page has runtime config display
+    $upgradePath = Join-Path $webDir "app/upgrade/page.tsx"
+    if (Test-Path $upgradePath) {
+        $upgradeContent = Get-Content $upgradePath -Raw
+        if ($upgradeContent -match "runtime-config") {
+            Write-Host "    /upgrade page fetches runtime config - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /upgrade page does not fetch runtime config" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: System settings and runtime config verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: System settings verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[29/29] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

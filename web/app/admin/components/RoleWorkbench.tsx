@@ -616,19 +616,21 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
           </div>
           <div style={{ color: '#495057', marginBottom: '15px' }}>
             You need a Pro subscription to dispatch and complete tasks.
-            <br />
-            Contact your administrator to upgrade your account.
           </div>
-          <div style={{
-            padding: '10px 20px',
-            backgroundColor: '#228be6',
-            color: 'white',
-            borderRadius: '4px',
-            display: 'inline-block',
-            fontWeight: 'bold',
-          }}>
-            Pro Plan Required
-          </div>
+          <Link
+            href="/upgrade"
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#228be6',
+              color: 'white',
+              borderRadius: '4px',
+              display: 'inline-block',
+              fontWeight: 'bold',
+              textDecoration: 'none',
+            }}
+          >
+            View Upgrade Options
+          </Link>
         </div>
       )}
 

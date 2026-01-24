@@ -4142,7 +4142,223 @@ try {
     Write-Host "  WARN: Org billing model verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[39/39] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 40: Client Requests (Intake) + Admin Triage Queue + Conversion (Step 30)
+Write-Host "`n[40/40] Testing client requests intake and admin triage..." -ForegroundColor Yellow
+try {
+    # Check lib/client-requests.ts exists and exports key functions
+    $clientRequestsPath = Join-Path $webDir "lib\client-requests.ts"
+    if (Test-Path $clientRequestsPath) {
+        Write-Host "    lib/client-requests.ts exists - OK" -ForegroundColor Gray
+        $clientRequestsContent = Get-Content $clientRequestsPath -Raw
+
+        if ($clientRequestsContent -match 'export async function createClientRequest') {
+            Write-Host "    createClientRequest exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: createClientRequest not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export async function setClientRequestStatus') {
+            Write-Host "    setClientRequestStatus exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: setClientRequestStatus not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export async function convertClientRequestToVideo') {
+            Write-Host "    convertClientRequestToVideo exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: convertClientRequestToVideo not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export async function listClientRequestsForOrg') {
+            Write-Host "    listClientRequestsForOrg exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: listClientRequestsForOrg not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export const REQUEST_EVENT_TYPES') {
+            Write-Host "    REQUEST_EVENT_TYPES exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: REQUEST_EVENT_TYPES not exported" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: lib/client-requests.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client request APIs exist
+    $clientRequestsApiPath = Join-Path $webDir "app\api\client\requests\route.ts"
+    if (Test-Path $clientRequestsApiPath) {
+        Write-Host "    GET /api/client/requests route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/requests route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $clientRequestsCreatePath = Join-Path $webDir "app\api\client\requests\create\route.ts"
+    if (Test-Path $clientRequestsCreatePath) {
+        Write-Host "    POST /api/client/requests/create route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/requests/create route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $clientRequestDetailPath = Join-Path $webDir "app\api\client\requests\[request_id]\route.ts"
+    if (Test-Path -LiteralPath $clientRequestDetailPath) {
+        Write-Host "    GET /api/client/requests/[request_id] route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/requests/[request_id] route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client request pages exist
+    $clientRequestsPagePath = Join-Path $webDir "app\client\requests\page.tsx"
+    if (Test-Path $clientRequestsPagePath) {
+        Write-Host "    /client/requests page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /client/requests page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $clientRequestsNewPath = Join-Path $webDir "app\client\requests\new\page.tsx"
+    if (Test-Path $clientRequestsNewPath) {
+        Write-Host "    /client/requests/new page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /client/requests/new page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $clientRequestDetailPagePath = Join-Path $webDir "app\client\requests\[request_id]\page.tsx"
+    if (Test-Path -LiteralPath $clientRequestDetailPagePath) {
+        Write-Host "    /client/requests/[request_id] page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /client/requests/[request_id] page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin request APIs exist
+    $adminRequestsApiPath = Join-Path $webDir "app\api\admin\client-requests\route.ts"
+    if (Test-Path $adminRequestsApiPath) {
+        Write-Host "    GET /api/admin/client-requests route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-requests route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminRequestsStatusPath = Join-Path $webDir "app\api\admin\client-requests\status\route.ts"
+    if (Test-Path $adminRequestsStatusPath) {
+        Write-Host "    POST /api/admin/client-requests/status route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-requests/status route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminRequestsConvertPath = Join-Path $webDir "app\api\admin\client-requests\convert\route.ts"
+    if (Test-Path $adminRequestsConvertPath) {
+        Write-Host "    POST /api/admin/client-requests/convert route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-requests/convert route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin requests page exists
+    $adminRequestsPagePath = Join-Path $webDir "app\admin\requests\page.tsx"
+    if (Test-Path $adminRequestsPagePath) {
+        Write-Host "    /admin/requests page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /admin/requests page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check ClientNav has Requests link
+    $clientNavPath = Join-Path $webDir "app\client\components\ClientNav.tsx"
+    if (Test-Path $clientNavPath) {
+        $clientNavContent = Get-Content $clientNavPath -Raw
+        if ($clientNavContent -match '/client/requests') {
+            Write-Host "    ClientNav has Requests link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: ClientNav missing Requests link" -ForegroundColor Yellow
+        }
+    }
+
+    # Check AdminNav has Requests link
+    $adminNavPath = Join-Path $webDir "app\admin\components\AdminNav.tsx"
+    if (Test-Path $adminNavPath) {
+        $adminNavContent = Get-Content $adminNavPath -Raw
+        if ($adminNavContent -match '/admin/requests') {
+            Write-Host "    AdminNav has Requests link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: AdminNav missing Requests link" -ForegroundColor Yellow
+        }
+    }
+
+    # Test /api/client/requests returns 401 without auth
+    try {
+        $apiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/client/requests")
+        $apiRequest.Method = "GET"
+        $apiRequest.AllowAutoRedirect = $false
+        $apiRequest.Timeout = 10000
+
+        try {
+            $apiResponse = $apiRequest.GetResponse()
+            $apiStatusCode = [int]$apiResponse.StatusCode
+            $apiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $apiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $apiStatusCode = 0
+            }
+        }
+
+        if ($apiStatusCode -eq 401) {
+            Write-Host "    /api/client/requests returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /api/client/requests returned $apiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/client/requests check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test /api/admin/client-requests returns 401 without auth
+    try {
+        $adminApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-requests")
+        $adminApiRequest.Method = "GET"
+        $adminApiRequest.AllowAutoRedirect = $false
+        $adminApiRequest.Timeout = 10000
+
+        try {
+            $adminApiResponse = $adminApiRequest.GetResponse()
+            $adminApiStatusCode = [int]$adminApiResponse.StatusCode
+            $adminApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $adminApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $adminApiStatusCode = 0
+            }
+        }
+
+        if ($adminApiStatusCode -eq 401) {
+            Write-Host "    /api/admin/client-requests returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /api/admin/client-requests returned $adminApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-requests check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Client requests intake and admin triage verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Client requests verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[40/40] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

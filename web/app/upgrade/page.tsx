@@ -145,281 +145,177 @@ Thank you!`;
 
   if (authLoading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        Checking access...
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">Checking access...</div>
       </div>
     );
   }
 
   if (!authUser) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        Redirecting to login...
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">Redirecting to login...</div>
       </div>
     );
   }
 
   const isPro = planStatus?.plan === 'pro' && planStatus?.isActive;
-  const gatingEnabled = planStatus?.gatingEnabled ?? false;
 
   return (
-    <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '30px' }}>
-        <Link
-          href="/admin/pipeline"
-          style={{ color: '#228be6', textDecoration: 'none', fontSize: '14px' }}
-        >
-          Back to Pipeline
-        </Link>
-      </div>
-
-      {/* Pro Status Banner */}
-      {isPro ? (
-        <div style={{
-          padding: '30px',
-          backgroundColor: '#d3f9d8',
-          borderRadius: '12px',
-          border: '2px solid #69db7c',
-          textAlign: 'center',
-          marginBottom: '30px',
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>
-            &#9733;
-          </div>
-          <h1 style={{ margin: '0 0 10px 0', color: '#2b8a3e' }}>
-            You're Pro!
-          </h1>
-          <p style={{ color: '#37b24d', margin: 0 }}>
-            You have full access to all workbench features.
-          </p>
+    <div className="min-h-screen bg-slate-50 py-10 px-4">
+      <div className="max-w-xl mx-auto">
+        {/* Back Link */}
+        <div className="mb-6">
+          <Link
+            href="/admin/pipeline"
+            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            ← Back to Pipeline
+          </Link>
         </div>
-      ) : (
-        <>
-          {/* Upgrade Hero */}
-          <div style={{
-            padding: '30px',
-            backgroundColor: '#e7f5ff',
-            borderRadius: '12px',
-            border: '2px solid #228be6',
-            textAlign: 'center',
-            marginBottom: '30px',
-          }}>
-            <h1 style={{ margin: '0 0 15px 0', color: '#1971c2' }}>
-              Upgrade to Pro
-            </h1>
-            <p style={{ color: '#495057', margin: 0, fontSize: '16px' }}>
-              Unlock full access to workbench actions and task dispatch.
-            </p>
+
+        {/* Pro Status Banner */}
+        {isPro ? (
+          <div className="mb-8 p-8 bg-green-50 rounded-xl border-2 border-green-300 text-center">
+            <div className="text-5xl mb-4">★</div>
+            <h1 className="text-2xl font-bold text-green-700 mb-2">You're Pro!</h1>
+            <p className="text-green-600">You have full access to all workbench features.</p>
           </div>
+        ) : (
+          <>
+            {/* Upgrade Hero */}
+            <div className="mb-8 p-8 bg-blue-50 rounded-xl border-2 border-blue-300 text-center">
+              <h1 className="text-2xl font-bold text-blue-800 mb-3">Upgrade to Pro</h1>
+              <p className="text-blue-600">Unlock full access to workbench actions and task dispatch.</p>
+            </div>
 
-          {/* Features List */}
-          <div style={{
-            padding: '25px',
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            border: '1px solid #dee2e6',
-            marginBottom: '25px',
-          }}>
-            <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#212529' }}>
-              What Pro Unlocks
-            </h2>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: '2' }}>
-              <li><strong>Auto-Dispatch</strong> - Get work assigned automatically</li>
-              <li><strong>Status Updates</strong> - Mark tasks as Recorded, Edited, Posted</li>
-              <li><strong>Workbench Actions</strong> - Full control over your assigned tasks</li>
-              <li><strong>Priority Queue</strong> - Access to high-priority assignments</li>
-            </ul>
-          </div>
+            {/* Features List */}
+            <div className="mb-6 p-6 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-800 mb-4">What Pro Unlocks</h2>
+              <ul className="space-y-3 text-slate-600">
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span><strong className="text-slate-800">Auto-Dispatch</strong> – Get work assigned automatically</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span><strong className="text-slate-800">Status Updates</strong> – Mark tasks as Recorded, Edited, Posted</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span><strong className="text-slate-800">Workbench Actions</strong> – Full control over assigned tasks</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span><strong className="text-slate-800">Priority Queue</strong> – Access to high-priority assignments</span>
+                </li>
+              </ul>
+            </div>
 
-          {/* Request Upgrade */}
-          <div style={{
-            padding: '25px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #dee2e6',
-          }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>
-              Request Upgrade
-            </h3>
+            {/* Request Upgrade */}
+            <div className="p-6 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <h3 className="text-base font-semibold text-slate-800 mb-4">Request Upgrade</h3>
 
-            {/* Status messages */}
-            {requestStatus === 'requested' && (
-              <div style={{
-                marginBottom: '15px',
-                padding: '12px',
-                backgroundColor: '#d3f9d8',
-                border: '1px solid #69db7c',
-                borderRadius: '4px',
-                color: '#2b8a3e',
-              }}>
-                Your upgrade request has been submitted. An administrator will review it shortly.
-              </div>
-            )}
-
-            {requestStatus === 'already_requested' && (
-              <div style={{
-                marginBottom: '15px',
-                padding: '12px',
-                backgroundColor: '#fff3bf',
-                border: '1px solid #ffd43b',
-                borderRadius: '4px',
-                color: '#e67700',
-              }}>
-                You have already requested an upgrade within the last 24 hours. Please wait for admin review.
-              </div>
-            )}
-
-            {requestStatus === 'error' && (
-              <div style={{
-                marginBottom: '15px',
-                padding: '12px',
-                backgroundColor: '#f8d7da',
-                border: '1px solid #f5c6cb',
-                borderRadius: '4px',
-                color: '#721c24',
-              }}>
-                Failed to submit request. Please try again.
-              </div>
-            )}
-
-            {requestStatus !== 'requested' && (
-              <>
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#495057' }}>
-                    Message (optional)
-                  </label>
-                  <textarea
-                    value={requestMessage}
-                    onChange={(e) => setRequestMessage(e.target.value)}
-                    placeholder="Tell us why you need Pro access..."
-                    maxLength={500}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      minHeight: '80px',
-                      resize: 'vertical',
-                      fontSize: '14px',
-                    }}
-                  />
+              {/* Status messages */}
+              {requestStatus === 'requested' && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  Your upgrade request has been submitted. An administrator will review it shortly.
                 </div>
+              )}
 
+              {requestStatus === 'already_requested' && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                  You have already requested an upgrade within the last 24 hours. Please wait for admin review.
+                </div>
+              )}
+
+              {requestStatus === 'error' && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  Failed to submit request. Please try again.
+                </div>
+              )}
+
+              {requestStatus !== 'requested' && (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Message <span className="text-slate-400 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      value={requestMessage}
+                      onChange={(e) => setRequestMessage(e.target.value)}
+                      placeholder="Tell us why you need Pro access..."
+                      maxLength={500}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={3}
+                    />
+                  </div>
+
+                  <button
+                    onClick={submitUpgradeRequest}
+                    disabled={requestSubmitting}
+                    className="w-full py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {requestSubmitting ? 'Submitting...' : 'Request Upgrade'}
+                  </button>
+                </>
+              )}
+
+              {/* Manual contact option */}
+              <div className="mt-6 pt-5 border-t border-slate-200">
+                <p className="text-sm text-slate-500 text-center mb-3">Or contact your administrator directly:</p>
                 <button
-                  onClick={submitUpgradeRequest}
-                  disabled={requestSubmitting}
-                  style={{
-                    width: '100%',
-                    padding: '12px 30px',
-                    backgroundColor: requestSubmitting ? '#adb5bd' : '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: requestSubmitting ? 'not-allowed' : 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '15px',
-                  }}
+                  onClick={copyContactMessage}
+                  className={`w-full py-2.5 rounded-md font-medium text-sm transition-colors ${
+                    copied
+                      ? 'bg-green-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
                 >
-                  {requestSubmitting ? 'Submitting...' : 'Request Upgrade'}
+                  {copied ? 'Copied!' : 'Copy Contact Message'}
                 </button>
-              </>
-            )}
+              </div>
+            </div>
+          </>
+        )}
 
-            {/* Manual contact option */}
-            <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #dee2e6' }}>
-              <p style={{ color: '#6c757d', margin: '0 0 10px 0', fontSize: '13px', textAlign: 'center' }}>
-                Or contact your administrator directly:
-              </p>
-              <button
-                onClick={copyContactMessage}
-                style={{
-                  width: '100%',
-                  padding: '10px 20px',
-                  backgroundColor: copied ? '#28a745' : '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                {copied ? 'Copied!' : 'Copy Contact Message'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Runtime Config Summary */}
-      {runtimeConfig && (
-        <div style={{
-          marginTop: '30px',
-          padding: '15px 20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          border: '1px solid #dee2e6',
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#495057' }}>
-            System Configuration
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
-            <div style={{
-              padding: '8px 12px',
-              backgroundColor: runtimeConfig.subscription_gating_enabled ? '#fff3bf' : '#d3f9d8',
-              borderRadius: '4px',
-            }}>
-              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Subscription Gating</div>
-              <div style={{ fontWeight: 'bold', color: runtimeConfig.subscription_gating_enabled ? '#e67700' : '#2b8a3e' }}>
-                {runtimeConfig.subscription_gating_enabled ? 'Enabled' : 'Disabled'}
+        {/* Runtime Config Summary */}
+        {runtimeConfig && (
+          <div className="mt-6 p-5 bg-white rounded-lg border border-slate-200">
+            <h3 className="text-sm font-medium text-slate-600 mb-4">System Configuration</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`p-3 rounded-lg ${runtimeConfig.subscription_gating_enabled ? 'bg-amber-50' : 'bg-green-50'}`}>
+                <div className="text-xs text-slate-500 mb-0.5">Subscription Gating</div>
+                <div className={`font-semibold ${runtimeConfig.subscription_gating_enabled ? 'text-amber-700' : 'text-green-700'}`}>
+                  {runtimeConfig.subscription_gating_enabled ? 'Enabled' : 'Disabled'}
+                </div>
               </div>
-            </div>
-            <div style={{
-              padding: '8px 12px',
-              backgroundColor: runtimeConfig.email_enabled ? '#d3f9d8' : '#f8f9fa',
-              borderRadius: '4px',
-            }}>
-              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Email Notifications</div>
-              <div style={{ fontWeight: 'bold', color: runtimeConfig.email_enabled ? '#2b8a3e' : '#6c757d' }}>
-                {runtimeConfig.email_enabled ? 'Enabled' : 'Disabled'}
+              <div className={`p-3 rounded-lg ${runtimeConfig.email_enabled ? 'bg-green-50' : 'bg-slate-50'}`}>
+                <div className="text-xs text-slate-500 mb-0.5">Email Notifications</div>
+                <div className={`font-semibold ${runtimeConfig.email_enabled ? 'text-green-700' : 'text-slate-500'}`}>
+                  {runtimeConfig.email_enabled ? 'Enabled' : 'Disabled'}
+                </div>
               </div>
-            </div>
-            <div style={{
-              padding: '8px 12px',
-              backgroundColor: runtimeConfig.slack_enabled ? '#d3f9d8' : '#f8f9fa',
-              borderRadius: '4px',
-            }}>
-              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Slack Notifications</div>
-              <div style={{ fontWeight: 'bold', color: runtimeConfig.slack_enabled ? '#2b8a3e' : '#6c757d' }}>
-                {runtimeConfig.slack_enabled ? 'Enabled' : 'Disabled'}
+              <div className={`p-3 rounded-lg ${runtimeConfig.slack_enabled ? 'bg-green-50' : 'bg-slate-50'}`}>
+                <div className="text-xs text-slate-500 mb-0.5">Slack Notifications</div>
+                <div className={`font-semibold ${runtimeConfig.slack_enabled ? 'text-green-700' : 'text-slate-500'}`}>
+                  {runtimeConfig.slack_enabled ? 'Enabled' : 'Disabled'}
+                </div>
               </div>
-            </div>
-            <div style={{
-              padding: '8px 12px',
-              backgroundColor: '#e7f5ff',
-              borderRadius: '4px',
-            }}>
-              <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Assignment TTL</div>
-              <div style={{ fontWeight: 'bold', color: '#1971c2' }}>
-                {runtimeConfig.assignment_ttl_minutes} min
+              <div className="p-3 rounded-lg bg-blue-50">
+                <div className="text-xs text-slate-500 mb-0.5">Assignment TTL</div>
+                <div className="font-semibold text-blue-700">{runtimeConfig.assignment_ttl_minutes} min</div>
               </div>
             </div>
           </div>
+        )}
+
+        {/* User Info */}
+        <div className="mt-4 p-4 bg-slate-100 rounded-lg text-xs text-slate-500">
+          <div>User ID: {authUser.id}</div>
+          <div>Email: {authUser.email || 'Not set'}</div>
+          <div>Current Plan: {planStatus?.plan || 'Unknown'}</div>
         </div>
-      )}
-
-      {/* User Info */}
-      <div style={{
-        marginTop: '20px',
-        padding: '12px 15px',
-        backgroundColor: '#f1f3f5',
-        borderRadius: '4px',
-        fontSize: '12px',
-        color: '#6c757d',
-      }}>
-        <div>User ID: {authUser.id}</div>
-        <div>Email: {authUser.email || 'Not set'}</div>
-        <div>Current Plan: {planStatus?.plan || 'Unknown'}</div>
       </div>
     </div>
   );

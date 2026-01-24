@@ -2,6 +2,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { getPrimaryClientOrgForUser, getOrgVideos } from "@/lib/client-org";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
+  // Get user's primary organization
+  const membership = await getPrimaryClientOrgForUser(supabaseAdmin, authContext.user.id);
+  if (!membership) {
+    return NextResponse.json({
+      ok: false,
+      error: "client_org_required",
+      message: "Your portal is not yet connected to an organization. Contact support.",
+      correlation_id: correlationId,
+    }, { status: 403 });
+  }
+
   // Parse limit
   const limitParam = searchParams.get("limit");
   let limit = 50;
@@ -30,9 +42,27 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Get video IDs belonging to this organization
+    const orgVideoIds = await getOrgVideos(supabaseAdmin, membership.org_id);
+
+    if (orgVideoIds.length === 0) {
+      // No videos in org
+      return NextResponse.json({
+        ok: true,
+        data: [],
+        meta: {
+          count: 0,
+          limit,
+          org_id: membership.org_id,
+        },
+      });
+    }
+
+    // Fetch only videos that belong to the org
     const { data: videos, error } = await supabaseAdmin
       .from("videos")
       .select(CLIENT_SAFE_SELECT)
+      .in("id", orgVideoIds)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -59,6 +89,7 @@ export async function GET(request: Request) {
       meta: {
         count: clientVideos.length,
         limit,
+        org_id: membership.org_id,
       },
     });
   } catch (err) {

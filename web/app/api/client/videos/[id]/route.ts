@@ -2,6 +2,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { getPrimaryClientOrgForUser, isVideoInUserOrg } from "@/lib/client-org";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,25 @@ export async function GET(
   // Validate video ID format
   if (!videoId || !videoId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
     const err = apiError("BAD_REQUEST", "Invalid video ID format", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Get user's primary organization
+  const membership = await getPrimaryClientOrgForUser(supabaseAdmin, authContext.user.id);
+  if (!membership) {
+    return NextResponse.json({
+      ok: false,
+      error: "client_org_required",
+      message: "Your portal is not yet connected to an organization. Contact support.",
+      correlation_id: correlationId,
+    }, { status: 403 });
+  }
+
+  // Check if video belongs to user's organization
+  const videoInOrg = await isVideoInUserOrg(supabaseAdmin, authContext.user.id, videoId);
+  if (!videoInOrg) {
+    // Return 404 to avoid information leakage about video existence
+    const err = apiError("NOT_FOUND", "Video not found", 404);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 

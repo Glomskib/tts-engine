@@ -73,6 +73,13 @@ export default function AdminClientOrgsPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [assigningToProject, setAssigningToProject] = useState(false);
 
+  // Org Plan
+  const [orgPlan, setOrgPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
+  const [billingStatus, setBillingStatus] = useState<'active' | 'trial' | 'past_due' | 'canceled'>('active');
+  const [planLoading, setPlanLoading] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [savingBillingStatus, setSavingBillingStatus] = useState(false);
+
   // Check auth and admin status
   useEffect(() => {
     const checkAuth = async () => {
@@ -136,11 +143,13 @@ export default function AdminClientOrgsPage() {
     fetchOrgs();
   }, [isAdmin]);
 
-  // Fetch branding and projects when org selected
+  // Fetch branding, projects, and plan when org selected
   useEffect(() => {
     if (!selectedOrg) {
       setBranding({});
       setProjects([]);
+      setOrgPlan('free');
+      setBillingStatus('active');
       return;
     }
 
@@ -196,8 +205,38 @@ export default function AdminClientOrgsPage() {
       }
     };
 
+    const fetchPlan = async () => {
+      setPlanLoading(true);
+      try {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/plan`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (data.ok && data.data) {
+          setOrgPlan(data.data.plan || 'free');
+          setBillingStatus(data.data.billing_status || 'active');
+        } else {
+          setOrgPlan('free');
+          setBillingStatus('active');
+        }
+      } catch (err) {
+        console.error('Error fetching org plan:', err);
+        setOrgPlan('free');
+        setBillingStatus('active');
+      } finally {
+        setPlanLoading(false);
+      }
+    };
+
     fetchBranding();
     fetchProjects();
+    fetchPlan();
   }, [selectedOrg]);
 
   // Create organization
@@ -485,6 +524,76 @@ export default function AdminClientOrgsPage() {
     }
   };
 
+  // Set org plan
+  const handleSetOrgPlan = async (newPlan: 'free' | 'pro' | 'enterprise') => {
+    if (!selectedOrg) return;
+
+    setSavingPlan(true);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/plan/set`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ plan: newPlan }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setOrgPlan(newPlan);
+        setMessage({ type: 'success', text: `Organization plan set to ${newPlan}` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to set plan' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  // Set billing status
+  const handleSetBillingStatus = async (newStatus: 'active' | 'trial' | 'past_due' | 'canceled') => {
+    if (!selectedOrg) return;
+
+    setSavingBillingStatus(true);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/billing-status/set`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ billing_status: newStatus }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setBillingStatus(newStatus);
+        setMessage({ type: 'success', text: `Billing status set to ${newStatus}` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to set billing status' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setSavingBillingStatus(false);
+    }
+  };
+
   if (authLoading) {
     return <div style={{ padding: '20px' }}>Checking access...</div>;
   }
@@ -638,6 +747,88 @@ export default function AdminClientOrgsPage() {
                   ID: {selectedOrg.org_id}
                 </div>
               </div>
+            </div>
+
+            {/* Plan Management */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#495057' }}>Plan & Billing</h4>
+              {planLoading ? (
+                <div style={{ fontSize: '12px', color: '#6c757d' }}>Loading...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                      Plan
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        value={orgPlan}
+                        onChange={(e) => handleSetOrgPlan(e.target.value as 'free' | 'pro' | 'enterprise')}
+                        disabled={savingPlan}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          backgroundColor: savingPlan ? '#e9ecef' : 'white',
+                        }}
+                      >
+                        <option value="free">Free</option>
+                        <option value="pro">Pro</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                      {savingPlan && (
+                        <span style={{ fontSize: '12px', color: '#6c757d', alignSelf: 'center' }}>Saving...</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                      Billing Status
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        value={billingStatus}
+                        onChange={(e) => handleSetBillingStatus(e.target.value as 'active' | 'trial' | 'past_due' | 'canceled')}
+                        disabled={savingBillingStatus}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          backgroundColor: savingBillingStatus ? '#e9ecef' : 'white',
+                        }}
+                      >
+                        <option value="active">Active</option>
+                        <option value="trial">Trial</option>
+                        <option value="past_due">Past Due</option>
+                        <option value="canceled">Canceled</option>
+                      </select>
+                      {savingBillingStatus && (
+                        <span style={{ fontSize: '12px', color: '#6c757d', alignSelf: 'center' }}>Saving...</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px' }}>
+                    {orgPlan === 'free' && (
+                      <span>Free: 1 project max, org_display_name only for branding</span>
+                    )}
+                    {orgPlan === 'pro' && (
+                      <span>Pro: Unlimited projects, full branding</span>
+                    )}
+                    {orgPlan === 'enterprise' && (
+                      <span>Enterprise: All features + priority support</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Branding Panel */}

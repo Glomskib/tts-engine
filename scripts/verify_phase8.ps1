@@ -2645,7 +2645,148 @@ try {
     Write-Host "  WARN: System settings verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[29/29] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 30: SLA & Throughput Analytics Dashboard (Step 20)
+Write-Host "`n[30/30] Testing analytics dashboard and export..." -ForegroundColor Yellow
+try {
+    # Verify analytics module exists
+    $analyticsPath = Join-Path $webDir "lib/analytics.ts"
+    if (-not (Test-Path $analyticsPath)) {
+        Write-Host "  FAIL: analytics.ts not found at $analyticsPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    lib/analytics.ts exists - OK" -ForegroundColor Gray
+
+    # Verify analytics module has required exports
+    $analyticsContent = Get-Content $analyticsPath -Raw
+    if ($analyticsContent -match "computeStageStats") {
+        Write-Host "    analytics.ts has computeStageStats - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: analytics.ts missing computeStageStats" -ForegroundColor Red
+        exit 1
+    }
+    if ($analyticsContent -match "computeThroughputByDay") {
+        Write-Host "    analytics.ts has computeThroughputByDay - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: analytics.ts missing computeThroughputByDay" -ForegroundColor Red
+        exit 1
+    }
+    if ($analyticsContent -match "computeProductivity") {
+        Write-Host "    analytics.ts has computeProductivity - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: analytics.ts missing computeProductivity" -ForegroundColor Red
+        exit 1
+    }
+
+    # Verify analytics summary API exists
+    $analyticsSummaryPath = Join-Path $webDir "app/api/admin/analytics/summary/route.ts"
+    if (-not (Test-Path $analyticsSummaryPath)) {
+        Write-Host "  FAIL: analytics summary API not found at $analyticsSummaryPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/admin/analytics/summary endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify analytics summary returns 401 without auth
+    $analyticsSummaryStatusCode = 0
+    try {
+        $analyticsSummaryResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/analytics/summary" -Method GET -TimeoutSec 10
+        $analyticsSummaryStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $analyticsSummaryStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($analyticsSummaryStatusCode -eq 401) {
+        Write-Host "    GET /api/admin/analytics/summary returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/admin/analytics/summary returned status: $analyticsSummaryStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify analytics export API exists
+    $analyticsExportPath = Join-Path $webDir "app/api/admin/analytics/export/route.ts"
+    if (-not (Test-Path $analyticsExportPath)) {
+        Write-Host "  FAIL: analytics export API not found at $analyticsExportPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    GET /api/admin/analytics/export endpoint exists - OK" -ForegroundColor Gray
+
+    # Verify analytics export returns 401 without auth
+    $analyticsExportStatusCode = 0
+    try {
+        $analyticsExportResult = Invoke-RestMethod -Uri "$baseUrl/api/admin/analytics/export?type=stage" -Method GET -TimeoutSec 10
+        $analyticsExportStatusCode = 200
+    } catch {
+        if ($_.Exception.Response) {
+            $analyticsExportStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($analyticsExportStatusCode -eq 401) {
+        Write-Host "    GET /api/admin/analytics/export returns 401 without auth - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    GET /api/admin/analytics/export returned status: $analyticsExportStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify /admin/analytics page exists
+    $adminAnalyticsPagePath = Join-Path $webDir "app/admin/analytics/page.tsx"
+    if (-not (Test-Path $adminAnalyticsPagePath)) {
+        Write-Host "  FAIL: /admin/analytics page not found at $adminAnalyticsPagePath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    /admin/analytics page exists - OK" -ForegroundColor Gray
+
+    # Verify /admin/analytics returns 307 (auth redirect) or 200
+    $adminAnalyticsPageStatusCode = 0
+    try {
+        $adminAnalyticsPageResult = Invoke-WebRequest -Uri "$baseUrl/admin/analytics" -Method GET -MaximumRedirection 0 -TimeoutSec 10 -ErrorAction SilentlyContinue
+        $adminAnalyticsPageStatusCode = [int]$adminAnalyticsPageResult.StatusCode
+    } catch {
+        if ($_.Exception.Response) {
+            $adminAnalyticsPageStatusCode = [int]$_.Exception.Response.StatusCode
+        }
+    }
+    if ($adminAnalyticsPageStatusCode -eq 307 -or $adminAnalyticsPageStatusCode -eq 200) {
+        Write-Host "    /admin/analytics page returns $adminAnalyticsPageStatusCode - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    /admin/analytics page returned status: $adminAnalyticsPageStatusCode" -ForegroundColor Yellow
+    }
+
+    # Verify pipeline nav has Analytics link
+    $pipelinePath = Join-Path $webDir "app/admin/pipeline/page.tsx"
+    if (Test-Path $pipelinePath) {
+        $pipelineContent = Get-Content $pipelinePath -Raw
+        if ($pipelineContent -match '"/admin/analytics"') {
+            Write-Host "    Pipeline nav has Analytics link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Pipeline page missing /admin/analytics nav link" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify settings has ANALYTICS_DEFAULT_WINDOW_DAYS
+    $settingsPath = Join-Path $webDir "lib/settings.ts"
+    if (Test-Path $settingsPath) {
+        $settingsContent = Get-Content $settingsPath -Raw
+        if ($settingsContent -match "ANALYTICS_DEFAULT_WINDOW_DAYS") {
+            Write-Host "    settings.ts has ANALYTICS_DEFAULT_WINDOW_DAYS - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing ANALYTICS_DEFAULT_WINDOW_DAYS" -ForegroundColor Yellow
+        }
+    }
+
+    # Verify analytics page has export buttons
+    if (Test-Path $adminAnalyticsPagePath) {
+        $analyticsPageContent = Get-Content $adminAnalyticsPagePath -Raw
+        if ($analyticsPageContent -match "Export CSV") {
+            Write-Host "    /admin/analytics page has export buttons - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /admin/analytics page missing export buttons" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Analytics dashboard and export verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Analytics verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[30/30] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

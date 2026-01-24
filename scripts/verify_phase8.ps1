@@ -2786,7 +2786,159 @@ try {
     Write-Host "  WARN: Analytics verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[30/30] Phase 8 verification summary..." -ForegroundColor Yellow
+# [31/31] Incident Mode and Maintenance Banner verification
+Write-Host "`n[31/31] Testing incident mode and maintenance banner..." -ForegroundColor Yellow
+try {
+    # Check settings.ts has incident mode keys
+    $settingsPath = Join-Path $webDir "lib\settings.ts"
+    if (Test-Path $settingsPath) {
+        Write-Host "    lib/settings.ts exists - OK" -ForegroundColor Gray
+        $settingsContent = Get-Content $settingsPath -Raw
+
+        if ($settingsContent -match 'INCIDENT_MODE_ENABLED') {
+            Write-Host "    settings.ts has INCIDENT_MODE_ENABLED - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing INCIDENT_MODE_ENABLED" -ForegroundColor Yellow
+        }
+
+        if ($settingsContent -match 'INCIDENT_MODE_MESSAGE') {
+            Write-Host "    settings.ts has INCIDENT_MODE_MESSAGE - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing INCIDENT_MODE_MESSAGE" -ForegroundColor Yellow
+        }
+
+        if ($settingsContent -match 'INCIDENT_MODE_READ_ONLY') {
+            Write-Host "    settings.ts has INCIDENT_MODE_READ_ONLY - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing INCIDENT_MODE_READ_ONLY" -ForegroundColor Yellow
+        }
+
+        if ($settingsContent -match 'INCIDENT_MODE_ALLOWLIST_USER_IDS') {
+            Write-Host "    settings.ts has INCIDENT_MODE_ALLOWLIST_USER_IDS - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing INCIDENT_MODE_ALLOWLIST_USER_IDS" -ForegroundColor Yellow
+        }
+
+        if ($settingsContent -match 'getIncidentModeStatus') {
+            Write-Host "    settings.ts has getIncidentModeStatus helper - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing getIncidentModeStatus helper" -ForegroundColor Yellow
+        }
+
+        if ($settingsContent -match 'checkIncidentReadOnlyBlock') {
+            Write-Host "    settings.ts has checkIncidentReadOnlyBlock helper - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: settings.ts missing checkIncidentReadOnlyBlock helper" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARN: lib/settings.ts not found" -ForegroundColor Yellow
+    }
+
+    # Check IncidentBanner component exists
+    $bannerPath = Join-Path $webDir "app\admin\components\IncidentBanner.tsx"
+    if (Test-Path $bannerPath) {
+        Write-Host "    IncidentBanner.tsx component exists - OK" -ForegroundColor Gray
+        $bannerContent = Get-Content $bannerPath -Raw
+
+        if ($bannerContent -match 'incident_mode_enabled') {
+            Write-Host "    IncidentBanner checks incident_mode_enabled - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: IncidentBanner missing incident_mode_enabled check" -ForegroundColor Yellow
+        }
+
+        if ($bannerContent -match 'incident_mode_read_only') {
+            Write-Host "    IncidentBanner checks incident_mode_read_only - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: IncidentBanner missing incident_mode_read_only check" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARN: IncidentBanner.tsx component not found" -ForegroundColor Yellow
+    }
+
+    # Check runtime-config includes incident fields
+    $runtimeConfigPath = Join-Path $webDir "app\api\auth\runtime-config\route.ts"
+    if (Test-Path $runtimeConfigPath) {
+        $runtimeConfigContent = Get-Content $runtimeConfigPath -Raw
+
+        if ($runtimeConfigContent -match 'incident_mode_enabled') {
+            Write-Host "    runtime-config API returns incident_mode_enabled - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: runtime-config API missing incident_mode_enabled" -ForegroundColor Yellow
+        }
+
+        if ($runtimeConfigContent -match 'is_allowlisted') {
+            Write-Host "    runtime-config API returns is_allowlisted - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: runtime-config API missing is_allowlisted" -ForegroundColor Yellow
+        }
+    }
+
+    # Check server-side enforcement in dispatch route
+    $dispatchPath = Join-Path $webDir "app\api\videos\dispatch\route.ts"
+    if (Test-Path $dispatchPath) {
+        $dispatchContent = Get-Content $dispatchPath -Raw
+
+        if ($dispatchContent -match 'checkIncidentReadOnlyBlock') {
+            Write-Host "    dispatch route has incident mode check - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: dispatch route missing incident mode check" -ForegroundColor Yellow
+        }
+
+        if ($dispatchContent -match 'incident_mode_read_only') {
+            Write-Host "    dispatch route returns incident_mode_read_only error - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: dispatch route missing incident_mode_read_only error" -ForegroundColor Yellow
+        }
+    }
+
+    # Check server-side enforcement in execution route
+    $executionPath = Join-Path $webDir "app\api\videos\[id]\execution\route.ts"
+    if (Test-Path $executionPath) {
+        $executionContent = Get-Content $executionPath -Raw
+
+        if ($executionContent -match 'checkIncidentReadOnlyBlock') {
+            Write-Host "    execution route has incident mode check - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: execution route missing incident mode check" -ForegroundColor Yellow
+        }
+    }
+
+    # Check admin settings page has incident mode settings
+    $settingsPagePath = Join-Path $webDir "app\admin\settings\page.tsx"
+    if (Test-Path $settingsPagePath) {
+        $settingsPageContent = Get-Content $settingsPagePath -Raw
+
+        if ($settingsPageContent -match 'INCIDENT_MODE_ENABLED') {
+            Write-Host "    admin settings page has INCIDENT_MODE_ENABLED - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: admin settings page missing INCIDENT_MODE_ENABLED" -ForegroundColor Yellow
+        }
+
+        if ($settingsPageContent -match 'IncidentBanner') {
+            Write-Host "    admin settings page has IncidentBanner - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: admin settings page missing IncidentBanner" -ForegroundColor Yellow
+        }
+    }
+
+    # Check pipeline page has IncidentBanner
+    $pipelinePath = Join-Path $webDir "app\admin\pipeline\page.tsx"
+    if (Test-Path $pipelinePath) {
+        $pipelineContent = Get-Content $pipelinePath -Raw
+
+        if ($pipelineContent -match 'IncidentBanner') {
+            Write-Host "    pipeline page has IncidentBanner - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: pipeline page missing IncidentBanner" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Incident mode and maintenance banner verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Incident mode verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[31/31] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

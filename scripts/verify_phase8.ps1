@@ -2938,8 +2938,8 @@ try {
     Write-Host "  WARN: Incident mode verification error: $_" -ForegroundColor Yellow
 }
 
-# [32/33] Production Readiness Pack verification
-Write-Host "`n[32/33] Testing production readiness pack..." -ForegroundColor Yellow
+# [32/35] Production Readiness Pack verification
+Write-Host "`n[32/35] Testing production readiness pack..." -ForegroundColor Yellow
 try {
     # Check /admin/status returns 307 without auth
     try {
@@ -3055,8 +3055,8 @@ try {
     Write-Host "  WARN: Production readiness verification error: $_" -ForegroundColor Yellow
 }
 
-# [33/34] UX Polish verification
-Write-Host "`n[33/34] Testing UX polish components..." -ForegroundColor Yellow
+# [33/35] UX Polish verification
+Write-Host "`n[33/35] Testing UX polish components..." -ForegroundColor Yellow
 try {
     # Check AdminPageLayout exists and exports EmptyState
     $adminLayoutPath = Join-Path $webDir "app\admin\components\AdminPageLayout.tsx"
@@ -3129,8 +3129,8 @@ try {
     Write-Host "  WARN: UX polish verification error: $_" -ForegroundColor Yellow
 }
 
-# [34/34] Client Portal Shell verification
-Write-Host "`n[34/34] Testing client portal shell..." -ForegroundColor Yellow
+# [34/35] Client Portal Shell verification
+Write-Host "`n[34/35] Testing client portal shell..." -ForegroundColor Yellow
 try {
     # Check /client page exists
     $clientPagePath = Join-Path $webDir "app\client\page.tsx"
@@ -3256,7 +3256,223 @@ try {
     Write-Host "  WARN: Client portal verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[34/34] Phase 8 verification summary..." -ForegroundColor Yellow
+# [35/35] Client Org Scoping verification
+Write-Host "`n[35/35] Testing client org scoping..." -ForegroundColor Yellow
+try {
+    # Check lib/client-org.ts exists and exports key functions
+    $clientOrgPath = Join-Path $webDir "lib\client-org.ts"
+    if (Test-Path $clientOrgPath) {
+        Write-Host "    lib/client-org.ts exists - OK" -ForegroundColor Gray
+        $clientOrgContent = Get-Content $clientOrgPath -Raw
+
+        if ($clientOrgContent -match 'export async function getUserClientOrgs') {
+            Write-Host "    getUserClientOrgs exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: getUserClientOrgs not exported" -ForegroundColor Yellow
+        }
+
+        if ($clientOrgContent -match 'export async function getPrimaryClientOrgForUser') {
+            Write-Host "    getPrimaryClientOrgForUser exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: getPrimaryClientOrgForUser not exported" -ForegroundColor Yellow
+        }
+
+        if ($clientOrgContent -match 'export async function getVideoOrgId') {
+            Write-Host "    getVideoOrgId exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: getVideoOrgId not exported" -ForegroundColor Yellow
+        }
+
+        if ($clientOrgContent -match 'export async function isUserMemberOfOrg') {
+            Write-Host "    isUserMemberOfOrg exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: isUserMemberOfOrg not exported" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: lib/client-org.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin endpoints exist
+    $adminClientOrgsPath = Join-Path $webDir "app\api\admin\client-orgs\route.ts"
+    if (Test-Path $adminClientOrgsPath) {
+        Write-Host "    GET /api/admin/client-orgs route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-orgs route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminClientOrgsCreatePath = Join-Path $webDir "app\api\admin\client-orgs\create\route.ts"
+    if (Test-Path $adminClientOrgsCreatePath) {
+        Write-Host "    POST /api/admin/client-orgs/create route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-orgs/create route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminClientOrgsMembersSetPath = Join-Path $webDir "app\api\admin\client-orgs\members\set\route.ts"
+    if (Test-Path $adminClientOrgsMembersSetPath) {
+        Write-Host "    POST /api/admin/client-orgs/members/set route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-orgs/members/set route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminVideoSetClientOrgPath = Join-Path $webDir "app\api\admin\videos\[video_id]\set-client-org\route.ts"
+    if (Test-Path -LiteralPath $adminVideoSetClientOrgPath) {
+        Write-Host "    POST /api/admin/videos/[video_id]/set-client-org route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/videos/[video_id]/set-client-org route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check /admin/client-orgs page exists
+    $adminClientOrgsPagePath = Join-Path $webDir "app\admin\client-orgs\page.tsx"
+    if (Test-Path $adminClientOrgsPagePath) {
+        Write-Host "    /admin/client-orgs page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /admin/client-orgs page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Test /admin/client-orgs returns 307 without auth
+    try {
+        $request = [System.Net.HttpWebRequest]::Create("$baseUrl/admin/client-orgs")
+        $request.Method = "GET"
+        $request.AllowAutoRedirect = $false
+        $request.Timeout = 10000
+
+        try {
+            $response = $request.GetResponse()
+            $statusCode = [int]$response.StatusCode
+            $response.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $statusCode = 0
+            }
+        }
+
+        if ($statusCode -eq 307) {
+            Write-Host "    /admin/client-orgs returns 307 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /admin/client-orgs returned $statusCode (expected 307)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /admin/client-orgs check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test /api/admin/client-orgs returns 401 without auth
+    try {
+        $apiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs")
+        $apiRequest.Method = "GET"
+        $apiRequest.AllowAutoRedirect = $false
+        $apiRequest.Timeout = 10000
+
+        try {
+            $apiResponse = $apiRequest.GetResponse()
+            $apiStatusCode = [int]$apiResponse.StatusCode
+            $apiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $apiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $apiStatusCode = 0
+            }
+        }
+
+        if ($apiStatusCode -eq 401) {
+            Write-Host "    /api/admin/client-orgs returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /api/admin/client-orgs returned $apiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-orgs check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test /api/admin/client-orgs/create returns 401 without auth
+    try {
+        $createRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/create")
+        $createRequest.Method = "POST"
+        $createRequest.ContentType = "application/json"
+        $createRequest.AllowAutoRedirect = $false
+        $createRequest.Timeout = 10000
+        $createBody = [System.Text.Encoding]::UTF8.GetBytes('{"org_name":"test"}')
+        $createRequest.ContentLength = $createBody.Length
+        $createStream = $createRequest.GetRequestStream()
+        $createStream.Write($createBody, 0, $createBody.Length)
+        $createStream.Close()
+
+        try {
+            $createResponse = $createRequest.GetResponse()
+            $createStatusCode = [int]$createResponse.StatusCode
+            $createResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $createStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $createStatusCode = 0
+            }
+        }
+
+        if ($createStatusCode -eq 401) {
+            Write-Host "    POST /api/admin/client-orgs/create returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: POST /api/admin/client-orgs/create returned $createStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-orgs/create check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test /api/admin/client-orgs/members/set returns 401 without auth
+    try {
+        $membersRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/members/set")
+        $membersRequest.Method = "POST"
+        $membersRequest.ContentType = "application/json"
+        $membersRequest.AllowAutoRedirect = $false
+        $membersRequest.Timeout = 10000
+        $membersBody = [System.Text.Encoding]::UTF8.GetBytes('{"org_id":"test","user_id":"test","role":"member","action":"add"}')
+        $membersRequest.ContentLength = $membersBody.Length
+        $membersStream = $membersRequest.GetRequestStream()
+        $membersStream.Write($membersBody, 0, $membersBody.Length)
+        $membersStream.Close()
+
+        try {
+            $membersResponse = $membersRequest.GetResponse()
+            $membersStatusCode = [int]$membersResponse.StatusCode
+            $membersResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $membersStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $membersStatusCode = 0
+            }
+        }
+
+        if ($membersStatusCode -eq 401) {
+            Write-Host "    POST /api/admin/client-orgs/members/set returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: POST /api/admin/client-orgs/members/set returned $membersStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-orgs/members/set check error: $_" -ForegroundColor Yellow
+    }
+
+    # Verify client API still returns 401 without auth (unchanged behavior)
+    # Already checked in Check 34, just reference it
+    Write-Host "    Client APIs 401 behavior verified in Check 34 - OK" -ForegroundColor Gray
+
+    Write-Host "  PASS: Client org scoping verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Client org scoping verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[35/35] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

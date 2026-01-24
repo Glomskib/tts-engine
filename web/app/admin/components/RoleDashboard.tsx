@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from './NotificationBadge';
+import IncidentBanner from './IncidentBanner';
 
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
@@ -344,6 +345,9 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Incident Mode Banner */}
+      <IncidentBanner />
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>{title}</h1>

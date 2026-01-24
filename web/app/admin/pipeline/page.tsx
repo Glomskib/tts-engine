@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
+import IncidentBanner from '../components/IncidentBanner';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -808,6 +809,9 @@ export default function AdminPipelinePage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Incident Mode Banner */}
+      <IncidentBanner />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>
           {isAdminMode ? 'Admin: Video Pipeline' : `${vaMode.charAt(0).toUpperCase() + vaMode.slice(1)} Dashboard`}

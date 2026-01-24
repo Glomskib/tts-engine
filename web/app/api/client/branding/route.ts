@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser, getClientOrgById } from "@/lib/client-org";
 import { getOrgBranding } from "@/lib/org-branding";
+import { getOrgPlan, isPaidOrgPlan } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -44,12 +45,27 @@ export async function GET(request: Request) {
       branding.org_display_name = org.org_name;
     }
 
+    // Get org plan for feature flags
+    const orgPlanInfo = await getOrgPlan(supabaseAdmin, membership.org_id);
+    const isPaid = isPaidOrgPlan(orgPlanInfo.plan);
+
+    // Determine which branding features are allowed based on plan
+    const branding_allowed = {
+      org_display_name: true, // Always allowed
+      logo: isPaid,
+      accent: isPaid,
+      welcome: isPaid,
+    };
+
     return NextResponse.json({
       ok: true,
       data: {
         org_id: membership.org_id,
         org_name: org?.org_name || membership.org_id,
         branding,
+        plan: orgPlanInfo.plan,
+        billing_status: orgPlanInfo.billing_status,
+        branding_allowed,
       },
     });
   } catch (err) {

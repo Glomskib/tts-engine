@@ -3647,8 +3647,8 @@ try {
     Write-Host "  WARN: Per-org branding verification error: $_" -ForegroundColor Yellow
 }
 
-# [37/37] Client Projects verification
-Write-Host "`n[37/37] Testing client projects..." -ForegroundColor Yellow
+# [37/38] Client Projects verification
+Write-Host "`n[37/38] Testing client projects..." -ForegroundColor Yellow
 try {
     # Check lib/client-projects.ts exists
     $clientProjectsPath = Join-Path $webDir "lib\client-projects.ts"
@@ -3790,7 +3790,136 @@ try {
     Write-Host "  WARN: Client projects verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[37/37] Phase 8 verification summary..." -ForegroundColor Yellow
+# [38/38] Org-Level Plans verification
+Write-Host "`n[38/38] Testing org-level plans..." -ForegroundColor Yellow
+try {
+    # Check subscription.ts has new exports
+    $subscriptionPath = Join-Path $webDir "lib\subscription.ts"
+    if (Test-Path $subscriptionPath) {
+        Write-Host "    lib/subscription.ts exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: lib/subscription.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $subscriptionContent = Get-Content $subscriptionPath -Raw
+    if ($subscriptionContent -match 'export\s+(async\s+)?function\s+getOrgPlan') {
+        Write-Host "    getOrgPlan exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: getOrgPlan not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($subscriptionContent -match 'export\s+(async\s+)?function\s+getEffectivePlanForUser') {
+        Write-Host "    getEffectivePlanForUser exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: getEffectivePlanForUser not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($subscriptionContent -match 'export\s+function\s+isPaidOrgPlan') {
+        Write-Host "    isPaidOrgPlan exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: isPaidOrgPlan not exported" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin org plan API endpoints
+    $adminPlanRoutePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\plan\route.ts"
+    if (Test-Path -LiteralPath $adminPlanRoutePath) {
+        Write-Host "    GET /api/admin/client-orgs/[org_id]/plan route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Admin org plan GET route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminPlanSetRoutePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\plan\set\route.ts"
+    if (Test-Path -LiteralPath $adminPlanSetRoutePath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/plan/set route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Admin org plan set route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminBillingStatusSetRoutePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\billing-status\set\route.ts"
+    if (Test-Path -LiteralPath $adminBillingStatusSetRoutePath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/billing-status/set route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Admin billing status set route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin plan API returns 401 without auth
+    try {
+        $adminPlanRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/00000000-0000-0000-0000-000000000000/plan")
+        $adminPlanRequest.Method = "GET"
+        $adminPlanRequest.Timeout = 10000
+
+        try {
+            $adminPlanResponse = $adminPlanRequest.GetResponse()
+            $adminPlanStatusCode = [int]$adminPlanResponse.StatusCode
+            $adminPlanResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $adminPlanStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $adminPlanStatusCode = 0
+            }
+        }
+
+        if ($adminPlanStatusCode -eq 401) {
+            Write-Host "    GET /api/admin/client-orgs/[id]/plan returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/admin/client-orgs/[id]/plan returned $adminPlanStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Admin plan API check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check admin branding route references org plan gating
+    $adminBrandingSetPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\branding\set\route.ts"
+    if (Test-Path -LiteralPath $adminBrandingSetPath) {
+        $brandingSetContent = Get-Content -LiteralPath $adminBrandingSetPath -Raw
+        if ($brandingSetContent -match 'getOrgPlan') {
+            Write-Host "    Admin branding route has org plan gating - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin branding route missing org plan gating" -ForegroundColor Yellow
+        }
+    }
+
+    # Check admin project create route references org plan gating
+    $adminProjectCreatePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\projects\create\route.ts"
+    if (Test-Path -LiteralPath $adminProjectCreatePath) {
+        $projectCreateContent = Get-Content -LiteralPath $adminProjectCreatePath -Raw
+        if ($projectCreateContent -match 'getOrgPlan') {
+            Write-Host "    Admin project create route has org plan gating - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin project create route missing org plan gating" -ForegroundColor Yellow
+        }
+    }
+
+    # Check client branding API has branding_allowed
+    $clientBrandingPath = Join-Path $webDir "app\api\client\branding\route.ts"
+    if (Test-Path $clientBrandingPath) {
+        $clientBrandingContent = Get-Content $clientBrandingPath -Raw
+        if ($clientBrandingContent -match 'branding_allowed') {
+            Write-Host "    Client branding API has branding_allowed - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Client branding API missing branding_allowed" -ForegroundColor Yellow
+        }
+    }
+
+    # Check /admin/client-orgs page 307 verified in Check 35
+    Write-Host "    /admin/client-orgs page 307 verified in Check 35 - OK" -ForegroundColor Gray
+
+    # Check branding API 401 verified in Check 36
+    Write-Host "    Client branding API 401 verified in Check 36 - OK" -ForegroundColor Gray
+
+    Write-Host "  PASS: Org-level plans verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Org-level plans verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[38/38] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

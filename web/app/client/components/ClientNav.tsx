@@ -12,6 +12,7 @@ interface ClientNavProps {
 
 const NAV_ITEMS = [
   { href: '/client', label: 'Home' },
+  { href: '/client/requests', label: 'Requests' },
   { href: '/client/videos', label: 'Videos' },
   { href: '/client/projects', label: 'Projects' },
   { href: '/client/billing', label: 'Billing' },

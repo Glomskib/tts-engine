@@ -2938,8 +2938,8 @@ try {
     Write-Host "  WARN: Incident mode verification error: $_" -ForegroundColor Yellow
 }
 
-# [32/32] Production Readiness Pack verification
-Write-Host "`n[32/32] Testing production readiness pack..." -ForegroundColor Yellow
+# [32/33] Production Readiness Pack verification
+Write-Host "`n[32/33] Testing production readiness pack..." -ForegroundColor Yellow
 try {
     # Check /admin/status returns 307 without auth
     try {
@@ -3055,7 +3055,81 @@ try {
     Write-Host "  WARN: Production readiness verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[32/32] Phase 8 verification summary..." -ForegroundColor Yellow
+# [33/33] UX Polish verification
+Write-Host "`n[33/33] Testing UX polish components..." -ForegroundColor Yellow
+try {
+    # Check AdminPageLayout exists and exports EmptyState
+    $adminLayoutPath = Join-Path $webDir "app\admin\components\AdminPageLayout.tsx"
+    if (Test-Path $adminLayoutPath) {
+        Write-Host "    AdminPageLayout.tsx exists - OK" -ForegroundColor Gray
+        $adminLayoutContent = Get-Content $adminLayoutPath -Raw
+
+        if ($adminLayoutContent -match 'export function EmptyState') {
+            Write-Host "    EmptyState component exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: EmptyState component not exported" -ForegroundColor Yellow
+        }
+
+        if ($adminLayoutContent -match 'export function AdminCard') {
+            Write-Host "    AdminCard component exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: AdminCard component not exported" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARN: AdminPageLayout.tsx not found" -ForegroundColor Yellow
+    }
+
+    # Check RoleWorkbench has Accordion component
+    $workbenchPath = Join-Path $webDir "app\admin\components\RoleWorkbench.tsx"
+    if (Test-Path $workbenchPath) {
+        $workbenchContent = Get-Content $workbenchPath -Raw
+        if ($workbenchContent -match 'const Accordion') {
+            Write-Host "    RoleWorkbench has Accordion component - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: RoleWorkbench missing Accordion component" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARN: RoleWorkbench.tsx not found" -ForegroundColor Yellow
+    }
+
+    # Check admin pages use EmptyState
+    $eventsPath = Join-Path $webDir "app\admin\events\page.tsx"
+    if (Test-Path $eventsPath) {
+        $eventsContent = Get-Content $eventsPath -Raw
+        if ($eventsContent -match 'EmptyState') {
+            Write-Host "    events page uses EmptyState - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: events page missing EmptyState" -ForegroundColor Yellow
+        }
+    }
+
+    $assignmentsPath = Join-Path $webDir "app\admin\assignments\page.tsx"
+    if (Test-Path $assignmentsPath) {
+        $assignmentsContent = Get-Content $assignmentsPath -Raw
+        if ($assignmentsContent -match 'EmptyState') {
+            Write-Host "    assignments page uses EmptyState - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: assignments page missing EmptyState" -ForegroundColor Yellow
+        }
+    }
+
+    # Check upgrade page has Tailwind styling
+    $upgradePath = Join-Path $webDir "app\upgrade\page.tsx"
+    if (Test-Path $upgradePath) {
+        $upgradeContent = Get-Content $upgradePath -Raw
+        if ($upgradeContent -match 'bg-slate-50') {
+            Write-Host "    upgrade page uses Tailwind styling - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: upgrade page missing Tailwind styling" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: UX polish verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: UX polish verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[33/33] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

@@ -16,6 +16,14 @@ interface ClientOrg {
   last_activity_at: string | null;
 }
 
+interface ClientProject {
+  project_id: string;
+  project_name: string;
+  video_count: number;
+  created_at: string;
+  is_archived?: boolean;
+}
+
 interface OrgBranding {
   org_display_name?: string;
   logo_url?: string | null;
@@ -52,6 +60,18 @@ export default function AdminClientOrgsPage() {
   const [branding, setBranding] = useState<OrgBranding>({});
   const [brandingLoading, setBrandingLoading] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
+
+  // Projects
+  const [projects, setProjects] = useState<ClientProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [archivingProject, setArchivingProject] = useState<string | null>(null);
+
+  // Video to project assignment
+  const [videoIdForProject, setVideoIdForProject] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [assigningToProject, setAssigningToProject] = useState(false);
 
   // Check auth and admin status
   useEffect(() => {
@@ -116,10 +136,11 @@ export default function AdminClientOrgsPage() {
     fetchOrgs();
   }, [isAdmin]);
 
-  // Fetch branding when org selected
+  // Fetch branding and projects when org selected
   useEffect(() => {
     if (!selectedOrg) {
       setBranding({});
+      setProjects([]);
       return;
     }
 
@@ -149,7 +170,34 @@ export default function AdminClientOrgsPage() {
       }
     };
 
+    const fetchProjects = async () => {
+      setProjectsLoading(true);
+      try {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/projects`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (data.ok && data.data) {
+          setProjects(data.data);
+        } else {
+          setProjects([]);
+        }
+      } catch (err) {
+        console.error('Error fetching projects:', err);
+        setProjects([]);
+      } finally {
+        setProjectsLoading(false);
+      }
+    };
+
     fetchBranding();
+    fetchProjects();
   }, [selectedOrg]);
 
   // Create organization
@@ -302,6 +350,138 @@ export default function AdminClientOrgsPage() {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setSavingBranding(false);
+    }
+  };
+
+  // Refresh projects for selected org
+  const refreshProjects = async () => {
+    if (!selectedOrg) return;
+    setProjectsLoading(true);
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/projects`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+      const data = await res.json();
+
+      if (data.ok && data.data) {
+        setProjects(data.data);
+      }
+    } catch (err) {
+      console.error('Error refreshing projects:', err);
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  // Create project
+  const handleCreateProject = async () => {
+    if (!selectedOrg || !newProjectName.trim()) return;
+
+    setCreatingProject(true);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/projects/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ project_name: newProjectName.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: `Project "${newProjectName}" created` });
+        setNewProjectName('');
+        refreshProjects();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to create project' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
+  // Archive project
+  const handleArchiveProject = async (projectId: string) => {
+    if (!selectedOrg) return;
+
+    setArchivingProject(projectId);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/projects/${projectId}/archive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: 'Project archived' });
+        refreshProjects();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to archive project' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setArchivingProject(null);
+    }
+  };
+
+  // Assign video to project
+  const handleAssignToProject = async () => {
+    if (!selectedOrg || !videoIdForProject.trim() || !selectedProjectId) return;
+
+    setAssigningToProject(true);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/videos/${videoIdForProject.trim()}/set-project`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ project_id: selectedProjectId }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: 'Video assigned to project' });
+        setVideoIdForProject('');
+        setSelectedProjectId('');
+        refreshProjects();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to assign video to project' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setAssigningToProject(false);
     }
   };
 
@@ -568,6 +748,179 @@ export default function AdminClientOrgsPage() {
                   >
                     {savingBranding ? 'Saving...' : 'Save Branding'}
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* Projects Panel */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#495057' }}>Projects</h4>
+
+              {/* Create Project */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="New project name"
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                  }}
+                />
+                <button
+                  onClick={handleCreateProject}
+                  disabled={creatingProject || !newProjectName.trim()}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: creatingProject || !newProjectName.trim() ? '#adb5bd' : '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: creatingProject || !newProjectName.trim() ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {creatingProject ? '...' : 'Create'}
+                </button>
+              </div>
+
+              {/* Projects List */}
+              {projectsLoading ? (
+                <div style={{ fontSize: '12px', color: '#6c757d', padding: '8px 0' }}>Loading...</div>
+              ) : projects.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#6c757d', padding: '8px 0' }}>No projects</div>
+              ) : (
+                <div style={{
+                  border: '1px solid #dee2e6',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  marginBottom: '12px',
+                }}>
+                  {projects.map((project, idx) => (
+                    <div
+                      key={project.project_id}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: project.is_archived ? '#f8f9fa' : 'white',
+                        borderBottom: idx < projects.length - 1 ? '1px solid #dee2e6' : 'none',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div style={{
+                          fontWeight: 'bold',
+                          fontSize: '13px',
+                          color: project.is_archived ? '#6c757d' : '#212529',
+                        }}>
+                          {project.project_name}
+                          {project.is_archived && (
+                            <span style={{
+                              marginLeft: '6px',
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                              backgroundColor: '#e9ecef',
+                              borderRadius: '3px',
+                              color: '#6c757d',
+                            }}>
+                              archived
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px' }}>
+                          {project.video_count} video(s)
+                        </div>
+                      </div>
+                      {!project.is_archived && (
+                        <button
+                          onClick={() => handleArchiveProject(project.project_id)}
+                          disabled={archivingProject === project.project_id}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: 'transparent',
+                            color: '#6c757d',
+                            border: '1px solid #ced4da',
+                            borderRadius: '3px',
+                            cursor: archivingProject === project.project_id ? 'not-allowed' : 'pointer',
+                            fontSize: '11px',
+                          }}
+                        >
+                          {archivingProject === project.project_id ? '...' : 'Archive'}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Assign Video to Project */}
+              {projects.filter(p => !p.is_archived).length > 0 && (
+                <div style={{ borderTop: '1px solid #dee2e6', paddingTop: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#495057', marginBottom: '8px' }}>
+                    Assign Video to Project
+                  </div>
+                  <input
+                    type="text"
+                    value={videoIdForProject}
+                    onChange={(e) => setVideoIdForProject(e.target.value)}
+                    placeholder="Video ID (UUID)"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      marginBottom: '8px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '8px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                      }}
+                    >
+                      <option value="">Select project...</option>
+                      {projects.filter(p => !p.is_archived).map((project) => (
+                        <option key={project.project_id} value={project.project_id}>
+                          {project.project_name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleAssignToProject}
+                      disabled={assigningToProject || !videoIdForProject.trim() || !selectedProjectId}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: assigningToProject || !videoIdForProject.trim() || !selectedProjectId ? '#adb5bd' : '#1971c2',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: assigningToProject || !videoIdForProject.trim() || !selectedProjectId ? 'not-allowed' : 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {assigningToProject ? '...' : 'Assign'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

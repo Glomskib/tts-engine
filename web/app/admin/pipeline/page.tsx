@@ -1001,6 +1001,10 @@ export default function AdminPipelinePage() {
               <Link href="/admin/analytics" style={{ color: '#1971c2', fontSize: '13px' }}>
                 Analytics
               </Link>
+              <span style={{ color: '#ccc' }}>|</span>
+              <Link href="/admin/status" style={{ color: '#1971c2', fontSize: '13px' }}>
+                Status
+              </Link>
             </>
           )}
 

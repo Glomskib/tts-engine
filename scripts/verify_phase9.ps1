@@ -80,6 +80,33 @@ try {
     exit 1
 }
 
+# Check 4: Run smoke_prod.ps1 if it exists (informational, non-blocking)
+Write-Host "`n[4/4] Running smoke_prod.ps1 (informational)..." -ForegroundColor Yellow
+$smokePath = Join-Path $PSScriptRoot "smoke_prod.ps1"
+if (Test-Path $smokePath) {
+    try {
+        # Run smoke test but don't fail verification if it has issues
+        $smokeOutput = & powershell -ExecutionPolicy Bypass -File $smokePath -BaseUrl $baseUrl 2>&1
+        $smokeExitCode = $LASTEXITCODE
+
+        # Show summary only
+        $summaryLines = $smokeOutput | Select-String -Pattern "(PASS|FAIL|Passed|Failed|Warnings)" | Select-Object -Last 5
+        foreach ($line in $summaryLines) {
+            Write-Host "    $line" -ForegroundColor Gray
+        }
+
+        if ($smokeExitCode -eq 0) {
+            Write-Host "  PASS: smoke_prod.ps1 completed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "  WARN: smoke_prod.ps1 reported issues (non-blocking)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: smoke_prod.ps1 execution error (non-blocking): $_" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  SKIP: smoke_prod.ps1 not found at $smokePath" -ForegroundColor Yellow
+}
+
 Write-Host "`n===================================" -ForegroundColor Cyan
 Write-Host "Phase 9 verification PASSED" -ForegroundColor Green
 exit 0

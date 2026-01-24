@@ -14,6 +14,7 @@ export const ALLOWED_SETTING_KEYS = [
   "SLACK_ENABLED",
   "ASSIGNMENT_TTL_MINUTES",
   "SLACK_OPS_EVENTS",
+  "ANALYTICS_DEFAULT_WINDOW_DAYS",
 ] as const;
 
 export type SettingKey = typeof ALLOWED_SETTING_KEYS[number];
@@ -50,6 +51,7 @@ const DEFAULT_VALUES: Record<SettingKey, SettingValue> = {
     "user_upgrade_requested",
     "user_upgrade_request_resolved",
   ],
+  ANALYTICS_DEFAULT_WINDOW_DAYS: 7,
 };
 
 /**
@@ -76,6 +78,7 @@ function getEnvValue(key: SettingKey): SettingValue | undefined {
       return envValue === "true" || envValue === "1";
 
     case "ASSIGNMENT_TTL_MINUTES":
+    case "ANALYTICS_DEFAULT_WINDOW_DAYS":
       const num = parseInt(envValue, 10);
       return isNaN(num) ? undefined : num;
 

@@ -9,11 +9,11 @@ import {
   generateThroughputCsv,
   generateProductivityCsv,
 } from "@/lib/analytics";
+import { getEffectiveNumber } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
 const VALID_WINDOWS = [7, 14, 30];
-const DEFAULT_WINDOW = 7;
 const VALID_TYPES = ["stage", "throughput", "productivity"];
 
 /**
@@ -44,11 +44,21 @@ export async function GET(request: Request) {
   const windowParam = url.searchParams.get("window");
   const typeParam = url.searchParams.get("type");
 
-  let windowDays = DEFAULT_WINDOW;
+  let windowDays = 7; // hardcoded fallback
   if (windowParam) {
     const parsed = parseInt(windowParam, 10);
     if (VALID_WINDOWS.includes(parsed)) {
       windowDays = parsed;
+    }
+  } else {
+    // Use system setting for default window
+    try {
+      const settingValue = await getEffectiveNumber("ANALYTICS_DEFAULT_WINDOW_DAYS");
+      if (VALID_WINDOWS.includes(settingValue)) {
+        windowDays = settingValue;
+      }
+    } catch {
+      // Use hardcoded fallback on error
     }
   }
 

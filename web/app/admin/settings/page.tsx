@@ -20,6 +20,7 @@ const SETTING_TYPES: Record<string, 'boolean' | 'number' | 'string[]'> = {
   SLACK_ENABLED: 'boolean',
   ASSIGNMENT_TTL_MINUTES: 'number',
   SLACK_OPS_EVENTS: 'string[]',
+  ANALYTICS_DEFAULT_WINDOW_DAYS: 'number',
 };
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
@@ -28,6 +29,7 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
   SLACK_ENABLED: 'When enabled, the system will send Slack notifications for ops events',
   ASSIGNMENT_TTL_MINUTES: 'Default assignment TTL in minutes (1-10080, i.e., up to 7 days)',
   SLACK_OPS_EVENTS: 'List of event types that trigger Slack notifications',
+  ANALYTICS_DEFAULT_WINDOW_DAYS: 'Default analytics time window (7, 14, or 30 days)',
 };
 
 export default function AdminSettingsPage() {
@@ -127,7 +129,14 @@ export default function AdminSettingsPage() {
 
     if (type === 'number') {
       const num = parseInt(inputValue, 10);
-      if (isNaN(num) || num < 1 || num > 10080) return null;
+      if (isNaN(num)) return null;
+      // Special validation for ANALYTICS_DEFAULT_WINDOW_DAYS
+      if (key === 'ANALYTICS_DEFAULT_WINDOW_DAYS') {
+        if (![7, 14, 30].includes(num)) return null;
+        return num;
+      }
+      // General number validation
+      if (num < 1 || num > 10080) return null;
       return num;
     }
 

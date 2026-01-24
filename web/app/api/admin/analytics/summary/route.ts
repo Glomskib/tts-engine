@@ -6,11 +6,11 @@ import {
   computeThroughputByDay,
   computeProductivity,
 } from "@/lib/analytics";
+import { getEffectiveNumber } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
 const VALID_WINDOWS = [7, 14, 30];
-const DEFAULT_WINDOW = 7;
 
 /**
  * GET /api/admin/analytics/summary
@@ -33,15 +33,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  // Parse window parameter
+  // Parse window parameter - use setting as default
   const url = new URL(request.url);
   const windowParam = url.searchParams.get("window");
-  let windowDays = DEFAULT_WINDOW;
+  let windowDays = 7; // hardcoded fallback
 
   if (windowParam) {
     const parsed = parseInt(windowParam, 10);
     if (VALID_WINDOWS.includes(parsed)) {
       windowDays = parsed;
+    }
+  } else {
+    // Use system setting for default window
+    try {
+      const settingValue = await getEffectiveNumber("ANALYTICS_DEFAULT_WINDOW_DAYS");
+      if (VALID_WINDOWS.includes(settingValue)) {
+        windowDays = settingValue;
+      }
+    } catch {
+      // Use hardcoded fallback on error
     }
   }
 

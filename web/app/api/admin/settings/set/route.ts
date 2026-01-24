@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   }
 
   if (!isAllowedSettingKey(key)) {
-    const err = apiError("BAD_REQUEST", `Invalid setting key: ${key}. Allowed keys: SUBSCRIPTION_GATING_ENABLED, EMAIL_ENABLED, SLACK_ENABLED, ASSIGNMENT_TTL_MINUTES, SLACK_OPS_EVENTS`, 400);
+    const err = apiError("BAD_REQUEST", `Invalid setting key: ${key}. Allowed keys: SUBSCRIPTION_GATING_ENABLED, EMAIL_ENABLED, SLACK_ENABLED, ASSIGNMENT_TTL_MINUTES, SLACK_OPS_EVENTS, ANALYTICS_DEFAULT_WINDOW_DAYS`, 400);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
@@ -75,6 +75,14 @@ export async function POST(request: Request) {
     case "SLACK_OPS_EVENTS":
       if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
         const err = apiError("BAD_REQUEST", `${key} must be an array of strings`, 400);
+        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      }
+      settingValue = value;
+      break;
+
+    case "ANALYTICS_DEFAULT_WINDOW_DAYS":
+      if (typeof value !== "number" || ![7, 14, 30].includes(value)) {
+        const err = apiError("BAD_REQUEST", `${key} must be 7, 14, or 30`, 400);
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
       settingValue = value;

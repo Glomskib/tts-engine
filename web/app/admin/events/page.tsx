@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminNav from '../components/AdminNav';
+import { EmptyState } from '../components/AdminPageLayout';
 
 interface EventItem {
   id: string;
@@ -299,8 +300,13 @@ export default function AdminEventsPage() {
           <tbody>
             {events.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-                  No events found
+                <td colSpan={6} style={{ padding: 0 }}>
+                  <EmptyState
+                    title="No events found"
+                    description={typeFilter || videoIdFilter || userIdFilter
+                      ? "Try adjusting your filters to see more results."
+                      : "Events will appear here as users interact with the system."}
+                  />
                 </td>
               </tr>
             )}

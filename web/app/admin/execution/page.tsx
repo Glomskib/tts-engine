@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import AdminNav from '../components/AdminNav';
+import { EmptyState } from '../components/AdminPageLayout';
 
 interface QueueVideo {
   id: string;
@@ -150,7 +151,12 @@ export default function ExecutionDashboardPage() {
       {loading ? (
         <p>Loading videos...</p>
       ) : videos.length === 0 ? (
-        <p style={{ color: '#666' }}>No videos found{statusFilter ? ` with status "${statusFilter}"` : ''}.</p>
+        <EmptyState
+          title="No videos found"
+          description={statusFilter
+            ? `No videos with status "${statusFilter.replace(/_/g, ' ')}". Try changing the filter.`
+            : "Videos in the execution pipeline will appear here."}
+        />
       ) : (
         <table style={tableStyle}>
           <thead>

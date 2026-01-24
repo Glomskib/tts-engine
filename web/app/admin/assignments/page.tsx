@@ -7,6 +7,7 @@ import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
 import AdminNav from '../components/AdminNav';
+import { EmptyState } from '../components/AdminPageLayout';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -444,8 +445,13 @@ export default function AssignmentsPage() {
               <tbody>
                 {assignments.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#6c757d' }}>
-                      No assignments found
+                    <td colSpan={8} style={{ padding: 0 }}>
+                      <EmptyState
+                        title="No assignments found"
+                        description={roleFilter !== 'any' || stateFilter !== 'any'
+                          ? "Try adjusting your filters to see more results."
+                          : "Assignments will appear here when videos are dispatched to workers."}
+                      />
                     </td>
                   </tr>
                 ) : (

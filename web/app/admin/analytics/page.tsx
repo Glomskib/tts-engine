@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import AdminNav from '../components/AdminNav';
+import { EmptyState } from '../components/AdminPageLayout';
 
 interface StageStats {
   stage: string;
@@ -447,9 +448,10 @@ export default function AdminAnalyticsPage() {
               </button>
             </div>
             {data.productivity.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: '#6c757d', fontSize: '13px' }}>
-                No assignment completion data available for this time window.
-              </div>
+              <EmptyState
+                title="No productivity data"
+                description="Assignment completion data will appear here once users start completing tasks."
+              />
             ) : (
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>

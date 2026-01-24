@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminNav from '../components/AdminNav';
+import { EmptyState } from '../components/AdminPageLayout';
 
 interface User {
   user_id: string;
@@ -202,8 +203,11 @@ export default function AdminUsersPage() {
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: '#6c757d' }}>
-                    No users found
+                  <td colSpan={4} style={{ padding: 0 }}>
+                    <EmptyState
+                      title="No users found"
+                      description="Users will appear here once they sign up and complete authentication."
+                    />
                   </td>
                 </tr>
               ) : (

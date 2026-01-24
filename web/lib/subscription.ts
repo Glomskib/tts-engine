@@ -4,12 +4,38 @@
  * Admin users always bypass gating.
  *
  * Resolution order: system_setting -> env -> default
+ *
+ * Org-level plans:
+ * - Organizations can have plans (free/pro/enterprise)
+ * - Users inherit org plan if they are org members
+ * - User-level plan is fallback for non-org users
  */
 
+import { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getEffectiveBoolean } from "@/lib/settings";
+import { getPrimaryClientOrgForUser } from "@/lib/client-org";
 
 export type PlanType = "free" | "pro";
+export type OrgPlanType = "free" | "pro" | "enterprise";
+export type OrgBillingStatus = "active" | "trial" | "past_due" | "canceled";
+
+// Event type constants for org plans
+export const ORG_PLAN_EVENT_TYPES = {
+  ORG_SET_PLAN: "client_org_set_plan",
+  ORG_BILLING_STATUS_SET: "client_org_billing_status_set",
+} as const;
+
+export interface OrgPlanInfo {
+  plan: OrgPlanType;
+  billing_status: OrgBillingStatus;
+}
+
+export interface EffectivePlan {
+  source: "org" | "user_event" | "env" | "default";
+  plan: OrgPlanType;
+  org_id?: string;
+}
 
 export interface UserPlan {
   plan: PlanType;
@@ -180,4 +206,156 @@ export async function getSubscriptionConfig(): Promise<{
     gatingEnabled,
     proUserCount: getProUserIds().size,
   };
+}
+
+// ============================================================================
+// Org-Level Plan Functions
+// ============================================================================
+
+/**
+ * Get the plan for an organization.
+ * Reads from client_org_set_plan events (most recent wins).
+ * Defaults to "free" if no plan event exists.
+ */
+export async function getOrgPlan(
+  supabase: SupabaseClient,
+  orgId: string
+): Promise<OrgPlanInfo> {
+  try {
+    // Get most recent plan event for this org
+    const { data: planEvents } = await supabase
+      .from("video_events")
+      .select("details, created_at")
+      .eq("event_type", ORG_PLAN_EVENT_TYPES.ORG_SET_PLAN)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    let plan: OrgPlanType = "free";
+    if (planEvents) {
+      for (const event of planEvents) {
+        if (event.details?.org_id === orgId) {
+          const eventPlan = event.details?.plan;
+          if (eventPlan === "free" || eventPlan === "pro" || eventPlan === "enterprise") {
+            plan = eventPlan;
+          }
+          break;
+        }
+      }
+    }
+
+    // Get most recent billing status event for this org
+    const { data: billingEvents } = await supabase
+      .from("video_events")
+      .select("details, created_at")
+      .eq("event_type", ORG_PLAN_EVENT_TYPES.ORG_BILLING_STATUS_SET)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    let billing_status: OrgBillingStatus = "active";
+    if (billingEvents) {
+      for (const event of billingEvents) {
+        if (event.details?.org_id === orgId) {
+          const eventStatus = event.details?.billing_status;
+          if (["active", "trial", "past_due", "canceled"].includes(eventStatus)) {
+            billing_status = eventStatus as OrgBillingStatus;
+          }
+          break;
+        }
+      }
+    }
+
+    return { plan, billing_status };
+  } catch (err) {
+    console.error("Error fetching org plan:", err);
+    return { plan: "free", billing_status: "active" };
+  }
+}
+
+/**
+ * Check if a plan is a paid plan (pro or enterprise).
+ */
+export function isPaidOrgPlan(plan: OrgPlanType): boolean {
+  return plan === "pro" || plan === "enterprise";
+}
+
+/**
+ * Get the effective plan for a user.
+ * Resolution order:
+ * 1. If user is member of a client org, use org plan
+ * 2. Check video_events admin_set_plan events (per-user)
+ * 3. Check PRO_USER_IDS env allowlist
+ * 4. Default to "free"
+ */
+export async function getEffectivePlanForUser(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<EffectivePlan> {
+  if (!userId) {
+    return { source: "default", plan: "free" };
+  }
+
+  const normalizedUserId = userId.toLowerCase();
+
+  // 1. Check if user is member of a client org
+  try {
+    const membership = await getPrimaryClientOrgForUser(supabase, userId);
+    if (membership) {
+      const orgPlanInfo = await getOrgPlan(supabase, membership.org_id);
+      return {
+        source: "org",
+        plan: orgPlanInfo.plan,
+        org_id: membership.org_id,
+      };
+    }
+  } catch (err) {
+    console.error("Error checking user org membership for plan:", err);
+  }
+
+  // 2. Check video_events for admin_set_plan events (per-user)
+  try {
+    const { data: planEvent } = await supabase
+      .from("video_events")
+      .select("details")
+      .eq("event_type", "admin_set_plan")
+      .eq("actor", normalizedUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (planEvent?.details) {
+      const details = planEvent.details as { plan?: PlanType };
+      if (details.plan === "pro") {
+        return { source: "user_event", plan: "pro" };
+      }
+      if (details.plan === "free") {
+        return { source: "user_event", plan: "free" };
+      }
+    }
+  } catch (err) {
+    console.error("Error checking admin_set_plan events:", err);
+  }
+
+  // 3. Check PRO_USER_IDS env allowlist
+  const proUserIds = getProUserIds();
+  if (proUserIds.has(normalizedUserId)) {
+    return { source: "env", plan: "pro" };
+  }
+
+  // 4. Default: free plan
+  return { source: "default", plan: "free" };
+}
+
+/**
+ * Check if a user's org has a paid plan.
+ * Returns false if user is not in an org or org has free plan.
+ */
+export async function isUserOrgPaid(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<boolean> {
+  const effectivePlan = await getEffectivePlanForUser(supabase, userId);
+  if (effectivePlan.source === "org") {
+    return isPaidOrgPlan(effectivePlan.plan);
+  }
+  return false;
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import ClientNav from './components/ClientNav';
+import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
 
 interface AuthUser {
   id: string;
@@ -25,6 +26,8 @@ export default function ClientPortalPage() {
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const [orgRequired, setOrgRequired] = useState(false);
+  const [branding, setBranding] = useState<EffectiveOrgBranding | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -52,6 +55,31 @@ export default function ClientPortalPage() {
 
     fetchAuthUser();
   }, [router]);
+
+  // Fetch branding
+  useEffect(() => {
+    if (!authUser) return;
+
+    const fetchBranding = async () => {
+      try {
+        const res = await fetch('/api/client/branding');
+        const data = await res.json();
+
+        if (res.ok && data.ok && data.data?.branding) {
+          setBranding(data.data.branding);
+          setWelcomeMessage(data.data.branding.welcome_message || null);
+        } else {
+          // Use defaults
+          setBranding(getDefaultOrgBranding());
+        }
+      } catch (err) {
+        console.error('Failed to fetch branding:', err);
+        setBranding(getDefaultOrgBranding());
+      }
+    };
+
+    fetchBranding();
+  }, [authUser]);
 
   // Fetch recent videos
   useEffect(() => {
@@ -93,17 +121,25 @@ export default function ClientPortalPage() {
     );
   }
 
+  // Get accent classes for styling
+  const accentBg = branding?.accent_bg_class || 'bg-slate-800';
+  const accentText = branding?.accent_text_class || 'text-slate-800';
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <ClientNav userName={authUser.email || undefined} />
+        <ClientNav userName={authUser.email || undefined} branding={branding} />
 
         {/* Welcome Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-slate-800">Welcome</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Your client portal for tracking video projects.
-          </p>
+          <h1 className={`text-2xl font-semibold ${accentText}`}>Welcome</h1>
+          {welcomeMessage ? (
+            <p className="mt-2 text-sm text-slate-600">{welcomeMessage}</p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-500">
+              Your client portal for tracking video projects.
+            </p>
+          )}
         </div>
 
         {/* Org Required State */}
@@ -123,9 +159,9 @@ export default function ClientPortalPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <Link
                 href="/client/videos"
-                className="p-5 bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                className={`p-5 bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow group`}
               >
-                <div className="text-lg font-medium text-slate-800 mb-1">Videos</div>
+                <div className={`text-lg font-medium text-slate-800 mb-1 group-hover:${accentText}`}>Videos</div>
                 <div className="text-sm text-slate-500">View your video projects</div>
               </Link>
               <Link
@@ -146,7 +182,7 @@ export default function ClientPortalPage() {
 
             {/* Recent Activity */}
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-              <div className="px-5 py-4 border-b border-slate-100">
+              <div className={`px-5 py-4 border-b border-slate-100`}>
                 <h2 className="text-base font-semibold text-slate-800">Recent Activity</h2>
               </div>
               <div className="p-5">
@@ -181,7 +217,7 @@ export default function ClientPortalPage() {
                       <div className="pt-2 text-center">
                         <Link
                           href="/client/videos"
-                          className="text-sm text-blue-600 hover:text-blue-700"
+                          className={`text-sm ${accentText} hover:opacity-80`}
                         >
                           View all videos
                         </Link>

@@ -7,6 +7,7 @@ import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from './NotificationBadge';
 import IncidentBanner from './IncidentBanner';
+import AdminNav from './AdminNav';
 
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
@@ -463,21 +464,13 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
         <Link href={`/admin/${role}/workbench`} style={{ color: '#228be6', fontSize: '13px', fontWeight: 'bold' }}>
           Workbench
         </Link>
-        <span style={{ color: '#ccc' }}>|</span>
-        <NotificationBadge />
-        <span style={{ color: '#ccc' }}>|</span>
-        <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Full Pipeline View
-        </Link>
-        {authUser.role === 'admin' && (
-          <>
-            <span style={{ color: '#ccc' }}>|</span>
-            <Link href="/admin/ops" style={{ color: '#e03131', fontSize: '13px', fontWeight: 'bold' }}>
-              Ops
-            </Link>
-          </>
-        )}
       </div>
+
+      {/* Admin Navigation */}
+      <AdminNav
+        isAdmin={authUser.role === 'admin'}
+        showNotificationBadge={<NotificationBadge />}
+      />
 
       {/* Filters */}
       <div style={{

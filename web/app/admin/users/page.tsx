@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import AdminNav from '../components/AdminNav';
 
 interface User {
   user_id: string;
@@ -124,23 +125,11 @@ export default function AdminUsersPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Admin Navigation */}
+      <AdminNav isAdmin={isAdmin} />
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>User Management</h1>
-        <Link
-          href="/admin/pipeline"
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            borderRadius: '4px',
-            textDecoration: 'none',
-            fontSize: '13px',
-          }}
-        >
-          Back to Pipeline
-        </Link>
-      </div>
+      <h1 style={{ margin: '0 0 20px 0' }}>User Management</h1>
 
       {/* Gating Status */}
       <div style={{

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
+import AdminNav from '../components/AdminNav';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -204,6 +205,12 @@ export default function OpsPage() {
         </div>
       </div>
 
+      {/* Admin Navigation */}
+      <AdminNav
+        isAdmin={true}
+        showNotificationBadge={<NotificationBadge />}
+      />
+
       {/* User info bar */}
       <div style={{
         marginBottom: '20px',
@@ -243,27 +250,6 @@ export default function OpsPage() {
         >
           Sign Out
         </button>
-        <span style={{ color: '#ccc' }}>|</span>
-        <NotificationBadge />
-        <span style={{ color: '#ccc' }}>|</span>
-        <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Pipeline View
-        </Link>
-        <Link href="/admin/assignments" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Assignments
-        </Link>
-        <Link href="/admin/events" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Events
-        </Link>
-        <Link href="/admin/recorder" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Recorder
-        </Link>
-        <Link href="/admin/editor" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Editor
-        </Link>
-        <Link href="/admin/uploader" style={{ color: '#1971c2', fontSize: '13px' }}>
-          Uploader
-        </Link>
       </div>
 
       {error && (

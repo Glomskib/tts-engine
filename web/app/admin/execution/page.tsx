@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+import AdminNav from '../components/AdminNav';
 
 interface QueueVideo {
   id: string;
@@ -115,14 +116,12 @@ export default function ExecutionDashboardPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Admin Navigation */}
+      <AdminNav isAdmin={true} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Execution Dashboard</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Link href="/admin/pipeline" style={{ padding: '8px 16px', textDecoration: 'none', color: '#333', border: '1px solid #ccc', borderRadius: '4px' }}>
-            &larr; Pipeline
-          </Link>
-          <button onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
-        </div>
+        <button onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
       </div>
 
       {error && <div style={{ color: 'red', marginBottom: '20px', padding: '10px', backgroundColor: '#fee', borderRadius: '4px' }}>{error}</div>}

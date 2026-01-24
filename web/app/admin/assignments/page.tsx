@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
+import AdminNav from '../components/AdminNav';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -288,19 +289,14 @@ export default function AssignmentsPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Admin Navigation */}
+      <AdminNav
+        isAdmin={authUser.role === 'admin'}
+        showNotificationBadge={<NotificationBadge />}
+      />
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>Assignment Dashboard</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Link href="/admin/ops" style={{ color: '#228be6', fontSize: '13px' }}>Ops Metrics</Link>
-          <span style={{ color: '#ccc' }}>|</span>
-          <Link href="/admin/pipeline" style={{ color: '#228be6', fontSize: '13px' }}>Pipeline</Link>
-          <span style={{ color: '#ccc' }}>|</span>
-          <Link href="/admin/events" style={{ color: '#228be6', fontSize: '13px' }}>Events</Link>
-          <span style={{ color: '#ccc' }}>|</span>
-          <NotificationBadge />
-        </div>
-      </div>
+      <h1 style={{ margin: '0 0 20px 0' }}>Assignment Dashboard</h1>
 
       {/* User info */}
       <div style={{

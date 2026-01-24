@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import AdminNav from '../components/AdminNav';
 
 interface Notification {
   id: string;
@@ -243,27 +244,8 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* User info */}
-      <div style={{
-        marginBottom: '20px',
-        padding: '12px 16px',
-        backgroundColor: '#e7f5ff',
-        borderRadius: '4px',
-        border: '1px solid #74c0fc',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '15px',
-      }}>
-        <span>Signed in as: <strong>{authUser.email || authUser.id.slice(0, 8)}</strong></span>
-        <span style={{ color: '#ccc' }}>|</span>
-        <Link href="/admin/pipeline" style={{ color: '#1971c2' }}>Pipeline</Link>
-        {authUser.role && authUser.role !== 'admin' && (
-          <>
-            <span style={{ color: '#ccc' }}>|</span>
-            <Link href={`/admin/${authUser.role}`} style={{ color: '#1971c2' }}>My Dashboard</Link>
-          </>
-        )}
-      </div>
+      {/* Admin Navigation */}
+      <AdminNav isAdmin={authUser.role === 'admin'} />
 
       {error && (
         <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>

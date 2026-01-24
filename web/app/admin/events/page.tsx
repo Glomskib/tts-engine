@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import AdminNav from '../components/AdminNav';
 
 interface EventItem {
   id: string;
@@ -153,6 +154,9 @@ export default function AdminEventsPage() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Admin Navigation */}
+      <AdminNav isAdmin={isAdmin} />
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <h1 style={{ margin: 0, fontSize: '24px' }}>Events Explorer</h1>
@@ -172,16 +176,6 @@ export default function AdminEventsPage() {
           >
             Sign Out
           </button>
-          <span style={{ color: '#ccc' }}>|</span>
-          <Link href="/admin/pipeline" style={{ color: '#1971c2', fontSize: '13px' }}>
-            Pipeline
-          </Link>
-          <Link href="/admin/assignments" style={{ color: '#1971c2', fontSize: '13px' }}>
-            Assignments
-          </Link>
-          <Link href="/admin/ops" style={{ color: '#e03131', fontSize: '13px', fontWeight: 'bold' }}>
-            Ops
-          </Link>
         </div>
       </div>
 

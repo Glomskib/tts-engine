@@ -7,6 +7,7 @@ import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
 import IncidentBanner from '../components/IncidentBanner';
+import AdminNav from '../components/AdminNav';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -969,45 +970,6 @@ export default function AdminPipelinePage() {
             </button>
           </div>
 
-          <NotificationBadge />
-
-          {isUserAdmin && (
-            <>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/ops" style={{ color: '#e03131', fontSize: '13px', fontWeight: 'bold' }}>
-                Ops
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/assignments" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Assignments
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/events" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Events
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/users" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Users
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/upgrade-requests" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Upgrades
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/settings" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Settings
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/analytics" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Analytics
-              </Link>
-              <span style={{ color: '#ccc' }}>|</span>
-              <Link href="/admin/status" style={{ color: '#1971c2', fontSize: '13px' }}>
-                Status
-              </Link>
-            </>
-          )}
-
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
             <input
               type="checkbox"
@@ -1019,6 +981,12 @@ export default function AdminPipelinePage() {
             </span>
           </label>
         </div>
+
+        {/* Admin Navigation */}
+        <AdminNav
+          isAdmin={isUserAdmin}
+          showNotificationBadge={<NotificationBadge />}
+        />
 
         {/* Recording Status Tabs */}
         <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>

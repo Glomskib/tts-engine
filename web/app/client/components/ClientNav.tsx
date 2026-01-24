@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { brandName, logoText } from '@/lib/brand';
 
 interface ClientNavProps {
   userName?: string;
@@ -29,7 +30,10 @@ export default function ClientNav({ userName }: ClientNavProps) {
       <div className="flex items-center justify-between flex-wrap gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-slate-800">Client Portal</span>
+          <span className="px-2 py-1 bg-slate-800 text-white text-sm font-bold rounded">
+            {logoText}
+          </span>
+          <span className="text-lg font-semibold text-slate-800">{brandName}</span>
           {userName && (
             <span className="text-sm text-slate-500">
               {userName}

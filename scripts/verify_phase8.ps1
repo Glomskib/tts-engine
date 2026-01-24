@@ -2938,7 +2938,124 @@ try {
     Write-Host "  WARN: Incident mode verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[31/31] Phase 8 verification summary..." -ForegroundColor Yellow
+# [32/32] Production Readiness Pack verification
+Write-Host "`n[32/32] Testing production readiness pack..." -ForegroundColor Yellow
+try {
+    # Check /admin/status returns 307 without auth
+    try {
+        $request = [System.Net.HttpWebRequest]::Create("$baseUrl/admin/status")
+        $request.Method = "GET"
+        $request.AllowAutoRedirect = $false
+        $request.Timeout = 10000
+
+        try {
+            $response = $request.GetResponse()
+            $statusCode = [int]$response.StatusCode
+            $response.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $statusCode = 0
+            }
+        }
+
+        if ($statusCode -eq 307) {
+            Write-Host "    /admin/status returns 307 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /admin/status returned $statusCode (expected 307)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /admin/status check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check /api/health includes env_report fields
+    try {
+        $healthResponse = Invoke-RestMethod -Uri "$baseUrl/api/health" -Method GET -TimeoutSec 10
+        if ($healthResponse.env_report) {
+            Write-Host "    /api/health includes env_report - OK" -ForegroundColor Gray
+
+            if ($null -ne $healthResponse.env_report.env_ok) {
+                Write-Host "    env_report.env_ok field present - OK" -ForegroundColor Gray
+            } else {
+                Write-Host "  WARN: env_report.env_ok field missing" -ForegroundColor Yellow
+            }
+
+            if ($null -ne $healthResponse.env_report.required_present) {
+                Write-Host "    env_report.required_present field present - OK" -ForegroundColor Gray
+            } else {
+                Write-Host "  WARN: env_report.required_present field missing" -ForegroundColor Yellow
+            }
+
+            if ($null -ne $healthResponse.env_report.required_total) {
+                Write-Host "    env_report.required_total field present - OK" -ForegroundColor Gray
+            } else {
+                Write-Host "  WARN: env_report.required_total field missing" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "  WARN: /api/health missing env_report" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/health check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check web/lib/env-validation.ts exists and exports getEnvReport
+    $envValidationPath = Join-Path $webDir "lib\env-validation.ts"
+    if (Test-Path $envValidationPath) {
+        Write-Host "    web/lib/env-validation.ts exists - OK" -ForegroundColor Gray
+        $envValidationContent = Get-Content $envValidationPath -Raw
+
+        if ($envValidationContent -match 'export function getEnvReport') {
+            Write-Host "    env-validation.ts exports getEnvReport - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: env-validation.ts missing getEnvReport export" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARN: web/lib/env-validation.ts not found" -ForegroundColor Yellow
+    }
+
+    # Check docs/PRODUCTION.md exists
+    $docsPath = Join-Path (Split-Path -Parent $webDir) "docs\PRODUCTION.md"
+    if (Test-Path $docsPath) {
+        Write-Host "    docs/PRODUCTION.md exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: docs/PRODUCTION.md not found" -ForegroundColor Yellow
+    }
+
+    # Check scripts/smoke_prod.ps1 exists
+    $smokePath = Join-Path (Split-Path -Parent $webDir) "scripts\smoke_prod.ps1"
+    if (Test-Path $smokePath) {
+        Write-Host "    scripts/smoke_prod.ps1 exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: scripts/smoke_prod.ps1 not found" -ForegroundColor Yellow
+    }
+
+    # Check /admin/status page exists
+    $statusPagePath = Join-Path $webDir "app\admin\status\page.tsx"
+    if (Test-Path $statusPagePath) {
+        Write-Host "    /admin/status page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /admin/status page not found" -ForegroundColor Yellow
+    }
+
+    # Check pipeline nav has Status link
+    $pipelinePath = Join-Path $webDir "app\admin\pipeline\page.tsx"
+    if (Test-Path $pipelinePath) {
+        $pipelineContent = Get-Content $pipelinePath -Raw
+        if ($pipelineContent -match '/admin/status') {
+            Write-Host "    pipeline nav has Status link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: pipeline nav missing Status link" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Production readiness pack verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Production readiness verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[32/32] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

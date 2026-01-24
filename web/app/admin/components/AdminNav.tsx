@@ -111,6 +111,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
               Client Orgs
             </Link>
             <span style={separatorStyle}>|</span>
+            <Link href="/admin/requests" style={linkStyle('/admin/requests')}>
+              Requests
+            </Link>
+            <span style={separatorStyle}>|</span>
             <Link href="/admin/billing" style={linkStyle('/admin/billing')}>
               Billing
             </Link>

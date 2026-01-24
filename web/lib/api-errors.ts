@@ -31,7 +31,8 @@ export type ApiErrorCode =
   | 'NOT_ASSIGNED_TO_YOU'
   | 'ASSIGNMENT_EXPIRED'
   | 'NO_WORK_AVAILABLE'
-  | 'ALREADY_ASSIGNED';
+  | 'ALREADY_ASSIGNED'
+  | 'CONFLICT';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

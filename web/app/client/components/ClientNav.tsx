@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/client', label: 'Home' },
   { href: '/client/videos', label: 'Videos' },
   { href: '/client/projects', label: 'Projects' },
+  { href: '/client/billing', label: 'Billing' },
   { href: '/client/support', label: 'Support' },
   { href: '/admin/status', label: 'Status' },
 ];

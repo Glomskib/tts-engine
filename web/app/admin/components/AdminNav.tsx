@@ -107,6 +107,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
               Upgrades
             </Link>
             <span style={separatorStyle}>|</span>
+            <Link href="/admin/client-orgs" style={linkStyle('/admin/client-orgs')}>
+              Client Orgs
+            </Link>
+            <span style={separatorStyle}>|</span>
             <Link href="/admin/settings" style={linkStyle('/admin/settings')}>
               Settings
             </Link>

@@ -3,6 +3,7 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { triggerEmailNotification } from "@/lib/email-notifications";
+import { checkIncidentReadOnlyBlock } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,17 @@ export async function POST(request: Request, { params }: RouteParams) {
   if (!authContext.isAdmin) {
     const err = apiError("FORBIDDEN", "Admin access required", 403);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Incident mode read-only check (admin bypass - this will always pass for admins)
+  const incidentCheck = await checkIncidentReadOnlyBlock(authContext.user.id, authContext.isAdmin);
+  if (incidentCheck.blocked) {
+    return NextResponse.json({
+      ok: false,
+      error: "incident_mode_read_only",
+      message: incidentCheck.message || "System is in maintenance mode.",
+      correlation_id: correlationId,
+    }, { status: 503 });
   }
 
   let body: unknown;

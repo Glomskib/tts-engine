@@ -4,6 +4,7 @@ import { getMemoryClaim, clearMemoryClaim } from "@/lib/claimCache";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { checkIncidentReadOnlyBlock } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -95,6 +96,17 @@ export async function POST(
       { actor, hint: "Only authenticated admin users can use force" }
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Incident mode read-only check (admin bypass)
+  const incidentCheck = await checkIncidentReadOnlyBlock(actor, isAdmin);
+  if (incidentCheck.blocked) {
+    return NextResponse.json({
+      ok: false,
+      error: "incident_mode_read_only",
+      message: incidentCheck.message || "System is in maintenance mode.",
+      correlation_id: correlationId,
+    }, { status: 503 });
   }
 
   try {

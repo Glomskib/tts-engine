@@ -11,6 +11,7 @@ import {
 import { getVideosColumns } from "@/lib/videosSchema";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 import { canPerformGatedAction } from "@/lib/subscription";
+import { checkIncidentReadOnlyBlock } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -183,6 +184,19 @@ export async function PUT(request: Request, { params }: RouteParams) {
         message: "Upgrade required to submit status changes.",
         correlation_id: correlationId,
       }, { status: 403 });
+    }
+  }
+
+  // Incident mode read-only check (admin bypass)
+  if (isAuthenticated && actor && recording_status !== undefined) {
+    const incidentCheck = await checkIncidentReadOnlyBlock(actor, isAdmin);
+    if (incidentCheck.blocked) {
+      return NextResponse.json({
+        ok: false,
+        error: "incident_mode_read_only",
+        message: incidentCheck.message || "System is in maintenance mode.",
+        correlation_id: correlationId,
+      }, { status: 503 });
     }
   }
 

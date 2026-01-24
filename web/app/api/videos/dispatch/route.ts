@@ -11,6 +11,7 @@ import {
 import { expireAssignmentsForRole } from "@/lib/assignment-expiry";
 import { triggerEmailNotification } from "@/lib/email-notifications";
 import { canPerformGatedAction } from "@/lib/subscription";
+import { checkIncidentReadOnlyBlock } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,17 @@ export async function POST(request: Request) {
   const userId = authContext.user.id;
   const userRole = authContext.role;
   const isAdmin = authContext.isAdmin;
+
+  // Incident mode read-only check (admin bypass)
+  const incidentCheck = await checkIncidentReadOnlyBlock(userId, isAdmin);
+  if (incidentCheck.blocked) {
+    return NextResponse.json({
+      ok: false,
+      error: "incident_mode_read_only",
+      message: incidentCheck.message || "System is in maintenance mode.",
+      correlation_id: correlationId,
+    }, { status: 503 });
+  }
 
   // Subscription gating check (fail-safe: allows if not configured)
   const subscriptionCheck = await canPerformGatedAction(userId, isAdmin);

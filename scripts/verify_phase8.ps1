@@ -2938,8 +2938,8 @@ try {
     Write-Host "  WARN: Incident mode verification error: $_" -ForegroundColor Yellow
 }
 
-# [32/35] Production Readiness Pack verification
-Write-Host "`n[32/35] Testing production readiness pack..." -ForegroundColor Yellow
+# [32/36] Production Readiness Pack verification
+Write-Host "`n[32/36] Testing production readiness pack..." -ForegroundColor Yellow
 try {
     # Check /admin/status returns 307 without auth
     try {
@@ -3055,8 +3055,8 @@ try {
     Write-Host "  WARN: Production readiness verification error: $_" -ForegroundColor Yellow
 }
 
-# [33/35] UX Polish verification
-Write-Host "`n[33/35] Testing UX polish components..." -ForegroundColor Yellow
+# [33/36] UX Polish verification
+Write-Host "`n[33/36] Testing UX polish components..." -ForegroundColor Yellow
 try {
     # Check AdminPageLayout exists and exports EmptyState
     $adminLayoutPath = Join-Path $webDir "app\admin\components\AdminPageLayout.tsx"
@@ -3129,8 +3129,8 @@ try {
     Write-Host "  WARN: UX polish verification error: $_" -ForegroundColor Yellow
 }
 
-# [34/35] Client Portal Shell verification
-Write-Host "`n[34/35] Testing client portal shell..." -ForegroundColor Yellow
+# [34/36] Client Portal Shell verification
+Write-Host "`n[34/36] Testing client portal shell..." -ForegroundColor Yellow
 try {
     # Check /client page exists
     $clientPagePath = Join-Path $webDir "app\client\page.tsx"
@@ -3256,8 +3256,8 @@ try {
     Write-Host "  WARN: Client portal verification error: $_" -ForegroundColor Yellow
 }
 
-# [35/35] Client Org Scoping verification
-Write-Host "`n[35/35] Testing client org scoping..." -ForegroundColor Yellow
+# [35/36] Client Org Scoping verification
+Write-Host "`n[35/36] Testing client org scoping..." -ForegroundColor Yellow
 try {
     # Check lib/client-org.ts exists and exports key functions
     $clientOrgPath = Join-Path $webDir "lib\client-org.ts"
@@ -3472,7 +3472,182 @@ try {
     Write-Host "  WARN: Client org scoping verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[35/35] Phase 8 verification summary..." -ForegroundColor Yellow
+# [36/36] Per-Org Branding verification
+Write-Host "`n[36/36] Testing per-org branding..." -ForegroundColor Yellow
+try {
+    # Check lib/org-branding.ts exists and exports key functions
+    $orgBrandingPath = Join-Path $webDir "lib\org-branding.ts"
+    if (Test-Path $orgBrandingPath) {
+        Write-Host "    lib/org-branding.ts exists - OK" -ForegroundColor Gray
+        $orgBrandingContent = Get-Content $orgBrandingPath -Raw
+
+        if ($orgBrandingContent -match 'export async function getOrgBranding') {
+            Write-Host "    getOrgBranding exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: getOrgBranding not exported" -ForegroundColor Yellow
+        }
+
+        if ($orgBrandingContent -match 'export function getAccentColorClass') {
+            Write-Host "    getAccentColorClass exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: getAccentColorClass not exported" -ForegroundColor Yellow
+        }
+
+        if ($orgBrandingContent -match 'export function getDefaultOrgBranding') {
+            Write-Host "    getDefaultOrgBranding exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: getDefaultOrgBranding not exported" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: lib/org-branding.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client branding API exists
+    $clientBrandingPath = Join-Path $webDir "app\api\client\branding\route.ts"
+    if (Test-Path $clientBrandingPath) {
+        Write-Host "    GET /api/client/branding route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/branding route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Test /api/client/branding returns 401 without auth
+    try {
+        $brandingRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/client/branding")
+        $brandingRequest.Method = "GET"
+        $brandingRequest.AllowAutoRedirect = $false
+        $brandingRequest.Timeout = 10000
+
+        try {
+            $brandingResponse = $brandingRequest.GetResponse()
+            $brandingStatusCode = [int]$brandingResponse.StatusCode
+            $brandingResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $brandingStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $brandingStatusCode = 0
+            }
+        }
+
+        if ($brandingStatusCode -eq 401) {
+            Write-Host "    GET /api/client/branding returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/client/branding returned $brandingStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/client/branding check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check admin branding API exists
+    $adminBrandingPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\branding\route.ts"
+    if (Test-Path -LiteralPath $adminBrandingPath) {
+        Write-Host "    GET /api/admin/client-orgs/[org_id]/branding route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-orgs/[org_id]/branding route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin branding set API exists
+    $adminBrandingSetPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\branding\set\route.ts"
+    if (Test-Path -LiteralPath $adminBrandingSetPath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/branding/set route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/client-orgs/[org_id]/branding/set route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Test admin branding API returns 401 without auth
+    try {
+        $adminBrandingRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/test-id/branding")
+        $adminBrandingRequest.Method = "GET"
+        $adminBrandingRequest.AllowAutoRedirect = $false
+        $adminBrandingRequest.Timeout = 10000
+
+        try {
+            $adminBrandingResponse = $adminBrandingRequest.GetResponse()
+            $adminBrandingStatusCode = [int]$adminBrandingResponse.StatusCode
+            $adminBrandingResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $adminBrandingStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $adminBrandingStatusCode = 0
+            }
+        }
+
+        if ($adminBrandingStatusCode -eq 401) {
+            Write-Host "    GET /api/admin/client-orgs/[id]/branding returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/admin/client-orgs/[id]/branding returned $adminBrandingStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-orgs/[id]/branding check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test admin branding set returns 401 without auth
+    try {
+        $setBrandingRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/test-id/branding/set")
+        $setBrandingRequest.Method = "POST"
+        $setBrandingRequest.ContentType = "application/json"
+        $setBrandingRequest.AllowAutoRedirect = $false
+        $setBrandingRequest.Timeout = 10000
+        $setBrandingBody = [System.Text.Encoding]::UTF8.GetBytes('{"accent_color":"blue"}')
+        $setBrandingRequest.ContentLength = $setBrandingBody.Length
+        $setBrandingStream = $setBrandingRequest.GetRequestStream()
+        $setBrandingStream.Write($setBrandingBody, 0, $setBrandingBody.Length)
+        $setBrandingStream.Close()
+
+        try {
+            $setBrandingResponse = $setBrandingRequest.GetResponse()
+            $setBrandingStatusCode = [int]$setBrandingResponse.StatusCode
+            $setBrandingResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $setBrandingStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $setBrandingStatusCode = 0
+            }
+        }
+
+        if ($setBrandingStatusCode -eq 401) {
+            Write-Host "    POST /api/admin/client-orgs/[id]/branding/set returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: POST /api/admin/client-orgs/[id]/branding/set returned $setBrandingStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-orgs/[id]/branding/set check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check ClientNav uses branding
+    $clientNavPath = Join-Path $webDir "app\client\components\ClientNav.tsx"
+    if (Test-Path $clientNavPath) {
+        $clientNavContent = Get-Content $clientNavPath -Raw
+        if ($clientNavContent -match 'EffectiveOrgBranding') {
+            Write-Host "    ClientNav imports EffectiveOrgBranding - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: ClientNav missing EffectiveOrgBranding import" -ForegroundColor Yellow
+        }
+        if ($clientNavContent -match 'accent_bg_class') {
+            Write-Host "    ClientNav uses accent classes - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: ClientNav missing accent class usage" -ForegroundColor Yellow
+        }
+    }
+
+    # /admin/client-orgs page 307 already checked in Check 35
+    Write-Host "    /admin/client-orgs page 307 verified in Check 35 - OK" -ForegroundColor Gray
+
+    Write-Host "  PASS: Per-org branding verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Per-org branding verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[36/36] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

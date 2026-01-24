@@ -37,6 +37,7 @@ export default function ClientVideosPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [orgRequired, setOrgRequired] = useState(false);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -72,15 +73,14 @@ export default function ClientVideosPage() {
     const fetchVideos = async () => {
       try {
         const res = await fetch('/api/client/videos?limit=100');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok) {
-            setVideos(data.data || []);
-          } else {
-            setError(data.error || 'Failed to load videos');
-          }
+        const data = await res.json();
+
+        if (res.status === 403 && data.error === 'client_org_required') {
+          setOrgRequired(true);
+        } else if (res.ok && data.ok) {
+          setVideos(data.data || []);
         } else {
-          setError('Failed to load videos');
+          setError(data.error || 'Failed to load videos');
         }
       } catch (err) {
         console.error('Failed to fetch videos:', err);
@@ -128,88 +128,103 @@ export default function ClientVideosPage() {
           </p>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-            {error}
+        {/* Org Required State */}
+        {orgRequired ? (
+          <div className="bg-white rounded-lg border border-amber-200 shadow-sm p-8 text-center">
+            <div className="text-amber-600 mb-2 text-lg font-medium">Portal Not Connected</div>
+            <p className="text-slate-600 mb-4">
+              Your portal is not yet connected to an organization.
+            </p>
+            <p className="text-sm text-slate-500">
+              Please contact support to get started.
+            </p>
           </div>
-        )}
-
-        {/* Videos List */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center text-slate-500">Loading videos...</div>
-          ) : videos.length === 0 ? (
-            <div className="py-12 text-center">
-              <div className="text-slate-400 mb-2">No videos found</div>
-              <div className="text-sm text-slate-500">
-                Your video projects will appear here once created.
+        ) : (
+          <>
+            {/* Error */}
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
               </div>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Video ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Last Updated
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {videos.map((video) => {
-                  const statusKey = video.recording_status || 'NOT_RECORDED';
-                  const colors = STATUS_COLORS[statusKey] || STATUS_COLORS.NOT_RECORDED;
-                  return (
-                    <tr key={video.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-slate-600">
-                          {video.id.slice(0, 8)}...
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors.bg} ${colors.text}`}>
-                          {statusKey.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {displayTime(video.created_at)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {displayTime(video.last_status_changed_at)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/client/videos/${video.id}`}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+            )}
 
-        {/* Count */}
-        {!loading && videos.length > 0 && (
-          <div className="mt-3 text-sm text-slate-500">
-            Showing {videos.length} video{videos.length !== 1 ? 's' : ''}
-          </div>
+            {/* Videos List */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+              {loading ? (
+                <div className="p-8 text-center text-slate-500">Loading videos...</div>
+              ) : videos.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="text-slate-400 mb-2">No videos found</div>
+                  <div className="text-sm text-slate-500">
+                    Your video projects will appear here once created.
+                  </div>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Video ID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Last Updated
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {videos.map((video) => {
+                      const statusKey = video.recording_status || 'NOT_RECORDED';
+                      const colors = STATUS_COLORS[statusKey] || STATUS_COLORS.NOT_RECORDED;
+                      return (
+                        <tr key={video.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-sm text-slate-600">
+                              {video.id.slice(0, 8)}...
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors.bg} ${colors.text}`}>
+                              {statusKey.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-500">
+                            {displayTime(video.created_at)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-500">
+                            {displayTime(video.last_status_changed_at)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href={`/client/videos/${video.id}`}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Count */}
+            {!loading && videos.length > 0 && (
+              <div className="mt-3 text-sm text-slate-500">
+                Showing {videos.length} video{videos.length !== 1 ? 's' : ''}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -3472,8 +3472,8 @@ try {
     Write-Host "  WARN: Client org scoping verification error: $_" -ForegroundColor Yellow
 }
 
-# [36/37] Per-Org Branding verification
-Write-Host "`n[36/37] Testing per-org branding..." -ForegroundColor Yellow
+# [36/39] Per-Org Branding verification
+Write-Host "`n[36/39] Testing per-org branding..." -ForegroundColor Yellow
 try {
     # Check lib/org-branding.ts exists and exports key functions
     $orgBrandingPath = Join-Path $webDir "lib\org-branding.ts"
@@ -3647,8 +3647,8 @@ try {
     Write-Host "  WARN: Per-org branding verification error: $_" -ForegroundColor Yellow
 }
 
-# [37/38] Client Projects verification
-Write-Host "`n[37/38] Testing client projects..." -ForegroundColor Yellow
+# [37/39] Client Projects verification
+Write-Host "`n[37/39] Testing client projects..." -ForegroundColor Yellow
 try {
     # Check lib/client-projects.ts exists
     $clientProjectsPath = Join-Path $webDir "lib\client-projects.ts"
@@ -3790,8 +3790,8 @@ try {
     Write-Host "  WARN: Client projects verification error: $_" -ForegroundColor Yellow
 }
 
-# [38/38] Org-Level Plans verification
-Write-Host "`n[38/38] Testing org-level plans..." -ForegroundColor Yellow
+# [38/39] Org-Level Plans verification
+Write-Host "`n[38/39] Testing org-level plans..." -ForegroundColor Yellow
 try {
     # Check subscription.ts has new exports
     $subscriptionPath = Join-Path $webDir "lib\subscription.ts"
@@ -3919,7 +3919,230 @@ try {
     Write-Host "  WARN: Org-level plans verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[38/38] Phase 8 verification summary..." -ForegroundColor Yellow
+# [39/39] Org Billing Model verification
+Write-Host "`n[39/39] Testing org billing model..." -ForegroundColor Yellow
+try {
+    # Check lib/billing.ts exists
+    $billingPath = Join-Path $webDir "lib\billing.ts"
+    if (Test-Path $billingPath) {
+        Write-Host "    lib/billing.ts exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: lib/billing.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $billingContent = Get-Content $billingPath -Raw
+    if ($billingContent -match 'export\s+(async\s+)?function\s+getOrgBillingConfig') {
+        Write-Host "    getOrgBillingConfig exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: getOrgBillingConfig not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($billingContent -match 'export\s+(async\s+)?function\s+computeOrgMonthlyUsage') {
+        Write-Host "    computeOrgMonthlyUsage exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: computeOrgMonthlyUsage not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($billingContent -match 'export\s+(async\s+)?function\s+computeOrgInvoicePreview') {
+        Write-Host "    computeOrgInvoicePreview exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: computeOrgInvoicePreview not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($billingContent -match 'export\s+const\s+PLAN_PRICING') {
+        Write-Host "    PLAN_PRICING exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: PLAN_PRICING not exported" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client billing summary API exists
+    $clientBillingSummaryPath = Join-Path $webDir "app\api\client\billing\summary\route.ts"
+    if (Test-Path $clientBillingSummaryPath) {
+        Write-Host "    GET /api/client/billing/summary route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/billing/summary route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check /api/client/billing/summary returns 401 without auth
+    try {
+        $clientBillingRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/client/billing/summary")
+        $clientBillingRequest.Method = "GET"
+        $clientBillingRequest.Timeout = 10000
+
+        try {
+            $clientBillingResponse = $clientBillingRequest.GetResponse()
+            $clientBillingStatusCode = [int]$clientBillingResponse.StatusCode
+            $clientBillingResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $clientBillingStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $clientBillingStatusCode = 0
+            }
+        }
+
+        if ($clientBillingStatusCode -eq 401) {
+            Write-Host "    GET /api/client/billing/summary returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/client/billing/summary returned $clientBillingStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/client/billing/summary check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check admin billing orgs API exists
+    $adminBillingOrgsPath = Join-Path $webDir "app\api\admin\billing\orgs\route.ts"
+    if (Test-Path $adminBillingOrgsPath) {
+        Write-Host "    GET /api/admin/billing/orgs route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/billing/orgs route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check /api/admin/billing/orgs returns 401 without auth
+    try {
+        $adminBillingOrgsRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/billing/orgs")
+        $adminBillingOrgsRequest.Method = "GET"
+        $adminBillingOrgsRequest.Timeout = 10000
+
+        try {
+            $adminBillingOrgsResponse = $adminBillingOrgsRequest.GetResponse()
+            $adminBillingOrgsStatusCode = [int]$adminBillingOrgsResponse.StatusCode
+            $adminBillingOrgsResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $adminBillingOrgsStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $adminBillingOrgsStatusCode = 0
+            }
+        }
+
+        if ($adminBillingOrgsStatusCode -eq 401) {
+            Write-Host "    GET /api/admin/billing/orgs returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/admin/billing/orgs returned $adminBillingOrgsStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/billing/orgs check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check admin billing export API exists
+    $adminBillingExportPath = Join-Path $webDir "app\api\admin\billing\export\route.ts"
+    if (Test-Path $adminBillingExportPath) {
+        Write-Host "    GET /api/admin/billing/export route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/admin/billing/export route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check /api/admin/billing/export returns 401 without auth
+    try {
+        $adminBillingExportRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/billing/export?type=csv")
+        $adminBillingExportRequest.Method = "GET"
+        $adminBillingExportRequest.Timeout = 10000
+
+        try {
+            $adminBillingExportResponse = $adminBillingExportRequest.GetResponse()
+            $adminBillingExportStatusCode = [int]$adminBillingExportResponse.StatusCode
+            $adminBillingExportResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $adminBillingExportStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $adminBillingExportStatusCode = 0
+            }
+        }
+
+        if ($adminBillingExportStatusCode -eq 401) {
+            Write-Host "    GET /api/admin/billing/export returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/admin/billing/export returned $adminBillingExportStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/billing/export check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check /client/billing page exists
+    $clientBillingPagePath = Join-Path $webDir "app\client\billing\page.tsx"
+    if (Test-Path $clientBillingPagePath) {
+        Write-Host "    /client/billing page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /client/billing page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check /admin/billing page exists
+    $adminBillingPagePath = Join-Path $webDir "app\admin\billing\page.tsx"
+    if (Test-Path $adminBillingPagePath) {
+        Write-Host "    /admin/billing page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /admin/billing page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check /admin/billing returns 307 or 200
+    try {
+        $adminBillingPageRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/admin/billing")
+        $adminBillingPageRequest.Method = "GET"
+        $adminBillingPageRequest.AllowAutoRedirect = $false
+        $adminBillingPageRequest.Timeout = 10000
+
+        try {
+            $adminBillingPageResponse = $adminBillingPageRequest.GetResponse()
+            $adminBillingPageStatusCode = [int]$adminBillingPageResponse.StatusCode
+            $adminBillingPageResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $adminBillingPageStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $adminBillingPageStatusCode = 0
+            }
+        }
+
+        if ($adminBillingPageStatusCode -eq 307 -or $adminBillingPageStatusCode -eq 200) {
+            Write-Host "    /admin/billing page returns $adminBillingPageStatusCode - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /admin/billing page returned $adminBillingPageStatusCode (expected 307 or 200)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /admin/billing page check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check ClientNav has Billing link
+    $clientNavPath = Join-Path $webDir "app\client\components\ClientNav.tsx"
+    if (Test-Path $clientNavPath) {
+        $clientNavContent = Get-Content $clientNavPath -Raw
+        if ($clientNavContent -match '/client/billing') {
+            Write-Host "    ClientNav has Billing link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: ClientNav missing Billing link" -ForegroundColor Yellow
+        }
+    }
+
+    # Check AdminNav has Billing link
+    $adminNavPath = Join-Path $webDir "app\admin\components\AdminNav.tsx"
+    if (Test-Path $adminNavPath) {
+        $adminNavContent = Get-Content $adminNavPath -Raw
+        if ($adminNavContent -match '/admin/billing') {
+            Write-Host "    AdminNav has Billing link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: AdminNav missing Billing link" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Org billing model verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Org billing model verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[39/39] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

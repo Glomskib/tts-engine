@@ -2,8 +2,12 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
-import { PROJECT_EVENT_TYPES } from "@/lib/client-projects";
+import { PROJECT_EVENT_TYPES, listOrgProjects } from "@/lib/client-projects";
+import { getOrgPlan, isPaidOrgPlan } from "@/lib/subscription";
 import { randomUUID } from "crypto";
+
+// Free org project limit
+const FREE_ORG_MAX_PROJECTS = 1;
 
 export const runtime = "nodejs";
 
@@ -50,6 +54,23 @@ export async function POST(
     if (trimmedName.length > 100) {
       const err = apiError("BAD_REQUEST", "project_name must be 100 characters or less", 400);
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    // Check org plan for project limits
+    const orgPlanInfo = await getOrgPlan(supabaseAdmin, orgId);
+    const isPaidOrg = isPaidOrgPlan(orgPlanInfo.plan);
+
+    // Free orgs are limited to 1 active project
+    if (!isPaidOrg) {
+      const existingProjects = await listOrgProjects(supabaseAdmin, orgId, { includeArchived: false });
+      if (existingProjects.length >= FREE_ORG_MAX_PROJECTS) {
+        return NextResponse.json({
+          ok: false,
+          error: "org_plan_limit",
+          message: `Free plan allows ${FREE_ORG_MAX_PROJECTS} active project. Upgrade to Pro for unlimited projects.`,
+          correlation_id: correlationId,
+        }, { status: 403 });
+      }
     }
 
     // Generate a new project ID

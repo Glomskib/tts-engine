@@ -7,6 +7,7 @@ import {
   isValidAccentColor,
   AccentColor,
 } from '@/lib/org-branding'
+import { getOrgPlan, isPaidOrgPlan } from '@/lib/subscription'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,6 +58,14 @@ export async function POST(
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
+    // Check org plan for feature gating
+    const orgPlanInfo = await getOrgPlan(supabaseAdmin, orgId)
+    const isPaidOrg = isPaidOrgPlan(orgPlanInfo.plan)
+
+    // Track warning if premium fields are stripped
+    let planWarning: string | null = null
+    const strippedFields: string[] = []
+
     // Build branding object (only include provided fields)
     const branding: {
       org_display_name?: string
@@ -65,25 +74,46 @@ export async function POST(
       welcome_message?: string | null
     } = {}
 
+    // org_display_name is always allowed
     if (typeof org_display_name === 'string') {
       branding.org_display_name = org_display_name.trim().slice(0, 100) || undefined
     }
 
+    // logo_url: only allowed for paid orgs
     if (logo_url !== undefined) {
-      branding.logo_url = sanitizeLogoUrl(logo_url)
+      if (isPaidOrg) {
+        branding.logo_url = sanitizeLogoUrl(logo_url)
+      } else if (logo_url) {
+        strippedFields.push('logo_url')
+      }
     }
 
+    // accent_color: only allowed for paid orgs
     if (accent_color !== undefined) {
       if (accent_color && !isValidAccentColor(accent_color)) {
         return NextResponse.json({ error: 'Invalid accent_color value' }, { status: 400 })
       }
-      branding.accent_color = accent_color || undefined
+      if (isPaidOrg) {
+        branding.accent_color = accent_color || undefined
+      } else if (accent_color) {
+        strippedFields.push('accent_color')
+      }
     }
 
+    // welcome_message: only allowed for paid orgs
     if (typeof welcome_message === 'string') {
-      branding.welcome_message = welcome_message.trim().slice(0, 500) || null
-    } else if (welcome_message === null) {
+      if (isPaidOrg) {
+        branding.welcome_message = welcome_message.trim().slice(0, 500) || null
+      } else if (welcome_message.trim()) {
+        strippedFields.push('welcome_message')
+      }
+    } else if (welcome_message === null && isPaidOrg) {
       branding.welcome_message = null
+    }
+
+    // Build warning message if fields were stripped
+    if (strippedFields.length > 0) {
+      planWarning = `Free plan: ${strippedFields.join(', ')} ignored. Upgrade to Pro for full branding.`
     }
 
     // Record branding event
@@ -110,7 +140,9 @@ export async function POST(
       data: {
         org_id: orgId,
         branding,
+        org_plan: orgPlanInfo.plan,
       },
+      ...(planWarning ? { warning: planWarning } : {}),
     })
   } catch (error) {
     console.error('Error setting org branding:', error)

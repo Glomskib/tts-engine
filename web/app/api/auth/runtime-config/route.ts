@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
-import { getEffectiveBoolean, getEffectiveNumber } from "@/lib/settings";
+import { getEffectiveBoolean, getEffectiveNumber, getIncidentModeStatus } from "@/lib/settings";
 import { getUserPlan } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -23,21 +23,25 @@ export async function GET(request: Request) {
   try {
     const userId = authContext.user.id;
 
-    // Fetch settings
+    // Fetch settings and incident mode in parallel
     const [
       subscriptionGatingEnabled,
       emailEnabled,
       slackEnabled,
       assignmentTtlMinutes,
+      incidentStatus,
+      userPlan,
     ] = await Promise.all([
       getEffectiveBoolean("SUBSCRIPTION_GATING_ENABLED"),
       getEffectiveBoolean("EMAIL_ENABLED"),
       getEffectiveBoolean("SLACK_ENABLED"),
       getEffectiveNumber("ASSIGNMENT_TTL_MINUTES"),
+      getIncidentModeStatus(),
+      getUserPlan(userId),
     ]);
 
-    // Get user plan
-    const userPlan = await getUserPlan(userId);
+    // Check if user is on allowlist
+    const isAllowlisted = incidentStatus.allowlistUserIds.includes(userId.toLowerCase());
 
     return NextResponse.json({
       ok: true,
@@ -49,6 +53,11 @@ export async function GET(request: Request) {
         assignment_ttl_minutes: assignmentTtlMinutes,
         user_plan: userPlan.plan,
         user_plan_active: userPlan.isActive,
+        // Incident mode fields
+        incident_mode_enabled: incidentStatus.enabled,
+        incident_mode_message: incidentStatus.message,
+        incident_mode_read_only: incidentStatus.readOnly,
+        is_allowlisted: isAllowlisted,
       },
       correlation_id: correlationId,
     });

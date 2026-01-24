@@ -15,6 +15,10 @@ export const ALLOWED_SETTING_KEYS = [
   "ASSIGNMENT_TTL_MINUTES",
   "SLACK_OPS_EVENTS",
   "ANALYTICS_DEFAULT_WINDOW_DAYS",
+  "INCIDENT_MODE_ENABLED",
+  "INCIDENT_MODE_MESSAGE",
+  "INCIDENT_MODE_READ_ONLY",
+  "INCIDENT_MODE_ALLOWLIST_USER_IDS",
 ] as const;
 
 export type SettingKey = typeof ALLOWED_SETTING_KEYS[number];
@@ -52,6 +56,10 @@ const DEFAULT_VALUES: Record<SettingKey, SettingValue> = {
     "user_upgrade_request_resolved",
   ],
   ANALYTICS_DEFAULT_WINDOW_DAYS: 7,
+  INCIDENT_MODE_ENABLED: false,
+  INCIDENT_MODE_MESSAGE: "System is currently in maintenance mode.",
+  INCIDENT_MODE_READ_ONLY: false,
+  INCIDENT_MODE_ALLOWLIST_USER_IDS: [],
 };
 
 /**
@@ -75,6 +83,8 @@ function getEnvValue(key: SettingKey): SettingValue | undefined {
     case "SUBSCRIPTION_GATING_ENABLED":
     case "EMAIL_ENABLED":
     case "SLACK_ENABLED":
+    case "INCIDENT_MODE_ENABLED":
+    case "INCIDENT_MODE_READ_ONLY":
       return envValue === "true" || envValue === "1";
 
     case "ASSIGNMENT_TTL_MINUTES":
@@ -83,12 +93,16 @@ function getEnvValue(key: SettingKey): SettingValue | undefined {
       return isNaN(num) ? undefined : num;
 
     case "SLACK_OPS_EVENTS":
+    case "INCIDENT_MODE_ALLOWLIST_USER_IDS":
       try {
         const parsed = JSON.parse(envValue);
         return Array.isArray(parsed) ? parsed : undefined;
       } catch {
         return envValue.split(",").map((s) => s.trim());
       }
+
+    case "INCIDENT_MODE_MESSAGE":
+      return envValue;
 
     default:
       return envValue;
@@ -269,4 +283,98 @@ export async function setSystemSetting(
     console.error("Error in setSystemSetting:", err);
     return { ok: false, error: String(err) };
   }
+}
+
+/**
+ * Get the effective string value for a setting.
+ * Convenience wrapper for string settings.
+ */
+export async function getEffectiveString(key: SettingKey): Promise<string> {
+  const setting = await getEffectiveSetting(key);
+  const value = setting.effective_value;
+  return typeof value === "string" ? value : String(value);
+}
+
+// ============================================
+// Incident Mode Helpers
+// ============================================
+
+export interface IncidentModeStatus {
+  enabled: boolean;
+  message: string;
+  readOnly: boolean;
+  allowlistUserIds: string[];
+}
+
+/**
+ * Get current incident mode status.
+ * Fail-safe: returns disabled if any error.
+ */
+export async function getIncidentModeStatus(): Promise<IncidentModeStatus> {
+  try {
+    const [enabled, message, readOnly, allowlist] = await Promise.all([
+      getEffectiveBoolean("INCIDENT_MODE_ENABLED"),
+      getEffectiveString("INCIDENT_MODE_MESSAGE"),
+      getEffectiveBoolean("INCIDENT_MODE_READ_ONLY"),
+      getEffectiveStringArray("INCIDENT_MODE_ALLOWLIST_USER_IDS"),
+    ]);
+
+    return {
+      enabled,
+      message,
+      readOnly,
+      allowlistUserIds: allowlist.map((id) => id.toLowerCase()),
+    };
+  } catch (err) {
+    console.error("Error getting incident mode status:", err);
+    return {
+      enabled: false,
+      message: "",
+      readOnly: false,
+      allowlistUserIds: [],
+    };
+  }
+}
+
+/**
+ * Check if a user is blocked by incident read-only mode.
+ * Returns { blocked: false } if:
+ *   - Incident mode is not enabled
+ *   - Read-only mode is not enabled
+ *   - User is an admin
+ *   - User is on the allowlist
+ * Returns { blocked: true, message } otherwise.
+ */
+export async function checkIncidentReadOnlyBlock(
+  userId: string,
+  isAdmin: boolean
+): Promise<{ blocked: boolean; message?: string }> {
+  // Admins always bypass
+  if (isAdmin) {
+    return { blocked: false };
+  }
+
+  const status = await getIncidentModeStatus();
+
+  // If incident mode not enabled, no block
+  if (!status.enabled) {
+    return { blocked: false };
+  }
+
+  // If read-only not enabled, no block (banner still shows)
+  if (!status.readOnly) {
+    return { blocked: false };
+  }
+
+  // Check allowlist
+  const normalizedUserId = userId.toLowerCase();
+  if (status.allowlistUserIds.includes(normalizedUserId)) {
+    return { blocked: false };
+  }
+
+  // User is blocked
+  return {
+    blocked: true,
+    message: status.message || "System is in maintenance mode.",
+  };
 }

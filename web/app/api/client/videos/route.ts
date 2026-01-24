@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser, getOrgVideos } from "@/lib/client-org";
+import { getOrgVideoProjectMappings, listProjectVideos } from "@/lib/client-projects";
 
 export const runtime = "nodejs";
 
@@ -41,12 +42,22 @@ export async function GET(request: Request) {
     }
   }
 
-  try {
-    // Get video IDs belonging to this organization
-    const orgVideoIds = await getOrgVideos(supabaseAdmin, membership.org_id);
+  // Parse project_id filter
+  const projectIdFilter = searchParams.get("project_id");
 
-    if (orgVideoIds.length === 0) {
-      // No videos in org
+  try {
+    let videoIds: string[];
+
+    if (projectIdFilter) {
+      // Filter by project
+      videoIds = await listProjectVideos(supabaseAdmin, membership.org_id, projectIdFilter);
+    } else {
+      // Get all video IDs belonging to this organization
+      videoIds = await getOrgVideos(supabaseAdmin, membership.org_id);
+    }
+
+    if (videoIds.length === 0) {
+      // No videos
       return NextResponse.json({
         ok: true,
         data: [],
@@ -54,15 +65,19 @@ export async function GET(request: Request) {
           count: 0,
           limit,
           org_id: membership.org_id,
+          project_id: projectIdFilter || undefined,
         },
       });
     }
+
+    // Get video-project mappings for this org
+    const videoProjectMap = await getOrgVideoProjectMappings(supabaseAdmin, membership.org_id);
 
     // Fetch only videos that belong to the org
     const { data: videos, error } = await supabaseAdmin
       .from("videos")
       .select(CLIENT_SAFE_SELECT)
-      .in("id", orgVideoIds)
+      .in("id", videoIds)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -72,7 +87,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    // Map to client-safe shape
+    // Map to client-safe shape with project_id
     const clientVideos = (videos || []).map((v) => ({
       id: v.id,
       status: v.status,
@@ -81,6 +96,7 @@ export async function GET(request: Request) {
       last_status_changed_at: v.last_status_changed_at,
       posted_url: v.posted_url,
       posted_platform: v.posted_platform,
+      project_id: videoProjectMap.get(v.id) || null,
     }));
 
     return NextResponse.json({
@@ -90,6 +106,7 @@ export async function GET(request: Request) {
         count: clientVideos.length,
         limit,
         org_id: membership.org_id,
+        project_id: projectIdFilter || undefined,
       },
     });
   } catch (err) {

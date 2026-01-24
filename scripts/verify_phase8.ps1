@@ -3472,8 +3472,8 @@ try {
     Write-Host "  WARN: Client org scoping verification error: $_" -ForegroundColor Yellow
 }
 
-# [36/36] Per-Org Branding verification
-Write-Host "`n[36/36] Testing per-org branding..." -ForegroundColor Yellow
+# [36/37] Per-Org Branding verification
+Write-Host "`n[36/37] Testing per-org branding..." -ForegroundColor Yellow
 try {
     # Check lib/org-branding.ts exists and exports key functions
     $orgBrandingPath = Join-Path $webDir "lib\org-branding.ts"
@@ -3647,7 +3647,150 @@ try {
     Write-Host "  WARN: Per-org branding verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[36/36] Phase 8 verification summary..." -ForegroundColor Yellow
+# [37/37] Client Projects verification
+Write-Host "`n[37/37] Testing client projects..." -ForegroundColor Yellow
+try {
+    # Check lib/client-projects.ts exists
+    $clientProjectsPath = Join-Path $webDir "lib\client-projects.ts"
+    if (Test-Path $clientProjectsPath) {
+        Write-Host "    lib/client-projects.ts exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: lib/client-projects.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check exports
+    $clientProjectsContent = Get-Content $clientProjectsPath -Raw
+    if ($clientProjectsContent -match 'export\s+(async\s+)?function\s+listOrgProjects') {
+        Write-Host "    listOrgProjects exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: listOrgProjects not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($clientProjectsContent -match 'export\s+(async\s+)?function\s+getProjectById') {
+        Write-Host "    getProjectById exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: getProjectById not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($clientProjectsContent -match 'export\s+(async\s+)?function\s+listProjectVideos') {
+        Write-Host "    listProjectVideos exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: listProjectVideos not exported" -ForegroundColor Red
+        exit 1
+    }
+    if ($clientProjectsContent -match 'export\s+(async\s+)?function\s+getOrgVideoProjectMappings') {
+        Write-Host "    getOrgVideoProjectMappings exported - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: getOrgVideoProjectMappings not exported" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client projects route exists
+    $clientProjectsRoutePath = Join-Path $webDir "app\api\client\projects\route.ts"
+    if (Test-Path $clientProjectsRoutePath) {
+        Write-Host "    GET /api/client/projects route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/projects route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client project detail route exists
+    $clientProjectDetailRoutePath = Join-Path $webDir "app\api\client\projects\[project_id]\route.ts"
+    if (Test-Path -LiteralPath $clientProjectDetailRoutePath) {
+        Write-Host "    GET /api/client/projects/[project_id] route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /api/client/projects/[project_id] route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin project APIs
+    $adminProjectCreatePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\projects\create\route.ts"
+    if (Test-Path -LiteralPath $adminProjectCreatePath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/projects/create route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Admin project create route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminProjectArchivePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\projects\[project_id]\archive\route.ts"
+    if (Test-Path -LiteralPath $adminProjectArchivePath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/projects/[project_id]/archive route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Admin project archive route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $adminSetProjectPath = Join-Path $webDir "app\api\admin\videos\[video_id]\set-project\route.ts"
+    if (Test-Path -LiteralPath $adminSetProjectPath) {
+        Write-Host "    POST /api/admin/videos/[video_id]/set-project route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Admin set-project route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client projects page
+    $clientProjectsPagePath = Join-Path $webDir "app\client\projects\page.tsx"
+    if (Test-Path -LiteralPath $clientProjectsPagePath) {
+        Write-Host "    /client/projects page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /client/projects page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $clientProjectDetailPagePath = Join-Path $webDir "app\client\projects\[project_id]\page.tsx"
+    if (Test-Path -LiteralPath $clientProjectDetailPagePath) {
+        Write-Host "    /client/projects/[project_id] page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: /client/projects/[project_id] page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check ClientNav has Projects link
+    $clientNavPath = Join-Path $webDir "app\client\components\ClientNav.tsx"
+    if (Test-Path $clientNavPath) {
+        $clientNavContent = Get-Content $clientNavPath -Raw
+        if ($clientNavContent -match '/client/projects') {
+            Write-Host "    ClientNav has Projects link - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: ClientNav missing Projects link" -ForegroundColor Yellow
+        }
+    }
+
+    # Check /api/client/projects returns 401 without auth
+    try {
+        $clientProjectsRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/client/projects")
+        $clientProjectsRequest.Method = "GET"
+        $clientProjectsRequest.Timeout = 10000
+
+        try {
+            $clientProjectsResponse = $clientProjectsRequest.GetResponse()
+            $clientProjectsStatusCode = [int]$clientProjectsResponse.StatusCode
+            $clientProjectsResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $clientProjectsStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $clientProjectsStatusCode = 0
+            }
+        }
+
+        if ($clientProjectsStatusCode -eq 401) {
+            Write-Host "    GET /api/client/projects returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: GET /api/client/projects returned $clientProjectsStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/client/projects check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Client projects verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Client projects verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[37/37] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

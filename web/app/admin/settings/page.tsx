@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
+import IncidentBanner from '../components/IncidentBanner';
 
 interface EffectiveSetting {
   key: string;
@@ -14,13 +15,18 @@ interface EffectiveSetting {
 }
 
 // Setting type info for proper input rendering
-const SETTING_TYPES: Record<string, 'boolean' | 'number' | 'string[]'> = {
+const SETTING_TYPES: Record<string, 'boolean' | 'number' | 'string' | 'string[]'> = {
   SUBSCRIPTION_GATING_ENABLED: 'boolean',
   EMAIL_ENABLED: 'boolean',
   SLACK_ENABLED: 'boolean',
   ASSIGNMENT_TTL_MINUTES: 'number',
   SLACK_OPS_EVENTS: 'string[]',
   ANALYTICS_DEFAULT_WINDOW_DAYS: 'number',
+  // Incident mode settings
+  INCIDENT_MODE_ENABLED: 'boolean',
+  INCIDENT_MODE_MESSAGE: 'string',
+  INCIDENT_MODE_READ_ONLY: 'boolean',
+  INCIDENT_MODE_ALLOWLIST_USER_IDS: 'string[]',
 };
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
@@ -30,6 +36,11 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
   ASSIGNMENT_TTL_MINUTES: 'Default assignment TTL in minutes (1-10080, i.e., up to 7 days)',
   SLACK_OPS_EVENTS: 'List of event types that trigger Slack notifications',
   ANALYTICS_DEFAULT_WINDOW_DAYS: 'Default analytics time window (7, 14, or 30 days)',
+  // Incident mode settings
+  INCIDENT_MODE_ENABLED: 'When enabled, shows a maintenance banner to all authenticated users',
+  INCIDENT_MODE_MESSAGE: 'Custom message to display in the maintenance banner',
+  INCIDENT_MODE_READ_ONLY: 'When enabled (with incident mode), blocks all write operations for non-admin users',
+  INCIDENT_MODE_ALLOWLIST_USER_IDS: 'User IDs that bypass read-only mode (comma-separated UUIDs)',
 };
 
 export default function AdminSettingsPage() {
@@ -117,7 +128,7 @@ export default function AdminSettingsPage() {
   };
 
   // Parse input value based on setting type
-  const parseValue = (key: string, inputValue: string): boolean | number | string[] | null => {
+  const parseValue = (key: string, inputValue: string): boolean | number | string | string[] | null => {
     const type = SETTING_TYPES[key];
 
     if (type === 'boolean') {
@@ -138,6 +149,13 @@ export default function AdminSettingsPage() {
       // General number validation
       if (num < 1 || num > 10080) return null;
       return num;
+    }
+
+    if (type === 'string') {
+      // Allow any non-empty string
+      const trimmed = inputValue.trim();
+      if (trimmed.length === 0) return null;
+      return trimmed;
     }
 
     if (type === 'string[]') {
@@ -206,6 +224,9 @@ export default function AdminSettingsPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+      {/* Incident Mode Banner */}
+      <IncidentBanner />
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>System Settings</h1>
@@ -345,6 +366,20 @@ export default function AdminSettingsPage() {
                         borderRadius: '4px',
                         fontSize: '14px',
                         width: '150px',
+                      }}
+                    />
+                  ) : SETTING_TYPES[setting.key] === 'string' ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      placeholder="Enter message text"
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        width: '100%',
                       }}
                     />
                   ) : (

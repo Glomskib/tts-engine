@@ -56,13 +56,13 @@ interface RoleWorkbenchProps {
 function getSlaColor(status: SlaStatus): { bg: string; text: string; border: string } {
   switch (status) {
     case 'overdue':
-      return { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' };
+      return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' };
     case 'due_soon':
-      return { bg: '#fff3bf', text: '#e67700', border: '#ffd43b' };
+      return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' };
     case 'on_track':
-      return { bg: '#d3f9d8', text: '#2b8a3e', border: '#69db7c' };
+      return { bg: '#dcfce7', text: '#16a34a', border: '#bbf7d0' };
     default:
-      return { bg: '#f8f9fa', text: '#495057', border: '#dee2e6' };
+      return { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' };
   }
 }
 
@@ -77,6 +77,13 @@ function formatDuration(minutes: number): string {
 }
 
 const PLATFORMS = ['tiktok', 'instagram', 'youtube', 'other'] as const;
+
+// Role display colors
+const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  recorder: { bg: '#dbeafe', text: '#1d4ed8' },
+  editor: { bg: '#fef3c7', text: '#b45309' },
+  uploader: { bg: '#dcfce7', text: '#15803d' },
+};
 
 export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
   const hydrated = useHydrated();
@@ -102,7 +109,11 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
   // Action state
   const [submitting, setSubmitting] = useState(false);
   const [releasing, setReleasing] = useState(false);
-  const [showScript, setShowScript] = useState(true);
+
+  // Accordion state
+  const [showScript, setShowScript] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Notifications state
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -386,8 +397,6 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         body: JSON.stringify({}),
       });
 
-      // Clear assignment by completing it (or you could add a release-assignment endpoint)
-      // For now, we'll just reload to get next work
       setMessage({ type: 'success', text: 'Assignment released' });
 
       setTimeout(() => {
@@ -414,619 +423,523 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
 
   // Loading states
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">Checking access...</div>
+      </div>
+    );
   }
 
   if (!authUser) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">Redirecting...</div>
+      </div>
+    );
   }
 
   const timeLeft = getAssignmentTimeLeft();
+  const roleColors = ROLE_COLORS[role] || { bg: '#f1f5f9', text: '#64748b' };
 
   // Get primary action button config
   const getPrimaryAction = () => {
     if (!video) return null;
 
     if (role === 'recorder') {
-      return {
-        label: 'Mark Recorded',
-        color: '#228be6',
-      };
+      return { label: 'Mark Recorded', color: '#2563eb' };
     } else if (role === 'editor') {
       if (video.recording_status === 'RECORDED') {
-        return {
-          label: 'Mark Edited',
-          color: '#fab005',
-        };
+        return { label: 'Mark Edited', color: '#d97706' };
       } else {
-        return {
-          label: 'Mark Ready to Post',
-          color: '#40c057',
-        };
+        return { label: 'Mark Ready to Post', color: '#16a34a' };
       }
     } else {
-      return {
-        label: 'Mark Posted',
-        color: '#1971c2',
-      };
+      return { label: 'Mark Posted', color: '#7c3aed' };
     }
   };
 
   const primaryAction = getPrimaryAction();
 
-  return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      {/* Incident Mode Banner */}
-      <IncidentBanner />
-
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>{title}</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Link
-            href={`/admin/${role}`}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              borderRadius: '4px',
-              textDecoration: 'none',
-              fontSize: '13px',
-            }}
-          >
-            Dashboard
-          </Link>
-        </div>
-      </div>
-
-      {/* User info */}
-      <div style={{
-        marginBottom: '20px',
-        padding: '10px 15px',
-        backgroundColor: '#e7f5ff',
-        borderRadius: '4px',
-        border: '1px solid #74c0fc',
-        fontSize: '13px',
-      }}>
-        <strong>{authUser.email || authUser.id.slice(0, 8)}</strong>
-        <span style={{
-          marginLeft: '10px',
-          padding: '2px 8px',
-          backgroundColor: '#fff',
-          borderRadius: '4px',
-          textTransform: 'capitalize',
-        }}>
-          {role}
-        </span>
-        <button
-          onClick={async () => {
-            const supabase = createBrowserSupabaseClient();
-            await supabase.auth.signOut();
-            router.push('/login');
-          }}
-          style={{
-            marginLeft: '15px',
-            padding: '3px 8px',
-            backgroundColor: 'transparent',
-            border: '1px solid #74c0fc',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-          }}
-        >
-          Sign Out
-        </button>
-        <button
-          onClick={() => setShowNotifications(!showNotifications)}
-          style={{
-            marginLeft: '10px',
-            padding: '3px 10px',
-            backgroundColor: notifications.some(n => !n.is_read) ? '#fff3bf' : 'transparent',
-            border: '1px solid #74c0fc',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-          }}
-        >
-          Notifications ({notifications.filter(n => !n.is_read).length})
-        </button>
-      </div>
-
-      {/* Notifications panel */}
-      {showNotifications && (
-        <div style={{
-          marginBottom: '15px',
-          padding: '12px 16px',
-          backgroundColor: '#fff',
-          borderRadius: '4px',
-          border: '1px solid #dee2e6',
-          maxHeight: '300px',
-          overflow: 'auto',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <strong>Recent Notifications</strong>
-            <button
-              onClick={() => setShowNotifications(false)}
-              style={{
-                padding: '2px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '11px',
-              }}
-            >
-              Close
-            </button>
-          </div>
-          {notifications.length === 0 ? (
-            <div style={{ color: '#6c757d', fontSize: '13px' }}>No notifications</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {notifications.map(notif => (
-                <div
-                  key={notif.id}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: notif.is_read ? '#f8f9fa' : '#e7f5ff',
-                    borderRadius: '4px',
-                    border: `1px solid ${notif.is_read ? '#dee2e6' : '#74c0fc'}`,
-                    fontSize: '12px',
-                  }}
-                >
-                  <div style={{ fontWeight: notif.is_read ? 'normal' : 'bold' }}>
-                    {notif.type === 'assigned' && 'New assignment'}
-                    {notif.type === 'assignment_expired' && 'Assignment expired'}
-                    {notif.type === 'handoff' && 'Work handed off to you'}
-                    {!['assigned', 'assignment_expired', 'handoff'].includes(notif.type) && notif.type}
-                  </div>
-                  <div style={{ color: '#6c757d', fontSize: '11px', marginTop: '2px' }}>
-                    {hydrated && formatDateString(notif.created_at)}
-                    {notif.video_id && ` • ${notif.video_id.slice(0, 8)}...`}
-                  </div>
-                </div>
-              ))}
-            </div>
+  // Accordion component
+  const Accordion = ({
+    title,
+    isOpen,
+    onToggle,
+    children,
+    badge,
+  }: {
+    title: string;
+    isOpen: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+    badge?: string;
+  }) => (
+    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-slate-700">{title}</span>
+          {badge && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-slate-200 text-slate-600">{badge}</span>
           )}
         </div>
-      )}
+        <span className="text-slate-400">{isOpen ? '−' : '+'}</span>
+      </button>
+      {isOpen && <div className="border-t border-slate-200">{children}</div>}
+    </div>
+  );
 
-      {/* Previous expired message */}
-      {previousExpiredMessage && (
-        <div style={{
-          marginBottom: '15px',
-          padding: '12px 16px',
-          backgroundColor: '#fff3bf',
-          color: '#e67700',
-          borderRadius: '4px',
-          border: '1px solid #ffd43b',
-        }}>
-          {previousExpiredMessage}
-        </div>
-      )}
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        {/* Incident Mode Banner */}
+        <IncidentBanner />
 
-      {/* Subscription required prompt */}
-      {subscriptionRequired && (
-        <div style={{
-          marginBottom: '15px',
-          padding: '20px',
-          backgroundColor: '#e7f5ff',
-          borderRadius: '8px',
-          border: '2px solid #228be6',
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1971c2', marginBottom: '10px' }}>
-            Upgrade Required
-          </div>
-          <div style={{ color: '#495057', marginBottom: '15px' }}>
-            You need a Pro subscription to dispatch and complete tasks.
-          </div>
-          <Link
-            href="/upgrade"
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#228be6',
-              color: 'white',
-              borderRadius: '4px',
-              display: 'inline-block',
-              fontWeight: 'bold',
-              textDecoration: 'none',
-            }}
-          >
-            View Upgrade Options
-          </Link>
-        </div>
-      )}
-
-      {/* Message */}
-      {message && (
-        <div style={{
-          marginBottom: '15px',
-          padding: '12px 16px',
-          backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-          color: message.type === 'success' ? '#155724' : '#721c24',
-          borderRadius: '4px',
-          border: `1px solid ${message.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
-        }}>
-          {message.text}
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading && (
-        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-          Loading your next task...
-        </div>
-      )}
-
-      {/* No work available */}
-      {!loading && !video && !error && !subscriptionRequired && (
-        <div style={{
-          padding: '40px',
-          textAlign: 'center',
-          backgroundColor: '#d3f9d8',
-          borderRadius: '8px',
-          border: '1px solid #69db7c',
-        }}>
-          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2b8a3e', marginBottom: '10px' }}>
-            No work available
-          </div>
-          <div style={{ color: '#37b24d', marginBottom: '20px' }}>
-            All caught up! Check back later for new tasks.
-          </div>
-          <button
-            onClick={loadWork}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
-            Dispatch Next
-          </button>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          borderRadius: '4px',
-          color: '#721c24',
-          marginBottom: '20px',
-        }}>
-          {error}
-          <button
-            onClick={loadWork}
-            style={{
-              marginLeft: '15px',
-              padding: '6px 12px',
-              backgroundColor: '#721c24',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-
-      {/* Task Card */}
-      {video && (
-        <div style={{
-          border: '2px solid #228be6',
-          borderRadius: '8px',
-          overflow: 'hidden',
-        }}>
-          {/* Header */}
-          <div style={{
-            padding: '15px 20px',
-            backgroundColor: '#e7f5ff',
-            borderBottom: '1px solid #74c0fc',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '10px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '14px' }}>
-                {video.id.slice(0, 8)}...
-              </span>
-              <button
-                onClick={copyVideoId}
-                style={{
-                  padding: '4px 8px',
-                  backgroundColor: copiedId ? '#28a745' : '#fff',
-                  color: copiedId ? 'white' : '#333',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                }}
+        {/* Context Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold text-slate-800">Workbench</h1>
+              <span
+                className="px-3 py-1 rounded-full text-sm font-medium capitalize"
+                style={{ backgroundColor: roleColors.bg, color: roleColors.text }}
               >
-                {copiedId ? 'Copied!' : 'Copy ID'}
+                {role}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative px-3 py-1.5 text-sm rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
+              >
+                Notifications
+                {notifications.filter(n => !n.is_read).length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center text-xs bg-red-500 text-white rounded-full">
+                    {notifications.filter(n => !n.is_read).length}
+                  </span>
+                )}
               </button>
               <Link
-                href={`/admin/pipeline/${video.id}`}
-                target="_blank"
-                style={{ fontSize: '12px', color: '#228be6' }}
+                href={`/admin/${role}`}
+                className="px-3 py-1.5 text-sm rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-slate-600"
               >
-                Full Details
+                Dashboard
               </Link>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              {/* Status badge */}
-              <span style={{
-                padding: '4px 12px',
-                backgroundColor: '#fff',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              }}>
-                {video.recording_status?.replace(/_/g, ' ') || 'NOT RECORDED'}
-              </span>
-              {/* Assignment time */}
-              {timeLeft !== null && (
-                <span style={{
-                  padding: '4px 10px',
-                  backgroundColor: timeLeft < 30 ? '#fff3bf' : '#d3f9d8',
-                  color: timeLeft < 30 ? '#e67700' : '#2b8a3e',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}>
-                  {timeLeft > 0 ? `${formatDuration(timeLeft)} left` : 'Expired'}
-                </span>
-              )}
-            </div>
           </div>
+          <div className="text-sm text-slate-500">
+            {loading ? 'Loading...' : video ? 'Active task loaded' : 'No active task'}
+            {video && timeLeft !== null && (
+              <span className="ml-2">
+                • <span className={timeLeft < 30 ? 'text-amber-600 font-medium' : 'text-slate-500'}>
+                  {timeLeft > 0 ? `${formatDuration(timeLeft)} remaining` : 'Time expired'}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
 
-          {/* Script section */}
-          {video.script_locked_text && (
-            <div style={{ borderBottom: '1px solid #dee2e6' }}>
+        {/* User info bar */}
+        <div className="mb-4 px-4 py-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-slate-600">{authUser.email || authUser.id.slice(0, 8)}</span>
+            <span className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 capitalize">{authUser.role}</span>
+          </div>
+          <button
+            onClick={async () => {
+              const supabase = createBrowserSupabaseClient();
+              await supabase.auth.signOut();
+              router.push('/login');
+            }}
+            className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+
+        {/* Notifications panel */}
+        {showNotifications && (
+          <div className="mb-4 p-4 bg-white rounded-lg border border-slate-200 max-h-72 overflow-auto">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-medium text-slate-700">Recent Notifications</span>
               <button
-                onClick={() => setShowScript(!showScript)}
-                style={{
-                  width: '100%',
-                  padding: '12px 20px',
-                  backgroundColor: '#f8f9fa',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}
+                onClick={() => setShowNotifications(false)}
+                className="text-xs text-slate-500 hover:text-slate-700"
               >
-                <span>Script</span>
-                <span>{showScript ? '▼' : '▶'}</span>
+                Close
               </button>
-              {showScript && (
-                <pre style={{
-                  margin: 0,
-                  padding: '15px 20px',
-                  backgroundColor: '#fff',
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'monospace',
-                  fontSize: '13px',
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                }}>
-                  {video.script_locked_text}
-                </pre>
-              )}
             </div>
-          )}
-
-          {/* Form section */}
-          <div style={{ padding: '20px' }}>
-            {/* Recorder form */}
-            {role === 'recorder' && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Recording Notes (optional)
-                </label>
-                <textarea
-                  value={recordingNotes}
-                  onChange={(e) => setRecordingNotes(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    minHeight: '80px',
-                    resize: 'vertical',
-                  }}
-                  placeholder="Any notes about the recording..."
-                />
+            {notifications.length === 0 ? (
+              <div className="text-sm text-slate-400">No notifications</div>
+            ) : (
+              <div className="space-y-2">
+                {notifications.map(notif => (
+                  <div
+                    key={notif.id}
+                    className={`p-3 rounded-md text-sm ${notif.is_read ? 'bg-slate-50' : 'bg-blue-50 border border-blue-100'}`}
+                  >
+                    <div className={notif.is_read ? 'text-slate-600' : 'text-slate-800 font-medium'}>
+                      {notif.type === 'assigned' && 'New assignment'}
+                      {notif.type === 'assignment_expired' && 'Assignment expired'}
+                      {notif.type === 'handoff' && 'Work handed off to you'}
+                      {!['assigned', 'assignment_expired', 'handoff'].includes(notif.type) && notif.type}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {hydrated && formatDateString(notif.created_at)}
+                      {notif.video_id && ` • ${notif.video_id.slice(0, 8)}...`}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        )}
 
-            {/* Editor form */}
-            {role === 'editor' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        {/* Previous expired message */}
+        {previousExpiredMessage && (
+          <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+            {previousExpiredMessage}
+          </div>
+        )}
+
+        {/* Subscription required prompt */}
+        {subscriptionRequired && (
+          <div className="mb-4 p-6 bg-blue-50 border border-blue-200 rounded-lg text-center">
+            <div className="text-lg font-semibold text-blue-800 mb-2">Upgrade Required</div>
+            <div className="text-sm text-blue-600 mb-4">
+              You need a Pro subscription to dispatch and complete tasks.
+            </div>
+            <Link
+              href="/upgrade"
+              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
+            >
+              View Upgrade Options
+            </Link>
+          </div>
+        )}
+
+        {/* Message */}
+        {message && (
+          <div className={`mb-4 px-4 py-3 rounded-lg text-sm ${
+            message.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}>
+            {message.text}
+          </div>
+        )}
+
+        {/* Loading state */}
+        {loading && (
+          <div className="py-16 text-center">
+            <div className="inline-block w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mb-4"></div>
+            <div className="text-slate-500">Loading your next task...</div>
+          </div>
+        )}
+
+        {/* Empty state - No work available */}
+        {!loading && !video && !error && !subscriptionRequired && (
+          <div className="py-16 text-center">
+            <div className="max-w-sm mx-auto">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                <span className="text-2xl">✓</span>
+              </div>
+              <h2 className="text-xl font-semibold text-slate-800 mb-2">No work available</h2>
+              <p className="text-slate-500 mb-6">
+                You're all caught up. Check back soon or dispatch the next item.
+              </p>
+              <button
+                onClick={loadWork}
+                className="px-6 py-2.5 bg-slate-800 text-white rounded-md font-medium hover:bg-slate-700 transition-colors"
+              >
+                Dispatch Next
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-red-700 mb-2">{error}</div>
+            <button
+              onClick={loadWork}
+              className="px-4 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Current Task Card */}
+        {video && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            {/* Card Header */}
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-slate-500">Current Task</span>
+                  <span className="font-mono text-sm text-slate-700">{video.id.slice(0, 8)}...</span>
+                  <button
+                    onClick={copyVideoId}
+                    className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                      copiedId
+                        ? 'bg-green-500 text-white border-green-500'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                    }`}
+                  >
+                    {copiedId ? 'Copied!' : 'Copy ID'}
+                  </button>
+                  <Link
+                    href={`/admin/pipeline/${video.id}`}
+                    target="_blank"
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Full Details →
+                  </Link>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Status chip */}
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-700">
+                    {video.recording_status?.replace(/_/g, ' ') || 'NOT RECORDED'}
+                  </span>
+                  {/* Time left chip */}
+                  {timeLeft !== null && (
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      timeLeft < 30
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {timeLeft > 0 ? `${formatDuration(timeLeft)} left` : 'Expired'}
+                    </span>
+                  )}
+                  {/* SLA chip */}
+                  {video.sla_status && (
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-medium"
+                      style={{
+                        backgroundColor: getSlaColor(video.sla_status).bg,
+                        color: getSlaColor(video.sla_status).text
+                      }}
+                    >
+                      {video.sla_status.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Time in stage */}
+              {video.age_minutes_in_stage !== undefined && (
+                <div className="mt-2 text-xs text-slate-400">
+                  Time in stage: {formatDuration(video.age_minutes_in_stage)}
+                </div>
+              )}
+            </div>
+
+            {/* Required Fields Section */}
+            <div className="px-6 py-5">
+              <div className="mb-4">
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Required Fields</span>
+              </div>
+
+              {/* Recorder form */}
+              {role === 'recorder' && (
                 <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                    Editor Notes (optional)
+                  <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                    Recording Notes <span className="text-slate-400 font-normal">(optional)</span>
                   </label>
                   <textarea
-                    value={editorNotes}
-                    onChange={(e) => setEditorNotes(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      minHeight: '80px',
-                      resize: 'vertical',
-                    }}
-                    placeholder="Any notes about the editing..."
+                    value={recordingNotes}
+                    onChange={(e) => setRecordingNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    placeholder="Any notes about the recording..."
                   />
                 </div>
-                {video.recording_status === 'EDITED' && (
+              )}
+
+              {/* Editor form */}
+              {role === 'editor' && (
+                <div className="space-y-4">
+                  {video.recording_status === 'EDITED' && (
+                    <div>
+                      <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                        Final Video URL <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={finalVideoUrl}
+                        onChange={(e) => setFinalVideoUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="https://..."
+                      />
+                    </div>
+                  )}
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                      Final Video URL <span style={{ color: '#dc3545' }}>*</span>
+                    <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                      Editor Notes <span className="text-slate-400 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      value={editorNotes}
+                      onChange={(e) => setEditorNotes(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={3}
+                      placeholder="Any notes about the editing..."
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Uploader form */}
+              {role === 'uploader' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                        Platform <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={postedPlatform}
+                        onChange={(e) => setPostedPlatform(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      >
+                        <option value="">Select platform</option>
+                        {PLATFORMS.map(p => (
+                          <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                        Account/Handle <span className="text-slate-400 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={postedAccount}
+                        onChange={(e) => setPostedAccount(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="@username"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                      Posted URL <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={finalVideoUrl}
-                      onChange={(e) => setFinalVideoUrl(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                      }}
+                      value={postedUrl}
+                      onChange={(e) => setPostedUrl(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="https://..."
                     />
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Uploader form */}
-            {role === 'uploader' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                      Platform <span style={{ color: '#dc3545' }}>*</span>
+                    <label className="block mb-1.5 text-sm font-medium text-slate-700">
+                      Uploader Notes <span className="text-slate-400 font-normal">(optional)</span>
                     </label>
-                    <select
-                      value={postedPlatform}
-                      onChange={(e) => setPostedPlatform(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                      }}
-                    >
-                      <option value="">-- Select --</option>
-                      {PLATFORMS.map(p => (
-                        <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                      Account/Handle
-                    </label>
-                    <input
-                      type="text"
-                      value={postedAccount}
-                      onChange={(e) => setPostedAccount(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                      }}
-                      placeholder="@username"
+                    <textarea
+                      value={uploaderNotes}
+                      onChange={(e) => setUploaderNotes(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={2}
+                      placeholder="Any notes about the posting..."
                     />
                   </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                    Posted URL <span style={{ color: '#dc3545' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={postedUrl}
-                    onChange={(e) => setPostedUrl(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                    }}
-                    placeholder="https://..."
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                    Uploader Notes (optional)
-                  </label>
-                  <textarea
-                    value={uploaderNotes}
-                    onChange={(e) => setUploaderNotes(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      minHeight: '60px',
-                      resize: 'vertical',
-                    }}
-                    placeholder="Any notes about the posting..."
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Actions */}
-          <div style={{
-            padding: '15px 20px',
-            backgroundColor: '#f8f9fa',
-            borderTop: '1px solid #dee2e6',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '10px',
-          }}>
-            <button
-              onClick={handleRelease}
-              disabled={releasing}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: releasing ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {releasing ? 'Releasing...' : 'Release Assignment'}
-            </button>
+            {/* Primary CTA */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+              {primaryAction && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting || subscriptionRequired}
+                  className="w-full py-3 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: (submitting || subscriptionRequired) ? '#94a3b8' : primaryAction.color
+                  }}
+                >
+                  {submitting ? 'Submitting...' : subscriptionRequired ? 'Upgrade Required' : primaryAction.label}
+                </button>
+              )}
+            </div>
 
-            {primaryAction && (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || subscriptionRequired}
-                title={subscriptionRequired ? 'Upgrade to Pro to perform this action' : undefined}
-                style={{
-                  padding: '12px 30px',
-                  backgroundColor: (submitting || subscriptionRequired) ? '#adb5bd' : primaryAction.color,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: (submitting || subscriptionRequired) ? 'not-allowed' : 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                }}
+            {/* Collapsible Sections */}
+            <div className="px-6 py-4 space-y-3 border-t border-slate-100">
+              {/* Script accordion */}
+              {video.script_locked_text && (
+                <Accordion
+                  title="Script (locked)"
+                  isOpen={showScript}
+                  onToggle={() => setShowScript(!showScript)}
+                  badge="Read-only"
+                >
+                  <pre className="p-4 bg-white text-sm font-mono whitespace-pre-wrap max-h-64 overflow-auto text-slate-700">
+                    {video.script_locked_text}
+                  </pre>
+                </Accordion>
+              )}
+
+              {/* Notes accordion - show if there are existing notes to display */}
+              {(video.recording_notes || video.editor_notes || video.uploader_notes) && (
+                <Accordion
+                  title="Notes / Details"
+                  isOpen={showNotes}
+                  onToggle={() => setShowNotes(!showNotes)}
+                >
+                  <div className="p-4 space-y-3 text-sm">
+                    {video.recording_notes && (
+                      <div>
+                        <div className="text-xs font-medium text-slate-500 mb-1">Recording Notes</div>
+                        <div className="text-slate-700">{video.recording_notes}</div>
+                      </div>
+                    )}
+                    {video.editor_notes && (
+                      <div>
+                        <div className="text-xs font-medium text-slate-500 mb-1">Editor Notes</div>
+                        <div className="text-slate-700">{video.editor_notes}</div>
+                      </div>
+                    )}
+                    {video.uploader_notes && (
+                      <div>
+                        <div className="text-xs font-medium text-slate-500 mb-1">Uploader Notes</div>
+                        <div className="text-slate-700">{video.uploader_notes}</div>
+                      </div>
+                    )}
+                  </div>
+                </Accordion>
+              )}
+
+              {/* Advanced accordion */}
+              <Accordion
+                title="Advanced"
+                isOpen={showAdvanced}
+                onToggle={() => setShowAdvanced(!showAdvanced)}
               >
-                {submitting ? 'Submitting...' : subscriptionRequired ? 'Upgrade Required' : primaryAction.label}
-              </button>
-            )}
+                <div className="p-4">
+                  <button
+                    onClick={handleRelease}
+                    disabled={releasing}
+                    className="px-4 py-2 text-sm border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    {releasing ? 'Releasing...' : 'Release Assignment'}
+                  </button>
+                  <p className="mt-2 text-xs text-slate-400">
+                    Release this task back to the queue without completing it.
+                  </p>
+                </div>
+              </Accordion>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Footer */}
-      <div style={{ marginTop: '30px', color: '#999', fontSize: '12px', textAlign: 'center' }}>
-        {role.charAt(0).toUpperCase() + role.slice(1)} Workbench • Single-task focus mode
+        {/* Footer */}
+        <div className="mt-8 text-center text-xs text-slate-400">
+          {role.charAt(0).toUpperCase() + role.slice(1)} Workbench • Single-task focus mode
+        </div>
       </div>
     </div>
   );

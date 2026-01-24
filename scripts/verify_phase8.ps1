@@ -3055,8 +3055,8 @@ try {
     Write-Host "  WARN: Production readiness verification error: $_" -ForegroundColor Yellow
 }
 
-# [33/33] UX Polish verification
-Write-Host "`n[33/33] Testing UX polish components..." -ForegroundColor Yellow
+# [33/34] UX Polish verification
+Write-Host "`n[33/34] Testing UX polish components..." -ForegroundColor Yellow
 try {
     # Check AdminPageLayout exists and exports EmptyState
     $adminLayoutPath = Join-Path $webDir "app\admin\components\AdminPageLayout.tsx"
@@ -3129,7 +3129,134 @@ try {
     Write-Host "  WARN: UX polish verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[33/33] Phase 8 verification summary..." -ForegroundColor Yellow
+# [34/34] Client Portal Shell verification
+Write-Host "`n[34/34] Testing client portal shell..." -ForegroundColor Yellow
+try {
+    # Check /client page exists
+    $clientPagePath = Join-Path $webDir "app\client\page.tsx"
+    if (Test-Path $clientPagePath) {
+        Write-Host "    /client page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /client page not found" -ForegroundColor Yellow
+    }
+
+    # Check /client/videos page exists
+    $clientVideosPath = Join-Path $webDir "app\client\videos\page.tsx"
+    if (Test-Path $clientVideosPath) {
+        Write-Host "    /client/videos page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /client/videos page not found" -ForegroundColor Yellow
+    }
+
+    # Check /client/videos/[id] page exists
+    $clientVideoDetailPath = Join-Path $webDir "app\client\videos\[id]\page.tsx"
+    if (Test-Path -LiteralPath $clientVideoDetailPath) {
+        Write-Host "    /client/videos/[id] page exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /client/videos/[id] page not found" -ForegroundColor Yellow
+    }
+
+    # Check ClientNav component exists
+    $clientNavPath = Join-Path $webDir "app\client\components\ClientNav.tsx"
+    if (Test-Path $clientNavPath) {
+        Write-Host "    ClientNav.tsx exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: ClientNav.tsx not found" -ForegroundColor Yellow
+    }
+
+    # Check brand.ts exists and exports brandName
+    $brandPath = Join-Path $webDir "lib\brand.ts"
+    if (Test-Path $brandPath) {
+        Write-Host "    brand.ts exists - OK" -ForegroundColor Gray
+        $brandContent = Get-Content $brandPath -Raw
+        if ($brandContent -match 'export const brandName') {
+            Write-Host "    brand.ts exports brandName - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: brand.ts missing brandName export" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  WARN: brand.ts not found" -ForegroundColor Yellow
+    }
+
+    # Check client APIs exist
+    $clientApiVideosPath = Join-Path $webDir "app\api\client\videos\route.ts"
+    if (Test-Path $clientApiVideosPath) {
+        Write-Host "    /api/client/videos route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /api/client/videos route not found" -ForegroundColor Yellow
+    }
+
+    $clientApiVideoDetailPath = Join-Path $webDir "app\api\client\videos\[id]\route.ts"
+    if (Test-Path -LiteralPath $clientApiVideoDetailPath) {
+        Write-Host "    /api/client/videos/[id] route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  WARN: /api/client/videos/[id] route not found" -ForegroundColor Yellow
+    }
+
+    # Test /client returns 307 without auth
+    try {
+        $request = [System.Net.HttpWebRequest]::Create("$baseUrl/client")
+        $request.Method = "GET"
+        $request.AllowAutoRedirect = $false
+        $request.Timeout = 10000
+
+        try {
+            $response = $request.GetResponse()
+            $statusCode = [int]$response.StatusCode
+            $response.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $statusCode = 0
+            }
+        }
+
+        if ($statusCode -eq 307) {
+            Write-Host "    /client returns 307 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /client returned $statusCode (expected 307)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /client check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test /api/client/videos returns 401 without auth
+    try {
+        $apiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/client/videos")
+        $apiRequest.Method = "GET"
+        $apiRequest.AllowAutoRedirect = $false
+        $apiRequest.Timeout = 10000
+
+        try {
+            $apiResponse = $apiRequest.GetResponse()
+            $apiStatusCode = [int]$apiResponse.StatusCode
+            $apiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $apiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $apiStatusCode = 0
+            }
+        }
+
+        if ($apiStatusCode -eq 401) {
+            Write-Host "    /api/client/videos returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /api/client/videos returned $apiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/client/videos check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Client portal shell verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Client portal verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[34/34] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

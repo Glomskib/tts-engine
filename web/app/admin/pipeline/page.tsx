@@ -993,6 +993,10 @@ export default function AdminPipelinePage() {
               <Link href="/admin/settings" style={{ color: '#1971c2', fontSize: '13px' }}>
                 Settings
               </Link>
+              <span style={{ color: '#ccc' }}>|</span>
+              <Link href="/admin/analytics" style={{ color: '#1971c2', fontSize: '13px' }}>
+                Analytics
+              </Link>
             </>
           )}
 

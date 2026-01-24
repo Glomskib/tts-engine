@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
+import { getAccentColorOptions, AccentColor } from '@/lib/org-branding';
 
 interface ClientOrg {
   org_id: string;
@@ -15,12 +16,14 @@ interface ClientOrg {
   last_activity_at: string | null;
 }
 
-interface OrgMember {
-  org_id: string;
-  user_id: string;
-  role: 'owner' | 'member';
-  joined_at: string;
+interface OrgBranding {
+  org_display_name?: string;
+  logo_url?: string | null;
+  accent_color?: AccentColor;
+  welcome_message?: string | null;
 }
+
+const ACCENT_COLOR_OPTIONS = getAccentColorOptions();
 
 export default function AdminClientOrgsPage() {
   const router = useRouter();
@@ -44,6 +47,11 @@ export default function AdminClientOrgsPage() {
   // Video assignment
   const [videoIdToAssign, setVideoIdToAssign] = useState('');
   const [assigningVideo, setAssigningVideo] = useState(false);
+
+  // Branding
+  const [branding, setBranding] = useState<OrgBranding>({});
+  const [brandingLoading, setBrandingLoading] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
 
   // Check auth and admin status
   useEffect(() => {
@@ -107,6 +115,42 @@ export default function AdminClientOrgsPage() {
     if (!isAdmin) return;
     fetchOrgs();
   }, [isAdmin]);
+
+  // Fetch branding when org selected
+  useEffect(() => {
+    if (!selectedOrg) {
+      setBranding({});
+      return;
+    }
+
+    const fetchBranding = async () => {
+      setBrandingLoading(true);
+      try {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/branding`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (data.ok && data.data.raw) {
+          setBranding(data.data.raw);
+        } else {
+          setBranding({});
+        }
+      } catch (err) {
+        console.error('Error fetching branding:', err);
+        setBranding({});
+      } finally {
+        setBrandingLoading(false);
+      }
+    };
+
+    fetchBranding();
+  }, [selectedOrg]);
 
   // Create organization
   const handleCreateOrg = async (e: React.FormEvent) => {
@@ -224,6 +268,40 @@ export default function AdminClientOrgsPage() {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setAssigningVideo(false);
+    }
+  };
+
+  // Save branding
+  const handleSaveBranding = async () => {
+    if (!selectedOrg) return;
+
+    setSavingBranding(true);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/branding/set`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify(branding),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: 'Branding updated successfully' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update branding' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setSavingBranding(false);
     }
   };
 
@@ -360,24 +438,147 @@ export default function AdminClientOrgsPage() {
         {/* Org Detail Panel */}
         {selectedOrg && (
           <div style={{
-            width: '350px',
-            padding: '16px 20px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #dee2e6',
+            width: '400px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
           }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>{selectedOrg.org_name}</h3>
-
-            <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '16px' }}>
-              <div>Members: {selectedOrg.member_count}</div>
-              <div>Videos: {selectedOrg.video_count}</div>
-              <div style={{ fontFamily: 'monospace', marginTop: '4px' }}>
-                ID: {selectedOrg.org_id}
+            {/* Org Info */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>{selectedOrg.org_name}</h3>
+              <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                <div>Members: {selectedOrg.member_count}</div>
+                <div>Videos: {selectedOrg.video_count}</div>
+                <div style={{ fontFamily: 'monospace', marginTop: '4px' }}>
+                  ID: {selectedOrg.org_id}
+                </div>
               </div>
             </div>
 
+            {/* Branding Panel */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#495057' }}>Branding</h4>
+              {brandingLoading ? (
+                <div style={{ fontSize: '12px', color: '#6c757d' }}>Loading...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={branding.org_display_name || ''}
+                      onChange={(e) => setBranding({ ...branding, org_display_name: e.target.value })}
+                      placeholder={selectedOrg.org_name}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                      Logo URL
+                    </label>
+                    <input
+                      type="text"
+                      value={branding.logo_url || ''}
+                      onChange={(e) => setBranding({ ...branding, logo_url: e.target.value || null })}
+                      placeholder="https://example.com/logo.png"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                      Accent Color
+                    </label>
+                    <select
+                      value={branding.accent_color || ''}
+                      onChange={(e) => setBranding({ ...branding, accent_color: e.target.value as AccentColor || undefined })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      <option value="">Default (Slate)</option>
+                      {ACCENT_COLOR_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '4px' }}>
+                      Welcome Message
+                    </label>
+                    <textarea
+                      value={branding.welcome_message || ''}
+                      onChange={(e) => setBranding({ ...branding, welcome_message: e.target.value || null })}
+                      placeholder="Welcome to your portal..."
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        resize: 'vertical',
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveBranding}
+                    disabled={savingBranding}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: savingBranding ? '#adb5bd' : '#1971c2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: savingBranding ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {savingBranding ? 'Saving...' : 'Save Branding'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Add/Remove Member */}
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
               <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#495057' }}>Manage Members</h4>
               <input
                 type="text"
@@ -449,7 +650,12 @@ export default function AdminClientOrgsPage() {
             </div>
 
             {/* Assign Video */}
-            <div>
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
               <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#495057' }}>Assign Video</h4>
               <input
                 type="text"

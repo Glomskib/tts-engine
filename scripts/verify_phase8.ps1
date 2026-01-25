@@ -4358,7 +4358,120 @@ try {
     Write-Host "  WARN: Client requests verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[40/40] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 41: Client Request to Billing Usage Integration (Step 31)
+Write-Host "`n[41/41] Testing client request billing integration..." -ForegroundColor Yellow
+try {
+    # Check billing.ts exists and exports computeOrgMonthlyUsage
+    $billingPath = Join-Path $webDir "lib\billing.ts"
+    if (Test-Path $billingPath) {
+        Write-Host "    lib/billing.ts exists - OK" -ForegroundColor Gray
+        $billingContent = Get-Content $billingPath -Raw
+
+        if ($billingContent -match 'export async function computeOrgMonthlyUsage') {
+            Write-Host "    computeOrgMonthlyUsage exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: computeOrgMonthlyUsage not exported from billing.ts" -ForegroundColor Red
+            exit 1
+        }
+
+        # Verify billing counts via recording_status_changed to POSTED
+        if ($billingContent -match 'recording_status_changed.*POSTED|to_status.*POSTED') {
+            Write-Host "    Billing counts POSTED status transitions - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Billing may not count POSTED transitions correctly" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: lib/billing.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check convert route emits video_client_org_set event (ensures org scoping for billing)
+    $convertPath = Join-Path $webDir "app\api\admin\client-requests\convert\route.ts"
+    if (Test-Path $convertPath) {
+        $convertContent = Get-Content $convertPath -Raw
+        if ($convertContent -match 'VIDEO_ORG_SET|video_client_org_set') {
+            Write-Host "    Convert route emits org scoping event - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Convert route missing org scoping event" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: convert route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client requests page has billing indicator
+    $clientRequestsPagePath = Join-Path $webDir "app\client\requests\page.tsx"
+    if (Test-Path $clientRequestsPagePath) {
+        $requestsPageContent = Get-Content $clientRequestsPagePath -Raw
+        if ($requestsPageContent -match 'billing.*converted|converted.*billing') {
+            Write-Host "    Requests list has billing indicator - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Requests list missing billing indicator" -ForegroundColor Yellow
+        }
+    }
+
+    # Check new request form has billing indicator
+    $newRequestPath = Join-Path $webDir "app\client\requests\new\page.tsx"
+    if (Test-Path $newRequestPath) {
+        $newRequestContent = Get-Content $newRequestPath -Raw
+        if ($newRequestContent -match 'billing.*converted|converted.*billing') {
+            Write-Host "    New request form has billing indicator - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: New request form missing billing indicator" -ForegroundColor Yellow
+        }
+    }
+
+    # Check client-org.ts exports getOrgVideos (used by billing)
+    $clientOrgPath = Join-Path $webDir "lib\client-org.ts"
+    if (Test-Path $clientOrgPath) {
+        $clientOrgContent = Get-Content $clientOrgPath -Raw
+        if ($clientOrgContent -match 'export async function getOrgVideos') {
+            Write-Host "    getOrgVideos exported from client-org.ts - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: getOrgVideos not exported from client-org.ts" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: lib/client-org.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Test /api/client/billing returns 401 without auth
+    try {
+        $billingApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/client/billing")
+        $billingApiRequest.Method = "GET"
+        $billingApiRequest.AllowAutoRedirect = $false
+        $billingApiRequest.Timeout = 10000
+
+        try {
+            $billingApiResponse = $billingApiRequest.GetResponse()
+            $billingApiStatusCode = [int]$billingApiResponse.StatusCode
+            $billingApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $billingApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $billingApiStatusCode = 0
+            }
+        }
+
+        if ($billingApiStatusCode -eq 401) {
+            Write-Host "    /api/client/billing returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /api/client/billing returned $billingApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/client/billing check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Client request billing integration verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Billing integration verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[41/41] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

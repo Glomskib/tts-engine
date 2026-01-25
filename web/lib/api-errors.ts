@@ -36,7 +36,11 @@ export type ApiErrorCode =
   | 'NO_WORK_AVAILABLE'
   | 'ALREADY_ASSIGNED'
   | 'CONFLICT'
-  | 'WIP_LIMIT_REACHED';
+  | 'WIP_LIMIT_REACHED'
+  | 'SCRIPT_LOCKED'
+  | 'SCRIPT_NOT_LOCKED'
+  | 'COMPLIANCE_BLOCKED'
+  | 'NO_SCRIPT';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

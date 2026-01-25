@@ -22,6 +22,8 @@ import {
   getAllowedNextStatuses,
   ALLOWED_TRANSITIONS,
 } from "./video-pipeline";
+import { getLockedScriptVersion } from "./video-script-versions";
+import { lintScriptAndCaption, type ComplianceLintResult } from "./compliance-linter";
 
 // ============================================================================
 // Types
@@ -262,6 +264,77 @@ export async function transitionVideoStatusAtomic(
     }
   }
 
+  // Compliance gate for ready_to_post transition (unless force=true)
+  let complianceResult: ComplianceLintResult | null = null;
+  if (target_status === "ready_to_post" && !force) {
+    // Require locked script version
+    const lockedScript = await getLockedScriptVersion(supabase, video_id);
+
+    if (!lockedScript) {
+      await writeVideoEvent(supabase, {
+        video_id,
+        event_type: "transition_rejected",
+        correlation_id,
+        actor,
+        from_status: currentStatus,
+        to_status: target_status,
+        details: {
+          error_code: "SCRIPT_NOT_LOCKED",
+          reason: "Transition to ready_to_post requires a locked script version",
+        },
+      });
+
+      return {
+        ok: false,
+        video_id,
+        action: "precondition_failed",
+        previous_status: currentStatus,
+        current_status: currentStatus,
+        message: "Transition to ready_to_post requires a locked script version",
+        error_code: "SCRIPT_NOT_LOCKED",
+      };
+    }
+
+    // Run compliance linter (use "supplements" pack if product_sku exists)
+    const policyPack = lockedScript.product_sku ? "supplements" : "generic";
+    complianceResult = lintScriptAndCaption({
+      script_text: lockedScript.script_text,
+      caption: lockedScript.caption,
+      hashtags: lockedScript.hashtags,
+      policy_pack: policyPack,
+    });
+
+    // Block if severity = block
+    if (complianceResult.severity === "block") {
+      await writeVideoEvent(supabase, {
+        video_id,
+        event_type: "transition_rejected",
+        correlation_id,
+        actor,
+        from_status: currentStatus,
+        to_status: target_status,
+        details: {
+          error_code: "COMPLIANCE_BLOCKED",
+          compliance: complianceResult,
+          script_version: lockedScript.version_number,
+          content_hash: lockedScript.content_hash,
+        },
+      });
+
+      return {
+        ok: false,
+        video_id,
+        action: "precondition_failed",
+        previous_status: currentStatus,
+        current_status: currentStatus,
+        message: `Compliance check failed: ${complianceResult.issues.filter(i => i.severity === "block").map(i => i.message).join("; ")}`,
+        error_code: "COMPLIANCE_BLOCKED",
+      };
+    }
+
+    // If warn: we'll emit an event but allow the transition (logged after success)
+  }
+
   // Build update payload
   const updatePayload: Record<string, unknown> = {
     status: target_status,
@@ -347,8 +420,26 @@ export async function transitionVideoStatusAtomic(
       reason_code: reason_code || null,
       reason_message: reason_message || null,
       force,
+      compliance_severity: complianceResult?.severity || null,
     },
   });
+
+  // If compliance had warnings, emit a separate event for visibility
+  if (complianceResult && complianceResult.severity === "warn") {
+    await writeVideoEvent(supabase, {
+      video_id,
+      event_type: "compliance_warning",
+      correlation_id,
+      actor,
+      from_status: currentStatus,
+      to_status: target_status,
+      details: {
+        compliance: complianceResult,
+        issues: complianceResult.issues,
+        policy_pack: complianceResult.policy_pack,
+      },
+    });
+  }
 
   return {
     ok: true,

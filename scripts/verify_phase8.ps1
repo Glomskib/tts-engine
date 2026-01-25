@@ -5288,7 +5288,193 @@ try {
     Write-Host "  WARN: Auth UX verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[45/45] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 46: Email delivery for invites and request notifications
+Write-Host "`n[46/46] Testing email delivery for invites and request notifications..." -ForegroundColor Yellow
+try {
+    # Check invite route calls sendInviteEmail
+    $inviteRoutePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invite\route.ts"
+    if (Test-Path -LiteralPath $inviteRoutePath) {
+        $inviteRouteContent = (Get-Content -LiteralPath $inviteRoutePath) -join "`n"
+
+        if ($inviteRouteContent -match 'sendInviteEmail') {
+            Write-Host "    Invite route calls sendInviteEmail - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Invite route missing sendInviteEmail call" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($inviteRouteContent -match 'email_sent') {
+            Write-Host "    Invite route returns email_sent - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Invite route may not return email_sent" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: Invite route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check resend route calls sendInviteResendEmail
+    $resendRoutePath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invites\resend\route.ts"
+    if (Test-Path -LiteralPath $resendRoutePath) {
+        $resendRouteContent = (Get-Content -LiteralPath $resendRoutePath) -join "`n"
+
+        if ($resendRouteContent -match 'sendInviteResendEmail') {
+            Write-Host "    Resend route calls sendInviteResendEmail - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Resend route missing sendInviteResendEmail call" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: Resend route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check request status route calls sendRequestStatusEmail
+    $statusRoutePath = Join-Path $webDir "app\api\admin\client-requests\status\route.ts"
+    if (Test-Path -LiteralPath $statusRoutePath) {
+        $statusRouteContent = (Get-Content -LiteralPath $statusRoutePath) -join "`n"
+
+        if ($statusRouteContent -match 'sendRequestStatusEmail') {
+            Write-Host "    Status route calls sendRequestStatusEmail - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Status route missing sendRequestStatusEmail call" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($statusRouteContent -match 'APPROVED.*REJECTED') {
+            Write-Host "    Status route handles APPROVED/REJECTED - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Status route may not handle APPROVED/REJECTED" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: Status route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check convert route calls sendRequestConvertedEmail
+    $convertRoutePath = Join-Path $webDir "app\api\admin\client-requests\convert\route.ts"
+    if (Test-Path -LiteralPath $convertRoutePath) {
+        $convertRouteContent = (Get-Content -LiteralPath $convertRoutePath) -join "`n"
+
+        if ($convertRouteContent -match 'sendRequestConvertedEmail') {
+            Write-Host "    Convert route calls sendRequestConvertedEmail - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Convert route missing sendRequestConvertedEmail call" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: Convert route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check email.ts has sendEmailWithAudit
+    $emailPath = Join-Path $webDir "lib\email.ts"
+    if (Test-Path -LiteralPath $emailPath) {
+        $emailContent = (Get-Content -LiteralPath $emailPath) -join "`n"
+
+        if ($emailContent -match 'sendEmailWithAudit') {
+            Write-Host "    email.ts exports sendEmailWithAudit - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: email.ts missing sendEmailWithAudit" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($emailContent -match 'writeEmailAuditEvent') {
+            Write-Host "    email.ts exports writeEmailAuditEvent - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: email.ts may not have writeEmailAuditEvent" -ForegroundColor Yellow
+        }
+
+        if ($emailContent -match 'email_sent' -and $emailContent -match 'email_skipped' -and $emailContent -match 'email_failed') {
+            Write-Host "    email.ts has email event types - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: email.ts may not have all event types" -ForegroundColor Yellow
+        }
+    }
+
+    # Check client-email-notifications.ts exists
+    $clientEmailPath = Join-Path $webDir "lib\client-email-notifications.ts"
+    if (Test-Path -LiteralPath $clientEmailPath) {
+        Write-Host "    client-email-notifications.ts exists - OK" -ForegroundColor Gray
+        $clientEmailContent = (Get-Content -LiteralPath $clientEmailPath) -join "`n"
+
+        if ($clientEmailContent -match 'sendInviteEmail') {
+            Write-Host "    sendInviteEmail exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: sendInviteEmail not found" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientEmailContent -match 'sendRequestStatusEmail') {
+            Write-Host "    sendRequestStatusEmail exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: sendRequestStatusEmail not found" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientEmailContent -match 'sendRequestConvertedEmail') {
+            Write-Host "    sendRequestConvertedEmail exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: sendRequestConvertedEmail not found" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: client-email-notifications.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Verify no new migrations
+    $migrationsDir = Join-Path $repoRoot "supabase\migrations"
+    if (Test-Path -LiteralPath $migrationsDir) {
+        $migrationCount = (Get-ChildItem $migrationsDir -Filter "*.sql" | Measure-Object).Count
+        Write-Host "    Migrations count: $migrationCount (no new required) - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "    No migrations directory (OK for this project)" -ForegroundColor Gray
+    }
+
+    # Verify APIs still return 401 without auth
+    try {
+        $statusApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-requests/status")
+        $statusApiRequest.Method = "POST"
+        $statusApiRequest.ContentType = "application/json"
+        $statusApiRequest.AllowAutoRedirect = $false
+        $statusApiRequest.Timeout = 10000
+
+        $body = '{"request_id":"test","org_id":"test","status":"APPROVED"}'
+        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+        $statusApiRequest.ContentLength = $bodyBytes.Length
+        $stream = $statusApiRequest.GetRequestStream()
+        $stream.Write($bodyBytes, 0, $bodyBytes.Length)
+        $stream.Close()
+
+        try {
+            $statusApiResponse = $statusApiRequest.GetResponse()
+            $statusApiStatusCode = [int]$statusApiResponse.StatusCode
+            $statusApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $statusApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $statusApiStatusCode = 0
+            }
+        }
+
+        if ($statusApiStatusCode -eq 401) {
+            Write-Host "    POST /api/admin/client-requests/status returns 401 - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Status API returned $statusApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Status API check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Email delivery verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Email delivery verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[46/46] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

@@ -8,13 +8,15 @@
 import { getEffectiveBoolean } from "@/lib/settings";
 
 // SendGrid import - dynamic to avoid errors if package not installed
+// Guard: SENDGRID_API_KEY must be set for email to be sent
 let sgMail: { setApiKey: (key: string) => void; send: (msg: object) => Promise<unknown> } | null = null;
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   sgMail = require("@sendgrid/mail");
 } catch {
-  // SendGrid not installed - email will be skipped
+  // SendGrid not installed - email will be skipped (safe no-op)
+  console.debug("SendGrid module not available - email sending disabled");
 }
 
 export interface EmailParams {

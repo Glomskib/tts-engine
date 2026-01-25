@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createOrgInvite, listPendingOrgInvites, InviteRole } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
+import { sendInviteEmail } from '@/lib/client-email-notifications'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -170,7 +171,16 @@ export async function POST(
 
     // Build invite URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || ''
-    const inviteUrl = `${baseUrl}/invite/accept?token=${result.token}`
+    const inviteUrl = `${baseUrl}/invite/${result.token}`
+
+    // Send invite email (fail-safe: never blocks invite creation)
+    const emailResult = await sendInviteEmail({
+      recipientEmail: email,
+      orgName: org.org_name,
+      role,
+      inviteUrl,
+      invitedByEmail: user.email || undefined,
+    })
 
     return NextResponse.json({
       ok: true,
@@ -181,6 +191,9 @@ export async function POST(
         expires_at: result.expires_at,
         email,
         role,
+        email_sent: emailResult.sent,
+        email_skipped: emailResult.skipped,
+        email_status: emailResult.status,
       },
     })
   } catch (error) {

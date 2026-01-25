@@ -748,7 +748,13 @@ export default function AdminClientOrgsPage() {
       const data = await res.json();
 
       if (data.ok) {
-        setMessage({ type: 'success', text: `Invite created for ${inviteEmail}` });
+        // Show email status in message
+        const emailNote = data.data.email_sent
+          ? ' (Email sent)'
+          : data.data.email_skipped
+            ? ' (Email not configured)'
+            : '';
+        setMessage({ type: 'success', text: `Invite created for ${inviteEmail}${emailNote}` });
         setLastInviteUrl(data.data.invite_url);
         setInviteEmail('');
         refreshMembersAndInvites();
@@ -856,7 +862,13 @@ export default function AdminClientOrgsPage() {
       const data = await res.json();
 
       if (data.ok) {
-        setMessage({ type: 'success', text: `Invite resent to ${data.data.email}` });
+        // Show email status in message
+        const emailNote = data.data.email_sent
+          ? ' (Email sent)'
+          : data.data.email_skipped
+            ? ' (Email not configured)'
+            : '';
+        setMessage({ type: 'success', text: `Invite resent to ${data.data.email}${emailNote}` });
         setLastInviteUrl(data.data.invite_url);
         refreshMembersAndInvites();
       } else {

@@ -131,8 +131,8 @@ export async function POST(
       const err = apiError(errorInfo.code, result.message, errorInfo.status, {
         claimed_by: result.claimed_by,
         claim_expires_at: result.claim_expires_at,
-        wip_limit: result.wip_limit,
-        wip_current: result.wip_current,
+        limit: result.limit,
+        current_count: result.current_count,
       });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }

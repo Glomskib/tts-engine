@@ -75,7 +75,7 @@ const DEFAULT_VALUES: Record<SettingKey, SettingValue> = {
   WIP_LIMIT_DEFAULT: 5,
   // Lease management
   LEASE_DURATION_MINUTES: 240, // 4 hours default
-  RENEW_WINDOW_MINUTES: 30, // renew if expiring within 30 minutes
+  RENEW_WINDOW_MINUTES: 5, // renew if expiring within 5 minutes
 };
 
 /**

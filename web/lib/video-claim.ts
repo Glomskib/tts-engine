@@ -33,8 +33,8 @@ export interface ClaimResult {
   message: string;
   error_code?: string;
   /** WIP limit info (only present when WIP_LIMIT_REACHED) */
-  wip_limit?: number;
-  wip_current?: number;
+  limit?: number;
+  current_count?: number;
 }
 
 export interface ReleaseResult {
@@ -295,8 +295,8 @@ export async function atomicClaimVideo(
         action: "wip_limit_reached",
         message: `WIP limit reached: you have ${wipCheck.current_count} active claims (limit: ${wipCheck.limit})`,
         error_code: "WIP_LIMIT_REACHED",
-        wip_limit: wipCheck.limit,
-        wip_current: wipCheck.current_count,
+        limit: wipCheck.limit,
+        current_count: wipCheck.current_count,
       };
     }
   }

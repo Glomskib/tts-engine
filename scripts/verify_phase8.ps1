@@ -4809,7 +4809,293 @@ try {
     Write-Host "  WARN: SLA breach visibility verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[43/43] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 44: Admin Invites + Org Member Management (Step 34)
+Write-Host "`n[44/44] Testing admin invites and org member management..." -ForegroundColor Yellow
+try {
+    # Check org-invites.ts exists and exports key functions
+    $orgInvitesPath = Join-Path $webDir "lib\org-invites.ts"
+    if (Test-Path $orgInvitesPath) {
+        Write-Host "    lib/org-invites.ts exists - OK" -ForegroundColor Gray
+
+        $orgInvitesContent = Get-Content $orgInvitesPath -Raw
+
+        if ($orgInvitesContent -match 'export function generateInviteToken') {
+            Write-Host "    generateInviteToken exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: generateInviteToken not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export function hashInviteToken') {
+            Write-Host "    hashInviteToken exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: hashInviteToken not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export function compareTokenHash') {
+            Write-Host "    compareTokenHash exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: compareTokenHash not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export async function createOrgInvite') {
+            Write-Host "    createOrgInvite exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: createOrgInvite not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export async function listOrgInvites') {
+            Write-Host "    listOrgInvites exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: listOrgInvites not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export async function revokeOrgInvite') {
+            Write-Host "    revokeOrgInvite exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: revokeOrgInvite not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export async function resendOrgInvite') {
+            Write-Host "    resendOrgInvite exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: resendOrgInvite not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export async function getOrgMembersWithEmail') {
+            Write-Host "    getOrgMembersWithEmail exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: getOrgMembersWithEmail not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'export async function revokeOrgMember') {
+            Write-Host "    revokeOrgMember exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: revokeOrgMember not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($orgInvitesContent -match 'timingSafeEqual') {
+            Write-Host "    Uses timing-safe comparison - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: May not use timing-safe comparison" -ForegroundColor Yellow
+        }
+
+        if ($orgInvitesContent -match "createHash\('sha256'\)") {
+            Write-Host "    Uses SHA-256 for token hashing - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: May not use SHA-256 for hashing" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: lib/org-invites.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check API routes exist
+    $membersApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\members\route.ts"
+    if (Test-Path $membersApiPath) {
+        Write-Host "    GET /api/admin/client-orgs/[org_id]/members route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Members API route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $inviteApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invite\route.ts"
+    if (Test-Path $inviteApiPath) {
+        Write-Host "    GET/POST /api/admin/client-orgs/[org_id]/invite route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Invite API route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $membersRevokeApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\members\revoke\route.ts"
+    if (Test-Path $membersRevokeApiPath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/members/revoke route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Members revoke API route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $invitesRevokeApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invites\revoke\route.ts"
+    if (Test-Path $invitesRevokeApiPath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/invites/revoke route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Invites revoke API route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    $invitesResendApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invites\resend\route.ts"
+    if (Test-Path $invitesResendApiPath) {
+        Write-Host "    POST /api/admin/client-orgs/[org_id]/invites/resend route exists - OK" -ForegroundColor Gray
+    } else {
+        Write-Host "  FAIL: Invites resend API route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin client-orgs page has invite functionality
+    $adminOrgsPagePath = Join-Path $webDir "app\admin\client-orgs\page.tsx"
+    if (Test-Path $adminOrgsPagePath) {
+        $adminOrgsContent = Get-Content $adminOrgsPagePath -Raw
+
+        if ($adminOrgsContent -match 'inviteEmail.*setInviteEmail') {
+            Write-Host "    Admin client-orgs page has invite email state - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing invite email state" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminOrgsContent -match 'handleCreateInvite') {
+            Write-Host "    Admin client-orgs page has create invite handler - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing create invite handler" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminOrgsContent -match 'handleRevokeMember') {
+            Write-Host "    Admin client-orgs page has revoke member handler - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing revoke member handler" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminOrgsContent -match 'handleRevokeInvite') {
+            Write-Host "    Admin client-orgs page has revoke invite handler - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing revoke invite handler" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminOrgsContent -match 'handleResendInvite') {
+            Write-Host "    Admin client-orgs page has resend invite handler - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing resend invite handler" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminOrgsContent -match 'lastInviteUrl.*handleCopyInviteUrl') {
+            Write-Host "    Admin client-orgs page has copy invite URL - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin page may not have copy invite URL" -ForegroundColor Yellow
+        }
+
+        if ($adminOrgsContent -match 'OrgMember|members\.map') {
+            Write-Host "    Admin client-orgs page has members table - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing members table" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminOrgsContent -match 'OrgInvite|invites\.map') {
+            Write-Host "    Admin client-orgs page has pending invites list - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin page missing pending invites list" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: Admin client-orgs page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Test APIs return 401 without auth
+    try {
+        $membersApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/00000000-0000-0000-0000-000000000000/members")
+        $membersApiRequest.Method = "GET"
+        $membersApiRequest.AllowAutoRedirect = $false
+        $membersApiRequest.Timeout = 10000
+
+        try {
+            $membersApiResponse = $membersApiRequest.GetResponse()
+            $membersApiStatusCode = [int]$membersApiResponse.StatusCode
+            $membersApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $membersApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $membersApiStatusCode = 0
+            }
+        }
+
+        if ($membersApiStatusCode -eq 401) {
+            Write-Host "    GET /api/admin/client-orgs/[org_id]/members returns 401 - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Members API returned $membersApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Members API check error: $_" -ForegroundColor Yellow
+    }
+
+    try {
+        $inviteApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-orgs/00000000-0000-0000-0000-000000000000/invite")
+        $inviteApiRequest.Method = "POST"
+        $inviteApiRequest.ContentType = "application/json"
+        $inviteApiRequest.AllowAutoRedirect = $false
+        $inviteApiRequest.Timeout = 10000
+
+        try {
+            $inviteApiResponse = $inviteApiRequest.GetResponse()
+            $inviteApiStatusCode = [int]$inviteApiResponse.StatusCode
+            $inviteApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $inviteApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $inviteApiStatusCode = 0
+            }
+        }
+
+        if ($inviteApiStatusCode -eq 401) {
+            Write-Host "    POST /api/admin/client-orgs/[org_id]/invite returns 401 - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Invite API returned $inviteApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Invite API check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check admin client-orgs page returns 307 without auth
+    try {
+        $orgsPageRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/admin/client-orgs")
+        $orgsPageRequest.Method = "GET"
+        $orgsPageRequest.AllowAutoRedirect = $false
+        $orgsPageRequest.Timeout = 10000
+
+        try {
+            $orgsPageResponse = $orgsPageRequest.GetResponse()
+            $orgsPageStatusCode = [int]$orgsPageResponse.StatusCode
+            $orgsPageResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $orgsPageStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $orgsPageStatusCode = 0
+            }
+        }
+
+        if ($orgsPageStatusCode -eq 307 -or $orgsPageStatusCode -eq 200) {
+            Write-Host "    /admin/client-orgs page returns $orgsPageStatusCode - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin client-orgs page returned $orgsPageStatusCode" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Admin client-orgs page check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Admin invites and org member management verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Admin invites verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[44/44] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

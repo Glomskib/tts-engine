@@ -8,6 +8,7 @@
  * - client_request_submitted: New request created
  * - client_request_status_set: Status change (IN_REVIEW, APPROVED, REJECTED)
  * - client_request_converted: Request converted to pipeline video
+ * - client_request_priority_set: Priority change (LOW, NORMAL, HIGH)
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -25,6 +26,8 @@ export type RequestStatus =
   | "APPROVED"
   | "REJECTED"
   | "CONVERTED";
+
+export type RequestPriority = "LOW" | "NORMAL" | "HIGH";
 
 export interface ClientRequestSubmission {
   org_id: string;
@@ -58,8 +61,22 @@ export interface ClientRequest {
   status: RequestStatus;
   status_reason?: string;
   video_id?: string;
+  priority: RequestPriority;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * SLA timing metadata for a request.
+ * All timestamps are ISO strings, durations in milliseconds.
+ */
+export interface RequestSLATiming {
+  submitted_at: string;
+  first_admin_action_at: string | null;
+  converted_at: string | null;
+  time_to_first_action_ms: number | null;
+  time_to_conversion_ms: number | null;
+  current_age_ms: number;
 }
 
 // ============================================================================
@@ -70,6 +87,7 @@ export const REQUEST_EVENT_TYPES = {
   SUBMITTED: "client_request_submitted",
   STATUS_SET: "client_request_status_set",
   CONVERTED: "client_request_converted",
+  PRIORITY_SET: "client_request_priority_set",
 } as const;
 
 // ============================================================================
@@ -280,6 +298,7 @@ export async function listClientRequestsForOrg(
       status,
       status_reason: statusReason,
       video_id: videoId,
+      priority: "NORMAL" as RequestPriority, // Priority resolved separately via getRequestPriorities
       created_at: submission.created_at,
       updated_at: updatedAt,
     });
@@ -377,6 +396,7 @@ export async function getClientRequestById(
     status,
     status_reason: statusReason,
     video_id: videoId,
+    priority: "NORMAL" as RequestPriority, // Priority resolved separately via getRequestPriority
     created_at: submission.created_at,
     updated_at: updatedAt,
   };
@@ -487,6 +507,7 @@ export async function listAllClientRequests(
       status,
       status_reason: statusReason,
       video_id: videoId,
+      priority: "NORMAL" as RequestPriority, // Priority resolved separately via getRequestPriorities
       created_at: submission.created_at,
       updated_at: updatedAt,
     });
@@ -578,7 +599,209 @@ export async function getClientRequestByIdAdmin(
     status,
     status_reason: statusReason,
     video_id: videoId,
+    priority: "NORMAL" as RequestPriority, // Priority resolved separately via getRequestPriority
     created_at: submission.created_at,
     updated_at: updatedAt,
   };
+}
+
+// ============================================================================
+// Priority Functions
+// ============================================================================
+
+/**
+ * Set the priority of a client request.
+ * Writes a priority_set event.
+ */
+export async function setClientRequestPriority(
+  supabase: SupabaseClient,
+  params: {
+    request_id: string;
+    org_id: string;
+    priority: RequestPriority;
+    actor_user_id: string;
+  }
+): Promise<void> {
+  const { error } = await supabase.from("video_events").insert({
+    video_id: null,
+    event_type: REQUEST_EVENT_TYPES.PRIORITY_SET,
+    actor_id: params.actor_user_id,
+    details: {
+      request_id: params.request_id,
+      org_id: params.org_id,
+      priority: params.priority,
+      actor_user_id: params.actor_user_id,
+    },
+  });
+
+  if (error) {
+    console.error("[client-requests] Error setting priority:", error);
+    throw new Error("Failed to set request priority");
+  }
+}
+
+/**
+ * Get the current priority for a request.
+ * Returns NORMAL if no priority event exists.
+ */
+export async function getRequestPriority(
+  supabase: SupabaseClient,
+  requestId: string
+): Promise<RequestPriority> {
+  const { data: priorityEvents } = await supabase
+    .from("video_events")
+    .select("details, created_at")
+    .eq("event_type", REQUEST_EVENT_TYPES.PRIORITY_SET)
+    .is("video_id", null)
+    .order("created_at", { ascending: false });
+
+  if (!priorityEvents) {
+    return "NORMAL";
+  }
+
+  // Find latest priority event for this request
+  const latestPriority = priorityEvents.find(
+    (e) => e.details?.request_id === requestId
+  );
+
+  if (!latestPriority) {
+    return "NORMAL";
+  }
+
+  return (latestPriority.details?.priority as RequestPriority) || "NORMAL";
+}
+
+/**
+ * Get priorities for multiple requests at once (batch lookup).
+ */
+export async function getRequestPriorities(
+  supabase: SupabaseClient,
+  requestIds: string[]
+): Promise<Map<string, RequestPriority>> {
+  const priorities = new Map<string, RequestPriority>();
+
+  // Initialize all to NORMAL
+  for (const id of requestIds) {
+    priorities.set(id, "NORMAL");
+  }
+
+  if (requestIds.length === 0) {
+    return priorities;
+  }
+
+  const { data: priorityEvents } = await supabase
+    .from("video_events")
+    .select("details, created_at")
+    .eq("event_type", REQUEST_EVENT_TYPES.PRIORITY_SET)
+    .is("video_id", null)
+    .order("created_at", { ascending: true });
+
+  if (!priorityEvents) {
+    return priorities;
+  }
+
+  // Process in chronological order so latest wins
+  for (const event of priorityEvents) {
+    const reqId = event.details?.request_id;
+    if (reqId && requestIds.includes(reqId)) {
+      priorities.set(reqId, (event.details?.priority as RequestPriority) || "NORMAL");
+    }
+  }
+
+  return priorities;
+}
+
+// ============================================================================
+// SLA Timing Functions
+// ============================================================================
+
+/**
+ * Calculate SLA timing for a request.
+ * All times derived from events.
+ */
+export async function getRequestSLATiming(
+  supabase: SupabaseClient,
+  requestId: string,
+  submittedAt: string
+): Promise<RequestSLATiming> {
+  const now = Date.now();
+  const submittedTime = new Date(submittedAt).getTime();
+
+  // Get status events for first admin action
+  const { data: statusEvents } = await supabase
+    .from("video_events")
+    .select("details, created_at")
+    .eq("event_type", REQUEST_EVENT_TYPES.STATUS_SET)
+    .is("video_id", null)
+    .order("created_at", { ascending: true });
+
+  // Get converted events
+  const { data: convertedEvents } = await supabase
+    .from("video_events")
+    .select("details, created_at")
+    .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED)
+    .is("video_id", null)
+    .order("created_at", { ascending: true });
+
+  // Find first admin action (status change)
+  let firstAdminActionAt: string | null = null;
+  const requestStatusEvents = (statusEvents || []).filter(
+    (e) => e.details?.request_id === requestId
+  );
+  if (requestStatusEvents.length > 0) {
+    firstAdminActionAt = requestStatusEvents[0].created_at;
+  }
+
+  // Find conversion time
+  let convertedAt: string | null = null;
+  const requestConvertedEvents = (convertedEvents || []).filter(
+    (e) => e.details?.request_id === requestId
+  );
+  if (requestConvertedEvents.length > 0) {
+    convertedAt = requestConvertedEvents[0].created_at;
+  }
+
+  // Calculate durations
+  const timeToFirstActionMs = firstAdminActionAt
+    ? new Date(firstAdminActionAt).getTime() - submittedTime
+    : null;
+
+  const timeToConversionMs = convertedAt
+    ? new Date(convertedAt).getTime() - submittedTime
+    : null;
+
+  const currentAgeMs = now - submittedTime;
+
+  return {
+    submitted_at: submittedAt,
+    first_admin_action_at: firstAdminActionAt,
+    converted_at: convertedAt,
+    time_to_first_action_ms: timeToFirstActionMs,
+    time_to_conversion_ms: timeToConversionMs,
+    current_age_ms: currentAgeMs,
+  };
+}
+
+/**
+ * Format duration in milliseconds to human-readable string.
+ * e.g., "2h 14m" or "3d 5h"
+ */
+export function formatDurationMs(ms: number): string {
+  if (ms < 0) return "0m";
+
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  }
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+
+  return `${minutes}m`;
 }

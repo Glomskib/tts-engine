@@ -268,15 +268,8 @@ export async function transitionVideoStatusAtomic(
     ...additional_updates,
   };
 
-  // Store reason if provided
-  if (reason_code || reason_message) {
-    updatePayload.status_reason = JSON.stringify({
-      code: reason_code || null,
-      message: reason_message || null,
-      changed_at: new Date().toISOString(),
-      changed_by: actor,
-    });
-  }
+  // Note: reason_code and reason_message are stored in video_events, not on the video record
+  // This avoids requiring a schema migration for a status_reason column
 
   // Auto-clear claim when transitioning to terminal states
   if (target_status === "posted" || target_status === "failed" || target_status === "archived") {

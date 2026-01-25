@@ -63,14 +63,10 @@ export interface ExpireResult {
 // Default lease duration in minutes
 export const DEFAULT_CLAIM_TTL_MINUTES = 240;
 
-// Valid statuses for claiming
+// Valid statuses for claiming (matches video-pipeline.ts queue statuses)
 const CLAIMABLE_STATUSES = [
-  "READY_TO_RECORD",
-  "READY_TO_EDIT",
-  "READY_TO_POST",
-  "RECORDING_QUEUE",
-  "EDITING_QUEUE",
-  "POSTING_QUEUE",
+  "needs_edit",
+  "ready_to_post",
 ];
 
 // ============================================================================

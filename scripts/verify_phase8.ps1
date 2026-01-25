@@ -4898,9 +4898,9 @@ try {
         exit 1
     }
 
-    # Check API routes exist
+    # Check API routes exist (use -LiteralPath for paths with [org_id] brackets)
     $membersApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\members\route.ts"
-    if (Test-Path $membersApiPath) {
+    if (Test-Path -LiteralPath $membersApiPath) {
         Write-Host "    GET /api/admin/client-orgs/[org_id]/members route exists - OK" -ForegroundColor Gray
     } else {
         Write-Host "  FAIL: Members API route not found" -ForegroundColor Red
@@ -4908,7 +4908,7 @@ try {
     }
 
     $inviteApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invite\route.ts"
-    if (Test-Path $inviteApiPath) {
+    if (Test-Path -LiteralPath $inviteApiPath) {
         Write-Host "    GET/POST /api/admin/client-orgs/[org_id]/invite route exists - OK" -ForegroundColor Gray
     } else {
         Write-Host "  FAIL: Invite API route not found" -ForegroundColor Red
@@ -4916,7 +4916,7 @@ try {
     }
 
     $membersRevokeApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\members\revoke\route.ts"
-    if (Test-Path $membersRevokeApiPath) {
+    if (Test-Path -LiteralPath $membersRevokeApiPath) {
         Write-Host "    POST /api/admin/client-orgs/[org_id]/members/revoke route exists - OK" -ForegroundColor Gray
     } else {
         Write-Host "  FAIL: Members revoke API route not found" -ForegroundColor Red
@@ -4924,7 +4924,7 @@ try {
     }
 
     $invitesRevokeApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invites\revoke\route.ts"
-    if (Test-Path $invitesRevokeApiPath) {
+    if (Test-Path -LiteralPath $invitesRevokeApiPath) {
         Write-Host "    POST /api/admin/client-orgs/[org_id]/invites/revoke route exists - OK" -ForegroundColor Gray
     } else {
         Write-Host "  FAIL: Invites revoke API route not found" -ForegroundColor Red
@@ -4932,7 +4932,7 @@ try {
     }
 
     $invitesResendApiPath = Join-Path $webDir "app\api\admin\client-orgs\[org_id]\invites\resend\route.ts"
-    if (Test-Path $invitesResendApiPath) {
+    if (Test-Path -LiteralPath $invitesResendApiPath) {
         Write-Host "    POST /api/admin/client-orgs/[org_id]/invites/resend route exists - OK" -ForegroundColor Gray
     } else {
         Write-Host "  FAIL: Invites resend API route not found" -ForegroundColor Red

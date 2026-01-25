@@ -272,10 +272,13 @@ export default function ClientRequestsPage() {
               )}
             </div>
 
-            {/* Count */}
+            {/* Count and Billing Note */}
             {!loading && requests.length > 0 && (
-              <div className="mt-3 text-sm text-slate-500">
-                Showing {requests.length} request{requests.length !== 1 ? 's' : ''}
+              <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
+                <span>Showing {requests.length} request{requests.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-slate-400">
+                  Requests count toward billing once converted to video
+                </span>
               </div>
             )}
           </>

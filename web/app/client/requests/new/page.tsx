@@ -371,6 +371,11 @@ export default function NewRequestPage() {
             </div>
           )}
 
+          {/* Billing Note */}
+          <div className="text-xs text-slate-400 text-center">
+            Requests count toward your billing once approved and converted to video.
+          </div>
+
           {/* Submit */}
           <div className="flex items-center justify-end gap-3">
             <Link

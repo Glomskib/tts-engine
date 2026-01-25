@@ -1,18 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/admin/pipeline';
 
+  // Toggle between Sign In and Create Account modes
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,25 +27,118 @@ export default function LoginPage() {
     try {
       const supabase = createBrowserSupabaseClient();
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (mode === 'signup') {
+        // Validate confirm password
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
 
-      if (signInError) {
-        setError(signInError.message);
+        // Password strength check
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters');
+          setLoading(false);
+          return;
+        }
+
+        // Create account
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}${redirect}`,
+          },
+        });
+
+        if (signUpError) {
+          // Generic error message to avoid leaking whether email exists
+          setError('Unable to create account. Please try again or use a different email.');
+          setLoading(false);
+          return;
+        }
+
+        // Show success message (email confirmation may be required)
+        setSignupSuccess(true);
         setLoading(false);
-        return;
-      }
+      } else {
+        // Sign in
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      // Redirect to the target page
-      router.push(redirect);
-      router.refresh();
+        if (signInError) {
+          setError('Invalid email or password');
+          setLoading(false);
+          return;
+        }
+
+        // Redirect to the target page
+        router.push(redirect);
+        router.refresh();
+      }
     } catch (err) {
+      console.error('Auth error:', err);
       setError('An unexpected error occurred');
       setLoading(false);
     }
   };
+
+  const toggleMode = () => {
+    setMode(mode === 'signin' ? 'signup' : 'signin');
+    setError(null);
+    setConfirmPassword('');
+    setSignupSuccess(false);
+  };
+
+  // Success message after signup
+  if (signupSuccess) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f5f5f5',
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '40px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          width: '100%',
+          maxWidth: '400px',
+          textAlign: 'center',
+        }}>
+          <h1 style={{ margin: '0 0 16px 0', fontSize: '24px', color: '#22c55e' }}>
+            Account Created
+          </h1>
+          <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#666' }}>
+            Check your email to confirm your account, then sign in.
+          </p>
+          <button
+            onClick={() => {
+              setSignupSuccess(false);
+              setMode('signin');
+            }}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#228be6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Go to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -62,7 +160,9 @@ export default function LoginPage() {
           TTS Engine
         </h1>
         <p style={{ margin: '0 0 24px 0', fontSize: '14px', textAlign: 'center', color: '#666' }}>
-          Sign in to access the video pipeline
+          {mode === 'signin'
+            ? 'Sign in to access the video pipeline'
+            : 'Create Account to get started'}
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -87,7 +187,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: mode === 'signup' ? '16px' : '24px' }}>
             <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
               Password
             </label>
@@ -96,6 +196,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={mode === 'signup' ? 8 : undefined}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -104,9 +205,32 @@ export default function LoginPage() {
                 fontSize: '14px',
                 boxSizing: 'border-box',
               }}
-              placeholder="Enter your password"
+              placeholder={mode === 'signup' ? 'At least 8 characters' : 'Enter your password'}
             />
           </div>
+
+          {mode === 'signup' && (
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+                placeholder="Re-enter your password"
+              />
+            </div>
+          )}
 
           {error && (
             <div style={{
@@ -136,10 +260,49 @@ export default function LoginPage() {
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading
+              ? (mode === 'signin' ? 'Signing in...' : 'Creating account...')
+              : (mode === 'signin' ? 'Sign In' : 'Create Account')}
           </button>
         </form>
+
+        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={toggleMode}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#228be6',
+              cursor: 'pointer',
+              fontSize: '14px',
+              textDecoration: 'underline',
+            }}
+          >
+            {mode === 'signin'
+              ? "Don't have an account? Create Account"
+              : 'Already have an account? Sign In'}
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f5f5f5',
+      }}>
+        <div style={{ color: '#666' }}>Loading...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

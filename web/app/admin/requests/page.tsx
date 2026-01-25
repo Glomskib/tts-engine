@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import AdminNav from '../components/AdminNav';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
@@ -10,6 +10,8 @@ interface AuthUser {
   email: string | null;
   isAdmin: boolean;
 }
+
+type RequestPriority = 'LOW' | 'NORMAL' | 'HIGH';
 
 interface ClientRequest {
   request_id: string;
@@ -27,6 +29,7 @@ interface ClientRequest {
   status: string;
   status_reason?: string;
   video_id?: string;
+  priority?: RequestPriority;
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +55,40 @@ const TYPE_LABELS: Record<string, string> = {
   UGC_EDIT: 'UGC Edit',
 };
 
+const PRIORITY_COLORS: Record<RequestPriority, { bg: string; text: string; border: string }> = {
+  LOW: { bg: '#f8f9fa', text: '#868e96', border: '#ced4da' },
+  NORMAL: { bg: '#e7f5ff', text: '#1971c2', border: '#74c0fc' },
+  HIGH: { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' },
+};
+
+const PRIORITY_ORDER: Record<RequestPriority, number> = {
+  HIGH: 0,
+  NORMAL: 1,
+  LOW: 2,
+};
+
+type SortMode = 'newest' | 'oldest' | 'priority';
+
+/**
+ * Format duration in milliseconds to human-readable string.
+ */
+function formatAge(ms: number): string {
+  if (ms < 0) return '0m';
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
 export default function AdminRequestsPage() {
   const hydrated = useHydrated();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -64,6 +101,15 @@ export default function AdminRequestsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [priorityFilter, setPriorityFilter] = useState<string>('');
+  const [sortMode, setSortMode] = useState<SortMode>('newest');
+  const [now, setNow] = useState(Date.now());
+
+  // Update "now" every minute for SLA age display
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch auth
   useEffect(() => {
@@ -106,7 +152,12 @@ export default function AdminRequestsPage() {
         const data = await res.json();
 
         if (res.ok && data.ok) {
-          setRequests(data.data);
+          // Set default priority to NORMAL for requests without priority
+          const requestsWithPriority = (data.data || []).map((r: ClientRequest) => ({
+            ...r,
+            priority: r.priority || 'NORMAL',
+          }));
+          setRequests(requestsWithPriority);
         } else {
           setError(data.message || 'Failed to load requests');
         }
@@ -120,6 +171,31 @@ export default function AdminRequestsPage() {
 
     fetchRequests();
   }, [authUser, statusFilter, typeFilter]);
+
+  // Sorted and filtered requests
+  const sortedRequests = useMemo(() => {
+    let filtered = requests;
+
+    // Apply priority filter
+    if (priorityFilter) {
+      filtered = filtered.filter((r) => r.priority === priorityFilter);
+    }
+
+    // Sort
+    return [...filtered].sort((a, b) => {
+      if (sortMode === 'oldest') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      if (sortMode === 'priority') {
+        const priorityDiff = PRIORITY_ORDER[a.priority || 'NORMAL'] - PRIORITY_ORDER[b.priority || 'NORMAL'];
+        if (priorityDiff !== 0) return priorityDiff;
+        // Secondary sort: oldest first within same priority
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      // Default: newest first
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [requests, priorityFilter, sortMode]);
 
   const handleSetStatus = async (requestId: string, orgId: string, status: string, reason?: string) => {
     setActionLoading(requestId);
@@ -137,7 +213,6 @@ export default function AdminRequestsPage() {
       const data = await res.json();
 
       if (res.ok && data.ok) {
-        // Update local state
         setRequests((prev) =>
           prev.map((r) =>
             r.request_id === requestId
@@ -152,6 +227,37 @@ export default function AdminRequestsPage() {
       }
     } catch (err) {
       console.error('Status update error:', err);
+      alert('Network error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSetPriority = async (requestId: string, orgId: string, priority: RequestPriority) => {
+    setActionLoading(requestId);
+    try {
+      const res = await fetch('/api/admin/client-requests/priority', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: requestId,
+          org_id: orgId,
+          priority,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.request_id === requestId ? { ...r, priority } : r
+          )
+        );
+      } else {
+        alert(data.message || 'Failed to update priority');
+      }
+    } catch (err) {
+      console.error('Priority update error:', err);
       alert('Network error');
     } finally {
       setActionLoading(null);
@@ -174,7 +280,6 @@ export default function AdminRequestsPage() {
       const data = await res.json();
 
       if (res.ok && data.ok) {
-        // Update local state
         setRequests((prev) =>
           prev.map((r) =>
             r.request_id === requestId
@@ -218,8 +323,8 @@ export default function AdminRequestsPage() {
         Client Requests
       </h1>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      {/* Filters and Sort */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -252,6 +357,40 @@ export default function AdminRequestsPage() {
           <option value="AI_CONTENT">AI Content</option>
           <option value="UGC_EDIT">UGC Edit</option>
         </select>
+
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          style={{
+            padding: '6px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ced4da',
+            fontSize: '14px',
+          }}
+        >
+          <option value="">All Priorities</option>
+          <option value="HIGH">High</option>
+          <option value="NORMAL">Normal</option>
+          <option value="LOW">Low</option>
+        </select>
+
+        <div style={{ borderLeft: '1px solid #ced4da', height: '24px', margin: '0 4px' }} />
+
+        <span style={{ fontSize: '13px', color: '#495057' }}>Sort:</span>
+        <select
+          value={sortMode}
+          onChange={(e) => setSortMode(e.target.value as SortMode)}
+          style={{
+            padding: '6px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ced4da',
+            fontSize: '14px',
+          }}
+        >
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="priority">Priority (High → Low)</option>
+        </select>
       </div>
 
       {error && (
@@ -262,30 +401,55 @@ export default function AdminRequestsPage() {
 
       {loading ? (
         <p>Loading requests...</p>
-      ) : requests.length === 0 ? (
+      ) : sortedRequests.length === 0 ? (
         <p style={{ color: '#868e96' }}>No requests found.</p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left' }}>
+                <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Priority</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Request ID</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Org</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Type</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Title</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Status</th>
-                <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Created</th>
+                <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Age</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {requests.map((req) => {
+              {sortedRequests.map((req) => {
                 const statusColor = STATUS_COLORS[req.status] || STATUS_COLORS.SUBMITTED;
+                const priorityColor = PRIORITY_COLORS[req.priority || 'NORMAL'];
                 const isActioning = actionLoading === req.request_id;
                 const isRejecting = rejectingId === req.request_id;
+                const ageMs = now - new Date(req.created_at).getTime();
 
                 return (
                   <tr key={req.request_id} style={{ borderBottom: '1px solid #dee2e6' }}>
+                    <td style={{ padding: '10px' }}>
+                      <select
+                        value={req.priority || 'NORMAL'}
+                        onChange={(e) => handleSetPriority(req.request_id, req.org_id, e.target.value as RequestPriority)}
+                        disabled={isActioning || req.status === 'CONVERTED'}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          backgroundColor: priorityColor.bg,
+                          color: priorityColor.text,
+                          border: `1px solid ${priorityColor.border}`,
+                          borderRadius: '4px',
+                          cursor: req.status === 'CONVERTED' ? 'default' : 'pointer',
+                          opacity: isActioning ? 0.6 : 1,
+                        }}
+                      >
+                        <option value="HIGH">HIGH</option>
+                        <option value="NORMAL">NORMAL</option>
+                        <option value="LOW">LOW</option>
+                      </select>
+                    </td>
                     <td style={{ padding: '10px', fontFamily: 'monospace', fontSize: '12px' }}>
                       {req.request_id.slice(0, 8)}...
                     </td>
@@ -328,7 +492,8 @@ export default function AdminRequestsPage() {
                       )}
                     </td>
                     <td style={{ padding: '10px', fontSize: '12px', color: '#495057' }}>
-                      {hydrated ? formatDateString(req.created_at) : req.created_at.split('T')[0]}
+                      <div>{hydrated ? formatAge(ageMs) : formatDateString(req.created_at)}</div>
+                      <div style={{ fontSize: '10px', color: '#868e96' }}>since submit</div>
                     </td>
                     <td style={{ padding: '10px' }}>
                       {req.status === 'CONVERTED' ? (

@@ -31,7 +31,23 @@ interface OrgBranding {
   welcome_message?: string | null;
 }
 
+interface OrgMember {
+  user_id: string;
+  email: string | null;
+  role: 'owner' | 'member';
+  joined_at: string;
+}
+
+interface OrgInvite {
+  invite_id: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  created_at: string;
+}
+
 const ACCENT_COLOR_OPTIONS = getAccentColorOptions();
+const INVITE_ROLES = ['client', 'recorder', 'editor', 'uploader', 'admin'] as const;
 
 export default function AdminClientOrgsPage() {
   const router = useRouter();
@@ -79,6 +95,19 @@ export default function AdminClientOrgsPage() {
   const [planLoading, setPlanLoading] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
   const [savingBillingStatus, setSavingBillingStatus] = useState(false);
+
+  // Members & Invites
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [invites, setInvites] = useState<OrgInvite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<typeof INVITE_ROLES[number]>('client');
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [revokingMember, setRevokingMember] = useState<string | null>(null);
+  const [revokingInvite, setRevokingInvite] = useState<string | null>(null);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
 
   // Check auth and admin status
   useEffect(() => {
@@ -143,13 +172,16 @@ export default function AdminClientOrgsPage() {
     fetchOrgs();
   }, [isAdmin]);
 
-  // Fetch branding, projects, and plan when org selected
+  // Fetch branding, projects, plan, members, and invites when org selected
   useEffect(() => {
     if (!selectedOrg) {
       setBranding({});
       setProjects([]);
       setOrgPlan('free');
       setBillingStatus('active');
+      setMembers([]);
+      setInvites([]);
+      setLastInviteUrl(null);
       return;
     }
 
@@ -234,9 +266,63 @@ export default function AdminClientOrgsPage() {
       }
     };
 
+    const fetchMembers = async () => {
+      setMembersLoading(true);
+      try {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/members`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (data.ok && data.data?.members) {
+          setMembers(data.data.members);
+        } else {
+          setMembers([]);
+        }
+      } catch (err) {
+        console.error('Error fetching members:', err);
+        setMembers([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    const fetchInvites = async () => {
+      setInvitesLoading(true);
+      try {
+        const supabase = createBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/invite`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (data.ok && data.data?.invites) {
+          setInvites(data.data.invites);
+        } else {
+          setInvites([]);
+        }
+      } catch (err) {
+        console.error('Error fetching invites:', err);
+        setInvites([]);
+      } finally {
+        setInvitesLoading(false);
+      }
+    };
+
     fetchBranding();
     fetchProjects();
     fetchPlan();
+    fetchMembers();
+    fetchInvites();
   }, [selectedOrg]);
 
   // Create organization
@@ -591,6 +677,207 @@ export default function AdminClientOrgsPage() {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setSavingBillingStatus(false);
+    }
+  };
+
+  // Refresh members and invites
+  const refreshMembersAndInvites = async () => {
+    if (!selectedOrg) return;
+
+    const supabase = createBrowserSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    // Fetch members
+    setMembersLoading(true);
+    try {
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/members`, {
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      const data = await res.json();
+      if (data.ok && data.data?.members) {
+        setMembers(data.data.members);
+      }
+    } catch (err) {
+      console.error('Error refreshing members:', err);
+    } finally {
+      setMembersLoading(false);
+    }
+
+    // Fetch invites
+    setInvitesLoading(true);
+    try {
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/invite`, {
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      const data = await res.json();
+      if (data.ok && data.data?.invites) {
+        setInvites(data.data.invites);
+      }
+    } catch (err) {
+      console.error('Error refreshing invites:', err);
+    } finally {
+      setInvitesLoading(false);
+    }
+
+    // Refresh orgs list for member count
+    fetchOrgs();
+  };
+
+  // Create invite
+  const handleCreateInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrg || !inviteEmail.trim()) return;
+
+    setCreatingInvite(true);
+    setMessage(null);
+    setLastInviteUrl(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: `Invite created for ${inviteEmail}` });
+        setLastInviteUrl(data.data.invite_url);
+        setInviteEmail('');
+        refreshMembersAndInvites();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to create invite' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
+  // Revoke member
+  const handleRevokeMember = async (userId: string) => {
+    if (!selectedOrg) return;
+
+    setRevokingMember(userId);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/members/revoke`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: 'Member revoked' });
+        refreshMembersAndInvites();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to revoke member' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setRevokingMember(null);
+    }
+  };
+
+  // Revoke invite
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!selectedOrg) return;
+
+    setRevokingInvite(inviteId);
+    setMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/invites/revoke`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ invite_id: inviteId }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: 'Invite revoked' });
+        refreshMembersAndInvites();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to revoke invite' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setRevokingInvite(null);
+    }
+  };
+
+  // Resend invite
+  const handleResendInvite = async (inviteId: string) => {
+    if (!selectedOrg) return;
+
+    setResendingInvite(inviteId);
+    setMessage(null);
+    setLastInviteUrl(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/admin/client-orgs/${selectedOrg.org_id}/invites/resend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ invite_id: inviteId }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: 'success', text: `Invite resent to ${data.data.email}` });
+        setLastInviteUrl(data.data.invite_url);
+        refreshMembersAndInvites();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to resend invite' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setResendingInvite(null);
+    }
+  };
+
+  // Copy invite URL to clipboard
+  const handleCopyInviteUrl = async () => {
+    if (lastInviteUrl) {
+      try {
+        await navigator.clipboard.writeText(lastInviteUrl);
+        setMessage({ type: 'success', text: 'Invite URL copied to clipboard' });
+      } catch {
+        setMessage({ type: 'error', text: 'Failed to copy to clipboard' });
+      }
     }
   };
 
@@ -1116,80 +1403,310 @@ export default function AdminClientOrgsPage() {
               )}
             </div>
 
-            {/* Add/Remove Member */}
+            {/* Members Table */}
             <div style={{
               padding: '16px 20px',
               backgroundColor: '#f8f9fa',
               borderRadius: '8px',
               border: '1px solid #dee2e6',
             }}>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#495057' }}>Manage Members</h4>
-              <input
-                type="text"
-                value={memberUserId}
-                onChange={(e) => setMemberUserId(e.target.value)}
-                placeholder="User ID (UUID)"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ced4da',
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#495057' }}>
+                Members ({members.length})
+              </h4>
+              {membersLoading ? (
+                <div style={{ fontSize: '12px', color: '#6c757d', padding: '8px 0' }}>Loading...</div>
+              ) : members.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#6c757d', padding: '8px 0' }}>No members</div>
+              ) : (
+                <div style={{
+                  border: '1px solid #dee2e6',
                   borderRadius: '4px',
-                  fontSize: '13px',
-                  marginBottom: '8px',
-                  boxSizing: 'border-box',
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <select
-                  value={memberRole}
-                  onChange={(e) => setMemberRole(e.target.value as 'owner' | 'member')}
+                  overflow: 'hidden',
+                  marginBottom: '12px',
+                }}>
+                  {members.map((member, idx) => (
+                    <div
+                      key={member.user_id}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: 'white',
+                        borderBottom: idx < members.length - 1 ? '1px solid #dee2e6' : 'none',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                          {member.email || 'No email'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                          {member.role} • {member.user_id.slice(0, 8)}...
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRevokeMember(member.user_id)}
+                        disabled={revokingMember === member.user_id}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: revokingMember === member.user_id ? '#adb5bd' : '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          cursor: revokingMember === member.user_id ? 'not-allowed' : 'pointer',
+                          fontSize: '11px',
+                        }}
+                      >
+                        {revokingMember === member.user_id ? '...' : 'Revoke'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add member by UUID (legacy) */}
+              <div style={{ borderTop: '1px solid #dee2e6', paddingTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#495057', marginBottom: '8px' }}>
+                  Add by User ID
+                </div>
+                <input
+                  type="text"
+                  value={memberUserId}
+                  onChange={(e) => setMemberUserId(e.target.value)}
+                  placeholder="User ID (UUID)"
                   style={{
-                    flex: 1,
-                    padding: '8px',
+                    width: '100%',
+                    padding: '8px 12px',
                     border: '1px solid #ced4da',
                     borderRadius: '4px',
                     fontSize: '13px',
+                    marginBottom: '8px',
+                    boxSizing: 'border-box',
                   }}
-                >
-                  <option value="member">Member</option>
-                  <option value="owner">Owner</option>
-                </select>
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    value={memberRole}
+                    onChange={(e) => setMemberRole(e.target.value as 'owner' | 'member')}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="member">Member</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                  <button
+                    onClick={() => handleSetMember('add')}
+                    disabled={managingMember || !memberUserId.trim()}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: managingMember || !memberUserId.trim() ? '#adb5bd' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: managingMember || !memberUserId.trim() ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {managingMember ? '...' : 'Add'}
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => handleSetMember('add')}
-                  disabled={managingMember || !memberUserId.trim()}
+            </div>
+
+            {/* Invites Panel */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+            }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#495057' }}>
+                Invite by Email
+              </h4>
+
+              {/* Invite Form */}
+              <form onSubmit={handleCreateInvite} style={{ marginBottom: '12px' }}>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="user@example.com"
                   style={{
-                    flex: 1,
-                    padding: '8px',
-                    backgroundColor: managingMember || !memberUserId.trim() ? '#adb5bd' : '#28a745',
-                    color: 'white',
-                    border: 'none',
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #ced4da',
                     borderRadius: '4px',
-                    cursor: managingMember || !memberUserId.trim() ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    marginBottom: '8px',
+                    boxSizing: 'border-box',
                   }}
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => handleSetMember('remove')}
-                  disabled={managingMember || !memberUserId.trim()}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    backgroundColor: managingMember || !memberUserId.trim() ? '#adb5bd' : '#dc3545',
-                    color: 'white',
-                    border: 'none',
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as typeof INVITE_ROLES[number])}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    {INVITE_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={creatingInvite || !inviteEmail.trim()}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: creatingInvite || !inviteEmail.trim() ? '#adb5bd' : '#1971c2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: creatingInvite || !inviteEmail.trim() ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {creatingInvite ? '...' : 'Invite'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Last Invite URL */}
+              {lastInviteUrl && (
+                <div style={{
+                  padding: '10px 12px',
+                  backgroundColor: '#d4edda',
+                  borderRadius: '4px',
+                  marginBottom: '12px',
+                  border: '1px solid #c3e6cb',
+                }}>
+                  <div style={{ fontSize: '11px', color: '#155724', marginBottom: '6px' }}>
+                    Invite URL (share with user):
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'center',
+                  }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={lastInviteUrl}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        border: '1px solid #c3e6cb',
+                        borderRadius: '3px',
+                        fontSize: '11px',
+                        fontFamily: 'monospace',
+                        backgroundColor: 'white',
+                      }}
+                    />
+                    <button
+                      onClick={handleCopyInviteUrl}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pending Invites */}
+              <div style={{ borderTop: '1px solid #dee2e6', paddingTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#495057', marginBottom: '8px' }}>
+                  Pending Invites ({invites.length})
+                </div>
+                {invitesLoading ? (
+                  <div style={{ fontSize: '12px', color: '#6c757d', padding: '8px 0' }}>Loading...</div>
+                ) : invites.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#6c757d', padding: '8px 0' }}>No pending invites</div>
+                ) : (
+                  <div style={{
+                    border: '1px solid #dee2e6',
                     borderRadius: '4px',
-                    cursor: managingMember || !memberUserId.trim() ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Remove
-                </button>
+                    overflow: 'hidden',
+                  }}>
+                    {invites.map((invite, idx) => {
+                      const isExpired = new Date(invite.expires_at) < new Date();
+                      return (
+                        <div
+                          key={invite.invite_id}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: isExpired ? '#f8f9fa' : 'white',
+                            borderBottom: idx < invites.length - 1 ? '1px solid #dee2e6' : 'none',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 500, color: isExpired ? '#6c757d' : '#212529' }}>
+                                {invite.email}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                                {invite.role} • {isExpired ? 'Expired' : `Expires ${new Date(invite.expires_at).toLocaleDateString()}`}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                onClick={() => handleResendInvite(invite.invite_id)}
+                                disabled={resendingInvite === invite.invite_id}
+                                style={{
+                                  padding: '4px 6px',
+                                  backgroundColor: resendingInvite === invite.invite_id ? '#adb5bd' : '#1971c2',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  cursor: resendingInvite === invite.invite_id ? 'not-allowed' : 'pointer',
+                                  fontSize: '10px',
+                                }}
+                              >
+                                {resendingInvite === invite.invite_id ? '...' : 'Resend'}
+                              </button>
+                              <button
+                                onClick={() => handleRevokeInvite(invite.invite_id)}
+                                disabled={revokingInvite === invite.invite_id}
+                                style={{
+                                  padding: '4px 6px',
+                                  backgroundColor: revokingInvite === invite.invite_id ? '#adb5bd' : '#dc3545',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  cursor: revokingInvite === invite.invite_id ? 'not-allowed' : 'pointer',
+                                  fontSize: '10px',
+                                }}
+                              >
+                                {revokingInvite === invite.invite_id ? '...' : 'Revoke'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

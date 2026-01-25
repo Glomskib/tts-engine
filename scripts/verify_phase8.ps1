@@ -5173,8 +5173,8 @@ try {
     if (Test-Path -LiteralPath $packageJsonPath) {
         $packageContent = (Get-Content -LiteralPath $packageJsonPath) -join "`n"
 
-        if ($packageContent -match 'turbopack=false' -or $packageContent -match '--no-turbo') {
-            Write-Host "    Dev script has turbopack disabled - OK" -ForegroundColor Gray
+        if ($packageContent -match '--webpack' -or $packageContent -match 'turbopack=false' -or $packageContent -match '--no-turbo') {
+            Write-Host "    Dev script uses webpack (turbopack disabled) - OK" -ForegroundColor Gray
         } else {
             Write-Host "  WARN: Dev script may still use turbopack" -ForegroundColor Yellow
         }

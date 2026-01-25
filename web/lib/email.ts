@@ -30,6 +30,12 @@ export interface EmailResult {
   ok: boolean;
   status: "sent" | "skipped_no_config" | "skipped_no_recipient" | "skipped_disabled" | "failed";
   message?: string;
+  skipped?: boolean;
+}
+
+// Helper to check if an email result was skipped (safe no-op)
+export function wasEmailSkipped(result: EmailResult): boolean {
+  return result.status.startsWith("skipped_");
 }
 
 // Environment configuration (sync version)
@@ -122,22 +128,22 @@ export async function sendEmail(params: EmailParams): Promise<EmailResult> {
 
   // Check if email is disabled
   if (!config.enabled) {
-    return { ok: true, status: "skipped_disabled", message: "Email is disabled" };
+    return { ok: true, status: "skipped_disabled", skipped: true, message: "Email is disabled" };
   }
 
   // Check for missing config
   if (!config.apiKey) {
-    return { ok: true, status: "skipped_no_config", message: "SENDGRID_API_KEY not configured" };
+    return { ok: true, status: "skipped_no_config", skipped: true, message: "SENDGRID_API_KEY not configured" };
   }
 
   // Check if SendGrid module is available
   if (!sgMail) {
-    return { ok: true, status: "skipped_no_config", message: "SendGrid module not installed" };
+    return { ok: true, status: "skipped_no_config", skipped: true, message: "SendGrid module not installed" };
   }
 
   // Validate recipient
   if (!params.to || !params.to.includes("@")) {
-    return { ok: true, status: "skipped_no_recipient", message: "Invalid or missing recipient email" };
+    return { ok: true, status: "skipped_no_recipient", skipped: true, message: "Invalid or missing recipient email" };
   }
 
   try {
@@ -198,4 +204,75 @@ export async function checkEmailCooldown(
     // If check fails, allow email to proceed (fail open)
     return false;
   }
+}
+
+/**
+ * Write an email audit event to video_events table.
+ * Uses video_id = null for org-level/invite emails.
+ */
+export async function writeEmailAuditEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
+  params: {
+    templateKey: string;
+    to: string;
+    subject: string;
+    result: EmailResult;
+    context?: Record<string, unknown>;
+  }
+): Promise<void> {
+  const eventType = params.result.status === "sent"
+    ? "email_sent"
+    : params.result.status === "failed"
+      ? "email_failed"
+      : "email_skipped";
+
+  try {
+    await supabaseAdmin.from("video_events").insert({
+      video_id: null,
+      event_type: eventType,
+      actor: "system",
+      correlation_id: `email-${Date.now()}`,
+      details: {
+        template_key: params.templateKey,
+        to: params.to,
+        subject: params.subject,
+        status: params.result.status,
+        message: params.result.message,
+        ok: params.result.ok,
+        ...params.context,
+      },
+    });
+  } catch (err) {
+    // Never fail the main operation due to audit logging
+    console.error("Failed to write email audit event:", err);
+  }
+}
+
+/**
+ * Send email with automatic audit event emission.
+ * This is the recommended function for sending emails with full auditing.
+ */
+export async function sendEmailWithAudit(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
+  params: EmailParams & {
+    templateKey: string;
+    context?: Record<string, unknown>;
+  }
+): Promise<EmailResult> {
+  const result = await sendEmail(params);
+
+  // Write audit event (fire and forget)
+  writeEmailAuditEvent(supabaseAdmin, {
+    templateKey: params.templateKey,
+    to: params.to,
+    subject: params.subject,
+    result,
+    context: params.context,
+  }).catch(() => {
+    // Silently ignore audit failures
+  });
+
+  return result;
 }

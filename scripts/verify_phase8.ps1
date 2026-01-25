@@ -4632,7 +4632,184 @@ try {
     Write-Host "  WARN: SLA and priority verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[42/42] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 43: SLA Breach Visibility + Notification Nudges (Step 33)
+Write-Host "`n[43/43] Testing SLA breach visibility and notification nudges..." -ForegroundColor Yellow
+try {
+    # Check client-requests.ts exports SLA breach detection helpers
+    $clientRequestsPath = Join-Path $webDir "lib\client-requests.ts"
+    if (Test-Path $clientRequestsPath) {
+        $clientRequestsContent = Get-Content $clientRequestsPath -Raw
+
+        if ($clientRequestsContent -match 'export const SLA_THRESHOLDS_MS') {
+            Write-Host "    SLA_THRESHOLDS_MS constant exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: SLA_THRESHOLDS_MS constant not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'LOW:\s*72\s*\*\s*60\s*\*\s*60\s*\*\s*1000') {
+            Write-Host "    LOW priority threshold is 72 hours - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: LOW priority threshold should be 72 hours" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'NORMAL:\s*48\s*\*\s*60\s*\*\s*60\s*\*\s*1000') {
+            Write-Host "    NORMAL priority threshold is 48 hours - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: NORMAL priority threshold should be 48 hours" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'HIGH:\s*24\s*\*\s*60\s*\*\s*60\s*\*\s*1000') {
+            Write-Host "    HIGH priority threshold is 24 hours - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: HIGH priority threshold should be 24 hours" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export const SLA_WARNING_THRESHOLD.*=.*0\.8') {
+            Write-Host "    SLA_WARNING_THRESHOLD is 0.8 (80%) - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: SLA_WARNING_THRESHOLD should be 0.8" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match "export type SLAStatus.*=.*[`"']OK[`"'].*[`"']WARNING[`"'].*[`"']BREACHED[`"']") {
+            Write-Host "    SLAStatus type exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: SLAStatus type not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export function isRequestSLABreached') {
+            Write-Host "    isRequestSLABreached function exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: isRequestSLABreached function not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export function getRequestSLAStatus') {
+            Write-Host "    getRequestSLAStatus function exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: getRequestSLAStatus function not exported" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: lib/client-requests.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin requests page has SLA status badge and filter
+    $adminRequestsPagePath = Join-Path $webDir "app\admin\requests\page.tsx"
+    if (Test-Path $adminRequestsPagePath) {
+        $adminRequestsContent = Get-Content $adminRequestsPagePath -Raw
+
+        if ($adminRequestsContent -match 'getRequestSLAStatus') {
+            Write-Host "    Admin requests page uses getRequestSLAStatus - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing SLA status helper" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'SLA_STATUS_COLORS') {
+            Write-Host "    Admin requests page has SLA status colors - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing SLA status colors" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'slaFilter.*setSlaFilter') {
+            Write-Host "    Admin requests page has SLA filter state - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing SLA filter" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'breachedCount') {
+            Write-Host "    Admin requests page tracks breached count - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing breached count" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'past SLA|Show Breached') {
+            Write-Host "    Admin requests page has breach warning banner - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing breach warning banner" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'SLA Breached|All SLA Status') {
+            Write-Host "    Admin requests page has SLA filter dropdown - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing SLA filter dropdown" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'isBreached.*backgroundColor.*#fff5f5') {
+            Write-Host "    Admin requests page has breached row highlighting - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin requests page may not have breached row highlighting" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: Admin requests page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client requests pages have neutral wording
+    $clientRequestsPagePath = Join-Path $webDir "app\client\requests\page.tsx"
+    if (Test-Path $clientRequestsPagePath) {
+        $clientRequestsPageContent = Get-Content $clientRequestsPagePath -Raw
+
+        if ($clientRequestsPageContent -match 'PROCESSING_LONGER_THRESHOLD_MS|SLA_THRESHOLDS_MS') {
+            Write-Host "    Client requests list uses SLA threshold - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Client requests list may not use SLA threshold" -ForegroundColor Yellow
+        }
+
+        if ($clientRequestsPageContent -match 'Processing longer than usual') {
+            Write-Host "    Client requests list has neutral wording - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Client requests list missing neutral wording" -ForegroundColor Red
+            exit 1
+        }
+
+        # Ensure no SLA/breach terminology in client pages
+        if ($clientRequestsPageContent -match 'BREACHED|SLA breach|past SLA') {
+            Write-Host "  FAIL: Client requests list should NOT use SLA/breach terminology" -ForegroundColor Red
+            exit 1
+        } else {
+            Write-Host "    Client requests list has no SLA terminology - OK" -ForegroundColor Gray
+        }
+    }
+
+    $clientRequestDetailPath = Join-Path $webDir "app\client\requests\[request_id]\page.tsx"
+    if (Test-Path -LiteralPath $clientRequestDetailPath) {
+        $clientRequestDetailContent = Get-Content -LiteralPath $clientRequestDetailPath -Raw
+
+        if ($clientRequestDetailContent -match 'Processing longer than usual') {
+            Write-Host "    Client request detail has neutral wording - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Client request detail missing neutral wording" -ForegroundColor Red
+            exit 1
+        }
+
+        # Ensure no SLA/breach terminology in client pages
+        if ($clientRequestDetailContent -match 'BREACHED|SLA breach|past SLA') {
+            Write-Host "  FAIL: Client request detail should NOT use SLA/breach terminology" -ForegroundColor Red
+            exit 1
+        } else {
+            Write-Host "    Client request detail has no SLA terminology - OK" -ForegroundColor Gray
+        }
+    }
+
+    Write-Host "  PASS: SLA breach visibility and notification nudges verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: SLA breach visibility verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[43/43] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

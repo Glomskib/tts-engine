@@ -1,37 +1,22 @@
+/**
+ * POST /api/videos/[id]/release
+ *
+ * Atomically release a video claim.
+ *
+ * Properties:
+ * - Atomic: uses single UPDATE WHERE to prevent race conditions
+ * - Idempotent: releasing an unclaimed video is a no-op success
+ * - Safe: only claim owner (or admin with force) can release
+ */
+
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getVideosColumns } from "@/lib/videosSchema";
-import { getMemoryClaim, clearMemoryClaim } from "@/lib/claimCache";
-import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
+import { atomicReleaseVideo } from "@/lib/video-claim";
+import { apiError, generateCorrelationId, isAdminUser, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { checkIncidentReadOnlyBlock } from "@/lib/settings";
 
 export const runtime = "nodejs";
-
-const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at";
-const VIDEO_SELECT_ROLE = ",claim_role";
-
-async function writeVideoEvent(
-  videoId: string,
-  eventType: string,
-  correlationId: string,
-  actor: string,
-  details: Record<string, unknown>
-): Promise<void> {
-  try {
-    await supabaseAdmin.from("video_events").insert({
-      video_id: videoId,
-      event_type: eventType,
-      correlation_id: correlationId,
-      actor,
-      from_status: null,
-      to_status: null,
-      details,
-    });
-  } catch (err) {
-    console.error("Failed to write video event:", err);
-  }
-}
 
 export async function POST(
   request: Request,
@@ -40,6 +25,7 @@ export async function POST(
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { id } = await params;
 
+  // Validate video ID
   if (!id || typeof id !== "string") {
     const err = apiError("BAD_REQUEST", "Video ID is required", 400);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
@@ -51,6 +37,7 @@ export async function POST(
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
+  // Parse request body
   let body: unknown;
   try {
     body = await request.json();
@@ -110,99 +97,48 @@ export async function POST(
   }
 
   try {
-    // Check if claim columns exist (migration 010) and claim_role (migration 015)
-    const existingColumns = await getVideosColumns();
-    const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
-    const hasClaimRoleColumn = existingColumns.has("claim_role");
+    // Execute atomic release
+    const result = await atomicReleaseVideo(supabaseAdmin, {
+      video_id: id,
+      actor,
+      force: forceRequested,
+      is_admin: isAdmin,
+      correlation_id: correlationId,
+    });
 
-    if (!hasClaimColumns) {
-      const { data: video, error: fetchError } = await supabaseAdmin
-        .from("videos")
-        .select("id")
-        .eq("id", id)
-        .single();
+    if (!result.ok) {
+      // Map result to appropriate HTTP error
+      const errorMap: Record<string, { code: ApiErrorCode; status: number }> = {
+        NOT_FOUND: { code: "NOT_FOUND", status: 404 },
+        NOT_CLAIM_OWNER: { code: "NOT_CLAIM_OWNER", status: 403 },
+        RACE_CONDITION: { code: "CONFLICT", status: 409 },
+        DB_ERROR: { code: "DB_ERROR", status: 500 },
+      };
 
-      if (fetchError || !video) {
-        const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-      }
-
-      const existingClaim = getMemoryClaim(id);
-      if (existingClaim && !(forceRequested && isAdmin) && existingClaim.claimed_by !== actor) {
-        const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${existingClaim.claimed_by}, not ${actor}`, 403, {
-          current_claimed_by: existingClaim.claimed_by,
-          actor,
-        });
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-      }
-      clearMemoryClaim(id);
-      const { data: fullVideo } = await supabaseAdmin
-        .from("videos")
-        .select("*")
-        .eq("id", id)
-        .single();
-      return NextResponse.json({ ok: true, data: fullVideo, correlation_id: correlationId });
-    }
-
-    const { data: video, error: fetchError } = await supabaseAdmin
-      .from("videos")
-      .select("id,claimed_by")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
-    if (!(forceRequested && isAdmin) && video.claimed_by !== actor) {
-      const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${video.claimed_by}, not ${actor}`, 403, {
-        current_claimed_by: video.claimed_by,
+      const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
+      const err = apiError(errorInfo.code, result.message, errorInfo.status, {
+        current_claimed_by: result.previous_claimed_by,
         actor,
       });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    // Build update payload - only include claim_role if column exists
-    const updatePayload: Record<string, unknown> = {
-      claimed_by: null,
-      claimed_at: null,
-      claim_expires_at: null,
-    };
-    if (hasClaimRoleColumn) {
-      updatePayload.claim_role = null;
-    }
-
-    // Release the claim
-    let query = supabaseAdmin
+    // Fetch full video data for response
+    const { data: video } = await supabaseAdmin
       .from("videos")
-      .update(updatePayload)
-      .eq("id", id);
-
-    // If not forcing (or not admin), also require claimed_by match
-    if (!(forceRequested && isAdmin)) {
-      query = query.eq("claimed_by", actor);
-    }
-
-    const selectCols = hasClaimRoleColumn ? VIDEO_SELECT_BASE + VIDEO_SELECT_ROLE : VIDEO_SELECT_BASE;
-
-    const { data: updated, error: updateError } = await query
-      .select(selectCols)
+      .select("id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at,claim_role")
+      .eq("id", id)
       .single();
 
-    if (updateError || !updated) {
-      const err = apiError("BAD_REQUEST", "Failed to release claim", 409, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
-    // Write audit event
-    await writeVideoEvent(id, "release", correlationId, actor, {
-      released_by: actor,
-      force: forceRequested && isAdmin,
-      authenticated: isAuthenticated,
+    return NextResponse.json({
+      ok: true,
+      data: video,
+      meta: {
+        action: result.action,
+        previous_claimed_by: result.previous_claimed_by,
+      },
+      correlation_id: correlationId,
     });
-
-    return NextResponse.json({ ok: true, data: updated, correlation_id: correlationId });
 
   } catch (err) {
     console.error("POST /api/videos/[id]/release error:", err);

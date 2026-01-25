@@ -1,25 +1,23 @@
 /**
- * POST /api/videos/[id]/claim
+ * POST /api/videos/[id]/renew
  *
- * Atomically claim a video using a lease-based model.
- * Claims are time-limited and automatically expire.
+ * Atomically renew (extend) an existing video claim.
  *
  * Properties:
  * - Atomic: uses single UPDATE WHERE to prevent race conditions
- * - Idempotent: same user claiming twice extends their lease
- * - Safe: concurrent claims cannot both succeed
+ * - Idempotent: renewing multiple times just updates expiry
+ * - Safe: only claim owner can renew
  */
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { atomicClaimVideo, type ClaimRole } from "@/lib/video-claim";
+import { atomicRenewClaim } from "@/lib/video-claim";
 import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
-import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { getAssignmentTtlMinutes } from "@/lib/settings";
+import { checkIncidentReadOnlyBlock } from "@/lib/settings";
 
 export const runtime = "nodejs";
-
-const VALID_CLAIM_ROLES: ClaimRole[] = ["recorder", "editor", "uploader", "admin"];
 
 export async function POST(
   request: Request,
@@ -49,46 +47,32 @@ export async function POST(
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const { claimed_by, claim_role, ttl_minutes } = body as Record<string, unknown>;
+  const { ttl_minutes } = body as Record<string, unknown>;
 
   // Get authentication context from session
   const authContext = await getApiAuthContext();
 
-  // Determine actor: prefer authenticated user, fallback to legacy claimed_by for tests
-  const isAuthenticated = authContext.user !== null;
-  const actor = authContext.user
-    ? authContext.user.id
-    : (typeof claimed_by === "string" && claimed_by.trim() !== "" ? claimed_by.trim() : null);
+  // Determine actor from authenticated user
+  const actor = authContext.user?.id;
 
   if (!actor) {
     const err = apiError(
       "MISSING_ACTOR",
-      "Authentication required. Please sign in to claim videos.",
-      401,
-      { hint: "Sign in or provide claimed_by in request body for test mode" }
+      "Authentication required. Please sign in to renew claims.",
+      401
     );
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  // Determine role: prefer authenticated role, fallback to legacy claim_role for tests
-  const actorRole: UserRole | null = isAuthenticated
-    ? authContext.role
-    : (typeof claim_role === "string" && VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)
-      ? (claim_role as UserRole)
-      : null);
-
-  // Validate claim_role if provided in body (for non-authenticated requests)
-  if (!isAuthenticated && claim_role !== undefined && !VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)) {
-    const err = apiError("INVALID_ROLE", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claim_role });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-  }
-
-  // Require claim_role
-  if (!actorRole) {
-    const err = apiError("BAD_REQUEST", "claim_role is required (one of: recorder, editor, uploader, admin)", 400, {
-      valid_roles: VALID_CLAIM_ROLES,
-    });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  // Incident mode read-only check (admin bypass)
+  const incidentCheck = await checkIncidentReadOnlyBlock(actor, authContext.isAdmin);
+  if (incidentCheck.blocked) {
+    return NextResponse.json({
+      ok: false,
+      error: "incident_mode_read_only",
+      message: incidentCheck.message || "System is in maintenance mode.",
+      correlation_id: correlationId,
+    }, { status: 503 });
   }
 
   // Get effective TTL: request body -> system setting -> default (240)
@@ -104,11 +88,10 @@ export async function POST(
   }
 
   try {
-    // Execute atomic claim
-    const result = await atomicClaimVideo(supabaseAdmin, {
+    // Execute atomic renew
+    const result = await atomicRenewClaim(supabaseAdmin, {
       video_id: id,
       actor,
-      claim_role: actorRole as ClaimRole,
       ttl_minutes: ttl,
       correlation_id: correlationId,
     });
@@ -117,16 +100,14 @@ export async function POST(
       // Map result to appropriate HTTP error
       const errorMap: Record<string, { code: ApiErrorCode; status: number }> = {
         NOT_FOUND: { code: "NOT_FOUND", status: 404 },
-        NOT_CLAIMABLE: { code: "BAD_REQUEST", status: 400 },
-        ALREADY_CLAIMED: { code: "ALREADY_CLAIMED", status: 409 },
+        NOT_CLAIMED: { code: "NOT_CLAIMED", status: 400 },
+        NOT_CLAIM_OWNER: { code: "NOT_CLAIM_OWNER", status: 403 },
+        RACE_CONDITION: { code: "CONFLICT", status: 409 },
         DB_ERROR: { code: "DB_ERROR", status: 500 },
       };
 
       const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-      const err = apiError(errorInfo.code, result.message, errorInfo.status, {
-        claimed_by: result.claimed_by,
-        claim_expires_at: result.claim_expires_at,
-      });
+      const err = apiError(errorInfo.code, result.message, errorInfo.status);
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
@@ -149,7 +130,7 @@ export async function POST(
     });
 
   } catch (err) {
-    console.error("POST /api/videos/[id]/claim error:", err);
+    console.error("POST /api/videos/[id]/renew error:", err);
     const error = apiError("DB_ERROR", "Internal server error", 500);
     return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
   }

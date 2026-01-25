@@ -28,6 +28,17 @@ export default function ClientPortalPage() {
   const [orgRequired, setOrgRequired] = useState(false);
   const [branding, setBranding] = useState<EffectiveOrgBranding | null>(null);
   const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+
+  // Check for welcome flag from invite acceptance
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('welcome') === '1') {
+      setShowWelcomeBanner(true);
+      // Remove the query param from URL without reload
+      window.history.replaceState({}, '', '/client');
+    }
+  }, []);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -130,6 +141,27 @@ export default function ClientPortalPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <ClientNav userName={authUser.email || undefined} branding={branding} />
 
+        {/* Welcome Banner for new members */}
+        {showWelcomeBanner && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+            <div>
+              <div className="text-green-800 font-medium">Welcome to the team!</div>
+              <div className="text-sm text-green-700">
+                Your invite has been accepted. You now have access to this organization&apos;s portal.
+              </div>
+            </div>
+            <button
+              onClick={() => setShowWelcomeBanner(false)}
+              className="text-green-600 hover:text-green-800 p-1"
+              aria-label="Dismiss"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className={`text-2xl font-semibold ${accentText}`}>Welcome</h1>
@@ -147,10 +179,14 @@ export default function ClientPortalPage() {
           <div className="bg-white rounded-lg border border-amber-200 shadow-sm p-8 text-center">
             <div className="text-amber-600 mb-2 text-lg font-medium">Portal Not Connected</div>
             <p className="text-slate-600 mb-4">
-              Your portal is not yet connected to an organization.
+              Your account is not yet connected to an organization.
             </p>
-            <p className="text-sm text-slate-500">
-              Please contact support to get started.
+            <p className="text-sm text-slate-500 mb-4">
+              If you received an invite link, click it to join an organization.
+              Otherwise, please contact your administrator for access.
+            </p>
+            <p className="text-xs text-slate-400">
+              Signed in as: {authUser?.email}
             </p>
           </div>
         ) : (

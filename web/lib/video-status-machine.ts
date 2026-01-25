@@ -24,6 +24,7 @@ import {
 } from "./video-pipeline";
 import { getLockedScriptVersion } from "./video-script-versions";
 import { lintScriptAndCaption, type ComplianceLintResult } from "./compliance-linter";
+import { getCompletePostingMeta, validatePostingMetaCompleteness } from "./posting-meta";
 
 // ============================================================================
 // Types
@@ -333,6 +334,37 @@ export async function transitionVideoStatusAtomic(
     }
 
     // If warn: we'll emit an event but allow the transition (logged after success)
+
+    // Check posting metadata completeness
+    const postingResult = await getCompletePostingMeta(supabase, video_id);
+    const postingValidation = validatePostingMetaCompleteness(postingResult.meta);
+
+    if (!postingValidation.ok) {
+      await writeVideoEvent(supabase, {
+        video_id,
+        event_type: "transition_rejected",
+        correlation_id,
+        actor,
+        from_status: currentStatus,
+        to_status: target_status,
+        details: {
+          error_code: "POSTING_META_INCOMPLETE",
+          missing: postingValidation.missing,
+          present: postingValidation.present,
+          reason: "Transition to ready_to_post requires complete posting metadata",
+        },
+      });
+
+      return {
+        ok: false,
+        video_id,
+        action: "precondition_failed",
+        previous_status: currentStatus,
+        current_status: currentStatus,
+        message: `Posting metadata incomplete. Missing: ${postingValidation.missing.join(", ")}`,
+        error_code: "POSTING_META_INCOMPLETE",
+      };
+    }
   }
 
   // Build update payload

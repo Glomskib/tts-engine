@@ -7,10 +7,11 @@ import {
   convertClientRequestToVideo,
   REQUEST_EVENT_TYPES,
 } from "@/lib/client-requests";
-import { CLIENT_ORG_EVENT_TYPES } from "@/lib/client-org";
+import { CLIENT_ORG_EVENT_TYPES, getClientOrgById } from "@/lib/client-org";
 import { PROJECT_EVENT_TYPES } from "@/lib/client-projects";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { randomUUID } from "crypto";
+import { sendRequestConvertedEmail } from "@/lib/client-email-notifications";
 
 export const runtime = "nodejs";
 
@@ -219,11 +220,31 @@ export async function POST(request: Request) {
       actor_user_id: authContext.user.id,
     });
 
+    // Send email notification to requester (fail-safe)
+    let emailResult = null;
+    if (clientRequest.requested_by_email) {
+      const org = await getClientOrgById(supabaseAdmin, clientRequest.org_id);
+      const portalUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/client/videos/${videoId}`
+        : undefined;
+
+      emailResult = await sendRequestConvertedEmail({
+        recipientEmail: clientRequest.requested_by_email,
+        requestId: clientRequest.request_id,
+        requestTitle: clientRequest.title,
+        videoId,
+        orgName: org?.org_name || "Your Organization",
+        portalUrl,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       data: {
         video_id: videoId,
         request_id: clientRequest.request_id,
+        email_sent: emailResult?.sent,
+        email_skipped: emailResult?.skipped,
       },
       correlation_id: correlationId,
     });

@@ -3,6 +3,8 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { setClientRequestStatus, getClientRequestByIdAdmin } from "@/lib/client-requests";
+import { getClientOrgById } from "@/lib/client-org";
+import { sendRequestStatusEmail } from "@/lib/client-email-notifications";
 
 export const runtime = "nodejs";
 
@@ -72,11 +74,33 @@ export async function POST(request: Request) {
       actor_user_id: authContext.user.id,
     });
 
+    // Send email notification for APPROVED/REJECTED (fail-safe)
+    let emailResult = null;
+    if ((status === "APPROVED" || status === "REJECTED") && existingRequest.requested_by_email) {
+      const org = await getClientOrgById(supabaseAdmin, org_id);
+      const portalUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/client/requests/${request_id}`
+        : undefined;
+
+      emailResult = await sendRequestStatusEmail({
+        recipientEmail: existingRequest.requested_by_email,
+        requestId: request_id,
+        requestTitle: existingRequest.title,
+        requestType: existingRequest.request_type,
+        orgName: org?.org_name || "Your Organization",
+        newStatus: status as "APPROVED" | "REJECTED",
+        reason: reason?.trim(),
+        portalUrl,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       data: {
         request_id,
         status,
+        email_sent: emailResult?.sent,
+        email_skipped: emailResult?.skipped,
       },
       correlation_id: correlationId,
     });

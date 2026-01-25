@@ -5,6 +5,26 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+
+/**
+ * Format duration in milliseconds to human-readable string.
+ */
+function formatProcessingTime(ms: number): string {
+  if (ms < 0) return '0m';
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+  return minutes > 0 ? `${minutes}m` : '<1m';
+}
 import ClientNav from '../components/ClientNav';
 import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
 
@@ -47,6 +67,13 @@ export default function ClientRequestsPage() {
   const [error, setError] = useState('');
   const [orgRequired, setOrgRequired] = useState(false);
   const [branding, setBranding] = useState<EffectiveOrgBranding | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Update "now" every minute for processing time display
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -252,6 +279,20 @@ export default function ClientRequestsPage() {
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors.bg} ${colors.text}`}>
                               {req.status.replace(/_/g, ' ')}
                             </span>
+                            {hydrated && req.status !== 'CONVERTED' && req.status !== 'REJECTED' && (
+                              <div className="text-xs text-slate-400 mt-1">
+                                {req.status === 'IN_REVIEW'
+                                  ? `In review for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
+                                  : req.status === 'APPROVED'
+                                  ? `Processing for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
+                                  : `Submitted ${formatProcessingTime(now - new Date(req.created_at).getTime())} ago`}
+                              </div>
+                            )}
+                            {req.status === 'CONVERTED' && (
+                              <div className="text-xs text-slate-400 mt-1">
+                                Completed
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-500">
                             {displayTime(req.created_at)}

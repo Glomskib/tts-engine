@@ -50,6 +50,26 @@ const TYPE_LABELS: Record<string, string> = {
   UGC_EDIT: 'UGC Edit',
 };
 
+/**
+ * Format duration in milliseconds to human-readable string.
+ */
+function formatProcessingTime(ms: number): string {
+  if (ms < 0) return '0m';
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+  return minutes > 0 ? `${minutes}m` : '<1m';
+}
+
 export default function RequestDetailPage({
   params,
 }: {
@@ -64,6 +84,13 @@ export default function RequestDetailPage({
   const [request, setRequest] = useState<ClientRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(Date.now());
+
+  // Update "now" every minute for processing time display
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -302,9 +329,15 @@ export default function RequestDetailPage({
                 </div>
               </div>
               <div>
-                <div className="text-slate-500">Last Updated</div>
+                <div className="text-slate-500">Processing Time</div>
                 <div className="text-slate-700">
-                  {hydrated ? formatDateString(request.updated_at) : request.updated_at.split('T')[0]}
+                  {hydrated ? (
+                    request.status === 'CONVERTED'
+                      ? `Completed in ${formatProcessingTime(new Date(request.updated_at).getTime() - new Date(request.created_at).getTime())}`
+                      : request.status === 'REJECTED'
+                      ? `Reviewed in ${formatProcessingTime(new Date(request.updated_at).getTime() - new Date(request.created_at).getTime())}`
+                      : `${formatProcessingTime(now - new Date(request.created_at).getTime())} so far`
+                  ) : '-'}
                 </div>
               </div>
               {request.project_id && (

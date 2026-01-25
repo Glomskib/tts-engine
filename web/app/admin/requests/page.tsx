@@ -4,6 +4,12 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import AdminNav from '../components/AdminNav';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
+import {
+  getRequestSLAStatus,
+  SLAStatus,
+  SLA_THRESHOLDS_MS,
+  RequestPriority as LibRequestPriority,
+} from '@/lib/client-requests';
 
 interface AuthUser {
   id: string;
@@ -67,6 +73,12 @@ const PRIORITY_ORDER: Record<RequestPriority, number> = {
   LOW: 2,
 };
 
+const SLA_STATUS_COLORS: Record<SLAStatus, { bg: string; text: string; border: string }> = {
+  OK: { bg: '#d3f9d8', text: '#2f9e44', border: '#69db7c' },
+  WARNING: { bg: '#fff3bf', text: '#e67700', border: '#ffc078' },
+  BREACHED: { bg: '#ffe3e3', text: '#c92a2a', border: '#ff8787' },
+};
+
 type SortMode = 'newest' | 'oldest' | 'priority';
 
 /**
@@ -102,6 +114,7 @@ export default function AdminRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
+  const [slaFilter, setSlaFilter] = useState<string>('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [now, setNow] = useState(Date.now());
 
@@ -172,6 +185,23 @@ export default function AdminRequestsPage() {
     fetchRequests();
   }, [authUser, statusFilter, typeFilter]);
 
+  // Compute SLA status for a request
+  const computeSLAStatus = (req: ClientRequest): SLAStatus => {
+    return getRequestSLAStatus(
+      {
+        status: req.status,
+        priority: req.priority as LibRequestPriority | undefined,
+        created_at: req.created_at,
+      } as Parameters<typeof getRequestSLAStatus>[0],
+      now
+    );
+  };
+
+  // Count breached requests (for warning banner)
+  const breachedCount = useMemo(() => {
+    return requests.filter((r) => computeSLAStatus(r) === 'BREACHED').length;
+  }, [requests, now]);
+
   // Sorted and filtered requests
   const sortedRequests = useMemo(() => {
     let filtered = requests;
@@ -179,6 +209,11 @@ export default function AdminRequestsPage() {
     // Apply priority filter
     if (priorityFilter) {
       filtered = filtered.filter((r) => r.priority === priorityFilter);
+    }
+
+    // Apply SLA filter
+    if (slaFilter) {
+      filtered = filtered.filter((r) => computeSLAStatus(r) === slaFilter);
     }
 
     // Sort
@@ -195,7 +230,7 @@ export default function AdminRequestsPage() {
       // Default: newest first
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [requests, priorityFilter, sortMode]);
+  }, [requests, priorityFilter, slaFilter, sortMode, now]);
 
   const handleSetStatus = async (requestId: string, orgId: string, status: string, reason?: string) => {
     setActionLoading(requestId);
@@ -374,6 +409,23 @@ export default function AdminRequestsPage() {
           <option value="LOW">Low</option>
         </select>
 
+        <select
+          value={slaFilter}
+          onChange={(e) => setSlaFilter(e.target.value)}
+          style={{
+            padding: '6px 12px',
+            borderRadius: '4px',
+            border: slaFilter === 'BREACHED' ? '1px solid #ff8787' : '1px solid #ced4da',
+            backgroundColor: slaFilter === 'BREACHED' ? '#ffe3e3' : 'white',
+            fontSize: '14px',
+          }}
+        >
+          <option value="">All SLA Status</option>
+          <option value="OK">SLA OK</option>
+          <option value="WARNING">SLA Warning</option>
+          <option value="BREACHED">SLA Breached</option>
+        </select>
+
         <div style={{ borderLeft: '1px solid #ced4da', height: '24px', margin: '0 4px' }} />
 
         <span style={{ fontSize: '13px', color: '#495057' }}>Sort:</span>
@@ -399,6 +451,40 @@ export default function AdminRequestsPage() {
         </div>
       )}
 
+      {/* SLA Breach Warning Banner */}
+      {!loading && breachedCount > 0 && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#fff3bf',
+          border: '1px solid #ffc078',
+          borderRadius: '6px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <span style={{ fontSize: '16px' }}>&#9888;</span>
+          <span style={{ color: '#e67700', fontWeight: 500 }}>
+            {breachedCount} request{breachedCount !== 1 ? 's' : ''} past SLA
+          </span>
+          <button
+            onClick={() => setSlaFilter('BREACHED')}
+            style={{
+              marginLeft: 'auto',
+              padding: '4px 10px',
+              fontSize: '12px',
+              backgroundColor: '#e67700',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Show Breached
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p>Loading requests...</p>
       ) : sortedRequests.length === 0 ? (
@@ -409,6 +495,7 @@ export default function AdminRequestsPage() {
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left' }}>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Priority</th>
+                <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>SLA</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Request ID</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Org</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #dee2e6' }}>Type</th>
@@ -422,12 +509,21 @@ export default function AdminRequestsPage() {
               {sortedRequests.map((req) => {
                 const statusColor = STATUS_COLORS[req.status] || STATUS_COLORS.SUBMITTED;
                 const priorityColor = PRIORITY_COLORS[req.priority || 'NORMAL'];
+                const slaStatus = computeSLAStatus(req);
+                const slaColor = SLA_STATUS_COLORS[slaStatus];
                 const isActioning = actionLoading === req.request_id;
                 const isRejecting = rejectingId === req.request_id;
                 const ageMs = now - new Date(req.created_at).getTime();
+                const isBreached = slaStatus === 'BREACHED';
 
                 return (
-                  <tr key={req.request_id} style={{ borderBottom: '1px solid #dee2e6' }}>
+                  <tr
+                    key={req.request_id}
+                    style={{
+                      borderBottom: '1px solid #dee2e6',
+                      backgroundColor: isBreached ? '#fff5f5' : undefined,
+                    }}
+                  >
                     <td style={{ padding: '10px' }}>
                       <select
                         value={req.priority || 'NORMAL'}
@@ -449,6 +545,19 @@ export default function AdminRequestsPage() {
                         <option value="NORMAL">NORMAL</option>
                         <option value="LOW">LOW</option>
                       </select>
+                    </td>
+                    <td style={{ padding: '10px' }}>
+                      <span style={{
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        backgroundColor: slaColor.bg,
+                        color: slaColor.text,
+                        border: `1px solid ${slaColor.border}`,
+                      }}>
+                        {slaStatus}
+                      </span>
                     </td>
                     <td style={{ padding: '10px', fontFamily: 'monospace', fontSize: '12px' }}>
                       {req.request_id.slice(0, 8)}...

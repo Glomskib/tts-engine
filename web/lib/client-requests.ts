@@ -91,6 +91,113 @@ export const REQUEST_EVENT_TYPES = {
 } as const;
 
 // ============================================================================
+// SLA Thresholds (Constants - Not Stored)
+// ============================================================================
+
+/**
+ * SLA thresholds by priority in milliseconds.
+ * Requests exceeding these are considered breached.
+ */
+export const SLA_THRESHOLDS_MS: Record<RequestPriority, number> = {
+  LOW: 72 * 60 * 60 * 1000,    // 72 hours
+  NORMAL: 48 * 60 * 60 * 1000, // 48 hours
+  HIGH: 24 * 60 * 60 * 1000,   // 24 hours
+};
+
+/**
+ * Warning threshold as percentage of SLA.
+ * At 80% of SLA, status becomes WARNING.
+ */
+export const SLA_WARNING_THRESHOLD = 0.8;
+
+/**
+ * SLA status for a request.
+ * - OK: Within SLA
+ * - WARNING: Within 20% of breach
+ * - BREACHED: Past SLA threshold
+ */
+export type SLAStatus = "OK" | "WARNING" | "BREACHED";
+
+// ============================================================================
+// SLA Breach Detection Helpers
+// ============================================================================
+
+/**
+ * Check if a request has breached its SLA.
+ * Pure computation - no persistence.
+ *
+ * @param request - The client request
+ * @param now - Current timestamp in milliseconds
+ * @returns true if SLA is breached
+ */
+export function isRequestSLABreached(
+  request: ClientRequest,
+  now: number = Date.now()
+): boolean {
+  // Completed requests are never breached
+  if (request.status === "CONVERTED" || request.status === "REJECTED") {
+    return false;
+  }
+
+  const submittedAt = new Date(request.created_at).getTime();
+  const ageMs = now - submittedAt;
+  const threshold = SLA_THRESHOLDS_MS[request.priority || "NORMAL"];
+
+  return ageMs > threshold;
+}
+
+/**
+ * Get the SLA status for a request.
+ * Pure computation - no persistence.
+ *
+ * @param request - The client request
+ * @param now - Current timestamp in milliseconds
+ * @returns SLA status: OK, WARNING, or BREACHED
+ */
+export function getRequestSLAStatus(
+  request: ClientRequest,
+  now: number = Date.now()
+): SLAStatus {
+  // Completed requests are always OK
+  if (request.status === "CONVERTED" || request.status === "REJECTED") {
+    return "OK";
+  }
+
+  const submittedAt = new Date(request.created_at).getTime();
+  const ageMs = now - submittedAt;
+  const threshold = SLA_THRESHOLDS_MS[request.priority || "NORMAL"];
+
+  if (ageMs > threshold) {
+    return "BREACHED";
+  }
+
+  if (ageMs > threshold * SLA_WARNING_THRESHOLD) {
+    return "WARNING";
+  }
+
+  return "OK";
+}
+
+/**
+ * Get time remaining until SLA breach.
+ * Returns negative value if already breached.
+ *
+ * @param request - The client request
+ * @param now - Current timestamp in milliseconds
+ * @returns Milliseconds until breach (negative if breached)
+ */
+export function getTimeUntilSLABreach(
+  request: ClientRequest,
+  now: number = Date.now()
+): number {
+  const submittedAt = new Date(request.created_at).getTime();
+  const threshold = SLA_THRESHOLDS_MS[request.priority || "NORMAL"];
+  const breachTime = submittedAt + threshold;
+
+  return breachTime - now;
+}
+
+// ============================================================================
 // Resolvers
 // ============================================================================
 

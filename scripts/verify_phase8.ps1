@@ -4471,7 +4471,168 @@ try {
     Write-Host "  WARN: Billing integration verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[41/41] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 42: Request SLA + Admin Priority Controls (Step 32)
+Write-Host "`n[42/42] Testing request SLA and admin priority controls..." -ForegroundColor Yellow
+try {
+    # Check client-requests.ts exports priority functions
+    $clientRequestsPath = Join-Path $webDir "lib\client-requests.ts"
+    if (Test-Path $clientRequestsPath) {
+        $clientRequestsContent = Get-Content $clientRequestsPath -Raw
+
+        if ($clientRequestsContent -match 'export async function setClientRequestPriority') {
+            Write-Host "    setClientRequestPriority exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: setClientRequestPriority not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export async function getRequestPriority') {
+            Write-Host "    getRequestPriority exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: getRequestPriority not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export async function getRequestSLATiming') {
+            Write-Host "    getRequestSLATiming exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: getRequestSLATiming not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'export function formatDurationMs') {
+            Write-Host "    formatDurationMs exported - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: formatDurationMs not exported" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match 'PRIORITY_SET.*client_request_priority_set') {
+            Write-Host "    PRIORITY_SET event type defined - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: PRIORITY_SET event type not defined" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($clientRequestsContent -match "export type RequestPriority.*'LOW'.*'NORMAL'.*'HIGH'") {
+            Write-Host "    RequestPriority type defined - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: RequestPriority type may not be properly defined" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: lib/client-requests.ts not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check priority API exists
+    $priorityApiPath = Join-Path $webDir "app\api\admin\client-requests\priority\route.ts"
+    if (Test-Path $priorityApiPath) {
+        Write-Host "    POST /api/admin/client-requests/priority route exists - OK" -ForegroundColor Gray
+
+        $priorityApiContent = Get-Content $priorityApiPath -Raw
+        if ($priorityApiContent -match 'setClientRequestPriority') {
+            Write-Host "    Priority API uses setClientRequestPriority - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Priority API may not emit priority event" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: /api/admin/client-requests/priority route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check admin requests page has priority controls
+    $adminRequestsPagePath = Join-Path $webDir "app\admin\requests\page.tsx"
+    if (Test-Path $adminRequestsPagePath) {
+        $adminRequestsContent = Get-Content $adminRequestsPagePath -Raw
+
+        if ($adminRequestsContent -match 'priority') {
+            Write-Host "    Admin requests page references priority - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Admin requests page missing priority references" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($adminRequestsContent -match 'handleSetPriority|setPriority') {
+            Write-Host "    Admin requests page has priority handler - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin requests page may not have priority handler" -ForegroundColor Yellow
+        }
+
+        if ($adminRequestsContent -match 'formatAge|since submit') {
+            Write-Host "    Admin requests page has SLA age display - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin requests page may not have SLA age display" -ForegroundColor Yellow
+        }
+
+        if ($adminRequestsContent -match 'sortMode|Sort:') {
+            Write-Host "    Admin requests page has sort controls - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Admin requests page may not have sort controls" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: Admin requests page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check client requests pages have processing time
+    $clientRequestsPagePath = Join-Path $webDir "app\client\requests\page.tsx"
+    if (Test-Path $clientRequestsPagePath) {
+        $clientRequestsPageContent = Get-Content $clientRequestsPagePath -Raw
+
+        if ($clientRequestsPageContent -match 'formatProcessingTime|In review for') {
+            Write-Host "    Client requests list has processing time - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Client requests list may not have processing time" -ForegroundColor Yellow
+        }
+    }
+
+    $clientRequestDetailPath = Join-Path $webDir "app\client\requests\[request_id]\page.tsx"
+    if (Test-Path -LiteralPath $clientRequestDetailPath) {
+        $clientRequestDetailContent = Get-Content -LiteralPath $clientRequestDetailPath -Raw
+
+        if ($clientRequestDetailContent -match 'Processing Time|formatProcessingTime') {
+            Write-Host "    Client request detail has processing time - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Client request detail may not have processing time" -ForegroundColor Yellow
+        }
+    }
+
+    # Test /api/admin/client-requests/priority returns 401 without auth
+    try {
+        $priorityApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/admin/client-requests/priority")
+        $priorityApiRequest.Method = "POST"
+        $priorityApiRequest.ContentType = "application/json"
+        $priorityApiRequest.AllowAutoRedirect = $false
+        $priorityApiRequest.Timeout = 10000
+
+        try {
+            $priorityApiResponse = $priorityApiRequest.GetResponse()
+            $priorityApiStatusCode = [int]$priorityApiResponse.StatusCode
+            $priorityApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $priorityApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $priorityApiStatusCode = 0
+            }
+        }
+
+        if ($priorityApiStatusCode -eq 401) {
+            Write-Host "    /api/admin/client-requests/priority returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: /api/admin/client-requests/priority returned $priorityApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: /api/admin/client-requests/priority check error: $_" -ForegroundColor Yellow
+    }
+
+    Write-Host "  PASS: Request SLA and admin priority controls verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: SLA and priority verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[42/42] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

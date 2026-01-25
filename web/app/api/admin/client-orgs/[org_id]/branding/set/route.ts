@@ -116,15 +116,14 @@ export async function POST(
       planWarning = `Free plan: ${strippedFields.join(', ')} ignored. Upgrade to Pro for full branding.`
     }
 
-    // Record branding event
+    // Record branding event in events_log
     const { error: insertError } = await supabaseAdmin
-      .from('video_events')
+      .from('events_log')
       .insert({
-        video_id: null,
+        entity_type: 'client_org',
+        entity_id: orgId,
         event_type: ORG_BRANDING_EVENT_TYPE,
-        actor_id: user.id,
-        details: {
-          org_id: orgId,
+        payload: {
           updated_by_user_id: user.id,
           branding,
         },

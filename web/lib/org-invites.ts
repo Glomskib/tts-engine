@@ -1,19 +1,21 @@
 /**
  * Organization Invite Management
  *
- * Event-based invite system using video_events table with video_id = null.
+ * Event-based invite system using events_log table for org-level events.
  * Secure token generation and hashing for invite links.
  *
- * Event types:
- * - org_invite_created: { invite_id, org_id, email, role, token_hash, expires_at }
- * - org_invite_accepted: { invite_id, org_id, user_id }
- * - org_invite_revoked: { invite_id, org_id }
- * - org_invite_resent: { invite_id, org_id, new_token_hash, new_expires_at }
+ * Event types (stored in events_log with entity_type='client_org'):
+ * - org_invite_created: { invite_id, email, role, token_hash, expires_at, actor_user_id }
+ * - org_invite_accepted: { invite_id, user_id, actor_user_id }
+ * - org_invite_revoked: { invite_id, actor_user_id }
+ * - org_invite_resent: { invite_id, new_token_hash, new_expires_at, actor_user_id }
+ * - client_org_member_set: { user_id, role, action, source?, invite_id?, actor_user_id }
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { randomBytes, createHash, timingSafeEqual } from 'crypto'
 import { randomUUID } from 'crypto'
+import { logEvent } from './events-log'
 
 // Types
 export type InviteRole = 'client' | 'recorder' | 'editor' | 'uploader' | 'admin'
@@ -114,22 +116,22 @@ export async function createOrgInvite(
   const token_hash = hashInviteToken(token)
   const expires_at = getInviteExpiryDate()
 
-  const { error } = await supabase.from('video_events').insert({
-    video_id: null,
-    event_type: ORG_INVITE_EVENT_TYPES.INVITE_CREATED,
-    actor: params.actor_user_id,
-    details: {
-      invite_id,
-      org_id: params.org_id,
-      email: params.email.toLowerCase().trim(),
-      role: params.role,
-      token_hash,
-      expires_at,
-    },
-  })
-
-  if (error) {
-    throw new Error(`Failed to create invite: ${error.message}`)
+  try {
+    await logEvent(supabase, {
+      entity_type: 'client_org',
+      entity_id: params.org_id,
+      event_type: ORG_INVITE_EVENT_TYPES.INVITE_CREATED,
+      payload: {
+        invite_id,
+        email: params.email.toLowerCase().trim(),
+        role: params.role,
+        token_hash,
+        expires_at,
+        actor_user_id: params.actor_user_id,
+      },
+    })
+  } catch (error) {
+    throw new Error(`Failed to create invite: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 
   return { invite_id, token, expires_at }
@@ -142,10 +144,12 @@ export async function listOrgInvites(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<OrgInvite[]> {
-  // Get all invite events
+  // Get all invite events for this org from events_log
   const { data: events, error } = await supabase
-    .from('video_events')
-    .select('details, created_at, actor')
+    .from('events_log')
+    .select('event_type, payload, created_at')
+    .eq('entity_type', 'client_org')
+    .eq('entity_id', orgId)
     .in('event_type', [
       ORG_INVITE_EVENT_TYPES.INVITE_CREATED,
       ORG_INVITE_EVENT_TYPES.INVITE_ACCEPTED,
@@ -162,62 +166,35 @@ export async function listOrgInvites(
   const inviteMap = new Map<string, OrgInvite>()
 
   for (const event of events) {
-    const details = event.details as Record<string, unknown>
-    if (details?.org_id !== orgId) continue
-
-    const inviteId = details.invite_id as string
+    const payload = event.payload as Record<string, unknown>
+    const inviteId = payload?.invite_id as string
     if (!inviteId) continue
 
-    if (event.details && 'invite_id' in (event.details as object)) {
-      const eventType = (events.find(e => e === event) as { details: { invite_id: string } })
-
-      // This is a bit awkward, let me refactor the logic
-    }
-  }
-
-  // Reset and rebuild properly
-  inviteMap.clear()
-
-  for (const event of events) {
-    const details = event.details as Record<string, unknown>
-    if (details?.org_id !== orgId) continue
-
-    const inviteId = details.invite_id as string
-    if (!inviteId) continue
-
-    // Determine event type by checking what fields are present
-    if (details.token_hash && details.email) {
-      // INVITE_CREATED or INVITE_RESENT
-      if (details.new_token_hash) {
-        // INVITE_RESENT - update existing invite
-        const existing = inviteMap.get(inviteId)
-        if (existing) {
-          existing.token_hash = details.new_token_hash as string
-          existing.expires_at = details.new_expires_at as string
-          existing.status = 'pending'
-        }
-      } else {
-        // INVITE_CREATED
-        inviteMap.set(inviteId, {
-          invite_id: inviteId,
-          org_id: details.org_id as string,
-          email: details.email as string,
-          role: details.role as InviteRole,
-          status: 'pending',
-          token_hash: details.token_hash as string,
-          expires_at: details.expires_at as string,
-          created_at: event.created_at,
-          created_by_user_id: event.actor || '',
-        })
+    if (event.event_type === ORG_INVITE_EVENT_TYPES.INVITE_CREATED) {
+      inviteMap.set(inviteId, {
+        invite_id: inviteId,
+        org_id: orgId,
+        email: payload.email as string,
+        role: payload.role as InviteRole,
+        status: 'pending',
+        token_hash: payload.token_hash as string,
+        expires_at: payload.expires_at as string,
+        created_at: event.created_at,
+        created_by_user_id: (payload.actor_user_id as string) || '',
+      })
+    } else if (event.event_type === ORG_INVITE_EVENT_TYPES.INVITE_RESENT) {
+      const existing = inviteMap.get(inviteId)
+      if (existing) {
+        existing.token_hash = payload.new_token_hash as string
+        existing.expires_at = payload.new_expires_at as string
+        existing.status = 'pending'
       }
-    } else if (details.user_id && !details.token_hash) {
-      // INVITE_ACCEPTED
+    } else if (event.event_type === ORG_INVITE_EVENT_TYPES.INVITE_ACCEPTED) {
       const existing = inviteMap.get(inviteId)
       if (existing) {
         existing.status = 'accepted'
       }
-    } else if (!details.user_id && !details.token_hash && !details.email) {
-      // INVITE_REVOKED
+    } else if (event.event_type === ORG_INVITE_EVENT_TYPES.INVITE_REVOKED) {
       const existing = inviteMap.get(inviteId)
       if (existing) {
         existing.status = 'revoked'
@@ -251,10 +228,11 @@ export async function getInviteByToken(
 ): Promise<OrgInvite | null> {
   const tokenHash = hashInviteToken(token)
 
-  // Get all invite created events
+  // Get all invite created events from events_log
   const { data: events, error } = await supabase
-    .from('video_events')
-    .select('details, created_at, actor')
+    .from('events_log')
+    .select('entity_id, payload, created_at')
+    .eq('entity_type', 'client_org')
     .eq('event_type', ORG_INVITE_EVENT_TYPES.INVITE_CREATED)
     .order('created_at', { ascending: false })
 
@@ -264,10 +242,10 @@ export async function getInviteByToken(
 
   // Find invite with matching token hash
   for (const event of events) {
-    const details = event.details as Record<string, unknown>
-    if (details?.token_hash === tokenHash) {
-      const inviteId = details.invite_id as string
-      const orgId = details.org_id as string
+    const payload = event.payload as Record<string, unknown>
+    if (payload?.token_hash === tokenHash) {
+      const inviteId = payload.invite_id as string
+      const orgId = event.entity_id
 
       // Check if invite is still valid (not accepted, not revoked)
       const allInvites = await listOrgInvites(supabase, orgId)
@@ -276,19 +254,21 @@ export async function getInviteByToken(
       if (invite && invite.status === 'pending') {
         // Check for resent tokens
         const { data: resentEvents } = await supabase
-          .from('video_events')
-          .select('details')
+          .from('events_log')
+          .select('payload')
+          .eq('entity_type', 'client_org')
+          .eq('entity_id', orgId)
           .eq('event_type', ORG_INVITE_EVENT_TYPES.INVITE_RESENT)
           .order('created_at', { ascending: false })
 
         if (resentEvents) {
           for (const resent of resentEvents) {
-            const resentDetails = resent.details as Record<string, unknown>
-            if (resentDetails?.invite_id === inviteId) {
+            const resentPayload = resent.payload as Record<string, unknown>
+            if (resentPayload?.invite_id === inviteId) {
               // Invite was resent, check if provided token matches new hash
-              if (resentDetails.new_token_hash === tokenHash) {
+              if (resentPayload.new_token_hash === tokenHash) {
                 invite.token_hash = tokenHash
-                invite.expires_at = resentDetails.new_expires_at as string
+                invite.expires_at = resentPayload.new_expires_at as string
                 return invite
               }
               // Token doesn't match the latest resent token
@@ -325,39 +305,39 @@ export async function acceptOrgInvite(
     return { success: false, error: 'Invite has expired' }
   }
 
-  // Record acceptance
-  const { error: acceptError } = await supabase.from('video_events').insert({
-    video_id: null,
-    event_type: ORG_INVITE_EVENT_TYPES.INVITE_ACCEPTED,
-    actor: params.user_id,
-    details: {
-      invite_id: invite.invite_id,
-      org_id: invite.org_id,
-      user_id: params.user_id,
-    },
-  })
-
-  if (acceptError) {
-    return { success: false, error: `Failed to accept invite: ${acceptError.message}` }
+  // Record acceptance in events_log
+  try {
+    await logEvent(supabase, {
+      entity_type: 'client_org',
+      entity_id: invite.org_id,
+      event_type: ORG_INVITE_EVENT_TYPES.INVITE_ACCEPTED,
+      payload: {
+        invite_id: invite.invite_id,
+        user_id: params.user_id,
+        actor_user_id: params.user_id,
+      },
+    })
+  } catch (error) {
+    return { success: false, error: `Failed to accept invite: ${error instanceof Error ? error.message : 'Unknown error'}` }
   }
 
-  // Add user to org as member (using existing member_set event)
-  const { error: memberError } = await supabase.from('video_events').insert({
-    video_id: null,
-    event_type: 'client_org_member_set',
-    actor: params.user_id,
-    details: {
-      org_id: invite.org_id,
-      user_id: params.user_id,
-      role: 'member',
-      action: 'add',
-      source: 'invite',
-      invite_id: invite.invite_id,
-    },
-  })
-
-  if (memberError) {
-    return { success: false, error: `Failed to add member: ${memberError.message}` }
+  // Add user to org as member (using events_log)
+  try {
+    await logEvent(supabase, {
+      entity_type: 'client_org',
+      entity_id: invite.org_id,
+      event_type: 'client_org_member_set',
+      payload: {
+        user_id: params.user_id,
+        role: 'member',
+        action: 'add',
+        source: 'invite',
+        invite_id: invite.invite_id,
+        actor_user_id: params.user_id,
+      },
+    })
+  } catch (error) {
+    return { success: false, error: `Failed to add member: ${error instanceof Error ? error.message : 'Unknown error'}` }
   }
 
   return { success: true, org_id: invite.org_id }
@@ -374,21 +354,20 @@ export async function revokeOrgInvite(
     actor_user_id: string
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase.from('video_events').insert({
-    video_id: null,
-    event_type: ORG_INVITE_EVENT_TYPES.INVITE_REVOKED,
-    actor: params.actor_user_id,
-    details: {
-      invite_id: params.invite_id,
-      org_id: params.org_id,
-    },
-  })
-
-  if (error) {
-    return { success: false, error: `Failed to revoke invite: ${error.message}` }
+  try {
+    await logEvent(supabase, {
+      entity_type: 'client_org',
+      entity_id: params.org_id,
+      event_type: ORG_INVITE_EVENT_TYPES.INVITE_REVOKED,
+      payload: {
+        invite_id: params.invite_id,
+        actor_user_id: params.actor_user_id,
+      },
+    })
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: `Failed to revoke invite: ${error instanceof Error ? error.message : 'Unknown error'}` }
   }
-
-  return { success: true }
 }
 
 /**
@@ -407,23 +386,22 @@ export async function resendOrgInvite(
   const token_hash = hashInviteToken(token)
   const expires_at = getInviteExpiryDate()
 
-  const { error } = await supabase.from('video_events').insert({
-    video_id: null,
-    event_type: ORG_INVITE_EVENT_TYPES.INVITE_RESENT,
-    actor: params.actor_user_id,
-    details: {
-      invite_id: params.invite_id,
-      org_id: params.org_id,
-      new_token_hash: token_hash,
-      new_expires_at: expires_at,
-    },
-  })
-
-  if (error) {
-    return { success: false, error: `Failed to resend invite: ${error.message}` }
+  try {
+    await logEvent(supabase, {
+      entity_type: 'client_org',
+      entity_id: params.org_id,
+      event_type: ORG_INVITE_EVENT_TYPES.INVITE_RESENT,
+      payload: {
+        invite_id: params.invite_id,
+        new_token_hash: token_hash,
+        new_expires_at: expires_at,
+        actor_user_id: params.actor_user_id,
+      },
+    })
+    return { success: true, token, expires_at }
+  } catch (error) {
+    return { success: false, error: `Failed to resend invite: ${error instanceof Error ? error.message : 'Unknown error'}` }
   }
-
-  return { success: true, token, expires_at }
 }
 
 /**
@@ -434,10 +412,12 @@ export async function getOrgMembersWithEmail(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<OrgMemberWithEmail[]> {
-  // Get all membership events for this org
+  // Get all membership events for this org from events_log
   const { data: memberEvents, error } = await supabase
-    .from('video_events')
-    .select('details, created_at')
+    .from('events_log')
+    .select('payload, created_at')
+    .eq('entity_type', 'client_org')
+    .eq('entity_id', orgId)
     .eq('event_type', 'client_org_member_set')
     .order('created_at', { ascending: true })
 
@@ -449,15 +429,13 @@ export async function getOrgMembersWithEmail(
   const membershipByUser = new Map<string, { role: 'owner' | 'member'; joined_at: string } | null>()
 
   for (const event of memberEvents) {
-    const details = event.details as Record<string, unknown>
-    if (details?.org_id !== orgId) continue
-
-    const userId = details?.user_id as string
-    const action = details?.action as string
+    const payload = event.payload as Record<string, unknown>
+    const userId = payload?.user_id as string
+    const action = payload?.action as string
 
     if (action === 'add') {
       membershipByUser.set(userId, {
-        role: (details?.role as 'owner' | 'member') || 'member',
+        role: (payload?.role as 'owner' | 'member') || 'member',
         joined_at: event.created_at,
       })
     } else if (action === 'remove') {
@@ -508,20 +486,19 @@ export async function revokeOrgMember(
     actor_user_id: string
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase.from('video_events').insert({
-    video_id: null,
-    event_type: 'client_org_member_set',
-    actor: params.actor_user_id,
-    details: {
-      org_id: params.org_id,
-      user_id: params.user_id,
-      action: 'remove',
-    },
-  })
-
-  if (error) {
-    return { success: false, error: `Failed to revoke membership: ${error.message}` }
+  try {
+    await logEvent(supabase, {
+      entity_type: 'client_org',
+      entity_id: params.org_id,
+      event_type: 'client_org_member_set',
+      payload: {
+        user_id: params.user_id,
+        action: 'remove',
+        actor_user_id: params.actor_user_id,
+      },
+    })
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: `Failed to revoke membership: ${error instanceof Error ? error.message : 'Unknown error'}` }
   }
-
-  return { success: true }
 }

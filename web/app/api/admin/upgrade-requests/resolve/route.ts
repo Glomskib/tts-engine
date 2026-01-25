@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
+import { logEvent, logEventSafe } from "@/lib/events-log";
 
 export const runtime = "nodejs";
 
@@ -56,10 +57,10 @@ export async function POST(request: Request) {
   const noteValue = typeof note === "string" ? note.trim().slice(0, 500) : null;
 
   try {
-    // Fetch the original request event
+    // Fetch the original request event from events_log
     const { data: requestEvent, error: fetchError } = await supabaseAdmin
-      .from("video_events")
-      .select("id, details")
+      .from("events_log")
+      .select("id, entity_id, payload")
       .eq("id", request_event_id)
       .eq("event_type", "user_upgrade_requested")
       .single();
@@ -69,8 +70,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    const requestDetails = requestEvent.details as Record<string, unknown> | null;
-    const targetUserId = requestDetails?.user_id as string;
+    const targetUserId = requestEvent.entity_id;
 
     if (!targetUserId) {
       const err = apiError("BAD_REQUEST", "Request has no user_id", 400);
@@ -79,10 +79,11 @@ export async function POST(request: Request) {
 
     // Check if already resolved
     const { data: existingResolution } = await supabaseAdmin
-      .from("video_events")
+      .from("events_log")
       .select("id")
+      .eq("entity_type", "user")
       .eq("event_type", "user_upgrade_request_resolved")
-      .filter("details->>request_event_id", "eq", request_event_id)
+      .filter("payload->>request_event_id", "eq", request_event_id)
       .limit(1);
 
     if (existingResolution && existingResolution.length > 0) {
@@ -90,25 +91,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    // Create resolution event
-    const { error: resolutionError } = await supabaseAdmin.from("video_events").insert({
-      video_id: null,
-      event_type: "user_upgrade_request_resolved",
-      correlation_id: correlationId,
-      actor: authContext.user.id,
-      from_status: null,
-      to_status: null,
-      details: {
-        request_event_id: request_event_id,
-        decision: decisionValue,
-        note: noteValue,
-        user_id: targetUserId,
-        resolved_by: authContext.user.id,
-        resolved_by_email: authContext.user.email || null,
-      },
-    });
-
-    if (resolutionError) {
+    // Create resolution event in events_log
+    try {
+      await logEvent(supabaseAdmin, {
+        entity_type: "user",
+        entity_id: targetUserId,
+        event_type: "user_upgrade_request_resolved",
+        payload: {
+          request_event_id: request_event_id,
+          decision: decisionValue,
+          note: noteValue,
+          resolved_by: authContext.user.id,
+          resolved_by_email: authContext.user.email || null,
+        },
+      });
+    } catch (resolutionError) {
       console.error("Failed to create resolution event:", resolutionError);
       const err = apiError("DB_ERROR", "Failed to resolve request", 500);
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
@@ -118,14 +115,12 @@ export async function POST(request: Request) {
     if (decisionValue === "approved") {
       const normalizedUserId = targetUserId.toLowerCase();
 
-      const { error: planError } = await supabaseAdmin.from("video_events").insert({
-        video_id: null,
+      // Use logEventSafe - don't fail if plan set fails (resolution already recorded)
+      const planLogged = await logEventSafe(supabaseAdmin, {
+        entity_type: "user",
+        entity_id: normalizedUserId,
         event_type: "admin_set_plan",
-        correlation_id: correlationId,
-        actor: normalizedUserId,
-        from_status: null,
-        to_status: null,
-        details: {
+        payload: {
           plan: "pro",
           is_active: true,
           set_by: authContext.user.id,
@@ -135,8 +130,8 @@ export async function POST(request: Request) {
         },
       });
 
-      if (planError) {
-        console.error("Failed to set plan after approval:", planError);
+      if (!planLogged) {
+        console.error("Failed to set plan after approval");
         // Continue - resolution was recorded, plan set can be retried
       }
 

@@ -2,11 +2,13 @@
  * Client Organization Resolver
  *
  * Event-based organization membership and video scoping.
- * Uses video_events table with video_id nullable for org-level events.
+ * Uses events_log table for org-level events and video_events for video-scoped events.
  *
- * Event types:
- * - client_org_created: { org_id, org_name, created_by_user_id }
- * - client_org_member_set: { org_id, user_id, role, action }
+ * Event types in events_log (entity_type='client_org', entity_id=org_id):
+ * - client_org_created: { org_name, created_by_user_id }
+ * - client_org_member_set: { user_id, role, action }
+ *
+ * Event types in video_events (requires valid video_id):
  * - video_client_org_set: { org_id, set_by_user_id }
  */
 
@@ -46,10 +48,11 @@ export const CLIENT_ORG_EVENT_TYPES = {
 export async function getAllClientOrgs(
   supabase: SupabaseClient
 ): Promise<OrgWithStats[]> {
-  // Get all org creation events
+  // Get all org creation events from events_log
   const { data: orgEvents, error: orgError } = await supabase
-    .from('video_events')
-    .select('details, created_at')
+    .from('events_log')
+    .select('entity_id, payload, created_at')
+    .eq('entity_type', 'client_org')
     .eq('event_type', CLIENT_ORG_EVENT_TYPES.ORG_CREATED)
     .order('created_at', { ascending: false })
 
@@ -59,10 +62,10 @@ export async function getAllClientOrgs(
   }
 
   const orgs: ClientOrg[] = orgEvents.map((e) => ({
-    org_id: e.details?.org_id,
-    org_name: e.details?.org_name || 'Unnamed',
+    org_id: e.entity_id,
+    org_name: (e.payload as Record<string, unknown>)?.org_name as string || 'Unnamed',
     created_at: e.created_at,
-    created_by_user_id: e.details?.created_by_user_id,
+    created_by_user_id: (e.payload as Record<string, unknown>)?.created_by_user_id as string,
   }))
 
   // Get member counts and video counts for each org
@@ -91,26 +94,26 @@ export async function getClientOrgById(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<ClientOrg | null> {
-  const { data: orgEvents, error } = await supabase
-    .from('video_events')
-    .select('details, created_at')
+  const { data: orgEvent, error } = await supabase
+    .from('events_log')
+    .select('entity_id, payload, created_at')
+    .eq('entity_type', 'client_org')
+    .eq('entity_id', orgId)
     .eq('event_type', CLIENT_ORG_EVENT_TYPES.ORG_CREATED)
     .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (error || !orgEvents) {
+  if (error || !orgEvent) {
     return null
   }
 
-  const orgEvent = orgEvents.find((e) => e.details?.org_id === orgId)
-  if (!orgEvent) {
-    return null
-  }
-
+  const payload = orgEvent.payload as Record<string, unknown>
   return {
-    org_id: orgEvent.details?.org_id,
-    org_name: orgEvent.details?.org_name || 'Unnamed',
+    org_id: orgEvent.entity_id,
+    org_name: (payload?.org_name as string) || 'Unnamed',
     created_at: orgEvent.created_at,
-    created_by_user_id: orgEvent.details?.created_by_user_id,
+    created_by_user_id: payload?.created_by_user_id as string,
   }
 }
 
@@ -121,10 +124,11 @@ export async function getUserClientOrgs(
   supabase: SupabaseClient,
   userId: string
 ): Promise<OrgMembership[]> {
-  // Get all membership events for this user
+  // Get all membership events from events_log
   const { data: memberEvents, error } = await supabase
-    .from('video_events')
-    .select('details, created_at')
+    .from('events_log')
+    .select('entity_id, payload, created_at')
+    .eq('entity_type', 'client_org')
     .eq('event_type', CLIENT_ORG_EVENT_TYPES.MEMBER_SET)
     .order('created_at', { ascending: true })
 
@@ -137,16 +141,17 @@ export async function getUserClientOrgs(
   const membershipByOrg = new Map<string, OrgMembership | null>()
 
   for (const event of memberEvents) {
-    if (event.details?.user_id !== userId) continue
+    const payload = event.payload as Record<string, unknown>
+    if (payload?.user_id !== userId) continue
 
-    const orgId = event.details?.org_id
-    const action = event.details?.action
+    const orgId = event.entity_id
+    const action = payload?.action as string
 
     if (action === 'add') {
       membershipByOrg.set(orgId, {
         org_id: orgId,
         user_id: userId,
-        role: event.details?.role || 'member',
+        role: (payload?.role as 'owner' | 'member') || 'member',
         joined_at: event.created_at,
       })
     } else if (action === 'remove') {
@@ -227,10 +232,12 @@ export async function getOrgMembers(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<OrgMembership[]> {
-  // Get all membership events for this org
+  // Get all membership events for this org from events_log
   const { data: memberEvents, error } = await supabase
-    .from('video_events')
-    .select('details, created_at')
+    .from('events_log')
+    .select('payload, created_at')
+    .eq('entity_type', 'client_org')
+    .eq('entity_id', orgId)
     .eq('event_type', CLIENT_ORG_EVENT_TYPES.MEMBER_SET)
     .order('created_at', { ascending: true })
 
@@ -242,16 +249,15 @@ export async function getOrgMembers(
   const membershipByUser = new Map<string, OrgMembership | null>()
 
   for (const event of memberEvents) {
-    if (event.details?.org_id !== orgId) continue
-
-    const userId = event.details?.user_id
-    const action = event.details?.action
+    const payload = event.payload as Record<string, unknown>
+    const userId = payload?.user_id as string
+    const action = payload?.action as string
 
     if (action === 'add') {
       membershipByUser.set(userId, {
         org_id: orgId,
         user_id: userId,
-        role: event.details?.role || 'member',
+        role: (payload?.role as 'owner' | 'member') || 'member',
         joined_at: event.created_at,
       })
     } else if (action === 'remove') {
@@ -325,26 +331,20 @@ async function getOrgLastActivity(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<string | null> {
-  // Check most recent membership event
-  const { data: memberEvents } = await supabase
-    .from('video_events')
-    .select('created_at, details')
+  // Check most recent membership event from events_log
+  const { data: memberEvent } = await supabase
+    .from('events_log')
+    .select('created_at')
+    .eq('entity_type', 'client_org')
+    .eq('entity_id', orgId)
     .eq('event_type', CLIENT_ORG_EVENT_TYPES.MEMBER_SET)
     .order('created_at', { ascending: false })
-    .limit(100)
+    .limit(1)
+    .maybeSingle()
 
-  let lastActivity: string | null = null
+  let lastActivity: string | null = memberEvent?.created_at || null
 
-  if (memberEvents) {
-    for (const event of memberEvents) {
-      if (event.details?.org_id === orgId) {
-        lastActivity = event.created_at
-        break
-      }
-    }
-  }
-
-  // Check most recent video assignment event
+  // Check most recent video assignment event (still in video_events)
   const { data: videoEvents } = await supabase
     .from('video_events')
     .select('created_at, details')
@@ -354,7 +354,7 @@ async function getOrgLastActivity(
 
   if (videoEvents) {
     for (const event of videoEvents) {
-      if (event.details?.org_id === orgId) {
+      if ((event.details as Record<string, unknown>)?.org_id === orgId) {
         if (!lastActivity || event.created_at > lastActivity) {
           lastActivity = event.created_at
         }

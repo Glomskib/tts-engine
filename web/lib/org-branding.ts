@@ -2,10 +2,11 @@
  * Organization Branding Resolver
  *
  * Event-based per-org branding with Tailwind accent color mapping.
- * Uses video_events table with video_id null for org-level events.
+ * Uses events_log table for org-level branding events.
  *
  * Event type: "client_org_branding_set"
- * details: { org_id, updated_by_user_id, branding: { ... } }
+ * entity_type: "client_org", entity_id: org_id
+ * payload: { updated_by_user_id, branding: { ... } }
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
@@ -141,26 +142,32 @@ export async function getOrgBranding(
   const defaults = getDefaultOrgBranding()
 
   try {
-    // Get most recent branding event for this org
-    const { data: events, error } = await supabase
-      .from('video_events')
-      .select('details, created_at')
+    // Get most recent branding event for this org from events_log
+    const { data: brandingEvent, error } = await supabase
+      .from('events_log')
+      .select('payload, created_at')
+      .eq('entity_type', 'client_org')
+      .eq('entity_id', orgId)
       .eq('event_type', ORG_BRANDING_EVENT_TYPE)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(1)
+      .maybeSingle()
 
-    if (error || !events) {
+    if (error) {
       console.error('Error fetching org branding:', error)
       return defaults
     }
 
-    // Find the most recent event for this org
-    const brandingEvent = events.find((e) => e.details?.org_id === orgId)
-    if (!brandingEvent || !brandingEvent.details?.branding) {
+    if (!brandingEvent) {
       return defaults
     }
 
-    const branding = brandingEvent.details.branding as OrgBranding
+    const payload = brandingEvent.payload as Record<string, unknown>
+    if (!payload?.branding) {
+      return defaults
+    }
+
+    const branding = payload.branding as OrgBranding
 
     // Merge with defaults
     const effectiveAccent = branding.accent_color || 'slate'
@@ -190,23 +197,26 @@ export async function getRawOrgBranding(
   orgId: string
 ): Promise<OrgBranding | null> {
   try {
-    const { data: events, error } = await supabase
-      .from('video_events')
-      .select('details, created_at')
+    const { data: brandingEvent, error } = await supabase
+      .from('events_log')
+      .select('payload')
+      .eq('entity_type', 'client_org')
+      .eq('entity_id', orgId)
       .eq('event_type', ORG_BRANDING_EVENT_TYPE)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(1)
+      .maybeSingle()
 
-    if (error || !events) {
+    if (error || !brandingEvent) {
       return null
     }
 
-    const brandingEvent = events.find((e) => e.details?.org_id === orgId)
-    if (!brandingEvent || !brandingEvent.details?.branding) {
+    const payload = brandingEvent.payload as Record<string, unknown>
+    if (!payload?.branding) {
       return null
     }
 
-    return brandingEvent.details.branding as OrgBranding
+    return payload.branding as OrgBranding
   } catch (err) {
     console.error('Error getting raw org branding:', err)
     return null

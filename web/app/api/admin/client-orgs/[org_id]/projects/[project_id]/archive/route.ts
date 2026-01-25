@@ -60,16 +60,15 @@ export async function POST(
       });
     }
 
-    // Insert archive event
+    // Insert archive event in events_log
     const { error: eventError } = await supabaseAdmin
-      .from("video_events")
+      .from("events_log")
       .insert({
-        video_id: null, // Project-level event
+        entity_type: "client_project",
+        entity_id: projectId,
         event_type: PROJECT_EVENT_TYPES.PROJECT_ARCHIVED,
-        user_id: authContext.user.id,
-        details: {
+        payload: {
           org_id: orgId,
-          project_id: projectId,
           archived_by_user_id: authContext.user.id,
         },
       });

@@ -71,15 +71,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Record membership event
+    // Record membership event in events_log
     const { error: insertError } = await supabaseAdmin
-      .from('video_events')
+      .from('events_log')
       .insert({
-        video_id: null,
+        entity_type: 'client_org',
+        entity_id: org_id,
         event_type: CLIENT_ORG_EVENT_TYPES.MEMBER_SET,
-        actor_id: user.id,
-        details: {
-          org_id,
+        payload: {
           user_id,
           role,
           action,

@@ -85,15 +85,14 @@ export async function POST(request: NextRequest) {
     // Generate org_id
     const org_id = crypto.randomUUID()
 
-    // Create org via event
+    // Create org via event in events_log
     const { error: insertError } = await supabaseAdmin
-      .from('video_events')
+      .from('events_log')
       .insert({
-        video_id: null,
+        entity_type: 'client_org',
+        entity_id: org_id,
         event_type: CLIENT_ORG_EVENT_TYPES.ORG_CREATED,
-        actor_id: user.id,
-        details: {
-          org_id,
+        payload: {
           org_name,
           created_by_user_id: user.id,
         },

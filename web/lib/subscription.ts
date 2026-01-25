@@ -98,7 +98,7 @@ export async function isSubscriptionGatingEnabled(): Promise<boolean> {
 /**
  * Get the user's subscription plan.
  * Checks (in order):
- * 1. video_events admin_set_plan events (most recent wins)
+ * 1. events_log admin_set_plan events (most recent wins)
  * 2. PRO_USER_IDS env allowlist
  *
  * Fail-safe: returns { plan: "pro", isActive: true } if gating is not enabled.
@@ -116,23 +116,24 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
 
   const normalizedUserId = userId.toLowerCase();
 
-  // Check video_events for admin_set_plan events (most recent first)
+  // Check events_log for admin_set_plan events (most recent first)
   try {
     const { data: planEvent } = await supabaseAdmin
-      .from("video_events")
-      .select("details")
+      .from("events_log")
+      .select("payload")
+      .eq("entity_type", "user")
+      .eq("entity_id", normalizedUserId)
       .eq("event_type", "admin_set_plan")
-      .eq("actor", normalizedUserId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (planEvent?.details) {
-      const details = planEvent.details as { plan?: PlanType; is_active?: boolean };
-      if (details.plan === "pro" || details.plan === "free") {
+    if (planEvent?.payload) {
+      const payload = planEvent.payload as { plan?: PlanType; is_active?: boolean };
+      if (payload.plan === "pro" || payload.plan === "free") {
         return {
-          plan: details.plan,
-          isActive: details.is_active !== false,
+          plan: payload.plan,
+          isActive: payload.is_active !== false,
         };
       }
     }
@@ -214,7 +215,7 @@ export async function getSubscriptionConfig(): Promise<{
 
 /**
  * Get the plan for an organization.
- * Reads from client_org_set_plan events (most recent wins).
+ * Reads from events_log for org plan events (most recent wins).
  * Defaults to "free" if no plan event exists.
  */
 export async function getOrgPlan(
@@ -222,45 +223,43 @@ export async function getOrgPlan(
   orgId: string
 ): Promise<OrgPlanInfo> {
   try {
-    // Get most recent plan event for this org
-    const { data: planEvents } = await supabase
-      .from("video_events")
-      .select("details, created_at")
+    // Get most recent plan event for this org from events_log
+    const { data: planEvent } = await supabase
+      .from("events_log")
+      .select("payload")
+      .eq("entity_type", "client_org")
+      .eq("entity_id", orgId)
       .eq("event_type", ORG_PLAN_EVENT_TYPES.ORG_SET_PLAN)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(1)
+      .maybeSingle();
 
     let plan: OrgPlanType = "free";
-    if (planEvents) {
-      for (const event of planEvents) {
-        if (event.details?.org_id === orgId) {
-          const eventPlan = event.details?.plan;
-          if (eventPlan === "free" || eventPlan === "pro" || eventPlan === "enterprise") {
-            plan = eventPlan;
-          }
-          break;
-        }
+    if (planEvent?.payload) {
+      const payload = planEvent.payload as Record<string, unknown>;
+      const eventPlan = payload?.plan;
+      if (eventPlan === "free" || eventPlan === "pro" || eventPlan === "enterprise") {
+        plan = eventPlan;
       }
     }
 
-    // Get most recent billing status event for this org
-    const { data: billingEvents } = await supabase
-      .from("video_events")
-      .select("details, created_at")
+    // Get most recent billing status event for this org from events_log
+    const { data: billingEvent } = await supabase
+      .from("events_log")
+      .select("payload")
+      .eq("entity_type", "client_org")
+      .eq("entity_id", orgId)
       .eq("event_type", ORG_PLAN_EVENT_TYPES.ORG_BILLING_STATUS_SET)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(1)
+      .maybeSingle();
 
     let billing_status: OrgBillingStatus = "active";
-    if (billingEvents) {
-      for (const event of billingEvents) {
-        if (event.details?.org_id === orgId) {
-          const eventStatus = event.details?.billing_status;
-          if (["active", "trial", "past_due", "canceled"].includes(eventStatus)) {
-            billing_status = eventStatus as OrgBillingStatus;
-          }
-          break;
-        }
+    if (billingEvent?.payload) {
+      const payload = billingEvent.payload as Record<string, unknown>;
+      const eventStatus = payload?.billing_status;
+      if (["active", "trial", "past_due", "canceled"].includes(eventStatus as string)) {
+        billing_status = eventStatus as OrgBillingStatus;
       }
     }
 
@@ -282,7 +281,7 @@ export function isPaidOrgPlan(plan: OrgPlanType): boolean {
  * Get the effective plan for a user.
  * Resolution order:
  * 1. If user is member of a client org, use org plan
- * 2. Check video_events admin_set_plan events (per-user)
+ * 2. Check events_log admin_set_plan events (per-user)
  * 3. Check PRO_USER_IDS env allowlist
  * 4. Default to "free"
  */
@@ -311,23 +310,24 @@ export async function getEffectivePlanForUser(
     console.error("Error checking user org membership for plan:", err);
   }
 
-  // 2. Check video_events for admin_set_plan events (per-user)
+  // 2. Check events_log for admin_set_plan events (per-user)
   try {
     const { data: planEvent } = await supabase
-      .from("video_events")
-      .select("details")
+      .from("events_log")
+      .select("payload")
+      .eq("entity_type", "user")
+      .eq("entity_id", normalizedUserId)
       .eq("event_type", "admin_set_plan")
-      .eq("actor", normalizedUserId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (planEvent?.details) {
-      const details = planEvent.details as { plan?: PlanType };
-      if (details.plan === "pro") {
+    if (planEvent?.payload) {
+      const payload = planEvent.payload as { plan?: PlanType };
+      if (payload.plan === "pro") {
         return { source: "user_event", plan: "pro" };
       }
-      if (details.plan === "free") {
+      if (payload.plan === "free") {
         return { source: "user_event", plan: "free" };
       }
     }

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
+import { logEvent } from "@/lib/events-log";
 import type { PlanType } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -58,28 +59,18 @@ export async function POST(request: Request) {
   const isActiveValue = is_active !== false;
 
   try {
-    // Write admin_set_plan event to video_events
-    // Using video_id = null (or we can use a placeholder), actor = target user_id
-    const { error: insertError } = await supabaseAdmin.from("video_events").insert({
-      video_id: null,
+    // Write admin_set_plan event to events_log
+    await logEvent(supabaseAdmin, {
+      entity_type: "user",
+      entity_id: normalizedUserId,
       event_type: "admin_set_plan",
-      correlation_id: correlationId,
-      actor: normalizedUserId,
-      from_status: null,
-      to_status: null,
-      details: {
+      payload: {
         plan: planValue,
         is_active: isActiveValue,
         set_by: authContext.user.id,
         set_by_email: authContext.user.email || null,
       },
     });
-
-    if (insertError) {
-      console.error("Failed to insert admin_set_plan event:", insertError);
-      const err = apiError("DB_ERROR", "Failed to set plan", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
 
     // Notify via Slack (admin action)
     notify("admin_set_plan", {

@@ -53,8 +53,10 @@ export async function POST(request: Request) {
     const cooldownTime = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
 
     const { data: existingRequests, error: checkError } = await supabaseAdmin
-      .from("video_events")
-      .select("id, created_at, details")
+      .from("events_log")
+      .select("id, created_at, payload")
+      .eq("entity_type", "user")
+      .eq("entity_id", userId)
       .eq("event_type", "user_upgrade_requested")
       .gte("created_at", cooldownTime)
       .order("created_at", { ascending: false });
@@ -63,24 +65,20 @@ export async function POST(request: Request) {
       console.error("Error checking existing requests:", checkError);
     }
 
-    // Filter to find requests from this user
-    const userRequests = (existingRequests || []).filter((evt) => {
-      const details = evt.details as Record<string, unknown> | null;
-      return details?.user_id === userId;
-    });
-
     // Check if there's an unresolved request
-    if (userRequests.length > 0) {
+    if (existingRequests && existingRequests.length > 0) {
       // Check if the most recent request is unresolved
-      const latestRequest = userRequests[0];
+      const latestRequest = existingRequests[0];
       const latestRequestId = latestRequest.id;
 
       // Check if it was resolved
       const { data: resolutions } = await supabaseAdmin
-        .from("video_events")
+        .from("events_log")
         .select("id")
+        .eq("entity_type", "user")
+        .eq("entity_id", userId)
         .eq("event_type", "user_upgrade_request_resolved")
-        .filter("details->>request_event_id", "eq", latestRequestId)
+        .filter("payload->>request_event_id", "eq", latestRequestId)
         .limit(1);
 
       if (!resolutions || resolutions.length === 0) {
@@ -94,18 +92,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create new upgrade request event
+    // Create new upgrade request event in events_log
     const { data: newEvent, error: insertError } = await supabaseAdmin
-      .from("video_events")
+      .from("events_log")
       .insert({
-        video_id: null,
+        entity_type: "user",
+        entity_id: userId,
         event_type: "user_upgrade_requested",
-        correlation_id: correlationId,
-        actor: userId,
-        from_status: null,
-        to_status: null,
-        details: {
-          user_id: userId,
+        payload: {
           email: userEmail,
           requested_plan: "pro",
           message: requestMessage,

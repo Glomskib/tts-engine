@@ -6,6 +6,7 @@
  */
 
 import { getEffectiveBoolean } from "@/lib/settings";
+import { logEventSafe } from "./events-log";
 
 // SendGrid import - dynamic to avoid errors if package not installed
 // Guard: SENDGRID_API_KEY must be set for email to be sent
@@ -207,8 +208,8 @@ export async function checkEmailCooldown(
 }
 
 /**
- * Write an email audit event to video_events table.
- * Uses video_id = null for org-level/invite emails.
+ * Write an email audit event to events_log table.
+ * Uses entity_type='email' with recipient as entity_id.
  */
 export async function writeEmailAuditEvent(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -227,25 +228,24 @@ export async function writeEmailAuditEvent(
       ? "email_failed"
       : "email_skipped";
 
-  try {
-    await supabaseAdmin.from("video_events").insert({
-      video_id: null,
-      event_type: eventType,
-      actor: "system",
-      correlation_id: `email-${Date.now()}`,
-      details: {
-        template_key: params.templateKey,
-        to: params.to,
-        subject: params.subject,
-        status: params.result.status,
-        message: params.result.message,
-        ok: params.result.ok,
-        ...params.context,
-      },
-    });
-  } catch (err) {
-    // Never fail the main operation due to audit logging
-    console.error("Failed to write email audit event:", err);
+  // Use logEventSafe - never fails the main operation
+  const logged = await logEventSafe(supabaseAdmin, {
+    entity_type: "email",
+    entity_id: params.to,
+    event_type: eventType,
+    payload: {
+      template_key: params.templateKey,
+      subject: params.subject,
+      status: params.result.status,
+      message: params.result.message,
+      ok: params.result.ok,
+      timestamp: new Date().toISOString(),
+      ...params.context,
+    },
+  });
+
+  if (!logged) {
+    console.error("Failed to write email audit event");
   }
 }
 

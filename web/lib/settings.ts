@@ -1,6 +1,6 @@
 /**
  * System Settings Resolver
- * Manages runtime-configurable settings stored in video_events table.
+ * Manages runtime-configurable settings stored in events_log table.
  * Settings override env defaults only when explicitly set.
  * Fail-safe: if no settings configured, existing env behavior remains.
  */
@@ -115,31 +115,33 @@ function getEnvValue(key: SettingKey): SettingValue | undefined {
  */
 export async function getSystemSetting(key: SettingKey): Promise<SystemSetting | null> {
   try {
+    // Get the most recent setting for this key from events_log
     const { data, error } = await supabaseAdmin
-      .from("video_events")
-      .select("details, created_at, actor")
+      .from("events_log")
+      .select("payload, created_at")
+      .eq("entity_type", "system")
+      .eq("entity_id", key)
       .eq("event_type", "system_setting_set")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching system settings:", error);
       return null;
     }
 
-    // Find the most recent setting for this key
-    for (const event of data || []) {
-      const details = event.details as Record<string, unknown> | null;
-      if (details?.key === key) {
-        return {
-          key,
-          value: details.value as SettingValue,
-          updated_at: event.created_at,
-          updated_by: event.actor,
-        };
-      }
+    if (!data) {
+      return null;
     }
 
-    return null;
+    const payload = data.payload as Record<string, unknown> | null;
+    return {
+      key,
+      value: payload?.value as SettingValue,
+      updated_at: data.created_at,
+      updated_by: payload?.updated_by as string | null,
+    };
   } catch (err) {
     console.error("Error in getSystemSetting:", err);
     return null;
@@ -255,18 +257,15 @@ export async function setSystemSetting(
 
   try {
     const { data, error } = await supabaseAdmin
-      .from("video_events")
+      .from("events_log")
       .insert({
-        video_id: null,
+        entity_type: "system",
+        entity_id: key,
         event_type: "system_setting_set",
-        correlation_id: correlationId || `setting-${Date.now()}`,
-        actor,
-        from_status: null,
-        to_status: null,
-        details: {
-          key,
+        payload: {
           value,
           scope: "global",
+          updated_by: actor,
           updated_at: new Date().toISOString(),
         },
       })

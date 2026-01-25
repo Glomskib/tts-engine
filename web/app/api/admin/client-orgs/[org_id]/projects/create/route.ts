@@ -76,16 +76,15 @@ export async function POST(
     // Generate a new project ID
     const projectId = randomUUID();
 
-    // Insert project creation event
+    // Insert project creation event in events_log
     const { error: eventError } = await supabaseAdmin
-      .from("video_events")
+      .from("events_log")
       .insert({
-        video_id: null, // Project-level event, no video
+        entity_type: "client_project",
+        entity_id: projectId,
         event_type: PROJECT_EVENT_TYPES.PROJECT_CREATED,
-        user_id: authContext.user.id,
-        details: {
+        payload: {
           org_id: orgId,
-          project_id: projectId,
           project_name: trimmedName,
           created_by_user_id: authContext.user.id,
         },

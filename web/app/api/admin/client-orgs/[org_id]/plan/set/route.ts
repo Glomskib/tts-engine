@@ -48,15 +48,14 @@ export async function POST(
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    // Insert plan event
+    // Insert plan event in events_log
     const { error: eventError } = await supabaseAdmin
-      .from("video_events")
+      .from("events_log")
       .insert({
-        video_id: null, // Org-level event
+        entity_type: "client_org",
+        entity_id: orgId,
         event_type: ORG_PLAN_EVENT_TYPES.ORG_SET_PLAN,
-        user_id: authContext.user.id,
-        details: {
-          org_id: orgId,
+        payload: {
           plan,
           set_by_user_id: authContext.user.id,
           reason: reason || null,

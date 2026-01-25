@@ -14,8 +14,47 @@ export interface AuthContext {
 }
 
 /**
+ * Parse ADMIN_USERS environment variable into a Set of lowercase emails.
+ * ADMIN_USERS is authoritative - if email is in this list, user is admin.
+ */
+function parseAdminUsersEnv(): Set<string> {
+  const raw = process.env.ADMIN_USERS || "";
+  const list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return new Set(list);
+}
+
+/**
+ * Safely get user role from user_roles table.
+ * Returns null if table doesn't exist or query fails.
+ */
+async function safeGetUserRole(
+  supabase: typeof supabaseAdmin,
+  userId: string
+): Promise<UserRole | null> {
+  try {
+    // Note: table may not exist in all environments - error handled below
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .single();
+
+    if (error) return null;
+    return (data?.role as UserRole) ?? null;
+  } catch {
+    // Table doesn't exist or other error
+    return null;
+  }
+}
+
+/**
  * Get authentication context for API routes.
  * Returns user info and role derived from session.
+ *
+ * Resolution order:
+ * 1. ADMIN_USERS env (authoritative - email match = admin)
+ * 2. user_roles table (if exists)
+ * 3. Default: no role
  */
 export async function getApiAuthContext(): Promise<AuthContext> {
   const cookieStore = await cookies();
@@ -53,11 +92,10 @@ export async function getApiAuthContext(): Promise<AuthContext> {
     return { user: null, role: null, isAdmin: false };
   }
 
-  // Check ADMIN_USERS env for legacy admin support
-  const adminUsers = (process.env.ADMIN_USERS || '').split(',').map(s => s.trim()).filter(Boolean);
-  const isEnvAdmin = user.email && adminUsers.includes(user.email);
-
-  if (isEnvAdmin) {
+  // Check ADMIN_USERS env (authoritative for admin access)
+  const adminEmails = parseAdminUsersEnv();
+  const userEmail = user.email?.toLowerCase();
+  if (userEmail && adminEmails.has(userEmail)) {
     return {
       user: { id: user.id, email: user.email },
       role: 'admin',
@@ -65,14 +103,8 @@ export async function getApiAuthContext(): Promise<AuthContext> {
     };
   }
 
-  // Query user_roles table using admin client (bypasses RLS)
-  const { data: roleData } = await supabaseAdmin
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
-
-  const role = (roleData?.role as UserRole) || null;
+  // Query user_roles table (safe - handles missing table)
+  const role = await safeGetUserRole(supabaseAdmin, user.id);
 
   return {
     user: { id: user.id, email: user.email },

@@ -2,11 +2,13 @@
  * Client Projects Resolver
  *
  * Event-based project management for client organizations.
- * Uses video_events table with video_id nullable for project-level events.
+ * Uses events_log for project-level events and video_events for video-scoped events.
  *
- * Event types:
- * - client_project_created: { org_id, project_id, project_name, created_by_user_id }
- * - client_project_archived: { org_id, project_id, archived_by_user_id }
+ * Event types in events_log (entity_type='client_project', entity_id=project_id):
+ * - client_project_created: { org_id, project_name, created_by_user_id }
+ * - client_project_archived: { org_id, archived_by_user_id }
+ *
+ * Event types in video_events (requires valid video_id):
  * - video_project_set: { org_id, project_id, set_by_user_id }
  */
 
@@ -45,10 +47,11 @@ export async function listOrgProjects(
   const { includeArchived = false } = options
 
   try {
-    // Get all project creation events
+    // Get all project creation events from events_log
     const { data: createdEvents, error: createdError } = await supabase
-      .from('video_events')
-      .select('details, created_at')
+      .from('events_log')
+      .select('entity_id, payload, created_at')
+      .eq('entity_type', 'client_project')
       .eq('event_type', PROJECT_EVENT_TYPES.PROJECT_CREATED)
       .order('created_at', { ascending: false })
 
@@ -59,40 +62,46 @@ export async function listOrgProjects(
 
     // Filter to this org's projects
     const orgProjects = createdEvents.filter(
-      (e) => e.details?.org_id === orgId
+      (e) => (e.payload as Record<string, unknown>)?.org_id === orgId
     )
 
-    // Get all archive events to determine archived status
-    const { data: archiveEvents } = await supabase
-      .from('video_events')
-      .select('details, created_at')
-      .eq('event_type', PROJECT_EVENT_TYPES.PROJECT_ARCHIVED)
-      .order('created_at', { ascending: true })
+    // Get project IDs
+    const projectIds = orgProjects.map((e) => e.entity_id)
+
+    // Get all archive events for these projects
+    const { data: archiveEvents } = projectIds.length > 0
+      ? await supabase
+          .from('events_log')
+          .select('entity_id, created_at')
+          .eq('entity_type', 'client_project')
+          .eq('event_type', PROJECT_EVENT_TYPES.PROJECT_ARCHIVED)
+          .in('entity_id', projectIds)
+          .order('created_at', { ascending: true })
+      : { data: [] }
 
     // Build archive status map
     const archivedMap = new Map<string, string>()
     if (archiveEvents) {
       for (const event of archiveEvents) {
-        if (event.details?.org_id === orgId && event.details?.project_id) {
-          archivedMap.set(event.details.project_id, event.created_at)
-        }
+        archivedMap.set(event.entity_id, event.created_at)
       }
     }
 
     // Build projects list (most recent creation event wins for name)
     const projectMap = new Map<string, ClientProject>()
     for (const event of orgProjects) {
-      const projectId = event.details?.project_id
-      if (!projectId || projectMap.has(projectId)) continue
+      const projectId = event.entity_id
+      if (projectMap.has(projectId)) continue
 
+      const payload = event.payload as Record<string, unknown>
       const isArchived = archivedMap.has(projectId)
 
       projectMap.set(projectId, {
         project_id: projectId,
-        project_name: event.details?.project_name || 'Unnamed Project',
+        project_name: (payload?.project_name as string) || 'Unnamed Project',
         org_id: orgId,
         created_at: event.created_at,
-        created_by_user_id: event.details?.created_by_user_id,
+        created_by_user_id: payload?.created_by_user_id as string,
         is_archived: isArchived,
         archived_at: isArchived ? archivedMap.get(projectId) : undefined,
       })
@@ -135,53 +144,46 @@ export async function getProjectById(
   projectId: string
 ): Promise<ClientProject | null> {
   try {
-    // Get project creation event
-    const { data: createdEvents, error } = await supabase
-      .from('video_events')
-      .select('details, created_at')
+    // Get project creation event from events_log
+    const { data: projectEvent, error } = await supabase
+      .from('events_log')
+      .select('entity_id, payload, created_at')
+      .eq('entity_type', 'client_project')
+      .eq('entity_id', projectId)
       .eq('event_type', PROJECT_EVENT_TYPES.PROJECT_CREATED)
-      .order('created_at', { ascending: false })
+      .maybeSingle()
 
-    if (error || !createdEvents) {
+    if (error || !projectEvent) {
       return null
     }
 
-    // Find this project
-    const projectEvent = createdEvents.find(
-      (e) => e.details?.org_id === orgId && e.details?.project_id === projectId
-    )
+    const payload = projectEvent.payload as Record<string, unknown>
 
-    if (!projectEvent) {
+    // Verify it belongs to the specified org
+    if (payload?.org_id !== orgId) {
       return null
     }
 
     // Check if archived
-    const { data: archiveEvents } = await supabase
-      .from('video_events')
-      .select('details, created_at')
+    const { data: archiveEvent } = await supabase
+      .from('events_log')
+      .select('created_at')
+      .eq('entity_type', 'client_project')
+      .eq('entity_id', projectId)
       .eq('event_type', PROJECT_EVENT_TYPES.PROJECT_ARCHIVED)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(1)
+      .maybeSingle()
 
-    let isArchived = false
-    let archivedAt: string | undefined
-
-    if (archiveEvents) {
-      const archiveEvent = archiveEvents.find(
-        (e) => e.details?.org_id === orgId && e.details?.project_id === projectId
-      )
-      if (archiveEvent) {
-        isArchived = true
-        archivedAt = archiveEvent.created_at
-      }
-    }
+    const isArchived = !!archiveEvent
+    const archivedAt = archiveEvent?.created_at
 
     return {
       project_id: projectId,
-      project_name: projectEvent.details?.project_name || 'Unnamed Project',
+      project_name: (payload?.project_name as string) || 'Unnamed Project',
       org_id: orgId,
       created_at: projectEvent.created_at,
-      created_by_user_id: projectEvent.details?.created_by_user_id,
+      created_by_user_id: payload?.created_by_user_id as string,
       is_archived: isArchived,
       archived_at: archivedAt,
     }

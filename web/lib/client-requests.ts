@@ -4,7 +4,7 @@
  * Event-based intake system for client content requests.
  * Supports AI_CONTENT (brief only) and UGC_EDIT (footage required) request types.
  *
- * Event types (video_id null for org-level events):
+ * Event types (stored in events_log with entity_type='client_request'):
  * - client_request_submitted: New request created
  * - client_request_status_set: Status change (IN_REVIEW, APPROVED, REJECTED)
  * - client_request_converted: Request converted to pipeline video
@@ -13,6 +13,7 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { logEvent } from "./events-log";
 
 // ============================================================================
 // Types
@@ -211,19 +212,25 @@ export async function createClientRequest(
 ): Promise<{ request_id: string }> {
   const request_id = randomUUID();
 
-  const details: ClientRequestDetails = {
-    request_id,
-    ...submission,
-  };
-
-  const { error } = await supabase.from("video_events").insert({
-    video_id: null,
-    event_type: REQUEST_EVENT_TYPES.SUBMITTED,
-    actor_id: submission.requested_by_user_id,
-    details,
-  });
-
-  if (error) {
+  try {
+    await logEvent(supabase, {
+      entity_type: "client_request",
+      entity_id: request_id,
+      event_type: REQUEST_EVENT_TYPES.SUBMITTED,
+      payload: {
+        org_id: submission.org_id,
+        project_id: submission.project_id,
+        request_type: submission.request_type,
+        title: submission.title,
+        brief: submission.brief,
+        product_url: submission.product_url,
+        ugc_links: submission.ugc_links,
+        notes: submission.notes,
+        requested_by_user_id: submission.requested_by_user_id,
+        requested_by_email: submission.requested_by_email,
+      },
+    });
+  } catch (error) {
     console.error("[client-requests] Error creating request:", error);
     throw new Error("Failed to create request");
   }
@@ -245,20 +252,19 @@ export async function setClientRequestStatus(
     actor_user_id: string;
   }
 ): Promise<void> {
-  const { error } = await supabase.from("video_events").insert({
-    video_id: null,
-    event_type: REQUEST_EVENT_TYPES.STATUS_SET,
-    actor_id: params.actor_user_id,
-    details: {
-      request_id: params.request_id,
-      org_id: params.org_id,
-      status: params.status,
-      reason: params.reason,
-      actor_user_id: params.actor_user_id,
-    },
-  });
-
-  if (error) {
+  try {
+    await logEvent(supabase, {
+      entity_type: "client_request",
+      entity_id: params.request_id,
+      event_type: REQUEST_EVENT_TYPES.STATUS_SET,
+      payload: {
+        org_id: params.org_id,
+        status: params.status,
+        reason: params.reason,
+        actor_user_id: params.actor_user_id,
+      },
+    });
+  } catch (error) {
     console.error("[client-requests] Error setting status:", error);
     throw new Error("Failed to set request status");
   }
@@ -277,19 +283,18 @@ export async function convertClientRequestToVideo(
     actor_user_id: string;
   }
 ): Promise<void> {
-  const { error } = await supabase.from("video_events").insert({
-    video_id: null,
-    event_type: REQUEST_EVENT_TYPES.CONVERTED,
-    actor_id: params.actor_user_id,
-    details: {
-      request_id: params.request_id,
-      org_id: params.org_id,
-      video_id: params.video_id,
-      actor_user_id: params.actor_user_id,
-    },
-  });
-
-  if (error) {
+  try {
+    await logEvent(supabase, {
+      entity_type: "client_request",
+      entity_id: params.request_id,
+      event_type: REQUEST_EVENT_TYPES.CONVERTED,
+      payload: {
+        org_id: params.org_id,
+        video_id: params.video_id,
+        actor_user_id: params.actor_user_id,
+      },
+    });
+  } catch (error) {
     console.error("[client-requests] Error converting request:", error);
     throw new Error("Failed to record request conversion");
   }
@@ -307,12 +312,12 @@ export async function listClientRequestsForOrg(
     status?: RequestStatus;
   }
 ): Promise<ClientRequest[]> {
-  // Get all submitted events
+  // Get all submitted events from events_log
   const { data: submittedEvents, error: submittedError } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.SUBMITTED)
-    .is("video_id", null)
     .order("created_at", { ascending: false });
 
   if (submittedError) {
@@ -322,38 +327,43 @@ export async function listClientRequestsForOrg(
 
   // Filter to this org's requests
   const orgSubmissions = (submittedEvents || []).filter(
-    (e) => e.details?.org_id === orgId
+    (e) => (e.payload as Record<string, unknown>)?.org_id === orgId
   );
 
   if (orgSubmissions.length === 0) {
     return [];
   }
 
-  // Get all status events for this org
+  // Get request IDs for this org
+  const requestIds = orgSubmissions.map((e) => e.entity_id);
+
+  // Get all status events for these requests
   const { data: statusEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.STATUS_SET)
-    .is("video_id", null)
+    .in("entity_id", requestIds)
     .order("created_at", { ascending: true });
 
-  // Get all converted events for this org
+  // Get all converted events for these requests
   const { data: convertedEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED)
-    .is("video_id", null)
+    .in("entity_id", requestIds)
     .order("created_at", { ascending: true });
 
   // Build request objects with latest status
   const requests: ClientRequest[] = [];
 
   for (const submission of orgSubmissions) {
-    const details = submission.details as ClientRequestDetails;
-    const requestId = details.request_id;
+    const payload = submission.payload as Record<string, unknown>;
+    const requestId = submission.entity_id;
 
     // Apply project filter if specified
-    if (filters?.project_id && details.project_id !== filters.project_id) {
+    if (filters?.project_id && payload.project_id !== filters.project_id) {
       continue;
     }
 
@@ -365,23 +375,25 @@ export async function listClientRequestsForOrg(
 
     // Check status events
     const requestStatusEvents = (statusEvents || []).filter(
-      (e) => e.details?.request_id === requestId && e.details?.org_id === orgId
+      (e) => e.entity_id === requestId
     );
 
     for (const statusEvent of requestStatusEvents) {
-      status = statusEvent.details?.status as RequestStatus;
-      statusReason = statusEvent.details?.reason;
+      const statusPayload = statusEvent.payload as Record<string, unknown>;
+      status = statusPayload?.status as RequestStatus;
+      statusReason = statusPayload?.reason as string | undefined;
       updatedAt = statusEvent.created_at;
     }
 
     // Check converted events
     const requestConvertedEvents = (convertedEvents || []).filter(
-      (e) => e.details?.request_id === requestId && e.details?.org_id === orgId
+      (e) => e.entity_id === requestId
     );
 
     if (requestConvertedEvents.length > 0) {
       status = "CONVERTED";
-      videoId = requestConvertedEvents[requestConvertedEvents.length - 1].details?.video_id;
+      const lastConvertedPayload = requestConvertedEvents[requestConvertedEvents.length - 1].payload as Record<string, unknown>;
+      videoId = lastConvertedPayload?.video_id as string;
       updatedAt = requestConvertedEvents[requestConvertedEvents.length - 1].created_at;
     }
 
@@ -392,16 +404,16 @@ export async function listClientRequestsForOrg(
 
     requests.push({
       request_id: requestId,
-      org_id: details.org_id,
-      project_id: details.project_id,
-      request_type: details.request_type,
-      title: details.title,
-      brief: details.brief,
-      product_url: details.product_url,
-      ugc_links: details.ugc_links,
-      notes: details.notes,
-      requested_by_user_id: details.requested_by_user_id,
-      requested_by_email: details.requested_by_email,
+      org_id: payload.org_id as string,
+      project_id: payload.project_id as string | undefined,
+      request_type: payload.request_type as RequestType,
+      title: payload.title as string,
+      brief: payload.brief as string,
+      product_url: payload.product_url as string | undefined,
+      ugc_links: payload.ugc_links as string[] | undefined,
+      notes: payload.notes as string | undefined,
+      requested_by_user_id: payload.requested_by_user_id as string,
+      requested_by_email: payload.requested_by_email as string | undefined,
       status,
       status_reason: statusReason,
       video_id: videoId,
@@ -423,43 +435,42 @@ export async function getClientRequestById(
   orgId: string,
   requestId: string
 ): Promise<ClientRequest | null> {
-  // Get the submitted event for this request
-  const { data: submittedEvents, error } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+  // Get the submitted event for this request from events_log
+  const { data: submission, error } = await supabase
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.SUBMITTED)
-    .is("video_id", null)
-    .order("created_at", { ascending: false });
+    .maybeSingle();
 
-  if (error || !submittedEvents) {
+  if (error || !submission) {
     return null;
   }
 
-  // Find the specific request
-  const submission = submittedEvents.find(
-    (e) => e.details?.request_id === requestId && e.details?.org_id === orgId
-  );
+  const payload = submission.payload as Record<string, unknown>;
 
-  if (!submission) {
+  // Verify the request belongs to the specified org
+  if (payload?.org_id !== orgId) {
     return null;
   }
-
-  const details = submission.details as ClientRequestDetails;
 
   // Get status events for this request
   const { data: statusEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("payload, created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.STATUS_SET)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   // Get converted events for this request
   const { data: convertedEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("payload, created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   // Resolve latest status
@@ -468,38 +479,32 @@ export async function getClientRequestById(
   let videoId: string | undefined;
   let updatedAt = submission.created_at;
 
-  const requestStatusEvents = (statusEvents || []).filter(
-    (e) => e.details?.request_id === requestId && e.details?.org_id === orgId
-  );
-
-  for (const statusEvent of requestStatusEvents) {
-    status = statusEvent.details?.status as RequestStatus;
-    statusReason = statusEvent.details?.reason;
+  for (const statusEvent of statusEvents || []) {
+    const statusPayload = statusEvent.payload as Record<string, unknown>;
+    status = statusPayload?.status as RequestStatus;
+    statusReason = statusPayload?.reason as string | undefined;
     updatedAt = statusEvent.created_at;
   }
 
-  const requestConvertedEvents = (convertedEvents || []).filter(
-    (e) => e.details?.request_id === requestId && e.details?.org_id === orgId
-  );
-
-  if (requestConvertedEvents.length > 0) {
+  if (convertedEvents && convertedEvents.length > 0) {
     status = "CONVERTED";
-    videoId = requestConvertedEvents[requestConvertedEvents.length - 1].details?.video_id;
-    updatedAt = requestConvertedEvents[requestConvertedEvents.length - 1].created_at;
+    const lastConverted = convertedEvents[convertedEvents.length - 1];
+    videoId = (lastConverted.payload as Record<string, unknown>)?.video_id as string;
+    updatedAt = lastConverted.created_at;
   }
 
   return {
     request_id: requestId,
-    org_id: details.org_id,
-    project_id: details.project_id,
-    request_type: details.request_type,
-    title: details.title,
-    brief: details.brief,
-    product_url: details.product_url,
-    ugc_links: details.ugc_links,
-    notes: details.notes,
-    requested_by_user_id: details.requested_by_user_id,
-    requested_by_email: details.requested_by_email,
+    org_id: payload.org_id as string,
+    project_id: payload.project_id as string | undefined,
+    request_type: payload.request_type as RequestType,
+    title: payload.title as string,
+    brief: payload.brief as string,
+    product_url: payload.product_url as string | undefined,
+    ugc_links: payload.ugc_links as string[] | undefined,
+    notes: payload.notes as string | undefined,
+    requested_by_user_id: payload.requested_by_user_id as string,
+    requested_by_email: payload.requested_by_email as string | undefined,
     status,
     status_reason: statusReason,
     video_id: videoId,
@@ -521,12 +526,12 @@ export async function listAllClientRequests(
     request_type?: RequestType;
   }
 ): Promise<ClientRequest[]> {
-  // Get all submitted events
+  // Get all submitted events from events_log
   const { data: submittedEvents, error: submittedError } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.SUBMITTED)
-    .is("video_id", null)
     .order("created_at", { ascending: false });
 
   if (submittedError || !submittedEvents) {
@@ -536,35 +541,33 @@ export async function listAllClientRequests(
 
   // Get all status events
   const { data: statusEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.STATUS_SET)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   // Get all converted events
   const { data: convertedEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   const requests: ClientRequest[] = [];
 
   for (const submission of submittedEvents) {
-    const details = submission.details as ClientRequestDetails;
-    if (!details?.request_id) continue;
-
-    const requestId = details.request_id;
+    const payload = submission.payload as Record<string, unknown>;
+    const requestId = submission.entity_id;
 
     // Apply org filter
-    if (filters?.org_id && details.org_id !== filters.org_id) {
+    if (filters?.org_id && payload.org_id !== filters.org_id) {
       continue;
     }
 
     // Apply request_type filter
-    if (filters?.request_type && details.request_type !== filters.request_type) {
+    if (filters?.request_type && payload.request_type !== filters.request_type) {
       continue;
     }
 
@@ -575,23 +578,25 @@ export async function listAllClientRequests(
     let updatedAt = submission.created_at;
 
     const requestStatusEvents = (statusEvents || []).filter(
-      (e) => e.details?.request_id === requestId
+      (e) => e.entity_id === requestId
     );
 
     for (const statusEvent of requestStatusEvents) {
-      status = statusEvent.details?.status as RequestStatus;
-      statusReason = statusEvent.details?.reason;
+      const statusPayload = statusEvent.payload as Record<string, unknown>;
+      status = statusPayload?.status as RequestStatus;
+      statusReason = statusPayload?.reason as string | undefined;
       updatedAt = statusEvent.created_at;
     }
 
     const requestConvertedEvents = (convertedEvents || []).filter(
-      (e) => e.details?.request_id === requestId
+      (e) => e.entity_id === requestId
     );
 
     if (requestConvertedEvents.length > 0) {
       status = "CONVERTED";
-      videoId = requestConvertedEvents[requestConvertedEvents.length - 1].details?.video_id;
-      updatedAt = requestConvertedEvents[requestConvertedEvents.length - 1].created_at;
+      const lastConverted = requestConvertedEvents[requestConvertedEvents.length - 1];
+      videoId = (lastConverted.payload as Record<string, unknown>)?.video_id as string;
+      updatedAt = lastConverted.created_at;
     }
 
     // Apply status filter
@@ -601,16 +606,16 @@ export async function listAllClientRequests(
 
     requests.push({
       request_id: requestId,
-      org_id: details.org_id,
-      project_id: details.project_id,
-      request_type: details.request_type,
-      title: details.title,
-      brief: details.brief,
-      product_url: details.product_url,
-      ugc_links: details.ugc_links,
-      notes: details.notes,
-      requested_by_user_id: details.requested_by_user_id,
-      requested_by_email: details.requested_by_email,
+      org_id: payload.org_id as string,
+      project_id: payload.project_id as string | undefined,
+      request_type: payload.request_type as RequestType,
+      title: payload.title as string,
+      brief: payload.brief as string,
+      product_url: payload.product_url as string | undefined,
+      ugc_links: payload.ugc_links as string[] | undefined,
+      notes: payload.notes as string | undefined,
+      requested_by_user_id: payload.requested_by_user_id as string,
+      requested_by_email: payload.requested_by_email as string | undefined,
       status,
       status_reason: statusReason,
       video_id: videoId,
@@ -630,79 +635,69 @@ export async function getClientRequestByIdAdmin(
   supabase: SupabaseClient,
   requestId: string
 ): Promise<ClientRequest | null> {
-  // Get the submitted event for this request
-  const { data: submittedEvents, error } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+  // Get the submitted event for this request from events_log
+  const { data: submission, error } = await supabase
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.SUBMITTED)
-    .is("video_id", null);
+    .maybeSingle();
 
-  if (error || !submittedEvents) {
+  if (error || !submission) {
     return null;
   }
 
-  const submission = submittedEvents.find(
-    (e) => e.details?.request_id === requestId
-  );
-
-  if (!submission) {
-    return null;
-  }
-
-  const details = submission.details as ClientRequestDetails;
+  const payload = submission.payload as Record<string, unknown>;
 
   // Get status events
   const { data: statusEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("payload, created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.STATUS_SET)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   // Get converted events
   const { data: convertedEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
-    .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED)
-    .is("video_id", null);
+    .from("events_log")
+    .select("payload, created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
+    .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED);
 
   let status: RequestStatus = "SUBMITTED";
   let statusReason: string | undefined;
   let videoId: string | undefined;
   let updatedAt = submission.created_at;
 
-  const requestStatusEvents = (statusEvents || []).filter(
-    (e) => e.details?.request_id === requestId
-  );
-
-  for (const statusEvent of requestStatusEvents) {
-    status = statusEvent.details?.status as RequestStatus;
-    statusReason = statusEvent.details?.reason;
+  for (const statusEvent of statusEvents || []) {
+    const statusPayload = statusEvent.payload as Record<string, unknown>;
+    status = statusPayload?.status as RequestStatus;
+    statusReason = statusPayload?.reason as string | undefined;
     updatedAt = statusEvent.created_at;
   }
 
-  const requestConvertedEvents = (convertedEvents || []).filter(
-    (e) => e.details?.request_id === requestId
-  );
-
-  if (requestConvertedEvents.length > 0) {
+  if (convertedEvents && convertedEvents.length > 0) {
     status = "CONVERTED";
-    videoId = requestConvertedEvents[requestConvertedEvents.length - 1].details?.video_id;
-    updatedAt = requestConvertedEvents[requestConvertedEvents.length - 1].created_at;
+    const lastConverted = convertedEvents[convertedEvents.length - 1];
+    videoId = (lastConverted.payload as Record<string, unknown>)?.video_id as string;
+    updatedAt = lastConverted.created_at;
   }
 
   return {
     request_id: requestId,
-    org_id: details.org_id,
-    project_id: details.project_id,
-    request_type: details.request_type,
-    title: details.title,
-    brief: details.brief,
-    product_url: details.product_url,
-    ugc_links: details.ugc_links,
-    notes: details.notes,
-    requested_by_user_id: details.requested_by_user_id,
-    requested_by_email: details.requested_by_email,
+    org_id: payload.org_id as string,
+    project_id: payload.project_id as string | undefined,
+    request_type: payload.request_type as RequestType,
+    title: payload.title as string,
+    brief: payload.brief as string,
+    product_url: payload.product_url as string | undefined,
+    ugc_links: payload.ugc_links as string[] | undefined,
+    notes: payload.notes as string | undefined,
+    requested_by_user_id: payload.requested_by_user_id as string,
+    requested_by_email: payload.requested_by_email as string | undefined,
     status,
     status_reason: statusReason,
     video_id: videoId,
@@ -729,19 +724,18 @@ export async function setClientRequestPriority(
     actor_user_id: string;
   }
 ): Promise<void> {
-  const { error } = await supabase.from("video_events").insert({
-    video_id: null,
-    event_type: REQUEST_EVENT_TYPES.PRIORITY_SET,
-    actor_id: params.actor_user_id,
-    details: {
-      request_id: params.request_id,
-      org_id: params.org_id,
-      priority: params.priority,
-      actor_user_id: params.actor_user_id,
-    },
-  });
-
-  if (error) {
+  try {
+    await logEvent(supabase, {
+      entity_type: "client_request",
+      entity_id: params.request_id,
+      event_type: REQUEST_EVENT_TYPES.PRIORITY_SET,
+      payload: {
+        org_id: params.org_id,
+        priority: params.priority,
+        actor_user_id: params.actor_user_id,
+      },
+    });
+  } catch (error) {
     console.error("[client-requests] Error setting priority:", error);
     throw new Error("Failed to set request priority");
   }
@@ -755,27 +749,22 @@ export async function getRequestPriority(
   supabase: SupabaseClient,
   requestId: string
 ): Promise<RequestPriority> {
-  const { data: priorityEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+  const { data: priorityEvent } = await supabase
+    .from("events_log")
+    .select("payload")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.PRIORITY_SET)
-    .is("video_id", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (!priorityEvents) {
+  if (!priorityEvent) {
     return "NORMAL";
   }
 
-  // Find latest priority event for this request
-  const latestPriority = priorityEvents.find(
-    (e) => e.details?.request_id === requestId
-  );
-
-  if (!latestPriority) {
-    return "NORMAL";
-  }
-
-  return (latestPriority.details?.priority as RequestPriority) || "NORMAL";
+  const payload = priorityEvent.payload as Record<string, unknown>;
+  return (payload?.priority as RequestPriority) || "NORMAL";
 }
 
 /**
@@ -797,10 +786,11 @@ export async function getRequestPriorities(
   }
 
   const { data: priorityEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("entity_id, payload, created_at")
+    .eq("entity_type", "client_request")
     .eq("event_type", REQUEST_EVENT_TYPES.PRIORITY_SET)
-    .is("video_id", null)
+    .in("entity_id", requestIds)
     .order("created_at", { ascending: true });
 
   if (!priorityEvents) {
@@ -809,10 +799,8 @@ export async function getRequestPriorities(
 
   // Process in chronological order so latest wins
   for (const event of priorityEvents) {
-    const reqId = event.details?.request_id;
-    if (reqId && requestIds.includes(reqId)) {
-      priorities.set(reqId, (event.details?.priority as RequestPriority) || "NORMAL");
-    }
+    const payload = event.payload as Record<string, unknown>;
+    priorities.set(event.entity_id, (payload?.priority as RequestPriority) || "NORMAL");
   }
 
   return priorities;
@@ -836,36 +824,32 @@ export async function getRequestSLATiming(
 
   // Get status events for first admin action
   const { data: statusEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.STATUS_SET)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   // Get converted events
   const { data: convertedEvents } = await supabase
-    .from("video_events")
-    .select("details, created_at")
+    .from("events_log")
+    .select("created_at")
+    .eq("entity_type", "client_request")
+    .eq("entity_id", requestId)
     .eq("event_type", REQUEST_EVENT_TYPES.CONVERTED)
-    .is("video_id", null)
     .order("created_at", { ascending: true });
 
   // Find first admin action (status change)
   let firstAdminActionAt: string | null = null;
-  const requestStatusEvents = (statusEvents || []).filter(
-    (e) => e.details?.request_id === requestId
-  );
-  if (requestStatusEvents.length > 0) {
-    firstAdminActionAt = requestStatusEvents[0].created_at;
+  if (statusEvents && statusEvents.length > 0) {
+    firstAdminActionAt = statusEvents[0].created_at;
   }
 
   // Find conversion time
   let convertedAt: string | null = null;
-  const requestConvertedEvents = (convertedEvents || []).filter(
-    (e) => e.details?.request_id === requestId
-  );
-  if (requestConvertedEvents.length > 0) {
-    convertedAt = requestConvertedEvents[0].created_at;
+  if (convertedEvents && convertedEvents.length > 0) {
+    convertedAt = convertedEvents[0].created_at;
   }
 
   // Calculate durations

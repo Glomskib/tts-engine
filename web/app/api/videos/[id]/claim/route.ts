@@ -103,6 +103,9 @@ export async function POST(
     }
   }
 
+  // Determine if actor has admin privileges (admin bypass for WIP limits)
+  const isAdmin = actorRole === "admin";
+
   try {
     // Execute atomic claim
     const result = await atomicClaimVideo(supabaseAdmin, {
@@ -111,6 +114,7 @@ export async function POST(
       claim_role: actorRole as ClaimRole,
       ttl_minutes: ttl,
       correlation_id: correlationId,
+      is_admin: isAdmin,
     });
 
     if (!result.ok) {
@@ -119,6 +123,7 @@ export async function POST(
         NOT_FOUND: { code: "NOT_FOUND", status: 404 },
         NOT_CLAIMABLE: { code: "BAD_REQUEST", status: 400 },
         ALREADY_CLAIMED: { code: "ALREADY_CLAIMED", status: 409 },
+        WIP_LIMIT_REACHED: { code: "WIP_LIMIT_REACHED", status: 429 },
         DB_ERROR: { code: "DB_ERROR", status: 500 },
       };
 
@@ -126,6 +131,8 @@ export async function POST(
       const err = apiError(errorInfo.code, result.message, errorInfo.status, {
         claimed_by: result.claimed_by,
         claim_expires_at: result.claim_expires_at,
+        wip_limit: result.wip_limit,
+        wip_current: result.wip_current,
       });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }

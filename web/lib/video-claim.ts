@@ -9,11 +9,13 @@
  * - Atomic operations prevent race conditions
  * - Same user can extend their claim (idempotent)
  * - Expired claims can be reclaimed by anyone
+ * - WIP limits enforced at claim time (admin bypass available)
  * - All operations write audit events to video_events
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { QUEUE_STATUSES } from "./video-pipeline";
+import { getWipLimitForRole, getRenewWindowMinutes, type WipRole } from "./settings";
 
 // ============================================================================
 // Types
@@ -24,12 +26,15 @@ export type ClaimRole = "recorder" | "editor" | "uploader" | "admin";
 export interface ClaimResult {
   ok: boolean;
   video_id: string;
-  action: "claimed" | "extended" | "already_claimed" | "not_found" | "not_claimable" | "error";
+  action: "claimed" | "extended" | "already_claimed" | "not_found" | "not_claimable" | "wip_limit_reached" | "error";
   claimed_by?: string | null;
   claim_role?: ClaimRole | null;
   claim_expires_at?: string | null;
   message: string;
   error_code?: string;
+  /** WIP limit info (only present when WIP_LIMIT_REACHED) */
+  wip_limit?: number;
+  wip_current?: number;
 }
 
 export interface ReleaseResult {
@@ -55,6 +60,22 @@ export interface ExpireResult {
   expired_count: number;
   expired_ids: string[];
   message: string;
+}
+
+export interface BulkRenewResult {
+  ok: boolean;
+  renewed_count: number;
+  skipped_count: number;
+  failed_count: number;
+  renewed_ids: string[];
+  message: string;
+}
+
+export interface WipCheckResult {
+  within_limit: boolean;
+  current_count: number;
+  limit: number;
+  role: string;
 }
 
 // ============================================================================
@@ -101,6 +122,82 @@ async function writeVideoEvent(
 }
 
 // ============================================================================
+// WIP (Work-in-Progress) Limit Check
+// ============================================================================
+
+/**
+ * Count active claims for an actor in queue statuses.
+ * An active claim is one where:
+ * - claimed_by = actor
+ * - claim_expires_at > now
+ * - status is in QUEUE_STATUSES
+ */
+export async function countActiveClaimsForActor(
+  supabase: SupabaseClient,
+  actor: string
+): Promise<number> {
+  const now = new Date().toISOString();
+
+  const { count, error } = await supabase
+    .from("videos")
+    .select("*", { count: "exact", head: true })
+    .eq("claimed_by", actor)
+    .gt("claim_expires_at", now)
+    .in("status", [...CLAIMABLE_STATUSES]);
+
+  if (error) {
+    console.error("Error counting active claims:", error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+/**
+ * Check if actor is within WIP limit for their role.
+ * Returns { within_limit: true } if allowed to claim, or limit info if blocked.
+ * Admin role always returns within_limit: true.
+ */
+export async function checkWipLimit(
+  supabase: SupabaseClient,
+  actor: string,
+  role: ClaimRole
+): Promise<WipCheckResult> {
+  // Admin bypass - no WIP limit
+  if (role === "admin") {
+    return {
+      within_limit: true,
+      current_count: 0,
+      limit: 0,
+      role: "admin",
+    };
+  }
+
+  const wipRole = role as WipRole;
+  const [currentCount, limit] = await Promise.all([
+    countActiveClaimsForActor(supabase, actor),
+    getWipLimitForRole(wipRole),
+  ]);
+
+  // Limit of 0 means unlimited
+  if (limit === 0) {
+    return {
+      within_limit: true,
+      current_count: currentCount,
+      limit: 0,
+      role,
+    };
+  }
+
+  return {
+    within_limit: currentCount < limit,
+    current_count: currentCount,
+    limit,
+    role,
+  };
+}
+
+// ============================================================================
 // Atomic Claim Operation
 // ============================================================================
 
@@ -128,9 +225,11 @@ export async function atomicClaimVideo(
     claim_role: ClaimRole;
     ttl_minutes?: number;
     correlation_id: string;
+    /** If true, bypass WIP limit check (for admin operations) */
+    is_admin?: boolean;
   }
 ): Promise<ClaimResult> {
-  const { video_id, actor, claim_role, correlation_id } = params;
+  const { video_id, actor, claim_role, correlation_id, is_admin = false } = params;
   const ttl = params.ttl_minutes ?? DEFAULT_CLAIM_TTL_MINUTES;
   const now = new Date();
   const nowIso = now.toISOString();
@@ -170,6 +269,37 @@ export async function atomicClaimVideo(
     video.claimed_by === actor &&
     video.claim_expires_at &&
     video.claim_expires_at > nowIso;
+
+  // WIP limit check: only for NEW claims (not extensions), and only if not admin
+  if (!hasActiveClaim && !is_admin) {
+    const wipCheck = await checkWipLimit(supabase, actor, claim_role);
+
+    if (!wipCheck.within_limit) {
+      // Write audit event for WIP limit rejection
+      await writeVideoEvent(supabase, {
+        video_id,
+        event_type: "claim_rejected_wip_limit",
+        correlation_id,
+        actor,
+        details: {
+          role: claim_role,
+          current_count: wipCheck.current_count,
+          limit: wipCheck.limit,
+          reason: `Actor has ${wipCheck.current_count} active claims, limit is ${wipCheck.limit}`,
+        },
+      });
+
+      return {
+        ok: false,
+        video_id,
+        action: "wip_limit_reached",
+        message: `WIP limit reached: you have ${wipCheck.current_count} active claims (limit: ${wipCheck.limit})`,
+        error_code: "WIP_LIMIT_REACHED",
+        wip_limit: wipCheck.limit,
+        wip_current: wipCheck.current_count,
+      };
+    }
+  }
 
   // Atomic UPDATE with WHERE conditions:
   // - claimed_by IS NULL (unclaimed)
@@ -609,6 +739,125 @@ export async function expireStaleClaimsAtomic(
     expired_count: expiredIds.length,
     expired_ids: expiredIds,
     message: `Expired ${expiredIds.length} stale claim(s)`,
+  };
+}
+
+// ============================================================================
+// Bulk Renew Operation (Extend all expiring claims for an actor)
+// ============================================================================
+
+/**
+ * Bulk renew all claims for an actor that are expiring within the renew window.
+ *
+ * This operation is:
+ * - Atomic per-claim: each claim is renewed individually
+ * - Idempotent: running multiple times has no adverse effects
+ * - Safe: only renews claims owned by the actor
+ *
+ * @param supabase - Supabase admin client
+ * @param params - Bulk renew parameters
+ * @returns BulkRenewResult with counts
+ */
+export async function bulkRenewClaimsForActor(
+  supabase: SupabaseClient,
+  params: {
+    actor: string;
+    ttl_minutes?: number;
+    renew_window_minutes?: number;
+    correlation_id: string;
+  }
+): Promise<BulkRenewResult> {
+  const { actor, correlation_id } = params;
+  const ttl = params.ttl_minutes ?? DEFAULT_CLAIM_TTL_MINUTES;
+
+  // Get renew window from settings or params
+  const renewWindow = params.renew_window_minutes ?? await getRenewWindowMinutes();
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const windowEnd = new Date(now.getTime() + renewWindow * 60 * 1000).toISOString();
+  const newExpiresAt = new Date(now.getTime() + ttl * 60 * 1000).toISOString();
+
+  // Find all claims owned by actor that are expiring within the renew window
+  const { data: expiringClaims, error: fetchError } = await supabase
+    .from("videos")
+    .select("id, status, claim_expires_at, claim_role")
+    .eq("claimed_by", actor)
+    .gt("claim_expires_at", nowIso) // Not already expired
+    .lt("claim_expires_at", windowEnd) // But expiring within window
+    .in("status", [...CLAIMABLE_STATUSES]);
+
+  if (fetchError) {
+    console.error("Bulk renew fetch error:", fetchError);
+    return {
+      ok: false,
+      renewed_count: 0,
+      skipped_count: 0,
+      failed_count: 0,
+      renewed_ids: [],
+      message: `Database error: ${fetchError.message}`,
+    };
+  }
+
+  if (!expiringClaims || expiringClaims.length === 0) {
+    return {
+      ok: true,
+      renewed_count: 0,
+      skipped_count: 0,
+      failed_count: 0,
+      renewed_ids: [],
+      message: "No claims expiring within renew window",
+    };
+  }
+
+  const renewedIds: string[] = [];
+  let failedCount = 0;
+
+  // Renew each claim atomically
+  for (const claim of expiringClaims) {
+    const { data: updated, error: updateError } = await supabase
+      .from("videos")
+      .update({
+        claim_expires_at: newExpiresAt,
+        claimed_at: nowIso, // Reset claimed_at to track renewal
+      })
+      .eq("id", claim.id)
+      .eq("claimed_by", actor) // Verify ownership atomically
+      .gt("claim_expires_at", nowIso) // Verify not expired
+      .select("id")
+      .maybeSingle();
+
+    if (updateError || !updated) {
+      failedCount++;
+      console.error(`Failed to renew claim for video ${claim.id}:`, updateError);
+      continue;
+    }
+
+    renewedIds.push(claim.id);
+
+    // Write audit event
+    await writeVideoEvent(supabase, {
+      video_id: claim.id,
+      event_type: "claim_bulk_renewed",
+      correlation_id,
+      actor,
+      details: {
+        renewed_by: actor,
+        previous_expires_at: claim.claim_expires_at,
+        new_expires_at: newExpiresAt,
+        ttl_minutes: ttl,
+        renew_window_minutes: renewWindow,
+      },
+    });
+  }
+
+  return {
+    ok: true,
+    renewed_count: renewedIds.length,
+    skipped_count: 0,
+    failed_count: failedCount,
+    renewed_ids: renewedIds,
+    message: `Renewed ${renewedIds.length} of ${expiringClaims.length} expiring claim(s)`,
   };
 }
 

@@ -19,6 +19,14 @@ export const ALLOWED_SETTING_KEYS = [
   "INCIDENT_MODE_MESSAGE",
   "INCIDENT_MODE_READ_ONLY",
   "INCIDENT_MODE_ALLOWLIST_USER_IDS",
+  // WIP Limits (Work-in-Progress)
+  "WIP_LIMIT_EDITOR",
+  "WIP_LIMIT_UPLOADER",
+  "WIP_LIMIT_RECORDER",
+  "WIP_LIMIT_DEFAULT",
+  // Lease management
+  "LEASE_DURATION_MINUTES",
+  "RENEW_WINDOW_MINUTES",
 ] as const;
 
 export type SettingKey = typeof ALLOWED_SETTING_KEYS[number];
@@ -60,6 +68,14 @@ const DEFAULT_VALUES: Record<SettingKey, SettingValue> = {
   INCIDENT_MODE_MESSAGE: "System is currently in maintenance mode.",
   INCIDENT_MODE_READ_ONLY: false,
   INCIDENT_MODE_ALLOWLIST_USER_IDS: [],
+  // WIP Limits - sensible defaults to prevent throughput collapse
+  WIP_LIMIT_EDITOR: 5,
+  WIP_LIMIT_UPLOADER: 5,
+  WIP_LIMIT_RECORDER: 5,
+  WIP_LIMIT_DEFAULT: 5,
+  // Lease management
+  LEASE_DURATION_MINUTES: 240, // 4 hours default
+  RENEW_WINDOW_MINUTES: 30, // renew if expiring within 30 minutes
 };
 
 /**
@@ -89,6 +105,12 @@ function getEnvValue(key: SettingKey): SettingValue | undefined {
 
     case "ASSIGNMENT_TTL_MINUTES":
     case "ANALYTICS_DEFAULT_WINDOW_DAYS":
+    case "WIP_LIMIT_EDITOR":
+    case "WIP_LIMIT_UPLOADER":
+    case "WIP_LIMIT_RECORDER":
+    case "WIP_LIMIT_DEFAULT":
+    case "LEASE_DURATION_MINUTES":
+    case "RENEW_WINDOW_MINUTES":
       const num = parseInt(envValue, 10);
       return isNaN(num) ? undefined : num;
 
@@ -376,4 +398,49 @@ export async function checkIncidentReadOnlyBlock(
     blocked: true,
     message: status.message || "System is in maintenance mode.",
   };
+}
+
+// ============================================
+// WIP (Work-in-Progress) Limit Helpers
+// ============================================
+
+export type WipRole = "editor" | "uploader" | "recorder" | "admin";
+
+/**
+ * Get WIP limit for a specific role.
+ * Returns 0 for admin (unlimited).
+ * Fail-safe: returns default if any error.
+ */
+export async function getWipLimitForRole(role: WipRole): Promise<number> {
+  // Admins have no WIP limit
+  if (role === "admin") {
+    return 0;
+  }
+
+  try {
+    const roleKey = `WIP_LIMIT_${role.toUpperCase()}` as SettingKey;
+    if (ALLOWED_SETTING_KEYS.includes(roleKey)) {
+      return getEffectiveNumber(roleKey);
+    }
+    // Fallback to default WIP limit
+    return getEffectiveNumber("WIP_LIMIT_DEFAULT");
+  } catch (err) {
+    console.error("Error getting WIP limit:", err);
+    return DEFAULT_VALUES.WIP_LIMIT_DEFAULT as number;
+  }
+}
+
+/**
+ * Get lease duration in minutes.
+ */
+export async function getLeaseDurationMinutes(): Promise<number> {
+  return getEffectiveNumber("LEASE_DURATION_MINUTES");
+}
+
+/**
+ * Get renew window in minutes.
+ * Claims expiring within this window will be renewed by bulk renew.
+ */
+export async function getRenewWindowMinutes(): Promise<number> {
+  return getEffectiveNumber("RENEW_WINDOW_MINUTES");
 }

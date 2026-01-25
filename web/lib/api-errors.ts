@@ -35,7 +35,8 @@ export type ApiErrorCode =
   | 'ASSIGNMENT_EXPIRED'
   | 'NO_WORK_AVAILABLE'
   | 'ALREADY_ASSIGNED'
-  | 'CONFLICT';
+  | 'CONFLICT'
+  | 'WIP_LIMIT_REACHED';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

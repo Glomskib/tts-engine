@@ -1,34 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getVideosColumns } from "@/lib/videosSchema";
-import { isValidStatus, assertVideoTransition, VideoStatus, allowedTransitions, QUEUE_STATUSES } from "@/lib/video-pipeline";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { isValidStatus, VideoStatus, ALLOWED_TRANSITIONS, QUEUE_STATUSES } from "@/lib/video-pipeline";
+import { transitionVideoStatusAtomic } from "@/lib/video-status-machine";
+import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
-
-async function writeVideoEvent(
-  videoId: string,
-  eventType: string,
-  correlationId: string,
-  actor: string,
-  fromStatus: string | null,
-  toStatus: string | null,
-  details: Record<string, unknown>
-): Promise<void> {
-  try {
-    await supabaseAdmin.from("video_events").insert({
-      video_id: videoId,
-      event_type: eventType,
-      correlation_id: correlationId,
-      actor,
-      from_status: fromStatus,
-      to_status: toStatus,
-      details,
-    });
-  } catch (err) {
-    console.error("Failed to write video event:", err);
-  }
-}
 
 export async function GET(
   request: Request,
@@ -66,9 +43,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Generate or read correlation ID
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
-
   const { id } = await params;
 
   if (!id || typeof id !== "string") {
@@ -91,15 +66,12 @@ export async function PATCH(
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const { 
-    status, 
+  const {
+    status,
     google_drive_url,
-    final_video_url, 
-    caption_used, 
-    hashtags_used, 
-    tt_post_url, 
-    posted_at, 
-    notes 
+    final_video_url,
+    reason_code,
+    reason_message,
   } = body as Record<string, unknown>;
 
   // Validate status if provided
@@ -110,107 +82,82 @@ export async function PATCH(
     }
   }
 
-  // Build update payload - only use existing columns
-  const updatePayload: Record<string, unknown> = {};
-  let previousStatus: VideoStatus | null = null;
+  // Get authentication context
+  const authContext = await getApiAuthContext();
+  const actor = authContext.user?.id || "api";
+  const isAdmin = authContext.isAdmin;
 
-  // If status is changing, validate the transition
+  // If status is changing, use the centralized transition function
   if (status !== undefined) {
-    // Fetch current video to check transition and claim status
-    const { data: currentVideo, error: fetchError } = await supabaseAdmin
-      .from("videos")
-      .select("status,claimed_by,claim_expires_at")
-      .eq("id", id)
-      .single();
+    // Build additional updates for non-status fields
+    const additionalUpdates: Record<string, unknown> = {};
 
-    if (fetchError || !currentVideo) {
-      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
+    if (google_drive_url !== undefined) {
+      additionalUpdates.google_drive_url = google_drive_url;
+    } else if (final_video_url !== undefined) {
+      additionalUpdates.google_drive_url = final_video_url;
+    }
+
+    const result = await transitionVideoStatusAtomic(supabaseAdmin, {
+      video_id: id,
+      actor,
+      target_status: status as VideoStatus,
+      reason_code: typeof reason_code === "string" ? reason_code : undefined,
+      reason_message: typeof reason_message === "string" ? reason_message : undefined,
+      correlation_id: correlationId,
+      force: isAdmin,
+      additional_updates: Object.keys(additionalUpdates).length > 0 ? additionalUpdates : undefined,
+    });
+
+    if (!result.ok) {
+      // Map result to appropriate HTTP error
+      const errorMap: Record<string, { code: ApiErrorCode; status: number }> = {
+        NOT_FOUND: { code: "NOT_FOUND", status: 404 },
+        INVALID_STATUS: { code: "INVALID_STATUS", status: 400 },
+        INVALID_TRANSITION: { code: "INVALID_TRANSITION", status: 400 },
+        CLAIM_REQUIRED: { code: "CLAIM_REQUIRED", status: 409 },
+        REASON_REQUIRED: { code: "REASON_REQUIRED", status: 400 },
+        CONFLICT: { code: "CONFLICT", status: 409 },
+        DB_ERROR: { code: "DB_ERROR", status: 500 },
+      };
+
+      const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
+      const err = apiError(errorInfo.code, result.message, errorInfo.status, {
+        current_status: result.current_status,
+        previous_status: result.previous_status,
+        allowed_next: result.allowed_next,
+      });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
-    const currentStatus = currentVideo.status as VideoStatus;
-    previousStatus = currentStatus;
+    // Fetch full updated video for response
+    const { data: video } = await supabaseAdmin
+      .from("videos")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    if (currentStatus && isValidStatus(currentStatus) && currentStatus !== status) {
-      try {
-        assertVideoTransition(currentStatus, status as VideoStatus);
-      } catch (err) {
-        // Write audit event for invalid transition
-        await writeVideoEvent(
-          id,
-          "error",
-          correlationId,
-          "api",
-          currentStatus,
-          status as string,
-          {
-            code: "INVALID_TRANSITION",
-            from_status: currentStatus,
-            to_status: status,
-            allowed: allowedTransitions[currentStatus],
-            message: (err as Error).message
-          }
-        );
-
-        const apiErr = apiError("INVALID_TRANSITION", (err as Error).message, 400, {
-          from: currentStatus,
-          to: status,
-          allowed: allowedTransitions[currentStatus]
-        });
-        return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
-      }
-
-      // Enforce claim for transitions FROM queue statuses
-      if (QUEUE_STATUSES.includes(currentStatus as typeof QUEUE_STATUSES[number])) {
-        const now = new Date().toISOString();
-        const isClaimed = currentVideo.claimed_by && currentVideo.claim_expires_at && currentVideo.claim_expires_at > now;
-        
-        if (!isClaimed) {
-          // Write audit event for claim required error
-          await writeVideoEvent(
-            id,
-            "error",
-            correlationId,
-            "api",
-            currentStatus,
-            status as string,
-            {
-              code: "CLAIM_REQUIRED",
-              message: "Video must be claimed before changing status",
-              claimed_by: currentVideo.claimed_by,
-              claim_expires_at: currentVideo.claim_expires_at
-            }
-          );
-
-          const apiErr = apiError("BAD_REQUEST", "Video must be claimed before changing status", 409, {
-            status: currentStatus,
-            claimed_by: currentVideo.claimed_by,
-            claim_expires_at: currentVideo.claim_expires_at
-          });
-          return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
-        }
-      }
-
-      // Auto-clear claim when transitioning to posted or failed
-      if (status === "posted" || status === "failed") {
-        updatePayload.claimed_by = null;
-        updatePayload.claimed_at = null;
-        updatePayload.claim_expires_at = null;
-      }
-    }
-    updatePayload.status = status;
+    return NextResponse.json({
+      ok: true,
+      data: video,
+      meta: {
+        action: result.action,
+        previous_status: result.previous_status,
+        current_status: result.current_status,
+      },
+      correlation_id: correlationId,
+    });
   }
 
-  // Handle google_drive_url mapping - if request includes final_video_url, update google_drive_url
+  // Non-status updates (google_drive_url only)
+  const updatePayload: Record<string, unknown> = {};
+
   if (google_drive_url !== undefined) {
     updatePayload.google_drive_url = google_drive_url;
   } else if (final_video_url !== undefined) {
     updatePayload.google_drive_url = final_video_url;
   }
 
-  // Do not attempt to update columns that don't exist yet
-
-  // If no valid fields to update
   if (Object.keys(updatePayload).length === 0) {
     const err = apiError("BAD_REQUEST", "No valid fields provided for update", 400);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
@@ -225,29 +172,12 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("PATCH /api/videos/[id] Supabase error:", error);
-      console.error("PATCH /api/videos/[id] update payload:", updatePayload);
-
       if (error.code === "PGRST116") {
         const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
-
       const err = apiError("DB_ERROR", error.message, 500);
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
-    }
-
-    // Write audit event for successful status change
-    if (status !== undefined && previousStatus !== null && previousStatus !== status) {
-      await writeVideoEvent(
-        id,
-        "status_change",
-        correlationId,
-        "api",
-        previousStatus,
-        status as string,
-        {}
-      );
     }
 
     return NextResponse.json({ ok: true, data, correlation_id: correlationId });
@@ -258,21 +188,3 @@ export async function PATCH(
     return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
   }
 }
-
-/*
-PowerShell Test Plan:
-
-# 1. Get existing video ID from videos table
-$videosResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/videos" -Method GET
-$videoId = $videosResponse.data[0].id
-
-# 2. Update video status via PATCH /api/videos/{id}
-$updateBody = "{`"status`": `"ready_to_upload`", `"final_video_url`": `"https://drive.google.com/file/d/updated123`"}"
-$updateResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/videos/$videoId" -Method PATCH -ContentType "application/json" -Body $updateBody
-$updateResponse
-
-# 3. Update video with TikTok post info
-$postUpdateBody = "{`"status`": `"posted`", `"tt_post_url`": `"https://tiktok.com/@user/video/123456`", `"posted_at`": `"2026-01-19T10:00:00Z`"}"
-$postUpdateResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/videos/$videoId" -Method PATCH -ContentType "application/json" -Body $postUpdateBody
-$postUpdateResponse
-*/

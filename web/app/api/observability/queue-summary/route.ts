@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { VIDEO_STATUSES } from "@/lib/video-pipeline";
+import { VIDEO_STATUSES, QUEUE_STATUSES, isQueueStatus } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
         counts[status] = 0;
       } else {
         counts[status] = count || 0;
-        if (status === "needs_edit" || status === "ready_to_post") {
+        if (isQueueStatus(status)) {
           totalQueued += count || 0;
         }
       }

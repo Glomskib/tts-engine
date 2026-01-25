@@ -1,7 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
+import { type VideoStatus } from "@/lib/video-pipeline";
 
 export const runtime = "nodejs";
+
+// Initial status for videos created from variants
+const INITIAL_STATUS: VideoStatus = "draft";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -63,7 +67,7 @@ export async function POST(request: Request) {
     const insertPayload: Record<string, unknown> = {
       variant_id: variant_id.trim(),
       google_drive_url: google_drive_url.trim(),
-      status: "draft",
+      status: INITIAL_STATUS,
     };
 
     // Do not attempt to insert columns that don't exist yet

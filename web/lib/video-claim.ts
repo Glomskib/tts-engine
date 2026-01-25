@@ -13,6 +13,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { QUEUE_STATUSES } from "./video-pipeline";
 
 // ============================================================================
 // Types
@@ -63,11 +64,8 @@ export interface ExpireResult {
 // Default lease duration in minutes
 export const DEFAULT_CLAIM_TTL_MINUTES = 240;
 
-// Valid statuses for claiming (matches video-pipeline.ts queue statuses)
-const CLAIMABLE_STATUSES = [
-  "needs_edit",
-  "ready_to_post",
-];
+// Valid statuses for claiming - uses canonical QUEUE_STATUSES from video-pipeline.ts
+const CLAIMABLE_STATUSES: readonly string[] = QUEUE_STATUSES;
 
 // ============================================================================
 // Video Event Writer

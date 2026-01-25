@@ -12,6 +12,10 @@ import { PROJECT_EVENT_TYPES } from "@/lib/client-projects";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { randomUUID } from "crypto";
 import { sendRequestConvertedEmail } from "@/lib/client-email-notifications";
+import { type VideoStatus } from "@/lib/video-pipeline";
+
+// Initial status for converted client requests
+const CONVERT_INITIAL_STATUS: VideoStatus = "needs_edit";
 
 export const runtime = "nodejs";
 
@@ -111,7 +115,7 @@ export async function POST(request: Request) {
       account_id: org_id, // Use org_id as account_id for client requests
       variant_id: variantId,
       google_drive_url: driveUrl,
-      status: "needs_edit", // Default pipeline status
+      status: CONVERT_INITIAL_STATUS, // Default pipeline status
     };
 
     // Set recording_status to NOT_RECORDED if column exists
@@ -203,7 +207,7 @@ export async function POST(request: Request) {
       actor_id: authContext.user.id,
       correlation_id: correlationId,
       from_status: null,
-      to_status: "needs_edit",
+      to_status: CONVERT_INITIAL_STATUS,
       details: {
         source: "client_request",
         request_id: clientRequest.request_id,

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { isValidStatus, QUEUE_STATUSES } from "@/lib/video-pipeline";
+import { isValidStatus, QUEUE_STATUSES, VIDEO_STATUSES, type VideoStatus } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
@@ -29,6 +29,9 @@ async function writeVideoEvent(
     console.error("Failed to write video event:", err);
   }
 }
+
+// Default initial status for new videos
+const DEFAULT_INITIAL_STATUS: VideoStatus = "needs_edit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -127,7 +130,7 @@ export async function POST(request: Request) {
   }
 
   // Determine effective status (default to needs_edit)
-  const effectiveStatus = (status as string) || "needs_edit";
+  const effectiveStatus: VideoStatus = (status as VideoStatus) || DEFAULT_INITIAL_STATUS;
 
   // Check for existing queue video with same variant+account (idempotency)
   if (QUEUE_STATUSES.includes(effectiveStatus as typeof QUEUE_STATUSES[number])) {

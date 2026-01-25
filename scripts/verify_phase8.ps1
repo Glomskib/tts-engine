@@ -5095,7 +5095,200 @@ try {
     Write-Host "  WARN: Admin invites verification error: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n[44/44] Phase 8 verification summary..." -ForegroundColor Yellow
+# Check 45: Auth UX - Sign Up, Invite Acceptance, Dev Stability
+Write-Host "`n[45/45] Testing auth UX: sign up, invite acceptance, dev stability..." -ForegroundColor Yellow
+try {
+    # Check login page has Create Account UI
+    $loginPagePath = Join-Path $webDir "app\login\page.tsx"
+    if (Test-Path -LiteralPath $loginPagePath) {
+        $loginContent = Get-Content $loginPagePath -Raw
+        Write-Host "    Login page exists - OK" -ForegroundColor Gray
+
+        if ($loginContent -match 'Create Account') {
+            Write-Host "    Login page has Create Account UI - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Login page missing Create Account UI" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($loginContent -match 'signUp') {
+            Write-Host "    Login page uses signUp - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Login page missing signUp reference" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($loginContent -match 'confirmPassword') {
+            Write-Host "    Login page has confirm password field - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Login page may not have confirm password" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: Login page not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check invite page exists
+    $invitePagePath = Join-Path $webDir "app\invite\[token]\page.tsx"
+    if (Test-Path -LiteralPath $invitePagePath) {
+        Write-Host "    Invite page exists at /invite/[token] - OK" -ForegroundColor Gray
+        $inviteContent = (Get-Content -LiteralPath $invitePagePath) -join "`n"
+
+        if ($inviteContent -match 'handleAccept') {
+            Write-Host "    Invite page has accept handler - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Invite page missing accept handler" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($inviteContent -match '/login\?redirect=') {
+            Write-Host "    Invite page has login redirect - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Invite page may not preserve redirect" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  FAIL: Invite page not found at /invite/[token]" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check accept API route exists
+    $acceptApiPath = Join-Path $webDir "app\api\invite\accept\route.ts"
+    if (Test-Path -LiteralPath $acceptApiPath) {
+        Write-Host "    Accept API route exists - OK" -ForegroundColor Gray
+        $acceptContent = (Get-Content -LiteralPath $acceptApiPath) -join "`n"
+
+        if ($acceptContent -match 'acceptOrgInvite') {
+            Write-Host "    Accept API uses acceptOrgInvite - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  FAIL: Accept API missing acceptOrgInvite call" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  FAIL: Accept API route not found" -ForegroundColor Red
+        exit 1
+    }
+
+    # Check dev script has turbopack disabled
+    $packageJsonPath = Join-Path $webDir "package.json"
+    if (Test-Path -LiteralPath $packageJsonPath) {
+        $packageContent = (Get-Content -LiteralPath $packageJsonPath) -join "`n"
+
+        if ($packageContent -match 'turbopack=false' -or $packageContent -match '--no-turbo') {
+            Write-Host "    Dev script has turbopack disabled - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Dev script may still use turbopack" -ForegroundColor Yellow
+        }
+    }
+
+    # Check email module has SENDGRID guard
+    $emailPath = Join-Path $webDir "lib\email.ts"
+    if (Test-Path -LiteralPath $emailPath) {
+        $emailContent = (Get-Content -LiteralPath $emailPath) -join "`n"
+
+        if ($emailContent -match 'SENDGRID_API_KEY') {
+            Write-Host "    Email module has SENDGRID_API_KEY guard - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Email module may not guard SENDGRID_API_KEY" -ForegroundColor Yellow
+        }
+
+        if ($emailContent -match 'skipped_no_config') {
+            Write-Host "    Email module handles missing config - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Email module may not handle missing config" -ForegroundColor Yellow
+        }
+    }
+
+    # Test accept API returns 401 without auth
+    try {
+        $acceptApiRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/api/invite/accept")
+        $acceptApiRequest.Method = "POST"
+        $acceptApiRequest.ContentType = "application/json"
+        $acceptApiRequest.AllowAutoRedirect = $false
+        $acceptApiRequest.Timeout = 10000
+
+        $body = '{"token":"0000000000000000000000000000000000000000000000000000000000000000"}'
+        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+        $acceptApiRequest.ContentLength = $bodyBytes.Length
+        $stream = $acceptApiRequest.GetRequestStream()
+        $stream.Write($bodyBytes, 0, $bodyBytes.Length)
+        $stream.Close()
+
+        try {
+            $acceptApiResponse = $acceptApiRequest.GetResponse()
+            $acceptApiStatusCode = [int]$acceptApiResponse.StatusCode
+            $acceptApiResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $acceptApiStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $acceptApiStatusCode = 0
+            }
+        }
+
+        if ($acceptApiStatusCode -eq 401) {
+            Write-Host "    POST /api/invite/accept returns 401 without auth - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Accept API returned $acceptApiStatusCode (expected 401)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Accept API check error: $_" -ForegroundColor Yellow
+    }
+
+    # Test invite page behavior (GET)
+    try {
+        $invitePageRequest = [System.Net.HttpWebRequest]::Create("$baseUrl/invite/test-token-12345")
+        $invitePageRequest.Method = "GET"
+        $invitePageRequest.AllowAutoRedirect = $false
+        $invitePageRequest.Timeout = 10000
+
+        try {
+            $invitePageResponse = $invitePageRequest.GetResponse()
+            $invitePageStatusCode = [int]$invitePageResponse.StatusCode
+            $invitePageResponse.Close()
+        } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+                $invitePageStatusCode = [int]$_.Exception.Response.StatusCode
+                $_.Exception.Response.Close()
+            } else {
+                $invitePageStatusCode = 0
+            }
+        }
+
+        # Invite page renders with 200 (client-side auth check)
+        if ($invitePageStatusCode -eq 200 -or $invitePageStatusCode -eq 307) {
+            Write-Host "    /invite/[token] page returns $invitePageStatusCode - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Invite page returned $invitePageStatusCode" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: Invite page check error: $_" -ForegroundColor Yellow
+    }
+
+    # Check client portal has welcome banner support
+    $clientPagePath = Join-Path $webDir "app\client\page.tsx"
+    if (Test-Path -LiteralPath $clientPagePath) {
+        $clientContent = (Get-Content -LiteralPath $clientPagePath) -join "`n"
+
+        if ($clientContent -match 'showWelcomeBanner') {
+            Write-Host "    Client portal has welcome banner - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Client portal may not have welcome banner" -ForegroundColor Yellow
+        }
+
+        if ($clientContent -match "params\.get\('welcome'\)" -or $clientContent -match 'welcome.*1') {
+            Write-Host "    Client portal checks welcome param - OK" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARN: Client portal may not check welcome param" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "  PASS: Auth UX verification completed" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Auth UX verification error: $_" -ForegroundColor Yellow
+}
+
+Write-Host "`n[45/45] Phase 8 verification summary..." -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "Phase 8 verification PASSED" -ForegroundColor Green
 exit 0

@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+import { SLA_THRESHOLDS_MS } from '@/lib/client-requests';
+
+// Default threshold for client-facing neutral messaging (uses NORMAL priority threshold)
+const PROCESSING_LONGER_THRESHOLD_MS = SLA_THRESHOLDS_MS.NORMAL;
 
 /**
  * Format duration in milliseconds to human-readable string.
@@ -279,15 +283,28 @@ export default function ClientRequestsPage() {
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors.bg} ${colors.text}`}>
                               {req.status.replace(/_/g, ' ')}
                             </span>
-                            {hydrated && req.status !== 'CONVERTED' && req.status !== 'REJECTED' && (
-                              <div className="text-xs text-slate-400 mt-1">
-                                {req.status === 'IN_REVIEW'
-                                  ? `In review for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
-                                  : req.status === 'APPROVED'
-                                  ? `Processing for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
-                                  : `Submitted ${formatProcessingTime(now - new Date(req.created_at).getTime())} ago`}
-                              </div>
-                            )}
+                            {hydrated && req.status !== 'CONVERTED' && req.status !== 'REJECTED' && (() => {
+                              const ageMs = now - new Date(req.created_at).getTime();
+                              const isTakingLonger = ageMs > PROCESSING_LONGER_THRESHOLD_MS;
+
+                              if (isTakingLonger) {
+                                return (
+                                  <div className="text-xs text-amber-600 mt-1">
+                                    Processing longer than usual
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="text-xs text-slate-400 mt-1">
+                                  {req.status === 'IN_REVIEW'
+                                    ? `In review for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
+                                    : req.status === 'APPROVED'
+                                    ? `Processing for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
+                                    : `Submitted ${formatProcessingTime(now - new Date(req.created_at).getTime())} ago`}
+                                </div>
+                              );
+                            })()}
                             {req.status === 'CONVERTED' && (
                               <div className="text-xs text-slate-400 mt-1">
                                 Completed

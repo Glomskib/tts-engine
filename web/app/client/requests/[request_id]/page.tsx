@@ -7,6 +7,10 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import ClientNav from '../../components/ClientNav';
 import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
+import { SLA_THRESHOLDS_MS } from '@/lib/client-requests';
+
+// Default threshold for client-facing neutral messaging (uses NORMAL priority threshold)
+const PROCESSING_LONGER_THRESHOLD_MS = SLA_THRESHOLDS_MS.NORMAL;
 
 interface AuthUser {
   id: string;
@@ -331,13 +335,25 @@ export default function RequestDetailPage({
               <div>
                 <div className="text-slate-500">Processing Time</div>
                 <div className="text-slate-700">
-                  {hydrated ? (
-                    request.status === 'CONVERTED'
-                      ? `Completed in ${formatProcessingTime(new Date(request.updated_at).getTime() - new Date(request.created_at).getTime())}`
-                      : request.status === 'REJECTED'
-                      ? `Reviewed in ${formatProcessingTime(new Date(request.updated_at).getTime() - new Date(request.created_at).getTime())}`
-                      : `${formatProcessingTime(now - new Date(request.created_at).getTime())} so far`
-                  ) : '-'}
+                  {hydrated ? (() => {
+                    if (request.status === 'CONVERTED') {
+                      return `Completed in ${formatProcessingTime(new Date(request.updated_at).getTime() - new Date(request.created_at).getTime())}`;
+                    }
+                    if (request.status === 'REJECTED') {
+                      return `Reviewed in ${formatProcessingTime(new Date(request.updated_at).getTime() - new Date(request.created_at).getTime())}`;
+                    }
+
+                    const ageMs = now - new Date(request.created_at).getTime();
+                    const isTakingLonger = ageMs > PROCESSING_LONGER_THRESHOLD_MS;
+
+                    if (isTakingLonger) {
+                      return (
+                        <span className="text-amber-600">Processing longer than usual</span>
+                      );
+                    }
+
+                    return `${formatProcessingTime(ageMs)} so far`;
+                  })() : '-'}
                 </div>
               </div>
               {request.project_id && (

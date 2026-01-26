@@ -108,6 +108,13 @@ export interface CreateJobResult {
   error?: string;
 }
 
+export interface AppendRowsResult {
+  ok: boolean;
+  job?: IngestionJob;
+  appended_count: number;
+  error?: string;
+}
+
 export interface ValidateJobResult {
   ok: boolean;
   job?: IngestionJob;
@@ -425,6 +432,114 @@ export async function createIngestionJob(
   });
 
   return { ok: true, job: job as IngestionJob };
+}
+
+/**
+ * Append rows to an existing pending job.
+ * Used for chunked ingestion - multiple requests can add rows to the same job.
+ * The job must be in 'pending' status.
+ */
+export async function appendRowsToJob(
+  supabase: SupabaseClient,
+  params: {
+    job_id: string;
+    rows: { external_id: string; payload: NormalizedPayload }[];
+    actor: string;
+  }
+): Promise<AppendRowsResult> {
+  const { job_id, rows, actor } = params;
+
+  if (rows.length === 0) {
+    return { ok: false, appended_count: 0, error: "No rows to append" };
+  }
+
+  // Fetch and verify job is pending
+  const { data: job, error: jobError } = await supabase
+    .from("video_ingestion_jobs")
+    .select("*")
+    .eq("id", job_id)
+    .single();
+
+  if (jobError || !job) {
+    return { ok: false, appended_count: 0, error: "Job not found" };
+  }
+
+  if (job.status !== "pending") {
+    return {
+      ok: false,
+      appended_count: 0,
+      error: `Job is in status '${job.status}', must be 'pending' to append rows`,
+    };
+  }
+
+  // Check for duplicate external_ids within job (idempotent append)
+  const newExternalIds = rows.map((r) => r.external_id);
+  const { data: existingRows } = await supabase
+    .from("video_ingestion_rows")
+    .select("external_id")
+    .eq("job_id", job_id)
+    .in("external_id", newExternalIds);
+
+  const existingSet = new Set((existingRows || []).map((r) => r.external_id));
+  const rowsToInsert = rows.filter((r) => !existingSet.has(r.external_id));
+
+  if (rowsToInsert.length === 0) {
+    // All rows already exist - idempotent success
+    return { ok: true, job: job as IngestionJob, appended_count: 0 };
+  }
+
+  // Insert new rows
+  const rowInserts = rowsToInsert.map((r) => ({
+    job_id: job_id,
+    external_id: r.external_id,
+    normalized_payload: r.payload,
+    status: "pending" as RowStatus,
+  }));
+
+  const { error: rowsError } = await supabase
+    .from("video_ingestion_rows")
+    .insert(rowInserts);
+
+  if (rowsError) {
+    return { ok: false, appended_count: 0, error: `Failed to append rows: ${rowsError.message}` };
+  }
+
+  // Update job total_rows
+  const newTotal = job.total_rows + rowsToInsert.length;
+  const { data: updatedJob } = await supabase
+    .from("video_ingestion_jobs")
+    .update({ total_rows: newTotal })
+    .eq("id", job_id)
+    .select()
+    .single();
+
+  // Create enrichment tasks for TikTok sources (non-blocking)
+  if (job.source === "tiktok_url") {
+    for (const row of rowsToInsert) {
+      try {
+        await ensureEnrichmentTask(supabase, {
+          source: "tiktok",
+          external_id: row.external_id,
+        });
+      } catch (enrichErr) {
+        console.error(`Failed to create enrichment task for ${row.external_id}:`, enrichErr);
+      }
+    }
+  }
+
+  // Write audit event
+  await writeEventsLog(supabase, {
+    entity_type: "ingestion_job",
+    entity_id: job_id,
+    event_type: "ingestion_rows_appended",
+    payload: {
+      appended_count: rowsToInsert.length,
+      new_total: newTotal,
+      appended_by: actor,
+    },
+  });
+
+  return { ok: true, job: updatedJob as IngestionJob, appended_count: rowsToInsert.length };
 }
 
 /**

@@ -6,9 +6,14 @@
  * - validate_only: Parse and validate, return job without committing
  * - commit: Validate and commit in one call (if all valid)
  *
+ * Supports chunked uploads:
+ * - First request: omit job_id to create a new job
+ * - Subsequent requests: include job_id to append URLs to existing job
+ *
  * Request body:
  * {
- *   urls: string[]         // List of TikTok URLs to ingest
+ *   urls: string[]          // List of TikTok URLs to ingest
+ *   job_id?: string         // Existing job ID for chunked append
  *   validate_only?: boolean // If true, only validate (default: false)
  * }
  *
@@ -25,6 +30,7 @@
  *     committed_count?: number
  *     created_video_ids?: string[]
  *     errors?: ErrorSummaryEntry[]
+ *     max_urls_per_chunk: number  // For client chunking
  *   }
  * }
  */
@@ -35,6 +41,7 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   createIngestionJob,
+  appendRowsToJob,
   validateIngestionJob,
   commitIngestionJob,
   normalizeTikTokUrls,
@@ -42,7 +49,7 @@ import {
 
 export const runtime = "nodejs";
 
-const MAX_URLS_PER_REQUEST = 500;
+const MAX_URLS_PER_CHUNK = 250;
 
 export async function POST(request: NextRequest) {
   const correlationId =
@@ -61,7 +68,7 @@ export async function POST(request: NextRequest) {
   const actor = authContext.user?.id || "admin";
 
   // Parse body
-  let body: { urls?: unknown; validate_only?: boolean };
+  let body: { urls?: unknown; job_id?: string; validate_only?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -90,41 +97,70 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (urls.length > MAX_URLS_PER_REQUEST) {
+  if (urls.length > MAX_URLS_PER_CHUNK) {
     const err = apiError(
       "BAD_REQUEST",
-      `Maximum ${MAX_URLS_PER_REQUEST} URLs per request`,
+      `Maximum ${MAX_URLS_PER_CHUNK} URLs per request. Use chunked upload for larger datasets.`,
       400
     );
     return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
+      { ...err.body, correlation_id: correlationId, max_urls_per_chunk: MAX_URLS_PER_CHUNK },
       { status: err.status }
     );
   }
 
   const validateOnly = body.validate_only === true;
+  const existingJobId = body.job_id;
 
   try {
     // Step 1: Normalize URLs
     const normalizedRows = normalizeTikTokUrls(urls);
 
-    // Step 2: Create job
-    const createResult = await createIngestionJob(supabaseAdmin, {
-      source: "tiktok_url",
-      source_ref: `${urls.length} TikTok URLs`,
-      rows: normalizedRows,
-      actor,
-    });
+    let jobId: string;
+    let totalRows: number;
+    let sourceRef: string;
 
-    if (!createResult.ok || !createResult.job) {
-      const err = apiError("DB_ERROR", createResult.error || "Failed to create job", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+    // Step 2: Create or append to job
+    if (existingJobId) {
+      // Append to existing job (chunked upload)
+      const appendResult = await appendRowsToJob(supabaseAdmin, {
+        job_id: existingJobId,
+        rows: normalizedRows,
+        actor,
+      });
+
+      if (!appendResult.ok || !appendResult.job) {
+        const err = apiError("DB_ERROR", appendResult.error || "Failed to append URLs", 500);
+        return NextResponse.json(
+          { ...err.body, correlation_id: correlationId },
+          { status: err.status }
+        );
+      }
+
+      jobId = existingJobId;
+      totalRows = appendResult.job.total_rows;
+      sourceRef = appendResult.job.source_ref;
+    } else {
+      // Create new job
+      const createResult = await createIngestionJob(supabaseAdmin, {
+        source: "tiktok_url",
+        source_ref: `${urls.length} TikTok URLs`,
+        rows: normalizedRows,
+        actor,
+      });
+
+      if (!createResult.ok || !createResult.job) {
+        const err = apiError("DB_ERROR", createResult.error || "Failed to create job", 500);
+        return NextResponse.json(
+          { ...err.body, correlation_id: correlationId },
+          { status: err.status }
+        );
+      }
+
+      jobId = createResult.job.id;
+      totalRows = createResult.job.total_rows;
+      sourceRef = createResult.job.source_ref;
     }
-
-    const jobId = createResult.job.id;
 
     // Step 3: Validate job
     const validateResult = await validateIngestionJob(supabaseAdmin, {
@@ -147,11 +183,12 @@ export async function POST(request: NextRequest) {
         data: {
           job_id: jobId,
           status: validateResult.job?.status,
-          total_rows: createResult.job.total_rows,
+          total_rows: totalRows,
           validated_count: validateResult.validated_count,
           failed_count: validateResult.failed_count,
           duplicate_count: validateResult.duplicate_count,
           errors: validateResult.errors,
+          max_urls_per_chunk: MAX_URLS_PER_CHUNK,
         },
         correlation_id: correlationId,
       });
@@ -164,13 +201,14 @@ export async function POST(request: NextRequest) {
         data: {
           job_id: jobId,
           status: "failed",
-          total_rows: createResult.job.total_rows,
+          total_rows: totalRows,
           validated_count: 0,
           failed_count: validateResult.failed_count,
           duplicate_count: validateResult.duplicate_count,
           committed_count: 0,
           created_video_ids: [],
           errors: validateResult.errors,
+          max_urls_per_chunk: MAX_URLS_PER_CHUNK,
         },
         correlation_id: correlationId,
       });
@@ -187,13 +225,14 @@ export async function POST(request: NextRequest) {
       data: {
         job_id: jobId,
         status: commitResult.job?.status || "committed",
-        total_rows: createResult.job.total_rows,
+        total_rows: totalRows,
         validated_count: validateResult.validated_count,
         failed_count: validateResult.failed_count + commitResult.failed_count,
         duplicate_count: validateResult.duplicate_count,
         committed_count: commitResult.committed_count,
         created_video_ids: commitResult.created_video_ids,
         errors: validateResult.errors,
+        max_urls_per_chunk: MAX_URLS_PER_CHUNK,
       },
       correlation_id: correlationId,
     });

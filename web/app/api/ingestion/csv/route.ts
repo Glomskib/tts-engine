@@ -4,6 +4,10 @@
  * Ingest videos from CSV data (parsed client-side).
  * Expects normalized row objects.
  *
+ * Supports chunked uploads:
+ * - First request: omit job_id to create a new job
+ * - Subsequent requests: include job_id to append rows to existing job
+ *
  * Request body:
  * {
  *   source_ref: string,       // CSV filename or identifier
@@ -18,6 +22,7 @@
  *     variant_id?: string,
  *     account_id?: string,
  *   }>,
+ *   job_id?: string,          // Existing job ID for chunked append
  *   validate_only?: boolean   // If true, only validate (default: false)
  * }
  *
@@ -34,6 +39,7 @@
  *     committed_count?: number
  *     created_video_ids?: string[]
  *     errors?: ErrorSummaryEntry[]
+ *     max_rows_per_chunk: number  // For client chunking
  *   }
  * }
  */
@@ -44,6 +50,7 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   createIngestionJob,
+  appendRowsToJob,
   validateIngestionJob,
   commitIngestionJob,
   normalizeCsvRows,
@@ -51,7 +58,7 @@ import {
 
 export const runtime = "nodejs";
 
-const MAX_ROWS_PER_REQUEST = 1000;
+const MAX_ROWS_PER_CHUNK = 250;
 
 export async function POST(request: NextRequest) {
   const correlationId =
@@ -73,6 +80,7 @@ export async function POST(request: NextRequest) {
   let body: {
     source_ref?: string;
     rows?: unknown;
+    job_id?: string;
     validate_only?: boolean;
   };
   try {
@@ -115,41 +123,67 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (rows.length > MAX_ROWS_PER_REQUEST) {
+  if (rows.length > MAX_ROWS_PER_CHUNK) {
     const err = apiError(
       "BAD_REQUEST",
-      `Maximum ${MAX_ROWS_PER_REQUEST} rows per request`,
+      `Maximum ${MAX_ROWS_PER_CHUNK} rows per request. Use chunked upload for larger datasets.`,
       400
     );
     return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
+      { ...err.body, correlation_id: correlationId, max_rows_per_chunk: MAX_ROWS_PER_CHUNK },
       { status: err.status }
     );
   }
 
   const validateOnly = body.validate_only === true;
+  const existingJobId = body.job_id;
 
   try {
     // Step 1: Normalize rows
     const normalizedRows = normalizeCsvRows(rows);
 
-    // Step 2: Create job
-    const createResult = await createIngestionJob(supabaseAdmin, {
-      source: "csv",
-      source_ref: body.source_ref,
-      rows: normalizedRows,
-      actor,
-    });
+    let jobId: string;
+    let totalRows: number;
 
-    if (!createResult.ok || !createResult.job) {
-      const err = apiError("DB_ERROR", createResult.error || "Failed to create job", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+    // Step 2: Create or append to job
+    if (existingJobId) {
+      // Append to existing job (chunked upload)
+      const appendResult = await appendRowsToJob(supabaseAdmin, {
+        job_id: existingJobId,
+        rows: normalizedRows,
+        actor,
+      });
+
+      if (!appendResult.ok || !appendResult.job) {
+        const err = apiError("DB_ERROR", appendResult.error || "Failed to append rows", 500);
+        return NextResponse.json(
+          { ...err.body, correlation_id: correlationId },
+          { status: err.status }
+        );
+      }
+
+      jobId = existingJobId;
+      totalRows = appendResult.job.total_rows;
+    } else {
+      // Create new job
+      const createResult = await createIngestionJob(supabaseAdmin, {
+        source: "csv",
+        source_ref: body.source_ref,
+        rows: normalizedRows,
+        actor,
+      });
+
+      if (!createResult.ok || !createResult.job) {
+        const err = apiError("DB_ERROR", createResult.error || "Failed to create job", 500);
+        return NextResponse.json(
+          { ...err.body, correlation_id: correlationId },
+          { status: err.status }
+        );
+      }
+
+      jobId = createResult.job.id;
+      totalRows = createResult.job.total_rows;
     }
-
-    const jobId = createResult.job.id;
 
     // Step 3: Validate job
     const validateResult = await validateIngestionJob(supabaseAdmin, {
@@ -172,11 +206,12 @@ export async function POST(request: NextRequest) {
         data: {
           job_id: jobId,
           status: validateResult.job?.status,
-          total_rows: createResult.job.total_rows,
+          total_rows: totalRows,
           validated_count: validateResult.validated_count,
           failed_count: validateResult.failed_count,
           duplicate_count: validateResult.duplicate_count,
           errors: validateResult.errors,
+          max_rows_per_chunk: MAX_ROWS_PER_CHUNK,
         },
         correlation_id: correlationId,
       });
@@ -189,13 +224,14 @@ export async function POST(request: NextRequest) {
         data: {
           job_id: jobId,
           status: "failed",
-          total_rows: createResult.job.total_rows,
+          total_rows: totalRows,
           validated_count: 0,
           failed_count: validateResult.failed_count,
           duplicate_count: validateResult.duplicate_count,
           committed_count: 0,
           created_video_ids: [],
           errors: validateResult.errors,
+          max_rows_per_chunk: MAX_ROWS_PER_CHUNK,
         },
         correlation_id: correlationId,
       });
@@ -212,13 +248,14 @@ export async function POST(request: NextRequest) {
       data: {
         job_id: jobId,
         status: commitResult.job?.status || "committed",
-        total_rows: createResult.job.total_rows,
+        total_rows: totalRows,
         validated_count: validateResult.validated_count,
         failed_count: validateResult.failed_count + commitResult.failed_count,
         duplicate_count: validateResult.duplicate_count,
         committed_count: commitResult.committed_count,
         created_video_ids: commitResult.created_video_ids,
         errors: validateResult.errors,
+        max_rows_per_chunk: MAX_ROWS_PER_CHUNK,
       },
       correlation_id: correlationId,
     });

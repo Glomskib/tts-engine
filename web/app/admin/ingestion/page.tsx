@@ -43,6 +43,7 @@ export default function IngestionPage() {
   const [tiktokUrls, setTiktokUrls] = useState('');
   const [tiktokValidateOnly, setTiktokValidateOnly] = useState(false);
   const [tiktokLoading, setTiktokLoading] = useState(false);
+  const [tiktokProgress, setTiktokProgress] = useState<{ current: number; total: number } | null>(null);
   const [tiktokResult, setTiktokResult] = useState<{
     ok: boolean;
     jobId?: string;
@@ -58,6 +59,7 @@ export default function IngestionPage() {
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
   const [csvValidateOnly, setCsvValidateOnly] = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
+  const [csvProgress, setCsvProgress] = useState<{ current: number; total: number } | null>(null);
   const [csvResult, setCsvResult] = useState<{
     ok: boolean;
     jobId?: string;
@@ -117,11 +119,16 @@ export default function IngestionPage() {
 
     setTiktokLoading(true);
     setTiktokResult(null);
+    setTiktokProgress(urls.length > 250 ? { current: 0, total: urls.length } : null);
 
-    const response = await ingestTikTokUrls(urls, tiktokValidateOnly);
+    const response = await ingestTikTokUrls(urls, tiktokValidateOnly, (progress) => {
+      setTiktokProgress({ current: progress.current, total: progress.total });
+    });
+
+    setTiktokProgress(null);
 
     if (!response.ok) {
-      setTiktokResult({ ok: false, message: response.error || 'Failed to create job' });
+      setTiktokResult({ ok: false, message: response.error || 'Failed to create job', jobId: response.data?.job_id });
     } else if (response.data) {
       setTiktokResult({
         ok: true,
@@ -203,15 +210,21 @@ export default function IngestionPage() {
 
     setCsvLoading(true);
     setCsvResult(null);
+    setCsvProgress(validRows.length > 250 ? { current: 0, total: validRows.length } : null);
 
     const response = await ingestCsvRows(
       csvFile?.name || 'csv_import',
       validRows,
-      csvValidateOnly
+      csvValidateOnly,
+      (progress) => {
+        setCsvProgress({ current: progress.current, total: progress.total });
+      }
     );
 
+    setCsvProgress(null);
+
     if (!response.ok) {
-      setCsvResult({ ok: false, message: response.error || 'Failed to create job' });
+      setCsvResult({ ok: false, message: response.error || 'Failed to create job', jobId: response.data?.job_id });
     } else if (response.data) {
       setCsvResult({
         ok: true,
@@ -323,8 +336,27 @@ export default function IngestionPage() {
               </AdminButton>
               <span className="text-sm text-slate-500">
                 {tiktokUrls.split('\n').filter((u) => u.trim()).length} URLs
+                {tiktokUrls.split('\n').filter((u) => u.trim()).length > 250 && (
+                  <span className="text-slate-400 ml-1">(will be chunked)</span>
+                )}
               </span>
             </div>
+
+            {/* Progress indicator for chunked uploads */}
+            {tiktokProgress && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Uploading chunks...</span>
+                  <span>{tiktokProgress.current} / {tiktokProgress.total}</span>
+                </div>
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${(tiktokProgress.current / tiktokProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Result */}
             {tiktokResult && (
@@ -480,8 +512,29 @@ export default function IngestionPage() {
                   <AdminButton onClick={handleCsvSubmit} disabled={csvLoading}>
                     {csvLoading ? 'Processing...' : csvValidateOnly ? 'Validate' : 'Import'}
                   </AdminButton>
-                  <span className="text-sm text-slate-500">{csvRows.length} rows</span>
+                  <span className="text-sm text-slate-500">
+                    {csvRows.length} rows
+                    {csvRows.length > 250 && (
+                      <span className="text-slate-400 ml-1">(will be chunked)</span>
+                    )}
+                  </span>
                 </div>
+
+                {/* Progress indicator for chunked uploads */}
+                {csvProgress && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm text-slate-600">
+                      <span>Uploading chunks...</span>
+                      <span>{csvProgress.current} / {csvProgress.total}</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 transition-all duration-300"
+                        style={{ width: `${(csvProgress.current / csvProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Result */}
                 {csvResult && (

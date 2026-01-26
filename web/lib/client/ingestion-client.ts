@@ -103,6 +103,7 @@ interface TikTokIngestResponse {
   committed_count?: number;
   created_video_ids?: string[];
   errors?: ErrorSummaryEntry[];
+  max_urls_per_chunk?: number;
 }
 
 interface CsvIngestResponse {
@@ -115,7 +116,11 @@ interface CsvIngestResponse {
   committed_count?: number;
   created_video_ids?: string[];
   errors?: ErrorSummaryEntry[];
+  max_rows_per_chunk?: number;
 }
+
+// Default chunk sizes (backend may return different limits)
+const DEFAULT_CHUNK_SIZE = 250;
 
 interface JobListResponse {
   jobs: IngestionJob[];
@@ -146,39 +151,200 @@ interface JobActionResponse {
 // ============================================================================
 
 /**
- * Ingest TikTok URLs.
+ * Ingest TikTok URLs with automatic chunking for large datasets.
+ * Returns aggregated results across all chunks.
  */
 export async function ingestTikTokUrls(
   urls: string[],
-  validateOnly: boolean = false
+  validateOnly: boolean = false,
+  onProgress?: (progress: { current: number; total: number; jobId: string }) => void
 ): Promise<ApiResponse<TikTokIngestResponse>> {
   try {
-    const res = await fetch("/api/ingestion/tiktok", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls, validate_only: validateOnly }),
-    });
-    return await res.json();
+    const chunkSize = DEFAULT_CHUNK_SIZE;
+
+    // If small enough, single request
+    if (urls.length <= chunkSize) {
+      const res = await fetch("/api/ingestion/tiktok", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls, validate_only: validateOnly }),
+      });
+      return await res.json();
+    }
+
+    // Chunked upload
+    let jobId: string | undefined;
+    let totalValidated = 0;
+    let totalFailed = 0;
+    let totalDuplicates = 0;
+    let totalCommitted = 0;
+    const allCreatedIds: string[] = [];
+    const allErrors: ErrorSummaryEntry[] = [];
+    let finalStatus = "pending";
+
+    for (let i = 0; i < urls.length; i += chunkSize) {
+      const chunk = urls.slice(i, i + chunkSize);
+      const isLastChunk = i + chunkSize >= urls.length;
+
+      const res = await fetch("/api/ingestion/tiktok", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: chunk,
+          job_id: jobId,
+          // Only validate on intermediate chunks; final chunk does full process
+          validate_only: isLastChunk ? validateOnly : true,
+        }),
+      });
+
+      const result: ApiResponse<TikTokIngestResponse> = await res.json();
+
+      if (!result.ok || !result.data) {
+        return result;
+      }
+
+      // Capture job_id from first chunk
+      if (!jobId) {
+        jobId = result.data.job_id;
+      }
+
+      // Report progress
+      if (onProgress && jobId) {
+        onProgress({ current: Math.min(i + chunkSize, urls.length), total: urls.length, jobId });
+      }
+
+      // On last chunk, capture final results
+      if (isLastChunk) {
+        totalValidated = result.data.validated_count;
+        totalFailed = result.data.failed_count;
+        totalDuplicates = result.data.duplicate_count;
+        totalCommitted = result.data.committed_count || 0;
+        if (result.data.created_video_ids) {
+          allCreatedIds.push(...result.data.created_video_ids);
+        }
+        if (result.data.errors) {
+          allErrors.push(...result.data.errors);
+        }
+        finalStatus = result.data.status;
+      }
+    }
+
+    return {
+      ok: true,
+      data: {
+        job_id: jobId!,
+        status: finalStatus,
+        total_rows: urls.length,
+        validated_count: totalValidated,
+        failed_count: totalFailed,
+        duplicate_count: totalDuplicates,
+        committed_count: totalCommitted,
+        created_video_ids: allCreatedIds,
+        errors: allErrors.length > 0 ? allErrors : undefined,
+        max_urls_per_chunk: chunkSize,
+      },
+    };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
 }
 
 /**
- * Ingest CSV rows.
+ * Ingest CSV rows with automatic chunking for large datasets.
+ * Returns aggregated results across all chunks.
  */
 export async function ingestCsvRows(
   sourceRef: string,
   rows: CsvRow[],
-  validateOnly: boolean = false
+  validateOnly: boolean = false,
+  onProgress?: (progress: { current: number; total: number; jobId: string }) => void
 ): Promise<ApiResponse<CsvIngestResponse>> {
   try {
-    const res = await fetch("/api/ingestion/csv", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_ref: sourceRef, rows, validate_only: validateOnly }),
-    });
-    return await res.json();
+    const chunkSize = DEFAULT_CHUNK_SIZE;
+
+    // If small enough, single request
+    if (rows.length <= chunkSize) {
+      const res = await fetch("/api/ingestion/csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_ref: sourceRef, rows, validate_only: validateOnly }),
+      });
+      return await res.json();
+    }
+
+    // Chunked upload
+    let jobId: string | undefined;
+    let totalValidated = 0;
+    let totalFailed = 0;
+    let totalDuplicates = 0;
+    let totalCommitted = 0;
+    const allCreatedIds: string[] = [];
+    const allErrors: ErrorSummaryEntry[] = [];
+    let finalStatus = "pending";
+
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const isLastChunk = i + chunkSize >= rows.length;
+
+      const res = await fetch("/api/ingestion/csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_ref: sourceRef,
+          rows: chunk,
+          job_id: jobId,
+          // Only validate on intermediate chunks; final chunk does full process
+          validate_only: isLastChunk ? validateOnly : true,
+        }),
+      });
+
+      const result: ApiResponse<CsvIngestResponse> = await res.json();
+
+      if (!result.ok || !result.data) {
+        return result;
+      }
+
+      // Capture job_id from first chunk
+      if (!jobId) {
+        jobId = result.data.job_id;
+      }
+
+      // Report progress
+      if (onProgress && jobId) {
+        onProgress({ current: Math.min(i + chunkSize, rows.length), total: rows.length, jobId });
+      }
+
+      // On last chunk, capture final results
+      if (isLastChunk) {
+        totalValidated = result.data.validated_count;
+        totalFailed = result.data.failed_count;
+        totalDuplicates = result.data.duplicate_count;
+        totalCommitted = result.data.committed_count || 0;
+        if (result.data.created_video_ids) {
+          allCreatedIds.push(...result.data.created_video_ids);
+        }
+        if (result.data.errors) {
+          allErrors.push(...result.data.errors);
+        }
+        finalStatus = result.data.status;
+      }
+    }
+
+    return {
+      ok: true,
+      data: {
+        job_id: jobId!,
+        status: finalStatus,
+        total_rows: rows.length,
+        validated_count: totalValidated,
+        failed_count: totalFailed,
+        duplicate_count: totalDuplicates,
+        committed_count: totalCommitted,
+        created_video_ids: allCreatedIds,
+        errors: allErrors.length > 0 ? allErrors : undefined,
+        max_rows_per_chunk: chunkSize,
+      },
+    };
   } catch (err) {
     return { ok: false, error: String(err) };
   }

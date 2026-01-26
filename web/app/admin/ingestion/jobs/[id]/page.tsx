@@ -140,19 +140,39 @@ export default function JobDetailPage() {
     [jobId, fetchData]
   );
 
-  // Download failed rows as CSV
+  // Download failed rows as CSV with flattened payload
   const handleDownloadFailed = useCallback(() => {
     if (!report || report.failed_rows.length === 0) return;
 
-    const rows = report.failed_rows.map((row) => ({
-      external_id: row.external_id,
-      error: row.error,
-      caption: (row.normalized_payload?.caption as string) || '',
-      script_text: (row.normalized_payload?.script_text as string) || '',
-      product_sku: (row.normalized_payload?.product_sku as string) || '',
-    }));
+    // Consistent header set for failed rows export
+    const headers = [
+      'external_id',
+      'error',
+      'caption',
+      'script_text',
+      'hashtags',
+      'product_sku',
+      'product_link',
+      'target_account',
+      'tiktok_url',
+    ];
 
-    const csv = generateCsv(rows, ['external_id', 'error', 'caption', 'script_text', 'product_sku']);
+    const rows = report.failed_rows.map((row) => {
+      const payload = row.normalized_payload || {};
+      return {
+        external_id: row.external_id,
+        error: row.error,
+        caption: (payload.caption as string) || '',
+        script_text: (payload.script_text as string) || '',
+        hashtags: Array.isArray(payload.hashtags) ? payload.hashtags.join(', ') : (payload.hashtags as string) || '',
+        product_sku: (payload.product_sku as string) || '',
+        product_link: (payload.product_link as string) || '',
+        target_account: (payload.target_account as string) || '',
+        tiktok_url: (payload.tiktok_url as string) || '',
+      };
+    });
+
+    const csv = generateCsv(rows, headers);
     downloadCsv(csv, `failed_rows_${jobId.slice(0, 8)}.csv`);
   }, [report, jobId]);
 

@@ -244,6 +244,7 @@ export default function IngestionJobsPage() {
               <tbody>
                 {jobs.map((job) => {
                   const statusColor = STATUS_COLORS[job.status];
+                  const showRetryBadge = job.failure_count > 0 && (job.status === 'failed' || job.status === 'partial');
                   return (
                     <tr key={job.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-3">
@@ -258,6 +259,11 @@ export default function IngestionJobsPage() {
                         <span className={`px-2 py-1 rounded text-xs font-medium ${statusColor.bg} ${statusColor.text}`}>
                           {job.status}
                         </span>
+                        {showRetryBadge && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                            retry
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center font-medium">{job.total_rows}</td>
                       <td className="px-4 py-3 text-center text-green-600">{job.success_count}</td>

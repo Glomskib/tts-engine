@@ -60,6 +60,13 @@ const DONE_OPTIONS = [
   { value: 'all', label: 'All' },
 ];
 
+const PLATFORM_OPTIONS = [
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'other', label: 'Other' },
+];
+
 export default function UploaderPage() {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -82,6 +89,13 @@ export default function UploaderPage() {
 
   // Actions
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Mark Posted modal state
+  const [markPostedVideo, setMarkPostedVideo] = useState<UploaderVideo | null>(null);
+  const [postedUrl, setPostedUrl] = useState('');
+  const [postedPlatform, setPostedPlatform] = useState<'tiktok' | 'instagram' | 'youtube' | 'other'>('tiktok');
+  const [markPostedLoading, setMarkPostedLoading] = useState(false);
+  const [markPostedError, setMarkPostedError] = useState('');
 
   // Auth check
   useEffect(() => {
@@ -198,6 +212,71 @@ export default function UploaderPage() {
       setActionLoading(null);
     }
   }, []);
+
+  // Open mark posted modal
+  const openMarkPostedModal = useCallback((video: UploaderVideo) => {
+    setMarkPostedVideo(video);
+    setPostedUrl('');
+    setPostedPlatform('tiktok');
+    setMarkPostedError('');
+  }, []);
+
+  // Close mark posted modal
+  const closeMarkPostedModal = useCallback(() => {
+    setMarkPostedVideo(null);
+    setPostedUrl('');
+    setPostedPlatform('tiktok');
+    setMarkPostedError('');
+  }, []);
+
+  // Mark video as posted
+  const handleMarkPosted = useCallback(async () => {
+    if (!markPostedVideo || !postedUrl.trim()) {
+      setMarkPostedError('Posted URL is required');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      const url = new URL(postedUrl);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        setMarkPostedError('URL must be HTTP or HTTPS');
+        return;
+      }
+    } catch {
+      setMarkPostedError('Invalid URL format');
+      return;
+    }
+
+    setMarkPostedLoading(true);
+    setMarkPostedError('');
+
+    try {
+      const res = await fetch(`/api/videos/${markPostedVideo.video_id}/mark-posted`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          posted_url: postedUrl.trim(),
+          platform: postedPlatform,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        // Remove video from list (it's now posted, no longer ready_to_post)
+        setVideos((prev) => prev.filter((v) => v.video_id !== markPostedVideo.video_id));
+        setTotal((prev) => Math.max(0, prev - 1));
+        closeMarkPostedModal();
+      } else {
+        setMarkPostedError(data.error || 'Failed to mark as posted');
+      }
+    } catch (err) {
+      console.error(err);
+      setMarkPostedError('Failed to mark as posted');
+    } finally {
+      setMarkPostedLoading(false);
+    }
+  }, [markPostedVideo, postedUrl, postedPlatform, closeMarkPostedModal]);
 
   // Export CSV
   const handleExportCsv = useCallback(() => {
@@ -516,6 +595,16 @@ export default function UploaderPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {/* Mark Posted button - only show for ready videos with MP4 */}
+                          {video.posting_meta_complete && video.has_locked_script && video.has_final_mp4 && (
+                            <button
+                              onClick={() => openMarkPostedModal(video)}
+                              disabled={actionLoading === video.video_id}
+                              className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Post
+                            </button>
+                          )}
                           {!video.uploader_checklist_completed_at && (
                             <button
                               onClick={() => handleMarkChecklistComplete(video.video_id)}
@@ -538,6 +627,81 @@ export default function UploaderPage() {
           )}
         </div>
       </main>
+
+      {/* Mark Posted Modal */}
+      {markPostedVideo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-800">Mark as Posted</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Video: {markPostedVideo.video_id.slice(0, 8)}...
+                {markPostedVideo.target_account && (
+                  <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                    {markPostedVideo.target_account}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Posted URL <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={postedUrl}
+                  onChange={(e) => setPostedUrl(e.target.value)}
+                  placeholder="https://www.tiktok.com/@account/video/123..."
+                  className="w-full p-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Platform
+                </label>
+                <select
+                  value={postedPlatform}
+                  onChange={(e) => setPostedPlatform(e.target.value as 'tiktok' | 'instagram' | 'youtube' | 'other')}
+                  className="w-full p-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {PLATFORM_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {markPostedError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                  {markPostedError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={closeMarkPostedModal}
+                disabled={markPostedLoading}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMarkPosted}
+                disabled={markPostedLoading || !postedUrl.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                {markPostedLoading ? 'Marking...' : 'Mark Posted'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

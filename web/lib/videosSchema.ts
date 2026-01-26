@@ -21,6 +21,8 @@ function getKnownColumns(): Set<string> {
     "rejected_at", "recording_notes", "editor_notes", "uploader_notes",
     "posted_url", "posted_platform", "posted_account", "posted_at_local",
     "posting_error", "last_status_changed_at",
+    // Migration 024: Enrichment columns
+    "source_meta",
     // NOTE: claim_role (migration 015) is NOT included here as it's new
     // The code checks for it dynamically via information_schema
   ]);

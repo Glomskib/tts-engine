@@ -14,6 +14,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { VIDEO_STATUSES, type VideoStatus } from "./video-pipeline";
 import { createScriptVersion } from "./video-script-versions";
+import { ensureEnrichmentTask, linkEnrichmentTaskToVideo } from "./enrichment";
 
 // ============================================================================
 // Types
@@ -395,6 +396,21 @@ export async function createIngestionJob(
     return { ok: false, error: `Failed to create rows: ${rowsError.message}` };
   }
 
+  // Create enrichment tasks for TikTok sources (non-blocking)
+  if (source === "tiktok_url") {
+    for (const row of rows) {
+      try {
+        await ensureEnrichmentTask(supabase, {
+          source: "tiktok",
+          external_id: row.external_id,
+        });
+      } catch (enrichErr) {
+        // Enrichment task creation failure should not block ingestion
+        console.error(`Failed to create enrichment task for ${row.external_id}:`, enrichErr);
+      }
+    }
+  }
+
   // Write audit event
   await writeEventsLog(supabase, {
     entity_type: "ingestion_job",
@@ -759,6 +775,20 @@ export async function commitIngestionJob(
           ingestion_job_id: job_id,
         },
       });
+
+      // Create/link enrichment task for TikTok sources (non-blocking)
+      if (job.source === "tiktok_url") {
+        try {
+          await linkEnrichmentTaskToVideo(supabase, {
+            source: "tiktok",
+            external_id: row.external_id,
+            video_id: video.id,
+          });
+        } catch (enrichErr) {
+          // Enrichment failure should not block ingestion
+          console.error(`Enrichment task link failed for ${row.external_id}:`, enrichErr);
+        }
+      }
 
       // Update row as committed
       await supabase

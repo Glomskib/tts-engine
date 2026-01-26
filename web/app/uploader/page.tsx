@@ -10,6 +10,7 @@ interface AuthUser {
   id: string;
   email: string | null;
   role: string | null;
+  isAdmin: boolean;
 }
 
 interface UploaderVideo {
@@ -97,6 +98,10 @@ export default function UploaderPage() {
   const [markPostedLoading, setMarkPostedLoading] = useState(false);
   const [markPostedError, setMarkPostedError] = useState('');
 
+  // Admin dev tools state
+  const [seedingVideo, setSeedingVideo] = useState(false);
+  const [seedError, setSeedError] = useState('');
+
   // Auth check
   useEffect(() => {
     const checkAuth = async () => {
@@ -123,6 +128,7 @@ export default function UploaderPage() {
           id: user.id,
           email: user.email || null,
           role: roleData.role,
+          isAdmin: roleData.isAdmin === true,
         });
       } catch (err) {
         console.error('Auth error:', err);
@@ -267,8 +273,14 @@ export default function UploaderPage() {
         setVideos((prev) => prev.filter((v) => v.video_id !== markPostedVideo.video_id));
         setTotal((prev) => Math.max(0, prev - 1));
         closeMarkPostedModal();
+        // Re-fetch to ensure consistency
+        fetchQueue();
       } else {
-        setMarkPostedError(data.error || 'Failed to mark as posted');
+        // Show error code and message for debugging
+        const errorMsg = data.code
+          ? `[${data.code}] ${data.error || 'Failed to mark as posted'}`
+          : (data.error || 'Failed to mark as posted');
+        setMarkPostedError(errorMsg);
       }
     } catch (err) {
       console.error(err);
@@ -276,7 +288,7 @@ export default function UploaderPage() {
     } finally {
       setMarkPostedLoading(false);
     }
-  }, [markPostedVideo, postedUrl, postedPlatform, closeMarkPostedModal]);
+  }, [markPostedVideo, postedUrl, postedPlatform, closeMarkPostedModal, fetchQueue]);
 
   // Export CSV
   const handleExportCsv = useCallback(() => {
@@ -330,6 +342,34 @@ export default function UploaderPage() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }, [videos, statusFilter]);
+
+  // Seed test video (admin only)
+  const handleSeedTestVideo = useCallback(async () => {
+    if (!authUser?.isAdmin) return;
+
+    setSeedingVideo(true);
+    setSeedError('');
+
+    try {
+      const res = await fetch('/api/admin/dev/seed-postable-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        // Re-fetch queue to show the new video
+        await fetchQueue();
+      } else {
+        setSeedError(data.code ? `[${data.code}] ${data.error}` : data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      setSeedError('Failed to seed test video');
+    } finally {
+      setSeedingVideo(false);
+    }
+  }, [authUser?.isAdmin, fetchQueue]);
 
   // Loading state
   if (authLoading) {
@@ -462,6 +502,17 @@ export default function UploaderPage() {
             </div>
 
             <div className="ml-auto flex items-center gap-3 pt-5">
+              {/* Admin-only: Seed Test Video */}
+              {authUser?.isAdmin && (
+                <button
+                  onClick={handleSeedTestVideo}
+                  disabled={seedingVideo}
+                  className="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-md hover:bg-amber-200 disabled:opacity-50"
+                  title="Create a test video with all requirements met"
+                >
+                  {seedingVideo ? 'Seeding...' : 'Seed Test Video'}
+                </button>
+              )}
               <button
                 onClick={fetchQueue}
                 disabled={loading}
@@ -478,6 +529,12 @@ export default function UploaderPage() {
               </button>
             </div>
           </div>
+          {/* Seed error */}
+          {seedError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+              {seedError}
+            </div>
+          )}
         </div>
 
         {/* Error */}

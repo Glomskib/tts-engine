@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
     const enrichment = enrichmentResult.ok
       ? {
           pending_tasks: enrichmentResult.pending_tasks,
-          failures_24h: enrichmentResult.failures_24h,
+          succeeded_24h: enrichmentResult.succeeded_24h,
+          failed_24h: enrichmentResult.failed_24h,
+          completed_24h: enrichmentResult.completed_24h,
           success_rate_24h: enrichmentResult.success_rate_24h,
         }
       : null;

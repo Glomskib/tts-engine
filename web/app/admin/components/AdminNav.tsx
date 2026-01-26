@@ -95,6 +95,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
               Ops
             </Link>
             <span style={separatorStyle}>|</span>
+            <Link href="/admin/ingestion" style={linkStyle('/admin/ingestion')}>
+              Ingestion
+            </Link>
+            <span style={separatorStyle}>|</span>
             <Link href="/admin/assignments" style={linkStyle('/admin/assignments')}>
               Assignments
             </Link>

@@ -14,7 +14,7 @@
  *     processed: number
  *     succeeded: number
  *     failed: number
- *     retrying: number
+ *     scheduled_retry: number
  *     results: EnrichmentResult[]
  *   }
  * }
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         processed: result.processed,
         succeeded: result.succeeded,
         failed: result.failed,
-        retrying: result.retrying,
+        scheduled_retry: result.retrying,
         results: result.results,
       },
       correlation_id: correlationId,

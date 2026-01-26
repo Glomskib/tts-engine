@@ -11,6 +11,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { logEventSafe } from "./events-log";
 
 // ============================================================================
 // Types
@@ -556,6 +557,8 @@ export async function runEnrichment(
   supabase: SupabaseClient,
   limit: number
 ): Promise<RunEnrichmentResult> {
+  const runId = `enrich_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
   // Claim tasks
   const claimResult = await claimEnrichmentTasks(supabase, limit);
   if (!claimResult.ok) {
@@ -582,6 +585,14 @@ export async function runEnrichment(
     };
   }
 
+  // Log worker run start
+  await logEventSafe(supabase, {
+    entity_type: "enrichment_worker",
+    entity_id: runId,
+    event_type: "enrichment_run_started",
+    payload: { limit, claimed_count: tasks.length },
+  });
+
   const results: EnrichmentResult[] = [];
   let succeeded = 0;
   let failed = 0;
@@ -599,6 +610,19 @@ export async function runEnrichment(
     // Small delay between requests to be respectful
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
+
+  // Log worker run completion
+  await logEventSafe(supabase, {
+    entity_type: "enrichment_worker",
+    entity_id: runId,
+    event_type: "enrichment_run_completed",
+    payload: {
+      processed: tasks.length,
+      succeeded,
+      failed,
+      scheduled_retry: retrying,
+    },
+  });
 
   return {
     ok: true,
@@ -705,8 +729,10 @@ export async function getEnrichmentMetrics(
 ): Promise<{
   ok: boolean;
   pending_tasks: number;
-  failures_24h: number;
-  success_rate_24h: number;
+  succeeded_24h: number;
+  failed_24h: number;
+  completed_24h: number;
+  success_rate_24h: number | null;
   error?: string;
 }> {
   try {
@@ -716,39 +742,39 @@ export async function getEnrichmentMetrics(
       .select("*", { count: "exact", head: true })
       .in("status", ["pending", "retrying"]);
 
-    // Count failures in last 24h
+    // Get completed tasks in last 24h (both succeeded and failed)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: failures24h } = await supabase
-      .from("video_enrichment_tasks")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "failed")
-      .gte("updated_at", oneDayAgo);
-
-    // Calculate success rate
     const { data: recent24h } = await supabase
       .from("video_enrichment_tasks")
       .select("status")
       .gte("updated_at", oneDayAgo)
       .in("status", ["succeeded", "failed"]);
 
-    let successRate24h = 100;
-    if (recent24h && recent24h.length > 0) {
-      const succeeded = recent24h.filter((t) => t.status === "succeeded").length;
-      successRate24h = Math.round((succeeded / recent24h.length) * 100);
-    }
+    const succeeded24h = recent24h?.filter((t) => t.status === "succeeded").length || 0;
+    const failed24h = recent24h?.filter((t) => t.status === "failed").length || 0;
+    const completed24h = succeeded24h + failed24h;
+
+    // success_rate_24h is null if no completed tasks, otherwise percentage
+    const successRate24h = completed24h === 0
+      ? null
+      : Math.round((succeeded24h / completed24h) * 1000) / 10; // One decimal place
 
     return {
       ok: true,
       pending_tasks: pendingCount || 0,
-      failures_24h: failures24h || 0,
+      succeeded_24h: succeeded24h,
+      failed_24h: failed24h,
+      completed_24h: completed24h,
       success_rate_24h: successRate24h,
     };
   } catch (err) {
     return {
       ok: false,
       pending_tasks: 0,
-      failures_24h: 0,
-      success_rate_24h: 0,
+      succeeded_24h: 0,
+      failed_24h: 0,
+      completed_24h: 0,
+      success_rate_24h: null,
       error: String(err),
     };
   }

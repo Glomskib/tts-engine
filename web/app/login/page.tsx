@@ -104,8 +104,8 @@ function LoginForm() {
           // Fallback if role check fails
         }
 
-        // Fallback to default
-        router.push('/admin/pipeline');
+        // Fallback to default (client portal, safe for non-admins)
+        router.push('/');
         router.refresh();
       }
     } catch (err) {

@@ -41,7 +41,8 @@ export type ApiErrorCode =
   | 'SCRIPT_NOT_LOCKED'
   | 'COMPLIANCE_BLOCKED'
   | 'NO_SCRIPT'
-  | 'POSTING_META_INCOMPLETE';
+  | 'POSTING_META_INCOMPLETE'
+  | 'FINAL_ASSET_REQUIRED';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

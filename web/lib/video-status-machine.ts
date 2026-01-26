@@ -25,6 +25,7 @@ import {
 import { getLockedScriptVersion } from "./video-script-versions";
 import { lintScriptAndCaption, type ComplianceLintResult } from "./compliance-linter";
 import { getCompletePostingMeta, validatePostingMetaCompleteness } from "./posting-meta";
+import { hasFinalAsset } from "./video-assets";
 
 // ============================================================================
 // Types
@@ -363,6 +364,37 @@ export async function transitionVideoStatusAtomic(
         current_status: currentStatus,
         message: `Posting metadata incomplete. Missing: ${postingValidation.missing.join(", ")}`,
         error_code: "POSTING_META_INCOMPLETE",
+      };
+    }
+  }
+
+  // Final asset gate for posted transition (unless force=true)
+  if (target_status === "posted" && !force) {
+    const hasAsset = await hasFinalAsset(supabase, video_id);
+
+    if (!hasAsset) {
+      await writeVideoEvent(supabase, {
+        video_id,
+        event_type: "transition_rejected",
+        correlation_id,
+        actor,
+        from_status: currentStatus,
+        to_status: target_status,
+        details: {
+          error_code: "FINAL_ASSET_REQUIRED",
+          missing: ["final_mp4"],
+          reason: "Transition to posted requires a final_mp4 asset",
+        },
+      });
+
+      return {
+        ok: false,
+        video_id,
+        action: "precondition_failed",
+        previous_status: currentStatus,
+        current_status: currentStatus,
+        message: "Transition to posted requires a final_mp4 asset",
+        error_code: "FINAL_ASSET_REQUIRED",
       };
     }
   }

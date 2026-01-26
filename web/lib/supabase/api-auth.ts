@@ -11,6 +11,7 @@ export interface AuthContext {
   } | null;
   role: UserRole | null;
   isAdmin: boolean;
+  isUploader: boolean;
 }
 
 /**
@@ -19,6 +20,16 @@ export interface AuthContext {
  */
 function parseAdminUsersEnv(): Set<string> {
   const raw = process.env.ADMIN_USERS || "";
+  const list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return new Set(list);
+}
+
+/**
+ * Parse UPLOADER_USERS environment variable into a Set of lowercase emails.
+ * UPLOADER_USERS is a bootstrap allowlist for uploader role.
+ */
+function parseUploaderUsersEnv(): Set<string> {
+  const raw = process.env.UPLOADER_USERS || "";
   const list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   return new Set(list);
 }
@@ -89,7 +100,7 @@ export async function getApiAuthContext(): Promise<AuthContext> {
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
-    return { user: null, role: null, isAdmin: false };
+    return { user: null, role: null, isAdmin: false, isUploader: false };
   }
 
   // Check ADMIN_USERS env (authoritative for admin access)
@@ -100,16 +111,26 @@ export async function getApiAuthContext(): Promise<AuthContext> {
       user: { id: user.id, email: user.email },
       role: 'admin',
       isAdmin: true,
+      isUploader: true, // Admins can act as uploaders
     };
   }
 
   // Query user_roles table (safe - handles missing table)
-  const role = await safeGetUserRole(supabaseAdmin, user.id);
+  let role = await safeGetUserRole(supabaseAdmin, user.id);
+
+  // Check UPLOADER_USERS env as fallback for uploader role
+  if (!role && userEmail) {
+    const uploaderEmails = parseUploaderUsersEnv();
+    if (uploaderEmails.has(userEmail)) {
+      role = 'uploader';
+    }
+  }
 
   return {
     user: { id: user.id, email: user.email },
     role,
     isAdmin: role === 'admin',
+    isUploader: role === 'admin' || role === 'uploader',
   };
 }
 

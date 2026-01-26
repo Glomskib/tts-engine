@@ -321,6 +321,41 @@ export async function GET(request: Request) {
         }
       : null;
 
+    // Fetch uploader queue metrics (ready_to_post videos)
+    const { data: uploaderVideos } = await supabaseAdmin
+      .from("videos")
+      .select("id, posting_meta")
+      .eq("status", "ready_to_post");
+
+    // Count by target_account and check for missing final_mp4
+    const readyByAccount: Record<string, number> = {};
+    const readyVideoIds = (uploaderVideos || []).map((v) => v.id);
+    for (const video of uploaderVideos || []) {
+      const pm = video.posting_meta as { target_account?: string } | null;
+      const account = pm?.target_account || "unassigned";
+      readyByAccount[account] = (readyByAccount[account] || 0) + 1;
+    }
+
+    // Check for final_mp4 assets
+    let missingFinalMp4 = 0;
+    if (readyVideoIds.length > 0) {
+      const { data: mp4Assets } = await supabaseAdmin
+        .from("video_assets")
+        .select("video_id")
+        .in("video_id", readyVideoIds)
+        .eq("asset_type", "final_mp4")
+        .is("deleted_at", null);
+
+      const videosWithMp4 = new Set((mp4Assets || []).map((a) => a.video_id));
+      missingFinalMp4 = readyVideoIds.filter((id) => !videosWithMp4.has(id)).length;
+    }
+
+    const uploaderQueue = {
+      ready_to_post_total: readyVideoIds.length,
+      ready_to_post_by_account: readyByAccount,
+      missing_final_mp4: missingFinalMp4,
+    };
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -339,6 +374,7 @@ export async function GET(request: Request) {
         },
         blockers,
         ingestion: ingestionHealth,
+        uploader_queue: uploaderQueue,
       },
       correlation_id: correlationId,
     });

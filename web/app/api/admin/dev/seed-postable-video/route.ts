@@ -35,8 +35,9 @@ import { createScriptVersion, lockCurrentVersion } from "@/lib/video-script-vers
 
 export const runtime = "nodejs";
 
-const SEED_VIDEO_MARKER = "dev-seed-postable";
+// Dev seed configuration
 const SEED_TARGET_ACCOUNT = "@dev_test_account";
+const DEV_ACCOUNT_ID = "00000000-0000-0000-0000-000000000001";
 
 async function writeVideoEvent(params: {
   video_id: string;
@@ -75,11 +76,26 @@ export async function POST(request: NextRequest) {
   const actor = authContext.user?.id || "admin";
 
   try {
-    // Check for existing seeded video that's still ready_to_post
+    // Step 1: Find an existing variant to use (required by FK constraint)
+    const { data: existingVariant } = await supabaseAdmin
+      .from("variants")
+      .select("id, concept_id")
+      .limit(1)
+      .single();
+
+    if (!existingVariant) {
+      const err = apiError("PRECONDITION_FAILED", "No variants exist. Create at least one variant first.", 422);
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    const variantId = existingVariant.id;
+
+    // Check for existing dev-seeded video that's still ready_to_post
+    // We identify dev seeds by google_drive_url containing "dev-seed"
     const { data: existing } = await supabaseAdmin
       .from("videos")
       .select("id, status, posting_meta, variant_id")
-      .eq("variant_id", SEED_VIDEO_MARKER)
+      .like("google_drive_url", "%dev-seed%")
       .eq("status", "ready_to_post")
       .limit(1)
       .maybeSingle();
@@ -138,17 +154,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create a new seeded video
-    // Step 1: Get or create an account_id (use a dev account)
-    const devAccountId = "00000000-0000-0000-0000-000000000001";
+    // Create a new seeded video using the found variant
 
     // Step 2: Create the video
     const { data: video, error: videoError } = await supabaseAdmin
       .from("videos")
       .insert({
-        account_id: devAccountId,
-        variant_id: SEED_VIDEO_MARKER,
-        google_drive_url: "https://drive.google.com/dev-seed-test",
+        account_id: DEV_ACCOUNT_ID,
+        variant_id: variantId,
+        google_drive_url: "https://drive.google.com/dev-seed-" + Date.now(),
         status: "ready_to_post",
         posting_meta: {
           target_account: SEED_TARGET_ACCOUNT,
@@ -170,7 +184,7 @@ export async function POST(request: NextRequest) {
       actor,
       from_status: null,
       to_status: "ready_to_post",
-      details: { variant_id: SEED_VIDEO_MARKER },
+      details: { variant_id: variantId, dev_seed: true },
     });
 
     // Step 3: Create and lock a script version with all required fields

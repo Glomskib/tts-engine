@@ -74,8 +74,38 @@ function LoginForm() {
           return;
         }
 
-        // Redirect to the target page
-        router.push(redirect);
+        // Check if explicit redirect was provided in URL
+        const explicitRedirect = searchParams.get('redirect');
+        if (explicitRedirect) {
+          // Use explicit redirect (e.g., from protected page redirect)
+          router.push(explicitRedirect);
+          router.refresh();
+          return;
+        }
+
+        // No explicit redirect - route based on user role
+        try {
+          const roleRes = await fetch('/api/auth/me');
+          const roleData = await roleRes.json();
+
+          if (roleData.ok) {
+            if (roleData.isAdmin) {
+              router.push('/admin/pipeline');
+            } else if (roleData.isUploader) {
+              router.push('/uploader');
+            } else {
+              // Default for other users (client portal)
+              router.push('/');
+            }
+            router.refresh();
+            return;
+          }
+        } catch {
+          // Fallback if role check fails
+        }
+
+        // Fallback to default
+        router.push('/admin/pipeline');
         router.refresh();
       }
     } catch (err) {

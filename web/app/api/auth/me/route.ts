@@ -21,5 +21,6 @@ export async function GET() {
     },
     role: authContext.role,
     isAdmin: authContext.isAdmin,
+    isUploader: authContext.isUploader,
   });
 }

@@ -8,6 +8,7 @@
  * - status: "ready_to_post" | "needs_edit" (default: ready_to_post)
  * - target_account: filter by target account
  * - missing_only: "true" to show only videos with missing fields
+ * - done: "0" (default) = only not done, "1" = only completed, "all" = both
  * - limit: number (default: 100, max: 500)
  * - offset: number (default: 0)
  *
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
   const statusParam = searchParams.get("status") || "ready_to_post";
   const targetAccountFilter = searchParams.get("target_account");
   const missingOnly = searchParams.get("missing_only") === "true";
+  const doneParam = searchParams.get("done") || "0"; // "0" = not done (default), "1" = done, "all" = both
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "100", 10), 1), 500);
   const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
@@ -93,6 +95,16 @@ export async function GET(request: NextRequest) {
       videosQuery = videosQuery.filter("posting_meta->>target_account", "eq", targetAccountFilter);
     }
 
+    // Apply done filter based on uploader_checklist_completed_at
+    if (doneParam === "0") {
+      // Not done: uploader_checklist_completed_at is null
+      videosQuery = videosQuery.is("posting_meta->uploader_checklist_completed_at", null);
+    } else if (doneParam === "1") {
+      // Done: uploader_checklist_completed_at is not null
+      videosQuery = videosQuery.not("posting_meta->uploader_checklist_completed_at", "is", null);
+    }
+    // "all" = no filter applied
+
     const { data: videos, count: totalCount, error: videosError } = await videosQuery
       .range(offset, offset + limit - 1);
 
@@ -109,7 +121,7 @@ export async function GET(request: NextRequest) {
           total: 0,
           limit,
           offset,
-          filters: { status, target_account: targetAccountFilter, missing_only: missingOnly },
+          filters: { status, target_account: targetAccountFilter, missing_only: missingOnly, done: doneParam },
         },
         correlation_id: correlationId,
       });
@@ -250,6 +262,7 @@ export async function GET(request: NextRequest) {
           status,
           target_account: targetAccountFilter,
           missing_only: missingOnly,
+          done: doneParam,
         },
         available_target_accounts: Array.from(targetAccounts).sort(),
       },

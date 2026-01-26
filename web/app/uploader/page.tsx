@@ -42,6 +42,7 @@ interface QueueResponse {
       status: string;
       target_account: string | null;
       missing_only: boolean;
+      done: string;
     };
     available_target_accounts: string[];
   };
@@ -51,6 +52,12 @@ interface QueueResponse {
 const STATUS_OPTIONS = [
   { value: 'ready_to_post', label: 'Ready to Post' },
   { value: 'needs_edit', label: 'Needs Edit' },
+];
+
+const DONE_OPTIONS = [
+  { value: '0', label: 'Not Done' },
+  { value: '1', label: 'Done' },
+  { value: 'all', label: 'All' },
 ];
 
 export default function UploaderPage() {
@@ -70,6 +77,7 @@ export default function UploaderPage() {
   const [statusFilter, setStatusFilter] = useState<'ready_to_post' | 'needs_edit'>('ready_to_post');
   const [targetAccountFilter, setTargetAccountFilter] = useState<string>('');
   const [missingOnly, setMissingOnly] = useState(false);
+  const [doneFilter, setDoneFilter] = useState<'0' | '1' | 'all'>('0');
   const [availableTargetAccounts, setAvailableTargetAccounts] = useState<string[]>([]);
 
   // Actions
@@ -128,6 +136,7 @@ export default function UploaderPage() {
     if (missingOnly) {
       params.set('missing_only', 'true');
     }
+    params.set('done', doneFilter);
     params.set('limit', '200');
 
     try {
@@ -149,7 +158,7 @@ export default function UploaderPage() {
     } finally {
       setLoading(false);
     }
-  }, [authUser, statusFilter, targetAccountFilter, missingOnly]);
+  }, [authUser, statusFilter, targetAccountFilter, missingOnly, doneFilter]);
 
   useEffect(() => {
     if (authUser) {
@@ -340,6 +349,21 @@ export default function UploaderPage() {
                 {availableTargetAccounts.map((acct) => (
                   <option key={acct} value={acct}>
                     {acct}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Checklist</label>
+              <select
+                value={doneFilter}
+                onChange={(e) => setDoneFilter(e.target.value as '0' | '1' | 'all')}
+                className="p-2 border border-slate-300 rounded-md text-sm min-w-[120px]"
+              >
+                {DONE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>

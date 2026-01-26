@@ -9,6 +9,7 @@ import {
   SLA_DUE_SOON_THRESHOLD_MINUTES,
   type SlaStatus,
 } from "@/lib/execution-stages";
+import { getIngestionMetrics } from "@/lib/ingestion";
 
 export const runtime = "nodejs";
 
@@ -302,6 +303,24 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.count - a.count);
 
+    // Fetch ingestion metrics
+    const ingestionResult = await getIngestionMetrics(supabaseAdmin);
+    const ingestionHealth = ingestionResult.ok
+      ? {
+          total_jobs: ingestionResult.metrics!.total_jobs,
+          jobs_by_status: ingestionResult.metrics!.jobs_by_status,
+          jobs_by_source: ingestionResult.metrics!.jobs_by_source,
+          failed_rows_24h: ingestionResult.metrics!.last_24h.rows_failed,
+          committed_rows_24h: ingestionResult.metrics!.last_24h.rows_committed,
+          partial_jobs: ingestionResult.metrics!.jobs_by_status.partial,
+          has_recent_failures: ingestionResult.metrics!.recent_failures.length > 0,
+          recent_failure_count: ingestionResult.metrics!.recent_failures.reduce(
+            (sum, f) => sum + f.failure_count,
+            0
+          ),
+        }
+      : null;
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -319,6 +338,7 @@ export async function GET(request: Request) {
           edited_per_day: formatDayArray(editedPerDay),
         },
         blockers,
+        ingestion: ingestionHealth,
       },
       correlation_id: correlationId,
     });

@@ -27,6 +27,11 @@ export const ALLOWED_SETTING_KEYS = [
   // Lease management
   "LEASE_DURATION_MINUTES",
   "RENEW_WINDOW_MINUTES",
+  // Observability thresholds
+  "CLAIM_EXPIRING_SOON_MINUTES",
+  "STUCK_THRESHOLD_HOURS",
+  "ACTIVITY_STALE_HOURS",
+  "THROUGHPUT_WINDOW_DAYS",
 ] as const;
 
 export type SettingKey = typeof ALLOWED_SETTING_KEYS[number];
@@ -76,6 +81,11 @@ const DEFAULT_VALUES: Record<SettingKey, SettingValue> = {
   // Lease management
   LEASE_DURATION_MINUTES: 240, // 4 hours default
   RENEW_WINDOW_MINUTES: 5, // renew if expiring within 5 minutes
+  // Observability thresholds
+  CLAIM_EXPIRING_SOON_MINUTES: 15, // claims expiring within 15 minutes
+  STUCK_THRESHOLD_HOURS: 24, // videos stuck in queue for 24+ hours
+  ACTIVITY_STALE_HOURS: 4, // no activity in 4+ hours is stale
+  THROUGHPUT_WINDOW_DAYS: 7, // default window for throughput metrics
 };
 
 /**
@@ -111,6 +121,10 @@ function getEnvValue(key: SettingKey): SettingValue | undefined {
     case "WIP_LIMIT_DEFAULT":
     case "LEASE_DURATION_MINUTES":
     case "RENEW_WINDOW_MINUTES":
+    case "CLAIM_EXPIRING_SOON_MINUTES":
+    case "STUCK_THRESHOLD_HOURS":
+    case "ACTIVITY_STALE_HOURS":
+    case "THROUGHPUT_WINDOW_DAYS":
       const num = parseInt(envValue, 10);
       return isNaN(num) ? undefined : num;
 
@@ -443,4 +457,39 @@ export async function getLeaseDurationMinutes(): Promise<number> {
  */
 export async function getRenewWindowMinutes(): Promise<number> {
   return getEffectiveNumber("RENEW_WINDOW_MINUTES");
+}
+
+// ============================================
+// Observability Threshold Helpers
+// ============================================
+
+/**
+ * Get claim expiring soon threshold in minutes.
+ * Claims expiring within this window are considered "expiring soon".
+ */
+export async function getClaimExpiringSoonMinutes(): Promise<number> {
+  return getEffectiveNumber("CLAIM_EXPIRING_SOON_MINUTES");
+}
+
+/**
+ * Get stuck threshold in hours.
+ * Videos in queue for longer than this are considered "stuck".
+ */
+export async function getStuckThresholdHours(): Promise<number> {
+  return getEffectiveNumber("STUCK_THRESHOLD_HOURS");
+}
+
+/**
+ * Get activity stale threshold in hours.
+ * Videos with no activity for longer than this are considered "stale".
+ */
+export async function getActivityStaleHours(): Promise<number> {
+  return getEffectiveNumber("ACTIVITY_STALE_HOURS");
+}
+
+/**
+ * Get default throughput window in days.
+ */
+export async function getThroughputWindowDays(): Promise<number> {
+  return getEffectiveNumber("THROUGHPUT_WINDOW_DAYS");
 }

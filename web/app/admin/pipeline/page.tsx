@@ -1668,7 +1668,7 @@ export default function AdminPipelinePage() {
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>SLA</th>
+                <th style={thStyle}>Due</th>
                 <th style={thStyle}>Video</th>
                 <th style={thStyle}>Step</th>
                 {!simpleView && <th style={thStyle}>Status</th>}
@@ -1707,7 +1707,7 @@ export default function AdminPipelinePage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {/* SLA Badge - Compact */}
+                    {/* Due Status Badge */}
                     <td style={tdStyle}>
                       <span style={{
                         display: 'inline-block',
@@ -1719,8 +1719,9 @@ export default function AdminPipelinePage() {
                         fontSize: simpleView ? '9px' : '10px',
                         fontWeight: 'bold',
                       }}>
-                        {simpleView ? (video.sla_status === 'overdue' ? '!' : video.sla_status === 'due_soon' ? '~' : '✓') :
-                         (video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE' : 'OK')}
+                        {simpleView
+                          ? (video.sla_status === 'overdue' ? '!' : video.sla_status === 'due_soon' ? '~' : '✓')
+                          : (video.sla_status === 'overdue' ? 'Overdue' : video.sla_status === 'due_soon' ? 'Due Soon' : 'On Track')}
                       </span>
                     </td>
                     {/* Video Code */}

@@ -233,6 +233,51 @@ async function getBannedHooksForBrand(brandName: string, productId?: string): Pr
   }
 }
 
+interface ProvenHook {
+  hook_type: string;
+  hook_text: string;
+  hook_family: string | null;
+  approved_count: number;
+  posted_count: number;
+  winner_count: number;
+}
+
+/**
+ * Fetch proven hooks for this brand (hooks that have been approved/posted/won)
+ */
+async function getProvenHooksForBrand(brandName: string, productId?: string): Promise<ProvenHook[]> {
+  try {
+    // Try to fetch from proven_hooks table
+    let query = supabaseAdmin
+      .from("proven_hooks")
+      .select("hook_type, hook_text, hook_family, approved_count, posted_count, winner_count")
+      .eq("brand_name", brandName)
+      .gte("approved_count", 1) // At least 1 approval
+      .order("winner_count", { ascending: false })
+      .order("posted_count", { ascending: false })
+      .order("approved_count", { ascending: false })
+      .limit(20);
+
+    // Prefer product-specific hooks if available
+    if (productId) {
+      query = query.eq("product_id", productId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      // Table might not exist yet
+      console.log("proven_hooks table may not exist yet:", error.code);
+      return [];
+    }
+
+    return (data || []) as ProvenHook[];
+  } catch (error) {
+    console.error("Failed to fetch proven hooks:", error);
+    return [];
+  }
+}
+
 /**
  * Log an AI generation run to the database
  */
@@ -281,6 +326,7 @@ function buildEnhancedPrompt(params: {
   referenceVideoUrl?: string;
   recentHooks: string[];
   bannedHooks: string[];
+  provenHooks: ProvenHook[];
   nonce: string;
 }): string {
   const {
@@ -296,6 +342,7 @@ function buildEnhancedPrompt(params: {
     referenceVideoUrl,
     recentHooks,
     bannedHooks,
+    provenHooks,
     nonce,
   } = params;
 
@@ -358,6 +405,38 @@ ${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
   if (bannedHooks.length > 0) {
     prompt += `USER-BANNED HOOKS - DO NOT USE OR PARAPHRASE THESE:
 ${bannedHooks.slice(0, 30).map(h => `- "${h}"`).join("\n")}
+
+`;
+  }
+
+  // Include proven hooks as inspiration (high performers from this brand)
+  if (provenHooks.length > 0) {
+    const winnerHooks = provenHooks.filter(h => h.winner_count > 0);
+    const postedHooks = provenHooks.filter(h => h.posted_count > 0 && h.winner_count === 0);
+    const approvedHooks = provenHooks.filter(h => h.approved_count > 0 && h.posted_count === 0);
+
+    prompt += `PROVEN HIGH-PERFORMING HOOKS - Use these as STYLE INSPIRATION (create variations, not copies):
+`;
+    if (winnerHooks.length > 0) {
+      prompt += `
+WINNER HOOKS (got best engagement - create similar styles):
+${winnerHooks.slice(0, 5).map(h => `- [${h.hook_type}${h.hook_family ? `/${h.hook_family}` : ''}] "${h.hook_text}"`).join("\n")}
+`;
+    }
+    if (postedHooks.length > 0) {
+      prompt += `
+POSTED HOOKS (made it to platform - proven formats):
+${postedHooks.slice(0, 5).map(h => `- [${h.hook_type}${h.hook_family ? `/${h.hook_family}` : ''}] "${h.hook_text}"`).join("\n")}
+`;
+    }
+    if (approvedHooks.length > 0) {
+      prompt += `
+APPROVED HOOKS (passed review - good quality):
+${approvedHooks.slice(0, 3).map(h => `- [${h.hook_type}${h.hook_family ? `/${h.hook_family}` : ''}] "${h.hook_text}"`).join("\n")}
+`;
+    }
+    prompt += `
+IMPORTANT: Create NEW hooks inspired by the successful patterns above. Don't copy verbatim.
 
 `;
   }
@@ -728,6 +807,10 @@ export async function POST(request: Request) {
     const bannedHooks = await getBannedHooksForBrand(brand, product_id.trim());
     console.log(`[${correlationId}] Found ${bannedHooks.length} banned hooks to avoid`);
 
+    // Fetch proven hooks for inspiration
+    const provenHooks = await getProvenHooksForBrand(brand, product_id.trim());
+    console.log(`[${correlationId}] Found ${provenHooks.length} proven hooks for inspiration`);
+
     // Build the enhanced prompt
     const prompt = buildEnhancedPrompt({
       brand,
@@ -742,6 +825,7 @@ export async function POST(request: Request) {
       referenceVideoUrl: reference_video_url,
       recentHooks,
       bannedHooks,
+      provenHooks,
       nonce,
     });
 

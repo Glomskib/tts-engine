@@ -107,6 +107,7 @@ export default function VideoDrawer({
   const [details, setDetails] = useState<VideoDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
 
   // Brand/Product mapping state
   const [products, setProducts] = useState<Product[]>([]);
@@ -206,6 +207,83 @@ export default function VideoDrawer({
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
+  // Save script and hooks to library when approving
+  const saveToLibrary = async () => {
+    const brandName = video.brand_name || details?.video.brand_name;
+    if (!brandName) return;
+
+    const scriptText = video.script_locked_text || details?.script?.text;
+    const spokenHook = details?.brief?.hook_options?.[0];
+    const visualHook = details?.brief?.visual_hook;
+    const textHook = details?.brief?.on_screen_text_hook;
+    const hookFamily = details?.brief?.hook_type;
+
+    let savedItems: string[] = [];
+
+    // Save script to library
+    if (scriptText) {
+      try {
+        const res = await fetch('/api/scripts/library', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_id: video.id,
+            product_id: video.product_id,
+            brand_name: brandName,
+            concept_id: details?.brief?.concept_id,
+            script_text: scriptText,
+            hook_spoken: spokenHook,
+            hook_visual: visualHook,
+            hook_text: textHook,
+            hook_family: hookFamily,
+            approved_by: activeUser,
+          }),
+        });
+        if (res.ok) {
+          savedItems.push('script');
+        }
+      } catch (err) {
+        console.error('Failed to save script to library:', err);
+      }
+    }
+
+    // Save hooks as proven
+    const hooksToSave: { type: 'spoken' | 'visual' | 'text'; text: string }[] = [];
+    if (spokenHook) hooksToSave.push({ type: 'spoken', text: spokenHook });
+    if (visualHook) hooksToSave.push({ type: 'visual', text: visualHook });
+    if (textHook) hooksToSave.push({ type: 'text', text: textHook });
+
+    for (const hook of hooksToSave) {
+      try {
+        const res = await fetch('/api/hooks/proven', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brand_name: brandName,
+            product_id: video.product_id,
+            hook_type: hook.type,
+            hook_text: hook.text,
+            hook_family: hookFamily,
+            source_video_id: video.id,
+            increment_field: 'approved_count',
+            approved_by: activeUser,
+          }),
+        });
+        if (res.ok) {
+          savedItems.push(`${hook.type} hook`);
+        }
+      } catch (err) {
+        console.error(`Failed to save ${hook.type} hook:`, err);
+      }
+    }
+
+    // Show toast with what was saved
+    if (savedItems.length > 0) {
+      setSavedToast(`Saved to library: ${savedItems.join(', ')}`);
+      setTimeout(() => setSavedToast(null), 3000);
+    }
+  };
+
   const handlePrimaryAction = async () => {
     setLoading(true);
     try {
@@ -231,6 +309,8 @@ export default function VideoDrawer({
           shouldAdvance = true;
           break;
         case 'approve':
+          // Auto-save script and hooks to library before transitioning
+          await saveToLibrary();
           await onExecuteTransition(video.id, 'READY_TO_POST');
           onRefresh();
           shouldAdvance = true;
@@ -318,6 +398,33 @@ export default function VideoDrawer({
 
   return (
     <>
+      {/* Success Toast */}
+      {savedToast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '12px 24px',
+            backgroundColor: '#2b8a3e',
+            color: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            animation: 'slideUp 0.3s ease-out',
+          }}
+        >
+          <span>✓</span>
+          {savedToast}
+        </div>
+      )}
+
       {/* Overlay */}
       <div
         onClick={onClose}
@@ -356,7 +463,7 @@ export default function VideoDrawer({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div style={{ flex: 1 }}>
-              {/* Video Code with copy */}
+              {/* Video Code with copy + Copy Pack */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{
                   fontFamily: 'monospace',
@@ -379,6 +486,45 @@ export default function VideoDrawer({
                   }}
                 >
                   {copiedField === 'videoCode' ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={() => {
+                    const brand = video.brand_name || details?.video.brand_name || '';
+                    const product = video.product_name || details?.video.product_name || '';
+                    const spokenHook = details?.brief?.hook_options?.[0] || '';
+                    const visualHook = details?.brief?.visual_hook || '';
+                    const textHook = details?.brief?.on_screen_text_hook || '';
+                    const script = details?.script?.text || video.script_locked_text || '';
+                    const driveUrl = details?.assets?.google_drive_url || video.google_drive_url || '';
+
+                    const pack = [
+                      `Video Code: ${video.video_code || video.id.slice(0, 12)}`,
+                      `Brand: ${brand}`,
+                      `Product: ${product}`,
+                      spokenHook ? `Spoken Hook: ${spokenHook}` : null,
+                      visualHook ? `Visual Hook: ${visualHook}` : null,
+                      textHook ? `Text Hook: ${textHook}` : null,
+                      script ? `\nScript:\n${script}` : null,
+                      driveUrl ? `\nDrive: ${driveUrl}` : null,
+                    ].filter(Boolean).join('\n');
+
+                    navigator.clipboard.writeText(pack);
+                    setCopiedField('copyPack');
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '10px',
+                    backgroundColor: copiedField === 'copyPack' ? '#d3f9d8' : '#e7f5ff',
+                    border: '1px solid #74c0fc',
+                    borderRadius: '3px',
+                    cursor: 'pointer',
+                    color: copiedField === 'copyPack' ? '#2b8a3e' : '#1971c2',
+                    fontWeight: 'bold',
+                  }}
+                  title="Copy all essentials: code, brand, hooks, script, drive link"
+                >
+                  {copiedField === 'copyPack' ? 'Copied!' : '📋 Copy Pack'}
                 </button>
                 {video.video_code && (
                   <span style={{ fontSize: '10px', color: '#868e96' }} title={video.id}>

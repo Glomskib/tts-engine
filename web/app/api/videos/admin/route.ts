@@ -1,6 +1,6 @@
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
-import { createVideoFromProduct, type CreateVideoParams } from "../create-from-product/route";
+import { createVideoFromProduct, type CreateVideoParams } from "@/lib/createVideoFromProduct";
 
 export const runtime = "nodejs";
 

@@ -198,17 +198,30 @@ function SchemaErrorScreen({ result }: { result: SchemaCheckResult }) {
  * This is an async server component.
  */
 export default async function SchemaGuard({ children }: SchemaGuardProps) {
-  // Skip schema check for health endpoints to avoid circular dependency
-  // The health endpoint handles its own error reporting
+  // Skip schema check if env vars are missing (allows site to load for debugging)
+  const hasEnv = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const result = await checkSchema();
-
-  if (!result.ok) {
-    // Schema is incompatible - render error screen directly
-    // No redirect, no client JS needed
-    return <SchemaErrorScreen result={result} />;
+  if (!hasEnv) {
+    // Env not configured - skip schema check, let pages handle their own errors
+    // This allows /api/health to be accessible for debugging
+    console.warn("SchemaGuard: Skipping schema check - env vars not configured");
+    return <>{children}</>;
   }
 
-  // Schema is compatible - render children normally
+  try {
+    const result = await checkSchema();
+
+    if (!result.ok) {
+      // Schema is incompatible - render error screen directly
+      // No redirect, no client JS needed
+      return <SchemaErrorScreen result={result} />;
+    }
+  } catch (error) {
+    // Schema check failed (likely env/connection issue) - log and continue
+    console.error("SchemaGuard: Schema check failed", error);
+    // Don't block the app - let individual pages handle errors
+  }
+
+  // Schema is compatible (or check was skipped) - render children normally
   return <>{children}</>;
 }

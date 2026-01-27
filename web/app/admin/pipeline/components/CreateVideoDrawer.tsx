@@ -17,9 +17,20 @@ interface CreateVideoDrawerProps {
   onShowToast?: (message: string) => void;
 }
 
-type ScriptPath = 'existing' | 'generate' | 'later';
+interface AIDraft {
+  hook_options: string[];
+  angle_options: string[];
+  selected_hook: string;
+  selected_angle: string;
+  proof_type: 'testimonial' | 'demo' | 'comparison' | 'other';
+  notes: string;
+  broll_ideas: string[];
+  on_screen_text: string[];
+  script_draft: string;
+}
+
+type ScriptPath = 'ai_draft' | 'manual' | 'later';
 type ProofType = 'testimonial' | 'demo' | 'comparison' | 'other';
-type Priority = 'normal' | 'high';
 
 const CATEGORIES = [
   { value: 'supplements', label: 'Supplements' },
@@ -50,16 +61,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const [addingBrand, setAddingBrand] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
 
-  // Form state - Script path (Section B)
-  const [scriptPath, setScriptPath] = useState<ScriptPath>('later');
+  // AI Draft state
+  const [aiDraft, setAiDraft] = useState<AIDraft | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
-  // Form state - Brief Essentials (Section C)
-  const [hook, setHook] = useState('');
-  const [angle, setAngle] = useState('');
+  // Form state - Script path (default to AI)
+  const [scriptPath, setScriptPath] = useState<ScriptPath>('ai_draft');
+
+  // Form state - Brief (editable after AI draft)
+  const [selectedHook, setSelectedHook] = useState('');
+  const [selectedAngle, setSelectedAngle] = useState('');
   const [proofType, setProofType] = useState<ProofType>('testimonial');
   const [notes, setNotes] = useState('');
-  const [priority, setPriority] = useState<Priority>('normal');
-  const [targetAccount, setTargetAccount] = useState('');
+  const [scriptDraft, setScriptDraft] = useState('');
 
   // Submission state
   const [submitting, setSubmitting] = useState(false);
@@ -87,11 +102,11 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   // Handle ESC key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !aiLoading && !submitting) onClose();
     };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+  }, [onClose, aiLoading, submitting]);
 
   // Get unique brands from products
   const brands = Array.from(new Set(products.map(p => p.brand))).filter(Boolean).sort();
@@ -104,7 +119,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   // Get selected product details
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
-  // Handle brand change - reset product
+  // Handle brand change - reset product and AI draft
   const handleBrandChange = (brand: string) => {
     if (brand === '__add_new__') {
       setShowAddBrand(true);
@@ -112,16 +127,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     }
     setSelectedBrand(brand);
     setSelectedProductId('');
+    setAiDraft(null);
+    setAiError(null);
     setShowAddBrand(false);
   };
 
-  // Handle product change
+  // Handle product change - clear AI draft
   const handleProductChange = (productId: string) => {
     if (productId === '__add_new__') {
       setShowAddProduct(true);
       return;
     }
     setSelectedProductId(productId);
+    setAiDraft(null);
+    setAiError(null);
     setShowAddProduct(false);
   };
 
@@ -191,44 +210,89 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     }
   };
 
+  // Generate AI Draft
+  const generateAIDraft = async () => {
+    if (!selectedProductId) return;
+
+    setAiLoading(true);
+    setAiError(null);
+    setError('');
+
+    try {
+      const res = await fetch('/api/ai/draft-video-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: selectedProductId }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok && data.data) {
+        const draft = data.data as AIDraft;
+        setAiDraft(draft);
+        // Populate editable fields with AI suggestions
+        setSelectedHook(draft.selected_hook);
+        setSelectedAngle(draft.selected_angle);
+        setProofType(draft.proof_type);
+        setNotes(draft.notes);
+        setScriptDraft(draft.script_draft);
+        if (onShowToast) onShowToast('Brief generated!');
+      } else {
+        setAiError(data.error || 'AI generation failed');
+      }
+    } catch (err) {
+      console.error('AI draft error:', err);
+      setAiError('Failed to generate brief. You can proceed manually.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // Validate form
   const isProductSelected = selectedBrand && selectedProductId;
 
-  // For AI generate: require Hook OR Angle (one is enough)
-  const needsBriefForGenerate = scriptPath === 'generate' && !hook.trim() && !angle.trim();
-
-  const isValid = isProductSelected && !needsBriefForGenerate;
-
-  // Check if hook/angle are empty (will show warning for non-generate paths)
-  const hookEmpty = !hook.trim();
-  const angleEmpty = !angle.trim();
-  const showTbdWarning = scriptPath !== 'generate' && (hookEmpty || angleEmpty);
+  // With AI draft, we can create immediately. Without, we need basic fields.
+  const canCreate = isProductSelected && (
+    aiDraft !== null || // AI draft exists
+    scriptPath === 'later' || // Script coming later is always OK
+    scriptPath === 'manual' // Manual entry is OK (we'll use TBD defaults)
+  );
 
   // Reset form for "Create & Add Another"
-  const resetForm = () => {
-    setSelectedBrand('');
+  const resetForm = (keepBrand: boolean = false) => {
+    if (!keepBrand) {
+      setSelectedBrand('');
+    }
     setSelectedProductId('');
     setShowAddBrand(false);
     setShowAddProduct(false);
     setNewBrandName('');
     setNewProductName('');
     setNewProductCategory('supplements');
-    setScriptPath('later');
-    setHook('');
-    setAngle('');
+    setScriptPath('ai_draft');
+    setAiDraft(null);
+    setAiError(null);
+    setSelectedHook('');
+    setSelectedAngle('');
     setProofType('testimonial');
     setNotes('');
-    setPriority('normal');
-    setTargetAccount('');
+    setScriptDraft('');
     setError('');
   };
 
   // Handle submit
   const handleSubmit = async (closeAfter: boolean) => {
-    if (!isValid) return;
+    if (!canCreate) return;
 
     setSubmitting(true);
     setError('');
+
+    // Determine recording status based on script path
+    // ai_draft with script -> NOT_RECORDED (ready to record)
+    // later -> NEEDS_SCRIPT
+    // manual without script -> NEEDS_SCRIPT
+    const hasScript = scriptPath === 'ai_draft' && scriptDraft.trim();
+    const recordingScriptPath = hasScript ? 'existing' : (scriptPath === 'later' ? 'later' : 'later');
 
     try {
       const res = await fetch('/api/videos/create-from-product', {
@@ -236,15 +300,15 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           product_id: selectedProductId,
-          script_path: scriptPath,
+          script_path: recordingScriptPath,
           brief: {
-            hook: hook.trim() || undefined,
-            angle: angle.trim() || undefined,
+            hook: selectedHook.trim() || undefined,
+            angle: selectedAngle.trim() || undefined,
             proof_type: proofType,
             notes: notes.trim() || undefined,
           },
-          priority,
-          target_account: targetAccount.trim() || undefined,
+          // Include script draft if available
+          script_draft: scriptDraft.trim() || undefined,
         }),
       });
 
@@ -259,8 +323,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         if (closeAfter) {
           onClose();
         } else {
-          // Reset form for another entry
-          resetForm();
+          // Reset form, keep brand selected for fast batch entry
+          resetForm(true);
         }
       } else {
         setError(data.error || 'Failed to create video');
@@ -299,14 +363,6 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     letterSpacing: '0.5px',
   };
 
-  const sectionHeaderStyle = {
-    fontSize: '11px',
-    fontWeight: 'bold' as const,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
-    marginBottom: '12px',
-  };
-
   const inlineFormStyle = {
     marginTop: '8px',
     padding: '12px',
@@ -319,7 +375,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     <>
       {/* Overlay */}
       <div
-        onClick={onClose}
+        onClick={() => !aiLoading && !submitting && onClose()}
         style={{
           position: 'fixed',
           top: 0,
@@ -338,7 +394,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           top: 0,
           right: 0,
           bottom: 0,
-          width: '500px',
+          width: '520px',
           backgroundColor: colors.drawer,
           boxShadow: '-4px 0 20px rgba(0,0,0,0.2)',
           zIndex: 1000,
@@ -359,28 +415,30 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             </h2>
             <button
               onClick={onClose}
+              disabled={aiLoading || submitting}
               style={{
                 background: 'none',
                 border: 'none',
                 fontSize: '24px',
-                cursor: 'pointer',
+                cursor: aiLoading || submitting ? 'not-allowed' : 'pointer',
                 color: colors.textSecondary,
                 padding: '0',
                 lineHeight: 1,
+                opacity: aiLoading || submitting ? 0.5 : 1,
               }}
             >
               ×
             </button>
           </div>
           <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.textSecondary }}>
-            Add a new video task to the pipeline
+            Select Brand + Product, then let AI draft the brief
           </p>
         </div>
 
         {/* Scrollable Content */}
         <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
 
-          {/* ==================== SECTION A: REQUIRED ==================== */}
+          {/* ==================== SECTION: BRAND + PRODUCT ==================== */}
           <div style={{
             padding: '16px',
             backgroundColor: isDark ? '#1f3a5f' : '#e7f5ff',
@@ -388,10 +446,6 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             border: `1px solid ${isDark ? '#2d5a87' : '#74c0fc'}`,
             marginBottom: '16px',
           }}>
-            <div style={{ ...sectionHeaderStyle, color: isDark ? '#74c0fc' : '#1971c2' }}>
-              A. Required
-            </div>
-
             {/* Brand Select */}
             <div style={{ marginBottom: '14px' }}>
               <label style={labelStyle}>Brand *</label>
@@ -517,252 +571,291 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   </div>
                 </div>
               ) : (
-                <>
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => handleProductChange(e.target.value)}
-                    disabled={!selectedBrand}
-                    style={{
-                      ...selectStyle,
-                      opacity: selectedBrand ? 1 : 0.5,
-                    }}
-                  >
-                    <option value="">{selectedBrand ? 'Select a product...' : 'Select brand first'}</option>
-                    {filteredProducts.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} ({product.category})
-                      </option>
-                    ))}
-                    {selectedBrand && <option value="__add_new__">+ Add New Product...</option>}
-                  </select>
-                  {selectedProduct && (
-                    <div style={{ marginTop: '8px', fontSize: '12px', color: colors.textSecondary }}>
-                      Category: {selectedProduct.category}
-                      {selectedProduct.primary_link && (
-                        <a
-                          href={selectedProduct.primary_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ marginLeft: '8px', color: colors.info }}
-                        >
-                          View Product
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => handleProductChange(e.target.value)}
+                  disabled={!selectedBrand}
+                  style={{
+                    ...selectStyle,
+                    opacity: selectedBrand ? 1 : 0.5,
+                  }}
+                >
+                  <option value="">{selectedBrand ? 'Select a product...' : 'Select brand first'}</option>
+                  {filteredProducts.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} ({product.category})
+                    </option>
+                  ))}
+                  {selectedBrand && <option value="__add_new__">+ Add New Product...</option>}
+                </select>
               )}
             </div>
           </div>
 
-          {/* ==================== SECTION B: SCRIPT PATH ==================== */}
-          <div style={{
-            padding: '16px',
-            backgroundColor: colors.bgSecondary,
-            borderRadius: '8px',
-            border: `1px solid ${colors.border}`,
-            marginBottom: '16px',
-          }}>
-            <div style={{ ...sectionHeaderStyle, color: colors.textSecondary }}>
-              B. Script Path
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* Script Later - default */}
-              <label style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                padding: '12px',
-                backgroundColor: scriptPath === 'later' ? (isDark ? '#1f3a5f' : '#e7f5ff') : colors.bg,
-                borderRadius: '6px',
-                cursor: 'pointer',
-                border: `2px solid ${scriptPath === 'later' ? colors.info : 'transparent'}`,
-                transition: 'all 0.15s',
-              }}>
-                <input
-                  type="radio"
-                  name="scriptPath"
-                  checked={scriptPath === 'later'}
-                  onChange={() => setScriptPath('later')}
-                  style={{ marginTop: '2px' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', color: colors.text }}>
-                    Script coming later
-                  </div>
-                  <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px' }}>
-                    Create in "Needs Script" state - recorder will not be notified yet
-                  </div>
-                </div>
-              </label>
-
-              {/* Generate with AI */}
-              <label style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                padding: '12px',
-                backgroundColor: scriptPath === 'generate' ? (isDark ? '#2d4a3e' : '#d3f9d8') : colors.bg,
-                borderRadius: '6px',
-                cursor: 'pointer',
-                border: `2px solid ${scriptPath === 'generate' ? '#40c057' : 'transparent'}`,
-                transition: 'all 0.15s',
-              }}>
-                <input
-                  type="radio"
-                  name="scriptPath"
-                  checked={scriptPath === 'generate'}
-                  onChange={() => setScriptPath('generate')}
-                  style={{ marginTop: '2px' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', color: colors.text }}>
-                    Generate script (AI)
-                  </div>
-                  <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px' }}>
-                    Queue for AI generation - requires Hook or Angle below
-                  </div>
-                </div>
-              </label>
-            </div>
-
-            {/* Warning for AI generate without hook/angle */}
-            {needsBriefForGenerate && (
-              <div style={{
-                marginTop: '10px',
-                padding: '8px 10px',
-                backgroundColor: isDark ? '#4a2020' : '#ffe3e3',
-                border: `1px solid ${isDark ? '#8b3030' : '#ffa8a8'}`,
-                borderRadius: '6px',
-                fontSize: '11px',
-                color: isDark ? '#ffa8a8' : '#c92a2a',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-                <span>!</span>
-                <span>AI generation requires at least a Hook or Angle in the Brief section</span>
-              </div>
-            )}
-          </div>
-
-          {/* ==================== SECTION C: BRIEF ESSENTIALS ==================== */}
-          <div style={{
-            padding: '16px',
-            backgroundColor: colors.bgSecondary,
-            borderRadius: '8px',
-            border: `1px solid ${colors.border}`,
-          }}>
-            <div style={{ ...sectionHeaderStyle, color: colors.textSecondary }}>
-              C. Brief Essentials {scriptPath !== 'generate' && <span style={{ fontWeight: 'normal', opacity: 0.7 }}>(Optional)</span>}
-            </div>
-
-            {/* TBD Warning - only for non-generate paths */}
-            {showTbdWarning && (
-              <div style={{
-                marginBottom: '12px',
-                padding: '8px 10px',
-                backgroundColor: isDark ? '#4a3000' : '#fff3cd',
-                border: `1px solid ${isDark ? '#6b4400' : '#ffc107'}`,
-                borderRadius: '6px',
-                fontSize: '11px',
-                color: isDark ? '#ffc107' : '#856404',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-                <span>i</span>
-                <span>
-                  {hookEmpty && angleEmpty ? 'Hook and Angle will default to "TBD"' :
-                   hookEmpty ? 'Hook will default to "Hook TBD"' : 'Angle will default to "Angle TBD"'}
-                </span>
-              </div>
-            )}
-
-            {/* 2-column layout for Hook and Angle */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-              <div>
-                <label style={labelStyle}>
-                  Hook {scriptPath === 'generate' && !angle.trim() && <span style={{ color: '#e03131' }}>*</span>}
-                </label>
-                <input
-                  type="text"
-                  value={hook}
-                  onChange={(e) => setHook(e.target.value)}
-                  placeholder="Opening hook..."
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>
-                  Angle {scriptPath === 'generate' && !hook.trim() && <span style={{ color: '#e03131' }}>*</span>}
-                </label>
-                <input
-                  type="text"
-                  value={angle}
-                  onChange={(e) => setAngle(e.target.value)}
-                  placeholder="Marketing angle..."
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-
-            {/* 2-column layout for Proof Type and Priority */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-              <div>
-                <label style={labelStyle}>Proof Type</label>
-                <select
-                  value={proofType}
-                  onChange={(e) => setProofType(e.target.value as ProofType)}
-                  style={selectStyle}
-                >
-                  <option value="testimonial">Testimonial</option>
-                  <option value="demo">Demo</option>
-                  <option value="comparison">Comparison</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Priority</label>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as Priority)}
-                  style={selectStyle}
-                >
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Notes - full width */}
-            <div style={{ marginBottom: '12px' }}>
-              <label style={labelStyle}>Notes / B-Roll Ideas</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Additional notes, B-roll ideas..."
-                rows={2}
+          {/* ==================== AI GENERATE BUTTON ==================== */}
+          {isProductSelected && !aiDraft && (
+            <div style={{ marginBottom: '16px' }}>
+              <button
+                onClick={generateAIDraft}
+                disabled={aiLoading}
                 style={{
-                  ...inputStyle,
-                  resize: 'vertical',
+                  width: '100%',
+                  padding: '16px 20px',
+                  backgroundColor: aiLoading ? colors.bgTertiary : (isDark ? '#5c3d8b' : '#7950f2'),
+                  color: aiLoading ? colors.textMuted : 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: aiLoading ? 'not-allowed' : 'pointer',
+                  fontSize: '15px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s',
                 }}
-              />
-            </div>
+              >
+                {aiLoading ? (
+                  <>
+                    <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                    Generating Brief + Script...
+                  </>
+                ) : (
+                  <>
+                    <span>✨</span>
+                    Generate Brief + Script
+                  </>
+                )}
+              </button>
+              <p style={{
+                margin: '8px 0 0',
+                fontSize: '12px',
+                color: colors.textSecondary,
+                textAlign: 'center',
+              }}>
+                AI will draft hook, angle, notes, and script from Brand + Product
+              </p>
 
-            {/* Target Account */}
-            <div>
-              <label style={labelStyle}>Target Account</label>
-              <input
-                type="text"
-                value={targetAccount}
-                onChange={(e) => setTargetAccount(e.target.value)}
-                placeholder="@account (optional)"
-                style={inputStyle}
-              />
+              {aiError && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: isDark ? '#4a3000' : '#fff3cd',
+                  border: `1px solid ${isDark ? '#6b4400' : '#ffc107'}`,
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: isDark ? '#ffc107' : '#856404',
+                }}>
+                  {aiError}
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* ==================== BRIEF PREVIEW (AI-populated, editable) ==================== */}
+          {aiDraft && (
+            <div style={{
+              padding: '16px',
+              backgroundColor: isDark ? '#2d4a3e' : '#d3f9d8',
+              borderRadius: '8px',
+              border: `1px solid ${isDark ? '#3d6a4e' : '#69db7c'}`,
+              marginBottom: '16px',
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: isDark ? '#69db7c' : '#2b8a3e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  <span>✨</span> AI-Generated Brief
+                </div>
+                <button
+                  onClick={generateAIDraft}
+                  disabled={aiLoading}
+                  style={{
+                    padding: '4px 10px',
+                    backgroundColor: 'transparent',
+                    color: isDark ? '#69db7c' : '#2b8a3e',
+                    border: `1px solid ${isDark ? '#69db7c' : '#2b8a3e'}`,
+                    borderRadius: '4px',
+                    cursor: aiLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                  }}
+                >
+                  {aiLoading ? '...' : 'Regenerate'}
+                </button>
+              </div>
+
+              {/* Hook dropdown */}
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Hook</label>
+                <select
+                  value={selectedHook}
+                  onChange={(e) => setSelectedHook(e.target.value)}
+                  style={selectStyle}
+                >
+                  {aiDraft.hook_options.map((hook, idx) => (
+                    <option key={idx} value={hook}>{hook}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Angle dropdown */}
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Angle</label>
+                <select
+                  value={selectedAngle}
+                  onChange={(e) => setSelectedAngle(e.target.value)}
+                  style={selectStyle}
+                >
+                  {aiDraft.angle_options.map((angle, idx) => (
+                    <option key={idx} value={angle}>{angle}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Proof Type & Notes row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Proof Type</label>
+                  <select
+                    value={proofType}
+                    onChange={(e) => setProofType(e.target.value as ProofType)}
+                    style={selectStyle}
+                  >
+                    <option value="testimonial">Testimonial</option>
+                    <option value="demo">Demo</option>
+                    <option value="comparison">Comparison</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Notes</label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* B-roll ideas (read-only chips) */}
+              {aiDraft.broll_ideas.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={labelStyle}>B-Roll Ideas</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {aiDraft.broll_ideas.map((idea, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: isDark ? colors.bgTertiary : '#fff',
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {idea}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Script draft (expandable) */}
+              <div>
+                <label style={labelStyle}>Script Draft</label>
+                <textarea
+                  value={scriptDraft}
+                  onChange={(e) => setScriptDraft(e.target.value)}
+                  rows={4}
+                  style={{
+                    ...inputStyle,
+                    resize: 'vertical',
+                    fontSize: '13px',
+                    lineHeight: '1.5',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ==================== MANUAL MODE TOGGLE ==================== */}
+          {isProductSelected && !aiDraft && (
+            <div style={{
+              padding: '12px',
+              backgroundColor: colors.bgSecondary,
+              borderRadius: '6px',
+              border: `1px solid ${colors.border}`,
+              marginBottom: '16px',
+            }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <label style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: scriptPath === 'later' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: colors.text,
+                  border: `1px solid ${scriptPath === 'later' ? colors.info : 'transparent'}`,
+                }}>
+                  <input
+                    type="radio"
+                    name="manualPath"
+                    checked={scriptPath === 'later'}
+                    onChange={() => setScriptPath('later')}
+                  />
+                  Script later
+                </label>
+                <label style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: scriptPath === 'manual' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: colors.text,
+                  border: `1px solid ${scriptPath === 'manual' ? colors.info : 'transparent'}`,
+                }}>
+                  <input
+                    type="radio"
+                    name="manualPath"
+                    checked={scriptPath === 'manual'}
+                    onChange={() => setScriptPath('manual')}
+                  />
+                  Manual entry
+                </label>
+              </div>
+              <p style={{
+                margin: '8px 0 0',
+                fontSize: '11px',
+                color: colors.textSecondary,
+                textAlign: 'center',
+              }}>
+                Or skip AI and create video now
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ==================== STICKY FOOTER ==================== */}
@@ -788,16 +881,16 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             {/* Cancel */}
             <button
               onClick={onClose}
-              disabled={submitting}
+              disabled={submitting || aiLoading}
               style={{
                 padding: '12px 16px',
                 backgroundColor: colors.bgSecondary,
                 color: colors.text,
                 border: `1px solid ${colors.border}`,
                 borderRadius: '6px',
-                cursor: submitting ? 'not-allowed' : 'pointer',
+                cursor: submitting || aiLoading ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
-                opacity: submitting ? 0.5 : 1,
+                opacity: submitting || aiLoading ? 0.5 : 1,
               }}
             >
               Cancel
@@ -806,15 +899,15 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             {/* Create & Add Another */}
             <button
               onClick={() => handleSubmit(false)}
-              disabled={!isValid || submitting}
+              disabled={!canCreate || submitting || aiLoading}
               style={{
                 flex: 1,
                 padding: '12px 16px',
-                backgroundColor: isValid && !submitting ? (isDark ? '#2d4a3e' : '#d3f9d8') : (isDark ? '#2d3748' : '#e9ecef'),
-                color: isValid && !submitting ? (isDark ? '#69db7c' : '#2b8a3e') : (isDark ? '#718096' : '#adb5bd'),
-                border: `1px solid ${isValid && !submitting ? '#40c057' : (isDark ? '#4a5568' : '#ced4da')}`,
+                backgroundColor: canCreate && !submitting && !aiLoading ? (isDark ? '#2d4a3e' : '#d3f9d8') : (isDark ? '#2d3748' : '#e9ecef'),
+                color: canCreate && !submitting && !aiLoading ? (isDark ? '#69db7c' : '#2b8a3e') : (isDark ? '#718096' : '#adb5bd'),
+                border: `1px solid ${canCreate && !submitting && !aiLoading ? '#40c057' : (isDark ? '#4a5568' : '#ced4da')}`,
                 borderRadius: '6px',
-                cursor: isValid && !submitting ? 'pointer' : 'not-allowed',
+                cursor: canCreate && !submitting && !aiLoading ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
                 fontWeight: 500,
               }}
@@ -825,15 +918,15 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             {/* Create & Close - Primary */}
             <button
               onClick={() => handleSubmit(true)}
-              disabled={!isValid || submitting}
+              disabled={!canCreate || submitting || aiLoading}
               style={{
                 flex: 1,
                 padding: '12px 16px',
-                backgroundColor: isValid && !submitting ? '#228be6' : (isDark ? '#2d3748' : '#e9ecef'),
-                color: isValid && !submitting ? 'white' : (isDark ? '#718096' : '#adb5bd'),
-                border: isValid && !submitting ? 'none' : `1px solid ${isDark ? '#4a5568' : '#ced4da'}`,
+                backgroundColor: canCreate && !submitting && !aiLoading ? '#228be6' : (isDark ? '#2d3748' : '#e9ecef'),
+                color: canCreate && !submitting && !aiLoading ? 'white' : (isDark ? '#718096' : '#adb5bd'),
+                border: canCreate && !submitting && !aiLoading ? 'none' : `1px solid ${isDark ? '#4a5568' : '#ced4da'}`,
                 borderRadius: '6px',
-                cursor: isValid && !submitting ? 'pointer' : 'not-allowed',
+                cursor: canCreate && !submitting && !aiLoading ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
                 fontWeight: 'bold',
               }}
@@ -843,6 +936,14 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           </div>
         </div>
       </div>
+
+      {/* Keyframe animation for spinner */}
+      <style jsx>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 }

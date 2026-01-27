@@ -88,14 +88,15 @@ type ProofType = 'testimonial' | 'demo' | 'comparison' | 'other';
 type HookType = 'all' | 'pattern_interrupt' | 'relatable_pain' | 'proof_teaser' | 'contrarian' | 'mini_story' | 'curiosity_gap';
 type TonePreset = 'ugc_casual' | 'funny' | 'serious' | 'fast_paced' | 'soft_sell';
 
-const HOOK_TYPES: { value: HookType; label: string; description: string }[] = [
-  { value: 'all', label: 'All Families', description: 'Generate diverse hooks from all families' },
-  { value: 'pattern_interrupt', label: 'Pattern Interrupt', description: 'Break the scroll with something unexpected' },
-  { value: 'relatable_pain', label: 'Relatable Pain', description: 'Open with a common frustration' },
-  { value: 'proof_teaser', label: 'Proof Teaser', description: 'Tease results/transformation' },
-  { value: 'contrarian', label: 'Contrarian', description: 'Challenge common beliefs' },
-  { value: 'mini_story', label: 'Mini Story', description: 'Start with a quick personal story' },
-  { value: 'curiosity_gap', label: 'Curiosity Gap', description: 'Create an open loop that demands closure' },
+// Hook Strategy options (renamed from Hook Type for clarity)
+const HOOK_STRATEGIES: { value: HookType; label: string; description: string }[] = [
+  { value: 'all', label: 'Mixed (All Families)', description: 'Equal distribution across all hook families' },
+  { value: 'pattern_interrupt', label: 'Pattern Interrupt', description: '70% bias - Break the scroll with something unexpected' },
+  { value: 'relatable_pain', label: 'Relatable Pain', description: '70% bias - Open with a common frustration' },
+  { value: 'proof_teaser', label: 'Proof Teaser', description: '70% bias - Tease results/transformation' },
+  { value: 'contrarian', label: 'Contrarian', description: '70% bias - Challenge common beliefs' },
+  { value: 'mini_story', label: 'Mini Story', description: '70% bias - Start with a quick personal story' },
+  { value: 'curiosity_gap', label: 'Curiosity Gap', description: '70% bias - Create an open loop that demands closure' },
 ];
 
 const TONE_PRESETS: { value: TonePreset; label: string }[] = [
@@ -173,6 +174,9 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const [proofType, setProofType] = useState<ProofType>('testimonial');
   const [notes, setNotes] = useState('');
   const [scriptDraft, setScriptDraft] = useState('');
+
+  // Hook feedback state
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   // Submission state
   const [submitting, setSubmitting] = useState(false);
@@ -352,6 +356,65 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     if (score >= 50) return { score, label: 'Good', color: '#fab005' };
     if (score >= 25) return { score, label: 'Weak', color: '#fd7e14' };
     return { score, label: 'Needs work', color: '#e03131' };
+  };
+
+  // Submit hook feedback (approve/ban)
+  const submitHookFeedback = async (hookText: string, rating: -1 | 1) => {
+    if (!selectedBrand || !hookText) return;
+
+    setFeedbackLoading(true);
+    try {
+      const res = await fetch('/api/ai/hook-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand_name: selectedBrand,
+          product_id: selectedProductId || undefined,
+          hook_text: hookText,
+          rating,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        if (rating === -1 && aiDraft) {
+          // Remove banned hook from options and select next best
+          const currentOptions = aiDraft.spoken_hook_options || aiDraft.hook_options || [];
+          const filteredOptions = currentOptions.filter(h => h !== hookText);
+
+          if (filteredOptions.length > 0) {
+            // Find best remaining hook by score
+            let bestHook = filteredOptions[0];
+            let bestScore = 0;
+            if (aiDraft.hook_scores) {
+              for (const hook of filteredOptions) {
+                const score = aiDraft.hook_scores[hook]?.overall || 0;
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestHook = hook;
+                }
+              }
+            }
+            setSelectedSpokenHook(bestHook);
+            // Update aiDraft to remove the banned hook
+            setAiDraft({
+              ...aiDraft,
+              spoken_hook_options: filteredOptions,
+              hook_options: filteredOptions,
+            });
+          }
+          if (onShowToast) onShowToast('Hook banned - removed from options');
+        } else {
+          if (onShowToast) onShowToast('Hook approved!');
+        }
+      } else {
+        console.error('Failed to submit feedback:', data.error);
+      }
+    } catch (err) {
+      console.error('Hook feedback error:', err);
+    } finally {
+      setFeedbackLoading(false);
+    }
   };
 
   // Generate AI Draft
@@ -873,16 +936,16 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   border: `1px solid ${colors.border}`,
                   marginTop: '-6px',
                 }}>
-                  {/* Hook Type */}
+                  {/* Hook Strategy */}
                   <div style={{ marginBottom: '12px' }}>
-                    <label style={labelStyle}>Hook Type</label>
+                    <label style={labelStyle}>Hook Strategy</label>
                     <select value={hookType} onChange={(e) => setHookType(e.target.value as HookType)} style={selectStyle}>
-                      {HOOK_TYPES.map(ht => (
+                      {HOOK_STRATEGIES.map(ht => (
                         <option key={ht.value} value={ht.value}>{ht.label}</option>
                       ))}
                     </select>
                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textMuted }}>
-                      {HOOK_TYPES.find(h => h.value === hookType)?.description}
+                      {HOOK_STRATEGIES.find(h => h.value === hookType)?.description}
                     </p>
                   </div>
 
@@ -1097,6 +1160,45 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       );
                     })}
                   </select>
+                  {/* Thumbs up/down feedback buttons */}
+                  {selectedSpokenHook && (
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button
+                        onClick={() => submitHookFeedback(selectedSpokenHook, 1)}
+                        disabled={feedbackLoading}
+                        title="Approve this hook for future generations"
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: 'transparent',
+                          color: isDark ? '#69db7c' : '#2b8a3e',
+                          border: `1px solid ${isDark ? '#69db7c' : '#40c057'}`,
+                          borderRadius: '4px',
+                          cursor: feedbackLoading ? 'not-allowed' : 'pointer',
+                          fontSize: '11px',
+                          opacity: feedbackLoading ? 0.6 : 1,
+                        }}
+                      >
+                        👍 Approve
+                      </button>
+                      <button
+                        onClick={() => submitHookFeedback(selectedSpokenHook, -1)}
+                        disabled={feedbackLoading}
+                        title="Ban this hook - won't be used again for this brand"
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: 'transparent',
+                          color: isDark ? '#ff6b6b' : '#c92a2a',
+                          border: `1px solid ${isDark ? '#ff6b6b' : '#e03131'}`,
+                          borderRadius: '4px',
+                          cursor: feedbackLoading ? 'not-allowed' : 'pointer',
+                          fontSize: '11px',
+                          opacity: feedbackLoading ? 0.6 : 1,
+                        }}
+                      >
+                        👎 Ban
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Visual Hook - dropdown if options available, else textarea */}

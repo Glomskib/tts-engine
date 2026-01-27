@@ -208,6 +208,32 @@ async function getRecentHooksForProduct(productId: string, limit: number = 20): 
 }
 
 /**
+ * Fetch banned hooks for this brand/product
+ */
+async function getBannedHooksForBrand(brandName: string, productId?: string): Promise<string[]> {
+  try {
+    let query = supabaseAdmin
+      .from("ai_hook_feedback")
+      .select("hook_text")
+      .eq("brand_name", brandName)
+      .eq("rating", -1); // Banned hooks only
+
+    // Include product-specific and brand-wide bans
+    if (productId) {
+      query = query.or(`product_id.eq.${productId},product_id.is.null`);
+    }
+
+    const { data } = await query.limit(50);
+
+    if (!data) return [];
+    return data.map((row) => row.hook_text);
+  } catch (error) {
+    console.error("Failed to fetch banned hooks:", error);
+    return [];
+  }
+}
+
+/**
  * Log an AI generation run to the database
  */
 async function logGenerationRun(params: {
@@ -254,6 +280,7 @@ function buildEnhancedPrompt(params: {
   referenceScript?: string;
   referenceVideoUrl?: string;
   recentHooks: string[];
+  bannedHooks: string[];
   nonce: string;
 }): string {
   const {
@@ -268,6 +295,7 @@ function buildEnhancedPrompt(params: {
     referenceScript,
     referenceVideoUrl,
     recentHooks,
+    bannedHooks,
     nonce,
   } = params;
 
@@ -326,17 +354,39 @@ ${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
 
 `;
 
-  // Output specification
-  prompt += `Generate a JSON object with these EXACT fields:
+  // User-banned hooks (from feedback)
+  if (bannedHooks.length > 0) {
+    prompt += `USER-BANNED HOOKS - DO NOT USE OR PARAPHRASE THESE:
+${bannedHooks.slice(0, 30).map(h => `- "${h}"`).join("\n")}
 
-SPOKEN HOOKS (12 total, 2+ from EACH family):
+`;
+  }
+
+  // Output specification with strategy bias
+  const isStrategySelected = hookType && hookType !== "all" && HOOK_FAMILY_DESCRIPTIONS[hookType as HookFamily];
+
+  let hookDistribution: string;
+  if (isStrategySelected) {
+    // 70% bias toward selected strategy (8-9 hooks), rest spread across others
+    hookDistribution = `SPOKEN HOOKS (12 total, BIASED toward "${hookType}"):
+1. spoken_hook_options: Array of 12 unique spoken hooks (5-15 words each):
+   - 8-9 hooks from "${hookType}" family (PRIMARY - 70% bias)
+   - 3-4 hooks spread across other families for variety`;
+  } else {
+    // Mixed/all: equal distribution
+    hookDistribution = `SPOKEN HOOKS (12 total, 2+ from EACH family):
 1. spoken_hook_options: Array of 12 unique spoken hooks (5-15 words each):
    - At least 2 "pattern_interrupt" hooks
    - At least 2 "relatable_pain" hooks
    - At least 2 "proof_teaser" hooks
    - At least 2 "contrarian" hooks
    - At least 2 "mini_story" hooks
-   - At least 2 "curiosity_gap" hooks
+   - At least 2 "curiosity_gap" hooks`;
+  }
+
+  prompt += `Generate a JSON object with these EXACT fields:
+
+${hookDistribution}
 
 2. spoken_hook_by_family: Object with arrays for each family:
    {
@@ -674,6 +724,10 @@ export async function POST(request: Request) {
     const recentHooks = await getRecentHooksForProduct(product_id.trim());
     console.log(`[${correlationId}] Found ${recentHooks.length} recent hooks to avoid`);
 
+    // Fetch banned hooks from user feedback
+    const bannedHooks = await getBannedHooksForBrand(brand, product_id.trim());
+    console.log(`[${correlationId}] Found ${bannedHooks.length} banned hooks to avoid`);
+
     // Build the enhanced prompt
     const prompt = buildEnhancedPrompt({
       brand,
@@ -687,6 +741,7 @@ export async function POST(request: Request) {
       referenceScript: referenceScriptContent,
       referenceVideoUrl: reference_video_url,
       recentHooks,
+      bannedHooks,
       nonce,
     });
 

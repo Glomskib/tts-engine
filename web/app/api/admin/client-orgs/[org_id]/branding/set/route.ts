@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getClientOrgById } from '@/lib/client-org'
 import {
   ORG_BRANDING_EVENT_TYPE,
@@ -8,11 +8,6 @@ import {
   AccentColor,
 } from '@/lib/org-branding'
 import { getOrgPlan, isPaidOrgPlan } from '@/lib/subscription'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * POST /api/admin/client-orgs/[org_id]/branding/set

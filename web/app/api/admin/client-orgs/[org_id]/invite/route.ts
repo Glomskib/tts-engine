@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createOrgInvite, listPendingOrgInvites, InviteRole } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
 import { sendInviteEmail } from '@/lib/client-email-notifications'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 const VALID_ROLES: InviteRole[] = ['client', 'recorder', 'editor', 'uploader', 'admin']
 

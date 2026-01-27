@@ -41,7 +41,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           proof_type,
           hook_options,
           notes,
-          status
+          status,
+          visual_hook,
+          on_screen_text_hook,
+          on_screen_text_mid,
+          on_screen_text_cta,
+          hook_type,
+          reference_script,
+          reference_video_url,
+          tone_preset
         ),
         product:product_id (
           id,
@@ -87,6 +95,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         hook_options: video.concept.hook_options,
         notes: video.concept.notes,
         status: video.concept.status,
+        // Hook Package fields
+        visual_hook: video.concept.visual_hook || null,
+        on_screen_text_hook: video.concept.on_screen_text_hook || null,
+        on_screen_text_mid: video.concept.on_screen_text_mid || null,
+        on_screen_text_cta: video.concept.on_screen_text_cta || null,
+        hook_type: video.concept.hook_type || null,
+        // Reference fields
+        reference_script: video.concept.reference_script || null,
+        reference_video_url: video.concept.reference_video_url || null,
+        tone_preset: video.concept.tone_preset || null,
       };
     }
 

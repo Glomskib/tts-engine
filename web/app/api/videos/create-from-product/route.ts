@@ -4,6 +4,21 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+export interface HookPackageParams {
+  spoken_hook?: string;
+  visual_hook?: string;
+  on_screen_text_hook?: string;
+  on_screen_text_mid?: string[];
+  on_screen_text_cta?: string;
+  hook_type?: string;
+}
+
+export interface ReferenceParams {
+  script_text?: string;
+  video_url?: string;
+  tone_preset?: string;
+}
+
 export interface CreateVideoParams {
   product_id: string;
   script_path: "existing" | "generate" | "later";
@@ -14,6 +29,9 @@ export interface CreateVideoParams {
     proof_type?: string;
     notes?: string;
   };
+  hook_package?: HookPackageParams;
+  reference?: ReferenceParams;
+  script_draft?: string;
   priority?: "normal" | "high";
   target_account?: string;
 }
@@ -44,6 +62,9 @@ export async function createVideoFromProduct(
     script_path,
     existing_script_id,
     brief,
+    hook_package,
+    reference,
+    script_draft,
     priority,
     target_account,
   } = params;
@@ -124,7 +145,7 @@ export async function createVideoFromProduct(
 
     // Build the brief/concept object with defaults
     const briefData = brief || {};
-    const hookValue = briefData.hook?.trim() || "Hook TBD";
+    const hookValue = hook_package?.spoken_hook?.trim() || briefData.hook?.trim() || "Hook TBD";
     const angleValue = briefData.angle?.trim() || "Angle TBD";
     const proofTypeValue = briefData.proof_type || "testimonial";
 
@@ -137,6 +158,22 @@ export async function createVideoFromProduct(
       hook_options: [hookValue],
       notes: briefData.notes || null,
     };
+
+    // Add hook package fields if provided
+    if (hook_package) {
+      conceptPayload.visual_hook = hook_package.visual_hook?.trim() || null;
+      conceptPayload.on_screen_text_hook = hook_package.on_screen_text_hook?.trim() || null;
+      conceptPayload.on_screen_text_mid = hook_package.on_screen_text_mid || null;
+      conceptPayload.on_screen_text_cta = hook_package.on_screen_text_cta?.trim() || null;
+      conceptPayload.hook_type = hook_package.hook_type || null;
+    }
+
+    // Add reference data if provided
+    if (reference) {
+      conceptPayload.reference_script = reference.script_text || null;
+      conceptPayload.reference_video_url = reference.video_url || null;
+      conceptPayload.tone_preset = reference.tone_preset || null;
+    }
 
     // Create concept first (to link brief data)
     const { data: concept, error: conceptError } = await supabaseAdmin
@@ -163,6 +200,14 @@ export async function createVideoFromProduct(
       recording_status: recordingStatus,
       google_drive_url: "", // Will be set later
     };
+
+    // If script draft is provided, lock it immediately
+    if (script_draft && script_draft.trim()) {
+      videoPayload.script_locked_text = script_draft.trim();
+      videoPayload.script_locked_version = 1;
+      // If script is provided, set to NOT_RECORDED (ready for recording)
+      videoPayload.recording_status = "NOT_RECORDED";
+    }
 
     // Add posting_meta with target_account and priority if provided
     const postingMeta: Record<string, unknown> = {};

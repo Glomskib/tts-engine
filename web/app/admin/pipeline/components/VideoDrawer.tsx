@@ -52,6 +52,12 @@ interface VideoDetails {
     proof_type: string | null;
     hook_options: string[] | null;
     notes: string | null;
+    // Hook Package fields
+    visual_hook: string | null;
+    on_screen_text_hook: string | null;
+    on_screen_text_mid: string[] | null;
+    on_screen_text_cta: string | null;
+    hook_type: string | null;
   } | null;
   script: {
     text: string;
@@ -615,22 +621,67 @@ export default function VideoDrawer({
               </div>
             )}
 
-            {/* Top Hook - most important for recorders */}
-            {details?.brief?.hook_options && details.brief.hook_options.length > 0 && (
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontSize: '10px', color: '#868e96', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>
-                  Hook
+            {/* Hook Package - key info for recorders/editors */}
+            {details?.brief && ((details.brief.hook_options && details.brief.hook_options.length > 0) || details.brief.visual_hook || details.brief.on_screen_text_hook) && (
+              <div style={{
+                marginBottom: '12px',
+                padding: '10px',
+                backgroundColor: isDark ? '#1a3a2f' : '#d3f9d8',
+                borderRadius: '6px',
+                border: `1px solid ${isDark ? '#2d5a47' : '#69db7c'}`,
+              }}>
+                <div style={{ fontSize: '10px', color: isDark ? '#69db7c' : '#2b8a3e', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>
+                  Hook Package {details.brief.hook_type && <span style={{ fontWeight: 'normal', textTransform: 'none' }}>({details.brief.hook_type.replace(/_/g, ' ')})</span>}
                 </div>
-                <div style={{
-                  padding: '8px 10px',
-                  backgroundColor: '#fff3bf',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: '#495057',
-                  fontWeight: '500',
-                }}>
-                  {details.brief.hook_options[0]}
-                </div>
+
+                {/* Spoken Hook */}
+                {details.brief.hook_options && details.brief.hook_options.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '2px' }}>SPOKEN HOOK</div>
+                    <div style={{
+                      padding: '6px 8px',
+                      backgroundColor: isDark ? '#2d5a47' : '#fff3bf',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: isDark ? '#fff' : '#495057',
+                      fontWeight: '500',
+                    }}>
+                      {details.brief.hook_options[0]}
+                    </div>
+                  </div>
+                )}
+
+                {/* Visual Hook */}
+                {details.brief.visual_hook && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '2px' }}>VISUAL HOOK</div>
+                    <div style={{
+                      padding: '6px 8px',
+                      backgroundColor: isDark ? '#2d3a4f' : '#e7f5ff',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: isDark ? '#74c0fc' : '#1971c2',
+                    }}>
+                      {details.brief.visual_hook}
+                    </div>
+                  </div>
+                )}
+
+                {/* On-Screen Text Hook */}
+                {details.brief.on_screen_text_hook && (
+                  <div>
+                    <div style={{ fontSize: '9px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '2px' }}>ON-SCREEN TEXT</div>
+                    <div style={{
+                      padding: '6px 8px',
+                      backgroundColor: isDark ? '#3d2a4f' : '#f3f0ff',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: isDark ? '#b197fc' : '#7048e8',
+                    }}>
+                      {details.brief.on_screen_text_hook}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -727,8 +778,131 @@ export default function VideoDrawer({
                 <div>
                   {details?.brief ? (
                     <>
-                      {/* Hook */}
-                      {details.brief.hook_options && details.brief.hook_options.length > 0 && (
+                      {/* Hook Package Section */}
+                      {((details.brief.hook_options && details.brief.hook_options.length > 0) || details.brief.visual_hook || details.brief.on_screen_text_hook) && (
+                        <div style={{
+                          marginBottom: '16px',
+                          padding: '12px',
+                          backgroundColor: isDark ? '#1a3a2f' : '#d3f9d8',
+                          borderRadius: '8px',
+                          border: `1px solid ${isDark ? '#2d5a47' : '#69db7c'}`,
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <h4 style={{ margin: 0, fontSize: '12px', color: isDark ? '#69db7c' : '#2b8a3e', textTransform: 'uppercase' }}>
+                              Hook Package {details.brief.hook_type && <span style={{ fontWeight: 'normal', textTransform: 'none' }}>({details.brief.hook_type.replace(/_/g, ' ')})</span>}
+                            </h4>
+                            <button
+                              onClick={() => {
+                                const hookText = [
+                                  details.brief?.hook_options?.[0] ? `Spoken: ${details.brief.hook_options[0]}` : '',
+                                  details.brief?.visual_hook ? `Visual: ${details.brief.visual_hook}` : '',
+                                  details.brief?.on_screen_text_hook ? `Text Hook: ${details.brief.on_screen_text_hook}` : '',
+                                  details.brief?.on_screen_text_cta ? `CTA: ${details.brief.on_screen_text_cta}` : '',
+                                ].filter(Boolean).join('\n');
+                                copyToClipboard(hookText, 'hookPackage');
+                              }}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '10px',
+                                backgroundColor: copiedField === 'hookPackage' ? '#d3f9d8' : '#e9ecef',
+                                border: 'none',
+                                borderRadius: '3px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {copiedField === 'hookPackage' ? 'Copied!' : 'Copy All'}
+                            </button>
+                          </div>
+
+                          {/* Spoken Hook */}
+                          {details.brief.hook_options && details.brief.hook_options.length > 0 && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>SPOKEN HOOK</div>
+                              <div style={{
+                                padding: '8px 10px',
+                                backgroundColor: isDark ? '#2d5a47' : '#fff3bf',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                color: isDark ? '#fff' : '#495057',
+                              }}>
+                                {details.brief.hook_options[0]}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Visual Hook */}
+                          {details.brief.visual_hook && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>VISUAL HOOK (Opening Shot)</div>
+                              <div style={{
+                                padding: '8px 10px',
+                                backgroundColor: isDark ? '#2d3a4f' : '#e7f5ff',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                color: isDark ? '#74c0fc' : '#1971c2',
+                              }}>
+                                {details.brief.visual_hook}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* On-Screen Text Hook */}
+                          {details.brief.on_screen_text_hook && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>ON-SCREEN TEXT HOOK</div>
+                              <div style={{
+                                padding: '8px 10px',
+                                backgroundColor: isDark ? '#3d2a4f' : '#f3f0ff',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                color: isDark ? '#b197fc' : '#7048e8',
+                              }}>
+                                {details.brief.on_screen_text_hook}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Mid-Video Overlays */}
+                          {details.brief.on_screen_text_mid && details.brief.on_screen_text_mid.length > 0 && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>MID-VIDEO OVERLAYS</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {details.brief.on_screen_text_mid.map((text, idx) => (
+                                  <div key={idx} style={{
+                                    padding: '6px 10px',
+                                    backgroundColor: isDark ? colors.bgTertiary : '#f8f9fa',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    color: colors.text,
+                                  }}>
+                                    {idx + 1}. {text}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* CTA Overlay */}
+                          {details.brief.on_screen_text_cta && (
+                            <div>
+                              <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>CTA OVERLAY</div>
+                              <div style={{
+                                padding: '8px 10px',
+                                backgroundColor: isDark ? '#4a3000' : '#fff9db',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                fontWeight: 'bold',
+                                color: isDark ? '#ffd43b' : '#e67700',
+                              }}>
+                                {details.brief.on_screen_text_cta}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Legacy Hook Options - show if multiple hooks and no hook package */}
+                      {details.brief.hook_options && details.brief.hook_options.length > 1 && !details.brief.visual_hook && !details.brief.on_screen_text_hook && (
                         <div style={{ marginBottom: '16px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <h4 style={{ margin: 0, fontSize: '12px', color: '#868e96', textTransform: 'uppercase' }}>Hook Options</h4>

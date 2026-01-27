@@ -24,9 +24,67 @@ import {
 } from "./video-pipeline";
 import { getLockedScriptVersion } from "./video-script-versions";
 import { lintScriptAndCaption, type ComplianceLintResult } from "./compliance-linter";
-import { getCompletePostingMeta, validatePostingMetaCompleteness } from "./posting-meta";
+import { getCompletePostingMeta, validatePostingMetaCompleteness, type PostingMeta } from "./posting-meta";
 import { hasFinalAsset } from "./video-assets";
 import { notifyPipelineTransition } from "./pipeline-notifications";
+
+// ============================================================================
+// Editor Checklist Validation
+// ============================================================================
+
+interface EditorChecklistResult {
+  ok: boolean;
+  missing: string[];
+  present: string[];
+}
+
+async function validateEditorChecklist(
+  supabase: SupabaseClient,
+  video_id: string
+): Promise<EditorChecklistResult> {
+  const missing: string[] = [];
+  const present: string[] = [];
+
+  // Fetch video for google_drive_url and posting_meta
+  const { data: video, error } = await supabase
+    .from("videos")
+    .select("id, google_drive_url, posting_meta")
+    .eq("id", video_id)
+    .single();
+
+  if (error || !video) {
+    return { ok: false, missing: ["video_not_found"], present: [] };
+  }
+
+  // Check google_drive_url (drive folder)
+  if (video.google_drive_url && video.google_drive_url.trim().length > 0) {
+    present.push("drive_folder_url");
+  } else {
+    missing.push("drive_folder_url");
+  }
+
+  // Check final_mp4 asset
+  const hasFinal = await hasFinalAsset(supabase, video_id);
+  if (hasFinal) {
+    present.push("final_mp4");
+  } else {
+    missing.push("final_mp4");
+  }
+
+  // Check editor_checklist_completed_at in posting_meta
+  const postingMeta = video.posting_meta as PostingMeta | null;
+  if (postingMeta?.editor_checklist_completed_at) {
+    present.push("editor_checklist_completed_at");
+  } else {
+    missing.push("editor_checklist_completed_at");
+  }
+
+  return {
+    ok: missing.length === 0,
+    missing,
+    present,
+  };
+}
 
 // ============================================================================
 // Types
@@ -263,6 +321,39 @@ export async function transitionVideoStatusAtomic(
         current_status: currentStatus,
         message: `Transition to '${target_status}' requires reason_code and reason_message`,
         error_code: "REASON_REQUIRED",
+      };
+    }
+  }
+
+  // Editor checklist gate for needs_edit → ready_to_post transition (unless force=true)
+  // This ensures the editor has completed their checklist before marking as ready
+  if (currentStatus === "needs_edit" && target_status === "ready_to_post" && !force) {
+    const editorChecklist = await validateEditorChecklist(supabase, video_id);
+
+    if (!editorChecklist.ok) {
+      await writeVideoEvent(supabase, {
+        video_id,
+        event_type: "transition_rejected",
+        correlation_id,
+        actor,
+        from_status: currentStatus,
+        to_status: target_status,
+        details: {
+          error_code: "EDITOR_CHECKLIST_INCOMPLETE",
+          missing: editorChecklist.missing,
+          present: editorChecklist.present,
+          reason: "Transition to ready_to_post requires completed editor checklist",
+        },
+      });
+
+      return {
+        ok: false,
+        video_id,
+        action: "precondition_failed",
+        previous_status: currentStatus,
+        current_status: currentStatus,
+        message: `Editor checklist incomplete. Missing: ${editorChecklist.missing.join(", ")}`,
+        error_code: "EDITOR_CHECKLIST_INCOMPLETE",
       };
     }
   }

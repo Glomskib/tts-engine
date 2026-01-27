@@ -18,6 +18,8 @@ interface VideoDrawerProps {
   onOpenPostModal: (video: QueueVideo) => void;
   onOpenHandoffModal?: (video: QueueVideo) => void;
   onRefresh: () => void;
+  /** Called after completing primary action to advance to next item */
+  onAdvanceToNext?: () => void;
 }
 
 interface VideoDetails {
@@ -81,6 +83,7 @@ export default function VideoDrawer({
   onOpenPostModal,
   onOpenHandoffModal,
   onRefresh,
+  onAdvanceToNext,
 }: VideoDrawerProps) {
   const hydrated = useHydrated();
   const [loading, setLoading] = useState(false);
@@ -138,6 +141,8 @@ export default function VideoDrawer({
         await onClaimVideo(video.id);
       }
 
+      let shouldAdvance = false;
+
       switch (primaryAction.type) {
         case 'add_script':
           onOpenAttachModal(video);
@@ -145,20 +150,31 @@ export default function VideoDrawer({
         case 'record':
           await onExecuteTransition(video.id, 'RECORDED');
           onRefresh();
+          shouldAdvance = true;
           break;
         case 'upload_edit':
           await onExecuteTransition(video.id, 'EDITED');
           onRefresh();
+          shouldAdvance = true;
           break;
         case 'approve':
           await onExecuteTransition(video.id, 'READY_TO_POST');
           onRefresh();
+          shouldAdvance = true;
           break;
         case 'post':
           onOpenPostModal(video);
           break;
         default:
           break;
+      }
+
+      // Auto-advance to next task after completing an action
+      if (shouldAdvance && onAdvanceToNext) {
+        // Small delay so user sees the action complete
+        setTimeout(() => {
+          onAdvanceToNext();
+        }, 500);
       }
     } finally {
       setLoading(false);
@@ -404,6 +420,81 @@ export default function VideoDrawer({
             )}
           </div>
         </div>
+
+        {/* Quick Info Section - Always visible above tabs */}
+        {!detailsLoading && (
+          <div style={{
+            padding: '12px 20px',
+            backgroundColor: '#fafbfc',
+            borderBottom: '1px solid #e0e0e0',
+          }}>
+            {/* Top Hook - most important for recorders */}
+            {details?.brief?.hook_options && details.brief.hook_options.length > 0 && (
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ fontSize: '10px', color: '#868e96', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>
+                  Hook
+                </div>
+                <div style={{
+                  padding: '8px 10px',
+                  backgroundColor: '#fff3bf',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: '#495057',
+                  fontWeight: '500',
+                }}>
+                  {details.brief.hook_options[0]}
+                </div>
+              </div>
+            )}
+
+            {/* Quick info row: Angle + Proof Type + Drive link */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {details?.brief?.angle && (
+                <span style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#e7f5ff',
+                  color: '#1971c2',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                }}>
+                  {details.brief.angle.length > 30 ? details.brief.angle.slice(0, 30) + '...' : details.brief.angle}
+                </span>
+              )}
+              {details?.brief?.proof_type && (
+                <span style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#f3f0ff',
+                  color: '#7048e8',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                }}>
+                  {details.brief.proof_type}
+                </span>
+              )}
+              {(video.google_drive_url || details?.assets.google_drive_url) && (
+                <a
+                  href={video.google_drive_url || details?.assets.google_drive_url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                    backgroundColor: '#fff9db',
+                    color: '#e67700',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    textDecoration: 'none',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  📁 Drive Folder
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={{

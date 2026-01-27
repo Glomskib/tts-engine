@@ -22,6 +22,7 @@ import { getLockedScriptVersion, type ScriptVersion } from "./video-script-versi
 export interface PostingMeta {
   target_account: string | null;
   uploader_checklist_completed_at?: string | null;
+  editor_checklist_completed_at?: string | null;
 }
 
 /**
@@ -196,6 +197,19 @@ export function validatePostingMetaFields(meta: Partial<PostingMeta>): {
     }
   }
 
+  // Validate editor_checklist_completed_at if provided
+  if (meta.editor_checklist_completed_at !== undefined && meta.editor_checklist_completed_at !== null) {
+    if (typeof meta.editor_checklist_completed_at !== "string") {
+      errors.push({ field: "editor_checklist_completed_at", message: "must be a string (ISO timestamp)" });
+    } else {
+      // Validate it's a valid ISO date
+      const date = new Date(meta.editor_checklist_completed_at);
+      if (isNaN(date.getTime())) {
+        errors.push({ field: "editor_checklist_completed_at", message: "must be a valid ISO timestamp" });
+      }
+    }
+  }
+
   return {
     ok: errors.length === 0,
     errors,
@@ -308,6 +322,10 @@ export async function updatePostingMeta(
       updates.uploader_checklist_completed_at !== undefined
         ? updates.uploader_checklist_completed_at
         : currentMeta.uploader_checklist_completed_at || null,
+    editor_checklist_completed_at:
+      updates.editor_checklist_completed_at !== undefined
+        ? updates.editor_checklist_completed_at
+        : currentMeta.editor_checklist_completed_at || null,
   };
 
   // Determine what changed
@@ -320,6 +338,12 @@ export async function updatePostingMeta(
     updates.uploader_checklist_completed_at !== currentMeta.uploader_checklist_completed_at
   ) {
     changedFields.push("uploader_checklist_completed_at");
+  }
+  if (
+    updates.editor_checklist_completed_at !== undefined &&
+    updates.editor_checklist_completed_at !== currentMeta.editor_checklist_completed_at
+  ) {
+    changedFields.push("editor_checklist_completed_at");
   }
 
   // Update the video

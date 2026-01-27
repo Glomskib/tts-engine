@@ -966,6 +966,32 @@ export default function AdminPipelinePage() {
     setDrawerVideo(null);
   };
 
+  // Advance to next video in queue (for auto-advance after completing action)
+  const advanceToNextVideo = () => {
+    if (!drawerVideo) return;
+
+    const videos = getRoleFilteredVideos();
+    const currentIndex = videos.findIndex(v => v.id === drawerVideo.id);
+
+    if (currentIndex >= 0 && currentIndex < videos.length - 1) {
+      // Advance to next video
+      setDrawerVideo(videos[currentIndex + 1]);
+    } else if (videos.length > 0 && currentIndex === videos.length - 1) {
+      // At the end of list, go back to first if there are unclaimed videos
+      const firstUnclaimed = videos.find(v =>
+        !v.claimed_by || (v.claim_expires_at && new Date(v.claim_expires_at) <= new Date())
+      );
+      if (firstUnclaimed) {
+        setDrawerVideo(firstUnclaimed);
+      } else {
+        // No more tasks, close drawer and show completion message
+        closeDrawer();
+      }
+    } else {
+      closeDrawer();
+    }
+  };
+
   // Handle row click to open drawer (exclude buttons and inputs)
   const handleRowClick = (e: React.MouseEvent, video: QueueVideo) => {
     const target = e.target as HTMLElement;
@@ -1727,8 +1753,9 @@ export default function AdminPipelinePage() {
                         )}
                       </button>
                     </td>
-                    {/* MORE MENU */}
+                    {/* MORE MENU - Admin only */}
                     <td style={tdStyle}>
+                      {isAdminMode ? (
                       <div style={{ position: 'relative' }}>
                         <button
                           onClick={toggleMoreMenu}
@@ -1743,7 +1770,7 @@ export default function AdminPipelinePage() {
                         >
                           ⋯
                         </button>
-                        {moreMenuOpen && (
+                        {moreMenuOpen && isAdminMode && (
                           <div style={{
                             position: 'absolute',
                             right: 0,
@@ -1756,68 +1783,8 @@ export default function AdminPipelinePage() {
                             minWidth: '140px',
                             marginTop: '4px',
                           }}>
-                            {/* Details - Opens drawer */}
-                            <button
-                              onClick={() => { openDrawer(video); closeMoreMenu(); }}
-                              style={{
-                                display: 'block',
-                                width: '100%',
-                                padding: '10px 14px',
-                                textAlign: 'left',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: '#212529',
-                                fontSize: '13px',
-                                borderBottom: '1px solid #f0f0f0',
-                              }}
-                            >
-                              📄 Details
-                            </button>
-                            {/* Start - Always visible when available */}
-                            {unclaimed && (
-                              <button
-                                onClick={() => { claimVideo(video.id); closeMoreMenu(); }}
-                                disabled={isProcessing}
-                                style={{
-                                  display: 'block',
-                                  width: '100%',
-                                  padding: '10px 14px',
-                                  textAlign: 'left',
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '13px',
-                                  color: '#28a745',
-                                  borderBottom: '1px solid #f0f0f0',
-                                }}
-                              >
-                                ▶️ Start
-                              </button>
-                            )}
-                            {/* Put Back - Always visible when assigned to me */}
+                            {/* Admin-only: Handoff */}
                             {claimedByMe && (
-                              <button
-                                onClick={() => { releaseVideo(video.id); closeMoreMenu(); }}
-                                disabled={isProcessing}
-                                style={{
-                                  display: 'block',
-                                  width: '100%',
-                                  padding: '10px 14px',
-                                  textAlign: 'left',
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '13px',
-                                  color: '#dc3545',
-                                  borderBottom: isAdminMode ? '1px solid #f0f0f0' : 'none',
-                                }}
-                              >
-                                ↩️ Put Back
-                              </button>
-                            )}
-                            {/* Admin-only options below this line */}
-                            {isAdminMode && claimedByMe && (
                               <button
                                 onClick={() => { openHandoffModal(video); closeMoreMenu(); }}
                                 style={{
@@ -1836,7 +1803,7 @@ export default function AdminPipelinePage() {
                                 🔄 Handoff
                               </button>
                             )}
-                            {isAdminMode && video.recording_status !== 'REJECTED' && video.recording_status !== 'POSTED' && (
+                            {video.recording_status !== 'REJECTED' && video.recording_status !== 'POSTED' && (
                               <button
                                 onClick={() => { executeTransition(video.id, 'REJECTED'); closeMoreMenu(); }}
                                 style={{
@@ -1857,6 +1824,7 @@ export default function AdminPipelinePage() {
                           </div>
                         )}
                       </div>
+                      ) : null}
                       {hasError && <span style={{ color: '#dc3545', fontSize: '10px', display: 'block' }}>{claimError?.message}</span>}
                     </td>
                   </tr>
@@ -2475,6 +2443,7 @@ export default function AdminPipelinePage() {
               }
             });
           }}
+          onAdvanceToNext={advanceToNextVideo}
         />
       )}
     </div>

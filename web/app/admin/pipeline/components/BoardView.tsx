@@ -18,11 +18,13 @@ interface BoardViewProps {
   videos: QueueVideo[];
   simpleMode: boolean;
   activeUser: string;
+  isAdmin: boolean;
   onClaimVideo: (videoId: string) => Promise<void>;
   onReleaseVideo: (videoId: string) => Promise<void>;
   onExecuteTransition: (videoId: string, targetStatus: string) => Promise<void>;
   onOpenAttachModal: (video: QueueVideo) => void;
   onOpenPostModal: (video: QueueVideo) => void;
+  onOpenHandoffModal?: (video: QueueVideo) => void;
   onRefresh: () => void;
   filters: BoardFilters;
   onFiltersChange: (filters: BoardFilters) => void;
@@ -35,11 +37,13 @@ export default function BoardView({
   videos,
   simpleMode,
   activeUser,
+  isAdmin,
   onClaimVideo,
   onReleaseVideo,
   onExecuteTransition,
   onOpenAttachModal,
   onOpenPostModal,
+  onOpenHandoffModal,
   onRefresh,
   filters,
   onFiltersChange,
@@ -268,12 +272,14 @@ export default function BoardView({
           video={selectedVideo}
           simpleMode={simpleMode}
           activeUser={activeUser}
+          isAdmin={isAdmin}
           onClose={closeDrawer}
           onClaimVideo={onClaimVideo}
           onReleaseVideo={onReleaseVideo}
           onExecuteTransition={onExecuteTransition}
           onOpenAttachModal={onOpenAttachModal}
           onOpenPostModal={onOpenPostModal}
+          onOpenHandoffModal={onOpenHandoffModal}
           onRefresh={onRefresh}
         />
       )}

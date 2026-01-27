@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, getTimeAgo } from '@/lib/useHydrated';
+import UploaderDrawer from './components/UploaderDrawer';
 
 interface AuthUser {
   id: string;
@@ -101,6 +102,9 @@ export default function UploaderPage() {
   // Admin dev tools state
   const [seedingVideo, setSeedingVideo] = useState(false);
   const [seedError, setSeedError] = useState('');
+
+  // Drawer state
+  const [drawerVideo, setDrawerVideo] = useState<UploaderVideo | null>(null);
 
   // Auth check
   useEffect(() => {
@@ -343,6 +347,30 @@ export default function UploaderPage() {
     URL.revokeObjectURL(url);
   }, [videos, statusFilter]);
 
+  // Open/close drawer
+  const openDrawer = (video: UploaderVideo) => {
+    setDrawerVideo(video);
+  };
+
+  const closeDrawer = () => {
+    setDrawerVideo(null);
+  };
+
+  // Handle row click to open drawer
+  const handleRowClick = (e: React.MouseEvent, video: UploaderVideo) => {
+    const target = e.target as HTMLElement;
+    // Don't open drawer if clicking on buttons, links, or inputs
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('input') ||
+      target.closest('select')
+    ) {
+      return;
+    }
+    openDrawer(video);
+  };
+
   // Seed test video (admin only)
   const handleSeedTestVideo = useCallback(async () => {
     if (!authUser?.isAdmin) return;
@@ -570,14 +598,18 @@ export default function UploaderPage() {
                 </thead>
                 <tbody>
                   {videos.map((video) => (
-                    <tr key={video.video_id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <tr
+                      key={video.video_id}
+                      onClick={(e) => handleRowClick(e, video)}
+                      className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                    >
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/pipeline/${video.video_id}`}
-                          className="font-mono text-xs text-blue-600 hover:underline"
+                        <button
+                          onClick={() => openDrawer(video)}
+                          className="font-mono text-xs text-blue-600 hover:underline bg-transparent border-none cursor-pointer p-0"
                         >
                           {video.video_id.slice(0, 8)}...
-                        </Link>
+                        </button>
                         <div className="text-xs text-slate-400">
                           {hydrated ? getTimeAgo(video.created_at) : video.created_at.split('T')[0]}
                         </div>
@@ -758,6 +790,26 @@ export default function UploaderPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Video Details Drawer */}
+      {drawerVideo && (
+        <UploaderDrawer
+          video={drawerVideo}
+          onClose={closeDrawer}
+          onOpenPostModal={(video) => {
+            openMarkPostedModal(video);
+          }}
+          onMarkChecklistComplete={handleMarkChecklistComplete}
+          onRefresh={() => {
+            fetchQueue();
+            // Update drawer video if still exists
+            const updated = videos.find(v => v.video_id === drawerVideo.video_id);
+            if (updated) {
+              setDrawerVideo(updated);
+            }
+          }}
+        />
       )}
     </div>
   );

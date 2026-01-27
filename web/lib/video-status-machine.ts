@@ -26,6 +26,7 @@ import { getLockedScriptVersion } from "./video-script-versions";
 import { lintScriptAndCaption, type ComplianceLintResult } from "./compliance-linter";
 import { getCompletePostingMeta, validatePostingMetaCompleteness } from "./posting-meta";
 import { hasFinalAsset } from "./video-assets";
+import { notifyPipelineTransition } from "./pipeline-notifications";
 
 // ============================================================================
 // Types
@@ -504,6 +505,17 @@ export async function transitionVideoStatusAtomic(
       },
     });
   }
+
+  // Send pipeline notifications to next role lane (async, non-blocking)
+  notifyPipelineTransition(supabase, {
+    video_id,
+    from_status: currentStatus,
+    to_status: target_status,
+    actor,
+    correlation_id,
+  }).catch((err) => {
+    console.error("Failed to send pipeline notification:", err);
+  });
 
   return {
     ok: true,

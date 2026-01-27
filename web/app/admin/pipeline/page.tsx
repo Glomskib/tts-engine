@@ -8,6 +8,8 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
 import IncidentBanner from '../components/IncidentBanner';
 import AdminNav from '../components/AdminNav';
+import VideoDrawer from './components/VideoDrawer';
+import AppLayout from '@/app/components/AppLayout';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
 // import type { BoardFilters } from './types';
@@ -416,6 +418,9 @@ export default function AdminPipelinePage() {
   // View mode state (simple vs advanced) - simple is default for VA usability
   const [simpleView, setSimpleView] = useState(true);
 
+  // Drawer state - which video is open in the details drawer
+  const [drawerVideo, setDrawerVideo] = useState<QueueVideo | null>(null);
+
 
   // Reference data for filters
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
@@ -544,10 +549,16 @@ export default function AdminPipelinePage() {
     return filterVideosByRole(queueVideos, vaMode);
   };
 
-  // Handle primary action click
+  // Handle primary action click (auto-assigns if video is available)
   const handlePrimaryActionClick = async (video: QueueVideo) => {
     const action = getPrimaryAction(video);
     if (action.disabled) return;
+
+    // Auto-assign if video is available (not assigned to anyone)
+    const unclaimed = isUnclaimed(video);
+    if (unclaimed && action.actionType !== 'none') {
+      await claimVideo(video.id);
+    }
 
     switch (action.actionType) {
       case 'modal':
@@ -942,6 +953,33 @@ export default function AdminPipelinePage() {
     } finally {
       setPosting(false);
     }
+  };
+
+  // Open drawer for a video
+  const openDrawer = (video: QueueVideo) => {
+    setDrawerVideo(video);
+    setOpenMenuVideoId(null); // Close any open menu
+  };
+
+  // Close drawer
+  const closeDrawer = () => {
+    setDrawerVideo(null);
+  };
+
+  // Handle row click to open drawer (exclude buttons and inputs)
+  const handleRowClick = (e: React.MouseEvent, video: QueueVideo) => {
+    const target = e.target as HTMLElement;
+    // Don't open drawer if clicking on buttons, links, inputs, or within the more menu
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('input') ||
+      target.closest('select') ||
+      target.closest('[data-menu]')
+    ) {
+      return;
+    }
+    openDrawer(video);
   };
 
   // Open handoff modal
@@ -1428,10 +1466,13 @@ export default function AdminPipelinePage() {
           })}
         </div>
 
-        {/* Claimed filter */}
+        {/* Assignment filter */}
         <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Claim Status:</span>
-          {(['any', 'unclaimed', 'claimed'] as const).map(filter => (
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Assignment:</span>
+          {(['any', 'unclaimed', 'claimed'] as const).map(filter => {
+            // User-friendly labels
+            const label = filter === 'any' ? 'All' : filter === 'unclaimed' ? 'Available' : 'In Progress';
+            return (
             <label key={filter} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
               <input
                 type="radio"
@@ -1440,9 +1481,9 @@ export default function AdminPipelinePage() {
                 onChange={() => setClaimedFilter(filter)}
                 disabled={myWorkOnly} // Disable when My Work is active
               />
-              <span style={{ fontSize: '14px', color: myWorkOnly ? '#999' : '#333' }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</span>
+              <span style={{ fontSize: '14px', color: myWorkOnly ? '#999' : '#333' }}>{label}</span>
             </label>
-          ))}
+          );})}
           {queueLoading && <span style={{ color: '#666', fontSize: '12px', marginLeft: '10px' }}>Loading...</span>}
         </div>
 
@@ -1485,7 +1526,7 @@ export default function AdminPipelinePage() {
                 {!simpleView && <th style={thStyle}>Next</th>}
                 {!simpleView && <th style={thStyle}>Last Changed</th>}
                 {!simpleView && <th style={thStyle}>Script</th>}
-                {!simpleView && <th style={thStyle}>Claim</th>}
+                {!simpleView && <th style={thStyle}>Assigned</th>}
                 <th style={thStyle}>Action</th>
                 <th style={thStyle}>⋯</th>
               </tr>
@@ -1507,7 +1548,14 @@ export default function AdminPipelinePage() {
                 const closeMoreMenu = () => setOpenMenuVideoId(null);
 
                 return (
-                  <tr key={video.id} style={{ backgroundColor: claimedByMe ? '#e8f5e9' : claimedByOther ? '#fff3e0' : 'transparent' }}>
+                  <tr
+                    key={video.id}
+                    onClick={(e) => handleRowClick(e, video)}
+                    style={{
+                      backgroundColor: claimedByMe ? '#e8f5e9' : claimedByOther ? '#fff3e0' : 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
                     {/* SLA Badge - Compact */}
                     <td style={tdStyle}>
                       <span style={{
@@ -1641,11 +1689,11 @@ export default function AdminPipelinePage() {
                         </span>
                       </td>
                     )}
-                    {/* Claim Status - Advanced only */}
+                    {/* Assignment Status - Advanced only */}
                     {!simpleView && (
                       <td style={tdStyle}>
                         <span style={{ fontSize: '11px', color: claimedByMe ? '#2b8a3e' : claimedByOther ? '#e67700' : '#868e96' }}>
-                          {claimedByMe ? '✓ Mine' : claimedByOther ? '🔒 Locked' : 'Open'}
+                          {claimedByMe ? '✓ My Task' : claimedByOther ? `🔒 ${video.claimed_by?.slice(0, 8)}` : 'Available'}
                         </span>
                       </td>
                     )}
@@ -1708,22 +1756,25 @@ export default function AdminPipelinePage() {
                             minWidth: '140px',
                             marginTop: '4px',
                           }}>
-                            {/* Details - Always visible */}
-                            <Link
-                              href={`/admin/pipeline/${video.id}`}
+                            {/* Details - Opens drawer */}
+                            <button
+                              onClick={() => { openDrawer(video); closeMoreMenu(); }}
                               style={{
                                 display: 'block',
+                                width: '100%',
                                 padding: '10px 14px',
-                                textDecoration: 'none',
+                                textAlign: 'left',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
                                 color: '#212529',
                                 fontSize: '13px',
                                 borderBottom: '1px solid #f0f0f0',
                               }}
-                              onClick={() => closeMoreMenu()}
                             >
                               📄 Details
-                            </Link>
-                            {/* Claim - Always visible when unclaimed */}
+                            </button>
+                            {/* Start - Always visible when available */}
                             {unclaimed && (
                               <button
                                 onClick={() => { claimVideo(video.id); closeMoreMenu(); }}
@@ -1741,10 +1792,10 @@ export default function AdminPipelinePage() {
                                   borderBottom: '1px solid #f0f0f0',
                                 }}
                               >
-                                ✋ Claim
+                                ▶️ Start
                               </button>
                             )}
-                            {/* Release - Always visible when claimed by me */}
+                            {/* Put Back - Always visible when assigned to me */}
                             {claimedByMe && (
                               <button
                                 onClick={() => { releaseVideo(video.id); closeMoreMenu(); }}
@@ -1762,7 +1813,7 @@ export default function AdminPipelinePage() {
                                   borderBottom: isAdminMode ? '1px solid #f0f0f0' : 'none',
                                 }}
                               >
-                                ↩️ Release
+                                ↩️ Put Back
                               </button>
                             )}
                             {/* Admin-only options below this line */}
@@ -1867,16 +1918,16 @@ export default function AdminPipelinePage() {
         </div>
       </div>
 
-      {/* Claimed Videos - Advanced View Only */}
+      {/* In Progress Videos - Advanced View Only */}
       <section style={{ marginBottom: '40px' }}>
-        <h2>Currently Claimed ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
+        <h2>In Progress ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
         {filteredClaimedVideos.length > 0 ? (
           <table style={tableStyle}>
             <thead>
               <tr>
                 <th style={thStyle}>ID</th>
-                <th style={thStyle}>Claimed By</th>
-                <th style={thStyle}>Claimed</th>
+                <th style={thStyle}>Assigned To</th>
+                <th style={thStyle}>Started</th>
                 <th style={thStyle}>Expires</th>
               </tr>
             </thead>
@@ -2398,6 +2449,33 @@ export default function AdminPipelinePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Video Details Drawer */}
+      {drawerVideo && (
+        <VideoDrawer
+          video={drawerVideo}
+          simpleMode={simpleView}
+          activeUser={activeUser}
+          isAdmin={isAdminMode}
+          onClose={closeDrawer}
+          onClaimVideo={claimVideo}
+          onReleaseVideo={releaseVideo}
+          onExecuteTransition={executeTransition}
+          onOpenAttachModal={(video) => { openAttachModal(video); }}
+          onOpenPostModal={(video) => { openPostModal(video); }}
+          onOpenHandoffModal={isAdminMode ? openHandoffModal : undefined}
+          onRefresh={() => {
+            fetchQueueVideos();
+            // Update drawer video if it still exists in the list
+            fetchQueueVideos().then(() => {
+              const updatedVideo = queueVideos.find(v => v.id === drawerVideo.id);
+              if (updatedVideo) {
+                setDrawerVideo(updatedVideo);
+              }
+            });
+          }}
+        />
       )}
     </div>
   );

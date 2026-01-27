@@ -17,24 +17,44 @@ interface CreateVideoDrawerProps {
   onShowToast?: (message: string) => void;
 }
 
-// Hook Package interface
-interface HookPackage {
-  spoken_hook_options: string[];
-  selected_spoken_hook: string;
-  visual_hook: string;
-  on_screen_text_hook_options: string[];
-  selected_on_screen_text_hook: string;
-  on_screen_text_mid: string[];
-  on_screen_text_cta: string;
+// Hook score interface
+interface HookScore {
+  curiosity: number;
+  clarity: number;
+  ugc_fit: number;
+  overall: number;
 }
 
-interface AIDraft extends HookPackage {
+// Enhanced AI Draft interface
+interface AIDraft {
+  // Spoken hooks (expanded)
+  spoken_hook_options: string[];
+  spoken_hook_by_family?: Record<string, string[]>;
+  hook_scores?: Record<string, HookScore>;
+  selected_spoken_hook: string;
+
+  // Visual hooks (multiple options now)
+  visual_hook_options?: string[];
+  selected_visual_hook?: string;
+  visual_hook: string;
+
+  // On-screen text
+  on_screen_text_hook_options: string[];
+  selected_on_screen_text_hook: string;
+  mid_overlays?: string[];
+  cta_overlay_options?: string[];
+  selected_cta_overlay?: string;
+  on_screen_text_mid: string[];
+  on_screen_text_cta: string;
+
+  // Standard fields
   angle_options: string[];
   selected_angle: string;
   proof_type: 'testimonial' | 'demo' | 'comparison' | 'other';
   notes: string;
   broll_ideas: string[];
   script_draft: string;
+
   // Legacy
   hook_options: string[];
   selected_hook: string;
@@ -65,17 +85,17 @@ const TARGET_LENGTHS: { value: TargetLength; label: string }[] = [
 
 type ScriptPath = 'ai_draft' | 'manual' | 'later';
 type ProofType = 'testimonial' | 'demo' | 'comparison' | 'other';
-type HookType = 'pattern_interrupt' | 'relatable_pain' | 'proof_teaser' | 'contrarian' | 'social_proof' | 'mini_story' | 'offer_urgency';
+type HookType = 'all' | 'pattern_interrupt' | 'relatable_pain' | 'proof_teaser' | 'contrarian' | 'mini_story' | 'curiosity_gap';
 type TonePreset = 'ugc_casual' | 'funny' | 'serious' | 'fast_paced' | 'soft_sell';
 
 const HOOK_TYPES: { value: HookType; label: string; description: string }[] = [
+  { value: 'all', label: 'All Families', description: 'Generate diverse hooks from all families' },
   { value: 'pattern_interrupt', label: 'Pattern Interrupt', description: 'Break the scroll with something unexpected' },
   { value: 'relatable_pain', label: 'Relatable Pain', description: 'Open with a common frustration' },
   { value: 'proof_teaser', label: 'Proof Teaser', description: 'Tease results/transformation' },
   { value: 'contrarian', label: 'Contrarian', description: 'Challenge common beliefs' },
-  { value: 'social_proof', label: 'Social Proof', description: 'Lead with popularity/virality' },
   { value: 'mini_story', label: 'Mini Story', description: 'Start with a quick personal story' },
-  { value: 'offer_urgency', label: 'Offer Urgency', description: 'Create FOMO/urgency' },
+  { value: 'curiosity_gap', label: 'Curiosity Gap', description: 'Create an open loop that demands closure' },
 ];
 
 const TONE_PRESETS: { value: TonePreset; label: string }[] = [
@@ -120,7 +140,10 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const [referenceScriptText, setReferenceScriptText] = useState('');
   const [referenceVideoUrl, setReferenceVideoUrl] = useState('');
   const [tonePreset, setTonePreset] = useState<TonePreset>('ugc_casual');
-  const [hookType, setHookType] = useState<HookType>('pattern_interrupt');
+  const [hookType, setHookType] = useState<HookType>('all');
+
+  // More options toggle
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   // AI Draft state
   const [aiDraft, setAiDraft] = useState<AIDraft | null>(null);
@@ -350,6 +373,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           target_length: targetLength,
           reference_script_text: referenceScriptText.trim() || undefined,
           reference_video_url: referenceVideoUrl.trim() || undefined,
+          nonce: crypto.randomUUID(),
         }),
       });
 
@@ -360,12 +384,27 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         setAiDraft(draft);
         setOriginalAiDraft(draft); // Store original for readjust comparison
         setUserModifiedFields(new Set()); // Reset modified tracking
+
+        // Select best-scoring hook if hook_scores available
+        let bestHook = draft.selected_spoken_hook || draft.selected_hook;
+        if (draft.hook_scores) {
+          const hookOptions = draft.spoken_hook_options || draft.hook_options || [];
+          let bestScore = 0;
+          for (const hook of hookOptions) {
+            const score = draft.hook_scores[hook]?.overall || 0;
+            if (score > bestScore) {
+              bestScore = score;
+              bestHook = hook;
+            }
+          }
+        }
+
         // Populate Hook Package fields
-        setSelectedSpokenHook(draft.selected_spoken_hook || draft.selected_hook);
-        setVisualHook(draft.visual_hook || '');
+        setSelectedSpokenHook(bestHook);
+        setVisualHook(draft.selected_visual_hook || draft.visual_hook_options?.[0] || draft.visual_hook || '');
         setSelectedTextHook(draft.selected_on_screen_text_hook || '');
-        setOnScreenTextMid(draft.on_screen_text_mid || []);
-        setOnScreenTextCta(draft.on_screen_text_cta || 'Link in bio!');
+        setOnScreenTextMid(draft.on_screen_text_mid || draft.mid_overlays || []);
+        setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Link in bio!');
         // Populate standard fields
         setSelectedAngle(draft.selected_angle);
         setProofType(draft.proof_type);
@@ -415,6 +454,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           target_length: targetLength,
           reference_script_text: referenceScriptText.trim() || undefined,
           reference_video_url: referenceVideoUrl.trim() || undefined,
+          nonce: crypto.randomUUID(),
           // Readjust mode
           mode: 'readjust',
           locked_fields: Array.from(userModifiedFields),
@@ -1049,13 +1089,17 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     }}
                     style={selectStyle}
                   >
-                    {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).map((hook, idx) => (
-                      <option key={idx} value={hook}>{hook}</option>
-                    ))}
+                    {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).map((hook, idx) => {
+                      const score = aiDraft.hook_scores?.[hook]?.overall;
+                      const scoreLabel = score ? ` (${Math.round(score * 100)}%)` : '';
+                      return (
+                        <option key={idx} value={hook}>{hook}{scoreLabel}</option>
+                      );
+                    })}
                   </select>
                 </div>
 
-                {/* Visual Hook */}
+                {/* Visual Hook - dropdown if options available, else textarea */}
                 <div style={{ marginBottom: '10px' }}>
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
                     Visual Hook (opening shot)
@@ -1063,15 +1107,30 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
                     )}
                   </label>
-                  <textarea
-                    value={visualHook}
-                    onChange={(e) => {
-                      setVisualHook(e.target.value);
-                      markFieldModified('visualHook');
-                    }}
-                    rows={2}
-                    style={{ ...inputStyle, fontSize: '13px', resize: 'vertical' }}
-                  />
+                  {aiDraft.visual_hook_options && aiDraft.visual_hook_options.length > 0 ? (
+                    <select
+                      value={visualHook}
+                      onChange={(e) => {
+                        setVisualHook(e.target.value);
+                        markFieldModified('visualHook');
+                      }}
+                      style={selectStyle}
+                    >
+                      {aiDraft.visual_hook_options.map((vh, idx) => (
+                        <option key={idx} value={vh}>{vh}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <textarea
+                      value={visualHook}
+                      onChange={(e) => {
+                        setVisualHook(e.target.value);
+                        markFieldModified('visualHook');
+                      }}
+                      rows={2}
+                      style={{ ...inputStyle, fontSize: '13px', resize: 'vertical' }}
+                    />
+                  )}
                 </div>
 
                 {/* On-Screen Text Hook dropdown */}
@@ -1127,7 +1186,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   </div>
                 </div>
 
-                {/* CTA Overlay */}
+                {/* CTA Overlay - dropdown if options available, else text input */}
                 <div>
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
                     CTA Overlay
@@ -1135,15 +1194,30 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
                     )}
                   </label>
-                  <input
-                    type="text"
-                    value={onScreenTextCta}
-                    onChange={(e) => {
-                      setOnScreenTextCta(e.target.value);
-                      markFieldModified('onScreenTextCta');
-                    }}
-                    style={inputStyle}
-                  />
+                  {aiDraft.cta_overlay_options && aiDraft.cta_overlay_options.length > 0 ? (
+                    <select
+                      value={onScreenTextCta}
+                      onChange={(e) => {
+                        setOnScreenTextCta(e.target.value);
+                        markFieldModified('onScreenTextCta');
+                      }}
+                      style={selectStyle}
+                    >
+                      {aiDraft.cta_overlay_options.map((cta, idx) => (
+                        <option key={idx} value={cta}>{cta}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={onScreenTextCta}
+                      onChange={(e) => {
+                        setOnScreenTextCta(e.target.value);
+                        markFieldModified('onScreenTextCta');
+                      }}
+                      style={inputStyle}
+                    />
+                  )}
                 </div>
               </div>
 

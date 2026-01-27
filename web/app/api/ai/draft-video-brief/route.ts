@@ -4,18 +4,17 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// Hook types for dialing in effective hooks
-const HOOK_TYPES = [
+// Hook families for diverse generation
+const HOOK_FAMILIES = [
   "pattern_interrupt",
   "relatable_pain",
   "proof_teaser",
   "contrarian",
-  "social_proof",
   "mini_story",
-  "offer_urgency",
+  "curiosity_gap",
 ] as const;
 
-type HookType = (typeof HOOK_TYPES)[number];
+type HookFamily = (typeof HOOK_FAMILIES)[number];
 
 // Tone presets
 const TONE_PRESETS = [
@@ -28,23 +27,59 @@ const TONE_PRESETS = [
 
 type TonePreset = (typeof TONE_PRESETS)[number];
 
+// Banned weak phrases (configurable)
+const BANNED_PHRASES = [
+  "stop what you're doing",
+  "game changer",
+  "here's why",
+  "the difference?",
+  "you won't believe",
+  "this changed my life",
+  "life hack",
+  "mind blown",
+];
+
+// Hook score interface
+interface HookScore {
+  curiosity: number;
+  clarity: number;
+  ugc_fit: number;
+  overall: number;
+}
+
+// Enhanced output interface
 interface DraftVideoBriefResult {
-  // Hook Package
+  // Hook Package (expanded)
   spoken_hook_options: string[];
+  spoken_hook_by_family: Record<string, string[]>;
+  hook_scores: Record<string, HookScore>;
   selected_spoken_hook: string;
-  visual_hook: string;
+
+  // Visual hooks (multiple options now)
+  visual_hook_options: string[];
+  selected_visual_hook: string;
+  visual_hook: string; // Legacy alias
+
+  // On-screen text options
   on_screen_text_hook_options: string[];
   selected_on_screen_text_hook: string;
+  mid_overlays: string[];
+  cta_overlay_options: string[];
+  selected_cta_overlay: string;
+
+  // Legacy fields for backwards compatibility
   on_screen_text_mid: string[];
   on_screen_text_cta: string;
-  // Existing fields
+
+  // Standard fields
   angle_options: string[];
   selected_angle: string;
   proof_type: "testimonial" | "demo" | "comparison" | "other";
   notes: string;
   broll_ideas: string[];
   script_draft: string;
-  // Legacy fields for backwards compatibility
+
+  // Legacy fields
   hook_options: string[];
   selected_hook: string;
   on_screen_text: string[];
@@ -52,12 +87,13 @@ interface DraftVideoBriefResult {
 
 interface DraftVideoBriefInput {
   product_id: string;
-  hook_type?: HookType;
+  hook_type?: string; // Now accepts any family or "all"
   tone_preset?: TonePreset;
   target_length?: string;
   reference_script_text?: string;
   reference_script_id?: string;
   reference_video_url?: string;
+  nonce?: string; // Unique ID for this generation request
   // Readjust mode fields
   mode?: "generate" | "readjust";
   locked_fields?: string[];
@@ -124,255 +160,240 @@ function safeParseJSON(content: string): { success: boolean; data: Partial<Draft
   return { success: false, data: null, strategy: "failed" };
 }
 
-// Hook type descriptions for AI prompting
-const HOOK_TYPE_DESCRIPTIONS: Record<HookType, string> = {
-  pattern_interrupt: "Start with something unexpected that breaks the scroll pattern - a bold statement, surprising action, or jarring visual cue",
-  relatable_pain: "Open with a frustration or problem the viewer immediately relates to - 'I was so tired of...' or 'Does this happen to you?'",
-  proof_teaser: "Tease incredible results or transformation right away - 'Wait until you see what happened...' or show before/after glimpse",
-  contrarian: "Challenge common beliefs or go against the grain - 'Everyone's wrong about...' or 'Stop doing this...'",
-  social_proof: "Lead with popularity, virality, or others' experiences - 'Why everyone's buying...' or 'This product went viral because...'",
-  mini_story: "Start with a quick personal story setup - 'So yesterday I was...' or 'Let me tell you what happened when...'",
-  offer_urgency: "Create immediate FOMO or urgency - 'Last chance to...' or 'They're almost sold out...'",
+// Hook family descriptions for AI prompting
+const HOOK_FAMILY_DESCRIPTIONS: Record<HookFamily, string> = {
+  pattern_interrupt: "Start with something jarring, unexpected, or pattern-breaking. Make them stop scrolling. Bold statements, surprising visuals, or unexpected reveals.",
+  relatable_pain: "Open with a frustration, problem, or struggle the viewer deeply relates to. 'Ever feel like...', 'Am I the only one who...', empathetic pain points.",
+  proof_teaser: "Tease incredible results, transformation, or proof right away. 'What happened after 30 days...', 'The before vs after...', hint at outcome.",
+  contrarian: "Challenge conventional wisdom or go against popular opinion. 'Everyone's wrong about...', 'Unpopular opinion:', 'Stop doing this...'",
+  mini_story: "Start with a personal anecdote or story setup. 'So yesterday...', 'Story time:', 'Let me tell you what happened...', narrative hooks.",
+  curiosity_gap: "Create an information gap that demands closure. 'The thing nobody tells you about...', 'I finally figured out why...', open loops.",
 };
 
 // Tone preset descriptions for AI prompting
 const TONE_DESCRIPTIONS: Record<TonePreset, string> = {
-  ugc_casual: "Natural, conversational, like talking to a friend. Use 'um', 'like', casual language. Not polished.",
-  funny: "Lighthearted, witty, use humor and playful energy. Can be self-deprecating or observational.",
-  serious: "Direct, authoritative, no-nonsense. Focus on facts and credibility.",
-  fast_paced: "Quick cuts, rapid delivery, high energy. Get to the point fast. Punchy sentences.",
-  soft_sell: "Gentle, storytelling approach. Let the product speak for itself. No hard CTAs.",
+  ugc_casual: "Natural, conversational, like talking to a friend. Use filler words occasionally. Not polished or scripted-sounding.",
+  funny: "Lighthearted, witty, use humor and playful energy. Can be self-deprecating or observational. Make them smile.",
+  serious: "Direct, authoritative, no-nonsense. Focus on facts and credibility. Confident delivery.",
+  fast_paced: "Quick cuts, rapid delivery, high energy. Get to the point fast. Punchy sentences. No fluff.",
+  soft_sell: "Gentle, storytelling approach. Let the product speak for itself. Subtle recommendations, no hard CTAs.",
 };
 
-// Deterministic template-based fallback when AI is unavailable
-function generateTemplateBrief(
-  brand: string,
-  productName: string,
-  category: string,
-  hookType: HookType = "pattern_interrupt",
-  tonePreset: TonePreset = "ugc_casual",
-  referenceScript?: string,
-  targetLength: string = "15-20s"
-): DraftVideoBriefResult {
-  // Hook type-specific templates
-  const hookTemplates: Record<HookType, Record<string, string[]>> = {
-    pattern_interrupt: {
-      supplements: [
-        `Stop scrolling - this ${brand} product is different`,
-        `Wait. You need to see this about ${productName}`,
-        `I never post about supplements but ${productName}...`,
-        `POV: You finally found a supplement that works`,
-      ],
-      default: [
-        `Stop what you're doing - ${productName} changed everything`,
-        `Wait. Before you scroll, look at this`,
-        `I never do this but I have to share ${productName}`,
-        `This is the sign you've been waiting for`,
-      ],
-    },
-    relatable_pain: {
-      supplements: [
-        `Tired of supplements that do nothing? Same.`,
-        `Why does every supplement promise the world?`,
-        `I was skeptical too until I tried ${productName}`,
-        `Does anyone else feel like vitamins never work?`,
-      ],
-      default: [
-        `Does this happen to you too?`,
-        `I was so frustrated until I found ${productName}`,
-        `Why is it so hard to find something that works?`,
-        `If you're struggling with this, watch this`,
-      ],
-    },
-    proof_teaser: {
-      supplements: [
-        `Watch what happened after 30 days of ${productName}`,
-        `The results? I'll show you`,
-        `Before ${brand} vs after - you won't believe this`,
-        `Here's what nobody tells you about ${productName}`,
-      ],
-      default: [
-        `Wait until you see the results`,
-        `I have to show you what this did`,
-        `Before and after using ${productName}`,
-        `The difference is insane - look`,
-      ],
-    },
-    contrarian: {
-      supplements: [
-        `Everything you know about supplements is wrong`,
-        `Stop taking vitamins the wrong way`,
-        `Why most people waste money on supplements`,
-        `Your supplement routine is probably broken`,
-      ],
-      default: [
-        `Everyone's doing this wrong`,
-        `Unpopular opinion about ${productName}`,
-        `Stop listening to influencers about this`,
-        `The truth nobody wants to hear`,
-      ],
-    },
-    social_proof: {
-      supplements: [
-        `Why everyone's switching to ${brand}`,
-        `${productName} sold out three times this month`,
-        `My followers kept asking about this`,
-        `POV: You find out why this went viral`,
-      ],
-      default: [
-        `Why ${productName} is going viral right now`,
-        `Everyone's been asking me about this`,
-        `This is the #1 thing my followers buy`,
-        `Find out why this keeps selling out`,
-      ],
-    },
-    mini_story: {
-      supplements: [
-        `So I started taking ${productName} and...`,
-        `My mom actually recommended ${brand} to me`,
-        `Story time: I was at the gym when someone asked...`,
-        `Let me tell you how I discovered ${productName}`,
-      ],
-      default: [
-        `So this happened to me yesterday`,
-        `Let me tell you about ${productName}`,
-        `Story time about how I found this`,
-        `My friend told me about ${brand} and I had to try it`,
-      ],
-    },
-    offer_urgency: {
-      supplements: [
-        `${brand} just dropped a deal - but it ends soon`,
-        `Last restock of ${productName} this month`,
-        `They're almost sold out again`,
-        `Get ${productName} before it's gone`,
-      ],
-      default: [
-        `Running out fast - grab ${productName} now`,
-        `This deal ends tonight`,
-        `Almost sold out - don't miss this`,
-        `Limited stock alert for ${productName}`,
-      ],
-    },
-  };
+/**
+ * Fetch recent hooks for this product to prevent repetition
+ */
+async function getRecentHooksForProduct(productId: string, limit: number = 20): Promise<string[]> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("ai_generation_runs")
+      .select("spoken_hooks")
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  const categoryAngles: Record<string, string[]> = {
-    supplements: [
-      "Daily wellness transformation",
-      "Energy & focus benefits",
-      "Natural ingredients spotlight",
-      "Lifestyle upgrade angle",
-    ],
-    beauty: [
-      "Before/after transformation",
-      "Clean beauty spotlight",
-      "Effortless glow routine",
-      "Confidence boost angle",
-    ],
-    fitness: [
-      "Performance enhancement",
-      "Recovery focus",
-      "Consistency made easy",
-      "Results-driven approach",
-    ],
-    default: [
-      "Problem-solution approach",
-      "Quality & value angle",
-      "Lifestyle enhancement",
-      "Trust & authenticity",
-    ],
-  };
+    if (!data) return [];
 
-  const hooks = hookTemplates[hookType][category] || hookTemplates[hookType].default;
-  const angles = categoryAngles[category] || categoryAngles.default;
+    // Flatten all hooks from recent generations
+    const allHooks: string[] = [];
+    for (const row of data) {
+      if (Array.isArray(row.spoken_hooks)) {
+        allHooks.push(...row.spoken_hooks);
+      }
+    }
+    return [...new Set(allHooks)]; // Dedupe
+  } catch (error) {
+    console.error("Failed to fetch recent hooks:", error);
+    return [];
+  }
+}
 
-  const proofTypes: Array<"testimonial" | "demo" | "comparison"> = ["testimonial", "demo", "comparison"];
-  const proofType = proofTypes[Math.floor(Math.random() * proofTypes.length)];
+/**
+ * Log an AI generation run to the database
+ */
+async function logGenerationRun(params: {
+  productId: string;
+  nonce: string;
+  hookType: string;
+  tonePreset: string;
+  targetLength: string;
+  output: DraftVideoBriefResult;
+  aiProvider: string;
+  correlationId: string;
+}): Promise<void> {
+  try {
+    await supabaseAdmin.from("ai_generation_runs").insert({
+      product_id: params.productId,
+      nonce: params.nonce,
+      prompt_version: "v2",
+      hook_type: params.hookType,
+      tone_preset: params.tonePreset,
+      target_length: params.targetLength,
+      output_json: params.output,
+      spoken_hooks: params.output.spoken_hook_options || [],
+      ai_provider: params.aiProvider,
+      correlation_id: params.correlationId,
+    });
+  } catch (error) {
+    console.error("Failed to log generation run:", error);
+    // Don't throw - logging failure shouldn't break the response
+  }
+}
 
-  // Visual hook based on hook type
-  const visualHooks: Record<HookType, string> = {
-    pattern_interrupt: `Open on face close-up with surprised expression, then quick cut to ${productName}`,
-    relatable_pain: `Start with frustrated expression or dramatic sigh while looking at camera`,
-    proof_teaser: `Flash quick glimpse of results/transformation, then cut back to setup`,
-    contrarian: `Shake head or make "no" gesture while looking directly at camera`,
-    social_proof: `Show phone with comments/DMs asking about the product, or unboxing`,
-    mini_story: `Casual setup - sitting on couch or bed, natural lighting, talking to friend`,
-    offer_urgency: `Quick product shot with motion/energy, sense of immediacy`,
-  };
+/**
+ * Build the enhanced AI prompt for diverse, high-quality hooks
+ */
+function buildEnhancedPrompt(params: {
+  brand: string;
+  productName: string;
+  category: string;
+  productUrl: string;
+  productNotes: string;
+  hookType: string;
+  tonePreset: TonePreset;
+  targetLength: string;
+  referenceScript?: string;
+  referenceVideoUrl?: string;
+  recentHooks: string[];
+  nonce: string;
+}): string {
+  const {
+    brand,
+    productName,
+    category,
+    productUrl,
+    productNotes,
+    hookType,
+    tonePreset,
+    targetLength,
+    referenceScript,
+    referenceVideoUrl,
+    recentHooks,
+    nonce,
+  } = params;
 
-  // On-screen text hooks
-  const textHooks = [
-    hooks[0].slice(0, 40) + (hooks[0].length > 40 ? "..." : ""),
-    `${brand} ${productName}`.slice(0, 30),
-    "You need this",
-    "Watch this",
-  ];
+  let prompt = `Generation ID: ${nonce}
+Generate a FRESH, NOVEL TikTok Shop video brief. Do NOT reuse hooks from previous generations.
 
-  // Mid overlays
-  const midOverlays = [
-    "Here's why...",
-    "The difference?",
-    "Game changer",
-  ];
+PRODUCT:
+- Brand: ${brand}
+- Product: ${productName}
+- Category: ${category}
+${productUrl ? `- URL: ${productUrl}` : ""}
+${productNotes ? `- Notes: ${productNotes}` : ""}
 
-  // If reference script provided, adjust the script structure
-  let scriptDraft = "";
-  if (referenceScript && referenceScript.trim()) {
-    // Use reference as structural guide
-    scriptDraft = `[Based on reference script structure]
+TONE: ${tonePreset}
+${TONE_DESCRIPTIONS[tonePreset]}
 
-${hooks[0]}
+TARGET LENGTH: ${targetLength}
 
-${referenceScript.includes("So") || referenceScript.includes("so") ? "So" : "Okay so"} I've been using ${productName} from ${brand} and I have to share this.
+`;
 
-${proofType === "testimonial" ? "Here's what I noticed..." : proofType === "demo" ? "Let me show you how I use it..." : "Compared to what I was using before..."}
+  // Hook type guidance
+  if (hookType && hookType !== "all" && HOOK_FAMILY_DESCRIPTIONS[hookType as HookFamily]) {
+    prompt += `PRIMARY HOOK STYLE: ${hookType}
+${HOOK_FAMILY_DESCRIPTIONS[hookType as HookFamily]}
 
-The quality is actually insane and it's become part of my daily routine.
-
-If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
-  } else {
-    scriptDraft = `${hooks[0]}
-
-${tonePreset === "ugc_casual" ? "Okay so" : tonePreset === "fast_paced" ? "Look." : "So"} I've been using ${productName} from ${brand} and I have to share my experience.
-
-${proofType === "testimonial" ? "Here's what I noticed after using it..." : proofType === "demo" ? "Let me show you how I use it..." : "Compared to what I was using before..."}
-
-The quality is ${tonePreset === "funny" ? "lowkey insane" : tonePreset === "serious" ? "exceptional" : "amazing"} and it's become part of my daily routine.
-
-If you want to try it, check the link - ${brand} is available on TikTok Shop right now!`;
+`;
   }
 
-  return {
-    // Hook Package
-    spoken_hook_options: hooks,
-    selected_spoken_hook: hooks[0],
-    visual_hook: visualHooks[hookType],
-    on_screen_text_hook_options: textHooks,
-    selected_on_screen_text_hook: textHooks[0],
-    on_screen_text_mid: midOverlays,
-    on_screen_text_cta: "Link in bio!",
-    // Standard fields
-    angle_options: angles,
-    selected_angle: angles[0],
-    proof_type: proofType,
-    notes: `Feature ${productName}'s key benefits. Show authentic usage. Hook type: ${hookType}. Tone: ${tonePreset}.`,
-    broll_ideas: [
-      `Close-up of ${productName} packaging`,
-      "Lifestyle shot using the product",
-      "Before/after or reaction moment",
-      "Unboxing or first impression",
-    ],
-    script_draft: scriptDraft,
-    // Legacy fields
-    hook_options: hooks,
-    selected_hook: hooks[0],
-    on_screen_text: [textHooks[0], ...midOverlays, "Link in bio!"],
-  };
+  // Reference materials
+  if (referenceScript) {
+    prompt += `REFERENCE SCRIPT (use structure/tone as inspiration, but create NEW hooks):
+"""
+${referenceScript.slice(0, 1000)}
+"""
+
+`;
+  }
+
+  if (referenceVideoUrl) {
+    prompt += `Reference video for pacing/style: ${referenceVideoUrl}
+
+`;
+  }
+
+  // No-repeat instruction
+  if (recentHooks.length > 0) {
+    prompt += `CRITICAL - DO NOT REPEAT THESE HOOKS (already used for this product):
+${recentHooks.slice(0, 20).map(h => `- "${h}"`).join("\n")}
+
+`;
+  }
+
+  // Banned phrases
+  prompt += `BANNED WEAK PHRASES - DO NOT USE:
+${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
+
+`;
+
+  // Output specification
+  prompt += `Generate a JSON object with these EXACT fields:
+
+SPOKEN HOOKS (12 total, 2+ from EACH family):
+1. spoken_hook_options: Array of 12 unique spoken hooks (5-15 words each):
+   - At least 2 "pattern_interrupt" hooks
+   - At least 2 "relatable_pain" hooks
+   - At least 2 "proof_teaser" hooks
+   - At least 2 "contrarian" hooks
+   - At least 2 "mini_story" hooks
+   - At least 2 "curiosity_gap" hooks
+
+2. spoken_hook_by_family: Object with arrays for each family:
+   {
+     "pattern_interrupt": ["hook1", "hook2"],
+     "relatable_pain": ["hook1", "hook2"],
+     "proof_teaser": ["hook1", "hook2"],
+     "contrarian": ["hook1", "hook2"],
+     "mini_story": ["hook1", "hook2"],
+     "curiosity_gap": ["hook1", "hook2"]
+   }
+
+3. hook_scores: Score each spoken hook (use hook text as key):
+   {
+     "hook text": {
+       "curiosity": 1-10,
+       "clarity": 1-10,
+       "ugc_fit": 1-10,
+       "overall": 1-10
+     }
+   }
+
+4. selected_spoken_hook: The BEST hook from options (highest overall score)
+
+VISUAL HOOKS (6 options):
+5. visual_hook_options: Array of 6 opening shot directions (1-2 sentences each)
+6. selected_visual_hook: Best visual hook from options
+
+ON-SCREEN TEXT:
+7. on_screen_text_hook_options: Array of 10 text overlays (max 6 words each, minimal punctuation)
+8. selected_on_screen_text_hook: Best text overlay
+9. mid_overlays: Array of 6 mid-video overlays (2-4 words each)
+10. cta_overlay_options: Array of 5 CTA overlays (TikTok Shop compliant)
+11. selected_cta_overlay: Best CTA overlay
+
+STANDARD FIELDS:
+12. angle_options: Array of 4 marketing angles
+13. selected_angle: Best angle
+14. proof_type: "testimonial", "demo", or "comparison"
+15. notes: Production notes (1-2 sentences)
+16. broll_ideas: Array of 4 B-roll shot ideas
+17. script_draft: Complete ${targetLength} script in ${tonePreset} tone
+
+REQUIREMENTS:
+- Every hook must be UNIQUE and FRESH
+- NO banned phrases
+- For supplements: NO medical claims (avoid "cure", "treat", "diagnose", "guaranteed")
+- Hooks should feel natural for UGC/TikTok
+- Scores should be honest - don't give everything 10/10
+- Text overlays: SHORT, punchy, no excessive punctuation
+
+Return ONLY valid JSON. No markdown. No code fences.`;
+
+  return prompt;
 }
 
 /**
  * Readjust brief - modify non-locked fields to align with user edits
- * This creates coherent outputs that work with what the user has chosen
  */
 function readjustBrief(
   original: Partial<DraftVideoBriefResult>,
@@ -380,7 +401,6 @@ function readjustBrief(
   lockedFields: string[],
   brand: string,
   productName: string,
-  hookType: HookType,
   tonePreset: TonePreset,
   targetLength: string
 ): DraftVideoBriefResult {
@@ -389,12 +409,19 @@ function readjustBrief(
   // Start with original as base
   const result: DraftVideoBriefResult = {
     spoken_hook_options: original.spoken_hook_options || [],
+    spoken_hook_by_family: original.spoken_hook_by_family || {},
+    hook_scores: original.hook_scores || {},
     selected_spoken_hook: original.selected_spoken_hook || "",
+    visual_hook_options: original.visual_hook_options || [],
+    selected_visual_hook: original.selected_visual_hook || original.visual_hook || "",
     visual_hook: original.visual_hook || "",
     on_screen_text_hook_options: original.on_screen_text_hook_options || [],
     selected_on_screen_text_hook: original.selected_on_screen_text_hook || "",
+    mid_overlays: original.mid_overlays || original.on_screen_text_mid || [],
+    cta_overlay_options: original.cta_overlay_options || [],
+    selected_cta_overlay: original.selected_cta_overlay || original.on_screen_text_cta || "Link in bio",
     on_screen_text_mid: original.on_screen_text_mid || [],
-    on_screen_text_cta: original.on_screen_text_cta || "Link in bio!",
+    on_screen_text_cta: original.on_screen_text_cta || "Link in bio",
     angle_options: original.angle_options || [],
     selected_angle: original.selected_angle || "",
     proof_type: original.proof_type || "testimonial",
@@ -406,111 +433,92 @@ function readjustBrief(
     on_screen_text: original.on_screen_text || [],
   };
 
-  // Get locked values from current state
+  // Apply locked values from current state
   const spokenHook = isLocked("selectedSpokenHook") && currentState?.selectedSpokenHook
     ? currentState.selectedSpokenHook
     : result.selected_spoken_hook;
-  const angle = isLocked("selectedAngle") && currentState?.selectedAngle
-    ? currentState.selectedAngle
-    : result.selected_angle;
+
   const proofType = isLocked("proofType") && currentState?.proofType
     ? (currentState.proofType as "testimonial" | "demo" | "comparison" | "other")
     : result.proof_type;
 
-  // If spoken hook is locked, adjust visual hook to match (unless also locked)
+  // If visual hook not locked but spoken hook is, regenerate visual to match
   if (!isLocked("visualHook") && isLocked("selectedSpokenHook")) {
-    // Generate visual hook that complements the spoken hook
-    if (spokenHook.toLowerCase().includes("stop") || spokenHook.toLowerCase().includes("wait")) {
-      result.visual_hook = `Close-up on face with attention-grabbing expression, then reveal ${productName}`;
-    } else if (spokenHook.toLowerCase().includes("story") || spokenHook.toLowerCase().includes("so ")) {
-      result.visual_hook = `Casual setting - talking directly to camera like sharing with a friend`;
-    } else if (spokenHook.toLowerCase().includes("result") || spokenHook.toLowerCase().includes("after")) {
-      result.visual_hook = `Flash quick before/after glimpse, then cut to speaker with product`;
+    if (spokenHook.toLowerCase().includes("stop") || spokenHook.toLowerCase().includes("wait") || spokenHook.toLowerCase().includes("hold")) {
+      result.selected_visual_hook = `Sudden close-up on face with wide eyes or raised eyebrows, then reveal ${productName}`;
+    } else if (spokenHook.toLowerCase().includes("story") || spokenHook.toLowerCase().includes("yesterday") || spokenHook.toLowerCase().includes("so ")) {
+      result.selected_visual_hook = `Casual setup - relaxed posture, natural lighting, like FaceTiming a friend`;
+    } else if (spokenHook.toLowerCase().includes("result") || spokenHook.toLowerCase().includes("after") || spokenHook.toLowerCase().includes("before")) {
+      result.selected_visual_hook = `Quick flash of transformation/result, then cut to speaking`;
     } else {
-      result.visual_hook = `Open on engaging face shot, natural lighting, product visible in frame`;
+      result.selected_visual_hook = `Direct eye contact with camera, slightly leaning in, engaged expression`;
     }
+    result.visual_hook = result.selected_visual_hook;
   } else if (isLocked("visualHook") && currentState?.visualHook) {
+    result.selected_visual_hook = currentState.visualHook;
     result.visual_hook = currentState.visualHook;
   }
 
-  // If text hook is not locked, align with spoken hook
-  if (!isLocked("selectedTextHook")) {
-    // Generate complementary text hook
-    const shortHook = spokenHook.slice(0, 35) + (spokenHook.length > 35 ? "..." : "");
-    result.selected_on_screen_text_hook = shortHook;
-    result.on_screen_text_hook_options = [
-      shortHook,
-      "Watch this",
-      `${brand} ${productName}`.slice(0, 25),
-      "You need this",
-    ];
-  } else if (currentState?.selectedTextHook) {
-    result.selected_on_screen_text_hook = currentState.selectedTextHook;
-  }
-
-  // If mid overlays not locked, adjust based on angle and proof type
+  // Mid overlays based on proof type
   if (!isLocked("onScreenTextMid")) {
-    const midOverlays = [];
     if (proofType === "testimonial") {
-      midOverlays.push("Here's what happened...", "My honest opinion", "Real results");
+      result.mid_overlays = ["Real talk", "Honest review", "My experience", "No cap", "Truth bomb", "Real results"];
     } else if (proofType === "demo") {
-      midOverlays.push("Let me show you", "Watch this", "See the difference");
-    } else if (proofType === "comparison") {
-      midOverlays.push("Before vs After", "The difference?", "Night and day");
+      result.mid_overlays = ["Watch this", "See how", "In action", "The process", "How I use it", "Step by step"];
     } else {
-      midOverlays.push("Here's why...", "The secret?", "Game changer");
+      result.mid_overlays = ["Side by side", "Before vs after", "The upgrade", "Night and day", "Comparison time", "See the diff"];
     }
-    result.on_screen_text_mid = midOverlays.slice(0, 3);
+    result.on_screen_text_mid = result.mid_overlays.slice(0, 3);
   } else if (currentState?.onScreenTextMid) {
+    result.mid_overlays = currentState.onScreenTextMid;
     result.on_screen_text_mid = currentState.onScreenTextMid;
   }
 
-  // If CTA not locked, adjust based on tone
+  // CTA based on tone
   if (!isLocked("onScreenTextCta")) {
     if (tonePreset === "soft_sell") {
-      result.on_screen_text_cta = "Link in bio if interested";
+      result.selected_cta_overlay = "Link if curious";
+      result.cta_overlay_options = ["Link if curious", "Check it out", "In my bio", "Details below", "More info linked"];
     } else if (tonePreset === "fast_paced") {
-      result.on_screen_text_cta = "Link in bio - GO!";
+      result.selected_cta_overlay = "Link NOW";
+      result.cta_overlay_options = ["Link NOW", "Go go go", "Tap fast", "Link in bio GO", "Get it"];
     } else {
-      result.on_screen_text_cta = "Link in bio!";
+      result.selected_cta_overlay = "Link in bio";
+      result.cta_overlay_options = ["Link in bio", "Linked below", "Shop now", "Grab yours", "Available now"];
     }
+    result.on_screen_text_cta = result.selected_cta_overlay;
   } else if (currentState?.onScreenTextCta) {
+    result.selected_cta_overlay = currentState.onScreenTextCta;
     result.on_screen_text_cta = currentState.onScreenTextCta;
   }
 
-  // If angle not locked, keep original
+  // Apply other locked fields
   if (isLocked("selectedAngle") && currentState?.selectedAngle) {
     result.selected_angle = currentState.selectedAngle;
   }
-
-  // If proof type not locked, keep original
   if (isLocked("proofType") && currentState?.proofType) {
     result.proof_type = currentState.proofType as "testimonial" | "demo" | "comparison" | "other";
   }
-
-  // If notes not locked, update to reflect current selections
-  if (!isLocked("notes")) {
-    result.notes = `Feature ${productName}'s key benefits. Hook: ${spokenHook.slice(0, 30)}... Angle: ${angle}. Proof: ${proofType}. Target: ${targetLength}.`;
-  } else if (currentState?.notes) {
+  if (isLocked("notes") && currentState?.notes) {
     result.notes = currentState.notes;
   }
 
-  // If script not locked, regenerate to match current selections
+  // Regenerate script if not locked
   if (!isLocked("scriptDraft")) {
     const toneOpener = tonePreset === "ugc_casual" ? "Okay so" : tonePreset === "fast_paced" ? "Look." : "So";
     const proofSection = proofType === "testimonial"
-      ? "Here's what I noticed after using it..."
+      ? "Been using this for a bit now and I have thoughts..."
       : proofType === "demo"
-        ? "Let me show you how it works..."
-        : "Compared to what I was using before...";
+        ? "Let me show you how this actually works..."
+        : "Compared to what I was using before - night and day.";
 
     result.script_draft = `${spokenHook}
 
-${toneOpener} I've been using ${productName} from ${brand} and I have to share this.
+${toneOpener} I've been using ${productName} from ${brand} and had to share.
 
 ${proofSection}
 
-The quality is amazing and it's become part of my daily routine.
+Honestly? Quality is on point. It's become part of my routine now.
 
 If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
   } else if (currentState?.scriptDraft) {
@@ -533,9 +541,8 @@ If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
 /**
  * POST /api/ai/draft-video-brief
  *
- * Generates a complete video brief using AI from Brand + Product.
- * Supports reference scripts, hook types, and tone presets for better results.
- * Also supports "readjust" mode to re-align fields without overwriting user edits.
+ * Generates a complete video brief with diverse hooks across multiple families.
+ * Uses nonce-based no-repeat logic and logs all generations.
  */
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -552,12 +559,13 @@ export async function POST(request: Request) {
 
   const {
     product_id,
-    hook_type = "pattern_interrupt",
+    hook_type = "all",
     tone_preset = "ugc_casual",
     target_length = "15-20s",
     reference_script_text,
     reference_script_id,
     reference_video_url,
+    nonce = crypto.randomUUID(), // Generate if not provided
     mode = "generate",
     locked_fields = [],
     original_ai_draft,
@@ -571,9 +579,6 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-
-  // Validate hook_type
-  const validHookType = HOOK_TYPES.includes(hook_type as HookType) ? (hook_type as HookType) : "pattern_interrupt";
 
   // Validate tone_preset
   const validTonePreset = TONE_PRESETS.includes(tone_preset as TonePreset) ? (tone_preset as TonePreset) : "ugc_casual";
@@ -625,7 +630,6 @@ export async function POST(request: Request) {
       locked_fields,
       brand,
       productName,
-      validHookType,
       validTonePreset,
       target_length
     );
@@ -639,7 +643,6 @@ export async function POST(request: Request) {
         product_name: productName,
         mode: "readjust",
         locked_fields,
-        hook_type: validHookType,
         tone_preset: validTonePreset,
         target_length,
       },
@@ -651,90 +654,41 @@ export async function POST(request: Request) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
-  // If no AI keys, use template-based fallback
+  // CRITICAL: Do NOT fall back to templates for generation
+  // Templates produce repetitive, weak hooks
   if (!anthropicKey && !openaiKey) {
-    console.log(`[${correlationId}] No AI API key configured, using template fallback`);
-    const templateResult = generateTemplateBrief(brand, productName, category, validHookType, validTonePreset, referenceScriptContent, target_length);
-    return NextResponse.json({
-      ok: true,
-      data: templateResult,
-      meta: {
-        product_id: product_id.trim(),
-        brand,
-        product_name: productName,
-        ai_provider: "template_fallback",
-        hook_type: validHookType,
-        tone_preset: validTonePreset,
-        target_length,
-        has_reference: !!referenceScriptContent,
+    console.error(`[${correlationId}] No AI API key configured - cannot generate quality hooks`);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "AI generation unavailable. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY.",
+        error_code: "AI_UNAVAILABLE",
+        correlation_id: correlationId,
       },
-      correlation_id: correlationId,
-    });
+      { status: 503 }
+    );
   }
 
   try {
-    // Build the AI prompt
-    let prompt = `Generate a complete TikTok Shop video brief for this product:
+    // Fetch recent hooks for no-repeat logic
+    const recentHooks = await getRecentHooksForProduct(product_id.trim());
+    console.log(`[${correlationId}] Found ${recentHooks.length} recent hooks to avoid`);
 
-Brand: ${brand}
-Product: ${productName}
-Category: ${category}
-${productUrl ? `Product URL: ${productUrl}` : ""}
-${productNotes ? `Notes: ${productNotes}` : ""}
-
-HOOK TYPE: ${validHookType}
-${HOOK_TYPE_DESCRIPTIONS[validHookType]}
-
-TONE: ${validTonePreset}
-${TONE_DESCRIPTIONS[validTonePreset]}
-
-TARGET LENGTH: ${target_length}
-`;
-
-    if (referenceScriptContent) {
-      prompt += `
-REFERENCE SCRIPT (use as structural/tone guidance, reword for this product):
-"""
-${referenceScriptContent.slice(0, 1000)}
-"""
-`;
-    }
-
-    if (reference_video_url) {
-      prompt += `
-Reference video URL (use as pacing/style inspiration): ${reference_video_url}
-`;
-    }
-
-    prompt += `
-Generate a JSON object with these EXACT fields:
-
-HOOK PACKAGE:
-1. spoken_hook_options: Array of 4 spoken hooks matching the ${validHookType} style (5-12 words each)
-2. selected_spoken_hook: Best spoken hook from options
-3. visual_hook: 1-2 sentences describing the opening visual/action that matches the hook
-4. on_screen_text_hook_options: Array of 4 short text overlays for the hook (max 8 words each)
-5. selected_on_screen_text_hook: Best text overlay from options
-6. on_screen_text_mid: Array of 2-3 mid-video text overlays
-7. on_screen_text_cta: Final CTA text overlay
-
-STANDARD FIELDS:
-8. angle_options: Array of 4 marketing angles
-9. selected_angle: Best angle from options
-10. proof_type: One of "testimonial", "demo", or "comparison"
-11. notes: Brief production notes (1-2 sentences)
-12. broll_ideas: Array of 4 B-roll shot ideas
-13. script_draft: Complete script for ${target_length} video in ${validTonePreset} tone
-
-Requirements:
-- All hooks MUST match the ${validHookType} style
-- Script tone MUST match ${validTonePreset}
-- For supplements: NO medical claims, avoid "cure", "treat", "diagnose", "guaranteed"
-- Keep UGC pacing with short sentences
-- Include clear call-to-action for TikTok Shop
-${referenceScriptContent ? "- Mirror the structure and pacing of the reference script" : ""}
-
-Return ONLY valid JSON. No markdown. No code fences.`;
+    // Build the enhanced prompt
+    const prompt = buildEnhancedPrompt({
+      brand,
+      productName,
+      category,
+      productUrl,
+      productNotes,
+      hookType: hook_type,
+      tonePreset: validTonePreset,
+      targetLength: target_length,
+      referenceScript: referenceScriptContent,
+      referenceVideoUrl: reference_video_url,
+      recentHooks,
+      nonce,
+    });
 
     let aiResult: Partial<DraftVideoBriefResult> | null = null;
     let aiProvider = "";
@@ -750,13 +704,15 @@ Return ONLY valid JSON. No markdown. No code fences.`;
         },
         body: JSON.stringify({
           model: "claude-3-haiku-20240307",
-          max_tokens: 2500,
+          max_tokens: 4000,
+          temperature: 0.9, // Higher temperature for more variety
           messages: [{ role: "user", content: prompt }],
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Anthropic API error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
       }
 
       const anthropicResult = await response.json();
@@ -785,15 +741,16 @@ Return ONLY valid JSON. No markdown. No code fences.`;
           "Authorization": `Bearer ${openaiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: "gpt-4-turbo-preview",
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 2500,
-          temperature: 0.7,
+          max_tokens: 4000,
+          temperature: 0.9,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
 
       const openaiResult = await response.json();
@@ -818,19 +775,48 @@ Return ONLY valid JSON. No markdown. No code fences.`;
       throw new Error("No AI result generated");
     }
 
-    // Validate and sanitize the result with defaults
-    const spokenHooks = Array.isArray(aiResult.spoken_hook_options) ? aiResult.spoken_hook_options.slice(0, 5) : [];
-    const textHooks = Array.isArray(aiResult.on_screen_text_hook_options) ? aiResult.on_screen_text_hook_options.slice(0, 5) : [];
+    // Validate and build result
+    const spokenHooks = Array.isArray(aiResult.spoken_hook_options) ? aiResult.spoken_hook_options.slice(0, 15) : [];
+    const visualHooks = Array.isArray(aiResult.visual_hook_options) ? aiResult.visual_hook_options.slice(0, 6) : [];
+    const textHooks = Array.isArray(aiResult.on_screen_text_hook_options) ? aiResult.on_screen_text_hook_options.slice(0, 10) : [];
+    const midOverlays = Array.isArray(aiResult.mid_overlays) ? aiResult.mid_overlays.slice(0, 6) : [];
+    const ctaOptions = Array.isArray(aiResult.cta_overlay_options) ? aiResult.cta_overlay_options.slice(0, 5) : [];
+
+    // Find best hook by score
+    let bestHook = spokenHooks[0] || "";
+    let bestScore = 0;
+    const hookScores = aiResult.hook_scores || {};
+    for (const hook of spokenHooks) {
+      const score = hookScores[hook]?.overall || 0;
+      if (score > bestScore) {
+        bestScore = score;
+        bestHook = hook;
+      }
+    }
 
     const validatedResult: DraftVideoBriefResult = {
-      // Hook Package
-      spoken_hook_options: spokenHooks.length > 0 ? spokenHooks : (Array.isArray(aiResult.hook_options) ? aiResult.hook_options.slice(0, 5) : []),
-      selected_spoken_hook: String(aiResult.selected_spoken_hook || aiResult.selected_hook || spokenHooks[0] || ""),
-      visual_hook: String(aiResult.visual_hook || "Open on close-up of face, then reveal product"),
-      on_screen_text_hook_options: textHooks.length > 0 ? textHooks : ["Watch this", "You need this", "Game changer", "Link in bio"],
-      selected_on_screen_text_hook: String(aiResult.selected_on_screen_text_hook || textHooks[0] || "Watch this"),
-      on_screen_text_mid: Array.isArray(aiResult.on_screen_text_mid) ? aiResult.on_screen_text_mid.slice(0, 4) : ["Here's why", "The difference?"],
-      on_screen_text_cta: String(aiResult.on_screen_text_cta || "Link in bio!"),
+      // Hook Package (expanded)
+      spoken_hook_options: spokenHooks,
+      spoken_hook_by_family: aiResult.spoken_hook_by_family || {},
+      hook_scores: hookScores,
+      selected_spoken_hook: bestHook,
+
+      // Visual hooks
+      visual_hook_options: visualHooks,
+      selected_visual_hook: visualHooks[0] || "Open on close-up of face, engaging expression, then reveal product",
+      visual_hook: visualHooks[0] || "Open on close-up of face, engaging expression, then reveal product",
+
+      // On-screen text
+      on_screen_text_hook_options: textHooks,
+      selected_on_screen_text_hook: textHooks[0] || "Watch this",
+      mid_overlays: midOverlays,
+      cta_overlay_options: ctaOptions.length > 0 ? ctaOptions : ["Link in bio", "Shop now", "Grab yours", "Get it", "Linked below"],
+      selected_cta_overlay: ctaOptions[0] || "Link in bio",
+
+      // Legacy fields
+      on_screen_text_mid: midOverlays.slice(0, 3),
+      on_screen_text_cta: ctaOptions[0] || "Link in bio",
+
       // Standard fields
       angle_options: Array.isArray(aiResult.angle_options) ? aiResult.angle_options.slice(0, 5) : [],
       selected_angle: String(aiResult.selected_angle || aiResult.angle_options?.[0] || ""),
@@ -840,15 +826,28 @@ Return ONLY valid JSON. No markdown. No code fences.`;
       notes: String(aiResult.notes || ""),
       broll_ideas: Array.isArray(aiResult.broll_ideas) ? aiResult.broll_ideas.slice(0, 5) : [],
       script_draft: String(aiResult.script_draft || ""),
-      // Legacy fields
-      hook_options: spokenHooks.length > 0 ? spokenHooks : (Array.isArray(aiResult.hook_options) ? aiResult.hook_options.slice(0, 5) : []),
-      selected_hook: String(aiResult.selected_spoken_hook || aiResult.selected_hook || ""),
+
+      // Legacy backwards compat
+      hook_options: spokenHooks,
+      selected_hook: bestHook,
       on_screen_text: [
-        String(aiResult.selected_on_screen_text_hook || textHooks[0] || ""),
-        ...(Array.isArray(aiResult.on_screen_text_mid) ? aiResult.on_screen_text_mid : []),
-        String(aiResult.on_screen_text_cta || "Link in bio!"),
+        textHooks[0] || "",
+        ...midOverlays.slice(0, 3),
+        ctaOptions[0] || "Link in bio",
       ],
     };
+
+    // Log this generation
+    await logGenerationRun({
+      productId: product_id.trim(),
+      nonce,
+      hookType: hook_type,
+      tonePreset: validTonePreset,
+      targetLength: target_length,
+      output: validatedResult,
+      aiProvider,
+      correlationId,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -858,9 +857,11 @@ Return ONLY valid JSON. No markdown. No code fences.`;
         brand,
         product_name: productName,
         ai_provider: aiProvider,
-        hook_type: validHookType,
+        hook_type: hook_type,
         tone_preset: validTonePreset,
         target_length,
+        nonce,
+        hooks_avoided: recentHooks.length,
         has_reference: !!referenceScriptContent,
       },
       correlation_id: correlationId,
@@ -869,25 +870,15 @@ Return ONLY valid JSON. No markdown. No code fences.`;
   } catch (error) {
     console.error(`[${correlationId}] AI draft generation error:`, error);
 
-    // Fallback to template on AI failure
-    console.log(`[${correlationId}] Falling back to template generation`);
-    const templateResult = generateTemplateBrief(brand, productName, category, validHookType, validTonePreset, referenceScriptContent, target_length);
-
-    return NextResponse.json({
-      ok: true,
-      data: templateResult,
-      meta: {
-        product_id: product_id.trim(),
-        brand,
-        product_name: productName,
-        ai_provider: "template_fallback",
-        ai_error: String(error),
-        hook_type: validHookType,
-        tone_preset: validTonePreset,
-        target_length,
-        has_reference: !!referenceScriptContent,
+    // Return error - do NOT fall back to templates
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `AI generation failed: ${error instanceof Error ? error.message : String(error)}`,
+        error_code: "AI_ERROR",
+        correlation_id: correlationId,
       },
-      correlation_id: correlationId,
-    });
+      { status: 500 }
+    );
   }
 }

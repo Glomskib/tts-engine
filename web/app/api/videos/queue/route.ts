@@ -10,7 +10,7 @@ type SortValue = typeof VALID_SORT_VALUES[number];
 
 export const runtime = "nodejs";
 
-const VIDEO_SELECT_BASE = "id,variant_id,account_id,status,google_drive_url,created_at,final_video_url,concept_id,product_id";
+const VIDEO_SELECT_BASE = "id,video_code,variant_id,account_id,status,google_drive_url,created_at,final_video_url,concept_id,product_id";
 const VIDEO_SELECT_CLAIM = ",claimed_by,claimed_at,claim_expires_at";
 const VIDEO_SELECT_CLAIM_ROLE = ",claim_role";
 const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,recording_notes,editor_notes,uploader_notes";

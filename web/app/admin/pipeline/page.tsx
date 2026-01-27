@@ -42,6 +42,7 @@ type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
 interface QueueVideo {
   id: string;
+  video_code: string | null;
   variant_id: string;
   account_id: string;
   status: string;
@@ -93,7 +94,20 @@ interface AvailableScript {
   product_id: string | null;
 }
 
-const RECORDING_STATUS_TABS = ['ALL', 'NEEDS_SCRIPT', 'GENERATING_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
+// Stage tabs with user-friendly labels
+const STAGE_TABS = [
+  { key: 'ALL', label: 'All' },
+  { key: 'NEEDS_SCRIPT', label: 'Needs Script' },
+  { key: 'GENERATING_SCRIPT', label: 'Generating' },
+  { key: 'NOT_RECORDED', label: 'Record' },
+  { key: 'RECORDED', label: 'Edit' },
+  { key: 'EDITED', label: 'Approve' },
+  { key: 'READY_TO_POST', label: 'Post' },
+  { key: 'POSTED', label: 'Posted' },
+  { key: 'REJECTED', label: 'Issues' },
+] as const;
+const RECORDING_STATUS_TABS = STAGE_TABS.map(t => t.key);
+const DEPARTMENT_TABS = ['all', 'recording', 'editing', 'posting'] as const;
 const CLAIM_ROLE_TABS = ['all', 'recorder', 'editor', 'uploader'] as const;
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
@@ -385,6 +399,9 @@ export default function AdminPipelinePage() {
   // VA Mode state (Admin / Recorder / Editor / Uploader)
   const [vaMode, setVaMode] = useState<VAMode>('admin');
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Per-row claim/release state
   const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
@@ -560,10 +577,30 @@ export default function AdminPipelinePage() {
     }
   };
 
-  // Get videos filtered by current role mode
+  // Get videos filtered by current role mode and search query
   const getRoleFilteredVideos = (): QueueVideo[] => {
-    if (vaMode === 'admin') return queueVideos;
-    return filterVideosByRole(queueVideos, vaMode);
+    let filtered = vaMode === 'admin' ? queueVideos : filterVideosByRole(queueVideos, vaMode);
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(video => {
+        const product = products.find(p => p.id === video.product_id);
+        const brand = (product?.brand || '').toLowerCase();
+        const sku = (product?.name || '').toLowerCase();
+        const videoCode = (video.video_code || '').toLowerCase();
+        const videoId = video.id.toLowerCase();
+
+        return (
+          brand.includes(query) ||
+          sku.includes(query) ||
+          videoCode.includes(query) ||
+          videoId.includes(query)
+        );
+      });
+    }
+
+    return filtered;
   };
 
   // Handle primary action click (auto-assigns if video is available)
@@ -1370,9 +1407,9 @@ export default function AdminPipelinePage() {
 
         {/* VA Mode + Authenticated User Display */}
         <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc', flexWrap: 'wrap' }}>
-          {/* VA Mode Selector */}
+          {/* View Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Mode:</span>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>View:</span>
             <select
               value={vaMode}
               onChange={(e) => updateVaMode(e.target.value as VAMode)}
@@ -1472,15 +1509,16 @@ export default function AdminPipelinePage() {
           showNotificationBadge={<NotificationBadge />}
         />
 
-        {/* Recording Status Tabs */}
-        <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-          {RECORDING_STATUS_TABS.map(tab => {
-            const colors = tab === 'ALL' ? { bg: '#f8f9fa', badge: '#495057' } : getStatusBadgeColor(tab);
-            const isActive = activeRecordingTab === tab;
+        {/* Stage Tabs */}
+        <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', marginRight: '8px' }}>Stage:</span>
+          {STAGE_TABS.map(tab => {
+            const colors = tab.key === 'ALL' ? { bg: '#f8f9fa', badge: '#495057' } : getStatusBadgeColor(tab.key);
+            const isActive = activeRecordingTab === tab.key;
             return (
               <button
-                key={tab}
-                onClick={() => setActiveRecordingTab(tab)}
+                key={tab.key}
+                onClick={() => setActiveRecordingTab(tab.key)}
                 style={{
                   padding: '8px 16px',
                   border: isActive ? `2px solid ${colors.badge}` : '1px solid #dee2e6',
@@ -1492,64 +1530,112 @@ export default function AdminPipelinePage() {
                   fontSize: '13px',
                 }}
               >
-                {tab.replace(/_/g, ' ')}
+                {tab.label}
               </button>
             );
           })}
         </div>
 
-        {/* Role Tabs */}
-        <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px', marginRight: '8px' }}>Role:</span>
-          {CLAIM_ROLE_TABS.map(role => {
-            const isActive = activeRoleTab === role;
-            const roleColors: Record<string, string> = {
-              all: '#495057',
-              recorder: '#228be6',
-              editor: '#fab005',
-              uploader: '#40c057',
-            };
-            return (
+        {/* Department Tabs - Admin only */}
+        {isUserAdmin && (
+          <div style={{ marginBottom: '15px', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px', marginRight: '8px' }}>Department:</span>
+            {DEPARTMENT_TABS.map(dept => {
+              // Map department to role tab value
+              const roleMapping: Record<string, string> = {
+                all: 'all',
+                recording: 'recorder',
+                editing: 'editor',
+                posting: 'uploader',
+              };
+              const roleValue = roleMapping[dept];
+              const isActive = activeRoleTab === roleValue;
+              const deptColors: Record<string, string> = {
+                all: '#495057',
+                recording: '#228be6',
+                editing: '#fab005',
+                posting: '#40c057',
+              };
+              const deptLabels: Record<string, string> = {
+                all: 'All',
+                recording: 'Recording',
+                editing: 'Editing',
+                posting: 'Posting',
+              };
+              return (
+                <button
+                  key={dept}
+                  onClick={() => setActiveRoleTab(roleValue as typeof activeRoleTab)}
+                  style={{
+                    padding: '6px 14px',
+                    border: isActive ? `2px solid ${deptColors[dept]}` : '1px solid #dee2e6',
+                    borderRadius: '4px',
+                    backgroundColor: isActive ? deptColors[dept] : '#fff',
+                    color: isActive ? '#fff' : deptColors[dept],
+                    cursor: 'pointer',
+                    fontWeight: isActive ? 'bold' : 'normal',
+                    fontSize: '13px',
+                  }}
+                >
+                  {deptLabels[dept]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Ownership filter + Search */}
+        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Ownership:</span>
+            {(['any', 'unclaimed', 'claimed'] as const).map(filter => {
+              // User-friendly labels
+              const label = filter === 'any' ? 'All' : filter === 'unclaimed' ? 'Unassigned' : 'Assigned';
+              return (
+              <label key={filter} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="claimedFilter"
+                  checked={claimedFilter === filter}
+                  onChange={() => setClaimedFilter(filter)}
+                  disabled={myWorkOnly} // Disable when My Work is active
+                />
+                <span style={{ fontSize: '14px', color: myWorkOnly ? '#999' : '#333' }}>{label}</span>
+              </label>
+            );})}
+          </div>
+          {/* Search Input */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Search brand, SKU, video code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                width: '220px',
+              }}
+            />
+            {searchQuery && (
               <button
-                key={role}
-                onClick={() => setActiveRoleTab(role)}
+                onClick={() => setSearchQuery('')}
                 style={{
-                  padding: '6px 14px',
-                  border: isActive ? `2px solid ${roleColors[role]}` : '1px solid #dee2e6',
-                  borderRadius: '4px',
-                  backgroundColor: isActive ? roleColors[role] : '#fff',
-                  color: isActive ? '#fff' : roleColors[role],
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  background: 'none',
+                  border: 'none',
                   cursor: 'pointer',
-                  fontWeight: isActive ? 'bold' : 'normal',
-                  fontSize: '13px',
-                  textTransform: 'capitalize',
+                  color: '#666',
                 }}
               >
-                {role}
+                ✕
               </button>
-            );
-          })}
-        </div>
-
-        {/* Assignment filter */}
-        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Assignment:</span>
-          {(['any', 'unclaimed', 'claimed'] as const).map(filter => {
-            // User-friendly labels
-            const label = filter === 'any' ? 'All' : filter === 'unclaimed' ? 'Available' : 'In Progress';
-            return (
-            <label key={filter} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="claimedFilter"
-                checked={claimedFilter === filter}
-                onChange={() => setClaimedFilter(filter)}
-                disabled={myWorkOnly} // Disable when My Work is active
-              />
-              <span style={{ fontSize: '14px', color: myWorkOnly ? '#999' : '#333' }}>{label}</span>
-            </label>
-          );})}
-          {queueLoading && <span style={{ color: '#666', fontSize: '12px', marginLeft: '10px' }}>Loading...</span>}
+            )}
+          </div>
+          {queueLoading && <span style={{ color: '#666', fontSize: '12px' }}>Loading...</span>}
         </div>
 
         {/* Role Instruction Banner - context-aware help for VAs */}
@@ -1637,9 +1723,15 @@ export default function AdminPipelinePage() {
                          (video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE' : 'OK')}
                       </span>
                     </td>
-                    {/* Video ID */}
-                    <td style={{...tdStyle, fontFamily: 'monospace', fontSize: '11px'}}>
-                      {video.id.slice(0, 8)}
+                    {/* Video Code */}
+                    <td
+                      style={{...tdStyle, fontFamily: 'monospace', fontSize: '11px', cursor: 'pointer'}}
+                      title={video.video_code ? `ID: ${video.id.slice(0, 8)}` : video.id}
+                      onClick={() => {
+                        navigator.clipboard.writeText(video.video_code || video.id);
+                      }}
+                    >
+                      {video.video_code || video.id.slice(0, 8)}
                     </td>
                     {/* Step Indicator - 7-step progress */}
                     <td style={tdStyle}>

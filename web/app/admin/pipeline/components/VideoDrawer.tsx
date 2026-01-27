@@ -356,25 +356,35 @@ export default function VideoDrawer({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div style={{ flex: 1 }}>
-              {/* Video ID with copy */}
+              {/* Video Code with copy */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#495057' }}>
-                  {video.id.slice(0, 12)}...
+                <span style={{
+                  fontFamily: 'monospace',
+                  fontSize: video.video_code ? '14px' : '13px',
+                  fontWeight: video.video_code ? 'bold' : 'normal',
+                  color: '#212529',
+                }}>
+                  {video.video_code || video.id.slice(0, 12) + '...'}
                 </span>
                 <button
-                  onClick={() => copyToClipboard(video.id, 'videoId')}
+                  onClick={() => copyToClipboard(video.video_code || video.id, 'videoCode')}
                   style={{
                     padding: '2px 6px',
                     fontSize: '10px',
-                    backgroundColor: copiedField === 'videoId' ? '#d3f9d8' : '#e9ecef',
+                    backgroundColor: copiedField === 'videoCode' ? '#d3f9d8' : '#e9ecef',
                     border: 'none',
                     borderRadius: '3px',
                     cursor: 'pointer',
-                    color: copiedField === 'videoId' ? '#2b8a3e' : '#495057',
+                    color: copiedField === 'videoCode' ? '#2b8a3e' : '#495057',
                   }}
                 >
-                  {copiedField === 'videoId' ? 'Copied!' : 'Copy'}
+                  {copiedField === 'videoCode' ? 'Copied!' : 'Copy'}
                 </button>
+                {video.video_code && (
+                  <span style={{ fontSize: '10px', color: '#868e96' }} title={video.id}>
+                    ID: {video.id.slice(0, 8)}
+                  </span>
+                )}
               </div>
 
               {/* Badges row */}

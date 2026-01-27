@@ -4,6 +4,84 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+/**
+ * Generate a slug from a string (uppercase alphanumeric only)
+ */
+function generateSlug(str: string, maxLength: number = 8): string {
+  return str
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, maxLength) || "UNKNOWN";
+}
+
+/**
+ * Format date as YYMMDD in America/New_York timezone
+ */
+function formatDateCode(): string {
+  const now = new Date();
+  // Format in America/New_York timezone
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find(p => p.type === "year")?.value || "00";
+  const month = parts.find(p => p.type === "month")?.value || "00";
+  const day = parts.find(p => p.type === "day")?.value || "00";
+  return `${year}${month}${day}`;
+}
+
+/**
+ * Generate a unique video code: BRAND-SKU-YYMMDD-###
+ * Retries on conflict with incrementing sequence
+ */
+async function generateVideoCode(
+  brandName: string,
+  productName: string,
+  productSlug: string | null,
+  productId: string,
+  correlationId: string
+): Promise<string | null> {
+  const brandSlug = generateSlug(brandName, 6);
+  const skuSlug = productSlug ? productSlug.toUpperCase().slice(0, 6) : generateSlug(productName, 6);
+  const dateCode = formatDateCode();
+
+  // Find existing videos with same prefix today to get next sequence
+  const prefix = `${brandSlug}-${skuSlug}-${dateCode}`;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      // Query existing codes with this prefix
+      const { data: existing } = await supabaseAdmin
+        .from("videos")
+        .select("video_code")
+        .like("video_code", `${prefix}-%`)
+        .order("video_code", { ascending: false })
+        .limit(1);
+
+      // Calculate next sequence number
+      let sequence = 1;
+      if (existing && existing.length > 0 && existing[0].video_code) {
+        const lastCode = existing[0].video_code;
+        const lastSeq = parseInt(lastCode.split("-").pop() || "0", 10);
+        sequence = lastSeq + 1;
+      }
+
+      // Add attempt offset for retry
+      sequence += attempt;
+
+      const videoCode = `${prefix}-${String(sequence).padStart(3, "0")}`;
+      return videoCode;
+    } catch (error) {
+      console.error(`[${correlationId}] Video code generation attempt ${attempt + 1} failed:`, error);
+    }
+  }
+
+  return null;
+}
+
 export interface HookPackageParams {
   spoken_hook?: string;
   visual_hook?: string;
@@ -235,6 +313,38 @@ export async function createVideoFromProduct(
         error_code: "DB_ERROR",
         correlation_id: correlationId,
       };
+    }
+
+    // Generate and set video_code
+    const videoCode = await generateVideoCode(
+      product.brand,
+      product.name,
+      (product as Record<string, unknown>).slug as string | null,
+      product_id.trim(),
+      correlationId
+    );
+
+    if (videoCode) {
+      // Update video with code (retry on conflict)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const codeToTry = attempt === 0 ? videoCode : `${videoCode.slice(0, -3)}${String(parseInt(videoCode.slice(-3)) + attempt).padStart(3, "0")}`;
+        const { error: codeError } = await supabaseAdmin
+          .from("videos")
+          .update({ video_code: codeToTry })
+          .eq("id", video.id);
+
+        if (!codeError) {
+          video.video_code = codeToTry;
+          break;
+        } else if (codeError.code === "23505") {
+          // Unique constraint violation, retry with next sequence
+          console.log(`[${correlationId}] Video code conflict, retrying with next sequence`);
+          continue;
+        } else {
+          console.error(`[${correlationId}] Failed to set video_code:`, codeError);
+          break;
+        }
+      }
     }
 
     // Write audit event

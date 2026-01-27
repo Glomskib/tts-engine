@@ -2,6 +2,7 @@ export type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
 export interface QueueVideo {
   id: string;
+  video_code: string | null;
   variant_id: string;
   account_id: string;
   status: string;

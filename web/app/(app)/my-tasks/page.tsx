@@ -10,6 +10,7 @@ type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
 interface QueueVideo {
   id: string;
+  video_code: string | null;
   variant_id: string;
   account_id: string;
   status: string;

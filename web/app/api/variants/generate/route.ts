@@ -1,9 +1,24 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+/**
+ * Get the base URL for internal API calls.
+ * Uses NEXT_PUBLIC_APP_URL if set, otherwise derives from request headers.
+ */
+function getBaseUrl(request: NextRequest): string {
+  // Prefer explicit app URL for production
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  // Derive from request headers (works in Vercel and localhost)
+  const host = request.headers.get("host") || "localhost:3000";
+  const protocol = request.headers.get("x-forwarded-proto") || "http";
+  return `${protocol}://${host}`;
+}
+
+export async function POST(request: NextRequest) {
   let body: unknown;
   try {
     body = await request.json();
@@ -57,12 +72,13 @@ export async function POST(request: Request) {
 
   try {
     const createdVariants: any[] = [];
+    const baseUrl = getBaseUrl(request);
 
     if (changeType === "hook") {
       // Generate new hooks, then scripts for each hook, then create variants
-      
+
       // Step 1: Generate new hooks
-      const hooksResponse = await fetch("http://localhost:3000/api/hooks/generate", {
+      const hooksResponse = await fetch(`${baseUrl}/api/hooks/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -82,7 +98,7 @@ export async function POST(request: Request) {
 
       // Step 2: Generate scripts for each hook
       for (const hook of generatedHooks) {
-        const scriptResponse = await fetch("http://localhost:3000/api/scripts/generate", {
+        const scriptResponse = await fetch(`${baseUrl}/api/scripts/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -154,7 +170,7 @@ export async function POST(request: Request) {
 
       // Generate multiple scripts with controlled changes
       for (let i = 0; i < count; i++) {
-        const scriptResponse = await fetch("http://localhost:3000/api/scripts/generate", {
+        const scriptResponse = await fetch(`${baseUrl}/api/scripts/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

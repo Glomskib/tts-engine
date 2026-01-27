@@ -67,6 +67,14 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
         <Link href="/admin/pipeline" style={linkStyle('/admin/pipeline')}>
           Pipeline
         </Link>
+        <span style={separatorStyle}>|</span>
+        <Link href="/admin/brands" style={linkStyle('/admin/brands')}>
+          Brands
+        </Link>
+        <span style={separatorStyle}>|</span>
+        <Link href="/admin/products" style={linkStyle('/admin/products')}>
+          Products
+        </Link>
       </div>
 
       <div style={groupSeparatorStyle} />

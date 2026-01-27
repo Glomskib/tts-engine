@@ -8,6 +8,9 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
 import IncidentBanner from '../components/IncidentBanner';
 import AdminNav from '../components/AdminNav';
+// Board view components available but simplified approach used instead
+// import BoardView from './components/BoardView';
+// import type { BoardFilters } from './types';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -53,6 +56,7 @@ interface QueueVideo {
   script_locked_version: number | null;
   concept_id: string | null;
   product_id: string | null;
+  final_video_url?: string | null;
   // Computed fields from API
   can_move_next: boolean;
   blocked_reason: string | null;
@@ -69,6 +73,11 @@ interface QueueVideo {
   sla_status: SlaStatus;
   age_minutes_in_stage: number;
   priority_score: number;
+  // Board view extended fields (optional)
+  brand_name?: string;
+  product_name?: string;
+  product_sku?: string;
+  account_name?: string;
 }
 
 interface AvailableScript {
@@ -89,8 +98,12 @@ type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 const VA_MODES = ['admin', 'recorder', 'editor', 'uploader'] as const;
 type VAMode = typeof VA_MODES[number];
 
-// localStorage key (VA mode only - user comes from auth)
+// localStorage keys
 const VA_MODE_KEY = 'pipeline_va_mode';
+const VIEW_MODE_KEY = 'pipeline_view_mode';
+const SIMPLE_MODE_KEY = 'pipeline_simple_mode';
+
+type ViewMode = 'table' | 'board';
 
 // Auth user info type
 interface AuthUser {
@@ -133,9 +146,197 @@ function getSlaColor(status: SlaStatus): { bg: string; text: string; border: str
   }
 }
 
+// ============================================================================
+// 7-STEP PIPELINE MODEL (icons only for VA clarity)
+// Idea/Script → Record → Edit → Approve → Post → Monitor → Remake
+// ============================================================================
+const PIPELINE_STEPS = [
+  { key: 'script', icon: '📝', label: 'Script' },
+  { key: 'record', icon: '🎬', label: 'Record' },
+  { key: 'edit', icon: '✂️', label: 'Edit' },
+  { key: 'approve', icon: '✅', label: 'Approve' },
+  { key: 'post', icon: '🚀', label: 'Post' },
+  { key: 'monitor', icon: '📊', label: 'Monitor' },
+  { key: 'remake', icon: '♻️', label: 'Remake' },
+] as const;
+
+// Get current step index (0-6) for a video
+function getCurrentStep(video: QueueVideo): number {
+  const hasScript = !!video.script_locked_text;
+  const status = video.recording_status || 'NOT_RECORDED';
+
+  if (!hasScript) return 0; // Script step
+  if (status === 'NOT_RECORDED') return 1; // Record step
+  if (status === 'RECORDED') return 2; // Edit step
+  if (status === 'EDITED') return 3; // Approve step
+  if (status === 'READY_TO_POST') return 4; // Post step
+  if (status === 'POSTED') return 5; // Monitor step
+  if (status === 'REJECTED') return 6; // Remake step
+  return 0;
+}
+
+// Role-based instruction banners
+const ROLE_INSTRUCTIONS: Record<string, string> = {
+  recorder: 'Click the blue button to mark recording done.',
+  editor: 'Edit the video, then click Edit Done.',
+  uploader: 'Post the video and paste the link.',
+  admin: 'Monitor flow and resolve blockers.',
+};
+
+// ============================================================================
+// PRIMARY ACTION LOGIC - Single source of truth for "what should VA do next"
+// Colors: Script=Teal, Record=Blue, Edit=Purple, Approve=Green, Post=Orange
+// ============================================================================
+interface PrimaryAction {
+  key: 'add_script' | 'lock_script' | 'record' | 'edit' | 'approve' | 'post' | 'done' | 'rejected';
+  label: string;          // Verb-only label
+  icon: string;           // Emoji icon
+  color: string;          // Button background color
+  requiredRole: 'recorder' | 'editor' | 'uploader' | 'admin' | null;
+  disabled: boolean;
+  disabledReason?: string;
+  actionType: 'modal' | 'transition' | 'none';
+  targetStatus?: string;
+}
+
+function getPrimaryAction(video: QueueVideo): PrimaryAction {
+  const hasLockedScript = !!video.script_locked_text;
+  const recordingStatus = video.recording_status || 'NOT_RECORDED';
+
+  // Priority 1: Need script - TEAL
+  if (!hasLockedScript) {
+    return {
+      key: 'add_script',
+      label: 'Add Script',
+      icon: '📝',
+      color: '#0d9488', // Teal
+      requiredRole: 'recorder',
+      disabled: false,
+      actionType: 'modal',
+    };
+  }
+
+  // Priority 2: Not recorded yet - BLUE
+  if (recordingStatus === 'NOT_RECORDED') {
+    return {
+      key: 'record',
+      label: 'Record',
+      icon: '🎬',
+      color: '#2563eb', // Blue
+      requiredRole: 'recorder',
+      disabled: !video.can_record,
+      disabledReason: video.can_record ? undefined : 'Script required',
+      actionType: 'transition',
+      targetStatus: 'RECORDED',
+    };
+  }
+
+  // Priority 3: Recorded, needs editing - PURPLE
+  if (recordingStatus === 'RECORDED') {
+    return {
+      key: 'edit',
+      label: 'Edit Done',
+      icon: '✂️',
+      color: '#7c3aed', // Purple
+      requiredRole: 'editor',
+      disabled: !video.can_mark_edited,
+      disabledReason: 'Recording required',
+      actionType: 'transition',
+      targetStatus: 'EDITED',
+    };
+  }
+
+  // Priority 4: Edited, needs approval - GREEN
+  if (recordingStatus === 'EDITED') {
+    const canApprove = video.can_mark_ready_to_post;
+    return {
+      key: 'approve',
+      label: 'Approve',
+      icon: '✅',
+      color: '#16a34a', // Green
+      requiredRole: 'editor',
+      disabled: !canApprove,
+      disabledReason: canApprove ? undefined : 'Need video URL',
+      actionType: 'transition',
+      targetStatus: 'READY_TO_POST',
+    };
+  }
+
+  // Priority 5: Ready to post - ORANGE
+  if (recordingStatus === 'READY_TO_POST') {
+    return {
+      key: 'post',
+      label: 'Post',
+      icon: '🚀',
+      color: '#ea580c', // Orange
+      requiredRole: 'uploader',
+      disabled: false,
+      actionType: 'modal',
+    };
+  }
+
+  // Priority 6: Already posted
+  if (recordingStatus === 'POSTED') {
+    return {
+      key: 'done',
+      label: 'Done',
+      icon: '✓',
+      color: '#40c057',
+      requiredRole: null,
+      disabled: true,
+      actionType: 'none',
+    };
+  }
+
+  // Priority 7: Rejected
+  if (recordingStatus === 'REJECTED') {
+    return {
+      key: 'rejected',
+      label: 'Rejected',
+      icon: '⚠️',
+      color: '#e03131',
+      requiredRole: 'admin',
+      disabled: true,
+      actionType: 'none',
+    };
+  }
+
+  // Fallback
+  return {
+    key: 'done',
+    label: 'View',
+    icon: '👁',
+    color: '#6c757d',
+    requiredRole: null,
+    disabled: false,
+    actionType: 'none',
+  };
+}
+
+// Get compact next action badge text (icon + 1-3 words)
+function getNextActionBadge(video: QueueVideo): { icon: string; text: string; color: string } {
+  const action = getPrimaryAction(video);
+  return {
+    icon: action.icon,
+    text: action.label,
+    color: action.color,
+  };
+}
+
+// Filter videos by role (for role-based views)
+function filterVideosByRole(videos: QueueVideo[], role: 'recorder' | 'editor' | 'uploader' | 'admin'): QueueVideo[] {
+  if (role === 'admin') return videos;
+
+  return videos.filter(video => {
+    const action = getPrimaryAction(video);
+    return action.requiredRole === role || action.requiredRole === null;
+  });
+}
+
 // Admin identifier - in a real app this would come from auth
 const ADMIN_IDENTIFIER = 'admin';
 
+// Main pipeline page component
 export default function AdminPipelinePage() {
   const hydrated = useHydrated();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
@@ -209,6 +410,18 @@ export default function AdminPipelinePage() {
   // Execution action state (for quick transitions)
   const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
+  // More menu state (which video's menu is open)
+  const [openMenuVideoId, setOpenMenuVideoId] = useState<string | null>(null);
+
+  // View mode state (simple vs advanced) - simple is default for VA usability
+  const [simpleView, setSimpleView] = useState(true);
+
+
+  // Reference data for filters
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
+  const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
+
 
   // Fetch authenticated user on mount
   useEffect(() => {
@@ -245,6 +458,12 @@ export default function AdminPipelinePage() {
             setVaMode(savedMode as VAMode);
           }
         }
+
+        // Load simple view preference from localStorage (default to true for VA usability)
+        const savedSimpleView = localStorage.getItem(SIMPLE_MODE_KEY);
+        if (savedSimpleView === 'false') {
+          setSimpleView(false);
+        }
       } catch (err) {
         console.error('Failed to fetch auth user:', err);
         router.push('/login?redirect=/admin/pipeline');
@@ -255,6 +474,44 @@ export default function AdminPipelinePage() {
 
     fetchAuthUser();
   }, [router]);
+
+  // Fetch reference data (brands, products, accounts) for filters
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+      try {
+        const [productsRes, accountsRes] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/accounts'),
+        ]);
+        const [productsData, accountsData] = await Promise.all([
+          productsRes.json(),
+          accountsRes.json(),
+        ]);
+
+        if (productsData.ok && productsData.data) {
+          setProducts(productsData.data.map((p: { id: string; name: string; brand: string }) => ({
+            id: p.id,
+            name: p.name,
+            brand: p.brand,
+          })));
+          // Extract unique brands
+          const uniqueBrands = Array.from(new Set(productsData.data.map((p: { brand: string }) => p.brand))) as string[];
+          setBrands(uniqueBrands.map(b => ({ id: b, name: b })));
+        }
+        if (accountsData.ok && accountsData.data) {
+          setAccounts(accountsData.data.map((a: { id: string; name: string }) => ({
+            id: a.id,
+            name: a.name,
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch reference data:', err);
+      }
+    };
+
+    fetchReferenceData();
+  }, []);
+
 
   // Save VA mode to localStorage (admins only can switch freely)
   const updateVaMode = (mode: VAMode) => {
@@ -270,6 +527,55 @@ export default function AdminPipelinePage() {
     if (mode !== 'admin') {
       setActiveRoleTab(mode);
     }
+  };
+
+  // Toggle simple/advanced view
+  const toggleSimpleView = () => {
+    const newValue = !simpleView;
+    setSimpleView(newValue);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SIMPLE_MODE_KEY, String(newValue));
+    }
+  };
+
+  // Get videos filtered by current role mode
+  const getRoleFilteredVideos = (): QueueVideo[] => {
+    if (vaMode === 'admin') return queueVideos;
+    return filterVideosByRole(queueVideos, vaMode);
+  };
+
+  // Handle primary action click
+  const handlePrimaryActionClick = async (video: QueueVideo) => {
+    const action = getPrimaryAction(video);
+    if (action.disabled) return;
+
+    switch (action.actionType) {
+      case 'modal':
+        if (action.key === 'add_script') {
+          openAttachModal(video);
+        } else if (action.key === 'post') {
+          openPostModal(video);
+        }
+        break;
+      case 'transition':
+        if (action.targetStatus) {
+          await executeTransition(video.id, action.targetStatus);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Get product/account info for display
+  const getVideoMetaBadges = (video: QueueVideo) => {
+    const product = products.find(p => p.id === video.product_id);
+    const account = accounts.find(a => a.id === video.account_id);
+    return {
+      brand: product?.brand || '—',
+      sku: product?.name?.slice(0, 12) || video.product_id?.slice(0, 8) || '—',
+      account: account?.name || '—',
+    };
   };
 
   // Check if user is an admin
@@ -861,24 +1167,99 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
-      {/* Queue Summary */}
-      <section style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
-        <h2 style={{ marginTop: 0 }}>Queue Summary</h2>
-        {queueSummary ? (
-          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ fontSize: '18px' }}>
-              <strong>Total Queued:</strong> {queueSummary.total_queued}
-            </div>
-            {Object.entries(queueSummary.counts_by_status).map(([status, count]) => (
-              <div key={status} style={{ padding: '4px 10px', backgroundColor: '#e9ecef', borderRadius: '4px', fontSize: '14px' }}>
-                {status.replace(/_/g, ' ')}: <strong>{count}</strong>
-              </div>
-            ))}
+      {/* Simple/Advanced View Toggle */}
+      <div style={{
+        marginBottom: '20px',
+        padding: '12px 16px',
+        backgroundColor: '#e7f5ff',
+        borderRadius: '8px',
+        border: '1px solid #74c0fc',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+        flexWrap: 'wrap',
+      }}>
+        {/* Simple/Advanced Toggle */}
+        <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #74c0fc' }}>
+          <button
+            onClick={() => setSimpleView(true)}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              backgroundColor: simpleView ? '#228be6' : 'white',
+              color: simpleView ? 'white' : '#228be6',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: simpleView ? 'bold' : 'normal',
+            }}
+          >
+            ✨ Simple
+          </button>
+          <button
+            onClick={() => setSimpleView(false)}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderLeft: '1px solid #74c0fc',
+              backgroundColor: !simpleView ? '#228be6' : 'white',
+              color: !simpleView ? 'white' : '#228be6',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: !simpleView ? 'bold' : 'normal',
+            }}
+          >
+            ⚙️ Advanced
+          </button>
+        </div>
+
+        {/* Quick Stats */}
+        {queueSummary && (
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#495057' }}>
+              <strong>{getRoleFilteredVideos().length}</strong> items
+              {vaMode !== 'admin' && ` for ${vaMode}`}
+            </span>
+            {queueSummary.counts_by_status['READY_TO_POST'] > 0 && (
+              <span style={{
+                padding: '4px 10px',
+                backgroundColor: '#40c057',
+                color: 'white',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+              }}>
+                {queueSummary.counts_by_status['READY_TO_POST']} ready
+              </span>
+            )}
           </div>
-        ) : (
-          <p>No data available</p>
         )}
-      </section>
+
+        {/* Role indicator */}
+        <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#868e96' }}>
+          {simpleView ? 'Showing essential columns' : 'Showing all columns'}
+        </div>
+      </div>
+
+      {/* Queue Summary - Advanced view only */}
+      {!simpleView && (
+        <section style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
+          <h2 style={{ marginTop: 0 }}>Queue Summary</h2>
+          {queueSummary ? (
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ fontSize: '18px' }}>
+                <strong>Total Queued:</strong> {queueSummary.total_queued}
+              </div>
+              {Object.entries(queueSummary.counts_by_status).map(([status, count]) => (
+                <div key={status} style={{ padding: '4px 10px', backgroundColor: '#e9ecef', borderRadius: '4px', fontSize: '14px' }}>
+                  {status.replace(/_/g, ' ')}: <strong>{count}</strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No data available</p>
+          )}
+        </section>
+      )}
 
       {/* Video Queue with Recording Status Tabs */}
       <section style={{ marginBottom: '30px' }}>
@@ -1065,23 +1446,52 @@ export default function AdminPipelinePage() {
           {queueLoading && <span style={{ color: '#666', fontSize: '12px', marginLeft: '10px' }}>Loading...</span>}
         </div>
 
-        {/* Queue Table */}
-        {queueVideos.length > 0 ? (
+        {/* Role Instruction Banner - context-aware help for VAs */}
+        {vaMode !== 'admin' && ROLE_INSTRUCTIONS[vaMode] && (
+          <div style={{
+            marginBottom: '15px',
+            padding: '12px 16px',
+            backgroundColor: vaMode === 'recorder' ? '#dbeafe' : vaMode === 'editor' ? '#ede9fe' : '#dcfce7',
+            borderRadius: '8px',
+            border: `1px solid ${vaMode === 'recorder' ? '#93c5fd' : vaMode === 'editor' ? '#c4b5fd' : '#86efac'}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}>
+            <span style={{ fontSize: '20px' }}>
+              {vaMode === 'recorder' ? '🎬' : vaMode === 'editor' ? '✂️' : '🚀'}
+            </span>
+            <span style={{
+              fontSize: '14px',
+              fontWeight: '500',
+              color: vaMode === 'recorder' ? '#1e40af' : vaMode === 'editor' ? '#5b21b6' : '#166534',
+            }}>
+              {ROLE_INSTRUCTIONS[vaMode]}
+            </span>
+          </div>
+        )}
+
+        {/* Queue Table - Simple or Advanced View */}
+        {getRoleFilteredVideos().length > 0 ? (
           <table style={tableStyle}>
             <thead>
               <tr>
                 <th style={thStyle}>SLA</th>
-                <th style={thStyle}>Video ID</th>
-                <th style={thStyle}>Recording Status</th>
-                <th style={thStyle}>Next Action</th>
-                <th style={thStyle}>Last Changed</th>
-                <th style={thStyle}>Script</th>
-                <th style={thStyle}>Claim Status</th>
-                <th style={thStyle}>Actions</th>
+                <th style={thStyle}>Video</th>
+                <th style={thStyle}>Step</th>
+                {!simpleView && <th style={thStyle}>Status</th>}
+                <th style={thStyle}>Brand / SKU</th>
+                {!simpleView && <th style={thStyle}>Account</th>}
+                {!simpleView && <th style={thStyle}>Next</th>}
+                {!simpleView && <th style={thStyle}>Last Changed</th>}
+                {!simpleView && <th style={thStyle}>Script</th>}
+                {!simpleView && <th style={thStyle}>Claim</th>}
+                <th style={thStyle}>Action</th>
+                <th style={thStyle}>⋯</th>
               </tr>
             </thead>
             <tbody>
-              {queueVideos.map((video) => {
+              {getRoleFilteredVideos().map((video) => {
                 const statusColors = getStatusBadgeColor(video.recording_status);
                 const slaColors = getSlaColor(video.sla_status);
                 const claimedByOther = isClaimedByOther(video);
@@ -1089,352 +1499,314 @@ export default function AdminPipelinePage() {
                 const unclaimed = isUnclaimed(video);
                 const isProcessing = claimingVideoId === video.id;
                 const hasError = claimError?.videoId === video.id;
+                const primaryAction = getPrimaryAction(video);
+                const metaBadges = getVideoMetaBadges(video);
+                const isExecuting = executingVideoId === video.id;
+                const moreMenuOpen = openMenuVideoId === video.id;
+                const toggleMoreMenu = () => setOpenMenuVideoId(moreMenuOpen ? null : video.id);
+                const closeMoreMenu = () => setOpenMenuVideoId(null);
 
                 return (
                   <tr key={video.id} style={{ backgroundColor: claimedByMe ? '#e8f5e9' : claimedByOther ? '#fff3e0' : 'transparent' }}>
+                    {/* SLA Badge - Compact */}
                     <td style={tdStyle}>
                       <span style={{
                         display: 'inline-block',
-                        padding: '4px 8px',
+                        padding: simpleView ? '3px 6px' : '4px 8px',
                         borderRadius: '4px',
                         backgroundColor: slaColors.bg,
                         color: slaColors.text,
                         border: `1px solid ${slaColors.border}`,
-                        fontSize: '10px',
+                        fontSize: simpleView ? '9px' : '10px',
                         fontWeight: 'bold',
-                        textTransform: 'uppercase',
                       }}>
-                        {video.sla_status === 'overdue' ? 'OVERDUE' :
-                         video.sla_status === 'due_soon' ? 'DUE SOON' : 'ON TRACK'}
+                        {simpleView ? (video.sla_status === 'overdue' ? '!' : video.sla_status === 'due_soon' ? '~' : '✓') :
+                         (video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE' : 'OK')}
                       </span>
                     </td>
-                    <td style={copyableCellStyle}>
-                      <Link href={`/admin/pipeline/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
-                        {video.id.slice(0, 8)}...
-                      </Link>
-                      <span
-                        onClick={(e) => { e.stopPropagation(); copyToClipboard(video.id, `q-${video.id}`); }}
-                        style={{ marginLeft: '5px', cursor: 'pointer', color: '#666' }}
-                        title="Copy full ID"
-                      >
-                        [copy]
-                      </span>
-                      {copiedId === `q-${video.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
+                    {/* Video ID */}
+                    <td style={{...tdStyle, fontFamily: 'monospace', fontSize: '11px'}}>
+                      {video.id.slice(0, 8)}
                     </td>
+                    {/* Step Indicator - 7-step progress */}
+                    <td style={tdStyle}>
+                      {(() => {
+                        const currentStep = getCurrentStep(video);
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            gap: simpleView ? '2px' : '3px',
+                            alignItems: 'center',
+                          }}>
+                            {PIPELINE_STEPS.slice(0, 5).map((step, idx) => (
+                              <span
+                                key={step.key}
+                                title={step.label}
+                                style={{
+                                  fontSize: simpleView ? '12px' : '14px',
+                                  opacity: idx < currentStep ? 1 : idx === currentStep ? 1 : 0.25,
+                                  filter: idx < currentStep ? 'grayscale(50%)' : 'none',
+                                  transform: idx === currentStep ? 'scale(1.2)' : 'scale(1)',
+                                }}
+                              >
+                                {step.icon}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    {/* Status - Advanced only */}
+                    {!simpleView && (
+                      <td style={tdStyle}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: statusColors.badge,
+                          color: 'white',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                        }}>
+                          {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                    )}
+                    {/* Brand / SKU badges */}
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: '2px 6px',
+                          backgroundColor: '#e7f5ff',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          color: '#1971c2',
+                          maxWidth: '60px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }} title={metaBadges.brand}>
+                          {metaBadges.brand}
+                        </span>
+                        <span style={{
+                          padding: '2px 6px',
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          color: '#495057',
+                          maxWidth: '80px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }} title={metaBadges.sku}>
+                          {metaBadges.sku}
+                        </span>
+                      </div>
+                    </td>
+                    {/* Account - Advanced only */}
+                    {!simpleView && (
+                      <td style={tdStyle}>
+                        <span style={{ fontSize: '11px', color: '#666' }}>{metaBadges.account}</span>
+                      </td>
+                    )}
+                    {/* Next Action Badge - Compact */}
                     <td style={tdStyle}>
                       <span style={{
-                        display: 'inline-block',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
                         padding: '3px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: statusColors.badge,
-                        color: 'white',
+                        backgroundColor: primaryAction.color + '20',
+                        borderRadius: '4px',
                         fontSize: '11px',
                         fontWeight: 'bold',
+                        color: primaryAction.color,
                       }}>
-                        {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
+                        {primaryAction.icon} {primaryAction.label}
                       </span>
                     </td>
+                    {/* Last Changed - Advanced only */}
+                    {!simpleView && (
+                      <td style={tdStyle}>
+                        <span style={{ fontSize: '11px', color: '#666' }}>
+                          {hydrated && video.last_status_changed_at ? getTimeAgo(video.last_status_changed_at) : '—'}
+                        </span>
+                      </td>
+                    )}
+                    {/* Script - Advanced only */}
+                    {!simpleView && (
+                      <td style={tdStyle}>
+                        <span style={{ fontSize: '11px', color: video.script_locked_text ? '#2b8a3e' : '#868e96' }}>
+                          {video.script_locked_text ? '🔒 Locked' : '—'}
+                        </span>
+                      </td>
+                    )}
+                    {/* Claim Status - Advanced only */}
+                    {!simpleView && (
+                      <td style={tdStyle}>
+                        <span style={{ fontSize: '11px', color: claimedByMe ? '#2b8a3e' : claimedByOther ? '#e67700' : '#868e96' }}>
+                          {claimedByMe ? '✓ Mine' : claimedByOther ? '🔒 Locked' : 'Open'}
+                        </span>
+                      </td>
+                    )}
+                    {/* PRIMARY ACTION BUTTON */}
                     <td style={tdStyle}>
-                      <div style={{ fontSize: '12px' }}>
-                        <div style={{ fontWeight: video.can_move_next ? 'normal' : 'bold', color: video.can_move_next ? '#333' : '#856404' }}>
-                          {video.next_action}
-                        </div>
-                        {video.blocked_reason && (
-                          <div style={{
-                            marginTop: '4px',
-                            padding: '3px 6px',
-                            backgroundColor: '#fff3cd',
-                            border: '1px solid #ffc107',
+                      <button
+                        onClick={() => handlePrimaryActionClick(video)}
+                        disabled={primaryAction.disabled || isExecuting || claimedByOther}
+                        title={primaryAction.disabledReason || (claimedByOther ? 'Locked by another user' : undefined)}
+                        style={{
+                          padding: simpleView ? '8px 16px' : '6px 12px',
+                          backgroundColor: (primaryAction.disabled || claimedByOther) ? '#ccc' : primaryAction.color,
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: (primaryAction.disabled || claimedByOther) ? 'not-allowed' : 'pointer',
+                          fontSize: simpleView ? '13px' : '12px',
+                          fontWeight: 'bold',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          minWidth: simpleView ? '100px' : 'auto',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {isExecuting ? '...' : (
+                          <>
+                            <span>{primaryAction.icon}</span>
+                            <span>{primaryAction.label}</span>
+                          </>
+                        )}
+                      </button>
+                    </td>
+                    {/* MORE MENU */}
+                    <td style={tdStyle}>
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={toggleMoreMenu}
+                          style={{
+                            padding: '6px 10px',
+                            backgroundColor: moreMenuOpen ? '#e9ecef' : 'transparent',
+                            border: '1px solid #dee2e6',
                             borderRadius: '4px',
-                            fontSize: '10px',
-                            color: '#856404',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                          }}
+                        >
+                          ⋯
+                        </button>
+                        {moreMenuOpen && (
+                          <div style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: '100%',
+                            backgroundColor: 'white',
+                            border: '1px solid #dee2e6',
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            zIndex: 100,
+                            minWidth: '140px',
+                            marginTop: '4px',
                           }}>
-                            {video.blocked_reason}
+                            {/* Details - Always visible */}
+                            <Link
+                              href={`/admin/pipeline/${video.id}`}
+                              style={{
+                                display: 'block',
+                                padding: '10px 14px',
+                                textDecoration: 'none',
+                                color: '#212529',
+                                fontSize: '13px',
+                                borderBottom: '1px solid #f0f0f0',
+                              }}
+                              onClick={() => closeMoreMenu()}
+                            >
+                              📄 Details
+                            </Link>
+                            {/* Claim - Always visible when unclaimed */}
+                            {unclaimed && (
+                              <button
+                                onClick={() => { claimVideo(video.id); closeMoreMenu(); }}
+                                disabled={isProcessing}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  padding: '10px 14px',
+                                  textAlign: 'left',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  color: '#28a745',
+                                  borderBottom: '1px solid #f0f0f0',
+                                }}
+                              >
+                                ✋ Claim
+                              </button>
+                            )}
+                            {/* Release - Always visible when claimed by me */}
+                            {claimedByMe && (
+                              <button
+                                onClick={() => { releaseVideo(video.id); closeMoreMenu(); }}
+                                disabled={isProcessing}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  padding: '10px 14px',
+                                  textAlign: 'left',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  color: '#dc3545',
+                                  borderBottom: isAdminMode ? '1px solid #f0f0f0' : 'none',
+                                }}
+                              >
+                                ↩️ Release
+                              </button>
+                            )}
+                            {/* Admin-only options below this line */}
+                            {isAdminMode && claimedByMe && (
+                              <button
+                                onClick={() => { openHandoffModal(video); closeMoreMenu(); }}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  padding: '10px 14px',
+                                  textAlign: 'left',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  color: '#6f42c1',
+                                  borderBottom: '1px solid #f0f0f0',
+                                }}
+                              >
+                                🔄 Handoff
+                              </button>
+                            )}
+                            {isAdminMode && video.recording_status !== 'REJECTED' && video.recording_status !== 'POSTED' && (
+                              <button
+                                onClick={() => { executeTransition(video.id, 'REJECTED'); closeMoreMenu(); }}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  padding: '10px 14px',
+                                  textAlign: 'left',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  color: '#e03131',
+                                }}
+                              >
+                                ⚠️ Reject
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
-                    </td>
-                    <td style={tdStyle}>
-                      {video.last_status_changed_at ? (
-                        <span title={formatDateString(video.last_status_changed_at)}>
-                          {displayTime(video.last_status_changed_at)}
-                        </span>
-                      ) : '-'}
-                    </td>
-                    <td style={tdStyle}>
-                      {video.script_locked_version ? (
-                        <span style={{ padding: '2px 6px', backgroundColor: '#d4edda', borderRadius: '4px', fontSize: '11px' }}>
-                          v{video.script_locked_version} locked
-                        </span>
-                      ) : video.script_locked_text ? (
-                        <span style={{ padding: '2px 6px', backgroundColor: '#d4edda', borderRadius: '4px', fontSize: '11px' }}>
-                          Locked
-                        </span>
-                      ) : (
-                        <span style={{ color: '#999', fontSize: '12px' }}>No script</span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      {unclaimed ? (
-                        <span style={{ color: '#28a745', fontSize: '12px' }}>Unclaimed</span>
-                      ) : claimedByMe ? (
-                        <div style={{ fontSize: '12px' }}>
-                          <span style={{ color: '#0066cc', fontWeight: 'bold' }}>Claimed by you</span>
-                          {video.claim_role && (
-                            <span style={{
-                              marginLeft: '6px',
-                              padding: '2px 6px',
-                              backgroundColor: '#e7f5ff',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              textTransform: 'capitalize',
-                            }}>
-                              {video.claim_role}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: '12px' }}>
-                          <span style={{ color: '#dc3545' }}>Claimed by {video.claimed_by}</span>
-                          {video.claim_role && (
-                            <span style={{
-                              marginLeft: '6px',
-                              padding: '2px 6px',
-                              backgroundColor: '#fff3cd',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              textTransform: 'capitalize',
-                            }}>
-                              {video.claim_role}
-                            </span>
-                          )}
-                          {video.claim_expires_at && (
-                            <div style={{ color: '#666', fontSize: '11px' }} title={formatDateString(video.claim_expires_at)}>
-                              Expires: {displayTime(video.claim_expires_at)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        {unclaimed && (
-                          <button
-                            onClick={() => claimVideo(video.id)}
-                            disabled={isProcessing}
-                            style={{
-                              padding: '4px 10px',
-                              backgroundColor: '#28a745',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: isProcessing ? 'not-allowed' : 'pointer',
-                              fontSize: '12px',
-                            }}
-                          >
-                            {isProcessing ? '...' : 'Claim'}
-                          </button>
-                        )}
-                        {claimedByMe && (
-                          <>
-                            <button
-                              onClick={() => releaseVideo(video.id)}
-                              disabled={isProcessing}
-                              style={{
-                                padding: '4px 10px',
-                                backgroundColor: '#dc3545',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                                fontSize: '12px',
-                              }}
-                            >
-                              {isProcessing ? '...' : 'Release'}
-                            </button>
-                            <button
-                              onClick={() => openHandoffModal(video)}
-                              style={{
-                                padding: '4px 10px',
-                                backgroundColor: '#6f42c1',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                              }}
-                            >
-                              Handoff...
-                            </button>
-                          </>
-                        )}
-                        {claimedByOther && (
-                          <span style={{ color: '#999', fontSize: '11px', fontStyle: 'italic' }}>Locked</span>
-                        )}
-                        {/* Action button based on next_action */}
-                        {(() => {
-                          const isExecuting = executingVideoId === video.id;
-                          const execError = executionError?.videoId === video.id ? executionError.message : null;
-
-                          // Attach Script
-                          if (!video.script_locked_text) {
-                            return (
-                              <button
-                                onClick={() => openAttachModal(video)}
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: '#17a2b8',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                Attach Script
-                              </button>
-                            );
-                          }
-
-                          // Record (NOT_RECORDED -> RECORDED)
-                          if (video.can_record) {
-                            return (
-                              <button
-                                onClick={() => executeTransition(video.id, 'RECORDED')}
-                                disabled={isExecuting}
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: '#228be6',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: isExecuting ? 'not-allowed' : 'pointer',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                {isExecuting ? '...' : 'Mark Recorded'}
-                              </button>
-                            );
-                          }
-
-                          // Edit (RECORDED -> EDITED)
-                          if (video.can_mark_edited) {
-                            return (
-                              <button
-                                onClick={() => executeTransition(video.id, 'EDITED')}
-                                disabled={isExecuting}
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: '#fab005',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: isExecuting ? 'not-allowed' : 'pointer',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                {isExecuting ? '...' : 'Mark Edited'}
-                              </button>
-                            );
-                          }
-
-                          // Ready to Post (EDITED -> READY_TO_POST)
-                          if (video.can_mark_ready_to_post) {
-                            return (
-                              <button
-                                onClick={() => executeTransition(video.id, 'READY_TO_POST')}
-                                disabled={isExecuting}
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: '#40c057',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: isExecuting ? 'not-allowed' : 'pointer',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                {isExecuting ? '...' : 'Mark Ready'}
-                              </button>
-                            );
-                          }
-
-                          // Post (READY_TO_POST -> POSTED) - requires modal
-                          if (video.recording_status === 'READY_TO_POST') {
-                            return (
-                              <button
-                                onClick={() => openPostModal(video)}
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: '#1971c2',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                Post...
-                              </button>
-                            );
-                          }
-
-                          // Rejected - link to details
-                          if (video.recording_status === 'REJECTED') {
-                            return (
-                              <Link
-                                href={`/admin/pipeline/${video.id}`}
-                                target="_blank"
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: '#e03131',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  textDecoration: 'none',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                View Notes
-                              </Link>
-                            );
-                          }
-
-                          // Posted - done
-                          if (video.recording_status === 'POSTED') {
-                            return (
-                              <span style={{ color: '#40c057', fontSize: '12px', fontWeight: 'bold' }}>Done</span>
-                            );
-                          }
-
-                          // Fallback: show exec error if any
-                          if (execError) {
-                            return <span style={{ color: '#dc3545', fontSize: '11px' }}>{execError}</span>;
-                          }
-
-                          return null;
-                        })()}
-                        <Link
-                          href={`/admin/pipeline/${video.id}`}
-                          style={{
-                            padding: '4px 10px',
-                            backgroundColor: '#6c757d',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            textDecoration: 'none',
-                            fontSize: '12px',
-                          }}
-                        >
-                          Details
-                        </Link>
-                        {hasError && (
-                          <span style={{ color: '#dc3545', fontSize: '11px' }}>{claimError?.message}</span>
-                        )}
-                        {executionError?.videoId === video.id && (
-                          <span style={{ color: '#dc3545', fontSize: '11px' }}>{executionError.message}</span>
-                        )}
-                      </div>
+                      {hasError && <span style={{ color: '#dc3545', fontSize: '10px', display: 'block' }}>{claimError?.message}</span>}
                     </td>
                   </tr>
                 );
@@ -1447,14 +1819,19 @@ export default function AdminPipelinePage() {
           </p>
         )}
         <div style={{ fontSize: '12px', color: '#666' }}>
-          Showing {queueVideos.length} video(s) with recording_status = {activeRecordingTab === 'ALL' ? 'any' : activeRecordingTab}
+          Showing {getRoleFilteredVideos().length} video(s)
+          {vaMode !== 'admin' && ` for ${vaMode} role`}
+          {activeRecordingTab !== 'ALL' && ` with status ${activeRecordingTab}`}
         </div>
       </section>
 
+      {/* Advanced sections - only show in advanced view */}
+      {!simpleView && (
+      <>
       {/* Filters for legacy sections */}
       <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Filters:</span>
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Event Filters:</span>
           <input
             type="text"
             placeholder="Filter by Video ID..."
@@ -1464,7 +1841,7 @@ export default function AdminPipelinePage() {
           />
           <input
             type="text"
-            placeholder="Filter by Claimed By / Actor..."
+            placeholder="Filter by Actor..."
             value={claimedByFilter}
             onChange={(e) => setClaimedByFilter(e.target.value)}
             style={inputStyle}
@@ -1484,13 +1861,13 @@ export default function AdminPipelinePage() {
               onClick={clearFilters}
               style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
             >
-              Clear filters
+              Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Claimed Videos */}
+      {/* Claimed Videos - Advanced View Only */}
       <section style={{ marginBottom: '40px' }}>
         <h2>Currently Claimed ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
         {filteredClaimedVideos.length > 0 ? (
@@ -1588,6 +1965,8 @@ export default function AdminPipelinePage() {
       <div style={{ color: '#999', fontSize: '12px' }}>
         Auto-refreshes every 10 seconds
       </div>
+      </>
+      )}
 
       {/* Attach Script Modal */}
       {attachModalVideoId && (

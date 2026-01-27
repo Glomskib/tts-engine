@@ -1,59 +1,53 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+/**
+ * Get env var with whitespace trimming.
+ * Returns null if missing or empty.
+ */
+function getEnv(name: string): string | null {
+  const v = process.env[name];
+  return v && v.trim().length > 0 ? v.trim() : null;
+}
+
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = getEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const supabaseAnonKey = getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
-  // If env vars are missing, allow request through - the page will show error
+  // NEVER throw in middleware (Edge) - it becomes MIDDLEWARE_INVOCATION_FAILED
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error(
-      "Missing Supabase configuration. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
-    );
-    return response;
+    console.error("Missing Supabase env in middleware", {
+      hasUrl: !!supabaseUrl,
+      hasAnon: !!supabaseAnonKey,
+    });
+    return response; // allow site to load so /api/health works
   }
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value: '', ...options });
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    }
-  );
+      setAll(cookies) {
+        cookies.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
 
-  // Refresh session if expired
+  // Touch auth so session refresh works in Edge
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Protect /admin routes - redirect to /login if not authenticated
+  // Protect /admin and /uploader routes - redirect to /login if not authenticated
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+  const isUploaderRoute = request.nextUrl.pathname.startsWith('/uploader');
   const isLoginPage = request.nextUrl.pathname === '/login';
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
 
@@ -62,16 +56,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // If accessing admin routes without auth, redirect to login
-  if (isAdminRoute && !user) {
+  // If accessing protected routes without auth, redirect to login
+  if ((isAdminRoute || isUploaderRoute) && !user) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If authenticated and on login page, redirect to admin
+  // If authenticated and on login page, redirect based on stored redirect param
   if (isLoginPage && user) {
-    const redirect = request.nextUrl.searchParams.get('redirect') || '/admin/pipeline';
+    const redirect = request.nextUrl.searchParams.get('redirect') || '/';
     return NextResponse.redirect(new URL(redirect, request.url));
   }
 

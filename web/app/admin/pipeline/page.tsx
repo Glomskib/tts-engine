@@ -9,6 +9,7 @@ import NotificationBadge from '../components/NotificationBadge';
 import IncidentBanner from '../components/IncidentBanner';
 import AdminNav from '../components/AdminNav';
 import VideoDrawer from './components/VideoDrawer';
+import CreateVideoDrawer from './components/CreateVideoDrawer';
 import AppLayout from '@/app/components/AppLayout';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
@@ -92,7 +93,7 @@ interface AvailableScript {
   product_id: string | null;
 }
 
-const RECORDING_STATUS_TABS = ['ALL', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
+const RECORDING_STATUS_TABS = ['ALL', 'NEEDS_SCRIPT', 'GENERATING_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST', 'POSTED', 'REJECTED'] as const;
 const CLAIM_ROLE_TABS = ['all', 'recorder', 'editor', 'uploader'] as const;
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
@@ -117,6 +118,10 @@ interface AuthUser {
 // Status badge color helper (matches detail page)
 function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
   switch (status) {
+    case 'NEEDS_SCRIPT':
+      return { bg: '#f3f0ff', border: '#d0bfff', badge: '#7950f2' };
+    case 'GENERATING_SCRIPT':
+      return { bg: '#e5dbff', border: '#b197fc', badge: '#7048e8' };
     case 'NOT_RECORDED':
       return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
     case 'RECORDED':
@@ -167,6 +172,8 @@ function getCurrentStep(video: QueueVideo): number {
   const hasScript = !!video.script_locked_text;
   const status = video.recording_status || 'NOT_RECORDED';
 
+  // Script-related statuses are always step 0 (Script step)
+  if (status === 'NEEDS_SCRIPT' || status === 'GENERATING_SCRIPT') return 0;
   if (!hasScript) return 0; // Script step
   if (status === 'NOT_RECORDED') return 1; // Record step
   if (status === 'RECORDED') return 2; // Edit step
@@ -420,6 +427,16 @@ export default function AdminPipelinePage() {
 
   // Drawer state - which video is open in the details drawer
   const [drawerVideo, setDrawerVideo] = useState<QueueVideo | null>(null);
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Show toast with auto-dismiss
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
 
   // Reference data for filters
@@ -1327,7 +1344,29 @@ export default function AdminPipelinePage() {
 
       {/* Video Queue with Recording Status Tabs */}
       <section style={{ marginBottom: '30px' }}>
-        <h2>Video Queue</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <h2 style={{ margin: 0 }}>Video Queue</h2>
+          {isAdminMode && (
+            <button
+              onClick={() => setShowCreateDrawer(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#228be6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              ➕ Create Video
+            </button>
+          )}
+        </div>
 
         {/* VA Mode + Authenticated User Display */}
         <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc', flexWrap: 'wrap' }}>
@@ -1648,34 +1687,54 @@ export default function AdminPipelinePage() {
                     )}
                     {/* Brand / SKU badges */}
                     <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          padding: '2px 6px',
-                          backgroundColor: '#e7f5ff',
-                          borderRadius: '3px',
-                          fontSize: '10px',
-                          color: '#1971c2',
-                          maxWidth: '60px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }} title={metaBadges.brand}>
-                          {metaBadges.brand}
+                      {metaBadges.brand === '—' && metaBadges.sku === '—' ? (
+                        <span
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#fff3cd',
+                            border: '1px solid #ffc107',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            color: '#856404',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                          title="Click to add brand/product mapping"
+                        >
+                          ⚠️ Add Brand / Product
                         </span>
-                        <span style={{
-                          padding: '2px 6px',
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '3px',
-                          fontSize: '10px',
-                          color: '#495057',
-                          maxWidth: '80px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }} title={metaBadges.sku}>
-                          {metaBadges.sku}
-                        </span>
-                      </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            padding: '2px 6px',
+                            backgroundColor: '#e7f5ff',
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            color: '#1971c2',
+                            maxWidth: '60px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }} title={metaBadges.brand}>
+                            {metaBadges.brand}
+                          </span>
+                          <span style={{
+                            padding: '2px 6px',
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            color: '#495057',
+                            maxWidth: '80px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }} title={metaBadges.sku}>
+                            {metaBadges.sku}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     {/* Account - Advanced only */}
                     {!simpleView && (
@@ -2445,6 +2504,43 @@ export default function AdminPipelinePage() {
           }}
           onAdvanceToNext={advanceToNextVideo}
         />
+      )}
+
+      {/* Create Video Drawer */}
+      {showCreateDrawer && (
+        <CreateVideoDrawer
+          onClose={() => setShowCreateDrawer(false)}
+          onSuccess={() => {
+            fetchQueueVideos();
+          }}
+          onShowToast={(message) => showToast(message, 'success')}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            padding: '12px 20px',
+            backgroundColor: toast.type === 'success' ? '#40c057' : '#e03131',
+            color: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 2000,
+            fontSize: '14px',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'slideIn 0.2s ease-out',
+          }}
+        >
+          <span>{toast.type === 'success' ? '✓' : '!'}</span>
+          <span>{toast.message}</span>
+        </div>
       )}
     </div>
   );

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTheme, getThemeColors } from './ThemeProvider';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -26,6 +27,8 @@ interface SidebarProps {
 export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
+  const { theme, toggleTheme, isDark } = useTheme();
+  const colors = getThemeColors(isDark);
 
   const isActive = (href: string) => {
     if (href === '/admin/pipeline') {
@@ -148,22 +151,40 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       <div
         style={{
           padding: '20px 16px',
-          borderBottom: '1px solid #2d2d44',
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <Link
-          href="/"
-          style={{
-            textDecoration: 'none',
-            color: 'inherit',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}
-        >
-          <span style={{ fontSize: '24px' }}>🎬</span>
-          <span style={{ fontWeight: 'bold', fontSize: '16px' }}>TTS Engine</span>
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Link
+            href="/"
+            style={{
+              textDecoration: 'none',
+              color: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <span style={{ fontSize: '24px' }}>🎬</span>
+            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>TTS Engine</span>
+          </Link>
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '4px',
+              borderRadius: '4px',
+              transition: 'background 0.2s',
+            }}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
+        </div>
       </div>
 
       {/* Nav Sections */}
@@ -226,7 +247,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
 
         {/* Admin Advanced Section */}
         {role === 'admin' && (
-          <div style={{ marginTop: '8px', borderTop: '1px solid #2d2d44', paddingTop: '8px' }}>
+          <div style={{ marginTop: '8px', borderTop: `1px solid ${colors.border}`, paddingTop: '8px' }}>
             <button
               onClick={() => setAdvancedExpanded(!advancedExpanded)}
               style={{
@@ -278,7 +299,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       <div
         style={{
           padding: '16px',
-          borderTop: '1px solid #2d2d44',
+          borderTop: `1px solid ${colors.border}`,
           fontSize: '12px',
         }}
       >

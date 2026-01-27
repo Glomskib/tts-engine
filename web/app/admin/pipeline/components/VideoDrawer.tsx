@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import type { QueueVideo } from '../types';
 import { getStatusBadgeColor, getSlaColor, getPrimaryAction, getReadinessIndicators } from '../types';
 import { formatDateString, getTimeAgo, useHydrated } from '@/lib/useHydrated';
+import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+
+interface Product {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+}
 
 interface VideoDrawerProps {
   video: QueueVideo;
@@ -86,11 +94,20 @@ export default function VideoDrawer({
   onAdvanceToNext,
 }: VideoDrawerProps) {
   const hydrated = useHydrated();
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('brief');
   const [details, setDetails] = useState<VideoDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Brand/Product mapping state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [showMapping, setShowMapping] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [mappingSaving, setMappingSaving] = useState(false);
 
   const statusColors = getStatusBadgeColor(video.recording_status);
   const slaColors = getSlaColor(video.sla_status);
@@ -121,6 +138,56 @@ export default function VideoDrawer({
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
+
+  // Fetch products for mapping (only when mapping is shown)
+  useEffect(() => {
+    if (!showMapping) return;
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        if (data.ok) {
+          setProducts(data.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+      }
+    };
+    fetchProducts();
+  }, [showMapping]);
+
+  // Check if brand/product mapping is missing
+  const isMappingMissing = !video.brand_name && !video.product_sku && !details?.video.brand_name && !details?.video.product_sku;
+
+  // Get unique brands from products
+  const brands = Array.from(new Set(products.map(p => p.brand))).sort();
+
+  // Filter products by selected brand
+  const filteredProducts = selectedBrand
+    ? products.filter(p => p.brand === selectedBrand)
+    : [];
+
+  // Save mapping
+  const saveMapping = async () => {
+    if (!selectedProductId) return;
+    setMappingSaving(true);
+    try {
+      const res = await fetch(`/api/videos/${video.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: selectedProductId }),
+      });
+      if (res.ok) {
+        setShowMapping(false);
+        onRefresh();
+        fetchDetails();
+      }
+    } catch (err) {
+      console.error('Failed to save mapping:', err);
+    } finally {
+      setMappingSaving(false);
+    }
+  };
 
   // Handle ESC key
   useEffect(() => {
@@ -425,9 +492,129 @@ export default function VideoDrawer({
         {!detailsLoading && (
           <div style={{
             padding: '12px 20px',
-            backgroundColor: '#fafbfc',
-            borderBottom: '1px solid #e0e0e0',
+            backgroundColor: isDark ? colors.bgSecondary : '#fafbfc',
+            borderBottom: `1px solid ${colors.border}`,
           }}>
+            {/* Brand/Product Mapping - Show warning if missing */}
+            {isMappingMissing && !showMapping && (
+              <div
+                onClick={() => setShowMapping(true)}
+                style={{
+                  marginBottom: '12px',
+                  padding: '10px 12px',
+                  backgroundColor: isDark ? '#4a3000' : '#fff3cd',
+                  border: `1px solid ${isDark ? '#6b4400' : '#ffc107'}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>⚠️</span>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: isDark ? '#ffc107' : '#856404' }}>
+                    Add Brand / Product
+                  </span>
+                </div>
+                <span style={{ fontSize: '12px', color: isDark ? '#ffc107' : '#856404' }}>Click to map →</span>
+              </div>
+            )}
+
+            {/* Mapping Editor */}
+            {showMapping && (
+              <div style={{
+                marginBottom: '12px',
+                padding: '12px',
+                backgroundColor: isDark ? colors.bgTertiary : '#e7f5ff',
+                border: `1px solid ${isDark ? '#2d5a87' : '#74c0fc'}`,
+                borderRadius: '6px',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: isDark ? '#74c0fc' : '#1971c2', marginBottom: '10px', textTransform: 'uppercase' }}>
+                  Map Brand & Product
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => {
+                      setSelectedBrand(e.target.value);
+                      setSelectedProductId('');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: `1px solid ${colors.inputBorder}`,
+                      backgroundColor: colors.input,
+                      color: colors.text,
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="">Select Brand...</option>
+                    {brands.map(brand => (
+                      <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    disabled={!selectedBrand}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: `1px solid ${colors.inputBorder}`,
+                      backgroundColor: colors.input,
+                      color: colors.text,
+                      fontSize: '13px',
+                      opacity: selectedBrand ? 1 : 0.5,
+                    }}
+                  >
+                    <option value="">{selectedBrand ? 'Select Product...' : 'Select brand first'}</option>
+                    {filteredProducts.map(product => (
+                      <option key={product.id} value={product.id}>{product.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setShowMapping(false)}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      backgroundColor: colors.bgSecondary,
+                      color: colors.text,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveMapping}
+                    disabled={!selectedProductId || mappingSaving}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      backgroundColor: selectedProductId && !mappingSaving ? '#228be6' : colors.bgTertiary,
+                      color: selectedProductId && !mappingSaving ? 'white' : colors.textMuted,
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: selectedProductId && !mappingSaving ? 'pointer' : 'not-allowed',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {mappingSaving ? 'Saving...' : 'Save Mapping'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Top Hook - most important for recorders */}
             {details?.brief?.hook_options && details.brief.hook_options.length > 0 && (
               <div style={{ marginBottom: '10px' }}>

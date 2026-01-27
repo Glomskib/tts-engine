@@ -2,6 +2,7 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import Sidebar from './Sidebar';
+import { useTheme, getThemeColors } from './ThemeProvider';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -10,6 +11,8 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
   const [role, setRole] = useState<UserRole>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -53,7 +56,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
         Loading...
       </div>
     );
@@ -66,7 +69,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         style={{
           flex: 1,
           marginLeft: '220px',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: colors.bgSecondary,
           minHeight: '100vh',
         }}
       >

@@ -41,6 +41,28 @@ interface AIDraft extends HookPackage {
   on_screen_text: string[];
 }
 
+// Track which fields user has modified
+type ModifiableField =
+  | 'selectedSpokenHook'
+  | 'visualHook'
+  | 'selectedTextHook'
+  | 'onScreenTextMid'
+  | 'onScreenTextCta'
+  | 'selectedAngle'
+  | 'proofType'
+  | 'notes'
+  | 'scriptDraft';
+
+// Target length options
+type TargetLength = '7-9s' | '15-20s' | '30-45s' | '60s+';
+
+const TARGET_LENGTHS: { value: TargetLength; label: string }[] = [
+  { value: '7-9s', label: '7-9 seconds (Quick hook)' },
+  { value: '15-20s', label: '15-20 seconds (Standard)' },
+  { value: '30-45s', label: '30-45 seconds (Story)' },
+  { value: '60s+', label: '60+ seconds (Deep dive)' },
+];
+
 type ScriptPath = 'ai_draft' | 'manual' | 'later';
 type ProofType = 'testimonial' | 'demo' | 'comparison' | 'other';
 type HookType = 'pattern_interrupt' | 'relatable_pain' | 'proof_teaser' | 'contrarian' | 'social_proof' | 'mini_story' | 'offer_urgency';
@@ -102,8 +124,16 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
   // AI Draft state
   const [aiDraft, setAiDraft] = useState<AIDraft | null>(null);
+  const [originalAiDraft, setOriginalAiDraft] = useState<AIDraft | null>(null); // Store original for readjust
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isReadjusting, setIsReadjusting] = useState(false);
+
+  // Track user-modified fields (locked from readjust)
+  const [userModifiedFields, setUserModifiedFields] = useState<Set<ModifiableField>>(new Set());
+
+  // Target length for video
+  const [targetLength, setTargetLength] = useState<TargetLength>('15-20s');
 
   // Form state - Script path (default to AI)
   const [scriptPath, setScriptPath] = useState<ScriptPath>('ai_draft');
@@ -255,6 +285,52 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     }
   };
 
+  // Helper to mark a field as user-modified
+  const markFieldModified = (field: ModifiableField) => {
+    if (originalAiDraft) {
+      setUserModifiedFields(prev => new Set(prev).add(field));
+    }
+  };
+
+  // Calculate hook strength (heuristic based on best practices)
+  const calculateHookStrength = (hook: string): { score: number; label: string; color: string } => {
+    if (!hook) return { score: 0, label: 'No hook', color: '#868e96' };
+
+    let score = 0;
+    const hookLower = hook.toLowerCase();
+
+    // Length check (5-12 words is ideal)
+    const wordCount = hook.split(/\s+/).filter(w => w.length > 0).length;
+    if (wordCount >= 5 && wordCount <= 12) score += 25;
+    else if (wordCount >= 3 && wordCount <= 15) score += 15;
+
+    // Pattern interrupt indicators
+    if (/stop|wait|hold on|don't scroll/i.test(hookLower)) score += 15;
+
+    // Question hooks engage
+    if (hook.includes('?')) score += 10;
+
+    // Personal/relatable language
+    if (/\b(you|your|i|my|me)\b/i.test(hookLower)) score += 15;
+
+    // Urgency/curiosity words
+    if (/secret|never|always|actually|finally|truth|why|how/i.test(hookLower)) score += 10;
+
+    // Emotional triggers
+    if (/tired|frustrated|hate|love|obsessed|amazing|insane/i.test(hookLower)) score += 10;
+
+    // Has a specific benefit or result implied
+    if (/changed|discovered|found|works|results/i.test(hookLower)) score += 15;
+
+    // Cap at 100
+    score = Math.min(score, 100);
+
+    if (score >= 75) return { score, label: 'Strong', color: '#40c057' };
+    if (score >= 50) return { score, label: 'Good', color: '#fab005' };
+    if (score >= 25) return { score, label: 'Weak', color: '#fd7e14' };
+    return { score, label: 'Needs work', color: '#e03131' };
+  };
+
   // Generate AI Draft
   const generateAIDraft = async () => {
     if (!selectedProductId) return;
@@ -271,6 +347,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           product_id: selectedProductId,
           hook_type: hookType,
           tone_preset: tonePreset,
+          target_length: targetLength,
           reference_script_text: referenceScriptText.trim() || undefined,
           reference_video_url: referenceVideoUrl.trim() || undefined,
         }),
@@ -281,6 +358,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
       if (data.ok && data.data) {
         const draft = data.data as AIDraft;
         setAiDraft(draft);
+        setOriginalAiDraft(draft); // Store original for readjust comparison
+        setUserModifiedFields(new Set()); // Reset modified tracking
         // Populate Hook Package fields
         setSelectedSpokenHook(draft.selected_spoken_hook || draft.selected_hook);
         setVisualHook(draft.visual_hook || '');
@@ -301,6 +380,92 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
       setAiError('Failed to generate brief. You can proceed manually.');
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // Readjust with AI - adapts non-locked fields to user edits
+  const readjustWithAI = async () => {
+    if (!selectedProductId || !aiDraft || !originalAiDraft) return;
+
+    setIsReadjusting(true);
+    setAiError(null);
+    setError('');
+
+    // Build current state
+    const currentState = {
+      selectedSpokenHook,
+      visualHook,
+      selectedTextHook,
+      onScreenTextMid,
+      onScreenTextCta,
+      selectedAngle,
+      proofType,
+      notes,
+      scriptDraft,
+    };
+
+    try {
+      const res = await fetch('/api/ai/draft-video-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: selectedProductId,
+          hook_type: hookType,
+          tone_preset: tonePreset,
+          target_length: targetLength,
+          reference_script_text: referenceScriptText.trim() || undefined,
+          reference_video_url: referenceVideoUrl.trim() || undefined,
+          // Readjust mode
+          mode: 'readjust',
+          locked_fields: Array.from(userModifiedFields),
+          original_ai_draft: originalAiDraft,
+          current_state: currentState,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok && data.data) {
+        const draft = data.data as AIDraft;
+        // Only update non-locked fields
+        if (!userModifiedFields.has('selectedSpokenHook')) {
+          setSelectedSpokenHook(draft.selected_spoken_hook || draft.selected_hook);
+        }
+        if (!userModifiedFields.has('visualHook')) {
+          setVisualHook(draft.visual_hook || '');
+        }
+        if (!userModifiedFields.has('selectedTextHook')) {
+          setSelectedTextHook(draft.selected_on_screen_text_hook || '');
+        }
+        if (!userModifiedFields.has('onScreenTextMid')) {
+          setOnScreenTextMid(draft.on_screen_text_mid || []);
+        }
+        if (!userModifiedFields.has('onScreenTextCta')) {
+          setOnScreenTextCta(draft.on_screen_text_cta || 'Link in bio!');
+        }
+        if (!userModifiedFields.has('selectedAngle')) {
+          setSelectedAngle(draft.selected_angle);
+        }
+        if (!userModifiedFields.has('proofType')) {
+          setProofType(draft.proof_type);
+        }
+        if (!userModifiedFields.has('notes')) {
+          setNotes(draft.notes);
+        }
+        if (!userModifiedFields.has('scriptDraft')) {
+          setScriptDraft(draft.script_draft);
+        }
+        // Update aiDraft with new data for options, but keep original for comparison
+        setAiDraft(draft);
+        if (onShowToast) onShowToast('Brief re-aligned to your edits');
+      } else {
+        setAiError(data.error || 'Readjust failed');
+      }
+    } catch (err) {
+      console.error('AI readjust error:', err);
+      setAiError('Failed to readjust. Try regenerating instead.');
+    } finally {
+      setIsReadjusting(false);
     }
   };
 
@@ -327,7 +492,9 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     setNewProductCategory('supplements');
     setScriptPath('ai_draft');
     setAiDraft(null);
+    setOriginalAiDraft(null);
     setAiError(null);
+    setUserModifiedFields(new Set());
     // Reset Hook Package
     setSelectedSpokenHook('');
     setVisualHook('');
@@ -340,7 +507,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     setNotes('');
     setScriptDraft('');
     setError('');
-    // Keep reference settings for batch creation
+    // Keep reference settings for batch creation (including targetLength)
   };
 
   // Handle submit
@@ -679,14 +846,24 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     </p>
                   </div>
 
-                  {/* Tone Preset */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={labelStyle}>Tone</label>
-                    <select value={tonePreset} onChange={(e) => setTonePreset(e.target.value as TonePreset)} style={selectStyle}>
-                      {TONE_PRESETS.map(tp => (
-                        <option key={tp.value} value={tp.value}>{tp.label}</option>
-                      ))}
-                    </select>
+                  {/* Tone Preset & Target Length row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Tone</label>
+                      <select value={tonePreset} onChange={(e) => setTonePreset(e.target.value as TonePreset)} style={selectStyle}>
+                        {TONE_PRESETS.map(tp => (
+                          <option key={tp.value} value={tp.value}>{tp.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Target Length</label>
+                      <select value={targetLength} onChange={(e) => setTargetLength(e.target.value as TargetLength)} style={selectStyle}>
+                        {TARGET_LENGTHS.map(tl => (
+                          <option key={tl.value} value={tl.value}>{tl.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {/* Paste Script */}
@@ -779,20 +956,51 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   display: 'flex', alignItems: 'center', gap: '6px',
                 }}>
                   <span>✨</span> AI-Generated Brief
+                  {userModifiedFields.size > 0 && (
+                    <span style={{
+                      fontSize: '9px', fontWeight: 'normal', textTransform: 'none',
+                      backgroundColor: isDark ? '#4a3000' : '#fff3cd',
+                      color: isDark ? '#ffd43b' : '#856404',
+                      padding: '2px 6px', borderRadius: '3px',
+                    }}>
+                      {userModifiedFields.size} edited
+                    </span>
+                  )}
                 </div>
-                <button
-                  onClick={generateAIDraft}
-                  disabled={aiLoading}
-                  style={{
-                    padding: '4px 10px', backgroundColor: 'transparent',
-                    color: isDark ? '#69db7c' : '#2b8a3e',
-                    border: `1px solid ${isDark ? '#69db7c' : '#2b8a3e'}`,
-                    borderRadius: '4px', cursor: aiLoading ? 'not-allowed' : 'pointer',
-                    fontSize: '11px', fontWeight: 500,
-                  }}
-                >
-                  {aiLoading ? '...' : 'Regenerate'}
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {/* Readjust button - only show if user has made edits */}
+                  {userModifiedFields.size > 0 && (
+                    <button
+                      onClick={readjustWithAI}
+                      disabled={aiLoading || isReadjusting}
+                      title="Re-align other fields to your edits without overwriting what you changed"
+                      style={{
+                        padding: '4px 10px', backgroundColor: isDark ? '#2d4a3e' : '#d3f9d8',
+                        color: isDark ? '#69db7c' : '#2b8a3e',
+                        border: `1px solid ${isDark ? '#69db7c' : '#40c057'}`,
+                        borderRadius: '4px', cursor: aiLoading || isReadjusting ? 'not-allowed' : 'pointer',
+                        fontSize: '11px', fontWeight: 500,
+                        opacity: aiLoading || isReadjusting ? 0.6 : 1,
+                      }}
+                    >
+                      {isReadjusting ? '⏳' : '🔁'} Readjust
+                    </button>
+                  )}
+                  <button
+                    onClick={generateAIDraft}
+                    disabled={aiLoading || isReadjusting}
+                    style={{
+                      padding: '4px 10px', backgroundColor: 'transparent',
+                      color: isDark ? '#69db7c' : '#2b8a3e',
+                      border: `1px solid ${isDark ? '#69db7c' : '#2b8a3e'}`,
+                      borderRadius: '4px', cursor: aiLoading || isReadjusting ? 'not-allowed' : 'pointer',
+                      fontSize: '11px', fontWeight: 500,
+                      opacity: aiLoading || isReadjusting ? 0.6 : 1,
+                    }}
+                  >
+                    {aiLoading ? '...' : '🔄 Regenerate'}
+                  </button>
+                </div>
               </div>
 
               {/* ===== HOOK PACKAGE SECTION ===== */}
@@ -806,10 +1014,41 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   Hook Package
                 </div>
 
-                {/* Spoken Hook dropdown */}
+                {/* Spoken Hook dropdown with strength indicator */}
                 <div style={{ marginBottom: '10px' }}>
-                  <label style={{ ...labelStyle, fontSize: '11px' }}>Spoken Hook</label>
-                  <select value={selectedSpokenHook} onChange={(e) => setSelectedSpokenHook(e.target.value)} style={selectStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ ...labelStyle, marginBottom: 0, fontSize: '11px' }}>
+                      Spoken Hook
+                      {userModifiedFields.has('selectedSpokenHook') && (
+                        <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                      )}
+                    </label>
+                    {/* Hook Strength Indicator */}
+                    {selectedSpokenHook && (() => {
+                      const strength = calculateHookStrength(selectedSpokenHook);
+                      return (
+                        <span style={{
+                          fontSize: '10px', fontWeight: 'bold',
+                          color: strength.color,
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                        }}>
+                          <span style={{
+                            width: '8px', height: '8px', borderRadius: '50%',
+                            backgroundColor: strength.color,
+                          }} />
+                          {strength.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <select
+                    value={selectedSpokenHook}
+                    onChange={(e) => {
+                      setSelectedSpokenHook(e.target.value);
+                      markFieldModified('selectedSpokenHook');
+                    }}
+                    style={selectStyle}
+                  >
                     {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).map((hook, idx) => (
                       <option key={idx} value={hook}>{hook}</option>
                     ))}
@@ -818,10 +1057,18 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
                 {/* Visual Hook */}
                 <div style={{ marginBottom: '10px' }}>
-                  <label style={{ ...labelStyle, fontSize: '11px' }}>Visual Hook (opening shot)</label>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>
+                    Visual Hook (opening shot)
+                    {userModifiedFields.has('visualHook') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                    )}
+                  </label>
                   <textarea
                     value={visualHook}
-                    onChange={(e) => setVisualHook(e.target.value)}
+                    onChange={(e) => {
+                      setVisualHook(e.target.value);
+                      markFieldModified('visualHook');
+                    }}
                     rows={2}
                     style={{ ...inputStyle, fontSize: '13px', resize: 'vertical' }}
                   />
@@ -829,8 +1076,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
                 {/* On-Screen Text Hook dropdown */}
                 <div style={{ marginBottom: '10px' }}>
-                  <label style={{ ...labelStyle, fontSize: '11px' }}>On-Screen Text Hook</label>
-                  <select value={selectedTextHook} onChange={(e) => setSelectedTextHook(e.target.value)} style={selectStyle}>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>
+                    On-Screen Text Hook
+                    {userModifiedFields.has('selectedTextHook') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                    )}
+                  </label>
+                  <select
+                    value={selectedTextHook}
+                    onChange={(e) => {
+                      setSelectedTextHook(e.target.value);
+                      markFieldModified('selectedTextHook');
+                    }}
+                    style={selectStyle}
+                  >
                     {(aiDraft.on_screen_text_hook_options || []).map((text, idx) => (
                       <option key={idx} value={text}>{text}</option>
                     ))}
@@ -839,7 +1098,12 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
                 {/* Mid Overlays (chips, editable) */}
                 <div style={{ marginBottom: '10px' }}>
-                  <label style={{ ...labelStyle, fontSize: '11px' }}>Mid-Video Overlays</label>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>
+                    Mid-Video Overlays
+                    {userModifiedFields.has('onScreenTextMid') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                    )}
+                  </label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {onScreenTextMid.map((text, idx) => (
                       <input
@@ -850,6 +1114,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                           const newMid = [...onScreenTextMid];
                           newMid[idx] = e.target.value;
                           setOnScreenTextMid(newMid);
+                          markFieldModified('onScreenTextMid');
                         }}
                         style={{
                           padding: '4px 8px', fontSize: '12px',
@@ -864,11 +1129,19 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
                 {/* CTA Overlay */}
                 <div>
-                  <label style={{ ...labelStyle, fontSize: '11px' }}>CTA Overlay</label>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>
+                    CTA Overlay
+                    {userModifiedFields.has('onScreenTextCta') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={onScreenTextCta}
-                    onChange={(e) => setOnScreenTextCta(e.target.value)}
+                    onChange={(e) => {
+                      setOnScreenTextCta(e.target.value);
+                      markFieldModified('onScreenTextCta');
+                    }}
                     style={inputStyle}
                   />
                 </div>
@@ -877,8 +1150,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               {/* ===== STANDARD BRIEF FIELDS ===== */}
               {/* Angle dropdown */}
               <div style={{ marginBottom: '12px' }}>
-                <label style={labelStyle}>Angle</label>
-                <select value={selectedAngle} onChange={(e) => setSelectedAngle(e.target.value)} style={selectStyle}>
+                <label style={labelStyle}>
+                  Angle
+                  {userModifiedFields.has('selectedAngle') && (
+                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                  )}
+                </label>
+                <select
+                  value={selectedAngle}
+                  onChange={(e) => {
+                    setSelectedAngle(e.target.value);
+                    markFieldModified('selectedAngle');
+                  }}
+                  style={selectStyle}
+                >
                   {aiDraft.angle_options.map((angle, idx) => (
                     <option key={idx} value={angle}>{angle}</option>
                   ))}
@@ -888,8 +1173,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               {/* Proof Type & Notes row */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
-                  <label style={labelStyle}>Proof Type</label>
-                  <select value={proofType} onChange={(e) => setProofType(e.target.value as ProofType)} style={selectStyle}>
+                  <label style={labelStyle}>
+                    Proof Type
+                    {userModifiedFields.has('proofType') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️</span>
+                    )}
+                  </label>
+                  <select
+                    value={proofType}
+                    onChange={(e) => {
+                      setProofType(e.target.value as ProofType);
+                      markFieldModified('proofType');
+                    }}
+                    style={selectStyle}
+                  >
                     <option value="testimonial">Testimonial</option>
                     <option value="demo">Demo</option>
                     <option value="comparison">Comparison</option>
@@ -897,8 +1194,21 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Notes</label>
-                  <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} />
+                  <label style={labelStyle}>
+                    Notes
+                    {userModifiedFields.has('notes') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => {
+                      setNotes(e.target.value);
+                      markFieldModified('notes');
+                    }}
+                    style={inputStyle}
+                  />
                 </div>
               </div>
 
@@ -922,10 +1232,18 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
               {/* Script draft */}
               <div>
-                <label style={labelStyle}>Script Draft</label>
+                <label style={labelStyle}>
+                  Script Draft
+                  {userModifiedFields.has('scriptDraft') && (
+                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                  )}
+                </label>
                 <textarea
                   value={scriptDraft}
-                  onChange={(e) => setScriptDraft(e.target.value)}
+                  onChange={(e) => {
+                    setScriptDraft(e.target.value);
+                    markFieldModified('scriptDraft');
+                  }}
                   rows={5}
                   style={{ ...inputStyle, resize: 'vertical', fontSize: '13px', lineHeight: '1.5' }}
                 />

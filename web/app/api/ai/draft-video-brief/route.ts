@@ -54,9 +54,25 @@ interface DraftVideoBriefInput {
   product_id: string;
   hook_type?: HookType;
   tone_preset?: TonePreset;
+  target_length?: string;
   reference_script_text?: string;
   reference_script_id?: string;
   reference_video_url?: string;
+  // Readjust mode fields
+  mode?: "generate" | "readjust";
+  locked_fields?: string[];
+  original_ai_draft?: Partial<DraftVideoBriefResult>;
+  current_state?: {
+    selectedSpokenHook?: string;
+    visualHook?: string;
+    selectedTextHook?: string;
+    onScreenTextMid?: string[];
+    onScreenTextCta?: string;
+    selectedAngle?: string;
+    proofType?: string;
+    notes?: string;
+    scriptDraft?: string;
+  };
 }
 
 // Safe JSON parser with repair logic
@@ -135,7 +151,8 @@ function generateTemplateBrief(
   category: string,
   hookType: HookType = "pattern_interrupt",
   tonePreset: TonePreset = "ugc_casual",
-  referenceScript?: string
+  referenceScript?: string,
+  targetLength: string = "15-20s"
 ): DraftVideoBriefResult {
   // Hook type-specific templates
   const hookTemplates: Record<HookType, Record<string, string[]>> = {
@@ -354,10 +371,171 @@ If you want to try it, check the link - ${brand} is available on TikTok Shop rig
 }
 
 /**
+ * Readjust brief - modify non-locked fields to align with user edits
+ * This creates coherent outputs that work with what the user has chosen
+ */
+function readjustBrief(
+  original: Partial<DraftVideoBriefResult>,
+  currentState: DraftVideoBriefInput["current_state"],
+  lockedFields: string[],
+  brand: string,
+  productName: string,
+  hookType: HookType,
+  tonePreset: TonePreset,
+  targetLength: string
+): DraftVideoBriefResult {
+  const isLocked = (field: string) => lockedFields.includes(field);
+
+  // Start with original as base
+  const result: DraftVideoBriefResult = {
+    spoken_hook_options: original.spoken_hook_options || [],
+    selected_spoken_hook: original.selected_spoken_hook || "",
+    visual_hook: original.visual_hook || "",
+    on_screen_text_hook_options: original.on_screen_text_hook_options || [],
+    selected_on_screen_text_hook: original.selected_on_screen_text_hook || "",
+    on_screen_text_mid: original.on_screen_text_mid || [],
+    on_screen_text_cta: original.on_screen_text_cta || "Link in bio!",
+    angle_options: original.angle_options || [],
+    selected_angle: original.selected_angle || "",
+    proof_type: original.proof_type || "testimonial",
+    notes: original.notes || "",
+    broll_ideas: original.broll_ideas || [],
+    script_draft: original.script_draft || "",
+    hook_options: original.hook_options || [],
+    selected_hook: original.selected_hook || "",
+    on_screen_text: original.on_screen_text || [],
+  };
+
+  // Get locked values from current state
+  const spokenHook = isLocked("selectedSpokenHook") && currentState?.selectedSpokenHook
+    ? currentState.selectedSpokenHook
+    : result.selected_spoken_hook;
+  const angle = isLocked("selectedAngle") && currentState?.selectedAngle
+    ? currentState.selectedAngle
+    : result.selected_angle;
+  const proofType = isLocked("proofType") && currentState?.proofType
+    ? (currentState.proofType as "testimonial" | "demo" | "comparison" | "other")
+    : result.proof_type;
+
+  // If spoken hook is locked, adjust visual hook to match (unless also locked)
+  if (!isLocked("visualHook") && isLocked("selectedSpokenHook")) {
+    // Generate visual hook that complements the spoken hook
+    if (spokenHook.toLowerCase().includes("stop") || spokenHook.toLowerCase().includes("wait")) {
+      result.visual_hook = `Close-up on face with attention-grabbing expression, then reveal ${productName}`;
+    } else if (spokenHook.toLowerCase().includes("story") || spokenHook.toLowerCase().includes("so ")) {
+      result.visual_hook = `Casual setting - talking directly to camera like sharing with a friend`;
+    } else if (spokenHook.toLowerCase().includes("result") || spokenHook.toLowerCase().includes("after")) {
+      result.visual_hook = `Flash quick before/after glimpse, then cut to speaker with product`;
+    } else {
+      result.visual_hook = `Open on engaging face shot, natural lighting, product visible in frame`;
+    }
+  } else if (isLocked("visualHook") && currentState?.visualHook) {
+    result.visual_hook = currentState.visualHook;
+  }
+
+  // If text hook is not locked, align with spoken hook
+  if (!isLocked("selectedTextHook")) {
+    // Generate complementary text hook
+    const shortHook = spokenHook.slice(0, 35) + (spokenHook.length > 35 ? "..." : "");
+    result.selected_on_screen_text_hook = shortHook;
+    result.on_screen_text_hook_options = [
+      shortHook,
+      "Watch this",
+      `${brand} ${productName}`.slice(0, 25),
+      "You need this",
+    ];
+  } else if (currentState?.selectedTextHook) {
+    result.selected_on_screen_text_hook = currentState.selectedTextHook;
+  }
+
+  // If mid overlays not locked, adjust based on angle and proof type
+  if (!isLocked("onScreenTextMid")) {
+    const midOverlays = [];
+    if (proofType === "testimonial") {
+      midOverlays.push("Here's what happened...", "My honest opinion", "Real results");
+    } else if (proofType === "demo") {
+      midOverlays.push("Let me show you", "Watch this", "See the difference");
+    } else if (proofType === "comparison") {
+      midOverlays.push("Before vs After", "The difference?", "Night and day");
+    } else {
+      midOverlays.push("Here's why...", "The secret?", "Game changer");
+    }
+    result.on_screen_text_mid = midOverlays.slice(0, 3);
+  } else if (currentState?.onScreenTextMid) {
+    result.on_screen_text_mid = currentState.onScreenTextMid;
+  }
+
+  // If CTA not locked, adjust based on tone
+  if (!isLocked("onScreenTextCta")) {
+    if (tonePreset === "soft_sell") {
+      result.on_screen_text_cta = "Link in bio if interested";
+    } else if (tonePreset === "fast_paced") {
+      result.on_screen_text_cta = "Link in bio - GO!";
+    } else {
+      result.on_screen_text_cta = "Link in bio!";
+    }
+  } else if (currentState?.onScreenTextCta) {
+    result.on_screen_text_cta = currentState.onScreenTextCta;
+  }
+
+  // If angle not locked, keep original
+  if (isLocked("selectedAngle") && currentState?.selectedAngle) {
+    result.selected_angle = currentState.selectedAngle;
+  }
+
+  // If proof type not locked, keep original
+  if (isLocked("proofType") && currentState?.proofType) {
+    result.proof_type = currentState.proofType as "testimonial" | "demo" | "comparison" | "other";
+  }
+
+  // If notes not locked, update to reflect current selections
+  if (!isLocked("notes")) {
+    result.notes = `Feature ${productName}'s key benefits. Hook: ${spokenHook.slice(0, 30)}... Angle: ${angle}. Proof: ${proofType}. Target: ${targetLength}.`;
+  } else if (currentState?.notes) {
+    result.notes = currentState.notes;
+  }
+
+  // If script not locked, regenerate to match current selections
+  if (!isLocked("scriptDraft")) {
+    const toneOpener = tonePreset === "ugc_casual" ? "Okay so" : tonePreset === "fast_paced" ? "Look." : "So";
+    const proofSection = proofType === "testimonial"
+      ? "Here's what I noticed after using it..."
+      : proofType === "demo"
+        ? "Let me show you how it works..."
+        : "Compared to what I was using before...";
+
+    result.script_draft = `${spokenHook}
+
+${toneOpener} I've been using ${productName} from ${brand} and I have to share this.
+
+${proofSection}
+
+The quality is amazing and it's become part of my daily routine.
+
+If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
+  } else if (currentState?.scriptDraft) {
+    result.script_draft = currentState.scriptDraft;
+  }
+
+  // Update legacy fields
+  result.selected_spoken_hook = spokenHook;
+  result.hook_options = result.spoken_hook_options;
+  result.selected_hook = result.selected_spoken_hook;
+  result.on_screen_text = [
+    result.selected_on_screen_text_hook,
+    ...result.on_screen_text_mid,
+    result.on_screen_text_cta,
+  ];
+
+  return result;
+}
+
+/**
  * POST /api/ai/draft-video-brief
  *
  * Generates a complete video brief using AI from Brand + Product.
  * Supports reference scripts, hook types, and tone presets for better results.
+ * Also supports "readjust" mode to re-align fields without overwriting user edits.
  */
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -376,9 +554,14 @@ export async function POST(request: Request) {
     product_id,
     hook_type = "pattern_interrupt",
     tone_preset = "ugc_casual",
+    target_length = "15-20s",
     reference_script_text,
     reference_script_id,
     reference_video_url,
+    mode = "generate",
+    locked_fields = [],
+    original_ai_draft,
+    current_state,
   } = body as DraftVideoBriefInput;
 
   // Validate product_id
@@ -432,6 +615,38 @@ export async function POST(request: Request) {
   const productUrl = product.primary_link || "";
   const productNotes = product.notes || "";
 
+  // Handle readjust mode
+  if (mode === "readjust" && original_ai_draft && current_state) {
+    console.log(`[${correlationId}] Processing readjust request with ${locked_fields.length} locked fields`);
+
+    const readjustedResult = readjustBrief(
+      original_ai_draft,
+      current_state,
+      locked_fields,
+      brand,
+      productName,
+      validHookType,
+      validTonePreset,
+      target_length
+    );
+
+    return NextResponse.json({
+      ok: true,
+      data: readjustedResult,
+      meta: {
+        product_id: product_id.trim(),
+        brand,
+        product_name: productName,
+        mode: "readjust",
+        locked_fields,
+        hook_type: validHookType,
+        tone_preset: validTonePreset,
+        target_length,
+      },
+      correlation_id: correlationId,
+    });
+  }
+
   // Check for AI API keys
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -439,7 +654,7 @@ export async function POST(request: Request) {
   // If no AI keys, use template-based fallback
   if (!anthropicKey && !openaiKey) {
     console.log(`[${correlationId}] No AI API key configured, using template fallback`);
-    const templateResult = generateTemplateBrief(brand, productName, category, validHookType, validTonePreset, referenceScriptContent);
+    const templateResult = generateTemplateBrief(brand, productName, category, validHookType, validTonePreset, referenceScriptContent, target_length);
     return NextResponse.json({
       ok: true,
       data: templateResult,
@@ -450,6 +665,7 @@ export async function POST(request: Request) {
         ai_provider: "template_fallback",
         hook_type: validHookType,
         tone_preset: validTonePreset,
+        target_length,
         has_reference: !!referenceScriptContent,
       },
       correlation_id: correlationId,
@@ -471,6 +687,8 @@ ${HOOK_TYPE_DESCRIPTIONS[validHookType]}
 
 TONE: ${validTonePreset}
 ${TONE_DESCRIPTIONS[validTonePreset]}
+
+TARGET LENGTH: ${target_length}
 `;
 
     if (referenceScriptContent) {
@@ -506,7 +724,7 @@ STANDARD FIELDS:
 10. proof_type: One of "testimonial", "demo", or "comparison"
 11. notes: Brief production notes (1-2 sentences)
 12. broll_ideas: Array of 4 B-roll shot ideas
-13. script_draft: Complete 30-60 second script in ${validTonePreset} tone
+13. script_draft: Complete script for ${target_length} video in ${validTonePreset} tone
 
 Requirements:
 - All hooks MUST match the ${validHookType} style
@@ -642,6 +860,7 @@ Return ONLY valid JSON. No markdown. No code fences.`;
         ai_provider: aiProvider,
         hook_type: validHookType,
         tone_preset: validTonePreset,
+        target_length,
         has_reference: !!referenceScriptContent,
       },
       correlation_id: correlationId,
@@ -652,7 +871,7 @@ Return ONLY valid JSON. No markdown. No code fences.`;
 
     // Fallback to template on AI failure
     console.log(`[${correlationId}] Falling back to template generation`);
-    const templateResult = generateTemplateBrief(brand, productName, category, validHookType, validTonePreset, referenceScriptContent);
+    const templateResult = generateTemplateBrief(brand, productName, category, validHookType, validTonePreset, referenceScriptContent, target_length);
 
     return NextResponse.json({
       ok: true,
@@ -665,6 +884,7 @@ Return ONLY valid JSON. No markdown. No code fences.`;
         ai_error: String(error),
         hook_type: validHookType,
         tone_preset: validTonePreset,
+        target_length,
         has_reference: !!referenceScriptContent,
       },
       correlation_id: correlationId,

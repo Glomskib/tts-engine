@@ -272,6 +272,178 @@ interface ProvenHook {
   approved_count: number;
   posted_count: number;
   winner_count: number;
+  underperform_count?: number;
+  rejected_count?: number;
+}
+
+interface WeakHook {
+  hook_text: string;
+  hook_type: string;
+  hook_family: string | null;
+  underperform_count: number;
+  reason_codes: string[];
+}
+
+interface RejectedHook {
+  hook_text: string;
+  hook_type: string;
+  hook_family: string | null;
+  rejected_count: number;
+  reason_codes: string[];
+}
+
+interface WeakPatternSummary {
+  reason_code: string;
+  count: number;
+}
+
+/**
+ * Fetch rejected hooks for this brand/product (hard exclude)
+ */
+async function getRejectedHooksForProduct(brandName: string, productId?: string): Promise<RejectedHook[]> {
+  try {
+    let query = supabaseAdmin
+      .from("proven_hooks")
+      .select("id, hook_text, hook_type, hook_family, rejected_count")
+      .eq("brand_name", brandName)
+      .gte("rejected_count", 1)
+      .order("rejected_count", { ascending: false })
+      .limit(20);
+
+    if (productId) {
+      query = query.eq("product_id", productId);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    // Also fetch reason codes from hook_feedback for these hooks
+    const hookIds = data.map(h => h.id);
+    const { data: feedbackData } = await supabaseAdmin
+      .from("hook_feedback")
+      .select("hook_id, reason_code")
+      .eq("outcome", "rejected")
+      .in("hook_id", hookIds)
+      .not("reason_code", "is", null)
+      .limit(100);
+
+    // Group reason codes by hook id
+    const reasonsByHookId: Record<string, string[]> = {};
+    if (feedbackData) {
+      for (const fb of feedbackData) {
+        if (fb.hook_id && fb.reason_code) {
+          if (!reasonsByHookId[fb.hook_id]) reasonsByHookId[fb.hook_id] = [];
+          if (!reasonsByHookId[fb.hook_id].includes(fb.reason_code)) {
+            reasonsByHookId[fb.hook_id].push(fb.reason_code);
+          }
+        }
+      }
+    }
+
+    return data.map(h => ({
+      hook_text: h.hook_text,
+      hook_type: h.hook_type,
+      hook_family: h.hook_family,
+      rejected_count: h.rejected_count,
+      reason_codes: reasonsByHookId[h.id] || [],
+    }));
+  } catch (error) {
+    console.error("Failed to fetch rejected hooks:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch underperforming hooks for this brand/product (soft penalize)
+ */
+async function getWeakHooksForProduct(brandName: string, productId?: string): Promise<WeakHook[]> {
+  try {
+    let query = supabaseAdmin
+      .from("proven_hooks")
+      .select("id, hook_text, hook_type, hook_family, underperform_count")
+      .eq("brand_name", brandName)
+      .gte("underperform_count", 1)
+      .lt("rejected_count", 3) // Not quarantined
+      .order("underperform_count", { ascending: false })
+      .limit(20);
+
+    if (productId) {
+      query = query.eq("product_id", productId);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    // Also fetch reason codes from hook_feedback for these hooks
+    const hookIds = data.map(h => h.id);
+    const { data: feedbackData } = await supabaseAdmin
+      .from("hook_feedback")
+      .select("hook_id, reason_code")
+      .eq("outcome", "underperform")
+      .in("hook_id", hookIds)
+      .not("reason_code", "is", null)
+      .limit(100);
+
+    // Group reason codes by hook id
+    const reasonsByHookId: Record<string, string[]> = {};
+    if (feedbackData) {
+      for (const fb of feedbackData) {
+        if (fb.hook_id && fb.reason_code) {
+          if (!reasonsByHookId[fb.hook_id]) reasonsByHookId[fb.hook_id] = [];
+          if (!reasonsByHookId[fb.hook_id].includes(fb.reason_code)) {
+            reasonsByHookId[fb.hook_id].push(fb.reason_code);
+          }
+        }
+      }
+    }
+
+    return data.map(h => ({
+      hook_text: h.hook_text,
+      hook_type: h.hook_type,
+      hook_family: h.hook_family,
+      underperform_count: h.underperform_count || 0,
+      reason_codes: reasonsByHookId[h.id] || [],
+    }));
+  } catch (error) {
+    console.error("Failed to fetch weak hooks:", error);
+    return [];
+  }
+}
+
+/**
+ * Get summary of weak patterns by reason code
+ */
+async function getWeakPatternsSummary(brandName: string, productId?: string): Promise<WeakPatternSummary[]> {
+  try {
+    let query = supabaseAdmin
+      .from("hook_feedback")
+      .select("reason_code")
+      .eq("brand_name", brandName)
+      .eq("outcome", "underperform")
+      .not("reason_code", "is", null);
+
+    if (productId) {
+      query = query.eq("product_id", productId);
+    }
+
+    const { data, error } = await query.limit(200);
+    if (error || !data) return [];
+
+    // Count by reason code
+    const counts: Record<string, number> = {};
+    for (const row of data) {
+      if (row.reason_code) {
+        counts[row.reason_code] = (counts[row.reason_code] || 0) + 1;
+      }
+    }
+
+    return Object.entries(counts)
+      .map(([reason_code, count]) => ({ reason_code, count }))
+      .sort((a, b) => b.count - a.count);
+  } catch (error) {
+    console.error("Failed to fetch weak patterns summary:", error);
+    return [];
+  }
 }
 
 /**
@@ -367,6 +539,15 @@ async function getWinnersBankContext(category?: string, limit: number = 5): Prom
 /**
  * Log an AI generation run to the database
  */
+interface GenerationDebugContext {
+  winners_used: number;
+  rejected_avoided: number;
+  weak_avoided: number;
+  weak_patterns: WeakPatternSummary[];
+  rejected_hooks_sample: string[];
+  weak_hooks_sample: string[];
+}
+
 async function logGenerationRun(params: {
   productId: string;
   nonce: string;
@@ -376,6 +557,7 @@ async function logGenerationRun(params: {
   output: DraftVideoBriefResult;
   aiProvider: string;
   correlationId: string;
+  debugContext?: GenerationDebugContext;
 }): Promise<void> {
   try {
     await supabaseAdmin.from("ai_generation_runs").insert({
@@ -385,7 +567,10 @@ async function logGenerationRun(params: {
       hook_type: params.hookType,
       tone_preset: params.tonePreset,
       target_length: params.targetLength,
-      output_json: params.output,
+      output_json: {
+        ...params.output,
+        _debug: params.debugContext || null, // Store debug info in output_json
+      },
       spoken_hooks: params.output.spoken_hook_options || [],
       ai_provider: params.aiProvider,
       correlation_id: params.correlationId,
@@ -414,6 +599,9 @@ function buildEnhancedPrompt(params: {
   bannedHooks: string[];
   provenHooks: ProvenHook[];
   winnersBank: WinnersBankExtract[];
+  rejectedHooks: RejectedHook[];
+  weakHooks: WeakHook[];
+  weakPatternsSummary: WeakPatternSummary[];
   nonce: string;
 }): string {
   const {
@@ -431,6 +619,9 @@ function buildEnhancedPrompt(params: {
     bannedHooks,
     provenHooks,
     winnersBank,
+    rejectedHooks,
+    weakHooks,
+    weakPatternsSummary,
     nonce,
   } = params;
 
@@ -494,6 +685,65 @@ ${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
     prompt += `USER-BANNED HOOKS - DO NOT USE OR PARAPHRASE THESE:
 ${bannedHooks.slice(0, 30).map(h => `- "${h}"`).join("\n")}
 
+`;
+  }
+
+  // REJECTED HOOKS - hard exclude (do not reuse structure or phrasing)
+  if (rejectedHooks.length > 0) {
+    prompt += `REJECTED HOOKS - DO NOT REUSE THESE OR THEIR STRUCTURE:
+These hooks failed quality review. Avoid their patterns entirely.
+${rejectedHooks.slice(0, 15).map(h => {
+  const reasons = h.reason_codes.length > 0 ? ` (Reason: ${h.reason_codes.join(", ")})` : "";
+  return `- [${h.hook_type}] "${h.hook_text}"${reasons}`;
+}).join("\n")}
+
+`;
+  }
+
+  // WEAK/UNDERPERFORMING HOOKS - soft penalize (avoid similar approaches)
+  if (weakHooks.length > 0) {
+    prompt += `UNDERPERFORMING HOOKS - AVOID SIMILAR APPROACHES:
+These hooks didn't perform well. If you use similar patterns, significantly change the wording and emotional framing.
+${weakHooks.slice(0, 15).map(h => {
+  const reasons = h.reason_codes.length > 0 ? ` (Issues: ${h.reason_codes.join(", ")})` : "";
+  return `- [${h.hook_type}${h.hook_family ? `/${h.hook_family}` : ""}] "${h.hook_text}"${reasons} (weak x${h.underperform_count})`;
+}).join("\n")}
+
+`;
+  }
+
+  // WEAK PATTERNS SUMMARY - adjust generation strategy based on feedback
+  if (weakPatternsSummary.length > 0) {
+    prompt += `WEAK PATTERN ANALYSIS - ADJUST YOUR APPROACH:
+Based on feedback, these patterns have underperformed:
+${weakPatternsSummary.slice(0, 6).map(p => `- ${p.reason_code}: ${p.count} occurrences`).join("\n")}
+
+ADAPTATION RULES:
+`;
+    // Add specific adaptation rules based on weak patterns
+    for (const pattern of weakPatternsSummary.slice(0, 4)) {
+      switch (pattern.reason_code) {
+        case "weak_cta":
+          prompt += `- HIGH "weak_cta" feedback: Generate STRONGER CTAs with cart-click urgency and benefit-driven language. Be specific about what they get.\n`;
+          break;
+        case "too_generic":
+          prompt += `- HIGH "too_generic" feedback: Force SPECIFICITY - use persona language, concrete situations, and one clear pain point. No vague claims.\n`;
+          break;
+        case "low_engagement":
+          prompt += `- HIGH "low_engagement" feedback: Open with more PATTERN INTERRUPTS - unexpected statements, controversy, or direct questions.\n`;
+          break;
+        case "wrong_tone":
+          prompt += `- HIGH "wrong_tone" feedback: Match the audience better - more relatable, less salesy, more authentic UGC energy.\n`;
+          break;
+        case "poor_timing":
+          prompt += `- HIGH "poor_timing" feedback: Front-load the hook impact in the first 2 seconds. Get to the point faster.\n`;
+          break;
+        case "saturated":
+          prompt += `- HIGH "saturated" feedback: Avoid overused patterns. Try contrarian angles or unexpected emotional drivers.\n`;
+          break;
+      }
+    }
+    prompt += `
 `;
   }
 
@@ -934,6 +1184,18 @@ export async function POST(request: Request) {
     const winnersBank = await getWinnersBankContext(category, 5);
     console.log(`[${correlationId}] Found ${winnersBank.length} Winners Bank extracts for context`);
 
+    // Fetch rejected hooks (hard exclude)
+    const rejectedHooks = await getRejectedHooksForProduct(brand, product_id.trim());
+    console.log(`[${correlationId}] Found ${rejectedHooks.length} rejected hooks to exclude`);
+
+    // Fetch underperforming hooks (soft penalize)
+    const weakHooks = await getWeakHooksForProduct(brand, product_id.trim());
+    console.log(`[${correlationId}] Found ${weakHooks.length} weak hooks to avoid`);
+
+    // Get weak patterns summary for strategic adaptation
+    const weakPatternsSummary = await getWeakPatternsSummary(brand, product_id.trim());
+    console.log(`[${correlationId}] Weak patterns: ${weakPatternsSummary.map(p => `${p.reason_code}:${p.count}`).join(", ") || "none"}`);
+
     // Build the enhanced prompt
     const prompt = buildEnhancedPrompt({
       brand,
@@ -950,6 +1212,9 @@ export async function POST(request: Request) {
       bannedHooks,
       provenHooks,
       winnersBank,
+      rejectedHooks,
+      weakHooks,
+      weakPatternsSummary,
       nonce,
     });
 
@@ -1176,7 +1441,7 @@ export async function POST(request: Request) {
       ],
     };
 
-    // Log this generation
+    // Log this generation with debug context
     await logGenerationRun({
       productId: product_id.trim(),
       nonce,
@@ -1186,6 +1451,14 @@ export async function POST(request: Request) {
       output: validatedResult,
       aiProvider,
       correlationId,
+      debugContext: {
+        winners_used: provenHooks.filter(h => h.winner_count > 0).length,
+        rejected_avoided: rejectedHooks.length,
+        weak_avoided: weakHooks.length,
+        weak_patterns: weakPatternsSummary,
+        rejected_hooks_sample: rejectedHooks.slice(0, 5).map(h => h.hook_text),
+        weak_hooks_sample: weakHooks.slice(0, 5).map(h => h.hook_text),
+      },
     });
 
     return NextResponse.json({

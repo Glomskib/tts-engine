@@ -167,6 +167,11 @@ export default function VideoDrawer({
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
 
+  // Quality gate state (for winner marking)
+  const [qualityIssues, setQualityIssues] = useState<{ code: string; message: string; severity: string }[]>([]);
+  const [showQualityWarning, setShowQualityWarning] = useState(false);
+  const [qualityCheckLoading, setQualityCheckLoading] = useState(false);
+
   // Reject quick tags configuration
   const REJECT_TAGS = [
     { code: 'too_generic', label: 'Too Generic' },
@@ -670,8 +675,56 @@ export default function VideoDrawer({
     }
   };
 
-  // Handle saving hooks as winners (positive signal)
+  // Check quality before marking as winner
+  const checkWinnerQuality = async (): Promise<boolean> => {
+    setQualityCheckLoading(true);
+    try {
+      const res = await fetch('/api/admin/winners/quality-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: video.id }),
+      });
+      const data = await res.json();
+      if (data.ok && data.data) {
+        const issues = data.data.issues || [];
+        setQualityIssues(issues);
+        if (issues.length > 0) {
+          setShowQualityWarning(true);
+          return false; // Has issues, show warning
+        }
+        return true; // No issues, proceed
+      }
+      return true; // On error, allow to proceed
+    } catch (err) {
+      console.error('Quality check error:', err);
+      return true; // On error, allow to proceed
+    } finally {
+      setQualityCheckLoading(false);
+    }
+  };
+
+  // Confirm save after quality warning
+  const confirmSaveAsWinner = async () => {
+    setShowQualityWarning(false);
+    setFeedbackLoading(true);
+    try {
+      await saveToLibrary();
+      setSavedToast('Saved as winner');
+      setTimeout(() => setSavedToast(null), 3000);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  // Handle saving hooks as winners (positive signal) - with quality gate
   const handleSaveAsWinner = async () => {
+    // Check quality first
+    const passesQuality = await checkWinnerQuality();
+    if (!passesQuality) {
+      // Quality warning will be shown, user must confirm
+      return;
+    }
+    // No issues, proceed directly
     setFeedbackLoading(true);
     try {
       await saveToLibrary();
@@ -827,6 +880,101 @@ export default function VideoDrawer({
                 }}
               >
                 {loading ? 'Rejecting...' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Quality Warning Modal */}
+      {showQualityWarning && (
+        <>
+          <div
+            onClick={() => setShowQualityWarning(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              zIndex: 1100,
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: colors.bg,
+              borderRadius: '12px',
+              padding: '24px',
+              width: '400px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              zIndex: 1101,
+            }}
+          >
+            <h3 style={{ margin: '0 0 12px 0', color: colors.warning, fontSize: '18px' }}>
+              Quality Check Warning
+            </h3>
+            <p style={{ margin: '0 0 16px 0', color: colors.textMuted, fontSize: '14px' }}>
+              This video has potential quality issues:
+            </p>
+            <div style={{ marginBottom: '20px' }}>
+              {qualityIssues.map((issue, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: issue.severity === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                    borderLeft: `3px solid ${issue.severity === 'error' ? colors.danger : colors.warning}`,
+                    borderRadius: '4px',
+                    marginBottom: '8px',
+                    fontSize: '13px',
+                    color: colors.text,
+                  }}
+                >
+                  <div style={{ fontWeight: 500 }}>{issue.code.replace(/_/g, ' ')}</div>
+                  <div style={{ color: colors.textMuted, marginTop: '2px' }}>{issue.message}</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ margin: '0 0 16px 0', color: colors.textMuted, fontSize: '13px' }}>
+              You can still mark this as a winner, but the data may be incomplete.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowQualityWarning(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSaveAsWinner}
+                disabled={feedbackLoading}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: colors.warning,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: feedbackLoading ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {feedbackLoading ? 'Saving...' : 'Save Anyway'}
               </button>
             </div>
           </div>

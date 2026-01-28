@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { acceptOrgInvite, getInviteByToken } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 
 /**
  * POST /api/invite/accept
@@ -10,17 +11,19 @@ import { getClientOrgById } from '@/lib/client-org'
  * Returns: { ok, data: { org_id, org_name, role } }
  */
 export async function POST(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
+
   // Check auth - derive actor from session
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
   }
 
   const userToken = authHeader.replace('Bearer ', '')
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(userToken)
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   try {
@@ -29,18 +32,18 @@ export async function POST(request: NextRequest) {
 
     // Validate token
     if (!token || typeof token !== 'string') {
-      return NextResponse.json({ error: 'Token is required' }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', 'Token is required', 400, correlationId)
     }
 
     // Validate token format (64 hex chars)
     if (!/^[0-9a-f]{64}$/i.test(token)) {
-      return NextResponse.json({ error: 'Invalid invite' }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', 'Invalid invite token format', 400, correlationId)
     }
 
     // Get invite to check it exists and get details
     const invite = await getInviteByToken(supabaseAdmin, token)
     if (!invite) {
-      return NextResponse.json({ error: 'Invalid or expired invite' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Invalid or expired invite', 404, correlationId)
     }
 
     // Accept the invite (emits events for membership)
@@ -50,14 +53,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error || 'Failed to accept invite' }, { status: 400 })
+      return createApiErrorResponse('BAD_REQUEST', result.error || 'Failed to accept invite', 400, correlationId)
     }
 
     // Get org details for response
     const org = await getClientOrgById(supabaseAdmin, invite.org_id)
     const orgName = org?.org_name || 'Organization'
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: {
         org_id: invite.org_id,
@@ -65,9 +68,11 @@ export async function POST(request: NextRequest) {
         role: invite.role,
       },
     })
+    response.headers.set('x-correlation-id', correlationId)
+    return response
   } catch (error) {
-    console.error('Error accepting invite:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[${correlationId}] Error accepting invite:`, error)
+    return createApiErrorResponse('INTERNAL', 'Failed to accept invite', 500, correlationId)
   }
 }
 
@@ -77,22 +82,23 @@ export async function POST(request: NextRequest) {
  * Returns: { ok, data: { org_name, role, email, expires_at } } or error
  */
 export async function GET(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
   const token = request.nextUrl.searchParams.get('token')
 
   if (!token) {
-    return NextResponse.json({ error: 'Token is required' }, { status: 400 })
+    return createApiErrorResponse('VALIDATION_ERROR', 'Token is required', 400, correlationId)
   }
 
   // Validate token format
   if (!/^[0-9a-f]{64}$/i.test(token)) {
-    return NextResponse.json({ error: 'Invalid invite' }, { status: 400 })
+    return createApiErrorResponse('VALIDATION_ERROR', 'Invalid invite token format', 400, correlationId)
   }
 
   try {
     // Get invite details
     const invite = await getInviteByToken(supabaseAdmin, token)
     if (!invite) {
-      return NextResponse.json({ error: 'Invalid or expired invite' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Invalid or expired invite', 404, correlationId)
     }
 
     // Get org name
@@ -100,7 +106,7 @@ export async function GET(request: NextRequest) {
     const orgName = org?.org_name || 'Organization'
 
     // Return limited details (no sensitive info)
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: {
         org_name: orgName,
@@ -109,8 +115,10 @@ export async function GET(request: NextRequest) {
         expires_at: invite.expires_at,
       },
     })
+    response.headers.set('x-correlation-id', correlationId)
+    return response
   } catch (error) {
-    console.error('Error fetching invite:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[${correlationId}] Error fetching invite:`, error)
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch invite details', 500, correlationId)
   }
 }

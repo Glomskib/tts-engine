@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { CLIENT_ORG_EVENT_TYPES, getClientOrgById } from '@/lib/client-org'
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 
 /**
  * POST /api/admin/videos/[video_id]/set-client-org
@@ -11,18 +12,19 @@ export async function POST(
   { params }: { params: Promise<{ video_id: string }> }
 ) {
   const { video_id: videoId } = await params
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
   // Check auth
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
   }
 
   const token = authHeader.replace('Bearer ', '')
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   // Check admin role
@@ -33,7 +35,7 @@ export async function POST(
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId)
   }
 
   try {
@@ -42,13 +44,13 @@ export async function POST(
 
     // Validate required fields
     if (!org_id || typeof org_id !== 'string') {
-      return NextResponse.json({ error: 'org_id is required' }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', 'org_id is required', 400, correlationId)
     }
 
     // Verify org exists
     const org = await getClientOrgById(supabaseAdmin, org_id)
     if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Organization not found', 404, correlationId)
     }
 
     // Verify video exists
@@ -59,7 +61,7 @@ export async function POST(
       .single()
 
     if (!video) {
-      return NextResponse.json({ error: 'Video not found' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Video not found', 404, correlationId)
     }
 
     // Record video org assignment event
@@ -76,18 +78,20 @@ export async function POST(
       })
 
     if (insertError) {
-      console.error('Error setting video org:', insertError)
-      return NextResponse.json({ error: 'Failed to set video organization' }, { status: 500 })
+      console.error(`[${correlationId}] Error setting video org:`, insertError)
+      return createApiErrorResponse('DB_ERROR', 'Failed to set video organization', 500, correlationId)
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       video_id: videoId,
       org_id,
       org_name: org.org_name
     })
+    response.headers.set('x-correlation-id', correlationId)
+    return response
   } catch (error) {
-    console.error('Error setting video org:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[${correlationId}] Error setting video org:`, error)
+    return createApiErrorResponse('INTERNAL', 'Failed to set video organization', 500, correlationId)
   }
 }

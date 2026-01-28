@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createOrgInvite, listPendingOrgInvites, InviteRole } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
 import { sendInviteEmail } from '@/lib/client-email-notifications'
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 
 const VALID_ROLES: InviteRole[] = ['client', 'recorder', 'editor', 'uploader', 'admin']
 
@@ -15,18 +16,19 @@ export async function GET(
   { params }: { params: Promise<{ org_id: string }> }
 ) {
   const { org_id } = await params
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
   // Check auth
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
   }
 
   const token = authHeader.replace('Bearer ', '')
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   // Check admin role
@@ -37,26 +39,26 @@ export async function GET(
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId)
   }
 
   // Validate org_id format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(org_id)) {
-    return NextResponse.json({ error: 'Invalid org_id format' }, { status: 400 })
+    return createApiErrorResponse('INVALID_UUID', 'Invalid org_id format', 400, correlationId)
   }
 
   try {
     // Verify org exists
     const org = await getClientOrgById(supabaseAdmin, org_id)
     if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Organization not found', 404, correlationId)
     }
 
     // Get pending invites
     const invites = await listPendingOrgInvites(supabaseAdmin, org_id)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: {
         org_id,
@@ -69,9 +71,11 @@ export async function GET(
         })),
       },
     })
+    response.headers.set('x-correlation-id', correlationId)
+    return response
   } catch (error) {
-    console.error('Error fetching org invites:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[${correlationId}] Error fetching org invites:`, error)
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch invites', 500, correlationId)
   }
 }
 
@@ -86,18 +90,19 @@ export async function POST(
   { params }: { params: Promise<{ org_id: string }> }
 ) {
   const { org_id } = await params
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
   // Check auth
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
   }
 
   const token = authHeader.replace('Bearer ', '')
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   // Check admin role
@@ -108,13 +113,13 @@ export async function POST(
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId)
   }
 
   // Validate org_id format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(org_id)) {
-    return NextResponse.json({ error: 'Invalid org_id format' }, { status: 400 })
+    return createApiErrorResponse('INVALID_UUID', 'Invalid org_id format', 400, correlationId)
   }
 
   try {
@@ -123,25 +128,23 @@ export async function POST(
 
     // Validate email
     if (!email || typeof email !== 'string') {
-      return NextResponse.json({ error: 'email is required' }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', 'email is required', 400, correlationId)
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', 'Invalid email format', 400, correlationId)
     }
 
     // Validate role
     if (!role || !VALID_ROLES.includes(role)) {
-      return NextResponse.json({
-        error: `role must be one of: ${VALID_ROLES.join(', ')}`,
-      }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', `role must be one of: ${VALID_ROLES.join(', ')}`, 400, correlationId)
     }
 
     // Verify org exists
     const org = await getClientOrgById(supabaseAdmin, org_id)
     if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Organization not found', 404, correlationId)
     }
 
     // Check for existing pending invite with same email
@@ -150,10 +153,9 @@ export async function POST(
       (inv) => inv.email.toLowerCase() === email.toLowerCase()
     )
     if (existingInvite) {
-      return NextResponse.json({
-        error: 'A pending invite already exists for this email',
+      return createApiErrorResponse('CONFLICT', 'A pending invite already exists for this email', 409, correlationId, {
         existing_invite_id: existingInvite.invite_id,
-      }, { status: 409 })
+      })
     }
 
     // Create invite
@@ -177,7 +179,7 @@ export async function POST(
       invitedByEmail: user.email || undefined,
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: {
         invite_id: result.invite_id,
@@ -191,8 +193,10 @@ export async function POST(
         email_status: emailResult.status,
       },
     })
+    response.headers.set('x-correlation-id', correlationId)
+    return response
   } catch (error) {
-    console.error('Error creating invite:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[${correlationId}] Error creating invite:`, error)
+    return createApiErrorResponse('INTERNAL', 'Failed to create invite', 500, correlationId)
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { revokeOrgMember, getOrgMembersWithEmail } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 
 /**
  * POST /api/admin/client-orgs/[org_id]/members/revoke
@@ -13,18 +14,19 @@ export async function POST(
   { params }: { params: Promise<{ org_id: string }> }
 ) {
   const { org_id } = await params
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
   // Check auth
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
   }
 
   const token = authHeader.replace('Bearer ', '')
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   // Check admin role
@@ -35,13 +37,13 @@ export async function POST(
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId)
   }
 
   // Validate org_id format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(org_id)) {
-    return NextResponse.json({ error: 'Invalid org_id format' }, { status: 400 })
+    return createApiErrorResponse('INVALID_UUID', 'Invalid org_id format', 400, correlationId)
   }
 
   try {
@@ -50,24 +52,24 @@ export async function POST(
 
     // Validate user_id
     if (!user_id || typeof user_id !== 'string') {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
+      return createApiErrorResponse('VALIDATION_ERROR', 'user_id is required', 400, correlationId)
     }
 
     if (!uuidRegex.test(user_id)) {
-      return NextResponse.json({ error: 'Invalid user_id format' }, { status: 400 })
+      return createApiErrorResponse('INVALID_UUID', 'Invalid user_id format', 400, correlationId)
     }
 
     // Verify org exists
     const org = await getClientOrgById(supabaseAdmin, org_id)
     if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'Organization not found', 404, correlationId)
     }
 
     // Verify user is a member
     const members = await getOrgMembersWithEmail(supabaseAdmin, org_id)
     const isMember = members.some((m) => m.user_id === user_id)
     if (!isMember) {
-      return NextResponse.json({ error: 'User is not a member of this organization' }, { status: 404 })
+      return createApiErrorResponse('NOT_FOUND', 'User is not a member of this organization', 404, correlationId)
     }
 
     // Revoke membership
@@ -78,10 +80,10 @@ export async function POST(
     })
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
+      return createApiErrorResponse('DB_ERROR', result.error || 'Failed to revoke membership', 500, correlationId)
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: {
         user_id,
@@ -89,8 +91,10 @@ export async function POST(
         action: 'revoked',
       },
     })
+    response.headers.set('x-correlation-id', correlationId)
+    return response
   } catch (error) {
-    console.error('Error revoking member:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[${correlationId}] Error revoking member:`, error)
+    return createApiErrorResponse('INTERNAL', 'Failed to revoke membership', 500, correlationId)
   }
 }

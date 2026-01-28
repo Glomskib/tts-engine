@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
 
 export const runtime = "nodejs";
 
@@ -1694,19 +1695,36 @@ export async function POST(request: Request) {
     // Log distribution for debugging
     console.log(`[${correlationId}] Emotional driver distribution: shock=${driverCounts.shock}, fear=${driverCounts.fear}, curiosity=${driverCounts.curiosity}, insecurity=${driverCounts.insecurity}, fomo=${driverCounts.fomo}, total=${totalDriverHooks}, edge_push=${hasEdgePush}`);
 
-    // Find best hook by score
-    let bestHook = spokenHooks[0] || "";
-    let bestScore = 0;
-    let bestEmotionalDriver: EmotionalDriver | null = null;
+    // Find best hook by AI-assigned score
     const hookScores = aiResult.hook_scores || {};
 
-    for (const hook of spokenHooks) {
-      const score = hookScores[hook]?.overall || 0;
-      if (score > bestScore) {
-        bestScore = score;
-        bestHook = hook;
-      }
-    }
+    // --- Deterministic hook scoring + sorting ---
+    // Build scoring context from proven hooks and winners bank data
+    const scoringContext: HookScoringContext = {
+      provenHooks: provenHooks.map((h) => ({
+        text: h.hook_text,
+        approved_count: h.approved_count,
+        rejected_count: h.rejected_count,
+        underperform_count: h.underperform_count,
+      })),
+      winners: winnersBank.map((w) => ({
+        hook: w.hook,
+      })),
+    };
+
+    // Score and sort spoken hooks (reorders, never removes)
+    const scoredSpokenHooks: HookScoreResult[] = scoreAndSortHookOptions(spokenHooks, scoringContext);
+    const rankedSpokenHooks = scoredSpokenHooks.map((s) => s.option);
+
+    // Score and sort on-screen text hooks
+    const scoredTextHooks: HookScoreResult[] = scoreAndSortHookOptions(textHooks, scoringContext);
+    const rankedTextHooks = scoredTextHooks.map((s) => s.option);
+
+    console.log(`[${correlationId}] Hook scoring: top spoken="${rankedSpokenHooks[0]?.slice(0, 50)}" (${scoredSpokenHooks[0]?.score}), bottom="${rankedSpokenHooks[rankedSpokenHooks.length - 1]?.slice(0, 50)}" (${scoredSpokenHooks[scoredSpokenHooks.length - 1]?.score})`);
+
+    // Best hook = top-ranked by our scoring (not AI's self-score)
+    let bestHook = rankedSpokenHooks[0] || "";
+    let bestEmotionalDriver: EmotionalDriver | null = null;
 
     // Find the emotional driver for the best hook
     for (const driver of EMOTIONAL_DRIVERS) {
@@ -1722,8 +1740,8 @@ export async function POST(request: Request) {
       product_display_name_options: productDisplayNameOptions,
       selected_product_display_name: String(aiResult.selected_product_display_name || productDisplayNameOptions[0] || productName.slice(0, 30)),
 
-      // Hook Package (expanded)
-      spoken_hook_options: spokenHooks,
+      // Hook Package (ranked by deterministic scoring)
+      spoken_hook_options: rankedSpokenHooks,
       spoken_hook_by_family: aiResult.spoken_hook_by_family || {},
       hooks_by_emotional_driver: hooksByDriver,
       hook_scores: hookScores,
@@ -1736,9 +1754,9 @@ export async function POST(request: Request) {
       selected_visual_hook: visualHooks[0] || "Open on close-up of face, engaging expression, then reveal product",
       visual_hook: visualHooks[0] || "Open on close-up of face, engaging expression, then reveal product",
 
-      // On-screen text
-      on_screen_text_hook_options: textHooks.length > 0 ? textHooks : ["Watch this", "Must see", "Real talk"],
-      selected_on_screen_text_hook: textHooks[0] || "Watch this",
+      // On-screen text (ranked by deterministic scoring)
+      on_screen_text_hook_options: rankedTextHooks.length > 0 ? rankedTextHooks : ["Watch this", "Must see", "Real talk"],
+      selected_on_screen_text_hook: rankedTextHooks[0] || "Watch this",
       mid_overlays: midOverlays.length > 0 ? midOverlays : ["Real talk", "No cap", "Trust me"],
 
       // CTA Script Line (persuasive, for script body)
@@ -1768,10 +1786,10 @@ export async function POST(request: Request) {
       script_draft: String(aiResult.script_draft || `${bestHook}\n\nI've been using ${productName} and had to share my thoughts.\n\nLink in my bio!`),
 
       // Legacy backwards compat
-      hook_options: spokenHooks,
+      hook_options: rankedSpokenHooks,
       selected_hook: bestHook,
       on_screen_text: [
-        textHooks[0] || "Watch this",
+        rankedTextHooks[0] || "Watch this",
         ...(midOverlays.slice(0, 3)),
         ctaOptions[0] || "Tap the orange cart",
       ],
@@ -1824,6 +1842,11 @@ export async function POST(request: Request) {
         parse_strategy: parseResult?.strategy,
         hooks_count: spokenHooks.length,
         driver_distribution: driverCounts,
+        // Deterministic hook scoring breakdown (only in debug mode)
+        hook_scoring: {
+          spoken: scoredSpokenHooks.map((s) => ({ option: s.option, score: s.score, reasons: s.reasons })),
+          on_screen_text: scoredTextHooks.map((s) => ({ option: s.option, score: s.score, reasons: s.reasons })),
+        },
       };
     }
 

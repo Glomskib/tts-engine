@@ -17,6 +17,7 @@ export interface ProvenHookSignal {
   winner_count?: number;
   posted_count?: number;
   used_count?: number;
+  hook_family?: string | null;
 }
 
 export interface WinnerSignal {

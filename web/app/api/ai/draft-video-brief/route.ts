@@ -153,9 +153,23 @@ interface DraftVideoBriefInput {
   };
 }
 
-// Safe JSON parser with repair logic
-function safeParseJSON(content: string): { success: boolean; data: Partial<DraftVideoBriefResult> | null; strategy: string } {
-  // First attempt: direct parse
+// Parse result with diagnostic info
+interface ParseResult {
+  success: boolean;
+  data: Partial<DraftVideoBriefResult> | null;
+  strategy: string;
+  error?: string;
+  raw_excerpt?: string;
+}
+
+/**
+ * Safe JSON parser with multiple extraction strategies
+ * Returns detailed diagnostic info on failure
+ */
+function safeParseJSON(content: string): ParseResult {
+  const rawExcerpt = content.slice(0, 2000);
+
+  // Strategy 1: Direct JSON parse
   try {
     const parsed = JSON.parse(content);
     return { success: true, data: parsed, strategy: "direct" };
@@ -163,43 +177,150 @@ function safeParseJSON(content: string): { success: boolean; data: Partial<Draft
     console.log(`Direct JSON parse failed: ${error}`);
   }
 
-  // Second attempt: extract JSON from markdown code blocks
+  // Strategy 2: Extract from ```json code block
   try {
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[1].trim());
-      return { success: true, data: parsed, strategy: "markdown_extract" };
+    const jsonBlockMatch = content.match(/```json\s*([\s\S]*?)```/);
+    if (jsonBlockMatch && jsonBlockMatch[1]) {
+      const parsed = JSON.parse(jsonBlockMatch[1].trim());
+      return { success: true, data: parsed, strategy: "json_code_block" };
     }
   } catch (error) {
-    console.log(`Markdown extract parse failed: ${error}`);
+    console.log(`JSON code block extraction failed: ${error}`);
   }
 
-  // Third attempt: repair pass
+  // Strategy 3: Extract from generic ``` code block
+  try {
+    const codeBlockMatch = content.match(/```\s*([\s\S]*?)```/);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      const blockContent = codeBlockMatch[1].trim();
+      // Only try if it looks like JSON (starts with { or [)
+      if (blockContent.startsWith("{") || blockContent.startsWith("[")) {
+        const parsed = JSON.parse(blockContent);
+        return { success: true, data: parsed, strategy: "generic_code_block" };
+      }
+    }
+  } catch (error) {
+    console.log(`Generic code block extraction failed: ${error}`);
+  }
+
+  // Strategy 4: Find first { and last } and extract
   try {
     const firstBrace = content.indexOf("{");
     const lastBrace = content.lastIndexOf("}");
 
-    if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
-      throw new Error("No valid JSON object boundaries found");
+    if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+      let jsonSubstring = content.substring(firstBrace, lastBrace + 1);
+
+      // Try direct parse first
+      try {
+        const parsed = JSON.parse(jsonSubstring);
+        return { success: true, data: parsed, strategy: "brace_extract" };
+      } catch {
+        // Continue to repair
+      }
+
+      // Strategy 5: Repair common issues in extracted JSON
+      // Remove control characters inside strings
+      jsonSubstring = jsonSubstring.replace(
+        /"([^"\\]*(\\.[^"\\]*)*)"/g,
+        (match, innerContent) => {
+          let fixed = innerContent;
+          fixed = fixed.replace(/\n/g, "\\n");
+          fixed = fixed.replace(/\r/g, "\\r");
+          fixed = fixed.replace(/\t/g, "\\t");
+          fixed = fixed.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+          return `"${fixed}"`;
+        }
+      );
+
+      // Try parsing repaired JSON
+      const parsed = JSON.parse(jsonSubstring);
+      return { success: true, data: parsed, strategy: "brace_extract_repaired" };
     }
-
-    let jsonSubstring = content.substring(firstBrace, lastBrace + 1);
-
-    // Repair control characters inside quoted strings
-    jsonSubstring = jsonSubstring.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match, innerContent) => {
-      innerContent = innerContent.replace(/\n/g, "\\n");
-      innerContent = innerContent.replace(/\t/g, "\\t");
-      innerContent = innerContent.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
-      return `"${innerContent}"`;
-    });
-
-    const parsed = JSON.parse(jsonSubstring);
-    return { success: true, data: parsed, strategy: "repair" };
   } catch (error) {
-    console.log(`Repair JSON parse failed: ${error}`);
+    console.log(`Brace extraction failed: ${error}`);
   }
 
-  return { success: false, data: null, strategy: "failed" };
+  // Strategy 6: Try to find any JSON object pattern
+  try {
+    // Look for patterns like {"key": or {'key':
+    const jsonPattern = /\{[\s\S]*"[^"]+"\s*:/;
+    if (jsonPattern.test(content)) {
+      // Try to balance braces manually
+      let depth = 0;
+      let startIdx = -1;
+      let endIdx = -1;
+
+      for (let i = 0; i < content.length; i++) {
+        if (content[i] === "{") {
+          if (depth === 0) startIdx = i;
+          depth++;
+        } else if (content[i] === "}") {
+          depth--;
+          if (depth === 0 && startIdx !== -1) {
+            endIdx = i;
+            break;
+          }
+        }
+      }
+
+      if (startIdx !== -1 && endIdx !== -1) {
+        const extracted = content.substring(startIdx, endIdx + 1);
+        const parsed = JSON.parse(extracted);
+        return { success: true, data: parsed, strategy: "balanced_braces" };
+      }
+    }
+  } catch (error) {
+    console.log(`Balanced brace extraction failed: ${error}`);
+  }
+
+  // All strategies failed
+  return {
+    success: false,
+    data: null,
+    strategy: "failed",
+    error: "All JSON extraction strategies failed",
+    raw_excerpt: rawExcerpt,
+  };
+}
+
+/**
+ * Build fallback result with empty but valid structure
+ */
+function buildFallbackResult(productName: string, brand: string): DraftVideoBriefResult {
+  const fallbackHook = `Check out ${productName} from ${brand}`;
+  return {
+    product_display_name_options: [productName.slice(0, 30)],
+    selected_product_display_name: productName.slice(0, 30),
+    spoken_hook_options: [fallbackHook],
+    spoken_hook_by_family: {},
+    hooks_by_emotional_driver: { shock: [], fear: [], curiosity: [], insecurity: [], fomo: [] },
+    hook_scores: {},
+    selected_spoken_hook: fallbackHook,
+    selected_emotional_driver: null,
+    has_edge_push: false,
+    visual_hook_options: ["Open on product close-up"],
+    selected_visual_hook: "Open on product close-up",
+    visual_hook: "Open on product close-up",
+    on_screen_text_hook_options: ["Must see"],
+    selected_on_screen_text_hook: "Must see",
+    mid_overlays: ["Watch this", "Real talk"],
+    cta_script_options: ["Link in my bio if you want to try it!"],
+    selected_cta_script: "Link in my bio if you want to try it!",
+    cta_overlay_options: ["Link in bio", "Tap the cart"],
+    selected_cta_overlay: "Link in bio",
+    on_screen_text_mid: ["Watch this"],
+    on_screen_text_cta: "Link in bio",
+    angle_options: ["Personal story"],
+    selected_angle: "Personal story",
+    proof_type: "testimonial",
+    notes: "",
+    broll_ideas: ["Product unboxing", "Using the product"],
+    script_draft: `${fallbackHook}\n\nI've been using ${productName} and wanted to share my thoughts.\n\nLink in my bio!`,
+    hook_options: [fallbackHook],
+    selected_hook: fallbackHook,
+    on_screen_text: ["Must see", "Watch this", "Link in bio"],
+  };
 }
 
 // Hook family descriptions for AI prompting
@@ -1115,13 +1236,15 @@ If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
  */
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const url = new URL(request.url);
+  const debugMode = url.searchParams.get("debug") === "1" || process.env.DEBUG_AI === "1";
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
+      { ok: false, error: "Invalid JSON", error_code: "BAD_REQUEST", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -1238,6 +1361,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // Track raw AI response for debugging
+  let rawAiResponse = "";
+  let aiProvider = "";
+
   try {
     // Fetch recent hooks for no-repeat logic
     const recentHooks = await getRecentHooksForProduct(product_id.trim());
@@ -1290,7 +1417,7 @@ export async function POST(request: Request) {
     });
 
     let aiResult: Partial<DraftVideoBriefResult> | null = null;
-    let aiProvider = "";
+    let parseResult: ParseResult | null = null;
 
     if (anthropicKey) {
       aiProvider = "anthropic";
@@ -1311,25 +1438,26 @@ export async function POST(request: Request) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
+        console.error(`[${correlationId}] Anthropic API error: ${response.status} - ${errorText}`);
+        throw new Error(`Anthropic API error: ${response.status}`);
       }
 
       const anthropicResult = await response.json();
-      const content = anthropicResult.content?.[0]?.text;
+      rawAiResponse = anthropicResult.content?.[0]?.text || "";
 
-      if (!content) {
+      if (!rawAiResponse) {
         throw new Error("No content returned from Anthropic");
       }
 
-      console.log(`[${correlationId}] Anthropic response length: ${content.length}`);
-      const parseResult = safeParseJSON(content);
+      console.log(`[${correlationId}] Anthropic response length: ${rawAiResponse.length}`);
+      parseResult = safeParseJSON(rawAiResponse);
 
       if (!parseResult.success || !parseResult.data) {
-        console.error(`[${correlationId}] Failed to parse Anthropic response`);
-        throw new Error("Failed to parse AI response");
+        console.error(`[${correlationId}] Failed to parse Anthropic response using strategy: ${parseResult.strategy}`);
+        // Don't throw yet - we'll handle this below
+      } else {
+        aiResult = parseResult.data;
       }
-
-      aiResult = parseResult.data;
 
     } else if (openaiKey) {
       aiProvider = "openai";
@@ -1349,25 +1477,64 @@ export async function POST(request: Request) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        console.error(`[${correlationId}] OpenAI API error: ${response.status} - ${errorText}`);
+        throw new Error(`OpenAI API error: ${response.status}`);
       }
 
       const openaiResult = await response.json();
-      const content = openaiResult.choices?.[0]?.message?.content;
+      rawAiResponse = openaiResult.choices?.[0]?.message?.content || "";
 
-      if (!content) {
+      if (!rawAiResponse) {
         throw new Error("No content returned from OpenAI");
       }
 
-      console.log(`[${correlationId}] OpenAI response length: ${content.length}`);
-      const parseResult = safeParseJSON(content);
+      console.log(`[${correlationId}] OpenAI response length: ${rawAiResponse.length}`);
+      parseResult = safeParseJSON(rawAiResponse);
 
       if (!parseResult.success || !parseResult.data) {
-        console.error(`[${correlationId}] Failed to parse OpenAI response`);
-        throw new Error("Failed to parse AI response");
+        console.error(`[${correlationId}] Failed to parse OpenAI response using strategy: ${parseResult.strategy}`);
+        // Don't throw yet - we'll handle this below
+      } else {
+        aiResult = parseResult.data;
+      }
+    }
+
+    // Handle parse failure - return structured error with debug info
+    if (!aiResult && parseResult) {
+      console.error(`[${correlationId}] AI response parsing failed completely`);
+
+      // Build fallback result for UI to still render something
+      const fallbackResult = buildFallbackResult(productName, brand);
+
+      const errorResponse: Record<string, unknown> = {
+        ok: false,
+        error: "Failed to parse AI response. Using fallback content.",
+        error_code: "AI_PARSE_ERROR",
+        parse_strategy: parseResult.strategy,
+        correlation_id: correlationId,
+        // Include fallback data so UI can still function
+        data: fallbackResult,
+        meta: {
+          product_id: product_id.trim(),
+          brand,
+          product_name: productName,
+          ai_provider: aiProvider,
+          is_fallback: true,
+          parse_error: parseResult.error,
+        },
+      };
+
+      // Include debug info if debug mode enabled
+      if (debugMode) {
+        errorResponse.debug = {
+          raw_excerpt: rawAiResponse.slice(0, 2000),
+          raw_length: rawAiResponse.length,
+          parse_attempts: parseResult.strategy,
+        };
       }
 
-      aiResult = parseResult.data;
+      // Return 200 with error info so UI can handle gracefully
+      return NextResponse.json(errorResponse, { status: 200 });
     }
 
     if (!aiResult) {
@@ -1491,14 +1658,14 @@ export async function POST(request: Request) {
       has_edge_push: hasEdgePush,
 
       // Visual hooks
-      visual_hook_options: visualHooks,
+      visual_hook_options: visualHooks.length > 0 ? visualHooks : ["Open on close-up of face, engaging expression, then reveal product"],
       selected_visual_hook: visualHooks[0] || "Open on close-up of face, engaging expression, then reveal product",
       visual_hook: visualHooks[0] || "Open on close-up of face, engaging expression, then reveal product",
 
       // On-screen text
-      on_screen_text_hook_options: textHooks,
+      on_screen_text_hook_options: textHooks.length > 0 ? textHooks : ["Watch this", "Must see", "Real talk"],
       selected_on_screen_text_hook: textHooks[0] || "Watch this",
-      mid_overlays: midOverlays,
+      mid_overlays: midOverlays.length > 0 ? midOverlays : ["Real talk", "No cap", "Trust me"],
 
       // CTA Script Line (persuasive, for script body)
       cta_script_options: ctaScriptOptions,
@@ -1513,21 +1680,25 @@ export async function POST(request: Request) {
       on_screen_text_cta: ctaOptions[0] || "Tap the orange cart",
 
       // Standard fields
-      angle_options: Array.isArray(aiResult.angle_options) ? aiResult.angle_options.slice(0, 5) : [],
-      selected_angle: String(aiResult.selected_angle || aiResult.angle_options?.[0] || ""),
+      angle_options: Array.isArray(aiResult.angle_options) && aiResult.angle_options.length > 0
+        ? aiResult.angle_options.slice(0, 5)
+        : ["Personal story", "Problem/solution", "Before/after", "Day in my life"],
+      selected_angle: String(aiResult.selected_angle || aiResult.angle_options?.[0] || "Personal story"),
       proof_type: ["testimonial", "demo", "comparison", "other"].includes(aiResult.proof_type as string)
         ? (aiResult.proof_type as "testimonial" | "demo" | "comparison" | "other")
         : "testimonial",
       notes: String(aiResult.notes || ""),
-      broll_ideas: Array.isArray(aiResult.broll_ideas) ? aiResult.broll_ideas.slice(0, 5) : [],
-      script_draft: String(aiResult.script_draft || ""),
+      broll_ideas: Array.isArray(aiResult.broll_ideas) && aiResult.broll_ideas.length > 0
+        ? aiResult.broll_ideas.slice(0, 5)
+        : ["Product close-up", "Unboxing shot", "Using the product", "Before/after comparison"],
+      script_draft: String(aiResult.script_draft || `${bestHook}\n\nI've been using ${productName} and had to share my thoughts.\n\nLink in my bio!`),
 
       // Legacy backwards compat
       hook_options: spokenHooks,
       selected_hook: bestHook,
       on_screen_text: [
-        textHooks[0] || "",
-        ...midOverlays.slice(0, 3),
+        textHooks[0] || "Watch this",
+        ...(midOverlays.slice(0, 3)),
         ctaOptions[0] || "Tap the orange cart",
       ],
     };
@@ -1552,7 +1723,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       ok: true,
       data: validatedResult,
       meta: {
@@ -1566,22 +1737,57 @@ export async function POST(request: Request) {
         nonce,
         hooks_avoided: recentHooks.length,
         has_reference: !!referenceScriptContent,
+        parse_strategy: parseResult?.strategy,
       },
       correlation_id: correlationId,
-    });
+    };
+
+    // Include debug info if debug mode enabled
+    if (debugMode) {
+      response.debug = {
+        raw_excerpt: rawAiResponse.slice(0, 2000),
+        raw_length: rawAiResponse.length,
+        parse_strategy: parseResult?.strategy,
+        hooks_count: spokenHooks.length,
+        driver_distribution: driverCounts,
+      };
+    }
+
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error(`[${correlationId}] AI draft generation error:`, error);
 
-    // Return error - do NOT fall back to templates
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `AI generation failed: ${error instanceof Error ? error.message : String(error)}`,
-        error_code: "AI_ERROR",
-        correlation_id: correlationId,
+    // Build fallback result so UI can still render
+    const fallbackResult = buildFallbackResult(productName, brand);
+
+    const errorResponse: Record<string, unknown> = {
+      ok: false,
+      error: `AI generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      error_code: "AI_ERROR",
+      correlation_id: correlationId,
+      // Include fallback data so UI doesn't completely break
+      data: fallbackResult,
+      meta: {
+        product_id: product_id.trim(),
+        brand,
+        product_name: productName,
+        ai_provider: aiProvider || "none",
+        is_fallback: true,
       },
-      { status: 500 }
-    );
+    };
+
+    // Include debug info if debug mode enabled or if we have raw response
+    if (debugMode || rawAiResponse) {
+      errorResponse.debug = {
+        raw_excerpt: rawAiResponse ? rawAiResponse.slice(0, 2000) : null,
+        raw_length: rawAiResponse?.length || 0,
+        error_message: error instanceof Error ? error.message : String(error),
+        error_stack: error instanceof Error ? error.stack?.slice(0, 500) : null,
+      };
+    }
+
+    // Return 200 with error info so UI can handle gracefully
+    return NextResponse.json(errorResponse, { status: 200 });
   }
 }

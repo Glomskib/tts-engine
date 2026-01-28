@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
-import AdminNav from '../components/AdminNav';
 
 interface ScriptTemplate {
   id: string;
@@ -283,8 +282,6 @@ export default function ScriptsLibraryPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={true} />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>

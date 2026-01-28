@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
 import { getAccentColorOptions, AccentColor } from '@/lib/org-branding';
 
@@ -903,7 +902,6 @@ export default function AdminClientOrgsPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <AdminNav isAdmin={isAdmin} />
 
       <h1 style={{ margin: '0 0 20px 0' }}>Client Organizations</h1>
 

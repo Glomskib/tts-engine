@@ -7,7 +7,6 @@ import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from './NotificationBadge';
 import IncidentBanner from './IncidentBanner';
-import AdminNav from './AdminNav';
 
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
@@ -466,11 +465,6 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
         </Link>
       </div>
 
-      {/* Admin Navigation */}
-      <AdminNav
-        isAdmin={authUser.role === 'admin'}
-        showNotificationBadge={<NotificationBadge />}
-      />
 
       {/* Filters */}
       <div style={{

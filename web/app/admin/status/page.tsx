@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import IncidentBanner from '../components/IncidentBanner';
-import AdminNav from '../components/AdminNav';
 
 interface HealthData {
   ok: boolean;
@@ -151,8 +150,6 @@ export default function AdminStatusPage() {
       {/* Incident Mode Banner */}
       <IncidentBanner />
 
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={isAdmin} />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>

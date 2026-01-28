@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
 
 interface BrandStats {
   name: string;
@@ -178,7 +177,6 @@ export default function BrandsPage() {
         </button>
       </div>
 
-      <AdminNav isAdmin={isAdmin} />
 
       {error && (
         <div style={{

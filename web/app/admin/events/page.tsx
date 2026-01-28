@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
 
 interface EventItem {
@@ -155,8 +154,6 @@ export default function AdminEventsPage() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={isAdmin} />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>

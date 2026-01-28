@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import IncidentBanner from '../components/IncidentBanner';
-import AdminNav from '../components/AdminNav';
 
 interface EffectiveSetting {
   key: string;
@@ -228,8 +227,6 @@ export default function AdminSettingsPage() {
       {/* Incident Mode Banner */}
       <IncidentBanner />
 
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={isAdmin} />
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>System Settings</h1>

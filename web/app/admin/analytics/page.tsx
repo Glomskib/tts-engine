@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
-import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
 
 interface StageStats {
@@ -179,8 +178,6 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={isAdmin} />
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>Analytics Dashboard</h1>

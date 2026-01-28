@@ -30,7 +30,7 @@ export default function AdminPageLayout({
   title,
   subtitle,
   isAdmin = true,
-  showNav = true,
+  showNav = false,
   maxWidth = 'xl',
   headerActions,
 }: AdminPageLayoutProps) {

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
-import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
 
 interface QueueVideo {
@@ -117,8 +116,6 @@ export default function ExecutionDashboardPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={true} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Execution Dashboard</h1>

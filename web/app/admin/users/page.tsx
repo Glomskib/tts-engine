@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
 
 interface User {
@@ -126,8 +125,6 @@ export default function AdminUsersPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={isAdmin} />
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>User Management</h1>

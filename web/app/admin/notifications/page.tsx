@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
 
 interface Notification {
   id: string;
@@ -244,8 +243,6 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Admin Navigation */}
-      <AdminNav isAdmin={authUser.role === 'admin'} />
 
       {error && (
         <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>

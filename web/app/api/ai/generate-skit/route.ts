@@ -9,6 +9,12 @@ import {
   type RiskTier,
   type Skit,
 } from "@/lib/ai/skitPostProcess";
+import {
+  getSkitTemplate,
+  buildTemplatePromptSection,
+  validateSkitAgainstTemplate,
+  type SkitTemplate,
+} from "@/lib/ai/skitTemplates";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -33,6 +39,7 @@ const GenerateSkitInputSchema = z.object({
   cta_overlay: z.string().max(50).optional(),
   risk_tier: RiskTierSchema,
   persona: PersonaSchema,
+  template_id: z.string().max(50).optional(),
 }).strict();
 
 type GenerateSkitInput = z.infer<typeof GenerateSkitInputSchema>;
@@ -199,6 +206,15 @@ export async function POST(request: Request) {
       return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId);
     }
 
+    // Look up template if provided
+    let template: SkitTemplate | null = null;
+    if (input.template_id) {
+      template = getSkitTemplate(input.template_id);
+      if (!template) {
+        return createApiErrorResponse("VALIDATION_ERROR", `Unknown template: ${input.template_id}`, 400, correlationId);
+      }
+    }
+
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
     const ctaOverlay = input.cta_overlay || "Link in bio!";
@@ -211,6 +227,7 @@ export async function POST(request: Request) {
       ctaOverlay,
       riskTier: input.risk_tier,
       persona: input.persona,
+      template,
     });
 
     // Call Anthropic API
@@ -223,6 +240,12 @@ export async function POST(request: Request) {
     // Post-process with throttle enforcement
     const processed = postProcessSkit(rawSkit, input.risk_tier);
 
+    // Validate against template constraints if template was used
+    let templateValidation: { valid: boolean; issues: string[] } | null = null;
+    if (template) {
+      templateValidation = validateSkitAgainstTemplate(processed.skit, template);
+    }
+
     // Audit log
     auditLogAsync({
       correlation_id: correlationId,
@@ -230,14 +253,16 @@ export async function POST(request: Request) {
       entity_type: input.video_id ? "video" : "product",
       entity_id: input.video_id || input.product_id,
       actor: authContext.user.id,
-      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}`,
+      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}${template ? `, template=${template.id}` : ""}`,
       details: {
         risk_tier_requested: input.risk_tier,
         risk_tier_applied: processed.appliedTier,
         persona: input.persona,
+        template_id: input.template_id || null,
         risk_score: processed.riskScore,
         flags_count: processed.riskFlags.length,
         was_downgraded: processed.wasDowngraded,
+        template_validation: templateValidation,
       },
     });
 
@@ -249,6 +274,8 @@ export async function POST(request: Request) {
         risk_tier_applied: processed.appliedTier,
         risk_score: processed.riskScore,
         risk_flags: processed.riskFlags,
+        template_id: input.template_id || null,
+        template_validation: templateValidation,
         skit: processed.skit,
       },
     });
@@ -276,13 +303,15 @@ interface PromptParams {
   ctaOverlay: string;
   riskTier: RiskTier;
   persona: Persona;
+  template: SkitTemplate | null;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
+  const templateSection = template ? buildTemplatePromptSection(template) : "";
 
   return `You are a TikTok skit writer for product advertisements. Generate a short, engaging skit.
 
@@ -298,6 +327,8 @@ ${tierGuideline}
 
 PERSONA/CHARACTER:
 ${personaGuideline}
+
+${templateSection}
 
 ${COMPLIANCE_REMINDER}
 

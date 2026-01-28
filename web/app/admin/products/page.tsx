@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
+import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 
 interface Product {
   id: string;
@@ -33,21 +32,6 @@ interface AuthUser {
   role: 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 }
 
-// Colors for dark mode consistency
-const colors = {
-  bg: '#1a1a1a',
-  surface: '#242424',
-  surface2: '#2d2d2d',
-  border: '#404040',
-  text: '#e5e5e5',
-  textMuted: '#a0a0a0',
-  primary: '#3b82f6',
-  primaryHover: '#2563eb',
-  danger: '#ef4444',
-  warning: '#f59e0b',
-  success: '#22c55e',
-};
-
 export default function ProductsPage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -69,20 +53,17 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchAuthUser = async () => {
       try {
-        const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const roleRes = await fetch('/api/auth/me');
+        const roleData = await roleRes.json();
 
-        if (error || !user) {
+        if (!roleData.ok || !roleData.user) {
           router.push('/login?redirect=/admin/products');
           return;
         }
 
-        const roleRes = await fetch('/api/auth/me');
-        const roleData = await roleRes.json();
-
         setAuthUser({
-          id: user.id,
-          email: user.email || null,
+          id: roleData.user.id,
+          email: roleData.user.email || null,
           role: roleData.role || null,
         });
       } catch (err) {
@@ -250,11 +231,19 @@ export default function ProductsPage() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: '20px', backgroundColor: colors.bg, color: colors.text, minHeight: '100vh' }}>Checking access...</div>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">Checking access...</div>
+      </div>
+    );
   }
 
   if (!authUser) {
-    return <div style={{ padding: '20px', backgroundColor: colors.bg, color: colors.text, minHeight: '100vh' }}>Redirecting to login...</div>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">Redirecting to login...</div>
+      </div>
+    );
   }
 
   const isAdmin = authUser.role === 'admin';
@@ -271,51 +260,24 @@ export default function ProductsPage() {
   });
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto', backgroundColor: colors.bg, minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0, color: colors.text }}>Products</h1>
-        <button
-          onClick={fetchProductStats}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: colors.primary,
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
+    <AdminPageLayout
+      title="Products"
+      subtitle="Manage product catalog and view statistics"
+      isAdmin={isAdmin}
+      headerActions={
+        <AdminButton variant="secondary" onClick={fetchProductStats}>
           Refresh
-        </button>
-      </div>
-
-      <AdminNav isAdmin={isAdmin} />
-
+        </AdminButton>
+      }
+    >
       {/* Filters */}
-      <div style={{
-        display: 'flex',
-        gap: '12px',
-        marginBottom: '20px',
-        padding: '12px',
-        backgroundColor: colors.surface,
-        borderRadius: '8px',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', color: colors.textMuted }}>Brand:</label>
+      <div className="flex gap-3 flex-wrap items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600">Brand:</label>
           <select
             value={brandFilter}
             onChange={(e) => setBrandFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '4px',
-              border: `1px solid ${colors.border}`,
-              fontSize: '13px',
-              minWidth: '140px',
-              backgroundColor: colors.surface2,
-              color: colors.text,
-            }}
+            className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-500"
           >
             <option value="">All Brands</option>
             {uniqueBrands.map(b => (
@@ -324,20 +286,12 @@ export default function ProductsPage() {
           </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', color: colors.textMuted }}>Category:</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600">Category:</label>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '4px',
-              border: `1px solid ${colors.border}`,
-              fontSize: '13px',
-              minWidth: '140px',
-              backgroundColor: colors.surface2,
-              color: colors.text,
-            }}
+            className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-500"
           >
             <option value="">All Categories</option>
             {uniqueCategories.map(c => (
@@ -349,515 +303,323 @@ export default function ProductsPage() {
         {(brandFilter || categoryFilter) && (
           <button
             onClick={() => { setBrandFilter(''); setCategoryFilter(''); }}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: colors.danger,
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-            }}
+            className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:underline"
           >
             Clear Filters
           </button>
         )}
 
-        <div style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
+        <div className="ml-auto text-sm text-slate-500">
           {filteredProducts.length} of {productStats.length} products
         </div>
       </div>
 
       {error && (
-        <div style={{
-          padding: '12px',
-          backgroundColor: '#3b1c1c',
-          color: '#fca5a5',
-          borderRadius: '4px',
-          marginBottom: '20px',
-          border: `1px solid ${colors.danger}`,
-        }}>
+        <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
           Error: {error}
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: colors.textMuted }}>
-          Loading product statistics...
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <div style={{
-          padding: '40px',
-          textAlign: 'center',
-          color: colors.textMuted,
-          backgroundColor: colors.surface,
-          borderRadius: '8px',
-        }}>
-          {productStats.length === 0
-            ? 'No products found. Add products to see statistics here.'
-            : 'No products match the current filters.'
-          }
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'left', backgroundColor: colors.surface, color: colors.text }}>Product</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'left', backgroundColor: colors.surface, color: colors.text }}>Brand</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'left', backgroundColor: colors.surface, color: colors.text }}>Category</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center', backgroundColor: colors.surface, color: colors.text }}>This Month</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center', backgroundColor: colors.surface, color: colors.text }}>In Queue</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center', backgroundColor: colors.surface, color: colors.text }}>Posted</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'left', backgroundColor: colors.surface, color: colors.text }}>Target Accounts</th>
-                <th style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center', backgroundColor: colors.surface, color: colors.text }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((product) => {
-                const duplicateWarning = getDuplicateWarning(product);
-                return (
-                  <tr key={product.id} style={{ backgroundColor: colors.bg }}>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px' }}>
-                      <div>
-                        <span style={{ fontWeight: 'bold', fontSize: '14px', color: colors.text }}>{product.name}</span>
-                        {product.product_display_name && (
-                          <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '2px' }}>
-                            Display: {product.product_display_name}
-                          </div>
-                        )}
-                        {duplicateWarning && (
-                          <div style={{ fontSize: '10px', color: colors.warning, marginTop: '4px' }}>
-                            {duplicateWarning}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px' }}>
-                      <span style={{
-                        padding: '3px 8px',
-                        backgroundColor: '#1e3a5f',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        color: '#93c5fd',
-                      }}>
-                        {product.brand}
-                      </span>
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px', fontSize: '13px', color: colors.textMuted }}>
-                      {product.category}
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center', color: colors.text }}>
-                      {product.videos_this_month}
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center' }}>
-                      <span style={{
-                        padding: '4px 12px',
-                        backgroundColor: product.in_queue > 0 ? '#422006' : colors.surface2,
-                        borderRadius: '12px',
-                        fontWeight: 'bold',
-                        color: product.in_queue > 0 ? '#fcd34d' : colors.textMuted,
-                      }}>
-                        {product.in_queue}
-                      </span>
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center' }}>
-                      <span style={{
-                        padding: '4px 12px',
-                        backgroundColor: product.posted > 0 ? '#14532d' : colors.surface2,
-                        borderRadius: '12px',
-                        fontWeight: 'bold',
-                        color: product.posted > 0 ? '#86efac' : colors.textMuted,
-                      }}>
-                        {product.posted}
-                      </span>
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px' }}>
-                      {product.target_accounts.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {product.target_accounts.slice(0, 3).map((account, idx) => (
-                            <span key={idx} style={{
-                              padding: '2px 6px',
-                              backgroundColor: colors.surface2,
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              color: colors.textMuted,
-                            }}>
-                              {account}
-                            </span>
-                          ))}
-                          {product.target_accounts.length > 3 && (
-                            <span style={{ fontSize: '11px', color: colors.textMuted }}>
-                              +{product.target_accounts.length - 3} more
-                            </span>
+      <AdminCard noPadding>
+        {loading ? (
+          <div className="p-8 text-center text-slate-500">Loading product statistics...</div>
+        ) : filteredProducts.length === 0 ? (
+          <EmptyState
+            title={productStats.length === 0 ? "No products yet" : "No matches"}
+            description={productStats.length === 0
+              ? "Add products to see statistics here."
+              : "No products match the current filters."
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">Product</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">Brand</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">Category</th>
+                  <th className="px-4 py-3 text-center font-medium text-slate-600">This Month</th>
+                  <th className="px-4 py-3 text-center font-medium text-slate-600">In Queue</th>
+                  <th className="px-4 py-3 text-center font-medium text-slate-600">Posted</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">Target Accounts</th>
+                  <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((product) => {
+                  const duplicateWarning = getDuplicateWarning(product);
+                  return (
+                    <tr key={product.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <div>
+                          <span className="font-medium text-slate-800">{product.name}</span>
+                          {product.product_display_name && (
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              Display: {product.product_display_name}
+                            </div>
+                          )}
+                          {duplicateWarning && (
+                            <div className="text-xs text-amber-600 mt-1">
+                              {duplicateWarning}
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <span style={{ color: colors.textMuted, fontSize: '12px' }}>None</span>
-                      )}
-                    </td>
-                    <td style={{ border: `1px solid ${colors.border}`, padding: '12px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleEdit(product)}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: colors.surface2,
-                              color: colors.text,
-                              border: `1px solid ${colors.border}`,
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                            }}
-                          >
-                            Edit
-                          </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-medium">
+                          {product.brand}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {product.category}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-700">
+                        {product.videos_this_month}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          product.in_queue > 0
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {product.in_queue}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          product.posted > 0
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {product.posted}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.target_accounts.length > 0 ? (
+                          <div className="flex gap-1 flex-wrap">
+                            {product.target_accounts.slice(0, 3).map((account, idx) => (
+                              <span key={idx} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600">
+                                {account}
+                              </span>
+                            ))}
+                            {product.target_accounts.length > 3 && (
+                              <span className="text-xs text-slate-400">
+                                +{product.target_accounts.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">None</span>
                         )}
-                        <Link
-                          href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: colors.primary,
-                            color: 'white',
-                            borderRadius: '4px',
-                            textDecoration: 'none',
-                            fontSize: '12px',
-                          }}
-                        >
-                          View Videos
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-2 justify-end">
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleEdit(product)}
+                              className="text-xs text-slate-600 hover:text-slate-800 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <Link
+                            href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            View Videos
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminCard>
 
-      <div style={{ marginTop: '20px', fontSize: '12px', color: colors.textMuted }}>
+      <div className="text-xs text-slate-500">
         Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
       </div>
 
       {/* Edit Drawer */}
       {editDrawerOpen && editingProduct && (
-        <>
+        <div className="fixed inset-0 z-50 flex justify-end">
           {/* Backdrop */}
           <div
+            className="absolute inset-0 bg-black/30"
             onClick={handleCloseDrawer}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 1000,
-            }}
           />
 
-          {/* Drawer */}
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            width: '480px',
-            maxWidth: '100%',
-            height: '100vh',
-            backgroundColor: colors.surface,
-            boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.3)',
-            zIndex: 1001,
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-md bg-white shadow-xl flex flex-col">
             {/* Header */}
-            <div style={{
-              padding: '16px 20px',
-              borderBottom: `1px solid ${colors.border}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <h2 style={{ margin: 0, color: colors.text, fontSize: '18px' }}>Edit Product</h2>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-800">Edit Product</h2>
               <button
                 onClick={handleCloseDrawer}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: colors.textMuted,
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  padding: '4px',
-                }}
+                className="text-slate-400 hover:text-slate-600"
               >
-                x
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             {/* Form */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {saveError && (
-                <div style={{
-                  padding: '10px 12px',
-                  backgroundColor: '#3b1c1c',
-                  color: '#fca5a5',
-                  borderRadius: '4px',
-                  marginBottom: '16px',
-                  fontSize: '13px',
-                }}>
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
                   {saveError}
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Name */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Product Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.name || ''}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                </div>
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+              </div>
 
-                {/* Product Display Name */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Display Name (TikTok-safe, max 30 chars)
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.product_display_name || ''}
-                    onChange={(e) => setEditForm({ ...editForm, product_display_name: e.target.value })}
-                    maxLength={30}
-                    placeholder="Short name for TikTok"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
-                    {(editForm.product_display_name || '').length}/30 characters
-                  </div>
-                </div>
+              {/* Product Display Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Display Name
+                  <span className="text-slate-400 font-normal ml-1">(TikTok-safe, max 30 chars)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.product_display_name || ''}
+                  onChange={(e) => setEditForm({ ...editForm, product_display_name: e.target.value })}
+                  maxLength={30}
+                  placeholder="Short name for TikTok"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  {(editForm.product_display_name || '').length}/30 characters
+                </p>
+              </div>
 
-                {/* Brand */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Brand *
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.brand || ''}
-                    onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                </div>
+              {/* Brand */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Brand <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.brand || ''}
+                  onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+              </div>
 
-                {/* Category */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Category *
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.category || ''}
-                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                </div>
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.category || ''}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+              </div>
 
-                {/* Category Risk */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Category Risk
-                  </label>
-                  <select
-                    value={editForm.category_risk || ''}
-                    onChange={(e) => setEditForm({ ...editForm, category_risk: e.target.value as 'low' | 'medium' | 'high' | null || null })}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  >
-                    <option value="">Not set</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
+              {/* Category Risk */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Category Risk
+                </label>
+                <select
+                  value={editForm.category_risk || ''}
+                  onChange={(e) => setEditForm({ ...editForm, category_risk: (e.target.value as 'low' | 'medium' | 'high') || null })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                >
+                  <option value="">Not set</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
 
-                {/* Primary Link */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Primary Link (Product URL)
-                  </label>
-                  <input
-                    type="url"
-                    value={editForm.primary_link || ''}
-                    onChange={(e) => setEditForm({ ...editForm, primary_link: e.target.value })}
-                    placeholder="https://..."
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                </div>
+              {/* Primary Link */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Primary Link
+                </label>
+                <input
+                  type="url"
+                  value={editForm.primary_link || ''}
+                  onChange={(e) => setEditForm({ ...editForm, primary_link: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+              </div>
 
-                {/* TikTok Showcase URL */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    TikTok Showcase URL
-                  </label>
-                  <input
-                    type="url"
-                    value={editForm.tiktok_showcase_url || ''}
-                    onChange={(e) => setEditForm({ ...editForm, tiktok_showcase_url: e.target.value })}
-                    placeholder="https://www.tiktok.com/..."
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                </div>
+              {/* TikTok Showcase URL */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  TikTok Showcase URL
+                </label>
+                <input
+                  type="url"
+                  value={editForm.tiktok_showcase_url || ''}
+                  onChange={(e) => setEditForm({ ...editForm, tiktok_showcase_url: e.target.value })}
+                  placeholder="https://www.tiktok.com/..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+              </div>
 
-                {/* Slug */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Slug (URL-friendly identifier)
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.slug || ''}
-                    onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
-                    placeholder="product-slug"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  />
-                </div>
+              {/* Slug */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Slug
+                </label>
+                <input
+                  type="text"
+                  value={editForm.slug || ''}
+                  onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
+                  placeholder="product-slug"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+              </div>
 
-                {/* Notes */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: colors.textMuted }}>
-                    Notes
-                  </label>
-                  <textarea
-                    value={editForm.notes || ''}
-                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                    rows={4}
-                    placeholder="Product-specific notes, talking points, compliance warnings..."
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: colors.surface2,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                      resize: 'vertical',
-                    }}
-                  />
-                </div>
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={editForm.notes || ''}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  rows={4}
+                  placeholder="Product-specific notes, talking points, compliance warnings..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
               </div>
             </div>
 
             {/* Footer */}
-            <div style={{
-              padding: '16px 20px',
-              borderTop: `1px solid ${colors.border}`,
-              display: 'flex',
-              gap: '12px',
-              justifyContent: 'flex-end',
-            }}>
-              <button
-                onClick={handleCloseDrawer}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: 'transparent',
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '4px',
-                  color: colors.text,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                }}
-              >
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <AdminButton variant="secondary" onClick={handleCloseDrawer}>
                 Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: saving ? colors.textMuted : colors.primary,
-                  border: 'none',
-                  borderRadius: '4px',
-                  color: 'white',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                }}
-              >
+              </AdminButton>
+              <AdminButton onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : 'Save Changes'}
-              </button>
+              </AdminButton>
             </div>
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </AdminPageLayout>
   );
 }

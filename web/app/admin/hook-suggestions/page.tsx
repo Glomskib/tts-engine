@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
+import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
+import ApiErrorPanel from '../components/ApiErrorPanel';
 
 interface AuthUser {
   id: string;
@@ -57,7 +59,7 @@ export default function HookSuggestionsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<HookSuggestion | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ApiClientError | null>(null);
 
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
@@ -134,30 +136,22 @@ export default function HookSuggestionsPage() {
     setActionLoading(true);
     setActionError(null);
 
-    try {
-      const res = await fetch(`/api/admin/hook-suggestions/${selectedSuggestion.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+    const result = await postJson<{ approved: boolean }>(
+      `/api/admin/hook-suggestions/${selectedSuggestion.id}/approve`,
+      {}
+    );
 
-      const data = await res.json();
+    setActionLoading(false);
 
-      if (!data.ok) {
-        setActionError(data.error || 'Failed to approve');
-        return;
-      }
-
-      // Remove from list
-      setSuggestions(prev => prev.filter(s => s.id !== selectedSuggestion.id));
-      setDrawerOpen(false);
-      setSelectedSuggestion(null);
-    } catch (err) {
-      setActionError('Network error');
-      console.error('Approve error:', err);
-    } finally {
-      setActionLoading(false);
+    if (isApiError(result)) {
+      setActionError(result);
+      return;
     }
+
+    // Remove from list
+    setSuggestions(prev => prev.filter(s => s.id !== selectedSuggestion.id));
+    setDrawerOpen(false);
+    setSelectedSuggestion(null);
   };
 
   // Reject suggestion
@@ -167,30 +161,22 @@ export default function HookSuggestionsPage() {
     setActionLoading(true);
     setActionError(null);
 
-    try {
-      const res = await fetch(`/api/admin/hook-suggestions/${selectedSuggestion.id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+    const result = await postJson<{ rejected: boolean }>(
+      `/api/admin/hook-suggestions/${selectedSuggestion.id}/reject`,
+      {}
+    );
 
-      const data = await res.json();
+    setActionLoading(false);
 
-      if (!data.ok) {
-        setActionError(data.error || 'Failed to reject');
-        return;
-      }
-
-      // Remove from list
-      setSuggestions(prev => prev.filter(s => s.id !== selectedSuggestion.id));
-      setDrawerOpen(false);
-      setSelectedSuggestion(null);
-    } catch (err) {
-      setActionError('Network error');
-      console.error('Reject error:', err);
-    } finally {
-      setActionLoading(false);
+    if (isApiError(result)) {
+      setActionError(result);
+      return;
     }
+
+    // Remove from list
+    setSuggestions(prev => prev.filter(s => s.id !== selectedSuggestion.id));
+    setDrawerOpen(false);
+    setSelectedSuggestion(null);
   };
 
   const openDrawer = async (suggestion: HookSuggestion) => {
@@ -485,9 +471,10 @@ export default function HookSuggestionsPage() {
 
               {/* Error */}
               {actionError && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
-                  {actionError}
-                </div>
+                <ApiErrorPanel
+                  error={actionError}
+                  onDismiss={() => setActionError(null)}
+                />
               )}
             </div>
 

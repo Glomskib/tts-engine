@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
+import { patchJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
+import ApiErrorPanel from '../components/ApiErrorPanel';
 
 interface Product {
   id: string;
@@ -55,7 +57,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<ApiClientError | null>(null);
 
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
@@ -216,31 +218,24 @@ export default function ProductsPage() {
     setSaving(true);
     setSaveError(null);
 
-    try {
-      const res = await fetch(`/api/products/${editingProduct.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
-      });
+    const result = await patchJson<Product>(
+      `/api/products/${editingProduct.id}`,
+      editForm
+    );
 
-      const data = await res.json();
+    setSaving(false);
 
-      if (!data.ok) {
-        throw new Error(data.error || 'Failed to save product');
-      }
-
-      // Update local state
-      setProductStats(prev =>
-        prev.map(p => p.id === editingProduct.id ? { ...p, ...data.data } : p)
-      );
-
-      handleCloseDrawer();
-    } catch (err) {
-      console.error('Failed to save product:', err);
-      setSaveError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
+    if (isApiError(result)) {
+      setSaveError(result);
+      return;
     }
+
+    // Update local state
+    setProductStats(prev =>
+      prev.map(p => p.id === editingProduct.id ? { ...p, ...result.data } : p)
+    );
+
+    handleCloseDrawer();
   };
 
   // Detect potential duplicates
@@ -498,9 +493,10 @@ export default function ProductsPage() {
             {/* Form */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {saveError && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
-                  {saveError}
-                </div>
+                <ApiErrorPanel
+                  error={saveError}
+                  onDismiss={() => setSaveError(null)}
+                />
               )}
 
               {/* Ops Warnings */}

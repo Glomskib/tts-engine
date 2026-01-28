@@ -131,7 +131,7 @@ export default function VideoCard({
           textTransform: 'uppercase',
         }}>
           {simpleMode
-            ? (video.sla_status === 'overdue' ? '!' : video.sla_status === 'due_soon' ? '~' : '✓')
+            ? (video.sla_status === 'overdue' ? '!' : video.sla_status === 'due_soon' ? '~' : '')
             : (video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : 'OK')
           }
         </span>
@@ -178,30 +178,39 @@ export default function VideoCard({
         </div>
       )}
 
-      {/* Readiness Icons */}
+      {/* Readiness Indicators */}
       <div style={{
         display: 'flex',
         gap: simpleMode ? '6px' : '8px',
         marginBottom: simpleMode ? '8px' : '10px',
-        fontSize: simpleMode ? '14px' : '16px',
+        fontSize: '11px',
       }}>
         <span
           title={readiness.hasScript ? 'Script attached' : 'No script'}
-          style={{ opacity: readiness.hasScript ? 1 : 0.3 }}
+          style={{
+            color: readiness.hasScript ? '#10B981' : '#9CA3AF',
+            fontWeight: 500,
+          }}
         >
-          📝
+          S
         </span>
         <span
           title={readiness.hasRaw ? 'Raw recorded' : 'Not recorded'}
-          style={{ opacity: readiness.hasRaw ? 1 : 0.3 }}
+          style={{
+            color: readiness.hasRaw ? '#10B981' : '#9CA3AF',
+            fontWeight: 500,
+          }}
         >
-          🎥
+          R
         </span>
         <span
           title={readiness.hasFinal ? 'Final ready' : 'No final'}
-          style={{ opacity: readiness.hasFinal ? 1 : 0.3 }}
+          style={{
+            color: readiness.hasFinal ? '#10B981' : '#9CA3AF',
+            fontWeight: 500,
+          }}
         >
-          📦
+          F
         </span>
       </div>
 
@@ -300,7 +309,7 @@ export default function VideoCard({
           color: '#dc3545',
           textAlign: 'center',
         }}>
-          {simpleMode ? '🔒' : `Locked by ${video.claimed_by?.slice(0, 8)}...`}
+          {simpleMode ? 'Locked' : `Locked by ${video.claimed_by?.slice(0, 8)}...`}
         </div>
       )}
 
@@ -313,7 +322,7 @@ export default function VideoCard({
           fontWeight: 'bold',
           fontSize: simpleMode ? '14px' : '12px',
         }}>
-          {simpleMode ? '🎉' : '✅ Complete'}
+          {simpleMode ? 'Done' : 'Complete'}
         </div>
       )}
     </div>

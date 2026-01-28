@@ -153,12 +153,12 @@ export default function VideoDrawer({
 
   // Reject quick tags configuration
   const REJECT_TAGS = [
-    { code: 'too_generic', label: 'Too Generic', emoji: '😐' },
-    { code: 'too_risky', label: 'Too Risky', emoji: '⚠️' },
-    { code: 'not_relatable', label: 'Not Relatable', emoji: '🤷' },
-    { code: 'wrong_angle', label: 'Wrong Angle', emoji: '📐' },
-    { code: 'compliance', label: 'Compliance Issue', emoji: '🚫' },
-    { code: 'bad_cta', label: 'Bad CTA', emoji: '👎' },
+    { code: 'too_generic', label: 'Too Generic' },
+    { code: 'too_risky', label: 'Too Risky' },
+    { code: 'not_relatable', label: 'Not Relatable' },
+    { code: 'wrong_angle', label: 'Wrong Angle' },
+    { code: 'compliance', label: 'Compliance Issue' },
+    { code: 'bad_cta', label: 'Bad CTA' },
   ];
 
   const statusColors = getStatusBadgeColor(video.recording_status);
@@ -624,20 +624,15 @@ export default function VideoDrawer({
             left: '50%',
             transform: 'translateX(-50%)',
             padding: '12px 24px',
-            backgroundColor: '#2b8a3e',
+            backgroundColor: colors.success,
             color: 'white',
-            borderRadius: '8px',
+            borderRadius: '10px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
             fontSize: '14px',
-            fontWeight: 'bold',
-            animation: 'slideUp 0.3s ease-out',
+            fontWeight: 500,
           }}
         >
-          <span>✓</span>
           {savedToast}
         </div>
       )}
@@ -684,20 +679,16 @@ export default function VideoDrawer({
                   onClick={() => setSelectedRejectTag(selectedRejectTag === tag.code ? null : tag.code)}
                   style={{
                     padding: '10px 12px',
-                    backgroundColor: selectedRejectTag === tag.code ? '#e03131' : colors.card,
+                    backgroundColor: selectedRejectTag === tag.code ? colors.danger : colors.card,
                     color: selectedRejectTag === tag.code ? 'white' : colors.text,
-                    border: `1px solid ${selectedRejectTag === tag.code ? '#e03131' : colors.border}`,
+                    border: `1px solid ${selectedRejectTag === tag.code ? colors.danger : colors.border}`,
                     borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '13px',
-                    fontWeight: selectedRejectTag === tag.code ? 'bold' : 'normal',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
+                    fontWeight: selectedRejectTag === tag.code ? 600 : 'normal',
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <span>{tag.emoji}</span>
                   {tag.label}
                 </button>
               ))}
@@ -762,7 +753,7 @@ export default function VideoDrawer({
           right: 0,
           bottom: 0,
           width: simpleMode ? '380px' : '480px',
-          backgroundColor: 'white',
+          backgroundColor: colors.surface,
           boxShadow: '-4px 0 20px rgba(0,0,0,0.15)',
           zIndex: 1000,
           display: 'flex',
@@ -773,8 +764,8 @@ export default function VideoDrawer({
         {/* Header */}
         <div style={{
           padding: '16px 20px',
-          borderBottom: '1px solid #e0e0e0',
-          backgroundColor: '#f8f9fa',
+          borderBottom: `1px solid ${colors.border}`,
+          backgroundColor: colors.surface,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div style={{ flex: 1 }}>
@@ -783,8 +774,8 @@ export default function VideoDrawer({
                 <span style={{
                   fontFamily: 'monospace',
                   fontSize: video.video_code ? '14px' : '13px',
-                  fontWeight: video.video_code ? 'bold' : 'normal',
-                  color: '#212529',
+                  fontWeight: video.video_code ? 600 : 'normal',
+                  color: colors.text,
                 }}>
                   {video.video_code || video.id.slice(0, 12) + '...'}
                 </span>
@@ -954,7 +945,7 @@ export default function VideoDrawer({
                     cursor: 'pointer',
                   }}
                 >
-                  {editMode ? '✓ Edit Mode' : 'Edit'}
+                  {editMode ? 'Editing' : 'Edit'}
                 </button>
               )}
               <button
@@ -1045,8 +1036,7 @@ export default function VideoDrawer({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>⚠️</span>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: isDark ? '#ffc107' : '#856404' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: colors.warning }}>
                     Add Brand / Product
                   </span>
                 </div>
@@ -1693,40 +1683,44 @@ export default function VideoDrawer({
                   )}
 
                   {/* Editor Checklist */}
-                  <div style={{ marginTop: '20px', padding: '16px', backgroundColor: '#f1f3f5', borderRadius: '8px', border: '1px solid #dee2e6' }}>
-                    <h4 style={{ margin: '0 0 12px', fontSize: '12px', color: '#495057', textTransform: 'uppercase', fontWeight: 'bold' }}>
+                  <div style={{ marginTop: '20px', padding: '16px', backgroundColor: colors.surface2, borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
                       Editor Checklist
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ color: video.script_locked_text ? '#40c057' : '#868e96' }}>
-                          {video.script_locked_text ? '✓' : '○'}
-                        </span>
-                        <span style={{ fontSize: '13px', color: video.script_locked_text ? '#212529' : '#868e96' }}>
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          backgroundColor: video.script_locked_text ? colors.success : colors.border,
+                        }} />
+                        <span style={{ fontSize: '13px', color: video.script_locked_text ? colors.text : colors.textMuted }}>
                           Script locked
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ color: video.google_drive_url ? '#40c057' : '#868e96' }}>
-                          {video.google_drive_url ? '✓' : '○'}
-                        </span>
-                        <span style={{ fontSize: '13px', color: video.google_drive_url ? '#212529' : '#868e96' }}>
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          backgroundColor: video.google_drive_url ? colors.success : colors.border,
+                        }} />
+                        <span style={{ fontSize: '13px', color: video.google_drive_url ? colors.text : colors.textMuted }}>
                           Drive folder linked
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ color: video.final_video_url ? '#40c057' : '#868e96' }}>
-                          {video.final_video_url ? '✓' : '○'}
-                        </span>
-                        <span style={{ fontSize: '13px', color: video.final_video_url ? '#212529' : '#868e96' }}>
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          backgroundColor: video.final_video_url ? colors.success : colors.border,
+                        }} />
+                        <span style={{ fontSize: '13px', color: video.final_video_url ? colors.text : colors.textMuted }}>
                           Final MP4 uploaded
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ color: video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED' ? '#40c057' : '#868e96' }}>
-                          {video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED' ? '✓' : '○'}
-                        </span>
-                        <span style={{ fontSize: '13px', color: video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED' ? '#212529' : '#868e96' }}>
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          backgroundColor: video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED' ? colors.success : colors.border,
+                        }} />
+                        <span style={{ fontSize: '13px', color: video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED' ? colors.text : colors.textMuted }}>
                           Edit completed
                         </span>
                       </div>
@@ -2061,17 +2055,16 @@ export default function VideoDrawer({
                         alignItems: 'center',
                         gap: '10px',
                         padding: '12px',
-                        backgroundColor: '#d3f9d8',
-                        borderRadius: '6px',
+                        backgroundColor: colors.accentSubtle,
+                        borderRadius: '10px',
                         textDecoration: 'none',
                         marginBottom: '12px',
-                        border: '1px solid #69db7c',
+                        border: `1px solid ${colors.border}`,
                       }}
                     >
-                      <span style={{ fontSize: '20px' }}>🎬</span>
                       <div>
-                        <div style={{ fontWeight: 'bold', color: '#2b8a3e', fontSize: '13px' }}>Final MP4</div>
-                        <div style={{ fontSize: '11px', color: '#40c057' }}>Ready for posting</div>
+                        <div style={{ fontWeight: 600, color: colors.accent, fontSize: '13px' }}>Final MP4</div>
+                        <div style={{ fontSize: '11px', color: colors.textMuted }}>Ready for posting</div>
                       </div>
                     </a>
                   )}

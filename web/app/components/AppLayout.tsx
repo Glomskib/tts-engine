@@ -56,7 +56,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
+      <div style={{
+        padding: '40px',
+        textAlign: 'center',
+        color: colors.textMuted,
+        backgroundColor: colors.bg,
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
         Loading...
       </div>
     );
@@ -69,7 +78,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         style={{
           flex: 1,
           marginLeft: '220px',
-          backgroundColor: colors.bgSecondary,
+          backgroundColor: colors.bg,
           minHeight: '100vh',
         }}
       >

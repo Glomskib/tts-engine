@@ -1,50 +1,108 @@
+/* ============================================================================
+   OPS CONSOLE DESIGN SYSTEM - Matte, Professional, Restrained
+   ============================================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --bg-secondary: #f8f9fa;
-  --bg-tertiary: #e9ecef;
-  --bg-hover: #f1f3f5;
-  --text: #212529;
-  --text-secondary: #6c757d;
-  --text-muted: #adb5bd;
-  --border: #dee2e6;
-  --border-light: #e9ecef;
-  --card: #ffffff;
-  --input: #ffffff;
-  --input-border: #ced4da;
+  /* Core surfaces */
+  --bg: #F6F7F9;
+  --surface: #FFFFFF;
+  --surface2: #F0F2F5;
+  --border: #E5E7EB;
+
+  /* Typography */
+  --text: #111827;
+  --text-muted: #6B7280;
+
+  /* Accent (restrained - primary actions only) */
+  --accent: #0F766E;
+  --accent-hover: #0D6D66;
+  --accent-subtle: rgba(15, 118, 110, 0.08);
+
+  /* Semantic (use sparingly) */
+  --success: #10B981;
+  --warn: #F59E0B;
+  --danger: #EF4444;
+
+  /* Legacy aliases for compatibility */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --bg-secondary: var(--surface2);
+  --bg-tertiary: var(--surface2);
+  --bg-hover: var(--surface2);
+  --text-secondary: var(--text-muted);
+  --border-light: var(--border);
+  --card: var(--surface);
+  --input: var(--surface);
+  --input-border: var(--border);
 }
 
 [data-theme="dark"] {
-  --background: #0f0f1a;
-  --foreground: #e4e4e4;
-  --bg-secondary: #1a1a2e;
-  --bg-tertiary: #16213e;
-  --bg-hover: #1f4068;
-  --text: #e4e4e4;
-  --text-secondary: #a0a0a0;
-  --text-muted: #666666;
-  --border: #2d2d44;
-  --border-light: #3d3d5c;
-  --card: #1e1e3f;
-  --input: #16213e;
-  --input-border: #3d3d5c;
+  /* Core surfaces */
+  --bg: #0B0F14;
+  --surface: #111827;
+  --surface2: #0F172A;
+  --border: #1F2937;
+
+  /* Typography */
+  --text: #E5E7EB;
+  --text-muted: #9CA3AF;
+
+  /* Accent */
+  --accent: #2DD4BF;
+  --accent-hover: #26BCA8;
+  --accent-subtle: rgba(45, 212, 191, 0.1);
+
+  /* Semantic */
+  --success: #10B981;
+  --warn: #F59E0B;
+  --danger: #EF4444;
+
+  /* Legacy aliases */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --bg-secondary: var(--surface2);
+  --bg-tertiary: var(--surface2);
+  --bg-hover: var(--surface2);
+  --text-secondary: var(--text-muted);
+  --border-light: var(--border);
+  --card: var(--surface);
+  --input: var(--surface);
+  --input-border: var(--border);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: #0f0f1a;
-    --foreground: #e4e4e4;
-    --bg-secondary: #1a1a2e;
-    --bg-tertiary: #16213e;
-    --bg-hover: #1f4068;
-    --text: #e4e4e4;
-    --text-secondary: #a0a0a0;
-    --text-muted: #666666;
-    --border: #2d2d44;
-    --border-light: #3d3d5c;
-    --card: #1e1e3f;
-    --input: #16213e;
-    --input-border: #3d3d5c;
+    /* Core surfaces */
+    --bg: #0B0F14;
+    --surface: #111827;
+    --surface2: #0F172A;
+    --border: #1F2937;
+
+    /* Typography */
+    --text: #E5E7EB;
+    --text-muted: #9CA3AF;
+
+    /* Accent */
+    --accent: #2DD4BF;
+    --accent-hover: #26BCA8;
+    --accent-subtle: rgba(45, 212, 191, 0.1);
+
+    /* Semantic */
+    --success: #10B981;
+    --warn: #F59E0B;
+    --danger: #EF4444;
+
+    /* Legacy aliases */
+    --background: var(--bg);
+    --foreground: var(--text);
+    --bg-secondary: var(--surface2);
+    --bg-tertiary: var(--surface2);
+    --bg-hover: var(--surface2);
+    --text-secondary: var(--text-muted);
+    --border-light: var(--border);
+    --card: var(--surface);
+    --input: var(--surface);
+    --input-border: var(--border);
   }
 }
 
@@ -55,9 +113,11 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -69,10 +129,39 @@ body {
 }
 
 a {
-  color: inherit;
+  color: var(--accent);
   text-decoration: none;
 }
 
-[data-theme="dark"] html {
+a:hover {
+  text-decoration: underline;
+}
+
+/* Consistent focus states */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling for dark mode */
+[data-theme="dark"] {
   color-scheme: dark;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--surface2);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }

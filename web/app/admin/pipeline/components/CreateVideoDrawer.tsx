@@ -44,13 +44,13 @@ interface HookWithMeta {
   edge_push: boolean;
 }
 
-// Emotional driver UI config
-const EMOTIONAL_DRIVER_UI: Record<EmotionalDriver, { emoji: string; label: string; color: string }> = {
-  shock: { emoji: '\u26a1', label: 'Shock', color: '#ffd43b' },
-  fear: { emoji: '\ud83d\ude28', label: 'Fear', color: '#ff6b6b' },
-  curiosity: { emoji: '\ud83e\udd14', label: 'Curiosity', color: '#4dabf7' },
-  insecurity: { emoji: '\ud83d\ude1f', label: 'Insecurity', color: '#da77f2' },
-  fomo: { emoji: '\u23f0', label: 'FOMO', color: '#69db7c' },
+// Emotional driver UI config - using muted colors
+const EMOTIONAL_DRIVER_UI: Record<EmotionalDriver, { label: string; color: string }> = {
+  shock: { label: 'Shock', color: '#F59E0B' },
+  fear: { label: 'Fear', color: '#EF4444' },
+  curiosity: { label: 'Curiosity', color: '#0F766E' },
+  insecurity: { label: 'Insecurity', color: '#6B7280' },
+  fomo: { label: 'FOMO', color: '#10B981' },
 };
 
 // Enhanced AI Draft interface
@@ -885,10 +885,10 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         <div style={{
           padding: '20px',
           borderBottom: `1px solid ${colors.border}`,
-          backgroundColor: colors.drawerHeader,
+          backgroundColor: colors.surface,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: colors.text }}>
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: colors.text }}>
               Create Video
             </h2>
             <button
@@ -897,19 +897,19 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               style={{
                 background: 'none',
                 border: 'none',
-                fontSize: '24px',
+                fontSize: '20px',
                 cursor: aiLoading || submitting ? 'not-allowed' : 'pointer',
-                color: colors.textSecondary,
-                padding: '0',
+                color: colors.textMuted,
+                padding: '4px',
                 lineHeight: 1,
                 opacity: aiLoading || submitting ? 0.5 : 1,
               }}
             >
-              ×
+              x
             </button>
           </div>
-          <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.textSecondary }}>
-            Select Brand + Product, then let AI draft the hook package + script
+          <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.textMuted }}>
+            Select Brand + Product, then generate hook package + script
           </p>
         </div>
 
@@ -919,9 +919,9 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           {/* ==================== SECTION: BRAND + PRODUCT ==================== */}
           <div style={{
             padding: '16px',
-            backgroundColor: isDark ? '#1f3a5f' : '#e7f5ff',
-            borderRadius: '8px',
-            border: `1px solid ${isDark ? '#2d5a87' : '#74c0fc'}`,
+            backgroundColor: colors.surface2,
+            borderRadius: '10px',
+            border: `1px solid ${colors.border}`,
             marginBottom: '16px',
           }}>
             {/* Brand Select */}
@@ -1163,11 +1163,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   gap: '8px',
                 }}
               >
-                {aiLoading ? (
-                  <><span>⏳</span> Generating Hook Package + Script...</>
-                ) : (
-                  <><span>✨</span> Generate Hook Package + Script</>
-                )}
+                {aiLoading ? 'Generating...' : 'Generate Hook Package + Script'}
               </button>
               <p style={{ margin: '8px 0 0', fontSize: '12px', color: colors.textSecondary, textAlign: 'center' }}>
                 AI will draft spoken hook, visual hook, text overlays, and script
@@ -1219,24 +1215,24 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           {aiDraft && (
             <div style={{
               padding: '16px',
-              backgroundColor: isDark ? '#2d4a3e' : '#d3f9d8',
-              borderRadius: '8px',
-              border: `1px solid ${isDark ? '#3d6a4e' : '#69db7c'}`,
+              backgroundColor: colors.surface,
+              borderRadius: '10px',
+              border: `1px solid ${colors.border}`,
               marginBottom: '16px',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <div style={{
-                  fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
-                  letterSpacing: '0.5px', color: isDark ? '#69db7c' : '#2b8a3e',
+                  fontSize: '11px', fontWeight: 600, textTransform: 'uppercase',
+                  letterSpacing: '0.5px', color: colors.accent,
                   display: 'flex', alignItems: 'center', gap: '6px',
                 }}>
-                  <span>✨</span> AI-Generated Brief
+                  AI-Generated Brief
                   {userModifiedFields.size > 0 && (
                     <span style={{
                       fontSize: '9px', fontWeight: 'normal', textTransform: 'none',
-                      backgroundColor: isDark ? '#4a3000' : '#fff3cd',
-                      color: isDark ? '#ffd43b' : '#856404',
-                      padding: '2px 6px', borderRadius: '3px',
+                      backgroundColor: colors.surface2,
+                      color: colors.textMuted,
+                      padding: '2px 6px', borderRadius: '4px',
                     }}>
                       {userModifiedFields.size} edited
                     </span>
@@ -1250,15 +1246,15 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       disabled={aiLoading || isReadjusting}
                       title="Re-align other fields to your edits without overwriting what you changed"
                       style={{
-                        padding: '4px 10px', backgroundColor: isDark ? '#2d4a3e' : '#d3f9d8',
-                        color: isDark ? '#69db7c' : '#2b8a3e',
-                        border: `1px solid ${isDark ? '#69db7c' : '#40c057'}`,
-                        borderRadius: '4px', cursor: aiLoading || isReadjusting ? 'not-allowed' : 'pointer',
+                        padding: '4px 10px', backgroundColor: colors.surface2,
+                        color: colors.text,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '8px', cursor: aiLoading || isReadjusting ? 'not-allowed' : 'pointer',
                         fontSize: '11px', fontWeight: 500,
                         opacity: aiLoading || isReadjusting ? 0.6 : 1,
                       }}
                     >
-                      {isReadjusting ? '⏳' : '🔁'} Readjust
+                      {isReadjusting ? '...' : 'Readjust'}
                     </button>
                   )}
                   <button
@@ -1266,14 +1262,14 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     disabled={aiLoading || isReadjusting}
                     style={{
                       padding: '4px 10px', backgroundColor: 'transparent',
-                      color: isDark ? '#69db7c' : '#2b8a3e',
-                      border: `1px solid ${isDark ? '#69db7c' : '#2b8a3e'}`,
-                      borderRadius: '4px', cursor: aiLoading || isReadjusting ? 'not-allowed' : 'pointer',
+                      color: colors.textMuted,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '8px', cursor: aiLoading || isReadjusting ? 'not-allowed' : 'pointer',
                       fontSize: '11px', fontWeight: 500,
                       opacity: aiLoading || isReadjusting ? 0.6 : 1,
                     }}
                   >
-                    {aiLoading ? '...' : '🔄 Regenerate'}
+                    {aiLoading ? '...' : 'Regenerate'}
                   </button>
                 </div>
               </div>
@@ -1281,11 +1277,11 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               {/* ===== HOOK PACKAGE SECTION ===== */}
               <div style={{
                 padding: '12px',
-                backgroundColor: isDark ? '#1a3a2a' : '#c3fae8',
-                borderRadius: '6px',
+                backgroundColor: colors.surface2,
+                borderRadius: '8px',
                 marginBottom: '14px',
               }}>
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: isDark ? '#8ce99a' : '#087f5b', marginBottom: '10px', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textMuted, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Hook Package
                 </div>
 
@@ -1614,7 +1610,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   <label style={labelStyle}>
                     Proof Type
                     {userModifiedFields.has('proofType') && (
-                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️</span>
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: colors.warning }}>edited</span>
                     )}
                   </label>
                   <select
@@ -1635,7 +1631,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   <label style={labelStyle}>
                     Notes
                     {userModifiedFields.has('notes') && (
-                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️</span>
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: colors.warning }}>edited</span>
                     )}
                   </label>
                   <input

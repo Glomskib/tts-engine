@@ -11,6 +11,7 @@ import AdminNav from '../components/AdminNav';
 import VideoDrawer from './components/VideoDrawer';
 import CreateVideoDrawer from './components/CreateVideoDrawer';
 import AppLayout from '@/app/components/AppLayout';
+import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
 // import type { BoardFilters } from './types';
@@ -129,56 +130,57 @@ interface AuthUser {
   role: 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 }
 
-// Status badge color helper (matches detail page)
+// Status badge color helper - muted ops console style
 function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
+  // Using muted, professional tones for stage badges
   switch (status) {
     case 'NEEDS_SCRIPT':
-      return { bg: '#f3f0ff', border: '#d0bfff', badge: '#7950f2' };
+      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
     case 'GENERATING_SCRIPT':
-      return { bg: '#e5dbff', border: '#b197fc', badge: '#7048e8' };
+      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
     case 'NOT_RECORDED':
-      return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
     case 'RECORDED':
-      return { bg: '#e7f5ff', border: '#74c0fc', badge: '#228be6' };
+      return { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.2)', badge: '#3B82F6' };
     case 'EDITED':
-      return { bg: '#fff3bf', border: '#ffd43b', badge: '#fab005' };
+      return { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.2)', badge: '#F59E0B' };
     case 'READY_TO_POST':
-      return { bg: '#d3f9d8', border: '#69db7c', badge: '#40c057' };
+      return { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', badge: '#10B981' };
     case 'POSTED':
-      return { bg: '#d0ebff', border: '#339af0', badge: '#1971c2' };
+      return { bg: 'rgba(15, 118, 110, 0.1)', border: 'rgba(15, 118, 110, 0.2)', badge: '#0F766E' };
     case 'REJECTED':
-      return { bg: '#ffe3e3', border: '#ff8787', badge: '#e03131' };
+      return { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', badge: '#EF4444' };
     default:
-      return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
   }
 }
 
-// SLA badge colors
+// SLA badge colors - subtle semantic colors
 function getSlaColor(status: SlaStatus): { bg: string; text: string; border: string } {
   switch (status) {
     case 'overdue':
-      return { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' };
+      return { bg: 'rgba(239, 68, 68, 0.1)', text: '#EF4444', border: 'rgba(239, 68, 68, 0.2)' };
     case 'due_soon':
-      return { bg: '#fff3bf', text: '#e67700', border: '#ffd43b' };
+      return { bg: 'rgba(245, 158, 11, 0.1)', text: '#F59E0B', border: 'rgba(245, 158, 11, 0.2)' };
     case 'on_track':
-      return { bg: '#d3f9d8', text: '#2b8a3e', border: '#69db7c' };
+      return { bg: 'rgba(16, 185, 129, 0.1)', text: '#10B981', border: 'rgba(16, 185, 129, 0.2)' };
     default:
-      return { bg: '#f8f9fa', text: '#495057', border: '#dee2e6' };
+      return { bg: 'rgba(107, 114, 128, 0.1)', text: '#6B7280', border: 'rgba(107, 114, 128, 0.2)' };
   }
 }
 
 // ============================================================================
-// 7-STEP PIPELINE MODEL (icons only for VA clarity)
+// 7-STEP PIPELINE MODEL
 // Idea/Script → Record → Edit → Approve → Post → Monitor → Remake
 // ============================================================================
 const PIPELINE_STEPS = [
-  { key: 'script', icon: '📝', label: 'Script' },
-  { key: 'record', icon: '🎬', label: 'Record' },
-  { key: 'edit', icon: '✂️', label: 'Edit' },
-  { key: 'approve', icon: '✅', label: 'Approve' },
-  { key: 'post', icon: '🚀', label: 'Post' },
-  { key: 'monitor', icon: '📊', label: 'Monitor' },
-  { key: 'remake', icon: '♻️', label: 'Remake' },
+  { key: 'script', label: 'Script' },
+  { key: 'record', label: 'Record' },
+  { key: 'edit', label: 'Edit' },
+  { key: 'approve', label: 'Approve' },
+  { key: 'post', label: 'Post' },
+  { key: 'monitor', label: 'Monitor' },
+  { key: 'remake', label: 'Remake' },
 ] as const;
 
 // Get current step index (0-6) for a video
@@ -226,26 +228,26 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
   const hasLockedScript = !!video.script_locked_text;
   const recordingStatus = video.recording_status || 'NOT_RECORDED';
 
-  // Priority 1: Need script - TEAL
+  // Priority 1: Need script - using accent color
   if (!hasLockedScript) {
     return {
       key: 'add_script',
       label: 'Add Script',
-      icon: '📝',
-      color: '#0d9488', // Teal
+      icon: '',
+      color: '#0F766E', // Accent teal
       requiredRole: 'recorder',
       disabled: false,
       actionType: 'modal',
     };
   }
 
-  // Priority 2: Not recorded yet - BLUE
+  // Priority 2: Not recorded yet
   if (recordingStatus === 'NOT_RECORDED') {
     return {
       key: 'record',
       label: 'Record',
-      icon: '🎬',
-      color: '#2563eb', // Blue
+      icon: '',
+      color: '#0F766E', // Accent
       requiredRole: 'recorder',
       disabled: !video.can_record,
       disabledReason: video.can_record ? undefined : 'Script required',
@@ -254,13 +256,13 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // Priority 3: Recorded, needs editing - PURPLE
+  // Priority 3: Recorded, needs editing
   if (recordingStatus === 'RECORDED') {
     return {
       key: 'edit',
       label: 'Edit Done',
-      icon: '✂️',
-      color: '#7c3aed', // Purple
+      icon: '',
+      color: '#0F766E', // Accent
       requiredRole: 'editor',
       disabled: !video.can_mark_edited,
       disabledReason: 'Recording required',
@@ -269,14 +271,14 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // Priority 4: Edited, needs approval - GREEN
+  // Priority 4: Edited, needs approval
   if (recordingStatus === 'EDITED') {
     const canApprove = video.can_mark_ready_to_post;
     return {
       key: 'approve',
       label: 'Approve',
-      icon: '✅',
-      color: '#16a34a', // Green
+      icon: '',
+      color: '#0F766E', // Accent
       requiredRole: 'editor',
       disabled: !canApprove,
       disabledReason: canApprove ? undefined : 'Need video URL',
@@ -285,13 +287,13 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // Priority 5: Ready to post - ORANGE
+  // Priority 5: Ready to post
   if (recordingStatus === 'READY_TO_POST') {
     return {
       key: 'post',
       label: 'Post',
-      icon: '🚀',
-      color: '#ea580c', // Orange
+      icon: '',
+      color: '#0F766E', // Accent
       requiredRole: 'uploader',
       disabled: false,
       actionType: 'modal',
@@ -303,8 +305,8 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
     return {
       key: 'done',
       label: 'Done',
-      icon: '✓',
-      color: '#40c057',
+      icon: '',
+      color: '#10B981', // Success
       requiredRole: null,
       disabled: true,
       actionType: 'none',
@@ -316,8 +318,8 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
     return {
       key: 'rejected',
       label: 'Rejected',
-      icon: '⚠️',
-      color: '#e03131',
+      icon: '',
+      color: '#EF4444', // Danger
       requiredRole: 'admin',
       disabled: true,
       actionType: 'none',
@@ -328,8 +330,8 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
   return {
     key: 'done',
     label: 'View',
-    icon: '👁',
-    color: '#6c757d',
+    icon: '',
+    color: '#6B7280', // Muted
     requiredRole: null,
     disabled: false,
     actionType: 'none',
@@ -362,6 +364,8 @@ const ADMIN_IDENTIFIER = 'admin';
 // Main pipeline page component
 export default function AdminPipelinePage() {
   const hydrated = useHydrated();
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [queueSummary, setQueueSummary] = useState<QueueSummary | null>(null);
   const [claimedVideos, setClaimedVideos] = useState<ClaimedVideo[]>([]);
@@ -1166,11 +1170,48 @@ export default function AdminPipelinePage() {
     return getTimeAgo(dateStr);
   };
 
-  const tableStyle = { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '20px' };
-  const thStyle = { border: '1px solid #ccc', padding: '8px', textAlign: 'left' as const, backgroundColor: '#f5f5f5' };
-  const tdStyle = { border: '1px solid #ccc', padding: '8px' };
-  const inputStyle = { padding: '6px 10px', marginRight: '10px', border: '1px solid #ccc', borderRadius: '4px' };
-  const selectStyle = { padding: '6px 10px', marginRight: '10px', border: '1px solid #ccc', borderRadius: '4px' };
+  // Table styles using theme colors
+  const tableStyle = {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    marginBottom: '20px',
+    backgroundColor: colors.surface,
+    borderRadius: '10px',
+    overflow: 'hidden',
+  };
+  const thStyle = {
+    padding: '12px 16px',
+    textAlign: 'left' as const,
+    backgroundColor: colors.surface,
+    color: colors.textMuted,
+    fontSize: '12px',
+    fontWeight: 600,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    borderBottom: `1px solid ${colors.border}`,
+  };
+  const tdStyle = {
+    padding: '12px 16px',
+    borderBottom: `1px solid ${colors.border}`,
+    color: colors.text,
+    fontSize: '14px',
+  };
+  const inputStyle = {
+    padding: '8px 12px',
+    border: `1px solid ${colors.border}`,
+    borderRadius: '8px',
+    backgroundColor: colors.surface,
+    color: colors.text,
+    fontSize: '14px',
+  };
+  const selectStyle = {
+    padding: '8px 12px',
+    border: `1px solid ${colors.border}`,
+    borderRadius: '8px',
+    backgroundColor: colors.surface,
+    color: colors.text,
+    fontSize: '14px',
+  };
 
   // Get distinct event types for dropdown
   const eventTypes = Array.from(new Set(recentEvents.map(e => e.event_type))).sort();
@@ -1233,13 +1274,13 @@ export default function AdminPipelinePage() {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Incident Mode Banner */}
       <IncidentBanner />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>
-          {isAdminMode ? 'Admin: Video Pipeline' : `${vaMode.charAt(0).toUpperCase() + vaMode.slice(1)} Dashboard`}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 600, color: colors.text, margin: 0 }}>
+          {isAdminMode ? 'Video Pipeline' : `${vaMode.charAt(0).toUpperCase() + vaMode.slice(1)} Dashboard`}
         </h1>
         <div>
           <button onClick={() => { fetchData(); fetchQueueVideos(); }} style={{ padding: '8px 16px', marginRight: '10px' }}>
@@ -1289,62 +1330,62 @@ export default function AdminPipelinePage() {
       <div style={{
         marginBottom: '20px',
         padding: '12px 16px',
-        backgroundColor: '#e7f5ff',
-        borderRadius: '8px',
-        border: '1px solid #74c0fc',
+        backgroundColor: colors.surface,
+        borderRadius: '10px',
+        border: `1px solid ${colors.border}`,
         display: 'flex',
         alignItems: 'center',
         gap: '20px',
         flexWrap: 'wrap',
       }}>
         {/* Simple/Advanced Toggle */}
-        <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #74c0fc' }}>
+        <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: `1px solid ${colors.border}` }}>
           <button
             onClick={() => setSimpleView(true)}
             style={{
               padding: '8px 16px',
               border: 'none',
-              backgroundColor: simpleView ? '#228be6' : 'white',
-              color: simpleView ? 'white' : '#228be6',
+              backgroundColor: simpleView ? colors.accent : colors.surface,
+              color: simpleView ? 'white' : colors.textMuted,
               cursor: 'pointer',
               fontSize: '13px',
-              fontWeight: simpleView ? 'bold' : 'normal',
+              fontWeight: 500,
             }}
           >
-            ✨ Simple
+            Simple
           </button>
           <button
             onClick={() => setSimpleView(false)}
             style={{
               padding: '8px 16px',
               border: 'none',
-              borderLeft: '1px solid #74c0fc',
-              backgroundColor: !simpleView ? '#228be6' : 'white',
-              color: !simpleView ? 'white' : '#228be6',
+              borderLeft: `1px solid ${colors.border}`,
+              backgroundColor: !simpleView ? colors.accent : colors.surface,
+              color: !simpleView ? 'white' : colors.textMuted,
               cursor: 'pointer',
               fontSize: '13px',
-              fontWeight: !simpleView ? 'bold' : 'normal',
+              fontWeight: 500,
             }}
           >
-            ⚙️ Advanced
+            Advanced
           </button>
         </div>
 
         {/* Quick Stats */}
         {queueSummary && (
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: '#495057' }}>
-              <strong>{getRoleFilteredVideos().length}</strong> items
+            <span style={{ fontSize: '13px', color: colors.textMuted }}>
+              <strong style={{ color: colors.text }}>{getRoleFilteredVideos().length}</strong> items
               {vaMode !== 'admin' && ` for ${vaMode}`}
             </span>
             {queueSummary.counts_by_status['READY_TO_POST'] > 0 && (
               <span style={{
                 padding: '4px 10px',
-                backgroundColor: '#40c057',
+                backgroundColor: colors.success,
                 color: 'white',
-                borderRadius: '12px',
+                borderRadius: '10px',
                 fontSize: '11px',
-                fontWeight: 'bold',
+                fontWeight: 600,
               }}>
                 {queueSummary.counts_by_status['READY_TO_POST']} ready
               </span>
@@ -1353,7 +1394,7 @@ export default function AdminPipelinePage() {
         )}
 
         {/* Role indicator */}
-        <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#868e96' }}>
+        <div style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
           {simpleView ? 'Showing essential columns' : 'Showing all columns'}
         </div>
       </div>
@@ -1517,22 +1558,23 @@ export default function AdminPipelinePage() {
           gap: '16px',
           flexWrap: 'wrap',
           padding: '12px 16px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
+          backgroundColor: colors.surface,
+          borderRadius: '10px',
+          border: `1px solid ${colors.border}`,
         }}>
           {/* Stage Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', color: '#64748b' }}>Stage:</span>
+            <span style={{ fontSize: '13px', color: colors.textMuted }}>Stage:</span>
             <select
               value={activeRecordingTab}
               onChange={(e) => setActiveRecordingTab(e.target.value as typeof activeRecordingTab)}
               style={{
-                padding: '6px 10px',
+                padding: '8px 12px',
                 fontSize: '13px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '4px',
-                backgroundColor: 'white',
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
+                backgroundColor: colors.surface,
+                color: colors.text,
               }}
             >
               {STAGE_TABS.map(tab => (
@@ -1549,12 +1591,13 @@ export default function AdminPipelinePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
-                padding: '6px 12px',
+                padding: '8px 12px',
                 fontSize: '13px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '4px',
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
                 width: '100%',
-                backgroundColor: 'white',
+                backgroundColor: colors.surface,
+                color: colors.text,
               }}
             />
             {searchQuery && (
@@ -1566,7 +1609,7 @@ export default function AdminPipelinePage() {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#94a3b8',
+                  color: colors.textMuted,
                 }}
               >
                 Clear
@@ -1575,10 +1618,10 @@ export default function AdminPipelinePage() {
           </div>
 
           {/* Loading indicator */}
-          {queueLoading && <span style={{ color: '#94a3b8', fontSize: '12px' }}>Loading...</span>}
+          {queueLoading && <span style={{ color: colors.textMuted, fontSize: '12px' }}>Loading...</span>}
 
           {/* Count */}
-          <span style={{ marginLeft: 'auto', fontSize: '13px', color: '#64748b' }}>
+          <span style={{ marginLeft: 'auto', fontSize: '13px', color: colors.textMuted }}>
             {getRoleFilteredVideos().length} videos
           </span>
         </div>
@@ -1608,8 +1651,19 @@ export default function AdminPipelinePage() {
                     key={video.id}
                     onClick={(e) => handleRowClick(e, video)}
                     style={{
-                      backgroundColor: claimedByMe ? '#f0fdf4' : claimedByOther ? '#fffbeb' : 'transparent',
+                      backgroundColor: claimedByMe ? colors.accentSubtle : 'transparent',
                       cursor: 'pointer',
+                      borderLeft: claimedByMe ? `2px solid ${colors.accent}` : '2px solid transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!claimedByMe) {
+                        e.currentTarget.style.backgroundColor = colors.surface2;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!claimedByMe) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
                     }}
                   >
                     {/* Due */}
@@ -2320,7 +2374,7 @@ export default function AdminPipelinePage() {
             animation: 'slideIn 0.2s ease-out',
           }}
         >
-          <span>{toast.type === 'success' ? '✓' : '!'}</span>
+          <span>{toast.type === 'success' ? '' : ''}</span>
           <span>{toast.message}</span>
         </div>
       )}

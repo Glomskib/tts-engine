@@ -10,7 +10,6 @@ type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 interface NavItem {
   label: string;
   href: string;
-  icon: string;
 }
 
 interface NavSection {
@@ -27,7 +26,7 @@ interface SidebarProps {
 export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { toggleTheme, isDark } = useTheme();
   const colors = getThemeColors(isDark);
 
   const isActive = (href: string) => {
@@ -47,7 +46,6 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
         {
           label: unreadNotifications > 0 ? `Inbox (${unreadNotifications})` : 'Inbox',
           href: '/admin/notifications',
-          icon: '🔔',
         },
       ],
     });
@@ -56,8 +54,8 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       sections.push({
         title: 'Recording',
         items: [
-          { label: 'My Tasks', href: '/admin/recorder/workbench', icon: '📋' },
-          { label: 'Record Queue', href: '/admin/pipeline?filter=record', icon: '🎬' },
+          { label: 'My Tasks', href: '/admin/recorder/workbench' },
+          { label: 'Record Queue', href: '/admin/pipeline?filter=record' },
         ],
       });
     }
@@ -66,8 +64,8 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       sections.push({
         title: 'Editing',
         items: [
-          { label: 'My Tasks', href: '/admin/editor/workbench', icon: '📋' },
-          { label: 'Edit Queue', href: '/admin/pipeline?filter=edit', icon: '✂️' },
+          { label: 'My Tasks', href: '/admin/editor/workbench' },
+          { label: 'Edit Queue', href: '/admin/pipeline?filter=edit' },
         ],
       });
     }
@@ -76,9 +74,9 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       sections.push({
         title: 'Uploading',
         items: [
-          { label: 'My Tasks', href: '/admin/uploader/workbench', icon: '📋' },
-          { label: 'Post Queue', href: '/uploader', icon: '🚀' },
-          { label: 'Posted Log', href: '/admin/pipeline?filter=posted', icon: '📊' },
+          { label: 'My Tasks', href: '/admin/uploader/workbench' },
+          { label: 'Post Queue', href: '/uploader' },
+          { label: 'Posted Log', href: '/admin/pipeline?filter=posted' },
         ],
       });
     }
@@ -87,26 +85,26 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       sections.push({
         title: 'Pipeline',
         items: [
-          { label: 'All Videos', href: '/admin/pipeline', icon: '📺' },
-          { label: 'Approvals', href: '/admin/pipeline?filter=approve', icon: '✅' },
-          { label: 'Post Queue', href: '/uploader', icon: '🚀' },
+          { label: 'All Videos', href: '/admin/pipeline' },
+          { label: 'Approvals', href: '/admin/pipeline?filter=approve' },
+          { label: 'Post Queue', href: '/uploader' },
         ],
       });
 
       sections.push({
         title: 'Content',
         items: [
-          { label: 'Brands', href: '/admin/brands', icon: '🏷️' },
-          { label: 'Products', href: '/admin/products', icon: '📦' },
-          { label: 'Scripts', href: '/admin/scripts', icon: '📝' },
+          { label: 'Brands', href: '/admin/brands' },
+          { label: 'Products', href: '/admin/products' },
+          { label: 'Scripts', href: '/admin/scripts' },
         ],
       });
 
       sections.push({
         title: 'Insights',
         items: [
-          { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
-          { label: 'Events', href: '/admin/events', icon: '📋' },
+          { label: 'Analytics', href: '/admin/analytics' },
+          { label: 'Events', href: '/admin/events' },
         ],
       });
     }
@@ -116,16 +114,16 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
 
   // Admin advanced section (collapsed by default)
   const adminAdvancedItems: NavItem[] = [
-    { label: 'Ops', href: '/admin/ops', icon: '⚙️' },
-    { label: 'Ingestion', href: '/admin/ingestion', icon: '📥' },
-    { label: 'Assignments', href: '/admin/assignments', icon: '👥' },
-    { label: 'Users', href: '/admin/users', icon: '👤' },
-    { label: 'Upgrades', href: '/admin/upgrade-requests', icon: '⬆️' },
-    { label: 'Client Orgs', href: '/admin/client-orgs', icon: '🏢' },
-    { label: 'Requests', href: '/admin/requests', icon: '📨' },
-    { label: 'Billing', href: '/admin/billing', icon: '💳' },
-    { label: 'Settings', href: '/admin/settings', icon: '🔧' },
-    { label: 'Status', href: '/admin/status', icon: '🔍' },
+    { label: 'Ops', href: '/admin/ops' },
+    { label: 'Ingestion', href: '/admin/ingestion' },
+    { label: 'Assignments', href: '/admin/assignments' },
+    { label: 'Users', href: '/admin/users' },
+    { label: 'Upgrades', href: '/admin/upgrade-requests' },
+    { label: 'Client Orgs', href: '/admin/client-orgs' },
+    { label: 'Requests', href: '/admin/requests' },
+    { label: 'Billing', href: '/admin/billing' },
+    { label: 'Settings', href: '/admin/settings' },
+    { label: 'Status', href: '/admin/status' },
   ];
 
   const navSections = getNavSections();
@@ -135,8 +133,8 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       style={{
         width: '220px',
         minHeight: '100vh',
-        backgroundColor: '#1a1a2e',
-        color: '#e0e0e0',
+        backgroundColor: colors.surface2,
+        color: colors.text,
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
@@ -145,6 +143,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
         bottom: 0,
         zIndex: 100,
         overflowY: 'auto',
+        borderRight: `1px solid ${colors.border}`,
       }}
     >
       {/* Logo/Brand */}
@@ -165,8 +164,11 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
               gap: '10px',
             }}
           >
-            <span style={{ fontSize: '24px' }}>🎬</span>
-            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>TTS Engine</span>
+            <span style={{
+              fontWeight: 600,
+              fontSize: '15px',
+              letterSpacing: '-0.01em',
+            }}>TTS Engine</span>
           </Link>
           {/* Theme Toggle */}
           <button
@@ -176,13 +178,22 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              fontSize: '18px',
-              padding: '4px',
-              borderRadius: '4px',
-              transition: 'background 0.2s',
+              fontSize: '14px',
+              padding: '6px',
+              borderRadius: '6px',
+              color: colors.textMuted,
+              transition: 'background 0.15s, color 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = colors.bgHover;
+              e.currentTarget.style.color = colors.text;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'none';
+              e.currentTarget.style.color = colors.textMuted;
             }}
           >
-            {isDark ? '☀️' : '🌙'}
+            {isDark ? 'Light' : 'Dark'}
           </button>
         </div>
       </div>
@@ -195,10 +206,10 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
               <div
                 style={{
                   padding: '8px 16px',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  fontWeight: 600,
                   textTransform: 'uppercase',
-                  color: '#888',
+                  color: colors.textMuted,
                   letterSpacing: '0.5px',
                 }}
               >
@@ -215,26 +226,25 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
                   gap: '10px',
                   padding: '10px 16px',
                   textDecoration: 'none',
-                  color: isActive(item.href) ? '#fff' : '#b0b0b0',
-                  backgroundColor: isActive(item.href) ? '#2d2d44' : 'transparent',
-                  borderLeft: isActive(item.href) ? '3px solid #4dabf7' : '3px solid transparent',
+                  color: isActive(item.href) ? colors.text : colors.textMuted,
+                  backgroundColor: isActive(item.href) ? colors.accentSubtle : 'transparent',
+                  borderLeft: isActive(item.href) ? `2px solid ${colors.accent}` : '2px solid transparent',
                   fontSize: '14px',
-                  fontWeight: isActive(item.href) ? 'bold' : 'normal',
+                  fontWeight: isActive(item.href) ? 500 : 400,
                   transition: 'all 0.15s ease',
                 }}
               >
-                <span>{item.icon}</span>
                 <span>{item.label}</span>
                 {item.label.includes('Inbox') && unreadNotifications > 0 && (
                   <span
                     style={{
                       marginLeft: 'auto',
-                      backgroundColor: '#e03131',
+                      backgroundColor: colors.danger,
                       color: 'white',
                       borderRadius: '10px',
                       padding: '2px 8px',
                       fontSize: '11px',
-                      fontWeight: 'bold',
+                      fontWeight: 600,
                     }}
                   >
                     {unreadNotifications}
@@ -259,12 +269,21 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
                 textAlign: 'left',
                 background: 'none',
                 border: 'none',
-                color: '#888',
-                fontSize: '12px',
+                color: colors.textMuted,
+                fontSize: '11px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
                 cursor: 'pointer',
               }}
             >
-              <span>{advancedExpanded ? '▼' : '▶'}</span>
+              <span style={{
+                fontSize: '10px',
+                transition: 'transform 0.15s',
+                transform: advancedExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}>
+                {'>'}
+              </span>
               <span>Advanced</span>
             </button>
             {advancedExpanded && (
@@ -279,13 +298,12 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
                       gap: '10px',
                       padding: '8px 16px 8px 28px',
                       textDecoration: 'none',
-                      color: isActive(item.href) ? '#fff' : '#888',
-                      backgroundColor: isActive(item.href) ? '#2d2d44' : 'transparent',
+                      color: isActive(item.href) ? colors.text : colors.textMuted,
+                      backgroundColor: isActive(item.href) ? colors.accentSubtle : 'transparent',
                       fontSize: '13px',
-                      fontWeight: isActive(item.href) ? 'bold' : 'normal',
+                      fontWeight: isActive(item.href) ? 500 : 400,
                     }}
                   >
-                    <span style={{ fontSize: '12px' }}>{item.icon}</span>
                     <span>{item.label}</span>
                   </Link>
                 ))}
@@ -308,7 +326,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: '#888',
+            color: colors.textMuted,
           }}
         >
           <span
@@ -316,7 +334,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: '#40c057',
+              backgroundColor: colors.success,
             }}
           />
           <span style={{ textTransform: 'capitalize' }}>{role || 'Guest'}</span>

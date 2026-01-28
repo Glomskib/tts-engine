@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, getTimeAgo } from '@/lib/useHydrated';
 import UploaderDrawer from './components/UploaderDrawer';
+import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 
 interface AuthUser {
   id: string;
@@ -72,6 +73,8 @@ const PLATFORM_OPTIONS = [
 export default function UploaderPage() {
   const router = useRouter();
   const hydrated = useHydrated();
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
 
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -402,8 +405,8 @@ export default function UploaderPage() {
   // Loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking access...</div>
+      <div style={{ minHeight: '100vh', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: colors.textMuted }}>Checking access...</div>
       </div>
     );
   }
@@ -411,11 +414,11 @@ export default function UploaderPage() {
   // Access denied
   if (accessDenied) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-          <p className="text-slate-600 mb-4">Uploader or admin access required.</p>
-          <Link href="/" className="text-blue-600 hover:underline">
+      <div style={{ minHeight: '100vh', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: colors.danger, marginBottom: '8px' }}>Access Denied</h1>
+          <p style={{ color: colors.textMuted, marginBottom: '16px' }}>Uploader or admin access required.</p>
+          <Link href="/" style={{ color: colors.accent }}>
             Go Home
           </Link>
         </div>
@@ -429,17 +432,17 @@ export default function UploaderPage() {
   const missingMp4Count = videos.filter((v) => !v.has_final_mp4).length;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+      <header style={{ backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}`, padding: '16px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Uploader Console</h1>
-            <p className="text-sm text-slate-500">Daily posting queue</p>
+            <h1 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, margin: 0 }}>Uploader Console</h1>
+            <p style={{ fontSize: '13px', color: colors.textMuted, margin: '4px 0 0' }}>Daily posting queue</p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500">{authUser?.email}</span>
-            <Link href="/admin/pipeline" className="text-sm text-blue-600 hover:underline">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '13px', color: colors.textMuted }}>{authUser?.email}</span>
+            <Link href="/admin/pipeline" style={{ fontSize: '13px', color: colors.accent }}>
               Pipeline
             </Link>
           </div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo } from '@/lib/useHydrated';
 import VideoDrawer from '@/app/admin/pipeline/components/VideoDrawer';
 import { getStatusBadgeColor, getSlaColor } from '@/app/admin/pipeline/types';
+import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -58,6 +59,8 @@ const ROLE_STATUS_FILTER: Record<string, string> = {
 export default function MyTasksPage() {
   const router = useRouter();
   const hydrated = useHydrated();
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
   const [role, setRole] = useState<UserRole>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -236,7 +239,7 @@ export default function MyTasksPage() {
 
   if (!role || role === 'admin') {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: colors.textMuted }}>
         Loading...
       </div>
     );
@@ -250,37 +253,36 @@ export default function MyTasksPage() {
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: '24px', color: '#212529' }}>
+        <h1 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 600, color: colors.text }}>
           {getRoleTitle()}
         </h1>
-        <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+        <p style={{ margin: 0, color: colors.textMuted, fontSize: '14px' }}>
           {getRoleInstruction()}
         </p>
       </div>
 
       {loading ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+        <div style={{ padding: '40px', textAlign: 'center', color: colors.textMuted }}>
           Loading tasks...
         </div>
       ) : videos.length === 0 ? (
         <div style={{
           padding: '60px 40px',
           textAlign: 'center',
-          backgroundColor: '#d3f9d8',
-          borderRadius: '12px',
-          border: '1px solid #69db7c',
+          backgroundColor: colors.accentSubtle,
+          borderRadius: '10px',
+          border: `1px solid ${colors.border}`,
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
-          <h2 style={{ margin: '0 0 8px', color: '#2b8a3e' }}>All caught up!</h2>
-          <p style={{ margin: 0, color: '#40c057' }}>No videos need your attention right now.</p>
+          <h2 style={{ margin: '0 0 8px', color: colors.text, fontWeight: 500 }}>All caught up</h2>
+          <p style={{ margin: 0, color: colors.textMuted }}>No videos need your attention right now.</p>
         </div>
       ) : (
         <>
           {/* My Videos (In Progress) */}
           {myVideos.length > 0 && (
             <section style={{ marginBottom: '32px' }}>
-              <h2 style={{ fontSize: '16px', color: '#495057', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#40c057' }}>●</span> My Tasks ({myVideos.length})
+              <h2 style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.accent }} /> My Tasks ({myVideos.length})
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {myVideos.map(video => (
@@ -291,6 +293,7 @@ export default function MyTasksPage() {
                     hydrated={hydrated}
                     processing={processing === video.id}
                     onClick={() => setDrawerVideo(video)}
+                    colors={colors}
                   />
                 ))}
               </div>
@@ -300,8 +303,8 @@ export default function MyTasksPage() {
           {/* Available Videos */}
           {availableVideos.length > 0 && (
             <section style={{ marginBottom: '32px' }}>
-              <h2 style={{ fontSize: '16px', color: '#495057', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#228be6' }}>●</span> Available ({availableVideos.length})
+              <h2 style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.textMuted }} /> Available ({availableVideos.length})
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {availableVideos.map(video => (
@@ -312,6 +315,7 @@ export default function MyTasksPage() {
                     hydrated={hydrated}
                     processing={processing === video.id}
                     onClick={() => setDrawerVideo(video)}
+                    colors={colors}
                   />
                 ))}
               </div>
@@ -321,8 +325,8 @@ export default function MyTasksPage() {
           {/* Locked Videos */}
           {lockedVideos.length > 0 && (
             <section>
-              <h2 style={{ fontSize: '16px', color: '#868e96', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🔒</span> In Progress by Others ({lockedVideos.length})
+              <h2 style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                In Progress by Others ({lockedVideos.length})
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {lockedVideos.map(video => (
@@ -333,6 +337,7 @@ export default function MyTasksPage() {
                     hydrated={hydrated}
                     processing={processing === video.id}
                     onClick={() => setDrawerVideo(video)}
+                    colors={colors}
                   />
                 ))}
               </div>
@@ -373,12 +378,14 @@ function VideoRow({
   hydrated,
   processing,
   onClick,
+  colors,
 }: {
   video: QueueVideo;
   status: 'mine' | 'available' | 'locked';
   hydrated: boolean;
   processing: boolean;
   onClick: () => void;
+  colors: ReturnType<typeof getThemeColors>;
 }) {
   const slaColors = getSlaColor(video.sla_status);
 
@@ -390,11 +397,12 @@ function VideoRow({
         alignItems: 'center',
         gap: '16px',
         padding: '16px',
-        backgroundColor: status === 'mine' ? '#e8f5e9' : status === 'locked' ? '#f8f9fa' : 'white',
-        borderRadius: '8px',
-        border: `1px solid ${status === 'mine' ? '#a5d6a7' : '#e9ecef'}`,
+        backgroundColor: status === 'mine' ? colors.accentSubtle : colors.surface,
+        borderRadius: '10px',
+        border: `1px solid ${colors.border}`,
+        borderLeft: status === 'mine' ? `2px solid ${colors.accent}` : `1px solid ${colors.border}`,
         cursor: 'pointer',
-        opacity: status === 'locked' ? 0.7 : 1,
+        opacity: status === 'locked' ? 0.6 : 1,
       }}
     >
       {/* SLA indicator */}
@@ -411,50 +419,40 @@ function VideoRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           {video.brand_name && (
             <span style={{
-              padding: '2px 8px',
-              backgroundColor: '#e7f5ff',
-              color: '#1971c2',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 'bold',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: colors.text,
             }}>
               {video.brand_name}
             </span>
           )}
           {video.product_sku && (
             <span style={{
-              padding: '2px 8px',
-              backgroundColor: '#f8f9fa',
-              color: '#495057',
-              borderRadius: '4px',
               fontSize: '12px',
-              border: '1px solid #dee2e6',
+              color: colors.textMuted,
             }}>
               {video.product_sku}
             </span>
           )}
-          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#868e96' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: colors.textMuted }}>
             {video.id.slice(0, 8)}
           </span>
         </div>
-        <div style={{ fontSize: '12px', color: '#666' }}>
-          {hydrated && video.created_at ? getTimeAgo(video.created_at) : '—'}
+        <div style={{ fontSize: '12px', color: colors.textMuted }}>
+          {hydrated && video.created_at ? getTimeAgo(video.created_at) : ''}
           {status === 'locked' && video.claimed_by && (
-            <span style={{ marginLeft: '8px', color: '#e67700' }}>
-              • Assigned to {video.claimed_by.slice(0, 8)}...
+            <span style={{ marginLeft: '8px' }}>
+              Assigned to {video.claimed_by.slice(0, 8)}...
             </span>
           )}
         </div>
       </div>
 
-      {/* Stage badge */}
+      {/* Stage badge - text only, no pill */}
       <div style={{
-        padding: '6px 12px',
-        backgroundColor: status === 'locked' ? '#f1f5f9' : getStatusBadgeColor(video.recording_status).badge,
-        borderRadius: '4px',
         fontSize: '12px',
-        fontWeight: '500',
-        color: status === 'locked' ? '#64748b' : 'white',
+        fontWeight: 500,
+        color: status === 'locked' ? colors.textMuted : getStatusBadgeColor(video.recording_status).badge,
       }}>
         {status === 'locked' ? 'Locked' : (video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
       </div>

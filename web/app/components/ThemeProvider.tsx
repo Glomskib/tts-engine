@@ -61,46 +61,55 @@ export function useTheme() {
   return context;
 }
 
-// CSS variable getters for inline styles
+// CSS variable getters for inline styles - Ops Console Design System
 export function getThemeColors(isDark: boolean) {
   return {
-    // Backgrounds
-    bg: isDark ? '#1a1a2e' : '#ffffff',
-    bgSecondary: isDark ? '#16213e' : '#f8f9fa',
-    bgTertiary: isDark ? '#0f3460' : '#e9ecef',
-    bgHover: isDark ? '#1f4068' : '#f1f3f5',
+    // Core surfaces
+    bg: isDark ? '#0B0F14' : '#F6F7F9',
+    surface: isDark ? '#111827' : '#FFFFFF',
+    surface2: isDark ? '#0F172A' : '#F0F2F5',
 
-    // Text
-    text: isDark ? '#e4e4e4' : '#212529',
-    textSecondary: isDark ? '#a0a0a0' : '#6c757d',
-    textMuted: isDark ? '#666' : '#adb5bd',
+    // Legacy aliases for compatibility
+    bgSecondary: isDark ? '#0F172A' : '#F0F2F5',
+    bgTertiary: isDark ? '#0F172A' : '#F0F2F5',
+    bgHover: isDark ? '#1F2937' : '#E5E7EB',
+
+    // Typography
+    text: isDark ? '#E5E7EB' : '#111827',
+    textSecondary: isDark ? '#9CA3AF' : '#6B7280',
+    textMuted: isDark ? '#6B7280' : '#9CA3AF',
 
     // Borders
-    border: isDark ? '#2d2d44' : '#dee2e6',
-    borderLight: isDark ? '#3d3d5c' : '#e9ecef',
+    border: isDark ? '#1F2937' : '#E5E7EB',
+    borderLight: isDark ? '#1F2937' : '#E5E7EB',
 
-    // Cards/Panels
-    card: isDark ? '#1e1e3f' : '#ffffff',
-    cardHover: isDark ? '#252550' : '#f8f9fa',
+    // Accent
+    accent: isDark ? '#2DD4BF' : '#0F766E',
+    accentHover: isDark ? '#26BCA8' : '#0D6D66',
+    accentSubtle: isDark ? 'rgba(45, 212, 191, 0.1)' : 'rgba(15, 118, 110, 0.08)',
+
+    // Cards/Panels (use surface)
+    card: isDark ? '#111827' : '#FFFFFF',
+    cardHover: isDark ? '#1F2937' : '#F0F2F5',
 
     // Table
-    tableRow: isDark ? '#1a1a2e' : '#ffffff',
-    tableRowAlt: isDark ? '#16213e' : '#f8f9fa',
-    tableRowHover: isDark ? '#1f4068' : '#e9ecef',
+    tableRow: isDark ? '#111827' : '#FFFFFF',
+    tableRowAlt: isDark ? '#0F172A' : '#F6F7F9',
+    tableRowHover: isDark ? '#1F2937' : '#F0F2F5',
 
     // Drawer
-    drawer: isDark ? '#1a1a2e' : '#ffffff',
-    drawerHeader: isDark ? '#16213e' : '#f8f9fa',
+    drawer: isDark ? '#111827' : '#FFFFFF',
+    drawerHeader: isDark ? '#0F172A' : '#F6F7F9',
 
     // Input
-    input: isDark ? '#16213e' : '#ffffff',
-    inputBorder: isDark ? '#3d3d5c' : '#ced4da',
-    inputFocus: isDark ? '#4dabf7' : '#228be6',
+    input: isDark ? '#0F172A' : '#FFFFFF',
+    inputBorder: isDark ? '#1F2937' : '#E5E7EB',
+    inputFocus: isDark ? '#2DD4BF' : '#0F766E',
 
-    // Status colors (kept consistent)
-    success: '#40c057',
-    warning: '#fab005',
-    danger: '#e03131',
-    info: '#228be6',
+    // Semantic status colors (use sparingly)
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    info: isDark ? '#2DD4BF' : '#0F766E',
   };
 }

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
+import { createHookSuggestionsFromVideo } from "@/lib/hook-suggestions";
 import {
   RECORDING_STATUSES,
   isValidRecordingStatus,
@@ -524,6 +525,45 @@ export async function PUT(request: Request, { params }: RouteParams) {
             reason: "no_default_user",
           });
         }
+      }
+    }
+
+    // Create hook suggestions when video is posted (fail-safe, non-blocking)
+    if (recording_status === "POSTED") {
+      try {
+        // Fetch brand_name from product if available
+        let brandName: string | null = null;
+        if (currentVideo.product_id) {
+          const { data: product } = await supabaseAdmin
+            .from("products")
+            .select("brand_name")
+            .eq("id", currentVideo.product_id)
+            .single();
+          brandName = product?.brand_name || null;
+        }
+
+        const suggestionsResult = await createHookSuggestionsFromVideo(
+          supabaseAdmin,
+          {
+            id,
+            product_id: currentVideo.product_id,
+            selected_spoken_hook: currentVideo.selected_spoken_hook,
+            selected_visual_hook: currentVideo.selected_visual_hook,
+            selected_on_screen_hook: currentVideo.selected_on_screen_hook,
+          },
+          brandName
+        );
+
+        if (suggestionsResult.created > 0 || suggestionsResult.skipped > 0) {
+          await writeVideoEvent(id, "hook_suggestions_created", correlationId, actor || "api", null, null, {
+            created: suggestionsResult.created,
+            skipped: suggestionsResult.skipped,
+            errors: suggestionsResult.errors,
+          });
+        }
+      } catch (err) {
+        // Fail-safe: log but don't fail the main request
+        console.error("Failed to create hook suggestions:", err);
       }
     }
   }

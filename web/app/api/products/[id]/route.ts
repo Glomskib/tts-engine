@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -163,6 +164,21 @@ export async function PATCH(
       { status: 500 }
     );
   }
+
+  // Audit log for product update
+  auditLogAsync({
+    correlation_id: correlationId,
+    event_type: AuditEventTypes.PRODUCT_UPDATED,
+    entity_type: EntityTypes.PRODUCT,
+    entity_id: id.trim(),
+    actor: authContext.user?.id || "admin",
+    summary: `Product ${existing.name} updated`,
+    details: {
+      updated_fields: Object.keys(updatePayload),
+      previous_name: existing.name,
+      previous_brand: existing.brand,
+    },
+  });
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }

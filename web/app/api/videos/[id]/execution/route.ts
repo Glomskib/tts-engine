@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { createHookSuggestionsFromVideo } from "@/lib/hook-suggestions";
 import { applyHookPostedCounts } from "@/lib/hook-usage-counts";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 import {
   RECORDING_STATUSES,
   isValidRecordingStatus,
@@ -531,6 +532,22 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // Create hook suggestions when video is posted (fail-safe, non-blocking)
     if (recording_status === "POSTED") {
+      // Audit log for POSTED transition
+      auditLogAsync({
+        correlation_id: correlationId,
+        event_type: AuditEventTypes.VIDEO_POSTED,
+        entity_type: EntityTypes.VIDEO,
+        entity_id: id,
+        actor: actor || "api",
+        summary: `Video ${id} marked as POSTED`,
+        details: {
+          previous_status: previousRecordingStatus,
+          posted_url: posted_url || null,
+          posted_platform: posted_platform || null,
+          posted_account: posted_account || null,
+        },
+      });
+
       // Fetch brand from product if available (needed for both suggestions and usage counts)
       let brandName: string | null = null;
       if (currentVideo.product_id) {

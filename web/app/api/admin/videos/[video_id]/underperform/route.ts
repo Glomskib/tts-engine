@@ -3,6 +3,7 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { recordHookOutcome } from "@/lib/hook-feedback-loop";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -89,6 +90,21 @@ export async function POST(
         correlation_id: correlationId,
       });
     }
+
+    // Audit log for underperform marking
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: AuditEventTypes.HOOK_UNDERPERFORM,
+      entity_type: EntityTypes.VIDEO,
+      entity_id: video_id,
+      actor: authContext.user?.id || "admin",
+      summary: `Video ${video_id} marked as underperforming`,
+      details: {
+        reason_code: reason_code || null,
+        notes: notes || null,
+        brand_name: brandName,
+      },
+    });
 
     // Record hook feedback (idempotent)
     const hookFeedback = await recordHookOutcome(

@@ -15,6 +15,7 @@ import { apiError, generateCorrelationId, isAdminUser, type ApiErrorCode } from 
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { checkIncidentReadOnlyBlock } from "@/lib/settings";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -129,6 +130,21 @@ export async function POST(
       .select("id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at,claim_role")
       .eq("id", id)
       .single();
+
+    // Audit log for release
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: AuditEventTypes.VIDEO_RELEASED,
+      entity_type: EntityTypes.VIDEO,
+      entity_id: id,
+      actor: actor,
+      summary: `Video ${id} released by ${actor}`,
+      details: {
+        action: result.action,
+        previous_claimed_by: result.previous_claimed_by,
+        force: forceRequested,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

@@ -27,6 +27,14 @@ interface HookSuggestion {
   review_note: string | null;
 }
 
+interface OpsWarning {
+  code: string;
+  severity: 'info' | 'warn';
+  title: string;
+  message: string;
+  cta?: { label: string; href?: string };
+}
+
 type StatusFilter = 'pending' | 'approved' | 'rejected';
 
 const HOOK_TYPE_LABELS: Record<string, string> = {
@@ -50,6 +58,10 @@ export default function HookSuggestionsPage() {
   const [selectedSuggestion, setSelectedSuggestion] = useState<HookSuggestion | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Ops warnings state
+  const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
+  const [warningsLoading, setWarningsLoading] = useState(false);
 
   // Auth check
   useEffect(() => {
@@ -181,10 +193,25 @@ export default function HookSuggestionsPage() {
     }
   };
 
-  const openDrawer = (suggestion: HookSuggestion) => {
+  const openDrawer = async (suggestion: HookSuggestion) => {
     setSelectedSuggestion(suggestion);
     setActionError(null);
+    setOpsWarnings([]);
     setDrawerOpen(true);
+
+    // Fetch ops warnings
+    setWarningsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/ops-warnings?type=hook_suggestion&id=${suggestion.id}`);
+      const data = await res.json();
+      if (data.ok && data.data?.warnings) {
+        setOpsWarnings(data.data.warnings);
+      }
+    } catch (err) {
+      console.error('Failed to fetch ops warnings:', err);
+    } finally {
+      setWarningsLoading(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -426,6 +453,35 @@ export default function HookSuggestionsPage() {
                   View audit trail
                 </Link>
               </div>
+
+              {/* Ops Warnings */}
+              {opsWarnings.length > 0 && (
+                <div className="space-y-2">
+                  {opsWarnings.map((warning) => (
+                    <div
+                      key={warning.code}
+                      className={`p-3 rounded-md text-sm ${
+                        warning.severity === 'warn'
+                          ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                          : 'bg-slate-50 border border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <div className="font-medium text-xs uppercase tracking-wide mb-1">
+                        {warning.title}
+                      </div>
+                      <div className="text-xs">{warning.message}</div>
+                      {warning.cta && (
+                        <Link
+                          href={warning.cta.href || '#'}
+                          className="text-xs text-slate-500 hover:underline mt-1 inline-block"
+                        >
+                          {warning.cta.label}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Error */}
               {actionError && (

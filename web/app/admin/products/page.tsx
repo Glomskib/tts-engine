@@ -32,6 +32,14 @@ interface AuthUser {
   role: 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 }
 
+interface OpsWarning {
+  code: string;
+  severity: 'info' | 'warn';
+  title: string;
+  message: string;
+  cta?: { label: string; href?: string };
+}
+
 export default function ProductsPage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -48,6 +56,10 @@ export default function ProductsPage() {
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Ops warnings state
+  const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
+  const [warningsLoading, setWarningsLoading] = useState(false);
 
   // Fetch auth user
   useEffect(() => {
@@ -157,7 +169,7 @@ export default function ProductsPage() {
   }, [authLoading, authUser, fetchProductStats]);
 
   // Open edit drawer
-  const handleEdit = (product: ProductStats) => {
+  const handleEdit = async (product: ProductStats) => {
     setEditingProduct(product);
     setEditForm({
       name: product.name,
@@ -171,7 +183,22 @@ export default function ProductsPage() {
       category_risk: product.category_risk || null,
     });
     setSaveError(null);
+    setOpsWarnings([]);
     setEditDrawerOpen(true);
+
+    // Fetch ops warnings
+    setWarningsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/ops-warnings?type=product&id=${product.id}`);
+      const data = await res.json();
+      if (data.ok && data.data?.warnings) {
+        setOpsWarnings(data.data.warnings);
+      }
+    } catch (err) {
+      console.error('Failed to fetch ops warnings:', err);
+    } finally {
+      setWarningsLoading(false);
+    }
   };
 
   // Close edit drawer
@@ -473,6 +500,35 @@ export default function ProductsPage() {
               {saveError && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
                   {saveError}
+                </div>
+              )}
+
+              {/* Ops Warnings */}
+              {opsWarnings.length > 0 && (
+                <div className="space-y-2">
+                  {opsWarnings.map((warning) => (
+                    <div
+                      key={warning.code}
+                      className={`p-3 rounded-md text-sm ${
+                        warning.severity === 'warn'
+                          ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                          : 'bg-slate-50 border border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <div className="font-medium text-xs uppercase tracking-wide mb-1">
+                        {warning.title}
+                      </div>
+                      <div className="text-xs">{warning.message}</div>
+                      {warning.cta && (
+                        <Link
+                          href={warning.cta.href || '#'}
+                          className="text-xs text-slate-500 hover:underline mt-1 inline-block"
+                        >
+                          {warning.cta.label}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
 

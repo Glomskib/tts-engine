@@ -22,6 +22,14 @@ interface PostingAccount {
   is_active: boolean;
 }
 
+interface OpsWarning {
+  code: string;
+  severity: 'info' | 'warn';
+  title: string;
+  message: string;
+  cta?: { label: string; href?: string };
+}
+
 interface VideoDrawerProps {
   video: QueueVideo;
   simpleMode: boolean;
@@ -156,6 +164,9 @@ export default function VideoDrawer({
   const [showUnderperformMenu, setShowUnderperformMenu] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // Ops warnings state
+  const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
+
   // Reject quick tags configuration
   const REJECT_TAGS = [
     { code: 'too_generic', label: 'Too Generic' },
@@ -205,6 +216,22 @@ export default function VideoDrawer({
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
+
+  // Fetch ops warnings for video feedback actions (admin only, POSTED videos)
+  useEffect(() => {
+    if (isAdmin && video.recording_status === 'POSTED') {
+      fetch(`/api/admin/ops-warnings?type=video_feedback&id=${video.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok && data.data?.warnings) {
+            setOpsWarnings(data.data.warnings);
+          }
+        })
+        .catch(err => console.error('Failed to fetch ops warnings:', err));
+    } else {
+      setOpsWarnings([]);
+    }
+  }, [isAdmin, video.id, video.recording_status]);
 
   // Fetch posting accounts for admin edit
   useEffect(() => {
@@ -1956,6 +1983,50 @@ export default function VideoDrawer({
                           <h4 style={{ margin: '0 0 12px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>
                             Rate This Content
                           </h4>
+
+                          {/* Ops Warnings */}
+                          {opsWarnings.length > 0 && (
+                            <div style={{ marginBottom: '12px' }}>
+                              {opsWarnings.map((warning) => (
+                                <div
+                                  key={warning.code}
+                                  style={{
+                                    padding: '10px 12px',
+                                    marginBottom: '8px',
+                                    borderRadius: '6px',
+                                    backgroundColor: warning.severity === 'warn' ? '#fef3c7' : '#f1f5f9',
+                                    border: `1px solid ${warning.severity === 'warn' ? '#fcd34d' : '#e2e8f0'}`,
+                                  }}
+                                >
+                                  <div style={{
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: warning.severity === 'warn' ? '#92400e' : '#475569',
+                                    textTransform: 'uppercase',
+                                    marginBottom: '4px',
+                                  }}>
+                                    {warning.title}
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: warning.severity === 'warn' ? '#a16207' : '#64748b' }}>
+                                    {warning.message}
+                                  </div>
+                                  {warning.cta && (
+                                    <Link
+                                      href={warning.cta.href || '#'}
+                                      style={{
+                                        fontSize: '11px',
+                                        color: '#64748b',
+                                        marginTop: '4px',
+                                        display: 'inline-block',
+                                      }}
+                                    >
+                                      {warning.cta.label}
+                                    </Link>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             {/* Save as Winner */}
                             <button

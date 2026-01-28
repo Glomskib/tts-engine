@@ -1,5 +1,5 @@
 // api-errors.ts - Standardized API error codes and responses
-// Phase 1: Unified API Error Taxonomy
+// Phase 2: Added RATE_LIMITED, GENERATION_IN_PROGRESS, createApiErrorResponse
 
 import { NextResponse } from "next/server";
 
@@ -65,46 +65,20 @@ export function isAdminUser(actor: string | null | undefined): boolean {
   return getAdminUsers().includes(actor);
 }
 
-/**
- * Standardized API error response shape (Phase 1: Unified Error Taxonomy)
- *
- * All API errors should follow this shape:
- * - ok: false (always)
- * - error_code: machine-readable error code (e.g., "NOT_FOUND", "BAD_REQUEST")
- * - message: human-readable error message
- * - correlation_id: request correlation ID for debugging
- * - details?: optional additional context
- */
 export interface ApiErrorResponse {
-  ok: false;
-  error_code: ApiErrorCode;
-  message: string;
-  correlation_id: string;
-  details?: Record<string, unknown>;
-}
-
-/**
- * Legacy interface for backwards compatibility
- * @deprecated Use ApiErrorResponse instead
- */
-export interface LegacyApiErrorResponse {
   ok: false;
   error: string;
   code: ApiErrorCode;
   details?: Record<string, unknown>;
 }
 
-/**
- * Legacy apiError helper - returns body + status for manual response construction
- * @deprecated Use createApiErrorResponse() for full NextResponse with headers
- */
 export function apiError(
   code: ApiErrorCode,
   message: string,
   httpStatus: number,
   details?: Record<string, unknown>
-): { body: LegacyApiErrorResponse; status: number } {
-  const body: LegacyApiErrorResponse = {
+): { body: ApiErrorResponse; status: number } {
+  const body: ApiErrorResponse = {
     ok: false,
     error: message,
     code,
@@ -113,6 +87,31 @@ export function apiError(
     body.details = details;
   }
   return { body, status: httpStatus };
+}
+
+export function generateCorrelationId(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let random = '';
+  for (let i = 0; i < 6; i++) {
+    random += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `vid_${Date.now()}_${random}`;
+}
+
+/**
+ * Standardized API error response shape
+ * - ok: false (always)
+ * - error_code: machine-readable error code
+ * - message: human-readable error message
+ * - correlation_id: request correlation ID for debugging
+ * - details?: optional additional context
+ */
+export interface StandardApiErrorResponse {
+  ok: false;
+  error_code: ApiErrorCode;
+  message: string;
+  correlation_id: string;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -128,8 +127,8 @@ export function createApiErrorResponse(
   httpStatus: number,
   correlationId: string,
   details?: Record<string, unknown>
-): NextResponse<ApiErrorResponse> {
-  const body: ApiErrorResponse = {
+): NextResponse<StandardApiErrorResponse> {
+  const body: StandardApiErrorResponse = {
     ok: false,
     error_code: errorCode,
     message,
@@ -142,13 +141,4 @@ export function createApiErrorResponse(
   const response = NextResponse.json(body, { status: httpStatus });
   response.headers.set("x-correlation-id", correlationId);
   return response;
-}
-
-export function generateCorrelationId(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let random = '';
-  for (let i = 0; i < 6; i++) {
-    random += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `vid_${Date.now()}_${random}`;
 }

@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
@@ -30,38 +32,38 @@ function hashHook(hookText: string): string {
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Rate limiting check
+  const authContext = await getApiAuthContext();
+  const rateLimitContext = {
+    userId: authContext.user?.id ?? null,
+    orgId: null,
+    ...extractRateLimitContext(request),
+  };
+  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   let body: HookFeedbackInput;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const { brand_name, product_id, hook_text, rating, reason } = body;
 
   // Validation
   if (!brand_name || typeof brand_name !== "string") {
-    return NextResponse.json(
-      { ok: false, error: "brand_name is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "brand_name is required", 400, correlationId);
   }
 
   if (!hook_text || typeof hook_text !== "string") {
-    return NextResponse.json(
-      { ok: false, error: "hook_text is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "hook_text is required", 400, correlationId);
   }
 
   if (rating !== -1 && rating !== 1) {
-    return NextResponse.json(
-      { ok: false, error: "rating must be -1 (ban) or 1 (approve)", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "rating must be -1 (ban) or 1 (approve)", 400, correlationId);
   }
 
   try {
@@ -89,13 +91,10 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error(`[${correlationId}] Failed to save hook feedback:`, error);
-      return NextResponse.json(
-        { ok: false, error: "Failed to save feedback", correlation_id: correlationId },
-        { status: 500 }
-      );
+      return createApiErrorResponse("DB_ERROR", "Failed to save feedback", 500, correlationId);
     }
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       ok: true,
       data: {
         id: data.id,
@@ -105,12 +104,11 @@ export async function POST(request: Request) {
       },
       correlation_id: correlationId,
     });
+    successResponse.headers.set("x-correlation-id", correlationId);
+    return successResponse;
   } catch (error) {
     console.error(`[${correlationId}] Hook feedback error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error", correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }
 
@@ -122,15 +120,24 @@ export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 
+  // Rate limiting check (lighter limit for GET)
+  const authContext = await getApiAuthContext();
+  const rateLimitContext = {
+    userId: authContext.user?.id ?? null,
+    orgId: null,
+    ...extractRateLimitContext(request),
+  };
+  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId, { userLimit: 30 });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   const brandName = searchParams.get("brand_name");
   const productId = searchParams.get("product_id");
   const rating = searchParams.get("rating");
 
   if (!brandName) {
-    return NextResponse.json(
-      { ok: false, error: "brand_name is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "brand_name is required", 400, correlationId);
   }
 
   try {
@@ -155,22 +162,18 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error(`[${correlationId}] Failed to fetch hook feedback:`, error);
-      return NextResponse.json(
-        { ok: false, error: "Failed to fetch feedback", correlation_id: correlationId },
-        { status: 500 }
-      );
+      return createApiErrorResponse("DB_ERROR", "Failed to fetch feedback", 500, correlationId);
     }
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       ok: true,
       data: data || [],
       correlation_id: correlationId,
     });
+    successResponse.headers.set("x-correlation-id", correlationId);
+    return successResponse;
   } catch (error) {
     console.error(`[${correlationId}] Hook feedback fetch error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error", correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

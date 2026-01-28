@@ -1,4 +1,6 @@
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -27,33 +29,36 @@ interface ChatRequest {
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Rate limiting check
+  const authContext = await getApiAuthContext();
+  const rateLimitContext = {
+    userId: authContext.user?.id ?? null,
+    orgId: null, // TODO: Add org context when available
+    ...extractRateLimitContext(request),
+  };
+  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const { message, context, video_id } = body as ChatRequest;
 
   if (!message || typeof message !== "string" || message.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Message is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Message is required", 400, correlationId);
   }
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
   if (!anthropicKey && !openaiKey) {
-    return NextResponse.json(
-      { ok: false, error: "AI service unavailable", correlation_id: correlationId },
-      { status: 503 }
-    );
+    return createApiErrorResponse("AI_ERROR", "AI service unavailable", 503, correlationId);
   }
 
   try {
@@ -130,22 +135,22 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
       response = result.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
     }
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       ok: true,
       response,
       video_id,
       correlation_id: correlationId,
     });
+    successResponse.headers.set("x-correlation-id", correlationId);
+    return successResponse;
 
   } catch (error) {
     console.error(`[${correlationId}] AI chat error:`, error);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `AI error: ${error instanceof Error ? error.message : String(error)}`,
-        correlation_id: correlationId,
-      },
-      { status: 500 }
+    return createApiErrorResponse(
+      "AI_ERROR",
+      `AI error: ${error instanceof Error ? error.message : String(error)}`,
+      500,
+      correlationId
     );
   }
 }

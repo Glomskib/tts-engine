@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
 import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
@@ -1313,6 +1315,18 @@ export async function POST(request: Request) {
   const url = new URL(request.url);
   const debugMode = url.searchParams.get("debug") === "1" || process.env.DEBUG_AI === "1";
 
+  // Rate limiting check
+  const authContext = await getApiAuthContext();
+  const rateLimitContext = {
+    userId: authContext.user?.id ?? null,
+    orgId: null, // TODO: Add org context when available
+    ...extractRateLimitContext(request),
+  };
+  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -1337,7 +1351,10 @@ export async function POST(request: Request) {
 
   // Validate product_id
   if (!product_id || typeof product_id !== "string" || product_id.trim() === "") {
-    return createApiErrorResponse("VALIDATION_ERROR", "product_id is required", 400, correlationId);
+    return NextResponse.json(
+      { ok: false, error: "product_id is required", error_code: "VALIDATION_ERROR", correlation_id: correlationId },
+      { status: 400 }
+    );
   }
 
   // Validate tone_preset
@@ -1351,7 +1368,10 @@ export async function POST(request: Request) {
     .single();
 
   if (productError || !product) {
-    return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId, { product_id: product_id.trim() });
+    return NextResponse.json(
+      { ok: false, error: "Product not found", error_code: "NOT_FOUND", correlation_id: correlationId },
+      { status: 404 }
+    );
   }
 
   // If reference_script_id provided, fetch it
@@ -1415,11 +1435,14 @@ export async function POST(request: Request) {
   // Templates produce repetitive, weak hooks
   if (!anthropicKey && !openaiKey) {
     console.error(`[${correlationId}] No AI API key configured - cannot generate quality hooks`);
-    return createApiErrorResponse(
-      "AI_ERROR",
-      "AI generation unavailable. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY.",
-      503,
-      correlationId
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "AI generation unavailable. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY.",
+        error_code: "AI_UNAVAILABLE",
+        correlation_id: correlationId,
+      },
+      { status: 503 }
     );
   }
 

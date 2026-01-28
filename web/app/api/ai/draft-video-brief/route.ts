@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
+import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
 
 export const runtime = "nodejs";
 
@@ -1710,21 +1711,62 @@ export async function POST(request: Request) {
         winner_count: h.winner_count,
         posted_count: h.posted_count,
         used_count: h.used_count,
+        hook_family: h.hook_family,
       })),
       winners: winnersBank.map((w) => ({
         hook: w.hook,
       })),
     };
 
+    // Build a lookup map from normalized hook text to proven hook's family
+    const provenFamilyMap = new Map<string, string | null>();
+    for (const h of provenHooks) {
+      const normalized = h.hook_text.toLowerCase().trim().replace(/\s+/g, " ").replace(/[^\w\s]/g, "");
+      provenFamilyMap.set(normalized, h.hook_family);
+    }
+
     // Score and sort spoken hooks (reorders, never removes)
     const scoredSpokenHooks: HookScoreResult[] = scoreAndSortHookOptions(spokenHooks, scoringContext);
-    const rankedSpokenHooks = scoredSpokenHooks.map((s) => s.option);
 
     // Score and sort on-screen text hooks
     const scoredTextHooks: HookScoreResult[] = scoreAndSortHookOptions(textHooks, scoringContext);
-    const rankedTextHooks = scoredTextHooks.map((s) => s.option);
 
-    console.log(`[${correlationId}] Hook scoring: top spoken="${rankedSpokenHooks[0]?.slice(0, 50)}" (${scoredSpokenHooks[0]?.score}), bottom="${rankedSpokenHooks[rankedSpokenHooks.length - 1]?.slice(0, 50)}" (${scoredSpokenHooks[scoredSpokenHooks.length - 1]?.score})`);
+    // --- Diversity selection: cluster by family, pick top from each family first ---
+    // Helper to get family key for an option
+    const getFamilyForOption = (option: string): string => {
+      const normalized = option.toLowerCase().trim().replace(/\s+/g, " ").replace(/[^\w\s]/g, "");
+      const provenFamily = provenFamilyMap.get(normalized);
+      return getHookFamilyKey(option, provenFamily);
+    };
+
+    // Add family keys to scored hooks
+    const spokenWithFamily: ScoredOptionWithFamily[] = scoredSpokenHooks.map((s) => ({
+      option: s.option,
+      score: s.score,
+      familyKey: getFamilyForOption(s.option),
+      reasons: s.reasons,
+    }));
+
+    const textWithFamily: ScoredOptionWithFamily[] = scoredTextHooks.map((s) => ({
+      option: s.option,
+      score: s.score,
+      familyKey: getFamilyForOption(s.option),
+      reasons: s.reasons,
+    }));
+
+    // Select with diversity (keep same max as current caps: 12 spoken, 8 text)
+    const diverseSpoken = selectDiverseOptions(spokenWithFamily, 12);
+    const diverseText = selectDiverseOptions(textWithFamily, 8);
+
+    // Extract ranked options
+    const rankedSpokenHooks = diverseSpoken.map((s) => s.option);
+    const rankedTextHooks = diverseText.map((s) => s.option);
+
+    // Count unique families for logging
+    const spokenFamilies = new Set(diverseSpoken.map((s) => s.familyKey));
+    const textFamilies = new Set(diverseText.map((s) => s.familyKey));
+
+    console.log(`[${correlationId}] Hook scoring: top spoken="${rankedSpokenHooks[0]?.slice(0, 50)}" (${diverseSpoken[0]?.score}), families=${spokenFamilies.size}/${diverseSpoken.length}`);
 
     // Best hook = top-ranked by our scoring (not AI's self-score)
     let bestHook = rankedSpokenHooks[0] || "";
@@ -1850,6 +1892,13 @@ export async function POST(request: Request) {
         hook_scoring: {
           spoken: scoredSpokenHooks.map((s) => ({ option: s.option, score: s.score, reasons: s.reasons })),
           on_screen_text: scoredTextHooks.map((s) => ({ option: s.option, score: s.score, reasons: s.reasons })),
+        },
+        // Family diversity debug info
+        hook_family_debug: {
+          spoken: diverseSpoken.map((s) => ({ option: s.option, family: s.familyKey, score: s.score })),
+          on_screen: diverseText.map((s) => ({ option: s.option, family: s.familyKey, score: s.score })),
+          spoken_family_count: spokenFamilies.size,
+          text_family_count: textFamilies.size,
         },
       };
     }

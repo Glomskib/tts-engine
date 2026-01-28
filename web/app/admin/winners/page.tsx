@@ -315,6 +315,7 @@ export default function WinnersPage() {
     <AdminPageLayout
       title="Winners Bank"
       subtitle="Reference videos for AI context and hook extraction"
+      showNav={false}
       headerActions={
         <AdminButton onClick={openSubmitDrawer}>
           Submit TikTok

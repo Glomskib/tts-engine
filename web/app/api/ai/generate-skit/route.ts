@@ -45,7 +45,9 @@ const PersonaSchema = z.enum([
 
 const GenerateSkitInputSchema = z.object({
   video_id: z.string().uuid().optional(),
-  product_id: z.string().uuid(),
+  product_id: z.string().uuid().optional(),
+  product_name: z.string().min(2).max(100).optional(),
+  brand_name: z.string().max(100).optional(),
   product_display_name: z.string().max(100).optional(),
   cta_overlay: z.string().max(50).optional(),
   risk_tier: RiskTierSchema,
@@ -53,7 +55,10 @@ const GenerateSkitInputSchema = z.object({
   template_id: z.string().max(50).optional(),
   intensity: z.number().min(0).max(100).optional(),
   preset_id: z.string().max(50).optional(),
-}).strict();
+}).strict().refine(
+  (data) => data.product_id || data.product_name,
+  { message: "Either product_id or product_name is required" }
+);
 
 type GenerateSkitInput = z.infer<typeof GenerateSkitInputSchema>;
 type Persona = z.infer<typeof PersonaSchema>;
@@ -262,15 +267,29 @@ export async function POST(request: Request) {
   // Intensity is soft-throttled via budget to prevent abuse at scale.
 
   try {
-    // Fetch product info
-    const { data: product, error: productError } = await supabaseAdmin
-      .from("products")
-      .select("id, name, brand_name, category, description")
-      .eq("id", input.product_id)
-      .single();
+    // Fetch product info if product_id provided, otherwise use fallback product_name
+    let product: { id: string | null; name: string; brand_name: string | null; category: string | null; description: string | null } | null = null;
 
-    if (productError || !product) {
-      return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId);
+    if (input.product_id) {
+      const { data: dbProduct, error: productError } = await supabaseAdmin
+        .from("products")
+        .select("id, name, brand_name, category, description")
+        .eq("id", input.product_id)
+        .single();
+
+      if (productError || !dbProduct) {
+        return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId);
+      }
+      product = dbProduct;
+    } else {
+      // No product_id - use product_name fallback (standalone tool mode)
+      product = {
+        id: null,
+        name: input.product_name || "the product",
+        brand_name: input.brand_name || null,
+        category: null,
+        description: null,
+      };
     }
 
     // Look up preset if provided
@@ -355,12 +374,16 @@ export async function POST(request: Request) {
       templateValidation = validateSkitAgainstTemplate(processed.skit, template);
     }
 
+    // Determine entity type/id for audit: video > product > system
+    const auditEntityType = input.video_id ? "video" : input.product_id ? "product" : "system";
+    const auditEntityId = input.video_id || input.product_id || authContext.user.id;
+
     // Audit log
     auditLogAsync({
       correlation_id: correlationId,
       event_type: "ai.skit_generated",
-      entity_type: input.video_id ? "video" : "product",
-      entity_id: input.video_id || input.product_id,
+      entity_type: auditEntityType,
+      entity_id: auditEntityId,
       actor: authContext.user.id,
       summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${requestedIntensity}${intensityBudget.budgetClamped ? " (budget)" : ""}${presetIntensityClamped ? " (preset)" : ""}${preset ? `, preset=${preset.id}` : ""}${template ? `, template=${template.id}` : ""}`,
       details: {
@@ -370,6 +393,8 @@ export async function POST(request: Request) {
         template_id: effectiveTemplateId || null,
         preset_id: preset?.id || null,
         preset_name: preset?.name || null,
+        product_id: input.product_id || null,
+        product_name: product.name,
         risk_score: processed.riskScore,
         flags_count: processed.riskFlags.length,
         was_downgraded: processed.wasDowngraded,

@@ -47,7 +47,10 @@ export type ApiErrorCode =
   | 'POSTING_META_INCOMPLETE'
   | 'FINAL_ASSET_REQUIRED'
   | 'RATE_LIMITED'
-  | 'GENERATION_IN_PROGRESS';
+  | 'GENERATION_IN_PROGRESS'
+  | 'AI_PARSE'
+  | 'AI_UNKNOWN'
+  | 'INTERNAL';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

@@ -172,6 +172,25 @@ export default function VideoDrawer({
   const [showQualityWarning, setShowQualityWarning] = useState(false);
   const [qualityCheckLoading, setQualityCheckLoading] = useState(false);
 
+  // Skit generator state
+  const [skitPersona, setSkitPersona] = useState<'NONE' | 'DR_PICKLE' | 'CASH_KING' | 'ABSURD_BUDDY' | 'DEADPAN_OFFICE' | 'INFOMERCIAL_CHAOS'>('NONE');
+  const [skitRiskTier, setSkitRiskTier] = useState<'SAFE' | 'BALANCED' | 'SPICY'>('SAFE');
+  const [skitGenerating, setSkitGenerating] = useState(false);
+  const [skitResult, setSkitResult] = useState<{
+    risk_tier_applied: string;
+    risk_score: number;
+    risk_flags: string[];
+    skit: {
+      hook_line: string;
+      beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
+      b_roll: string[];
+      overlays: string[];
+      cta_line: string;
+      cta_overlay: string;
+    };
+  } | null>(null);
+  const [skitError, setSkitError] = useState<string | null>(null);
+
   // Reject quick tags configuration
   const REJECT_TAGS = [
     { code: 'too_generic', label: 'Too Generic' },
@@ -732,6 +751,48 @@ export default function VideoDrawer({
       setTimeout(() => setSavedToast(null), 3000);
     } finally {
       setFeedbackLoading(false);
+    }
+  };
+
+  // Generate skit with risk tier enforcement
+  const handleGenerateSkit = async () => {
+    if (!video.product_id) {
+      setSkitError('No product linked to this video');
+      return;
+    }
+
+    setSkitGenerating(true);
+    setSkitError(null);
+    setSkitResult(null);
+
+    try {
+      const res = await fetch('/api/ai/generate-skit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_id: video.id,
+          product_id: video.product_id,
+          product_display_name: video.brand_name || details?.video.brand_name,
+          risk_tier: skitRiskTier,
+          persona: skitPersona,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        setSkitError(data.message || 'Failed to generate skit');
+        return;
+      }
+
+      setSkitResult(data.data);
+      setSavedToast('Skit generated!');
+      setTimeout(() => setSavedToast(null), 3000);
+    } catch (err) {
+      setSkitError('Network error generating skit');
+      console.error('Skit generation error:', err);
+    } finally {
+      setSkitGenerating(false);
     }
   };
 
@@ -2321,6 +2382,275 @@ export default function VideoDrawer({
                       >
                         Attach Script
                       </button>
+                    </div>
+                  )}
+
+                  {/* Skit Generator Section */}
+                  {video.product_id && (
+                    <div style={{
+                      marginTop: '24px',
+                      paddingTop: '20px',
+                      borderTop: `1px solid ${colors.border}`,
+                    }}>
+                      <h4 style={{ margin: '0 0 16px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>
+                        Skit Generator
+                      </h4>
+
+                      {/* Controls */}
+                      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        {/* Persona Dropdown */}
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                            Persona
+                          </label>
+                          <select
+                            value={skitPersona}
+                            onChange={(e) => setSkitPersona(e.target.value as typeof skitPersona)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              color: colors.text,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="NONE">No Persona</option>
+                            <option value="DR_PICKLE">Dr. Pickle</option>
+                            <option value="CASH_KING">Cash King</option>
+                            <option value="ABSURD_BUDDY">Absurd Buddy</option>
+                            <option value="DEADPAN_OFFICE">Deadpan Office</option>
+                            <option value="INFOMERCIAL_CHAOS">Infomercial Chaos</option>
+                          </select>
+                        </div>
+
+                        {/* Risk Tier Dropdown */}
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                            Risk Tier
+                          </label>
+                          <select
+                            value={skitRiskTier}
+                            onChange={(e) => setSkitRiskTier(e.target.value as typeof skitRiskTier)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              color: colors.text,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="SAFE">Safe (Light Humor)</option>
+                            <option value="BALANCED">Balanced (Sharper)</option>
+                            {isAdmin && <option value="SPICY">Spicy (Admin Only)</option>}
+                          </select>
+                        </div>
+
+                        {/* Generate Button */}
+                        <div style={{ alignSelf: 'flex-end' }}>
+                          <button
+                            onClick={handleGenerateSkit}
+                            disabled={skitGenerating}
+                            style={{
+                              padding: '8px 16px',
+                              backgroundColor: skitGenerating ? colors.border : '#7c3aed',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: skitGenerating ? 'not-allowed' : 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {skitGenerating ? 'Generating...' : 'Generate Skit'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Error */}
+                      {skitError && (
+                        <div style={{
+                          padding: '10px 12px',
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          borderRadius: '6px',
+                          color: '#dc2626',
+                          fontSize: '12px',
+                          marginBottom: '16px',
+                        }}>
+                          {skitError}
+                        </div>
+                      )}
+
+                      {/* Skit Result */}
+                      {skitResult && (
+                        <div style={{
+                          backgroundColor: colors.surface,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '8px',
+                          padding: '16px',
+                        }}>
+                          {/* Risk Info Badge */}
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              padding: '4px 8px',
+                              backgroundColor: skitResult.risk_tier_applied === 'SAFE' ? '#d1fae5' :
+                                skitResult.risk_tier_applied === 'BALANCED' ? '#fef3c7' : '#fce7f3',
+                              color: skitResult.risk_tier_applied === 'SAFE' ? '#065f46' :
+                                skitResult.risk_tier_applied === 'BALANCED' ? '#92400e' : '#9d174d',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                            }}>
+                              {skitResult.risk_tier_applied}
+                            </span>
+                            <span style={{
+                              padding: '4px 8px',
+                              backgroundColor: colors.card,
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              color: colors.textMuted,
+                            }}>
+                              Risk Score: {skitResult.risk_score}
+                            </span>
+                            {skitResult.risk_flags.length > 0 && (
+                              <span style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#fef2f2',
+                                color: '#dc2626',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                              }}>
+                                {skitResult.risk_flags.length} flag(s)
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Hook Line */}
+                          <div style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 600 }}>Hook</span>
+                              <button
+                                onClick={() => copyToClipboard(skitResult.skit.hook_line, 'skitHook')}
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: copiedField === 'skitHook' ? '#d3f9d8' : colors.card,
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  cursor: 'pointer',
+                                  fontSize: '10px',
+                                }}
+                              >
+                                {copiedField === 'skitHook' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                            <div style={{
+                              padding: '10px',
+                              backgroundColor: '#ecfdf5',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              color: '#065f46',
+                            }}>
+                              {skitResult.skit.hook_line}
+                            </div>
+                          </div>
+
+                          {/* Beats */}
+                          <div style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 600 }}>Beats</span>
+                              <button
+                                onClick={() => copyToClipboard(
+                                  skitResult.skit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\n"${b.dialogue}"` : ''}${b.on_screen_text ? `\n(Text: ${b.on_screen_text})` : ''}`).join('\n\n'),
+                                  'skitBeats'
+                                )}
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: copiedField === 'skitBeats' ? '#d3f9d8' : colors.card,
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  cursor: 'pointer',
+                                  fontSize: '10px',
+                                }}
+                              >
+                                {copiedField === 'skitBeats' ? 'Copied!' : 'Copy All'}
+                              </button>
+                            </div>
+                            <div style={{ maxHeight: '200px', overflow: 'auto' }}>
+                              {skitResult.skit.beats.map((beat, i) => (
+                                <div key={i} style={{
+                                  padding: '10px',
+                                  backgroundColor: colors.card,
+                                  borderRadius: '6px',
+                                  marginBottom: '8px',
+                                  fontSize: '12px',
+                                }}>
+                                  <div style={{ color: colors.textMuted, fontSize: '10px', marginBottom: '4px' }}>{beat.t}</div>
+                                  <div style={{ color: colors.text, marginBottom: beat.dialogue ? '4px' : 0 }}>{beat.action}</div>
+                                  {beat.dialogue && (
+                                    <div style={{ color: '#7c3aed', fontStyle: 'italic' }}>"{beat.dialogue}"</div>
+                                  )}
+                                  {beat.on_screen_text && (
+                                    <div style={{ color: '#0284c7', fontSize: '11px', marginTop: '4px' }}>Text: {beat.on_screen_text}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* CTA */}
+                          <div style={{ marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 600 }}>CTA</span>
+                              <button
+                                onClick={() => copyToClipboard(`${skitResult.skit.cta_line}\n[Overlay: ${skitResult.skit.cta_overlay}]`, 'skitCta')}
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: copiedField === 'skitCta' ? '#d3f9d8' : colors.card,
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  cursor: 'pointer',
+                                  fontSize: '10px',
+                                }}
+                              >
+                                {copiedField === 'skitCta' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                            <div style={{
+                              padding: '10px',
+                              backgroundColor: '#fef3c7',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                            }}>
+                              <div style={{ color: '#92400e', marginBottom: '4px' }}>{skitResult.skit.cta_line}</div>
+                              <div style={{ color: '#b45309', fontSize: '11px' }}>Overlay: {skitResult.skit.cta_overlay}</div>
+                            </div>
+                          </div>
+
+                          {/* B-Roll & Overlays */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                              <span style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '6px' }}>B-Roll</span>
+                              <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: colors.text }}>
+                                {skitResult.skit.b_roll.map((item, i) => (
+                                  <li key={i} style={{ marginBottom: '4px' }}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Overlays</span>
+                              <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: colors.text }}>
+                                {skitResult.skit.overlays.map((item, i) => (
+                                  <li key={i} style={{ marginBottom: '4px' }}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

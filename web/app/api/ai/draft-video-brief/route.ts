@@ -2006,7 +2006,9 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
       };
     }
 
-    return NextResponse.json(response);
+    const successResponse = NextResponse.json(response);
+    successResponse.headers.set("x-correlation-id", correlationId);
+    return successResponse;
 
   } catch (error) {
     console.error(`[${correlationId}] AI draft generation error:`, error);
@@ -2041,6 +2043,8 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
     }
 
     // Return 200 with error info so UI can handle gracefully
-    return NextResponse.json(errorResponse, { status: 200 });
+    const errorJsonResponse = NextResponse.json(errorResponse, { status: 200 });
+    errorJsonResponse.headers.set("x-correlation-id", correlationId);
+    return errorJsonResponse;
   }
 }

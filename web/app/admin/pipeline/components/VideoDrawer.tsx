@@ -179,6 +179,7 @@ export default function VideoDrawer({
   const [skitRiskTier, setSkitRiskTier] = useState<'SAFE' | 'BALANCED' | 'SPICY'>('SAFE');
   const [skitTemplate, setSkitTemplate] = useState<string>('');
   const [skitTemplates, setSkitTemplates] = useState<Array<{ id: string; name: string; description: string }>>([]);
+  const [skitIntensity, setSkitIntensity] = useState(50);
   const [skitGenerating, setSkitGenerating] = useState(false);
   const [skitResult, setSkitResult] = useState<{
     risk_tier_applied: string;
@@ -186,6 +187,9 @@ export default function VideoDrawer({
     risk_flags: string[];
     template_id: string | null;
     template_validation: { valid: boolean; issues: string[] } | null;
+    intensity_requested: number;
+    intensity_applied: number;
+    budget_clamped: boolean;
     skit: {
       hook_line: string;
       beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
@@ -799,6 +803,9 @@ export default function VideoDrawer({
       risk_flags: string[];
       template_id: string | null;
       template_validation: { valid: boolean; issues: string[] } | null;
+      intensity_requested: number;
+      intensity_applied: number;
+      budget_clamped: boolean;
       skit: {
         hook_line: string;
         beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
@@ -814,6 +821,7 @@ export default function VideoDrawer({
       risk_tier: skitRiskTier,
       persona: skitPersona,
       template_id: skitTemplate || undefined,
+      intensity: skitIntensity,
     });
 
     setSkitGenerating(false);
@@ -2509,6 +2517,30 @@ export default function VideoDrawer({
                           </select>
                         </div>
 
+                        {/* Intensity Slider */}
+                        <div style={{ minWidth: '180px' }}>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                            Comedy Intensity: {skitIntensity}
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={skitIntensity}
+                            onChange={(e) => setSkitIntensity(Number(e.target.value))}
+                            style={{
+                              width: '100%',
+                              height: '6px',
+                              borderRadius: '3px',
+                              cursor: 'pointer',
+                              accentColor: '#7c3aed',
+                            }}
+                          />
+                          <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '2px' }}>
+                            Higher = faster, sharper parody
+                          </div>
+                        </div>
+
                         {/* Generate Button */}
                         <div style={{ alignSelf: 'flex-end' }}>
                           <button
@@ -2591,6 +2623,26 @@ export default function VideoDrawer({
                                 fontSize: '10px',
                               }}>
                                 Template: {skitTemplates.find(t => t.id === skitResult.template_id)?.name || skitResult.template_id}
+                              </span>
+                            )}
+                            <span style={{
+                              padding: '4px 8px',
+                              backgroundColor: '#f3e8ff',
+                              color: '#6b21a8',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                            }}>
+                              Intensity: {skitResult.intensity_applied}
+                            </span>
+                            {skitResult.budget_clamped && (
+                              <span style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#fef3c7',
+                                color: '#92400e',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                              }}>
+                                Intensity clamped for stability
                               </span>
                             )}
                           </div>

@@ -114,6 +114,17 @@ type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 const VA_MODES = ['admin', 'recorder', 'editor', 'uploader'] as const;
 type VAMode = typeof VA_MODES[number];
 
+// Filter intent types
+type FilterIntent = 'all' | 'my_work' | 'needs_action' | 'overdue' | 'needs_mapping' | 'ready_to_post';
+const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
+  { value: 'all', label: 'All Videos' },
+  { value: 'my_work', label: 'My Work' },
+  { value: 'needs_action', label: 'Needs Action' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'needs_mapping', label: 'Needs Mapping' },
+  { value: 'ready_to_post', label: 'Ready to Post' },
+];
+
 // localStorage keys
 const VA_MODE_KEY = 'pipeline_va_mode';
 const VIEW_MODE_KEY = 'pipeline_view_mode';
@@ -403,6 +414,10 @@ export default function AdminPipelinePage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter intent state
+  const [filterIntent, setFilterIntent] = useState<FilterIntent>('all');
+  const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
 
   // Per-row claim/release state
   const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
@@ -1271,11 +1286,6 @@ export default function AdminPipelinePage() {
     return new Date(video.claim_expires_at) <= new Date();
   };
 
-  // Intent-based filter options
-  type FilterIntent = 'all' | 'my_work' | 'needs_action' | 'overdue' | 'needs_mapping' | 'ready_to_post';
-  const [filterIntent, setFilterIntent] = useState<FilterIntent>('all');
-  const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
-
   // Apply intent-based filtering
   const getIntentFilteredVideos = () => {
     let videos = getRoleFilteredVideos();
@@ -1322,15 +1332,6 @@ export default function AdminPipelinePage() {
 
     return videos;
   };
-
-  const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
-    { value: 'all', label: 'All Videos' },
-    { value: 'my_work', label: 'My Work' },
-    { value: 'needs_action', label: 'Needs Action' },
-    { value: 'overdue', label: 'Overdue' },
-    { value: 'needs_mapping', label: 'Needs Mapping' },
-    { value: 'ready_to_post', label: 'Ready to Post' },
-  ];
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>

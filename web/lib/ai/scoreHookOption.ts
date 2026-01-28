@@ -18,6 +18,8 @@ export interface ProvenHookSignal {
   posted_count?: number;
   used_count?: number;
   hook_family?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface WinnerSignal {
@@ -29,6 +31,7 @@ export interface WinnerSignal {
 export interface HookScoringContext {
   provenHooks?: ProvenHookSignal[];
   winners?: WinnerSignal[];
+  nowMs?: number; // Server timestamp for temporal decay (Date.now())
 }
 
 export interface HookScoreResult {
@@ -71,6 +74,39 @@ function containsNormalized(haystack: string, needle: string): boolean {
   return normalizeForMatch(haystack).includes(normalizeForMatch(needle));
 }
 
+/** Clamp a value between min and max */
+function clamp(x: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, x));
+}
+
+/** Calculate days since an ISO date string. Returns conservative default if invalid. */
+function daysSince(isoDate: string | null | undefined, nowMs: number): number {
+  if (!isoDate) return 365; // Conservative default
+  try {
+    const dateMs = new Date(isoDate).getTime();
+    if (isNaN(dateMs)) return 365;
+    const diffMs = nowMs - dateMs;
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return clamp(days, 0, 3650); // Clamp to 0-10 years
+  } catch {
+    return 365;
+  }
+}
+
+/** Calculate temporal decay multiplier (0.75 to 1.0) based on age in days */
+function getTemporalDecay(ageDays: number): number {
+  // At 0 days: 1.0, at 365 days: 0.75, never below 0.75
+  return clamp(1 - (ageDays / 365) * 0.25, 0.75, 1.0);
+}
+
+/** Calculate freshness boost points based on age in days */
+function getFreshnessBoost(ageDays: number): number {
+  if (ageDays <= 14) return 6;
+  if (ageDays <= 30) return 4;
+  if (ageDays <= 60) return 2;
+  return 0;
+}
+
 // --- Main scoring function ---
 
 export function scoreHookOption(
@@ -88,7 +124,7 @@ export function scoreHookOption(
       (h) => normalizeForMatch(h.text) === normalized,
     );
     if (match) {
-      // Base match bonus
+      // Base match bonus (not decayed)
       score += 40;
       reasons.push("proven_match(+40)");
 
@@ -100,38 +136,56 @@ export function scoreHookOption(
       const A = match.approved_count || 0;
       const R = match.rejected_count || 0;
 
-      // Performance-aware components (only when we have posting data)
+      // Calculate temporal factors
+      const nowMs = context.nowMs || Date.now();
+      const ageDays = daysSince(match.updated_at || match.created_at, nowMs);
+      const decay = getTemporalDecay(ageDays);
+      const freshBoost = getFreshnessBoost(ageDays);
 
-      // 1) Winner rate: reward hooks that produce winners
+      // Add decay factor to reasons (always show for transparency)
+      reasons.push(`decay(x${decay.toFixed(2)}): ageDays=${ageDays}`);
+
+      // Add freshness boost if applicable
+      if (freshBoost > 0) {
+        score += freshBoost;
+        reasons.push(`freshness(+${freshBoost}): ageDays=${ageDays}`);
+      }
+
+      // Performance-aware components WITH decay (only when we have posting data)
+
+      // 1) Winner rate: reward hooks that produce winners (with decay)
       if (P > 0) {
         const winnerRate = W / Math.max(P, 1);
-        const winnerBonus = Math.round(Math.min(winnerRate * 40, 20));
-        if (winnerBonus > 0) {
-          score += winnerBonus;
-          reasons.push(`winner_rate(+${winnerBonus}): ${W}/${P}`);
+        const rawWinnerBonus = Math.round(Math.min(winnerRate * 40, 20));
+        const decayedWinnerBonus = Math.round(rawWinnerBonus * decay);
+        if (decayedWinnerBonus > 0) {
+          score += decayedWinnerBonus;
+          reasons.push(`winner_rate(+${decayedWinnerBonus}): ${W}/${P} (raw=${rawWinnerBonus})`);
         }
       }
 
-      // 2) Underperform rate: penalize hooks that underperform
+      // 2) Underperform rate: penalize hooks that underperform (with decay)
       if (P > 0) {
         const underRate = D / Math.max(P, 1);
-        const underRatePenalty = Math.round(Math.min(underRate * 40, 20));
-        if (underRatePenalty > 0) {
-          score -= underRatePenalty;
-          reasons.push(`underperform_rate(-${underRatePenalty}): ${D}/${P}`);
+        const rawUnderPenalty = Math.round(Math.min(underRate * 40, 20));
+        const decayedUnderPenalty = Math.round(rawUnderPenalty * decay);
+        if (decayedUnderPenalty > 0) {
+          score -= decayedUnderPenalty;
+          reasons.push(`underperform_rate(-${decayedUnderPenalty}): ${D}/${P} (raw=${rawUnderPenalty})`);
         }
       }
 
-      // 3) Confidence boost: more posting data = more trust in the signal
+      // 3) Confidence boost: more posting data = more trust (with decay)
       if (P > 0) {
-        const conf = Math.round(Math.min(Math.log10(P + 1) * 6, 10));
-        if (conf > 0) {
-          score += conf;
-          reasons.push(`confidence(+${conf}): posted=${P}`);
+        const rawConf = Math.round(Math.min(Math.log10(P + 1) * 6, 10));
+        const decayedConf = Math.round(rawConf * decay);
+        if (decayedConf > 0) {
+          score += decayedConf;
+          reasons.push(`confidence(+${decayedConf}): posted=${P} (raw=${rawConf})`);
         }
       }
 
-      // 4) Count-based adjustments (capped tighter)
+      // 4) Count-based adjustments (NOT decayed - these are approval/rejection signals)
       const approvedBonus = Math.min(A * 3, 18);
       if (approvedBonus > 0) {
         score += approvedBonus;
@@ -144,7 +198,7 @@ export function scoreHookOption(
         reasons.push(`rejected_count(-${rejectedPenalty}): ${R}`);
       }
 
-      // Raw underperform penalty (separate from rate, smaller weight)
+      // Raw underperform penalty (separate from rate, smaller weight, NOT decayed)
       const underperformPenalty = Math.min(D * 3, 18);
       if (underperformPenalty > 0) {
         score -= underperformPenalty;

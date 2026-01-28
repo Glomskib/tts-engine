@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo } from '@/lib/useHydrated';
 import VideoDrawer from '@/app/admin/pipeline/components/VideoDrawer';
-import { getPrimaryAction, getStatusBadgeColor, getSlaColor } from '@/app/admin/pipeline/types';
+import { getStatusBadgeColor, getSlaColor } from '@/app/admin/pipeline/types';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -380,7 +380,6 @@ function VideoRow({
   processing: boolean;
   onClick: () => void;
 }) {
-  const primaryAction = getPrimaryAction(video);
   const slaColors = getSlaColor(video.sla_status);
 
   return (
@@ -448,23 +447,16 @@ function VideoRow({
         </div>
       </div>
 
-      {/* Next action */}
+      {/* Stage badge */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '8px 16px',
-        backgroundColor: status === 'locked' ? '#e9ecef' : primaryAction.color + '20',
-        borderRadius: '6px',
+        padding: '6px 12px',
+        backgroundColor: status === 'locked' ? '#f1f5f9' : getStatusBadgeColor(video.recording_status).badge,
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: '500',
+        color: status === 'locked' ? '#64748b' : 'white',
       }}>
-        <span>{primaryAction.icon}</span>
-        <span style={{
-          fontSize: '13px',
-          fontWeight: 'bold',
-          color: status === 'locked' ? '#868e96' : primaryAction.color,
-        }}>
-          {status === 'locked' ? 'Locked' : primaryAction.label}
-        </span>
+        {status === 'locked' ? 'Locked' : (video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
       </div>
     </div>
   );

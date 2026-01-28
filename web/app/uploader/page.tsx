@@ -589,11 +589,7 @@ export default function UploaderPage() {
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Target</th>
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Product</th>
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Caption</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Script</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">MP4</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Ready</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Missing</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
+                    <th className="px-4 py-3 text-center font-medium text-slate-600">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -641,72 +637,17 @@ export default function UploaderPage() {
                           {video.caption?.slice(0, 50) || '-'}
                           {(video.caption?.length || 0) > 50 && '...'}
                         </div>
-                        {video.hashtags && video.hashtags.length > 0 && (
-                          <div className="text-xs text-slate-400 truncate">
-                            {video.hashtags.slice(0, 3).join(' ')}
-                            {video.hashtags.length > 3 && ` +${video.hashtags.length - 3}`}
-                          </div>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {video.has_locked_script ? (
-                          <span className="text-green-600">Y</span>
-                        ) : (
-                          <span className="text-red-600">X</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {video.has_final_mp4 ? (
-                          <span className="text-green-600">Y</span>
-                        ) : (
-                          <span className="text-amber-600">X</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {video.posting_meta_complete && video.has_locked_script ? (
+                        {video.posting_meta_complete && video.has_locked_script && video.has_final_mp4 ? (
                           <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
                             Ready
                           </span>
                         ) : (
                           <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-medium">
-                            Incomplete
+                            {video.missing_fields.length > 0 ? video.missing_fields[0] : 'Incomplete'}
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {video.missing_fields.length > 0 ? (
-                          <div className="text-xs text-red-600">
-                            {video.missing_fields.join(', ')}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Mark Posted button - only show for ready videos with MP4 */}
-                          {video.posting_meta_complete && video.has_locked_script && video.has_final_mp4 && (
-                            <button
-                              onClick={() => openMarkPostedModal(video)}
-                              disabled={actionLoading === video.video_id}
-                              className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
-                            >
-                              Post
-                            </button>
-                          )}
-                          {!video.uploader_checklist_completed_at && (
-                            <button
-                              onClick={() => handleMarkChecklistComplete(video.video_id)}
-                              disabled={actionLoading === video.video_id}
-                              className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 disabled:opacity-50"
-                            >
-                              {actionLoading === video.video_id ? '...' : 'Done'}
-                            </button>
-                          )}
-                          {video.uploader_checklist_completed_at && (
-                            <span className="text-xs text-green-600">Checked</span>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   ))}

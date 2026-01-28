@@ -605,12 +605,12 @@ export default function VideoDrawer({
     return firstLine;
   };
 
-  const tabs: { key: TabType; label: string; icon: string }[] = [
-    { key: 'brief', label: 'Brief', icon: '📋' },
-    { key: 'script', label: 'Script', icon: '📝' },
-    { key: 'assets', label: 'Assets', icon: '📁' },
-    { key: 'chat', label: 'AI Chat', icon: '💬' },
-    { key: 'activity', label: 'Activity', icon: '📊' },
+  const tabs: { key: TabType; label: string }[] = [
+    { key: 'brief', label: 'Brief' },
+    { key: 'script', label: 'Script' },
+    { key: 'assets', label: 'Assets' },
+    { key: 'chat', label: 'AI Chat' },
+    { key: 'activity', label: 'Activity' },
   ];
 
   return (
@@ -839,7 +839,7 @@ export default function VideoDrawer({
                   }}
                   title="Copy all essentials: code, brand, hooks, script, drive link"
                 >
-                  {copiedField === 'copyPack' ? 'Copied!' : '📋 Copy Pack'}
+                  {copiedField === 'copyPack' ? 'Copied!' : 'Copy All'}
                 </button>
                 {video.video_code && (
                   <span style={{ fontSize: '10px', color: '#868e96' }} title={video.id}>
@@ -1002,7 +1002,7 @@ export default function VideoDrawer({
                   fontWeight: 'bold',
                 }}
               >
-                {loading ? '...' : isClaimedByOther ? `🔒 Locked` : primaryAction.label}
+                {loading ? '...' : isClaimedByOther ? 'Locked' : primaryAction.label}
               </button>
             </div>
             {video.blocked_reason && (
@@ -1254,7 +1254,7 @@ export default function VideoDrawer({
                     fontWeight: 'bold',
                   }}
                 >
-                  📁 Drive Folder
+                  Open Drive
                 </a>
               )}
             </div>
@@ -1272,22 +1272,17 @@ export default function VideoDrawer({
               onClick={() => setActiveTab(tab.key)}
               style={{
                 flex: 1,
-                padding: '10px 8px',
+                padding: '12px 8px',
                 border: 'none',
-                borderBottom: activeTab === tab.key ? '3px solid #228be6' : '3px solid transparent',
-                backgroundColor: activeTab === tab.key ? '#f8f9fa' : 'transparent',
+                borderBottom: activeTab === tab.key ? '2px solid #2563eb' : '2px solid transparent',
+                backgroundColor: 'transparent',
                 cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: activeTab === tab.key ? 'bold' : 'normal',
-                color: activeTab === tab.key ? '#228be6' : '#495057',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
+                fontSize: '13px',
+                fontWeight: activeTab === tab.key ? '600' : '400',
+                color: activeTab === tab.key ? '#2563eb' : '#64748b',
               }}
             >
-              <span>{tab.icon}</span>
-              {!simpleMode && <span>{tab.label}</span>}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -2354,146 +2349,82 @@ export default function VideoDrawer({
         {/* Footer */}
         <div style={{
           padding: '16px 20px',
-          borderTop: '1px solid #e0e0e0',
-          backgroundColor: '#f8f9fa',
+          borderTop: '1px solid #e2e8f0',
+          backgroundColor: '#f8fafc',
         }}>
-          {/* Primary Action Row */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: isAdmin ? '12px' : '0' }}>
-            {/* Main action button - context-aware */}
-            {isClaimedByOther ? (
-              <div style={{
-                flex: 1,
-                padding: '12px',
-                backgroundColor: '#fff3e0',
-                borderRadius: '6px',
-                textAlign: 'center',
-                fontSize: '13px',
-                color: '#e67700',
-              }}>
-                🔒 Assigned to {video.claimed_by?.slice(0, 8)}...
-              </div>
-            ) : isClaimedByMe ? (
-              <>
-                {/* Primary: Do the next action OR Put Back */}
-                {primaryAction.type !== 'done' && (
+          {/* Locked by another user */}
+          {isClaimedByOther ? (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: '#fefce8',
+              borderRadius: '6px',
+              textAlign: 'center',
+              fontSize: '13px',
+              color: '#854d0e',
+              border: '1px solid #fef08a',
+            }}>
+              Assigned to {video.claimed_by?.slice(0, 8)}
+            </div>
+          ) : (
+            <>
+              {/* Primary Action - ONE button */}
+              {primaryAction.type !== 'done' && (
+                <button
+                  onClick={handlePrimaryAction}
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '14px 20px',
+                    backgroundColor: loading ? '#94a3b8' : primaryAction.color,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '12px',
+                  }}
+                >
+                  {loading ? 'Processing...' : primaryAction.label}
+                </button>
+              )}
+
+              {/* Secondary actions - subtle */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+                {isClaimedByMe && (
                   <button
-                    onClick={handlePrimaryAction}
+                    onClick={handleRelease}
                     disabled={loading}
                     style={{
-                      flex: 2,
-                      padding: '12px',
-                      backgroundColor: loading ? '#ccc' : primaryAction.color,
-                      color: 'white',
+                      padding: '8px 12px',
+                      backgroundColor: 'transparent',
+                      color: '#64748b',
                       border: 'none',
-                      borderRadius: '6px',
                       cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
+                      fontSize: '13px',
                     }}
                   >
-                    {loading ? '...' : `${primaryAction.icon} ${primaryAction.label}`}
+                    Release
                   </button>
                 )}
-                <button
-                  onClick={handleRelease}
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    backgroundColor: colors.bgSecondary,
-                    color: colors.text,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: '6px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '13px',
-                  }}
-                >
-                  Put Back
-                </button>
-              </>
-            ) : (
-              /* Unclaimed - show Start button */
-              <button
-                onClick={handleClaim}
-                disabled={loading}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}
-              >
-                {loading ? '...' : '▶️ Start Working'}
-              </button>
-            )}
-          </div>
-
-          {/* Non-admin: Need Help button */}
-          {!isAdmin && isClaimedByMe && (
-            <div style={{ marginTop: '8px' }}>
-              <button
-                onClick={() => onOpenHandoffModal && onOpenHandoffModal(video)}
-                disabled={!onOpenHandoffModal}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  backgroundColor: 'transparent',
-                  color: '#6f42c1',
-                  border: '1px solid #6f42c1',
-                  borderRadius: '6px',
-                  cursor: onOpenHandoffModal ? 'pointer' : 'not-allowed',
-                  fontSize: '13px',
-                }}
-              >
-                🙋 Need Help / Handoff
-              </button>
-            </div>
-          )}
-
-          {/* Admin actions row */}
-          {isAdmin && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {onOpenHandoffModal && (
-                <button
-                  onClick={() => onOpenHandoffModal(video)}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    backgroundColor: '#6f42c1',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                  }}
-                >
-                  Handoff
-                </button>
-              )}
-              {video.recording_status !== 'REJECTED' && video.recording_status !== 'POSTED' && (
-                <button
-                  onClick={handleReject}
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    backgroundColor: '#e03131',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
-                  }}
-                >
-                  Reject
-                </button>
-              )}
-            </div>
+                {video.recording_status !== 'REJECTED' && video.recording_status !== 'POSTED' && (
+                  <button
+                    onClick={handleReject}
+                    disabled={loading}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: 'transparent',
+                      color: '#dc2626',
+                      border: 'none',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontSize: '13px',
+                    }}
+                  >
+                    Reject
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

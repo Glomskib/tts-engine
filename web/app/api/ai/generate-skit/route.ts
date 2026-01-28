@@ -184,15 +184,8 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
-  // Non-admins cannot use SPICY tier
-  if (input.risk_tier === "SPICY" && !authContext.isAdmin) {
-    return createApiErrorResponse(
-      "FORBIDDEN",
-      "SPICY risk tier requires admin access",
-      403,
-      correlationId
-    );
-  }
+  // Note: All authenticated users can request any tier.
+  // Safety is enforced by deterministic sanitization + risk scoring + auto-downgrade.
 
   try {
     // Fetch product info

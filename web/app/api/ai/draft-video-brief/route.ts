@@ -428,6 +428,7 @@ interface ProvenHook {
   winner_count: number;
   underperform_count?: number;
   rejected_count?: number;
+  used_count?: number;
 }
 
 interface WeakHook {
@@ -608,7 +609,7 @@ async function getProvenHooksForBrand(brandName: string, productId?: string): Pr
     // Try to fetch from proven_hooks table
     let query = supabaseAdmin
       .from("proven_hooks")
-      .select("hook_type, hook_text, hook_family, approved_count, posted_count, winner_count")
+      .select("hook_type, hook_text, hook_family, approved_count, posted_count, winner_count, underperform_count, rejected_count, used_count")
       .eq("brand_name", brandName)
       .gte("approved_count", 1) // At least 1 approval
       .order("winner_count", { ascending: false })
@@ -1706,6 +1707,9 @@ export async function POST(request: Request) {
         approved_count: h.approved_count,
         rejected_count: h.rejected_count,
         underperform_count: h.underperform_count,
+        winner_count: h.winner_count,
+        posted_count: h.posted_count,
+        used_count: h.used_count,
       })),
       winners: winnersBank.map((w) => ({
         hook: w.hook,

@@ -14,6 +14,9 @@ export interface ProvenHookSignal {
   approved_count: number;
   rejected_count?: number;
   underperform_count?: number;
+  winner_count?: number;
+  posted_count?: number;
+  used_count?: number;
 }
 
 export interface WinnerSignal {
@@ -84,25 +87,67 @@ export function scoreHookOption(
       (h) => normalizeForMatch(h.text) === normalized,
     );
     if (match) {
+      // Base match bonus
       score += 40;
-      reasons.push("proven_hook_match: +40");
+      reasons.push("proven_match(+40)");
 
-      const approvedBonus = Math.min(match.approved_count * 5, 30);
+      // Extract performance stats with safe defaults
+      const W = match.winner_count || 0;
+      const P = match.posted_count || 0;
+      const U = match.used_count || 0;
+      const D = match.underperform_count || 0;
+      const A = match.approved_count || 0;
+      const R = match.rejected_count || 0;
+
+      // Performance-aware components (only when we have posting data)
+
+      // 1) Winner rate: reward hooks that produce winners
+      if (P > 0) {
+        const winnerRate = W / Math.max(P, 1);
+        const winnerBonus = Math.round(Math.min(winnerRate * 40, 20));
+        if (winnerBonus > 0) {
+          score += winnerBonus;
+          reasons.push(`winner_rate(+${winnerBonus}): ${W}/${P}`);
+        }
+      }
+
+      // 2) Underperform rate: penalize hooks that underperform
+      if (P > 0) {
+        const underRate = D / Math.max(P, 1);
+        const underRatePenalty = Math.round(Math.min(underRate * 40, 20));
+        if (underRatePenalty > 0) {
+          score -= underRatePenalty;
+          reasons.push(`underperform_rate(-${underRatePenalty}): ${D}/${P}`);
+        }
+      }
+
+      // 3) Confidence boost: more posting data = more trust in the signal
+      if (P > 0) {
+        const conf = Math.round(Math.min(Math.log10(P + 1) * 6, 10));
+        if (conf > 0) {
+          score += conf;
+          reasons.push(`confidence(+${conf}): posted=${P}`);
+        }
+      }
+
+      // 4) Count-based adjustments (capped tighter)
+      const approvedBonus = Math.min(A * 3, 18);
       if (approvedBonus > 0) {
         score += approvedBonus;
-        reasons.push(`approved_count(${match.approved_count}): +${approvedBonus}`);
+        reasons.push(`approved_count(+${approvedBonus}): ${A}`);
       }
 
-      const rejectedPenalty = Math.min((match.rejected_count || 0) * 8, 40);
+      const rejectedPenalty = Math.min(R * 6, 30);
       if (rejectedPenalty > 0) {
         score -= rejectedPenalty;
-        reasons.push(`rejected_count(${match.rejected_count}): -${rejectedPenalty}`);
+        reasons.push(`rejected_count(-${rejectedPenalty}): ${R}`);
       }
 
-      const underperformPenalty = Math.min((match.underperform_count || 0) * 6, 30);
+      // Raw underperform penalty (separate from rate, smaller weight)
+      const underperformPenalty = Math.min(D * 3, 18);
       if (underperformPenalty > 0) {
         score -= underperformPenalty;
-        reasons.push(`underperform_count(${match.underperform_count}): -${underperformPenalty}`);
+        reasons.push(`underperform_count(-${underperformPenalty}): ${D}`);
       }
     }
   }

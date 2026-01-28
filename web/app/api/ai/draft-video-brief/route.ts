@@ -241,6 +241,28 @@ function safeParseJSON(content: string): ParseResult {
     console.log(`Brace extraction failed: ${error}`);
   }
 
+  // Strategy 5.5: Fix trailing commas (common AI error)
+  try {
+    const firstBrace = content.indexOf("{");
+    const lastBrace = content.lastIndexOf("}");
+
+    if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+      let jsonSubstring = content.substring(firstBrace, lastBrace + 1);
+
+      // Remove trailing commas before } or ]
+      jsonSubstring = jsonSubstring.replace(/,(\s*[}\]])/g, "$1");
+
+      // Fix unescaped quotes in strings (common issue)
+      // This is a simplified fix - replace straight quotes after alphanumeric with escaped
+      jsonSubstring = jsonSubstring.replace(/([a-zA-Z0-9])"([a-zA-Z])/g, '$1\\"$2');
+
+      const parsed = JSON.parse(jsonSubstring);
+      return { success: true, data: parsed, strategy: "trailing_comma_fix" };
+    }
+  } catch (error) {
+    console.log(`Trailing comma fix failed: ${error}`);
+  }
+
   // Strategy 6: Try to find any JSON object pattern
   try {
     // Look for patterns like {"key": or {'key':
@@ -798,6 +820,8 @@ REQUIRED JSON SCHEMA (all fields required):
   "broll_ideas": string[],                   // Array of 4 B-roll ideas
   "script_draft": string
 }
+
+VALIDATION: Before outputting, verify your JSON includes ALL keys listed above. Missing keys will cause a parse error.
 
 ---
 
@@ -1476,8 +1500,8 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: "claude-3-haiku-20240307",
           max_tokens: 4000,
-          temperature: 0.4, // Lower temperature for reliable JSON output
-          system: "You are a JSON-only API. Output ONLY valid JSON with no markdown, no code fences, and no explanatory text. Your entire response must be parseable by JSON.parse().",
+          temperature: 0.3, // Low temperature for reliable JSON output
+          system: "You are a JSON API. Output raw JSON only - no markdown, no code fences, no text before or after. Start with { and end with }.",
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -1516,11 +1540,11 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: "gpt-4-turbo-preview",
           messages: [
-            { role: "system", content: "You are a JSON-only API. Output ONLY valid JSON with no markdown, no code fences, and no explanatory text. Your entire response must be parseable by JSON.parse()." },
+            { role: "system", content: "You are a JSON API. Output raw JSON only - no markdown, no code fences, no text before or after. Start with { and end with }." },
             { role: "user", content: prompt },
           ],
           max_tokens: 4000,
-          temperature: 0.4, // Lower temperature for reliable JSON output
+          temperature: 0.3, // Low temperature for reliable JSON output
           response_format: { type: "json_object" }, // Enforce JSON mode
         }),
       });

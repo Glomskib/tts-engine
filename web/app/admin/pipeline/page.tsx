@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import NotificationBadge from '../components/NotificationBadge';
 import IncidentBanner from '../components/IncidentBanner';
-import AdminNav from '../components/AdminNav';
 import VideoDrawer from './components/VideoDrawer';
 import CreateVideoDrawer from './components/CreateVideoDrawer';
 import AppLayout from '@/app/components/AppLayout';
@@ -1273,614 +1271,389 @@ export default function AdminPipelinePage() {
     return new Date(video.claim_expires_at) <= new Date();
   };
 
+  // Intent-based filter options
+  type FilterIntent = 'all' | 'my_work' | 'needs_action' | 'overdue' | 'needs_mapping' | 'ready_to_post';
+  const [filterIntent, setFilterIntent] = useState<FilterIntent>('all');
+  const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
+
+  // Apply intent-based filtering
+  const getIntentFilteredVideos = () => {
+    let videos = getRoleFilteredVideos();
+
+    switch (filterIntent) {
+      case 'my_work':
+        videos = videos.filter(v => v.claimed_by === activeUser);
+        break;
+      case 'needs_action':
+        // Videos in actionable states, prioritize unclaimed
+        videos = videos.filter(v =>
+          ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST'].includes(v.recording_status || '')
+        ).sort((a, b) => {
+          // Unclaimed first
+          if (!a.claimed_by && b.claimed_by) return -1;
+          if (a.claimed_by && !b.claimed_by) return 1;
+          return 0;
+        });
+        break;
+      case 'overdue':
+        videos = videos.filter(v => v.sla_status === 'overdue');
+        break;
+      case 'needs_mapping':
+        videos = videos.filter(v => !v.brand_name || !v.product_id);
+        break;
+      case 'ready_to_post':
+        videos = videos.filter(v => v.recording_status === 'READY_TO_POST');
+        break;
+      default:
+        break;
+    }
+
+    // Apply search query on top
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      videos = videos.filter(v =>
+        v.video_code?.toLowerCase().includes(q) ||
+        v.id.toLowerCase().includes(q) ||
+        v.brand_name?.toLowerCase().includes(q) ||
+        v.product_name?.toLowerCase().includes(q) ||
+        v.product_sku?.toLowerCase().includes(q)
+      );
+    }
+
+    return videos;
+  };
+
+  const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
+    { value: 'all', label: 'All Videos' },
+    { value: 'my_work', label: 'My Work' },
+    { value: 'needs_action', label: 'Needs Action' },
+    { value: 'overdue', label: 'Overdue' },
+    { value: 'needs_mapping', label: 'Needs Mapping' },
+    { value: 'ready_to_post', label: 'Ready to Post' },
+  ];
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Incident Mode Banner */}
       <IncidentBanner />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 600, color: colors.text, margin: 0 }}>
-          {isAdminMode ? 'Video Pipeline' : `${vaMode.charAt(0).toUpperCase() + vaMode.slice(1)} Dashboard`}
-        </h1>
-        <div>
-          <button onClick={() => { fetchData(); fetchQueueVideos(); }} style={{ padding: '8px 16px', marginRight: '10px' }}>
-            Refresh
-          </button>
-          {/* Release stale claims - Admin only */}
-          {isAdminMode && (
-            <button
-              onClick={releaseStale}
-              disabled={releasing}
-              style={{ padding: '8px 16px', marginRight: '10px', backgroundColor: '#f0ad4e', border: '1px solid #eea236' }}
-            >
-              {releasing ? 'Releasing...' : 'Release stale claims'}
-            </button>
-          )}
-          {/* Reclaim expired assignments - Admin only */}
-          {isAdminMode && (
-            <button
-              onClick={reclaimExpired}
-              disabled={reclaiming}
-              style={{ padding: '8px 16px', marginRight: '10px', backgroundColor: '#17a2b8', color: 'white', border: '1px solid #138496' }}
-            >
-              {reclaiming ? 'Reclaiming...' : 'Reclaim expired'}
-            </button>
-          )}
-          {lastRefresh && (
-            <span style={{ color: '#666', fontSize: '14px' }}>
-              Last updated: {hydrated ? lastRefresh.toLocaleString() : formatDateString(lastRefresh.toISOString())}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {error && <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>}
-      {releaseMessage && (
-        <div style={{ color: releaseMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '20px' }}>
-          {releaseMessage}
-        </div>
-      )}
-      {reclaimMessage && (
-        <div style={{ color: reclaimMessage.startsWith('Error') ? 'red' : 'green', marginBottom: '20px' }}>
-          {reclaimMessage}
-        </div>
-      )}
-
-      {/* Simple/Advanced View Toggle */}
+      {/* Clean Header */}
       <div style={{
-        marginBottom: '20px',
-        padding: '12px 16px',
-        backgroundColor: colors.surface,
-        borderRadius: '10px',
-        border: `1px solid ${colors.border}`,
         display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        gap: '20px',
-        flexWrap: 'wrap',
+        marginBottom: '24px',
       }}>
-        {/* Simple/Advanced Toggle */}
-        <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: `1px solid ${colors.border}` }}>
-          <button
-            onClick={() => setSimpleView(true)}
-            style={{
-              padding: '8px 16px',
-              border: 'none',
-              backgroundColor: simpleView ? colors.accent : colors.surface,
-              color: simpleView ? 'white' : colors.textMuted,
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 500,
-            }}
-          >
-            Simple
-          </button>
-          <button
-            onClick={() => setSimpleView(false)}
-            style={{
-              padding: '8px 16px',
-              border: 'none',
-              borderLeft: `1px solid ${colors.border}`,
-              backgroundColor: !simpleView ? colors.accent : colors.surface,
-              color: !simpleView ? 'white' : colors.textMuted,
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 500,
-            }}
-          >
-            Advanced
-          </button>
-        </div>
+        <h1 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, margin: 0 }}>
+          Video Pipeline
+        </h1>
 
-        {/* Quick Stats */}
-        {queueSummary && (
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: colors.textMuted }}>
-              <strong style={{ color: colors.text }}>{getRoleFilteredVideos().length}</strong> items
-              {vaMode !== 'admin' && ` for ${vaMode}`}
-            </span>
-            {queueSummary.counts_by_status['READY_TO_POST'] > 0 && (
-              <span style={{
-                padding: '4px 10px',
-                backgroundColor: colors.success,
-                color: 'white',
-                borderRadius: '10px',
-                fontSize: '11px',
-                fontWeight: 600,
-              }}>
-                {queueSummary.counts_by_status['READY_TO_POST']} ready
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Role indicator */}
-        <div style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
-          {simpleView ? 'Showing essential columns' : 'Showing all columns'}
-        </div>
-      </div>
-
-      {/* Queue Summary - Advanced view only */}
-      {!simpleView && (
-        <section style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
-          <h2 style={{ marginTop: 0 }}>Queue Summary</h2>
-          {queueSummary ? (
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{ fontSize: '18px' }}>
-                <strong>Total Queued:</strong> {queueSummary.total_queued}
-              </div>
-              {Object.entries(queueSummary.counts_by_status).map(([status, count]) => (
-                <div key={status} style={{ padding: '4px 10px', backgroundColor: '#e9ecef', borderRadius: '4px', fontSize: '14px' }}>
-                  {status.replace(/_/g, ' ')}: <strong>{count}</strong>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>No data available</p>
-          )}
-        </section>
-      )}
-
-      {/* Video Queue with Recording Status Tabs */}
-      <section style={{ marginBottom: '30px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <h2 style={{ margin: 0 }}>Video Queue</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Create Video - Primary Action */}
           {isAdminMode && (
             <button
               onClick={() => setShowCreateDrawer(true)}
               style={{
-                padding: '10px 20px',
-                backgroundColor: '#228be6',
+                padding: '8px 16px',
+                backgroundColor: colors.accent,
                 color: 'white',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
+                fontSize: '13px',
+                fontWeight: 500,
               }}
             >
-              ➕ Create Video
+              Create Video
             </button>
           )}
+
+          {/* Maintenance Menu */}
+          {isAdminMode && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowMaintenanceMenu(!showMaintenanceMenu)}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: colors.surface,
+                  color: colors.textMuted,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  lineHeight: 1,
+                }}
+                title="Maintenance"
+              >
+                ...
+              </button>
+              {showMaintenanceMenu && (
+                <>
+                  <div
+                    onClick={() => setShowMaintenanceMenu(false)}
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '4px',
+                    backgroundColor: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 100,
+                    minWidth: '160px',
+                    overflow: 'hidden',
+                  }}>
+                    <button
+                      onClick={() => { fetchData(); fetchQueueVideos(); setShowMaintenanceMenu(false); }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '10px 14px',
+                        textAlign: 'left',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        color: colors.text,
+                      }}
+                    >
+                      Refresh
+                    </button>
+                    <button
+                      onClick={() => { releaseStale(); setShowMaintenanceMenu(false); }}
+                      disabled={releasing}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '10px 14px',
+                        textAlign: 'left',
+                        background: 'none',
+                        border: 'none',
+                        cursor: releasing ? 'not-allowed' : 'pointer',
+                        fontSize: '13px',
+                        color: colors.text,
+                        opacity: releasing ? 0.5 : 1,
+                      }}
+                    >
+                      {releasing ? 'Releasing...' : 'Release Stale Claims'}
+                    </button>
+                    <button
+                      onClick={() => { reclaimExpired(); setShowMaintenanceMenu(false); }}
+                      disabled={reclaiming}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '10px 14px',
+                        textAlign: 'left',
+                        background: 'none',
+                        border: 'none',
+                        cursor: reclaiming ? 'not-allowed' : 'pointer',
+                        fontSize: '13px',
+                        color: colors.text,
+                        opacity: reclaiming ? 0.5 : 1,
+                      }}
+                    >
+                      {reclaiming ? 'Reclaiming...' : 'Reclaim Expired'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* VA Mode + Authenticated User Display */}
-        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', backgroundColor: '#e7f5ff', borderRadius: '4px', border: '1px solid #74c0fc', flexWrap: 'wrap' }}>
-          {/* View Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>View:</span>
-            <select
-              value={vaMode}
-              onChange={(e) => updateVaMode(e.target.value as VAMode)}
-              disabled={!isUserAdmin}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '4px',
-                border: '1px solid #74c0fc',
-                fontWeight: 'bold',
-                color: vaMode === 'admin' ? '#e03131' : vaMode === 'recorder' ? '#228be6' : vaMode === 'editor' ? '#fab005' : '#40c057',
-                backgroundColor: isUserAdmin ? '#fff' : '#f0f0f0',
-                fontSize: '14px',
-                textTransform: 'capitalize',
-                cursor: isUserAdmin ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {VA_MODES.filter(mode => isUserAdmin || mode === authUser?.role).map(mode => (
-                <option key={mode} value={mode}>{mode.charAt(0).toUpperCase() + mode.slice(1)}</option>
-              ))}
-            </select>
-            {vaMode !== 'admin' && (
-              <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
-                (Safe mode - force actions hidden)
-              </span>
-            )}
-            {!isUserAdmin && (
-              <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
-                (Locked to your role)
-              </span>
-            )}
-          </div>
-
-          <span style={{ color: '#ccc' }}>|</span>
-
-          {/* Authenticated User Display */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Signed in as:</span>
-            <span style={{
-              padding: '4px 12px',
-              backgroundColor: '#fff',
-              borderRadius: '4px',
-              border: '1px solid #74c0fc',
-              fontWeight: 'bold',
-              color: '#1971c2',
-              fontSize: '13px',
-            }}>
-              {authUser?.email || authUser?.id.slice(0, 8) || 'Loading...'}
-            </span>
-            {authUser?.role && (
-              <span style={{
-                padding: '3px 8px',
-                backgroundColor: authUser.role === 'admin' ? '#ffe3e3' : '#d3f9d8',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                textTransform: 'capitalize',
-                color: authUser.role === 'admin' ? '#e03131' : '#40c057',
-              }}>
-                {authUser.role}
-              </span>
-            )}
-            <button
-              onClick={async () => {
-                const supabase = createBrowserSupabaseClient();
-                await supabase.auth.signOut();
-                router.push('/login');
-              }}
-              style={{
-                padding: '4px 10px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              Sign Out
-            </button>
-          </div>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
-            <input
-              type="checkbox"
-              checked={myWorkOnly}
-              onChange={(e) => setMyWorkOnly(e.target.checked)}
-            />
-            <span style={{ fontSize: '14px', fontWeight: myWorkOnly ? 'bold' : 'normal', color: myWorkOnly ? '#1971c2' : '#333' }}>
-              My Work Only
-            </span>
-          </label>
+      {/* Status Messages */}
+      {error && <div style={{ color: colors.danger, marginBottom: '16px', fontSize: '13px' }}>Error: {error}</div>}
+      {releaseMessage && (
+        <div style={{ color: releaseMessage.startsWith('Error') ? colors.danger : colors.success, marginBottom: '16px', fontSize: '13px' }}>
+          {releaseMessage}
         </div>
+      )}
+      {reclaimMessage && (
+        <div style={{ color: reclaimMessage.startsWith('Error') ? colors.danger : colors.success, marginBottom: '16px', fontSize: '13px' }}>
+          {reclaimMessage}
+        </div>
+      )}
 
-        {/* Admin Navigation */}
-        <AdminNav
-          isAdmin={isUserAdmin}
-          showNotificationBadge={<NotificationBadge />}
+      {/* Compact Filter Bar */}
+      <div style={{
+        marginBottom: '16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        flexWrap: 'wrap',
+      }}>
+        {/* Filter Dropdown */}
+        <select
+          value={filterIntent}
+          onChange={(e) => setFilterIntent(e.target.value as FilterIntent)}
+          style={{
+            padding: '8px 12px',
+            fontSize: '13px',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            backgroundColor: colors.surface,
+            color: colors.text,
+            cursor: 'pointer',
+          }}
+        >
+          {FILTER_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            fontSize: '13px',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            width: '200px',
+            backgroundColor: colors.surface,
+            color: colors.text,
+          }}
         />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{
+              padding: '4px 8px',
+              fontSize: '12px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: colors.textMuted,
+            }}
+          >
+            Clear
+          </button>
+        )}
 
-        {/* Simplified Filter Bar */}
+        {/* Count */}
+        <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
+          {getIntentFilteredVideos().length} videos
+          {queueLoading && ' (loading...)'}
+        </span>
+      </div>
+
+      {/* Quiet, Scannable Table */}
+      {getIntentFilteredVideos().length > 0 ? (
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Due</th>
+              <th style={thStyle}>Video</th>
+              <th style={thStyle}>Brand / Product</th>
+              <th style={thStyle}>Stage</th>
+              <th style={thStyle}>Owner</th>
+            </tr>
+          </thead>
+          <tbody>
+            {getIntentFilteredVideos().map((video) => {
+              const claimedByOther = isClaimedByOther(video);
+              const claimedByMe = isClaimedByMe(video);
+              const metaBadges = getVideoMetaBadges(video);
+
+              // SLA indicator - subtle left border color
+              const slaBorderColor = video.sla_status === 'overdue' ? colors.danger :
+                video.sla_status === 'due_soon' ? colors.warning : 'transparent';
+
+              return (
+                <tr
+                  key={video.id}
+                  onClick={(e) => handleRowClick(e, video)}
+                  style={{
+                    cursor: 'pointer',
+                    borderLeft: `3px solid ${slaBorderColor}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.surface2;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  {/* Due - subtle indicator */}
+                  <td style={{ ...tdStyle, width: '80px' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      color: video.sla_status === 'overdue' ? colors.danger :
+                        video.sla_status === 'due_soon' ? colors.warning : colors.textMuted,
+                    }}>
+                      {video.sla_status === 'overdue' ? 'Overdue' :
+                        video.sla_status === 'due_soon' ? 'Soon' : 'OK'}
+                    </span>
+                  </td>
+                  {/* Video - code prominent, UUID muted */}
+                  <td style={tdStyle}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 500, color: colors.text }}>
+                      {video.video_code || video.id.slice(0, 8)}
+                    </div>
+                    {video.video_code && (
+                      <div style={{ fontFamily: 'monospace', fontSize: '10px', color: colors.textMuted }}>
+                        {video.id.slice(0, 8)}
+                      </div>
+                    )}
+                  </td>
+                  {/* Brand / Product */}
+                  <td style={tdStyle}>
+                    {metaBadges.brand === '—' && metaBadges.sku === '—' ? (
+                      <span style={{ fontSize: '12px', color: colors.textMuted }}>
+                        Unmapped
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: colors.text }}>
+                        {metaBadges.brand}{metaBadges.sku !== '—' ? ` · ${metaBadges.sku}` : ''}
+                      </span>
+                    )}
+                  </td>
+                  {/* Stage - neutral pill */}
+                  <td style={tdStyle}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: colors.surface2,
+                      color: colors.text,
+                      fontSize: '11px',
+                      fontWeight: 500,
+                    }}>
+                      {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  {/* Owner */}
+                  <td style={tdStyle}>
+                    <span style={{ fontSize: '12px', color: colors.textMuted }}>
+                      {claimedByMe ? 'You' : claimedByOther ? video.claimed_by?.slice(0, 8) : '—'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
         <div style={{
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          flexWrap: 'wrap',
-          padding: '12px 16px',
+          padding: '40px',
+          textAlign: 'center',
+          color: colors.textMuted,
           backgroundColor: colors.surface,
           borderRadius: '10px',
           border: `1px solid ${colors.border}`,
         }}>
-          {/* Stage Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', color: colors.textMuted }}>Stage:</span>
-            <select
-              value={activeRecordingTab}
-              onChange={(e) => setActiveRecordingTab(e.target.value as typeof activeRecordingTab)}
-              style={{
-                padding: '8px 12px',
-                fontSize: '13px',
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8px',
-                backgroundColor: colors.surface,
-                color: colors.text,
-              }}
-            >
-              {STAGE_TABS.map(tab => (
-                <option key={tab.key} value={tab.key}>{tab.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Search */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '300px' }}>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                fontSize: '13px',
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8px',
-                width: '100%',
-                backgroundColor: colors.surface,
-                color: colors.text,
-              }}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: colors.textMuted,
-                }}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          {/* Loading indicator */}
-          {queueLoading && <span style={{ color: colors.textMuted, fontSize: '12px' }}>Loading...</span>}
-
-          {/* Count */}
-          <span style={{ marginLeft: 'auto', fontSize: '13px', color: colors.textMuted }}>
-            {getRoleFilteredVideos().length} videos
-          </span>
+          {queueLoading ? 'Loading...' : 'No videos match this filter'}
         </div>
-
-        {/* Queue Table - Simple or Advanced View */}
-        {getRoleFilteredVideos().length > 0 ? (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Due</th>
-                <th style={thStyle}>Video Code</th>
-                <th style={thStyle}>Brand / Product</th>
-                <th style={thStyle}>Stage</th>
-                <th style={thStyle}>Owner</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getRoleFilteredVideos().map((video) => {
-                const statusColors = getStatusBadgeColor(video.recording_status);
-                const slaColors = getSlaColor(video.sla_status);
-                const claimedByOther = isClaimedByOther(video);
-                const claimedByMe = isClaimedByMe(video);
-                const metaBadges = getVideoMetaBadges(video);
-
-                return (
-                  <tr
-                    key={video.id}
-                    onClick={(e) => handleRowClick(e, video)}
-                    style={{
-                      backgroundColor: claimedByMe ? colors.accentSubtle : 'transparent',
-                      cursor: 'pointer',
-                      borderLeft: claimedByMe ? `2px solid ${colors.accent}` : '2px solid transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!claimedByMe) {
-                        e.currentTarget.style.backgroundColor = colors.surface2;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!claimedByMe) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }
-                    }}
-                  >
-                    {/* Due */}
-                    <td style={tdStyle}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: slaColors.bg,
-                        color: slaColors.text,
-                        border: `1px solid ${slaColors.border}`,
-                        fontSize: '11px',
-                        fontWeight: '500',
-                      }}>
-                        {video.sla_status === 'overdue' ? 'Overdue' : video.sla_status === 'due_soon' ? 'Due Soon' : 'On Track'}
-                      </span>
-                    </td>
-                    {/* Video Code */}
-                    <td style={{...tdStyle, fontFamily: 'monospace', fontSize: '12px'}}>
-                      {video.video_code || video.id.slice(0, 8)}
-                    </td>
-                    {/* Brand / Product */}
-                    <td style={tdStyle}>
-                      {metaBadges.brand === '—' && metaBadges.sku === '—' ? (
-                        <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                          Not mapped
-                        </span>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: '500', color: '#1f2937' }}>
-                            {metaBadges.brand}
-                          </span>
-                          <span style={{ fontSize: '11px', color: '#6b7280' }}>
-                            {metaBadges.sku}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    {/* Stage */}
-                    <td style={tdStyle}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '4px 10px',
-                        borderRadius: '4px',
-                        backgroundColor: statusColors.badge,
-                        color: 'white',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                      }}>
-                        {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    {/* Owner */}
-                    <td style={tdStyle}>
-                      <span style={{ fontSize: '11px', color: claimedByMe ? '#16a34a' : claimedByOther ? '#d97706' : '#9ca3af' }}>
-                        {claimedByMe ? 'You' : claimedByOther ? video.claimed_by?.slice(0, 8) : '—'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <p style={{ color: '#666' }}>
-            {queueLoading ? 'Loading...' : 'No videos in queue for this filter'}
-          </p>
-        )}
-        <div style={{ fontSize: '12px', color: '#666' }}>
-          Showing {getRoleFilteredVideos().length} video(s)
-          {vaMode !== 'admin' && ` for ${vaMode} role`}
-          {activeRecordingTab !== 'ALL' && ` with status ${activeRecordingTab}`}
-        </div>
-      </section>
-
-      {/* Advanced sections - only show in advanced view */}
-      {!simpleView && (
-      <>
-      {/* Filters for legacy sections */}
-      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Event Filters:</span>
-          <input
-            type="text"
-            placeholder="Filter by Video ID..."
-            value={videoIdFilter}
-            onChange={(e) => setVideoIdFilter(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="Filter by Actor..."
-            value={claimedByFilter}
-            onChange={(e) => setClaimedByFilter(e.target.value)}
-            style={inputStyle}
-          />
-          <select
-            value={eventTypeFilter}
-            onChange={(e) => setEventTypeFilter(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="">All Event Types</option>
-            {eventTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* In Progress Videos - Advanced View Only */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2>In Progress ({filteredClaimedVideos.length}{hasActiveFilters ? ` of ${claimedVideos.length}` : ''})</h2>
-        {filteredClaimedVideos.length > 0 ? (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>ID</th>
-                <th style={thStyle}>Assigned To</th>
-                <th style={thStyle}>Started</th>
-                <th style={thStyle}>Expires</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClaimedVideos.map((video) => (
-                <tr key={video.id}>
-                  <td style={copyableCellStyle}>
-                    <Link href={`/admin/pipeline/${video.id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
-                      {video.id.slice(0, 8)}...
-                    </Link>
-                    <span
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(video.id, `vid-${video.id}`); }}
-                      style={{ marginLeft: '5px', cursor: 'pointer', color: '#666' }}
-                      title="Copy full ID"
-                    >
-                      [copy]
-                    </span>
-                    {copiedId === `vid-${video.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
-                  </td>
-                  <td style={tdStyle}>{video.claimed_by}</td>
-                  <td style={tdStyle} title={formatDateString(video.claimed_at)}>{displayTime(video.claimed_at)}</td>
-                  <td style={tdStyle} title={video.claim_expires_at ? formatDateString(video.claim_expires_at) : ''}>{video.claim_expires_at ? displayTime(video.claim_expires_at) : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p style={{ color: '#666' }}>{hasActiveFilters ? 'No matching claimed videos' : 'No videos currently claimed'}</p>
-        )}
-      </section>
-
-      {/* Recent Events */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2>Recent Events ({filteredEvents.length}{hasActiveFilters ? ` of ${recentEvents.length}` : ''})</h2>
-        {filteredEvents.length > 0 ? (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>When</th>
-                <th style={thStyle}>Type</th>
-                <th style={thStyle}>Video ID</th>
-                <th style={thStyle}>Actor</th>
-                <th style={thStyle}>Transition</th>
-                <th style={thStyle}>Correlation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEvents.map((event) => (
-                <tr key={event.id}>
-                  <td style={tdStyle} title={formatDateString(event.created_at)}>{displayTime(event.created_at)}</td>
-                  <td style={tdStyle}>{event.event_type}</td>
-                  <td style={copyableCellStyle}>
-                    <Link href={`/admin/pipeline/${event.video_id}`} style={{ color: '#0066cc', textDecoration: 'none' }}>
-                      {event.video_id.slice(0, 8)}...
-                    </Link>
-                    <span
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(event.video_id, `evt-vid-${event.id}`); }}
-                      style={{ marginLeft: '5px', cursor: 'pointer', color: '#666' }}
-                      title="Copy full ID"
-                    >
-                      [copy]
-                    </span>
-                    {copiedId === `evt-vid-${event.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
-                  </td>
-                  <td style={tdStyle}>{event.actor}</td>
-                  <td style={tdStyle}>
-                    {event.from_status || '-'} → {event.to_status || '-'}
-                  </td>
-                  <td
-                    style={copyableCellStyle}
-                    onClick={() => copyToClipboard(event.correlation_id, `corr-${event.id}`)}
-                    title="Click to copy"
-                  >
-                    {event.correlation_id.slice(0, 12)}...
-                    {copiedId === `corr-${event.id}` && <span style={{ marginLeft: '5px', color: 'green', fontSize: '10px' }}>Copied!</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p style={{ color: '#666' }}>{hasActiveFilters ? 'No matching events' : 'No recent events'}</p>
-        )}
-      </section>
-
-      <div style={{ color: '#999', fontSize: '12px' }}>
-        Auto-refreshes every 10 seconds
-      </div>
-      </>
       )}
+
 
       {/* Attach Script Modal */}
       {attachModalVideoId && (

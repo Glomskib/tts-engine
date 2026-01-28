@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import type { QueueVideo } from '../types';
 import { getStatusBadgeColor, getSlaColor, getPrimaryAction, getReadinessIndicators } from '../types';
 import { formatDateString, getTimeAgo, useHydrated } from '@/lib/useHydrated';
@@ -1004,6 +1005,20 @@ export default function VideoDrawer({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* View Audit Trail */}
+              {isAdmin && (
+                <Link
+                  href={`/admin/audit-log?entity_type=video&entity_id=${video.id}`}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    color: '#64748b',
+                    textDecoration: 'none',
+                  }}
+                >
+                  View audit trail
+                </Link>
+              )}
               {/* Admin Edit Mode Toggle */}
               {isAdmin && (
                 <button

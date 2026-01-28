@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { singleFlight, generateFlightKey, createConflictResponse, SingleFlightConflictError } from "@/lib/single-flight";
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
 import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
@@ -1315,18 +1314,6 @@ export async function POST(request: Request) {
   const url = new URL(request.url);
   const debugMode = url.searchParams.get("debug") === "1" || process.env.DEBUG_AI === "1";
 
-  // Rate limiting check
-  const authContext = await getApiAuthContext();
-  const rateLimitContext = {
-    userId: authContext.user?.id ?? null,
-    orgId: null, // TODO: Add org context when available
-    ...extractRateLimitContext(request),
-  };
-  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -1351,16 +1338,17 @@ export async function POST(request: Request) {
 
   // Validate product_id
   if (!product_id || typeof product_id !== "string" || product_id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "product_id is required", error_code: "VALIDATION_ERROR", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "product_id is required", 400, correlationId);
   }
+
+  // Single-flight: prevent concurrent generations for the same product
+  // Only apply to "generate" mode (not "readjust" which is quick)
+  const flightKey = mode === "generate" ? generateFlightKey("ai-brief", product_id.trim()) : null;
 
   // Validate tone_preset
   const validTonePreset = TONE_PRESETS.includes(tone_preset as TonePreset) ? (tone_preset as TonePreset) : "ugc_casual";
 
-  // Fetch product with brand info
+  // Fetch product with brand info (outside single-flight - quick lookup)
   const { data: product, error: productError } = await supabaseAdmin
     .from("products")
     .select("id, name, brand, category, primary_link, notes")
@@ -1368,11 +1356,109 @@ export async function POST(request: Request) {
     .single();
 
   if (productError || !product) {
-    return NextResponse.json(
-      { ok: false, error: "Product not found", error_code: "NOT_FOUND", correlation_id: correlationId },
-      { status: 404 }
-    );
+    return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId, { product_id: product_id.trim() });
   }
+
+  // Single-flight wrapper for AI generation
+  // This prevents duplicate AI calls when users rapidly click "regenerate"
+  if (flightKey) {
+    try {
+      const { result, primary } = await singleFlight(flightKey, async () => {
+        return await executeAIGeneration({
+          correlationId,
+          debugMode,
+          product,
+          product_id: product_id.trim(),
+          hook_type,
+          validTonePreset,
+          target_length,
+          reference_script_text,
+          reference_script_id,
+          reference_video_url,
+          nonce,
+          mode,
+          locked_fields,
+          original_ai_draft,
+          current_state,
+        });
+      });
+
+      if (!primary) {
+        console.log(`[${correlationId}] Returned deduped result for product ${product_id}`);
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof SingleFlightConflictError) {
+        return createConflictResponse(correlationId, "product");
+      }
+      throw error;
+    }
+  }
+
+  // No single-flight (readjust mode or no key) - execute directly
+  return await executeAIGeneration({
+    correlationId,
+    debugMode,
+    product,
+    product_id: product_id.trim(),
+    hook_type,
+    validTonePreset,
+    target_length,
+    reference_script_text,
+    reference_script_id,
+    reference_video_url,
+    nonce,
+    mode,
+    locked_fields,
+    original_ai_draft,
+    current_state,
+  });
+}
+
+// Extracted AI generation logic
+interface ExecuteAIGenerationParams {
+  correlationId: string;
+  debugMode: boolean;
+  product: {
+    id: string;
+    name: string;
+    brand: string | null;
+    category: string | null;
+    primary_link: string | null;
+    notes: string | null;
+  };
+  product_id: string;
+  hook_type: string;
+  validTonePreset: TonePreset;
+  target_length: string;
+  reference_script_text?: string;
+  reference_script_id?: string;
+  reference_video_url?: string;
+  nonce: string;
+  mode: string;
+  locked_fields: string[];
+  original_ai_draft?: Partial<DraftVideoBriefResult>;
+  current_state?: DraftVideoBriefInput["current_state"];
+}
+
+async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<NextResponse> {
+  const {
+    correlationId,
+    debugMode,
+    product,
+    product_id,
+    hook_type,
+    validTonePreset,
+    target_length,
+    reference_script_text,
+    reference_script_id,
+    reference_video_url,
+    nonce,
+    mode,
+    locked_fields,
+    original_ai_draft,
+    current_state,
+  } = params;
 
   // If reference_script_id provided, fetch it
   let referenceScriptContent = reference_script_text || "";

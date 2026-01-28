@@ -1,5 +1,5 @@
 // api-errors.ts - Standardized API error codes and responses
-// Phase 2: Added RATE_LIMITED, GENERATION_IN_PROGRESS, createApiErrorResponse
+// Phase 3: Added GENERATION_IN_PROGRESS for single-flight
 
 import { NextResponse } from "next/server";
 
@@ -46,7 +46,6 @@ export type ApiErrorCode =
   | 'NO_SCRIPT'
   | 'POSTING_META_INCOMPLETE'
   | 'FINAL_ASSET_REQUIRED'
-  | 'RATE_LIMITED'
   | 'GENERATION_IN_PROGRESS';
 
 // Admin users who can use force=true bypass (environment-configurable)
@@ -100,11 +99,6 @@ export function generateCorrelationId(): string {
 
 /**
  * Standardized API error response shape
- * - ok: false (always)
- * - error_code: machine-readable error code
- * - message: human-readable error message
- * - correlation_id: request correlation ID for debugging
- * - details?: optional additional context
  */
 export interface StandardApiErrorResponse {
   ok: false;
@@ -116,10 +110,6 @@ export interface StandardApiErrorResponse {
 
 /**
  * Create a standardized API error response with correlation_id header
- *
- * Usage:
- *   return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
- *   return createApiErrorResponse("BAD_REQUEST", "Invalid input", 400, correlationId, { field: "email" });
  */
 export function createApiErrorResponse(
   errorCode: ApiErrorCode,

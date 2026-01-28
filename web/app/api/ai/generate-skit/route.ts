@@ -15,6 +15,12 @@ import {
   validateSkitAgainstTemplate,
   type SkitTemplate,
 } from "@/lib/ai/skitTemplates";
+import {
+  getSkitPreset,
+  clampIntensityToPreset,
+  buildPresetPromptSection,
+  type SkitPreset,
+} from "@/lib/ai/skitPresets";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -41,6 +47,7 @@ const GenerateSkitInputSchema = z.object({
   persona: PersonaSchema,
   template_id: z.string().max(50).optional(),
   intensity: z.number().min(0).max(100).optional(),
+  preset_id: z.string().max(50).optional(),
 }).strict();
 
 type GenerateSkitInput = z.infer<typeof GenerateSkitInputSchema>;
@@ -316,17 +323,37 @@ export async function POST(request: Request) {
       return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId);
     }
 
-    // Look up template if provided
+    // Look up preset if provided
+    let preset: SkitPreset | null = null;
+    let presetIntensityClamped = false;
+    if (input.preset_id) {
+      preset = getSkitPreset(input.preset_id);
+      if (!preset) {
+        return createApiErrorResponse("VALIDATION_ERROR", `Unknown preset: ${input.preset_id}`, 400, correlationId);
+      }
+    }
+
+    // Look up template - use preset default if no template specified
     let template: SkitTemplate | null = null;
-    if (input.template_id) {
-      template = getSkitTemplate(input.template_id);
+    const effectiveTemplateId = input.template_id || preset?.default_template_id;
+    if (effectiveTemplateId) {
+      template = getSkitTemplate(effectiveTemplateId);
       if (!template) {
-        return createApiErrorResponse("VALIDATION_ERROR", `Unknown template: ${input.template_id}`, 400, correlationId);
+        return createApiErrorResponse("VALIDATION_ERROR", `Unknown template: ${effectiveTemplateId}`, 400, correlationId);
+      }
+    }
+
+    // Get intensity - apply preset clamping first, then budget throttle
+    let requestedIntensity = input.intensity ?? preset?.intensity_default ?? 50;
+    if (preset) {
+      const presetClamp = clampIntensityToPreset(requestedIntensity, preset);
+      if (presetClamp.wasClamped) {
+        presetIntensityClamped = true;
+        requestedIntensity = presetClamp.intensity;
       }
     }
 
     // Check intensity budget (soft throttle - clamps instead of blocking)
-    const requestedIntensity = input.intensity ?? 50;
     const intensityBudget = checkAndDeductIntensityBudget(
       "default", // org_id not available in auth context, use default bucket
       authContext.user.id,
@@ -346,6 +373,7 @@ export async function POST(request: Request) {
       riskTier: input.risk_tier,
       persona: input.persona,
       template,
+      preset,
       intensity: intensityBudget.intensityApplied,
     });
 
@@ -372,19 +400,22 @@ export async function POST(request: Request) {
       entity_type: input.video_id ? "video" : "product",
       entity_id: input.video_id || input.product_id,
       actor: authContext.user.id,
-      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${intensityBudget.intensityApplied}${intensityBudget.budgetClamped ? " (clamped)" : ""}${template ? `, template=${template.id}` : ""}`,
+      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${intensityBudget.intensityApplied}${intensityBudget.budgetClamped ? " (budget)" : ""}${presetIntensityClamped ? " (preset)" : ""}${preset ? `, preset=${preset.id}` : ""}${template ? `, template=${template.id}` : ""}`,
       details: {
         risk_tier_requested: input.risk_tier,
         risk_tier_applied: processed.appliedTier,
         persona: input.persona,
-        template_id: input.template_id || null,
+        template_id: effectiveTemplateId || null,
+        preset_id: preset?.id || null,
+        preset_name: preset?.name || null,
         risk_score: processed.riskScore,
         flags_count: processed.riskFlags.length,
         was_downgraded: processed.wasDowngraded,
         template_validation: templateValidation,
-        intensity_requested: requestedIntensity,
+        intensity_requested: input.intensity ?? preset?.intensity_default ?? 50,
         intensity_applied: intensityBudget.intensityApplied,
         budget_clamped: intensityBudget.budgetClamped,
+        preset_intensity_clamped: presetIntensityClamped,
       },
     });
 
@@ -396,11 +427,14 @@ export async function POST(request: Request) {
         risk_tier_applied: processed.appliedTier,
         risk_score: processed.riskScore,
         risk_flags: processed.riskFlags,
-        template_id: input.template_id || null,
+        template_id: effectiveTemplateId || null,
         template_validation: templateValidation,
-        intensity_requested: requestedIntensity,
+        preset_id: preset?.id || null,
+        preset_name: preset?.name || null,
+        intensity_requested: input.intensity ?? preset?.intensity_default ?? 50,
         intensity_applied: intensityBudget.intensityApplied,
         budget_clamped: intensityBudget.budgetClamped,
+        preset_intensity_clamped: presetIntensityClamped,
         skit: processed.skit,
       },
     });
@@ -429,15 +463,17 @@ interface PromptParams {
   riskTier: RiskTier;
   persona: Persona;
   template: SkitTemplate | null;
+  preset: SkitPreset | null;
   intensity: number;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, intensity } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
   const templateSection = template ? buildTemplatePromptSection(template) : "";
+  const presetSection = preset ? buildPresetPromptSection(preset) : "";
   const intensityGuideline = buildIntensityGuidelines(intensity);
 
   return `You are a TikTok skit writer for product advertisements. Generate a short, engaging skit.
@@ -453,6 +489,8 @@ CTA OVERLAY TO USE: "${ctaOverlay}"
 ${tierGuideline}
 
 ${intensityGuideline}
+
+${presetSection}
 
 PERSONA/CHARACTER:
 ${personaGuideline}

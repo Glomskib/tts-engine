@@ -21,6 +21,11 @@ import {
   buildPresetPromptSection,
   type SkitPreset,
 } from "@/lib/ai/skitPresets";
+import {
+  applySkitBudgetClamp,
+  isDebugMode,
+  type BudgetDiagnostics,
+} from "@/lib/ai/skitBudget";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -199,61 +204,6 @@ COMEDY INTENSITY: MAXIMUM (${intensity}/100)
   }
 }
 
-// --- Intensity Budget Throttle ---
-
-// In-memory budget tracker (resets on server restart, which is acceptable for soft throttle)
-const intensityBudgets = new Map<string, { points: number; resetAt: number }>();
-
-// Tuneable constants
-const INTENSITY_BUDGET_MAX = 300; // points per window
-const INTENSITY_BUDGET_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const INTENSITY_CLAMP_VALUE = 30; // clamp to this intensity when budget exceeded
-
-function calculateIntensityCost(intensity: number): number {
-  // ceil(intensity/10) * 5 points
-  // intensity 100 = 50 points, intensity 50 = 25 points, intensity 10 = 5 points
-  return Math.ceil(intensity / 10) * 5;
-}
-
-function checkAndDeductIntensityBudget(
-  orgId: string,
-  userId: string,
-  requestedIntensity: number
-): { intensityApplied: number; budgetClamped: boolean; budgetRemaining: number } {
-  const key = `${orgId}:${userId}:skit_intensity_budget`;
-  const now = Date.now();
-
-  // Get or initialize budget
-  let budget = intensityBudgets.get(key);
-  if (!budget || now >= budget.resetAt) {
-    budget = { points: INTENSITY_BUDGET_MAX, resetAt: now + INTENSITY_BUDGET_WINDOW_MS };
-    intensityBudgets.set(key, budget);
-  }
-
-  const cost = calculateIntensityCost(requestedIntensity);
-
-  // Check if we have enough budget
-  if (budget.points >= cost) {
-    // Deduct and allow full intensity
-    budget.points -= cost;
-    return {
-      intensityApplied: requestedIntensity,
-      budgetClamped: false,
-      budgetRemaining: budget.points,
-    };
-  }
-
-  // Budget exceeded - clamp intensity
-  const clampedCost = calculateIntensityCost(INTENSITY_CLAMP_VALUE);
-  budget.points = Math.max(0, budget.points - clampedCost);
-
-  return {
-    intensityApplied: INTENSITY_CLAMP_VALUE,
-    budgetClamped: true,
-    budgetRemaining: budget.points,
-  };
-}
-
 // --- Skit Structure Template ---
 
 const SKIT_STRUCTURE_TEMPLATE = `
@@ -345,6 +295,7 @@ export async function POST(request: Request) {
 
     // Get intensity - apply preset clamping first, then budget throttle
     let requestedIntensity = input.intensity ?? preset?.intensity_default ?? 50;
+    const originalRequestedIntensity = input.intensity ?? preset?.intensity_default ?? 50;
     if (preset) {
       const presetClamp = clampIntensityToPreset(requestedIntensity, preset);
       if (presetClamp.wasClamped) {
@@ -353,12 +304,23 @@ export async function POST(request: Request) {
       }
     }
 
+    // Check debug mode for conditional diagnostics
+    const debugMode = isDebugMode(request);
+
     // Check intensity budget (soft throttle - clamps instead of blocking)
-    const intensityBudget = checkAndDeductIntensityBudget(
-      "default", // org_id not available in auth context, use default bucket
-      authContext.user.id,
-      requestedIntensity
-    );
+    // Cost is based on original requested intensity (user intent) to prevent spam at high values
+    const intensityBudget = await applySkitBudgetClamp({
+      supabase: supabaseAdmin,
+      orgId: "default", // org_id not available in auth context, use default bucket
+      userId: authContext.user.id,
+      intensityRequested: originalRequestedIntensity,
+      correlationId,
+    });
+
+    // Apply budget clamp on top of preset clamp
+    if (intensityBudget.budgetClamped) {
+      requestedIntensity = intensityBudget.intensityApplied;
+    }
 
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
@@ -374,7 +336,7 @@ export async function POST(request: Request) {
       persona: input.persona,
       template,
       preset,
-      intensity: intensityBudget.intensityApplied,
+      intensity: requestedIntensity,
     });
 
     // Call Anthropic API
@@ -400,7 +362,7 @@ export async function POST(request: Request) {
       entity_type: input.video_id ? "video" : "product",
       entity_id: input.video_id || input.product_id,
       actor: authContext.user.id,
-      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${intensityBudget.intensityApplied}${intensityBudget.budgetClamped ? " (budget)" : ""}${presetIntensityClamped ? " (preset)" : ""}${preset ? `, preset=${preset.id}` : ""}${template ? `, template=${template.id}` : ""}`,
+      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${requestedIntensity}${intensityBudget.budgetClamped ? " (budget)" : ""}${presetIntensityClamped ? " (preset)" : ""}${preset ? `, preset=${preset.id}` : ""}${template ? `, template=${template.id}` : ""}`,
       details: {
         risk_tier_requested: input.risk_tier,
         risk_tier_applied: processed.appliedTier,
@@ -412,31 +374,40 @@ export async function POST(request: Request) {
         flags_count: processed.riskFlags.length,
         was_downgraded: processed.wasDowngraded,
         template_validation: templateValidation,
-        intensity_requested: input.intensity ?? preset?.intensity_default ?? 50,
-        intensity_applied: intensityBudget.intensityApplied,
+        intensity_requested: originalRequestedIntensity,
+        intensity_applied: requestedIntensity,
         budget_clamped: intensityBudget.budgetClamped,
         preset_intensity_clamped: presetIntensityClamped,
+        ...(debugMode ? { budget_diagnostics: intensityBudget.diagnostics } : {}),
       },
     });
+
+    // Build response data
+    const responseData: Record<string, unknown> = {
+      risk_tier_applied: processed.appliedTier,
+      risk_score: processed.riskScore,
+      risk_flags: processed.riskFlags,
+      template_id: effectiveTemplateId || null,
+      template_validation: templateValidation,
+      preset_id: preset?.id || null,
+      preset_name: preset?.name || null,
+      intensity_requested: originalRequestedIntensity,
+      intensity_applied: requestedIntensity,
+      budget_clamped: intensityBudget.budgetClamped,
+      preset_intensity_clamped: presetIntensityClamped,
+      skit: processed.skit,
+    };
+
+    // Include budget diagnostics only in debug mode
+    if (debugMode) {
+      responseData.budget_diagnostics = intensityBudget.diagnostics;
+    }
 
     // Success response
     const response = NextResponse.json({
       ok: true,
       correlation_id: correlationId,
-      data: {
-        risk_tier_applied: processed.appliedTier,
-        risk_score: processed.riskScore,
-        risk_flags: processed.riskFlags,
-        template_id: effectiveTemplateId || null,
-        template_validation: templateValidation,
-        preset_id: preset?.id || null,
-        preset_name: preset?.name || null,
-        intensity_requested: input.intensity ?? preset?.intensity_default ?? 50,
-        intensity_applied: intensityBudget.intensityApplied,
-        budget_clamped: intensityBudget.budgetClamped,
-        preset_intensity_clamped: presetIntensityClamped,
-        skit: processed.skit,
-      },
+      data: responseData,
     });
     response.headers.set("x-correlation-id", correlationId);
     return response;

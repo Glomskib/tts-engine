@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { recordHookOutcome } from "@/lib/hook-feedback-loop";
 
 export const runtime = "nodejs";
 
@@ -30,6 +32,18 @@ export async function POST(
     );
   }
 
+  // Admin-only check
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  if (!authContext.isAdmin) {
+    const err = apiError("FORBIDDEN", "Admin access required", 403);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
   let body: MarkWinnerParams;
   try {
     body = await request.json();
@@ -50,7 +64,7 @@ export async function POST(
   }
 
   try {
-    // Fetch video with concept and metrics
+    // Fetch video with concept, metrics, and product for hook feedback
     const { data: video, error: videoError } = await supabaseAdmin
       .from("videos")
       .select(`
@@ -58,10 +72,14 @@ export async function POST(
         views_total,
         orders_total,
         concept_id,
+        product_id,
         script_locked_text,
         concepts:concept_id (
           hook_options,
           angle
+        ),
+        products:product_id (
+          brand_name
         )
       `)
       .eq("id", video_id)
@@ -121,6 +139,27 @@ export async function POST(
         // Non-fatal - video is still marked
       }
 
+      // Hook feedback loop: increment winner_count on proven_hooks (idempotent)
+      const product = video.products as { brand_name?: string } | null;
+      const brandName = product?.brand_name;
+      let hookFeedback = null;
+
+      if (brandName) {
+        try {
+          hookFeedback = await recordHookOutcome(
+            supabaseAdmin,
+            video_id,
+            brandName,
+            video.product_id || null,
+            "winner",
+            authContext.user?.id || null
+          );
+        } catch (err) {
+          console.error("Failed to record hook feedback:", err);
+          // Non-fatal - winner is still marked
+        }
+      }
+
       return NextResponse.json({
         ok: true,
         data: {
@@ -129,6 +168,7 @@ export async function POST(
           views,
           orders,
           winning_hook: winningHook,
+          hook_feedback: hookFeedback,
         },
         correlation_id: correlationId,
       });

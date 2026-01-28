@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
 import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
@@ -1313,14 +1315,23 @@ export async function POST(request: Request) {
   const url = new URL(request.url);
   const debugMode = url.searchParams.get("debug") === "1" || process.env.DEBUG_AI === "1";
 
+  // Rate limiting check
+  const authContext = await getApiAuthContext();
+  const rateLimitContext = {
+    userId: authContext.user?.id ?? null,
+    orgId: null, // TODO: Add org context when available
+    ...extractRateLimitContext(request),
+  };
+  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", error_code: "BAD_REQUEST", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const {

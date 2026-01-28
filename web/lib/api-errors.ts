@@ -1,4 +1,7 @@
-// api-errors.ts - Standardized API error codes and responses (Phase 8.2)
+// api-errors.ts - Standardized API error codes and responses
+// Phase 2: Added RATE_LIMITED, GENERATION_IN_PROGRESS, createApiErrorResponse
+
+import { NextResponse } from "next/server";
 
 export type ApiErrorCode =
   | 'INVALID_UUID'
@@ -42,7 +45,9 @@ export type ApiErrorCode =
   | 'COMPLIANCE_BLOCKED'
   | 'NO_SCRIPT'
   | 'POSTING_META_INCOMPLETE'
-  | 'FINAL_ASSET_REQUIRED';
+  | 'FINAL_ASSET_REQUIRED'
+  | 'RATE_LIMITED'
+  | 'GENERATION_IN_PROGRESS';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {
@@ -91,4 +96,49 @@ export function generateCorrelationId(): string {
     random += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `vid_${Date.now()}_${random}`;
+}
+
+/**
+ * Standardized API error response shape
+ * - ok: false (always)
+ * - error_code: machine-readable error code
+ * - message: human-readable error message
+ * - correlation_id: request correlation ID for debugging
+ * - details?: optional additional context
+ */
+export interface StandardApiErrorResponse {
+  ok: false;
+  error_code: ApiErrorCode;
+  message: string;
+  correlation_id: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Create a standardized API error response with correlation_id header
+ *
+ * Usage:
+ *   return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
+ *   return createApiErrorResponse("BAD_REQUEST", "Invalid input", 400, correlationId, { field: "email" });
+ */
+export function createApiErrorResponse(
+  errorCode: ApiErrorCode,
+  message: string,
+  httpStatus: number,
+  correlationId: string,
+  details?: Record<string, unknown>
+): NextResponse<StandardApiErrorResponse> {
+  const body: StandardApiErrorResponse = {
+    ok: false,
+    error_code: errorCode,
+    message,
+    correlation_id: correlationId,
+  };
+  if (details) {
+    body.details = details;
+  }
+
+  const response = NextResponse.json(body, { status: httpStatus });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }

@@ -147,6 +147,20 @@ export default function VideoDrawer({
   const [postingAccounts, setPostingAccounts] = useState<PostingAccount[]>([]);
   const [editPostingAccountId, setEditPostingAccountId] = useState<string>('');
 
+  // Rejection modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedRejectTag, setSelectedRejectTag] = useState<string | null>(null);
+
+  // Reject quick tags configuration
+  const REJECT_TAGS = [
+    { code: 'too_generic', label: 'Too Generic', emoji: '😐' },
+    { code: 'too_risky', label: 'Too Risky', emoji: '⚠️' },
+    { code: 'not_relatable', label: 'Not Relatable', emoji: '🤷' },
+    { code: 'wrong_angle', label: 'Wrong Angle', emoji: '📐' },
+    { code: 'compliance', label: 'Compliance Issue', emoji: '🚫' },
+    { code: 'bad_cta', label: 'Bad CTA', emoji: '👎' },
+  ];
+
   const statusColors = getStatusBadgeColor(video.recording_status);
   const slaColors = getSlaColor(video.sla_status);
   const primaryAction = getPrimaryAction(video);
@@ -502,10 +516,64 @@ export default function VideoDrawer({
     }
   };
 
-  const handleReject = async () => {
+  const handleReject = () => {
+    // Show reject modal instead of immediate rejection
+    setShowRejectModal(true);
+    setSelectedRejectTag(null);
+  };
+
+  const handleConfirmReject = async () => {
     setLoading(true);
     try {
-      await onExecuteTransition(video.id, 'REJECTED');
+      // Increment rejected_count on the hook if we have selected hooks
+      const brandName = video.brand_name || details?.video.brand_name;
+      const spokenHook = details?.brief?.hook_options?.[0];
+      const visualHook = details?.brief?.visual_hook;
+      const textHook = details?.brief?.on_screen_text_hook;
+      const hookFamily = details?.brief?.hook_type;
+
+      if (brandName) {
+        // Record rejection on hooks
+        const hooksToReject: { type: 'spoken' | 'visual' | 'text'; text: string }[] = [];
+        if (spokenHook) hooksToReject.push({ type: 'spoken', text: spokenHook });
+        if (visualHook) hooksToReject.push({ type: 'visual', text: visualHook });
+        if (textHook) hooksToReject.push({ type: 'text', text: textHook });
+
+        for (const hook of hooksToReject) {
+          try {
+            await fetch('/api/hooks/proven', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                brand_name: brandName,
+                product_id: video.product_id,
+                hook_type: hook.type,
+                hook_text: hook.text,
+                hook_family: hookFamily,
+                source_video_id: video.id,
+                increment_field: 'rejected_count',
+              }),
+            });
+          } catch (err) {
+            console.error(`Failed to record rejection for ${hook.type} hook:`, err);
+          }
+        }
+      }
+
+      // Execute the rejection transition with reason code
+      await fetch(`/api/videos/${video.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'REJECTED',
+          reason_code: selectedRejectTag || 'unspecified',
+          reason_message: selectedRejectTag
+            ? REJECT_TAGS.find(t => t.code === selectedRejectTag)?.label
+            : 'Rejected without reason',
+        }),
+      });
+
+      setShowRejectModal(false);
       onRefresh();
     } finally {
       setLoading(false);
@@ -572,6 +640,104 @@ export default function VideoDrawer({
           <span>✓</span>
           {savedToast}
         </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <>
+          <div
+            onClick={() => setShowRejectModal(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              zIndex: 1100,
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: colors.bg,
+              borderRadius: '12px',
+              padding: '24px',
+              width: '360px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              zIndex: 1101,
+            }}
+          >
+            <h3 style={{ margin: '0 0 16px 0', color: colors.text, fontSize: '18px' }}>
+              Reject Video
+            </h3>
+            <p style={{ margin: '0 0 16px 0', color: colors.textMuted, fontSize: '14px' }}>
+              Select a reason (optional):
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+              {REJECT_TAGS.map((tag) => (
+                <button
+                  key={tag.code}
+                  onClick={() => setSelectedRejectTag(selectedRejectTag === tag.code ? null : tag.code)}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: selectedRejectTag === tag.code ? '#e03131' : colors.card,
+                    color: selectedRejectTag === tag.code ? 'white' : colors.text,
+                    border: `1px solid ${selectedRejectTag === tag.code ? '#e03131' : colors.border}`,
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: selectedRejectTag === tag.code ? 'bold' : 'normal',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{tag.emoji}</span>
+                  {tag.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowRejectModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                disabled={loading}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#e03131',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {loading ? 'Rejecting...' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Overlay */}

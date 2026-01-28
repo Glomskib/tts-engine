@@ -16,6 +16,27 @@ const HOOK_FAMILIES = [
 
 type HookFamily = (typeof HOOK_FAMILIES)[number];
 
+// Emotional drivers with required distribution (12 total)
+const EMOTIONAL_DRIVERS = ["shock", "fear", "curiosity", "insecurity", "fomo"] as const;
+type EmotionalDriver = (typeof EMOTIONAL_DRIVERS)[number];
+
+const EMOTIONAL_DRIVER_DISTRIBUTION: Record<EmotionalDriver, number> = {
+  shock: 2,
+  fear: 2,
+  curiosity: 3,
+  insecurity: 2,
+  fomo: 3,
+};
+
+// Emotional driver descriptions for AI prompting
+const EMOTIONAL_DRIVER_DESCRIPTIONS: Record<EmotionalDriver, string> = {
+  shock: "Pattern interrupt, jarring openings, make them stop scrolling. Bold statements, unexpected reveals.",
+  fear: "FOMO adjacent, 'you're missing out' energy, fear of being left behind or making mistakes.",
+  curiosity: "Curiosity gap, 'what nobody tells you', open loops that demand closure.",
+  insecurity: "Relatable pain, 'am I the only one who...', empathetic struggles viewers deeply relate to.",
+  fomo: "Urgency, social proof, 'everyone's doing this', limited time, trending now.",
+};
+
 // Tone presets
 const TONE_PRESETS = [
   "ugc_casual",
@@ -47,13 +68,24 @@ interface HookScore {
   overall: number;
 }
 
+// Hook with emotional driver metadata
+interface HookWithMeta {
+  text: string;
+  emotional_driver: EmotionalDriver;
+  hook_family: HookFamily;
+  edge_push: boolean;
+}
+
 // Enhanced output interface
 interface DraftVideoBriefResult {
   // Hook Package (expanded)
   spoken_hook_options: string[];
   spoken_hook_by_family: Record<string, string[]>;
+  hooks_by_emotional_driver: Record<EmotionalDriver, HookWithMeta[]>;
   hook_scores: Record<string, HookScore>;
   selected_spoken_hook: string;
+  selected_emotional_driver: EmotionalDriver | null;
+  has_edge_push: boolean;
 
   // Visual hooks (multiple options now)
   visual_hook_options: string[];
@@ -278,6 +310,60 @@ async function getProvenHooksForBrand(brandName: string, productId?: string): Pr
   }
 }
 
+interface WinnersBankExtract {
+  hook: string;
+  hook_family: string;
+  cta: string;
+  structure: string[];
+  quality: number;
+}
+
+/**
+ * Fetch Winners Bank context for AI generation
+ */
+async function getWinnersBankContext(category?: string, limit: number = 5): Promise<WinnersBankExtract[]> {
+  try {
+    let query = supabaseAdmin
+      .from("reference_extracts")
+      .select(`
+        spoken_hook,
+        hook_family,
+        cta,
+        structure_tags,
+        quality_score,
+        reference_videos!inner (
+          category,
+          status
+        )
+      `)
+      .eq("reference_videos.status", "ready")
+      .order("quality_score", { ascending: false })
+      .limit(limit);
+
+    if (category) {
+      query = query.eq("reference_videos.category", category);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.log("reference_extracts table may not exist yet:", error.code);
+      return [];
+    }
+
+    return (data || []).map((extract) => ({
+      hook: extract.spoken_hook || "",
+      hook_family: extract.hook_family || "",
+      cta: extract.cta || "",
+      structure: Array.isArray(extract.structure_tags) ? extract.structure_tags : [],
+      quality: extract.quality_score || 0,
+    }));
+  } catch (error) {
+    console.error("Failed to fetch Winners Bank context:", error);
+    return [];
+  }
+}
+
 /**
  * Log an AI generation run to the database
  */
@@ -327,6 +413,7 @@ function buildEnhancedPrompt(params: {
   recentHooks: string[];
   bannedHooks: string[];
   provenHooks: ProvenHook[];
+  winnersBank: WinnersBankExtract[];
   nonce: string;
 }): string {
   const {
@@ -343,6 +430,7 @@ function buildEnhancedPrompt(params: {
     recentHooks,
     bannedHooks,
     provenHooks,
+    winnersBank,
     nonce,
   } = params;
 
@@ -441,41 +529,68 @@ IMPORTANT: Create NEW hooks inspired by the successful patterns above. Don't cop
 `;
   }
 
-  // Output specification with strategy bias
-  const isStrategySelected = hookType && hookType !== "all" && HOOK_FAMILY_DESCRIPTIONS[hookType as HookFamily];
+  // Include Winners Bank reference extracts for style inspiration
+  if (winnersBank.length > 0) {
+    prompt += `WINNERS BANK - High-performing hooks from viral TikToks (use as STYLE REFERENCE):
+`;
+    for (const winner of winnersBank) {
+      prompt += `- [${winner.hook_family}] "${winner.hook}" (quality: ${winner.quality}/100)
+  CTA: "${winner.cta}" | Structure: ${winner.structure.join(", ")}
+`;
+    }
+    prompt += `
+Use the Winners Bank as a guide for what resonates. Create ORIGINAL hooks with similar energy and patterns.
 
-  let hookDistribution: string;
-  if (isStrategySelected) {
-    // 70% bias toward selected strategy (8-9 hooks), rest spread across others
-    hookDistribution = `SPOKEN HOOKS (12 total, BIASED toward "${hookType}"):
-1. spoken_hook_options: Array of 12 unique spoken hooks (5-15 words each):
-   - 8-9 hooks from "${hookType}" family (PRIMARY - 70% bias)
-   - 3-4 hooks spread across other families for variety`;
-  } else {
-    // Mixed/all: equal distribution
-    hookDistribution = `SPOKEN HOOKS (12 total, 2+ from EACH family):
-1. spoken_hook_options: Array of 12 unique spoken hooks (5-15 words each):
-   - At least 2 "pattern_interrupt" hooks
-   - At least 2 "relatable_pain" hooks
-   - At least 2 "proof_teaser" hooks
-   - At least 2 "contrarian" hooks
-   - At least 2 "mini_story" hooks
-   - At least 2 "curiosity_gap" hooks`;
+`;
   }
+
+  // Output specification with emotional driver distribution
+  // CRITICAL: Enforce exact distribution for consistent A/B testing
+  const hookDistribution = `SPOKEN HOOKS (EXACTLY 12, with REQUIRED emotional driver distribution):
+
+EMOTIONAL DRIVER DISTRIBUTION (must match EXACTLY):
+- shock: 2 hooks - ${EMOTIONAL_DRIVER_DESCRIPTIONS.shock}
+- fear: 2 hooks - ${EMOTIONAL_DRIVER_DESCRIPTIONS.fear}
+- curiosity: 3 hooks - ${EMOTIONAL_DRIVER_DESCRIPTIONS.curiosity}
+- insecurity: 2 hooks - ${EMOTIONAL_DRIVER_DESCRIPTIONS.insecurity}
+- fomo: 3 hooks - ${EMOTIONAL_DRIVER_DESCRIPTIONS.fomo}
+
+EDGE PUSH REQUIREMENT:
+At least ONE hook must be "edge_push": true (pushes boundaries, slightly controversial, bold statement)
+Typically shock or fear hooks work best for edge_push.
+
+1. spoken_hook_options: Array of EXACTLY 12 unique spoken hooks (5-15 words each)`;
 
   prompt += `Generate a JSON object with these EXACT fields:
 
 ${hookDistribution}
 
-2. spoken_hook_by_family: Object with arrays for each family:
+2. hooks_by_emotional_driver: Object with hook details grouped by driver:
    {
-     "pattern_interrupt": ["hook1", "hook2"],
-     "relatable_pain": ["hook1", "hook2"],
-     "proof_teaser": ["hook1", "hook2"],
-     "contrarian": ["hook1", "hook2"],
-     "mini_story": ["hook1", "hook2"],
-     "curiosity_gap": ["hook1", "hook2"]
+     "shock": [
+       { "text": "hook text", "emotional_driver": "shock", "hook_family": "pattern_interrupt", "edge_push": true },
+       { "text": "hook text", "emotional_driver": "shock", "hook_family": "contrarian", "edge_push": false }
+     ],
+     "fear": [
+       { "text": "hook text", "emotional_driver": "fear", "hook_family": "relatable_pain", "edge_push": false },
+       { "text": "hook text", "emotional_driver": "fear", "hook_family": "curiosity_gap", "edge_push": false }
+     ],
+     "curiosity": [
+       { "text": "hook text", "emotional_driver": "curiosity", "hook_family": "curiosity_gap", "edge_push": false },
+       { "text": "hook text", "emotional_driver": "curiosity", "hook_family": "proof_teaser", "edge_push": false },
+       { "text": "hook text", "emotional_driver": "curiosity", "hook_family": "mini_story", "edge_push": false }
+     ],
+     "insecurity": [
+       { "text": "hook text", "emotional_driver": "insecurity", "hook_family": "relatable_pain", "edge_push": false },
+       { "text": "hook text", "emotional_driver": "insecurity", "hook_family": "contrarian", "edge_push": false }
+     ],
+     "fomo": [
+       { "text": "hook text", "emotional_driver": "fomo", "hook_family": "proof_teaser", "edge_push": false },
+       { "text": "hook text", "emotional_driver": "fomo", "hook_family": "mini_story", "edge_push": false },
+       { "text": "hook text", "emotional_driver": "fomo", "hook_family": "pattern_interrupt", "edge_push": false }
+     ]
    }
+   IMPORTANT: At least one hook across all drivers must have "edge_push": true
 
 3. hook_scores: Score each spoken hook (use hook text as key):
    {
@@ -488,6 +603,7 @@ ${hookDistribution}
    }
 
 4. selected_spoken_hook: The BEST hook from options (highest overall score)
+5. selected_emotional_driver: The emotional_driver of the selected hook
 
 VISUAL HOOKS (6 options):
 5. visual_hook_options: Array of 6 opening shot directions (1-2 sentences each)
@@ -539,8 +655,11 @@ function readjustBrief(
   const result: DraftVideoBriefResult = {
     spoken_hook_options: original.spoken_hook_options || [],
     spoken_hook_by_family: original.spoken_hook_by_family || {},
+    hooks_by_emotional_driver: original.hooks_by_emotional_driver || { shock: [], fear: [], curiosity: [], insecurity: [], fomo: [] },
     hook_scores: original.hook_scores || {},
     selected_spoken_hook: original.selected_spoken_hook || "",
+    selected_emotional_driver: original.selected_emotional_driver || null,
+    has_edge_push: original.has_edge_push || false,
     visual_hook_options: original.visual_hook_options || [],
     selected_visual_hook: original.selected_visual_hook || original.visual_hook || "",
     visual_hook: original.visual_hook || "",
@@ -811,6 +930,10 @@ export async function POST(request: Request) {
     const provenHooks = await getProvenHooksForBrand(brand, product_id.trim());
     console.log(`[${correlationId}] Found ${provenHooks.length} proven hooks for inspiration`);
 
+    // Fetch Winners Bank context for style reference
+    const winnersBank = await getWinnersBankContext(category, 5);
+    console.log(`[${correlationId}] Found ${winnersBank.length} Winners Bank extracts for context`);
+
     // Build the enhanced prompt
     const prompt = buildEnhancedPrompt({
       brand,
@@ -826,6 +949,7 @@ export async function POST(request: Request) {
       recentHooks,
       bannedHooks,
       provenHooks,
+      winnersBank,
       nonce,
     });
 
@@ -921,10 +1045,74 @@ export async function POST(request: Request) {
     const midOverlays = Array.isArray(aiResult.mid_overlays) ? aiResult.mid_overlays.slice(0, 6) : [];
     const ctaOptions = Array.isArray(aiResult.cta_overlay_options) ? aiResult.cta_overlay_options.slice(0, 5) : [];
 
+    // Process hooks_by_emotional_driver
+    const hooksByDriver: Record<EmotionalDriver, HookWithMeta[]> = {
+      shock: [],
+      fear: [],
+      curiosity: [],
+      insecurity: [],
+      fomo: [],
+    };
+
+    // Parse hooks_by_emotional_driver from AI response
+    const aiHooksByDriver = (aiResult.hooks_by_emotional_driver || {}) as Record<EmotionalDriver, unknown[]>;
+    let hasEdgePush = false;
+
+    for (const driver of EMOTIONAL_DRIVERS) {
+      const driverHooks = aiHooksByDriver[driver];
+      if (Array.isArray(driverHooks)) {
+        for (const rawHook of driverHooks) {
+          if (rawHook && typeof rawHook === "object") {
+            const hookObj = rawHook as { text?: string; hook_family?: string; edge_push?: boolean };
+            if (hookObj.text) {
+              const hookMeta: HookWithMeta = {
+                text: String(hookObj.text),
+                emotional_driver: driver,
+                hook_family: (HOOK_FAMILIES.includes(hookObj.hook_family as HookFamily) ? hookObj.hook_family : "curiosity_gap") as HookFamily,
+                edge_push: Boolean(hookObj.edge_push),
+              };
+              hooksByDriver[driver].push(hookMeta);
+              if (hookMeta.edge_push) hasEdgePush = true;
+              // Also add to spokenHooks if not already there
+              if (!spokenHooks.includes(hookMeta.text)) {
+                spokenHooks.push(hookMeta.text);
+              }
+            }
+          } else if (typeof rawHook === "string") {
+            // Legacy format - just text
+            hooksByDriver[driver].push({
+              text: rawHook,
+              emotional_driver: driver,
+              hook_family: "curiosity_gap",
+              edge_push: false,
+            });
+            if (!spokenHooks.includes(rawHook)) {
+              spokenHooks.push(rawHook);
+            }
+          }
+        }
+      }
+    }
+
+    // Validate emotional driver distribution
+    const driverCounts: Record<EmotionalDriver, number> = {
+      shock: hooksByDriver.shock.length,
+      fear: hooksByDriver.fear.length,
+      curiosity: hooksByDriver.curiosity.length,
+      insecurity: hooksByDriver.insecurity.length,
+      fomo: hooksByDriver.fomo.length,
+    };
+    const totalDriverHooks = Object.values(driverCounts).reduce((a, b) => a + b, 0);
+
+    // Log distribution for debugging
+    console.log(`[${correlationId}] Emotional driver distribution: shock=${driverCounts.shock}, fear=${driverCounts.fear}, curiosity=${driverCounts.curiosity}, insecurity=${driverCounts.insecurity}, fomo=${driverCounts.fomo}, total=${totalDriverHooks}, edge_push=${hasEdgePush}`);
+
     // Find best hook by score
     let bestHook = spokenHooks[0] || "";
     let bestScore = 0;
+    let bestEmotionalDriver: EmotionalDriver | null = null;
     const hookScores = aiResult.hook_scores || {};
+
     for (const hook of spokenHooks) {
       const score = hookScores[hook]?.overall || 0;
       if (score > bestScore) {
@@ -933,12 +1121,24 @@ export async function POST(request: Request) {
       }
     }
 
+    // Find the emotional driver for the best hook
+    for (const driver of EMOTIONAL_DRIVERS) {
+      const found = hooksByDriver[driver].find(h => h.text === bestHook);
+      if (found) {
+        bestEmotionalDriver = driver;
+        break;
+      }
+    }
+
     const validatedResult: DraftVideoBriefResult = {
       // Hook Package (expanded)
       spoken_hook_options: spokenHooks,
       spoken_hook_by_family: aiResult.spoken_hook_by_family || {},
+      hooks_by_emotional_driver: hooksByDriver,
       hook_scores: hookScores,
       selected_spoken_hook: bestHook,
+      selected_emotional_driver: bestEmotionalDriver,
+      has_edge_push: hasEdgePush,
 
       // Visual hooks
       visual_hook_options: visualHooks,

@@ -33,13 +33,36 @@ interface HookScore {
   overall: number;
 }
 
+// Emotional driver types
+type EmotionalDriver = 'shock' | 'fear' | 'curiosity' | 'insecurity' | 'fomo';
+
+// Hook with metadata
+interface HookWithMeta {
+  text: string;
+  emotional_driver: EmotionalDriver;
+  hook_family: string;
+  edge_push: boolean;
+}
+
+// Emotional driver UI config
+const EMOTIONAL_DRIVER_UI: Record<EmotionalDriver, { emoji: string; label: string; color: string }> = {
+  shock: { emoji: '\u26a1', label: 'Shock', color: '#ffd43b' },
+  fear: { emoji: '\ud83d\ude28', label: 'Fear', color: '#ff6b6b' },
+  curiosity: { emoji: '\ud83e\udd14', label: 'Curiosity', color: '#4dabf7' },
+  insecurity: { emoji: '\ud83d\ude1f', label: 'Insecurity', color: '#da77f2' },
+  fomo: { emoji: '\u23f0', label: 'FOMO', color: '#69db7c' },
+};
+
 // Enhanced AI Draft interface
 interface AIDraft {
   // Spoken hooks (expanded)
   spoken_hook_options: string[];
   spoken_hook_by_family?: Record<string, string[]>;
+  hooks_by_emotional_driver?: Record<EmotionalDriver, HookWithMeta[]>;
   hook_scores?: Record<string, HookScore>;
   selected_spoken_hook: string;
+  selected_emotional_driver?: EmotionalDriver | null;
+  has_edge_push?: boolean;
 
   // Visual hooks (multiple options now)
   visual_hook_options?: string[];
@@ -176,6 +199,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
   // Form state - Hook Package (editable after AI draft)
   const [selectedSpokenHook, setSelectedSpokenHook] = useState('');
+  const [selectedEmotionalDriver, setSelectedEmotionalDriver] = useState<EmotionalDriver | null>(null);
   const [visualHook, setVisualHook] = useState('');
   const [selectedTextHook, setSelectedTextHook] = useState('');
   const [onScreenTextMid, setOnScreenTextMid] = useState<string[]>([]);
@@ -528,6 +552,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
         // Select best-scoring hook if hook_scores available
         let bestHook = draft.selected_spoken_hook || draft.selected_hook || hookOptions[0] || '';
+        let bestDriver: EmotionalDriver | null = draft.selected_emotional_driver || null;
+
         if (draft.hook_scores && hookOptions.length > 0) {
           let bestScore = 0;
           for (const hook of hookOptions) {
@@ -539,8 +565,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           }
         }
 
+        // Find the emotional driver for the best hook
+        if (draft.hooks_by_emotional_driver && !bestDriver) {
+          for (const driver of Object.keys(EMOTIONAL_DRIVER_UI) as EmotionalDriver[]) {
+            const found = draft.hooks_by_emotional_driver[driver]?.find(h => h.text === bestHook);
+            if (found) {
+              bestDriver = driver;
+              break;
+            }
+          }
+        }
+
         // Populate Hook Package fields
         setSelectedSpokenHook(bestHook);
+        setSelectedEmotionalDriver(bestDriver);
         setVisualHook(draft.selected_visual_hook || draft.visual_hook_options?.[0] || draft.visual_hook || '');
         setSelectedTextHook(draft.selected_on_screen_text_hook || '');
         setOnScreenTextMid(draft.on_screen_text_mid || draft.mid_overlays || []);
@@ -1283,7 +1321,85 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     }}>
                       ⚠️ AI returned 0 hooks. Click Regenerate above.
                     </div>
+                  ) : aiDraft.hooks_by_emotional_driver && Object.keys(aiDraft.hooks_by_emotional_driver).some(k => (aiDraft.hooks_by_emotional_driver?.[k as EmotionalDriver]?.length || 0) > 0) ? (
+                    /* New: Hooks grouped by emotional driver */
+                    <div style={{ maxHeight: '280px', overflowY: 'auto', border: `1px solid ${colors.border}`, borderRadius: '6px', backgroundColor: colors.input }}>
+                      {(Object.keys(EMOTIONAL_DRIVER_UI) as EmotionalDriver[]).map((driver) => {
+                        const hooks = aiDraft.hooks_by_emotional_driver?.[driver] || [];
+                        if (hooks.length === 0) return null;
+                        const driverUI = EMOTIONAL_DRIVER_UI[driver];
+                        return (
+                          <div key={driver} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                            <div style={{
+                              padding: '6px 10px',
+                              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              color: driverUI.color,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}>
+                              <span>{driverUI.emoji}</span>
+                              <span>{driverUI.label}</span>
+                              <span style={{ fontSize: '9px', opacity: 0.7 }}>({hooks.length})</span>
+                            </div>
+                            {hooks.map((hook, idx) => {
+                              const isSelected = selectedSpokenHook === hook.text;
+                              const score = aiDraft.hook_scores?.[hook.text]?.overall;
+                              return (
+                                <label
+                                  key={idx}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '8px',
+                                    padding: '8px 10px',
+                                    backgroundColor: isSelected ? (isDark ? 'rgba(64, 192, 87, 0.15)' : '#d3f9d8') : 'transparent',
+                                    cursor: 'pointer',
+                                    borderBottom: idx < hooks.length - 1 ? `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` : 'none',
+                                  }}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="spokenHook"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      setSelectedSpokenHook(hook.text);
+                                      setSelectedEmotionalDriver(driver);
+                                      markFieldModified('selectedSpokenHook');
+                                    }}
+                                    style={{ marginTop: '2px' }}
+                                  />
+                                  <span style={{ flex: 1, fontSize: '12px', color: colors.text }}>{hook.text}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {hook.edge_push && (
+                                      <span style={{
+                                        fontSize: '9px',
+                                        padding: '2px 5px',
+                                        backgroundColor: '#ff6b6b',
+                                        color: 'white',
+                                        borderRadius: '3px',
+                                        fontWeight: 'bold',
+                                      }}>
+                                        EDGE
+                                      </span>
+                                    )}
+                                    {score && (
+                                      <span style={{ fontSize: '10px', color: colors.textMuted }}>
+                                        {Math.round(score * 10)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
+                    /* Fallback: simple select for legacy format */
                     <select
                       value={selectedSpokenHook}
                       onChange={(e) => {

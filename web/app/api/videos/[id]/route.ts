@@ -77,6 +77,13 @@ export async function PATCH(
     posting_account_id,
     reason_code,
     reason_message,
+    // Selected hook package fields
+    selected_spoken_hook,
+    selected_visual_hook,
+    selected_on_screen_hook,
+    selected_emotional_driver,
+    selected_cta_overlay,
+    selected_cta_family,
   } = body as Record<string, unknown>;
 
   // Validate status if provided
@@ -181,6 +188,26 @@ export async function PATCH(
   }
   if (posting_account_id !== undefined) {
     updatePayload.posting_account_id = posting_account_id;
+  }
+
+  // Selected hook package fields
+  if (selected_spoken_hook !== undefined) {
+    updatePayload.selected_spoken_hook = selected_spoken_hook;
+  }
+  if (selected_visual_hook !== undefined) {
+    updatePayload.selected_visual_hook = selected_visual_hook;
+  }
+  if (selected_on_screen_hook !== undefined) {
+    updatePayload.selected_on_screen_hook = selected_on_screen_hook;
+  }
+  if (selected_emotional_driver !== undefined) {
+    updatePayload.selected_emotional_driver = selected_emotional_driver;
+  }
+  if (selected_cta_overlay !== undefined) {
+    updatePayload.selected_cta_overlay = selected_cta_overlay;
+  }
+  if (selected_cta_family !== undefined) {
+    updatePayload.selected_cta_family = selected_cta_family;
   }
 
   if (Object.keys(updatePayload).length === 0) {

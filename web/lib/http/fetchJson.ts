@@ -258,3 +258,14 @@ export function getJson<T>(
 ): Promise<ApiClientResponse<T>> {
   return fetchJson<T>(url, { ...options, method: 'GET' });
 }
+
+/**
+ * PATCH helper
+ */
+export function patchJson<T>(
+  url: string,
+  body: Record<string, unknown>,
+  options: Omit<FetchJsonOptions, 'method' | 'body'> = {}
+): Promise<ApiClientResponse<T>> {
+  return fetchJson<T>(url, { ...options, method: 'PATCH', body });
+}

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
+import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 
 interface Product {
   id: string;
@@ -197,7 +199,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const [aiDraft, setAiDraft] = useState<AIDraft | null>(null);
   const [originalAiDraft, setOriginalAiDraft] = useState<AIDraft | null>(null); // Store original for readjust
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | ApiClientError | null>(null);
   const [isReadjusting, setIsReadjusting] = useState(false);
 
   // Track user-modified fields (locked from readjust)
@@ -621,11 +623,29 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           onShowToast('Brief generated!');
         }
       } else {
-        setAiError(data.error || 'AI generation failed');
+        // Handle standardized API error response
+        if (data.error_code && data.correlation_id) {
+          setAiError({
+            ok: false,
+            error_code: data.error_code,
+            message: data.message || data.error || 'AI generation failed',
+            correlation_id: data.correlation_id,
+            details: data.details,
+            httpStatus: res.status,
+          });
+        } else {
+          setAiError(data.error || 'AI generation failed');
+        }
       }
     } catch (err) {
       console.error('AI draft error:', err);
-      setAiError('Failed to generate brief. You can proceed manually.');
+      setAiError({
+        ok: false,
+        error_code: 'INTERNAL',
+        message: 'Failed to generate brief. Network error or server unavailable.',
+        correlation_id: `client_${Date.now()}`,
+        httpStatus: 0,
+      });
     } finally {
       setAiLoading(false);
     }
@@ -716,11 +736,29 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         setAiDraft(draft);
         if (onShowToast) onShowToast('Brief re-aligned to your edits');
       } else {
-        setAiError(data.error || 'Readjust failed');
+        // Handle standardized API error response
+        if (data.error_code && data.correlation_id) {
+          setAiError({
+            ok: false,
+            error_code: data.error_code,
+            message: data.message || data.error || 'Readjust failed',
+            correlation_id: data.correlation_id,
+            details: data.details,
+            httpStatus: res.status,
+          });
+        } else {
+          setAiError(data.error || 'Readjust failed');
+        }
       }
     } catch (err) {
       console.error('AI readjust error:', err);
-      setAiError('Failed to readjust. Try regenerating instead.');
+      setAiError({
+        ok: false,
+        error_code: 'INTERNAL',
+        message: 'Failed to readjust. Network error or server unavailable.',
+        correlation_id: `client_${Date.now()}`,
+        httpStatus: 0,
+      });
     } finally {
       setIsReadjusting(false);
     }
@@ -1211,15 +1249,24 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               </p>
 
               {aiError && (
-                <div style={{
-                  marginTop: '10px', padding: '10px',
-                  backgroundColor: isDark ? '#4a3000' : '#fff3cd',
-                  border: `1px solid ${isDark ? '#6b4400' : '#ffc107'}`,
-                  borderRadius: '6px', fontSize: '12px',
-                  color: isDark ? '#ffc107' : '#856404',
-                }}>
-                  {aiError}
-                </div>
+                typeof aiError === 'string' ? (
+                  <div style={{
+                    marginTop: '10px', padding: '10px',
+                    backgroundColor: isDark ? '#4a3000' : '#fff3cd',
+                    border: `1px solid ${isDark ? '#6b4400' : '#ffc107'}`,
+                    borderRadius: '6px', fontSize: '12px',
+                    color: isDark ? '#ffc107' : '#856404',
+                  }}>
+                    {aiError}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '10px' }}>
+                    <ApiErrorPanel
+                      error={aiError}
+                      onDismiss={() => setAiError(null)}
+                    />
+                  </div>
+                )
               )}
 
               {/* Debug expander (show raw AI response info) */}

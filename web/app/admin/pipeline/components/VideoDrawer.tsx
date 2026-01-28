@@ -6,6 +6,8 @@ import type { QueueVideo } from '../types';
 import { getStatusBadgeColor, getSlaColor, getPrimaryAction, getReadinessIndicators } from '../types';
 import { formatDateString, getTimeAgo, useHydrated } from '@/lib/useHydrated';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
+import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 
 interface Product {
   id: string;
@@ -189,7 +191,7 @@ export default function VideoDrawer({
       cta_overlay: string;
     };
   } | null>(null);
-  const [skitError, setSkitError] = useState<string | null>(null);
+  const [skitError, setSkitError] = useState<ApiClientError | null>(null);
 
   // Reject quick tags configuration
   const REJECT_TAGS = [
@@ -757,7 +759,13 @@ export default function VideoDrawer({
   // Generate skit with risk tier enforcement
   const handleGenerateSkit = async () => {
     if (!video.product_id) {
-      setSkitError('No product linked to this video');
+      setSkitError({
+        ok: false,
+        error_code: 'VALIDATION_ERROR',
+        message: 'No product linked to this video',
+        correlation_id: 'client_validation',
+        httpStatus: 400,
+      });
       return;
     }
 
@@ -765,35 +773,36 @@ export default function VideoDrawer({
     setSkitError(null);
     setSkitResult(null);
 
-    try {
-      const res = await fetch('/api/ai/generate-skit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          video_id: video.id,
-          product_id: video.product_id,
-          product_display_name: video.brand_name || details?.video.brand_name,
-          risk_tier: skitRiskTier,
-          persona: skitPersona,
-        }),
-      });
+    const result = await postJson<{
+      risk_tier_applied: string;
+      risk_score: number;
+      risk_flags: string[];
+      skit: {
+        hook_line: string;
+        beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
+        b_roll: string[];
+        overlays: string[];
+        cta_line: string;
+        cta_overlay: string;
+      };
+    }>('/api/ai/generate-skit', {
+      video_id: video.id,
+      product_id: video.product_id,
+      product_display_name: video.brand_name || details?.video.brand_name,
+      risk_tier: skitRiskTier,
+      persona: skitPersona,
+    });
 
-      const data = await res.json();
+    setSkitGenerating(false);
 
-      if (!data.ok) {
-        setSkitError(data.message || 'Failed to generate skit');
-        return;
-      }
-
-      setSkitResult(data.data);
-      setSavedToast('Skit generated!');
-      setTimeout(() => setSavedToast(null), 3000);
-    } catch (err) {
-      setSkitError('Network error generating skit');
-      console.error('Skit generation error:', err);
-    } finally {
-      setSkitGenerating(false);
+    if (isApiError(result)) {
+      setSkitError(result);
+      return;
     }
+
+    setSkitResult(result.data);
+    setSavedToast('Skit generated!');
+    setTimeout(() => setSavedToast(null), 3000);
   };
 
   const copyToClipboard = async (text: string, fieldName: string) => {
@@ -2472,15 +2481,11 @@ export default function VideoDrawer({
 
                       {/* Error */}
                       {skitError && (
-                        <div style={{
-                          padding: '10px 12px',
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          borderRadius: '6px',
-                          color: '#dc2626',
-                          fontSize: '12px',
-                          marginBottom: '16px',
-                        }}>
-                          {skitError}
+                        <div style={{ marginBottom: '16px' }}>
+                          <ApiErrorPanel
+                            error={skitError}
+                            onDismiss={() => setSkitError(null)}
+                          />
                         </div>
                       )}
 

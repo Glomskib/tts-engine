@@ -333,6 +333,8 @@ export async function createVideoFromProduct(
       title: conceptTitle,
       concept_title: conceptTitle,
       angle: angleValue,
+      // core_angle is required - use angle value or default
+      core_angle: angleValue !== "Angle TBD" ? angleValue : "General",
       hypothesis: briefData.notes || null,
       proof_type: proofTypeValue,
       hook_options: [hookValue],

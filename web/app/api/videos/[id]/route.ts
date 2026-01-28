@@ -74,6 +74,7 @@ export async function PATCH(
     assets_url,
     script_locked_text,
     product_id,
+    posting_account_id,
     reason_code,
     reason_message,
   } = body as Record<string, unknown>;
@@ -177,6 +178,9 @@ export async function PATCH(
   }
   if (product_id !== undefined) {
     updatePayload.product_id = product_id;
+  }
+  if (posting_account_id !== undefined) {
+    updatePayload.posting_account_id = posting_account_id;
   }
 
   if (Object.keys(updatePayload).length === 0) {

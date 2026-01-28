@@ -5,19 +5,59 @@ import { generateSlug, generateAccountSlug, formatDateForVideoCode } from "@/lib
 
 export const runtime = "nodejs";
 
+// Cache for account codes to avoid repeated DB lookups
+const accountCodeCache = new Map<string, string>();
+
+/**
+ * Get account_code from posting_accounts table by ID
+ */
+async function getAccountCodeById(postingAccountId: string): Promise<string | null> {
+  if (accountCodeCache.has(postingAccountId)) {
+    return accountCodeCache.get(postingAccountId) || null;
+  }
+
+  try {
+    const { data } = await supabaseAdmin
+      .from("posting_accounts")
+      .select("account_code")
+      .eq("id", postingAccountId)
+      .single();
+
+    if (data?.account_code) {
+      accountCodeCache.set(postingAccountId, data.account_code);
+      return data.account_code;
+    }
+  } catch {
+    // Table might not exist yet
+  }
+
+  return null;
+}
+
 /**
  * Generate a unique video code with retry on conflict
- * New format: ACCOUNT-BRAND-SKU-MM/DD/YY-###
+ * New format: ACCOUNT-BRAND-SKU-MM-DD-YY-### (all hyphens, filesystem-safe)
  */
 async function generateAndSetVideoCode(
   videoId: string,
-  accountName: string | null,
+  postingAccountId: string | null,
+  accountNameFallback: string | null,
   brandName: string | null,
   productName: string | null,
   productSlug: string | null,
   createdAt: string
 ): Promise<{ success: boolean; videoCode: string | null; error?: string }> {
-  const accountSlug = generateAccountSlug(accountName);
+  // Get account code: try posting_accounts table first, then fallback to slug generation
+  let accountCode: string;
+  if (postingAccountId) {
+    const code = await getAccountCodeById(postingAccountId);
+    accountCode = code || generateAccountSlug(accountNameFallback);
+  } else if (accountNameFallback) {
+    accountCode = generateAccountSlug(accountNameFallback);
+  } else {
+    accountCode = "UNMAPD";
+  }
+
   const brandSlug = brandName ? generateSlug(brandName, 6) : "UNMAPD";
   const skuSlug = productSlug
     ? productSlug.toUpperCase().slice(0, 6)
@@ -26,8 +66,8 @@ async function generateAndSetVideoCode(
       : "UNMAPD";
 
   const videoDate = new Date(createdAt);
-  const dateCode = formatDateForVideoCode(videoDate);
-  const prefix = `${accountSlug}-${brandSlug}-${skuSlug}-${dateCode}`;
+  const dateCode = formatDateForVideoCode(videoDate); // Now returns MM-DD-YY
+  const prefix = `${accountCode}-${brandSlug}-${skuSlug}-${dateCode}`;
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -74,16 +114,12 @@ async function generateAndSetVideoCode(
 }
 
 /**
- * Extract account name from video data
- * Priority: account.name > posting_meta.target_account > null
+ * Extract account name from video data (fallback for backwards compatibility)
+ * Priority: posting_meta.target_account > null
  */
 function extractAccountName(
-  account: { name: string } | null,
   postingMeta: Record<string, unknown> | null
 ): string | null {
-  if (account?.name) {
-    return account.name;
-  }
   if (postingMeta?.target_account && typeof postingMeta.target_account === "string") {
     return postingMeta.target_account;
   }
@@ -113,14 +149,13 @@ export async function POST(request: Request) {
 
   try {
     // Fetch videos without video_code, join with products for data
-    // Note: accounts table may not exist, so we get account info from posting_meta
     const { data: videos, error: fetchError } = await supabaseAdmin
       .from("videos")
       .select(`
         id,
         created_at,
         product_id,
-        account_id,
+        posting_account_id,
         posting_meta,
         products:product_id (
           name,
@@ -159,12 +194,20 @@ export async function POST(request: Request) {
       const product = productData as { name: string; brand: string; slug: string | null } | null;
 
       const postingMeta = video.posting_meta as Record<string, unknown> | null;
-      // Get account name from posting_meta.target_account (accounts table may not exist)
-      const accountName = extractAccountName(null, postingMeta);
+      const postingAccountId = (video as Record<string, unknown>).posting_account_id as string | null;
+      // Fallback: get account name from posting_meta.target_account
+      const accountNameFallback = extractAccountName(postingMeta);
 
       if (dryRun) {
         // In dry run, just show what would be generated
-        const accountSlug = generateAccountSlug(accountName);
+        let accountCode: string;
+        if (postingAccountId) {
+          const code = await getAccountCodeById(postingAccountId);
+          accountCode = code || generateAccountSlug(accountNameFallback);
+        } else {
+          accountCode = accountNameFallback ? generateAccountSlug(accountNameFallback) : "UNMAPD";
+        }
+
         const brandSlug = product?.brand ? generateSlug(product.brand, 6) : "UNMAPD";
         const skuSlug = product?.slug
           ? product.slug.toUpperCase().slice(0, 6)
@@ -175,14 +218,15 @@ export async function POST(request: Request) {
 
         results.push({
           videoId: video.id,
-          videoCode: `${accountSlug}-${brandSlug}-${skuSlug}-${dateCode}-???`,
+          videoCode: `${accountCode}-${brandSlug}-${skuSlug}-${dateCode}-???`,
           success: true,
         });
       } else {
         // Actually generate and set the code
         const result = await generateAndSetVideoCode(
           video.id,
-          accountName,
+          postingAccountId,
+          accountNameFallback,
           product?.brand || null,
           product?.name || null,
           product?.slug || null,

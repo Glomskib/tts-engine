@@ -42,6 +42,10 @@ export interface QueueVideo {
   product_name?: string;
   product_sku?: string;
   account_name?: string;
+  // Posting account
+  posting_account_id?: string | null;
+  posting_account_name?: string;
+  posting_account_code?: string;
 }
 
 export interface BoardFilters {

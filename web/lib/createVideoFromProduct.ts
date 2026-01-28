@@ -40,7 +40,8 @@ export function generateAccountSlug(accountName: string | null | undefined): str
 }
 
 /**
- * Format date as MM/DD/YY in America/New_York timezone (for display in video_code)
+ * Format date as MM-DD-YY in America/New_York timezone (filesystem-safe for video_code storage)
+ * Stored with hyphens to be filesystem-safe
  */
 export function formatDateForVideoCode(date: Date = new Date()): string {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -53,40 +54,91 @@ export function formatDateForVideoCode(date: Date = new Date()): string {
   const year = parts.find(p => p.type === "year")?.value || "00";
   const month = parts.find(p => p.type === "month")?.value || "00";
   const day = parts.find(p => p.type === "day")?.value || "00";
-  return `${month}/${day}/${year}`;
+  // Use hyphens for storage (filesystem-safe)
+  return `${month}-${day}-${year}`;
 }
 
 /**
- * Convert video_code to filesystem-safe version (replaces / with -)
- * Example: TTMAIN-OXYENG-MT001-01/27/26-001 → TTMAIN-OXYENG-MT001-01-27-26-001
+ * Convert stored video_code date (MM-DD-YY) to display format (MM/DD/YY)
+ * Example: BKADV0-OXYENG-MT001-01-27-26-001 → BKADV0-OXYENG-MT001-01/27/26-001
+ */
+export function formatVideoCodeForDisplay(videoCode: string): string {
+  // Match the date pattern MM-DD-YY in the code and convert to MM/DD/YY
+  // Pattern: look for -XX-XX-XX- where X is digit
+  return videoCode.replace(
+    /-(\d{2})-(\d{2})-(\d{2})-/,
+    (_, month, day, year) => `-${month}/${day}/${year}-`
+  );
+}
+
+/**
+ * Legacy: Convert video_code to filesystem-safe version (replaces / with -)
+ * Note: New codes are already filesystem-safe, this is for backwards compatibility
  */
 export function filesystemSafeVideoCode(videoCode: string): string {
   return videoCode.replace(/\//g, "-");
 }
 
 /**
- * Generate a unique video code: ACCOUNT-BRAND-SKU-MM/DD/YY-###
+ * Lookup account_code from posting_accounts table by ID
+ */
+async function getAccountCode(postingAccountId: string | null | undefined): Promise<string> {
+  if (!postingAccountId) {
+    return "UNMAPD";
+  }
+
+  try {
+    const { data } = await supabaseAdmin
+      .from("posting_accounts")
+      .select("account_code")
+      .eq("id", postingAccountId)
+      .single();
+
+    if (data?.account_code) {
+      return data.account_code;
+    }
+  } catch (error) {
+    console.error("Failed to lookup account_code:", error);
+  }
+
+  return "UNMAPD";
+}
+
+/**
+ * Generate a unique video code: ACCOUNT-BRAND-SKU-MM-DD-YY-###
+ * Uses account_code from posting_accounts table if posting_account_id provided
+ * Date stored with hyphens (filesystem-safe), display as MM/DD/YY in UI
  * Retries on conflict with incrementing sequence
  */
 async function generateVideoCode(
-  accountName: string | null,
+  postingAccountId: string | null,
+  accountNameFallback: string | null,
   brandName: string,
   productName: string,
   productSlug: string | null,
   correlationId: string
 ): Promise<string | null> {
-  const accountSlug = generateAccountSlug(accountName);
+  // Try to get account_code from posting_accounts table first
+  let accountCode: string;
+  if (postingAccountId) {
+    accountCode = await getAccountCode(postingAccountId);
+  } else if (accountNameFallback) {
+    // Fallback to generating slug from name (backwards compatibility)
+    accountCode = generateAccountSlug(accountNameFallback);
+  } else {
+    accountCode = "UNMAPD";
+  }
+
   const brandSlug = generateSlug(brandName, 6);
   const skuSlug = productSlug ? productSlug.toUpperCase().slice(0, 6) : generateSlug(productName, 6);
   const dateCode = formatDateForVideoCode();
 
-  // Prefix for querying: ACCOUNT-BRAND-SKU-MM/DD/YY
-  const prefix = `${accountSlug}-${brandSlug}-${skuSlug}-${dateCode}`;
+  // Prefix for querying: ACCOUNT-BRAND-SKU-MM-DD-YY (hyphens throughout)
+  const prefix = `${accountCode}-${brandSlug}-${skuSlug}-${dateCode}`;
 
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      // Query existing codes with this prefix (need to escape / for LIKE)
-      // Using exact prefix match since / is literal in Postgres LIKE
+      // Query existing codes with this prefix
       const { data: existing } = await supabaseAdmin
         .from("videos")
         .select("video_code")
@@ -144,6 +196,9 @@ export interface CreateVideoParams {
   reference?: ReferenceParams;
   script_draft?: string;
   priority?: "normal" | "high";
+  /** UUID of posting account from posting_accounts table */
+  posting_account_id?: string;
+  /** @deprecated Use posting_account_id instead */
   target_account?: string;
 }
 
@@ -176,7 +231,8 @@ export async function createVideoFromProduct(
     reference,
     script_draft,
     priority,
-    target_account,
+    posting_account_id,
+    target_account, // deprecated, kept for backwards compatibility
   } = params;
 
   // Validate product_id
@@ -319,6 +375,11 @@ export async function createVideoFromProduct(
       google_drive_url: "", // Will be set later
     };
 
+    // Set posting_account_id if provided
+    if (posting_account_id) {
+      videoPayload.posting_account_id = posting_account_id;
+    }
+
     // If script draft is provided, lock it immediately
     if (script_draft && script_draft.trim()) {
       videoPayload.script_locked_text = script_draft.trim();
@@ -357,7 +418,8 @@ export async function createVideoFromProduct(
 
     // Generate and set video_code (now includes account)
     const videoCode = await generateVideoCode(
-      target_account || null,
+      posting_account_id || null,
+      target_account || null, // fallback for backwards compatibility
       product.brand,
       product.name,
       product.slug as string | null,
@@ -405,7 +467,8 @@ export async function createVideoFromProduct(
         hook_tbd: !briefData.hook?.trim(),
         angle_tbd: !briefData.angle?.trim(),
         should_notify_recorder: shouldNotifyRecorder,
-        target_account: target_account || null,
+        posting_account_id: posting_account_id || null,
+        target_account: target_account || null, // deprecated
       },
     });
 

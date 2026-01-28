@@ -11,6 +11,14 @@ interface Product {
   primary_link?: string;
 }
 
+interface PostingAccount {
+  id: string;
+  display_name: string;
+  account_code: string;
+  platform: string;
+  is_active: boolean;
+}
+
 interface CreateVideoDrawerProps {
   onClose: () => void;
   onSuccess: () => void;
@@ -123,6 +131,10 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
 
+  // Posting accounts data
+  const [postingAccounts, setPostingAccounts] = useState<PostingAccount[]>([]);
+  const [selectedPostingAccountId, setSelectedPostingAccountId] = useState('');
+
   // Form state - Required
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -201,9 +213,23 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     }
   }, []);
 
+  // Fetch posting accounts
+  const fetchPostingAccounts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/posting-accounts');
+      const data = await res.json();
+      if (data.ok) {
+        setPostingAccounts(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch posting accounts:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchPostingAccounts();
+  }, [fetchProducts, fetchPostingAccounts]);
 
   // Handle ESC key
   useEffect(() => {
@@ -664,6 +690,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     setNotes('');
     setScriptDraft('');
     setError('');
+    // Keep posting account for batch creation
     // Keep reference settings for batch creation (including targetLength)
   };
 
@@ -706,6 +733,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             tone_preset: tonePreset,
           } : undefined,
           script_draft: scriptDraft.trim() || undefined,
+          // Posting account (for video_code generation)
+          posting_account_id: selectedPostingAccountId || undefined,
         }),
       });
 
@@ -964,6 +993,26 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   {selectedBrand && <option value="__add_new__">+ Add New Product...</option>}
                 </select>
               )}
+            </div>
+
+            {/* Posting Account Select */}
+            <div style={{ marginTop: '14px' }}>
+              <label style={labelStyle}>Posting Account</label>
+              <select
+                value={selectedPostingAccountId}
+                onChange={(e) => setSelectedPostingAccountId(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="">Select posting account (optional)...</option>
+                {postingAccounts.map(account => (
+                  <option key={account.id} value={account.id}>
+                    {account.display_name} ({account.account_code})
+                  </option>
+                ))}
+              </select>
+              <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '4px' }}>
+                Used in video code: ACCOUNT-BRAND-SKU-DATE-###
+              </div>
             </div>
           </div>
 

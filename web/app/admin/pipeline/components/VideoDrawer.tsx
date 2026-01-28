@@ -13,6 +13,14 @@ interface Product {
   category: string;
 }
 
+interface PostingAccount {
+  id: string;
+  display_name: string;
+  account_code: string;
+  platform: string;
+  is_active: boolean;
+}
+
 interface VideoDrawerProps {
   video: QueueVideo;
   simpleMode: boolean;
@@ -135,6 +143,10 @@ export default function VideoDrawer({
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Posting accounts state (for admin edit)
+  const [postingAccounts, setPostingAccounts] = useState<PostingAccount[]>([]);
+  const [editPostingAccountId, setEditPostingAccountId] = useState<string>('');
+
   const statusColors = getStatusBadgeColor(video.recording_status);
   const slaColors = getSlaColor(video.sla_status);
   const primaryAction = getPrimaryAction(video);
@@ -165,6 +177,27 @@ export default function VideoDrawer({
     fetchDetails();
   }, [fetchDetails]);
 
+  // Fetch posting accounts for admin edit
+  useEffect(() => {
+    if (isAdmin) {
+      fetch('/api/posting-accounts')
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+            setPostingAccounts(data.data || []);
+          }
+        })
+        .catch(err => console.error('Failed to fetch posting accounts:', err));
+    }
+  }, [isAdmin]);
+
+  // Initialize posting account when video loads
+  useEffect(() => {
+    if (video.posting_account_id) {
+      setEditPostingAccountId(video.posting_account_id);
+    }
+  }, [video.posting_account_id]);
+
   // Initialize edit fields when details load
   useEffect(() => {
     if (details) {
@@ -185,7 +218,7 @@ export default function VideoDrawer({
     setEditSaving(true);
     try {
       // Determine which endpoint to call based on field
-      if (['google_drive_url', 'raw_footage_url', 'assets_url', 'final_video_url', 'script_locked_text'].includes(field)) {
+      if (['google_drive_url', 'raw_footage_url', 'assets_url', 'final_video_url', 'script_locked_text', 'posting_account_id'].includes(field)) {
         // Video fields
         const res = await fetch(`/api/videos/${video.id}`, {
           method: 'PATCH',
@@ -677,6 +710,42 @@ export default function VideoDrawer({
                     {video.product_sku || details?.video.product_sku}
                   </span>
                 )}
+                {/* Posting Account badge/select */}
+                {editMode && isAdmin ? (
+                  <select
+                    value={editPostingAccountId}
+                    onChange={(e) => {
+                      setEditPostingAccountId(e.target.value);
+                      saveEdits('posting_account_id', e.target.value || '');
+                    }}
+                    style={{
+                      padding: '2px 6px',
+                      fontSize: '11px',
+                      backgroundColor: '#fff3bf',
+                      border: '1px solid #ffd43b',
+                      borderRadius: '4px',
+                      color: '#e67700',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="">No Account</option>
+                    {postingAccounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.display_name}</option>
+                    ))}
+                  </select>
+                ) : (video.posting_account_name || video.posting_account_code) ? (
+                  <span style={{
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: '#fff3bf',
+                    color: '#e67700',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    border: '1px solid #ffd43b',
+                  }}>
+                    {video.posting_account_name || video.posting_account_code}
+                  </span>
+                ) : null}
                 {/* Status badge */}
                 <span style={{
                   padding: '3px 8px',

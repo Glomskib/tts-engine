@@ -62,6 +62,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           id,
           name,
           platform
+        ),
+        posting_account:posting_account_id (
+          id,
+          display_name,
+          account_code,
+          platform
         )
       `)
       .eq("id", videoId)
@@ -190,6 +196,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         product_sku: video.product?.sku || null,
         account_name: video.account?.name || null,
         account_platform: video.account?.platform || null,
+        // Posting account
+        posting_account_id: video.posting_account_id || null,
+        posting_account_name: video.posting_account?.display_name || null,
+        posting_account_code: video.posting_account?.account_code || null,
       },
       brief,
       script,

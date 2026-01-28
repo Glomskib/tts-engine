@@ -1,13 +1,20 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 export const runtime = "nodejs";
 
-// Validation schema for product updates
+// Validation schema for product updates - use strict() to reject unknown fields
 const UpdateProductSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  product_display_name: z.string().max(30).optional().nullable(),
+  product_display_name: z
+    .string()
+    .max(30)
+    .regex(/^[a-zA-Z0-9 ]*$/, "Only letters, numbers, and spaces allowed")
+    .optional()
+    .nullable(),
   brand: z.string().min(1).max(255).optional(),
   category: z.string().min(1).max(100).optional(),
   category_risk: z.enum(["low", "medium", "high"]).optional().nullable(),
@@ -15,7 +22,7 @@ const UpdateProductSchema = z.object({
   primary_link: z.string().url().max(500).optional().nullable(),
   tiktok_showcase_url: z.string().url().max(500).optional().nullable(),
   slug: z.string().max(100).optional().nullable(),
-});
+}).strict(); // Reject unknown fields
 
 /**
  * GET /api/products/[id]
@@ -25,11 +32,12 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { id } = await params;
 
   if (!id || id.trim() === "") {
     return NextResponse.json(
-      { ok: false, error: "Product ID is required" },
+      { ok: false, error: "Product ID is required", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -44,17 +52,17 @@ export async function GET(
     console.error("GET /api/products/[id] error:", error);
     if (error.code === "PGRST116") {
       return NextResponse.json(
-        { ok: false, error: "Product not found" },
+        { ok: false, error: "Product not found", correlation_id: correlationId },
         { status: 404 }
       );
     }
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message, correlation_id: correlationId },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }
 
 /**
@@ -65,11 +73,25 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { id } = await params;
+
+  // ============== ADMIN AUTHORIZATION CHECK ==============
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  if (!authContext.isAdmin) {
+    const err = apiError("FORBIDDEN", "Admin access required", 403);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+  // ========================================================
 
   if (!id || id.trim() === "") {
     return NextResponse.json(
-      { ok: false, error: "Product ID is required" },
+      { ok: false, error: "Product ID is required", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -79,17 +101,17 @@ export async function PATCH(
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { ok: false, error: "Invalid JSON" },
+      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
       { status: 400 }
     );
   }
 
-  // Validate input
+  // Validate input with strict mode (rejects unknown fields)
   const parseResult = UpdateProductSchema.safeParse(body);
   if (!parseResult.success) {
     const errors = parseResult.error.issues.map(e => `${e.path.join(".")}: ${e.message}`);
     return NextResponse.json(
-      { ok: false, error: "Validation failed", details: errors },
+      { ok: false, error: "Validation failed", details: errors, correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -99,7 +121,7 @@ export async function PATCH(
   // Check if any fields were provided
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
-      { ok: false, error: "No fields to update" },
+      { ok: false, error: "No fields to update", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -113,7 +135,7 @@ export async function PATCH(
 
   if (existError || !existing) {
     return NextResponse.json(
-      { ok: false, error: "Product not found" },
+      { ok: false, error: "Product not found", correlation_id: correlationId },
       { status: 404 }
     );
   }
@@ -137,12 +159,12 @@ export async function PATCH(
   if (error) {
     console.error("PATCH /api/products/[id] error:", error);
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message, correlation_id: correlationId },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }
 
 /**
@@ -153,11 +175,25 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { id } = await params;
+
+  // ============== ADMIN AUTHORIZATION CHECK ==============
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  if (!authContext.isAdmin) {
+    const err = apiError("FORBIDDEN", "Admin access required", 403);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+  // ========================================================
 
   if (!id || id.trim() === "") {
     return NextResponse.json(
-      { ok: false, error: "Product ID is required" },
+      { ok: false, error: "Product ID is required", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -171,7 +207,7 @@ export async function DELETE(
 
   if (existError || !existing) {
     return NextResponse.json(
-      { ok: false, error: "Product not found" },
+      { ok: false, error: "Product not found", correlation_id: correlationId },
       { status: 404 }
     );
   }
@@ -184,7 +220,7 @@ export async function DELETE(
 
   if (videoCount && videoCount > 0) {
     return NextResponse.json(
-      { ok: false, error: `Cannot delete product with ${videoCount} associated videos. Archive instead.` },
+      { ok: false, error: `Cannot delete product with ${videoCount} associated videos. Archive instead.`, correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -197,10 +233,10 @@ export async function DELETE(
   if (error) {
     console.error("DELETE /api/products/[id] error:", error);
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message, correlation_id: correlationId },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, deleted: id.trim() });
+  return NextResponse.json({ ok: true, deleted: id.trim(), correlation_id: correlationId });
 }

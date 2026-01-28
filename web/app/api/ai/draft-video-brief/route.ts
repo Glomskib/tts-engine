@@ -1509,7 +1509,7 @@ export async function POST(request: Request) {
       const errorResponse: Record<string, unknown> = {
         ok: false,
         error: "Failed to parse AI response. Using fallback content.",
-        error_code: "AI_PARSE_ERROR",
+        error_code: "AI_PARSE",
         parse_strategy: parseResult.strategy,
         correlation_id: correlationId,
         // Include fallback data so UI can still function
@@ -1764,7 +1764,7 @@ export async function POST(request: Request) {
     const errorResponse: Record<string, unknown> = {
       ok: false,
       error: `AI generation failed: ${error instanceof Error ? error.message : String(error)}`,
-      error_code: "AI_ERROR",
+      error_code: "AI_UNKNOWN",
       correlation_id: correlationId,
       // Include fallback data so UI doesn't completely break
       data: fallbackResult,
@@ -1777,8 +1777,8 @@ export async function POST(request: Request) {
       },
     };
 
-    // Include debug info if debug mode enabled or if we have raw response
-    if (debugMode || rawAiResponse) {
+    // Include debug info ONLY when debug mode is explicitly enabled
+    if (debugMode) {
       errorResponse.debug = {
         raw_excerpt: rawAiResponse ? rawAiResponse.slice(0, 2000) : null,
         raw_length: rawAiResponse?.length || 0,

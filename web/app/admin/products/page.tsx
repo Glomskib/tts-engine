@@ -606,6 +606,16 @@ export default function ProductsPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
                 />
               </div>
+
+              {/* Audit Trail Link */}
+              <div className="pt-2 border-t border-slate-100">
+                <Link
+                  href={`/admin/audit-log?entity_type=product&entity_id=${editingProduct.id}`}
+                  className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+                >
+                  View audit trail
+                </Link>
+              </div>
             </div>
 
             {/* Footer */}

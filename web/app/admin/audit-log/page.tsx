@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 
@@ -49,18 +49,35 @@ const ENTITY_TYPE_COLORS: Record<string, string> = {
 
 export default function AdminAuditLogPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [filtersInitialized, setFiltersInitialized] = useState(false);
 
-  // Filters
+  // Filters - initialized from URL params
   const [eventTypeFilter, setEventTypeFilter] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
   const [entityIdFilter, setEntityIdFilter] = useState('');
   const [correlationIdFilter, setCorrelationIdFilter] = useState('');
   const [limit, setLimit] = useState(200);
+
+  // Initialize filters from URL params on mount
+  useEffect(() => {
+    const entityType = searchParams.get('entity_type');
+    const entityId = searchParams.get('entity_id');
+    const correlationId = searchParams.get('correlation_id');
+    const eventType = searchParams.get('event_type');
+
+    if (entityType) setEntityTypeFilter(entityType);
+    if (entityId) setEntityIdFilter(entityId);
+    if (correlationId) setCorrelationIdFilter(correlationId);
+    if (eventType) setEventTypeFilter(eventType);
+
+    setFiltersInitialized(true);
+  }, [searchParams]);
 
   // Drawer state
   const [selectedRow, setSelectedRow] = useState<AuditRow | null>(null);
@@ -135,10 +152,10 @@ export default function AdminAuditLogPage() {
   }, [eventTypeFilter, entityTypeFilter, entityIdFilter, correlationIdFilter, limit]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && filtersInitialized) {
       fetchAuditLog();
     }
-  }, [isAdmin, fetchAuditLog]);
+  }, [isAdmin, filtersInitialized, fetchAuditLog]);
 
   const formatTime = (isoString: string) => {
     const date = new Date(isoString);

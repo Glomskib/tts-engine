@@ -417,6 +417,16 @@ export default function HookSuggestionsPage() {
                 </div>
               </div>
 
+              {/* Audit Trail Link */}
+              <div className="pt-2 border-t border-slate-100">
+                <Link
+                  href={`/admin/audit-log?entity_type=hook&entity_id=${selectedSuggestion.id}`}
+                  className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+                >
+                  View audit trail
+                </Link>
+              </div>
+
               {/* Error */}
               {actionError && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">

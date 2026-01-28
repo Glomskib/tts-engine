@@ -2454,7 +2454,7 @@ export default function VideoDrawer({
                           >
                             <option value="SAFE">Safe (Light Humor)</option>
                             <option value="BALANCED">Balanced (Sharper)</option>
-                            {isAdmin && <option value="SPICY">Spicy (Admin Only)</option>}
+                            <option value="SPICY">Spicy (Energetic Parody)</option>
                           </select>
                         </div>
 

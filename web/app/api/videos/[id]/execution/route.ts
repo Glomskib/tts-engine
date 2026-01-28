@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { createHookSuggestionsFromVideo } from "@/lib/hook-suggestions";
+import { applyHookPostedCounts } from "@/lib/hook-usage-counts";
 import {
   RECORDING_STATUSES,
   isValidRecordingStatus,
@@ -530,18 +531,23 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // Create hook suggestions when video is posted (fail-safe, non-blocking)
     if (recording_status === "POSTED") {
-      try {
-        // Fetch brand_name from product if available
-        let brandName: string | null = null;
-        if (currentVideo.product_id) {
+      // Fetch brand from product if available (needed for both suggestions and usage counts)
+      let brandName: string | null = null;
+      if (currentVideo.product_id) {
+        try {
           const { data: product } = await supabaseAdmin
             .from("products")
-            .select("brand_name")
+            .select("brand")
             .eq("id", currentVideo.product_id)
             .single();
-          brandName = product?.brand_name || null;
+          brandName = product?.brand || null;
+        } catch (err) {
+          console.error("Failed to fetch brand for hook processing:", err);
         }
+      }
 
+      // Create hook suggestions
+      try {
         const suggestionsResult = await createHookSuggestionsFromVideo(
           supabaseAdmin,
           {
@@ -564,6 +570,35 @@ export async function PUT(request: Request, { params }: RouteParams) {
       } catch (err) {
         // Fail-safe: log but don't fail the main request
         console.error("Failed to create hook suggestions:", err);
+      }
+
+      // Increment posted_count and used_count on matching proven_hooks (fail-safe, non-blocking)
+      if (brandName) {
+        try {
+          const usageResult = await applyHookPostedCounts(
+            supabaseAdmin,
+            id,
+            {
+              selected_spoken_hook: currentVideo.selected_spoken_hook,
+              selected_visual_hook: currentVideo.selected_visual_hook,
+              selected_on_screen_hook: currentVideo.selected_on_screen_hook,
+            },
+            brandName
+          );
+
+          if (usageResult.counts_incremented > 0 || usageResult.skipped_duplicate > 0) {
+            await writeVideoEvent(id, "hook_usage_counts_applied", correlationId, actor || "api", null, null, {
+              hooks_found: usageResult.hooks_found,
+              counts_incremented: usageResult.counts_incremented,
+              skipped_duplicate: usageResult.skipped_duplicate,
+              skipped_no_match: usageResult.skipped_no_match,
+              errors: usageResult.errors,
+            });
+          }
+        } catch (err) {
+          // Fail-safe: log but don't fail the main request
+          console.error("Failed to apply hook usage counts:", err);
+        }
       }
     }
   }

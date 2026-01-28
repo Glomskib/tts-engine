@@ -1476,7 +1476,8 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: "claude-3-haiku-20240307",
           max_tokens: 4000,
-          temperature: 0.9, // Higher temperature for more variety
+          temperature: 0.4, // Lower temperature for reliable JSON output
+          system: "You are a JSON-only API. Output ONLY valid JSON with no markdown, no code fences, and no explanatory text. Your entire response must be parseable by JSON.parse().",
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -1514,9 +1515,13 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: "gpt-4-turbo-preview",
-          messages: [{ role: "user", content: prompt }],
+          messages: [
+            { role: "system", content: "You are a JSON-only API. Output ONLY valid JSON with no markdown, no code fences, and no explanatory text. Your entire response must be parseable by JSON.parse()." },
+            { role: "user", content: prompt },
+          ],
           max_tokens: 4000,
-          temperature: 0.9,
+          temperature: 0.4, // Lower temperature for reliable JSON output
+          response_format: { type: "json_object" }, // Enforce JSON mode
         }),
       });
 

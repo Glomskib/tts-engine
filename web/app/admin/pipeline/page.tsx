@@ -466,10 +466,95 @@ export default function AdminPipelinePage() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Bulk selection state
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
   // Show toast with auto-dismiss
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  // Bulk selection handlers
+  const toggleVideoSelection = (videoId: string) => {
+    setSelectedVideoIds(prev => {
+      const next = new Set(prev);
+      if (next.has(videoId)) {
+        next.delete(videoId);
+      } else {
+        next.add(videoId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const currentVideos = getIntentFilteredVideos();
+    if (selectedVideoIds.size === currentVideos.length) {
+      setSelectedVideoIds(new Set());
+    } else {
+      setSelectedVideoIds(new Set(currentVideos.map(v => v.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedVideoIds(new Set());
+  };
+
+  // Bulk action: Mark as Winner
+  const bulkMarkWinner = async () => {
+    if (selectedVideoIds.size === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/videos/bulk-winner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_ids: Array.from(selectedVideoIds),
+          winner_reason: 'Bulk marked as winner',
+        }),
+      });
+      const data = await res.json();
+      if (data.ok || data.data?.success_count > 0) {
+        showToast(`Marked ${data.data?.success_count || 0} video(s) as winner`);
+        clearSelection();
+        fetchQueueVideos();
+      } else {
+        showToast(data.message || 'Failed to mark winners', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  // Bulk action: Mark as Underperform
+  const bulkMarkUnderperform = async () => {
+    if (selectedVideoIds.size === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/videos/bulk-underperform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_ids: Array.from(selectedVideoIds),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok || data.data?.success_count > 0) {
+        showToast(`Marked ${data.data?.success_count || 0} video(s) as underperforming`);
+        clearSelection();
+        fetchQueueVideos();
+      } else {
+        showToast(data.message || 'Failed to mark underperform', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    } finally {
+      setBulkActionLoading(false);
+    }
   };
 
 
@@ -1551,11 +1636,88 @@ export default function AdminPipelinePage() {
         </span>
       </div>
 
+      {/* Bulk Action Bar - appears when items selected */}
+      {selectedVideoIds.size > 0 && isAdminMode && (
+        <div style={{
+          marginBottom: '12px',
+          padding: '10px 16px',
+          backgroundColor: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}>
+          <span style={{ fontSize: '13px', color: colors.text, fontWeight: 500 }}>
+            {selectedVideoIds.size} selected
+          </span>
+          <button
+            onClick={bulkMarkWinner}
+            disabled={bulkActionLoading}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: colors.success,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+              opacity: bulkActionLoading ? 0.6 : 1,
+            }}
+          >
+            Mark Winner
+          </button>
+          <button
+            onClick={bulkMarkUnderperform}
+            disabled={bulkActionLoading}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: colors.warning,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+              opacity: bulkActionLoading ? 0.6 : 1,
+            }}
+          >
+            Mark Underperform
+          </button>
+          <button
+            onClick={clearSelection}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: 'transparent',
+              color: colors.textMuted,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '6px',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Quiet, Scannable Table */}
       {getIntentFilteredVideos().length > 0 ? (
         <table style={tableStyle}>
           <thead>
             <tr>
+              {isAdminMode && (
+                <th style={{ ...thStyle, width: '40px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedVideoIds.size === getIntentFilteredVideos().length && getIntentFilteredVideos().length > 0}
+                    onChange={toggleSelectAll}
+                    style={{ cursor: 'pointer' }}
+                    title="Select all"
+                  />
+                </th>
+              )}
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Video</th>
               <th style={thStyle}>Brand / Product</th>
@@ -1588,6 +1750,18 @@ export default function AdminPipelinePage() {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
+                  {/* Checkbox for bulk selection (admin only) */}
+                  {isAdminMode && (
+                    <td style={{ ...tdStyle, width: '40px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedVideoIds.has(video.id)}
+                        onChange={() => toggleVideoSelection(video.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
+                  )}
                   {/* Status - subtle indicator */}
                   <td style={{ ...tdStyle, width: '90px' }}>
                     {video.sla_status === 'overdue' ? (

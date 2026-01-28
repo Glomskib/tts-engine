@@ -46,6 +46,7 @@ export type ApiErrorCode =
   | 'NO_SCRIPT'
   | 'POSTING_META_INCOMPLETE'
   | 'FINAL_ASSET_REQUIRED'
+  | 'RATE_LIMITED'
   | 'GENERATION_IN_PROGRESS';
 
 // Admin users who can use force=true bypass (environment-configurable)

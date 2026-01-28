@@ -178,6 +178,10 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   // Hook feedback state
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // Debug state for AI response (admin only)
+  const [showDebug, setShowDebug] = useState(false);
+  const [aiResponseDebug, setAiResponseDebug] = useState<Record<string, unknown> | null>(null);
+
   // Submission state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -424,8 +428,10 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     setAiLoading(true);
     setAiError(null);
     setError('');
+    setAiResponseDebug(null);
 
     try {
+      const nonce = crypto.randomUUID();
       const res = await fetch('/api/ai/draft-video-brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -436,22 +442,67 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           target_length: targetLength,
           reference_script_text: referenceScriptText.trim() || undefined,
           reference_video_url: referenceVideoUrl.trim() || undefined,
-          nonce: crypto.randomUUID(),
+          nonce,
         }),
       });
 
       const data = await res.json();
 
+      // Store debug info
+      setAiResponseDebug({
+        ok: data.ok,
+        keys: data.data ? Object.keys(data.data) : [],
+        meta: data.meta,
+        error: data.error,
+        nonce,
+      });
+
       if (data.ok && data.data) {
         const draft = data.data as AIDraft;
-        setAiDraft(draft);
-        setOriginalAiDraft(draft); // Store original for readjust comparison
+
+        // Handle multiple response shapes for hooks
+        let hookOptions: string[] = [];
+
+        // Priority 1: spoken_hook_options (new format)
+        if (Array.isArray(draft.spoken_hook_options) && draft.spoken_hook_options.length > 0) {
+          hookOptions = draft.spoken_hook_options;
+        }
+        // Priority 2: hook_options (legacy format)
+        else if (Array.isArray(draft.hook_options) && draft.hook_options.length > 0) {
+          hookOptions = draft.hook_options;
+        }
+        // Priority 3: Extract from hook_scores keys
+        else if (draft.hook_scores && Object.keys(draft.hook_scores).length > 0) {
+          hookOptions = Object.keys(draft.hook_scores);
+        }
+        // Priority 4: Use selected_spoken_hook or selected_hook as single option
+        else if (draft.selected_spoken_hook) {
+          hookOptions = [draft.selected_spoken_hook];
+        }
+        else if (draft.selected_hook) {
+          hookOptions = [draft.selected_hook];
+        }
+
+        // Normalize the draft to ensure hooks are populated
+        const normalizedDraft: AIDraft = {
+          ...draft,
+          spoken_hook_options: hookOptions,
+          hook_options: hookOptions,
+        };
+
+        // Log if hooks array is empty
+        if (hookOptions.length === 0) {
+          console.warn('AI draft returned 0 hooks. Response keys:', Object.keys(draft));
+          setAiError('AI draft returned 0 hooks. Click Regenerate or check debug info.');
+        }
+
+        setAiDraft(normalizedDraft);
+        setOriginalAiDraft(normalizedDraft); // Store original for readjust comparison
         setUserModifiedFields(new Set()); // Reset modified tracking
 
         // Select best-scoring hook if hook_scores available
-        let bestHook = draft.selected_spoken_hook || draft.selected_hook;
-        if (draft.hook_scores) {
-          const hookOptions = draft.spoken_hook_options || draft.hook_options || [];
+        let bestHook = draft.selected_spoken_hook || draft.selected_hook || hookOptions[0] || '';
+        if (draft.hook_scores && hookOptions.length > 0) {
           let bestScore = 0;
           for (const hook of hookOptions) {
             const score = draft.hook_scores[hook]?.overall || 0;
@@ -469,11 +520,14 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         setOnScreenTextMid(draft.on_screen_text_mid || draft.mid_overlays || []);
         setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Link in bio!');
         // Populate standard fields
-        setSelectedAngle(draft.selected_angle);
-        setProofType(draft.proof_type);
-        setNotes(draft.notes);
-        setScriptDraft(draft.script_draft);
-        if (onShowToast) onShowToast('Brief generated!');
+        setSelectedAngle(draft.selected_angle || draft.angle_options?.[0] || '');
+        setProofType(draft.proof_type || 'testimonial');
+        setNotes(draft.notes || '');
+        setScriptDraft(draft.script_draft || '');
+
+        if (hookOptions.length > 0 && onShowToast) {
+          onShowToast('Brief generated!');
+        }
       } else {
         setAiError(data.error || 'AI generation failed');
       }
@@ -1040,6 +1094,34 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   {aiError}
                 </div>
               )}
+
+              {/* Debug expander (show raw AI response info) */}
+              {aiResponseDebug && (
+                <div style={{ marginTop: '10px' }}>
+                  <button
+                    onClick={() => setShowDebug(!showDebug)}
+                    style={{
+                      background: 'none', border: 'none',
+                      fontSize: '11px', color: colors.textMuted,
+                      cursor: 'pointer', padding: '4px 0',
+                    }}
+                  >
+                    {showDebug ? '▼' : '▶'} Debug Info
+                  </button>
+                  {showDebug && (
+                    <pre style={{
+                      marginTop: '6px', padding: '8px',
+                      backgroundColor: colors.bgSecondary,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px', fontSize: '10px',
+                      color: colors.textSecondary,
+                      overflow: 'auto', maxHeight: '150px',
+                    }}>
+                      {JSON.stringify(aiResponseDebug, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1144,22 +1226,32 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       );
                     })()}
                   </div>
-                  <select
-                    value={selectedSpokenHook}
-                    onChange={(e) => {
-                      setSelectedSpokenHook(e.target.value);
-                      markFieldModified('selectedSpokenHook');
-                    }}
-                    style={selectStyle}
-                  >
-                    {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).map((hook, idx) => {
-                      const score = aiDraft.hook_scores?.[hook]?.overall;
-                      const scoreLabel = score ? ` (${Math.round(score * 100)}%)` : '';
-                      return (
-                        <option key={idx} value={hook}>{hook}{scoreLabel}</option>
-                      );
-                    })}
-                  </select>
+                  {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).length === 0 ? (
+                    <div style={{
+                      padding: '10px', backgroundColor: isDark ? '#4a1f1f' : '#ffe0e0',
+                      border: `1px solid ${colors.danger}`, borderRadius: '6px',
+                      fontSize: '12px', color: colors.danger,
+                    }}>
+                      ⚠️ AI returned 0 hooks. Click Regenerate above.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedSpokenHook}
+                      onChange={(e) => {
+                        setSelectedSpokenHook(e.target.value);
+                        markFieldModified('selectedSpokenHook');
+                      }}
+                      style={selectStyle}
+                    >
+                      {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).map((hook, idx) => {
+                        const score = aiDraft.hook_scores?.[hook]?.overall;
+                        const scoreLabel = score ? ` (${Math.round(score * 100)}%)` : '';
+                        return (
+                          <option key={idx} value={hook}>{hook}{scoreLabel}</option>
+                        );
+                      })}
+                    </select>
+                  )}
                   {/* Thumbs up/down feedback buttons */}
                   {selectedSpokenHook && (
                     <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>

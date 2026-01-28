@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 /**
  * Generate a slug from a string (uppercase alphanumeric only)
  */
-function generateSlug(str: string, maxLength: number = 8): string {
+export function generateSlug(str: string, maxLength: number = 8): string {
   return str
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
@@ -11,44 +11,82 @@ function generateSlug(str: string, maxLength: number = 8): string {
 }
 
 /**
- * Format date as YYMMDD in America/New_York timezone
+ * Generate account slug from account name
+ * Examples:
+ * - "TikTok - Main" → TTMAIN
+ * - "TikTok Shop" → TTSHOP
+ * - "Main Account" → MAINACCT
+ * - null/undefined → UNMAPD
  */
-function formatDateCode(): string {
-  const now = new Date();
-  // Format in America/New_York timezone
+export function generateAccountSlug(accountName: string | null | undefined): string {
+  if (!accountName || accountName.trim() === "") {
+    return "UNMAPD";
+  }
+
+  // Special handling for common patterns
+  const name = accountName.trim();
+
+  // Handle "TikTok - X" pattern
+  if (name.toLowerCase().startsWith("tiktok")) {
+    const afterTikTok = name.replace(/tiktok\s*[-–—]?\s*/i, "").trim();
+    if (afterTikTok) {
+      return "TT" + generateSlug(afterTikTok, 6);
+    }
+    return "TIKTOK";
+  }
+
+  // Default: just slugify the whole name
+  return generateSlug(name, 8) || "UNMAPD";
+}
+
+/**
+ * Format date as MM/DD/YY in America/New_York timezone (for display in video_code)
+ */
+export function formatDateForVideoCode(date: Date = new Date()): string {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     year: "2-digit",
     month: "2-digit",
     day: "2-digit",
   });
-  const parts = formatter.formatToParts(now);
+  const parts = formatter.formatToParts(date);
   const year = parts.find(p => p.type === "year")?.value || "00";
   const month = parts.find(p => p.type === "month")?.value || "00";
   const day = parts.find(p => p.type === "day")?.value || "00";
-  return `${year}${month}${day}`;
+  return `${month}/${day}/${year}`;
 }
 
 /**
- * Generate a unique video code: BRAND-SKU-YYMMDD-###
+ * Convert video_code to filesystem-safe version (replaces / with -)
+ * Example: TTMAIN-OXYENG-MT001-01/27/26-001 → TTMAIN-OXYENG-MT001-01-27-26-001
+ */
+export function filesystemSafeVideoCode(videoCode: string): string {
+  return videoCode.replace(/\//g, "-");
+}
+
+/**
+ * Generate a unique video code: ACCOUNT-BRAND-SKU-MM/DD/YY-###
  * Retries on conflict with incrementing sequence
  */
 async function generateVideoCode(
+  accountName: string | null,
   brandName: string,
   productName: string,
   productSlug: string | null,
   correlationId: string
 ): Promise<string | null> {
+  const accountSlug = generateAccountSlug(accountName);
   const brandSlug = generateSlug(brandName, 6);
   const skuSlug = productSlug ? productSlug.toUpperCase().slice(0, 6) : generateSlug(productName, 6);
-  const dateCode = formatDateCode();
+  const dateCode = formatDateForVideoCode();
 
-  // Find existing videos with same prefix today to get next sequence
-  const prefix = `${brandSlug}-${skuSlug}-${dateCode}`;
+  // Prefix for querying: ACCOUNT-BRAND-SKU-MM/DD/YY
+  const prefix = `${accountSlug}-${brandSlug}-${skuSlug}-${dateCode}`;
 
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      // Query existing codes with this prefix
+      // Query existing codes with this prefix (need to escape / for LIKE)
+      // Using exact prefix match since / is literal in Postgres LIKE
       const { data: existing } = await supabaseAdmin
         .from("videos")
         .select("video_code")
@@ -221,9 +259,17 @@ export async function createVideoFromProduct(
     const angleValue = briefData.angle?.trim() || "Angle TBD";
     const proofTypeValue = briefData.proof_type || "testimonial";
 
+    // Build concept title: "{Brand} {Product} — {short hook}" or fallback
+    const shortHook = hookValue && hookValue !== "Hook TBD"
+      ? hookValue.slice(0, 50) + (hookValue.length > 50 ? "..." : "")
+      : "Draft";
+    const conceptTitle = `${product.brand} ${product.name} — ${shortHook}`;
+
     const conceptPayload: Record<string, unknown> = {
       product_id: product_id.trim(),
-      title: `${product.brand} - ${product.name}`,
+      // Set BOTH title and concept_title to prevent NOT NULL violation
+      title: conceptTitle,
+      concept_title: conceptTitle,
       angle: angleValue,
       hypothesis: briefData.notes || null,
       proof_type: proofTypeValue,
@@ -309,8 +355,9 @@ export async function createVideoFromProduct(
       };
     }
 
-    // Generate and set video_code
+    // Generate and set video_code (now includes account)
     const videoCode = await generateVideoCode(
+      target_account || null,
       product.brand,
       product.name,
       product.slug as string | null,
@@ -358,6 +405,7 @@ export async function createVideoFromProduct(
         hook_tbd: !briefData.hook?.trim(),
         angle_tbd: !briefData.angle?.trim(),
         should_notify_recorder: shouldNotifyRecorder,
+        target_account: target_account || null,
       },
     });
 

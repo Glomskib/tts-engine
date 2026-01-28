@@ -82,7 +82,7 @@ interface VideoDetails {
   }[];
 }
 
-type TabType = 'brief' | 'script' | 'assets' | 'activity';
+type TabType = 'brief' | 'script' | 'assets' | 'activity' | 'chat';
 
 export default function VideoDrawer({
   video,
@@ -116,6 +116,25 @@ export default function VideoDrawer({
   const [selectedProductId, setSelectedProductId] = useState('');
   const [mappingSaving, setMappingSaving] = useState(false);
 
+  // Admin Edit Mode state
+  const [editMode, setEditMode] = useState(false);
+  const [editDriveUrl, setEditDriveUrl] = useState('');
+  const [editRawFootageUrl, setEditRawFootageUrl] = useState('');
+  const [editAssetsUrl, setEditAssetsUrl] = useState('');
+  const [editFinalUrl, setEditFinalUrl] = useState('');
+  const [editSpokenHook, setEditSpokenHook] = useState('');
+  const [editVisualHook, setEditVisualHook] = useState('');
+  const [editTextHook, setEditTextHook] = useState('');
+  const [editAngle, setEditAngle] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editScript, setEditScript] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  // AI Chat state
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+
   const statusColors = getStatusBadgeColor(video.recording_status);
   const slaColors = getSlaColor(video.sla_status);
   const primaryAction = getPrimaryAction(video);
@@ -145,6 +164,102 @@ export default function VideoDrawer({
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
+
+  // Initialize edit fields when details load
+  useEffect(() => {
+    if (details) {
+      setEditDriveUrl(details.assets?.google_drive_url || video.google_drive_url || '');
+      setEditRawFootageUrl(details.assets?.raw_footage_url || '');
+      setEditFinalUrl(details.assets?.final_mp4_url || video.final_video_url || '');
+      setEditSpokenHook(details.brief?.hook_options?.[0] || '');
+      setEditVisualHook(details.brief?.visual_hook || '');
+      setEditTextHook(details.brief?.on_screen_text_hook || '');
+      setEditAngle(details.brief?.angle || '');
+      setEditNotes(details.brief?.notes || '');
+      setEditScript(details.script?.text || video.script_locked_text || '');
+    }
+  }, [details, video]);
+
+  // Save edits function
+  const saveEdits = async (field: string, value: string | string[]) => {
+    setEditSaving(true);
+    try {
+      // Determine which endpoint to call based on field
+      if (['google_drive_url', 'raw_footage_url', 'assets_url', 'final_video_url', 'script_locked_text'].includes(field)) {
+        // Video fields
+        const res = await fetch(`/api/videos/${video.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: value }),
+        });
+        if (res.ok) {
+          setSavedToast(`Saved ${field.replace(/_/g, ' ')}`);
+          setTimeout(() => setSavedToast(null), 2000);
+          onRefresh();
+          fetchDetails();
+        }
+      } else if (details?.brief?.concept_id) {
+        // Concept/brief fields
+        const res = await fetch(`/api/concepts/${details.brief.concept_id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: value }),
+        });
+        if (res.ok) {
+          setSavedToast(`Saved ${field.replace(/_/g, ' ')}`);
+          setTimeout(() => setSavedToast(null), 2000);
+          fetchDetails();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save edit:', err);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // AI Chat function
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+
+    try {
+      const context = {
+        brand: video.brand_name || details?.video.brand_name || '',
+        product: video.product_name || details?.video.product_name || '',
+        current_script: video.script_locked_text || details?.script?.text || '',
+        spoken_hook: details?.brief?.hook_options?.[0] || '',
+        visual_hook: details?.brief?.visual_hook || '',
+        angle: details?.brief?.angle || '',
+      };
+
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          context,
+          video_id: video.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok && data.response) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I could not process that request.' }]);
+      }
+    } catch (err) {
+      console.error('Chat error:', err);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to AI service.' }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   // Fetch products for mapping (only when mapping is shown)
   useEffect(() => {
@@ -393,6 +508,7 @@ export default function VideoDrawer({
     { key: 'brief', label: 'Brief', icon: '📋' },
     { key: 'script', label: 'Script', icon: '📝' },
     { key: 'assets', label: 'Assets', icon: '📁' },
+    { key: 'chat', label: 'AI Chat', icon: '💬' },
     { key: 'activity', label: 'Activity', icon: '📊' },
   ];
 
@@ -587,20 +703,40 @@ export default function VideoDrawer({
               </div>
             </div>
 
-            <button
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666',
-                padding: '0',
-                lineHeight: 1,
-              }}
-            >
-              x
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Admin Edit Mode Toggle */}
+              {isAdmin && (
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    backgroundColor: editMode ? '#228be6' : '#e9ecef',
+                    color: editMode ? 'white' : '#495057',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {editMode ? '✓ Edit Mode' : 'Edit'}
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '0',
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            </div>
           </div>
 
           {/* Next Action Section */}
@@ -971,52 +1107,160 @@ export default function VideoDrawer({
                           </div>
 
                           {/* Spoken Hook */}
-                          {details.brief.hook_options && details.brief.hook_options.length > 0 && (
+                          {(details.brief.hook_options && details.brief.hook_options.length > 0) || editMode ? (
                             <div style={{ marginBottom: '10px' }}>
                               <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>SPOKEN HOOK</div>
-                              <div style={{
-                                padding: '8px 10px',
-                                backgroundColor: isDark ? '#2d5a47' : '#fff3bf',
-                                borderRadius: '4px',
-                                fontSize: '13px',
-                                color: isDark ? '#fff' : '#495057',
-                              }}>
-                                {details.brief.hook_options[0]}
-                              </div>
+                              {editMode ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <input
+                                    type="text"
+                                    value={editSpokenHook}
+                                    onChange={(e) => setEditSpokenHook(e.target.value)}
+                                    style={{
+                                      flex: 1,
+                                      padding: '8px 10px',
+                                      backgroundColor: colors.input,
+                                      border: `1px solid ${colors.inputBorder}`,
+                                      borderRadius: '4px',
+                                      fontSize: '13px',
+                                      color: colors.text,
+                                    }}
+                                    placeholder="Enter spoken hook..."
+                                  />
+                                  <button
+                                    onClick={() => saveEdits('hook_options', [editSpokenHook])}
+                                    disabled={editSaving}
+                                    style={{
+                                      padding: '8px 12px',
+                                      backgroundColor: '#228be6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: editSaving ? 'not-allowed' : 'pointer',
+                                      fontSize: '11px',
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{
+                                  padding: '8px 10px',
+                                  backgroundColor: isDark ? '#2d5a47' : '#fff3bf',
+                                  borderRadius: '4px',
+                                  fontSize: '13px',
+                                  color: isDark ? '#fff' : '#495057',
+                                }}>
+                                  {details.brief.hook_options?.[0] || 'No hook set'}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          ) : null}
 
                           {/* Visual Hook */}
-                          {details.brief.visual_hook && (
+                          {details.brief.visual_hook || editMode ? (
                             <div style={{ marginBottom: '10px' }}>
                               <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>VISUAL HOOK (Opening Shot)</div>
-                              <div style={{
-                                padding: '8px 10px',
-                                backgroundColor: isDark ? '#2d3a4f' : '#e7f5ff',
-                                borderRadius: '4px',
-                                fontSize: '13px',
-                                color: isDark ? '#74c0fc' : '#1971c2',
-                              }}>
-                                {details.brief.visual_hook}
-                              </div>
+                              {editMode ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <input
+                                    type="text"
+                                    value={editVisualHook}
+                                    onChange={(e) => setEditVisualHook(e.target.value)}
+                                    style={{
+                                      flex: 1,
+                                      padding: '8px 10px',
+                                      backgroundColor: colors.input,
+                                      border: `1px solid ${colors.inputBorder}`,
+                                      borderRadius: '4px',
+                                      fontSize: '13px',
+                                      color: colors.text,
+                                    }}
+                                    placeholder="Enter visual hook..."
+                                  />
+                                  <button
+                                    onClick={() => saveEdits('visual_hook', editVisualHook)}
+                                    disabled={editSaving}
+                                    style={{
+                                      padding: '8px 12px',
+                                      backgroundColor: '#228be6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: editSaving ? 'not-allowed' : 'pointer',
+                                      fontSize: '11px',
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{
+                                  padding: '8px 10px',
+                                  backgroundColor: isDark ? '#2d3a4f' : '#e7f5ff',
+                                  borderRadius: '4px',
+                                  fontSize: '13px',
+                                  color: isDark ? '#74c0fc' : '#1971c2',
+                                }}>
+                                  {details.brief.visual_hook}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          ) : null}
 
                           {/* On-Screen Text Hook */}
-                          {details.brief.on_screen_text_hook && (
+                          {details.brief.on_screen_text_hook || editMode ? (
                             <div style={{ marginBottom: '10px' }}>
                               <div style={{ fontSize: '10px', color: isDark ? '#adb5bd' : '#868e96', marginBottom: '4px', fontWeight: 'bold' }}>ON-SCREEN TEXT HOOK</div>
-                              <div style={{
-                                padding: '8px 10px',
-                                backgroundColor: isDark ? '#3d2a4f' : '#f3f0ff',
-                                borderRadius: '4px',
-                                fontSize: '13px',
-                                color: isDark ? '#b197fc' : '#7048e8',
-                              }}>
-                                {details.brief.on_screen_text_hook}
-                              </div>
+                              {editMode ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <input
+                                    type="text"
+                                    value={editTextHook}
+                                    onChange={(e) => setEditTextHook(e.target.value)}
+                                    style={{
+                                      flex: 1,
+                                      padding: '8px 10px',
+                                      backgroundColor: colors.input,
+                                      border: `1px solid ${colors.inputBorder}`,
+                                      borderRadius: '4px',
+                                      fontSize: '13px',
+                                      color: colors.text,
+                                    }}
+                                    placeholder="Enter on-screen text hook..."
+                                  />
+                                  <button
+                                    onClick={() => saveEdits('on_screen_text_hook', editTextHook)}
+                                    disabled={editSaving}
+                                    style={{
+                                      padding: '8px 12px',
+                                      backgroundColor: '#228be6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: editSaving ? 'not-allowed' : 'pointer',
+                                      fontSize: '11px',
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{
+                                  padding: '8px 10px',
+                                  backgroundColor: isDark ? '#3d2a4f' : '#f3f0ff',
+                                  borderRadius: '4px',
+                                  fontSize: '13px',
+                                  color: isDark ? '#b197fc' : '#7048e8',
+                                }}>
+                                  {details.brief.on_screen_text_hook}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          ) : null}
 
                           {/* Mid-Video Overlays */}
                           {details.brief.on_screen_text_mid && details.brief.on_screen_text_mid.length > 0 && (
@@ -1091,30 +1335,104 @@ export default function VideoDrawer({
                       )}
 
                       {/* Angle */}
-                      {details.brief.angle && (
+                      {details.brief.angle || editMode ? (
                         <div style={{ marginBottom: '16px' }}>
                           <h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#868e96', textTransform: 'uppercase' }}>Angle</h4>
-                          <div style={{ backgroundColor: '#f8f9fa', borderRadius: '6px', padding: '10px', fontSize: '13px' }}>
-                            {details.brief.angle}
-                          </div>
+                          {editMode ? (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <input
+                                type="text"
+                                value={editAngle}
+                                onChange={(e) => setEditAngle(e.target.value)}
+                                style={{
+                                  flex: 1,
+                                  padding: '10px',
+                                  backgroundColor: colors.input,
+                                  border: `1px solid ${colors.inputBorder}`,
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  color: colors.text,
+                                }}
+                                placeholder="Enter angle..."
+                              />
+                              <button
+                                onClick={() => saveEdits('angle', editAngle)}
+                                disabled={editSaving}
+                                style={{
+                                  padding: '10px 14px',
+                                  backgroundColor: '#228be6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: editSaving ? 'not-allowed' : 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold',
+                                }}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ backgroundColor: '#f8f9fa', borderRadius: '6px', padding: '10px', fontSize: '13px' }}>
+                              {details.brief.angle}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ) : null}
 
                       {/* Notes/B-roll checklist */}
-                      {details.brief.notes && (
+                      {details.brief.notes || editMode ? (
                         <div style={{ marginBottom: '16px' }}>
                           <h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#868e96', textTransform: 'uppercase' }}>Notes / B-Roll Checklist</h4>
-                          <div style={{
-                            backgroundColor: '#f8f9fa',
-                            borderRadius: '6px',
-                            padding: '10px',
-                            fontSize: '13px',
-                            whiteSpace: 'pre-wrap',
-                          }}>
-                            {details.brief.notes}
-                          </div>
+                          {editMode ? (
+                            <div>
+                              <textarea
+                                value={editNotes}
+                                onChange={(e) => setEditNotes(e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  minHeight: '80px',
+                                  padding: '10px',
+                                  backgroundColor: colors.input,
+                                  border: `1px solid ${colors.inputBorder}`,
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  color: colors.text,
+                                  resize: 'vertical',
+                                }}
+                                placeholder="Enter notes..."
+                              />
+                              <button
+                                onClick={() => saveEdits('notes', editNotes)}
+                                disabled={editSaving}
+                                style={{
+                                  marginTop: '6px',
+                                  padding: '8px 14px',
+                                  backgroundColor: '#228be6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: editSaving ? 'not-allowed' : 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold',
+                                }}
+                              >
+                                Save Notes
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{
+                              backgroundColor: '#f8f9fa',
+                              borderRadius: '6px',
+                              padding: '10px',
+                              fontSize: '13px',
+                              whiteSpace: 'pre-wrap',
+                            }}>
+                              {details.brief.notes}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ) : null}
 
                       {/* Proof Type */}
                       {details.brief.proof_type && (
@@ -1257,19 +1575,59 @@ export default function VideoDrawer({
                       {/* Full script */}
                       <div>
                         <h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#868e96', textTransform: 'uppercase' }}>Full Script</h4>
-                        <div style={{
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '6px',
-                          padding: '12px',
-                          fontSize: '13px',
-                          lineHeight: 1.6,
-                          maxHeight: '300px',
-                          overflow: 'auto',
-                          whiteSpace: 'pre-wrap',
-                          border: '1px solid #e9ecef',
-                        }}>
-                          {video.script_locked_text}
-                        </div>
+                        {editMode ? (
+                          <div>
+                            <textarea
+                              value={editScript}
+                              onChange={(e) => setEditScript(e.target.value)}
+                              style={{
+                                width: '100%',
+                                minHeight: '250px',
+                                padding: '12px',
+                                backgroundColor: colors.input,
+                                border: `1px solid ${colors.inputBorder}`,
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                lineHeight: 1.6,
+                                color: colors.text,
+                                resize: 'vertical',
+                                fontFamily: 'inherit',
+                              }}
+                              placeholder="Enter script text..."
+                            />
+                            <button
+                              onClick={() => saveEdits('script_locked_text', editScript)}
+                              disabled={editSaving}
+                              style={{
+                                marginTop: '8px',
+                                padding: '10px 16px',
+                                backgroundColor: '#228be6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: editSaving ? 'not-allowed' : 'pointer',
+                                fontSize: '13px',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              Save Script
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: '6px',
+                            padding: '12px',
+                            fontSize: '13px',
+                            lineHeight: 1.6,
+                            maxHeight: '300px',
+                            overflow: 'auto',
+                            whiteSpace: 'pre-wrap',
+                            border: '1px solid #e9ecef',
+                          }}>
+                            {video.script_locked_text}
+                          </div>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -1303,6 +1661,141 @@ export default function VideoDrawer({
               {/* Assets Tab */}
               {activeTab === 'assets' && (
                 <div>
+                  {/* Editable Drive Links (Admin Edit Mode) */}
+                  {editMode && (
+                    <div style={{
+                      marginBottom: '16px',
+                      padding: '12px',
+                      backgroundColor: isDark ? colors.bgTertiary : '#e7f5ff',
+                      borderRadius: '8px',
+                      border: `1px solid ${isDark ? '#2d5a87' : '#74c0fc'}`,
+                    }}>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: isDark ? '#74c0fc' : '#1971c2', marginBottom: '12px', textTransform: 'uppercase' }}>
+                        Edit Drive Links
+                      </div>
+
+                      {/* Main Drive Folder */}
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                          Main Drive Folder
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            type="text"
+                            value={editDriveUrl}
+                            onChange={(e) => setEditDriveUrl(e.target.value)}
+                            placeholder="https://drive.google.com/..."
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              color: colors.text,
+                            }}
+                          />
+                          <button
+                            onClick={() => saveEdits('google_drive_url', editDriveUrl)}
+                            disabled={editSaving}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#228be6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: editSaving ? 'not-allowed' : 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                            }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Raw Footage URL */}
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                          Raw Footage URL
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            type="text"
+                            value={editRawFootageUrl}
+                            onChange={(e) => setEditRawFootageUrl(e.target.value)}
+                            placeholder="https://..."
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              color: colors.text,
+                            }}
+                          />
+                          <button
+                            onClick={() => saveEdits('raw_footage_url', editRawFootageUrl)}
+                            disabled={editSaving}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#228be6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: editSaving ? 'not-allowed' : 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                            }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Final Video URL */}
+                      <div>
+                        <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                          Final Video URL
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            type="text"
+                            value={editFinalUrl}
+                            onChange={(e) => setEditFinalUrl(e.target.value)}
+                            placeholder="https://..."
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              color: colors.text,
+                            }}
+                          />
+                          <button
+                            onClick={() => saveEdits('final_video_url', editFinalUrl)}
+                            disabled={editSaving}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#228be6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: editSaving ? 'not-allowed' : 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                            }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Google Drive */}
                   {(video.google_drive_url || details?.assets.google_drive_url) && (
                     <a
@@ -1431,6 +1924,137 @@ export default function VideoDrawer({
                 </div>
               )}
 
+              {/* AI Chat Tab */}
+              {activeTab === 'chat' && (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '400px' }}>
+                  {/* Chat messages */}
+                  <div style={{
+                    flex: 1,
+                    overflow: 'auto',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}>
+                    {chatMessages.length === 0 && (
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '40px 20px',
+                        color: colors.textMuted,
+                      }}>
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
+                        <div style={{ marginBottom: '8px' }}>Ask AI for script tweaks, hook ideas, or creative feedback</div>
+                        <div style={{ fontSize: '12px', color: colors.textMuted }}>
+                          Examples: "Make the hook punchier" or "Suggest 3 alternative CTAs"
+                        </div>
+                      </div>
+                    )}
+                    {chatMessages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: msg.role === 'user'
+                            ? (isDark ? '#2d5a87' : '#e7f5ff')
+                            : (isDark ? colors.bgTertiary : '#f8f9fa'),
+                          alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                          maxWidth: '85%',
+                          fontSize: '13px',
+                          lineHeight: 1.5,
+                          color: colors.text,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: isDark ? colors.bgTertiary : '#f8f9fa',
+                        alignSelf: 'flex-start',
+                        fontSize: '13px',
+                        color: colors.textMuted,
+                      }}>
+                        Thinking...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Chat input */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendChatMessage();
+                        }
+                      }}
+                      placeholder="Ask AI for help..."
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        backgroundColor: colors.input,
+                        border: `1px solid ${colors.inputBorder}`,
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        color: colors.text,
+                      }}
+                      disabled={chatLoading}
+                    />
+                    <button
+                      onClick={sendChatMessage}
+                      disabled={chatLoading || !chatInput.trim()}
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor: chatLoading || !chatInput.trim() ? '#ccc' : '#228be6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: chatLoading || !chatInput.trim() ? 'not-allowed' : 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      Send
+                    </button>
+                  </div>
+
+                  {/* Quick actions */}
+                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {[
+                      'Make hook punchier',
+                      'Suggest alt CTA',
+                      'Shorten script',
+                      'Add urgency',
+                    ].map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => {
+                          setChatInput(prompt);
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: isDark ? colors.bgTertiary : '#f1f3f5',
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          color: colors.textMuted,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Activity Tab */}
               {activeTab === 'activity' && (
                 <div>
@@ -1498,64 +2122,108 @@ export default function VideoDrawer({
           borderTop: '1px solid #e0e0e0',
           backgroundColor: '#f8f9fa',
         }}>
-          {/* Start/Put Back row */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            {isUnclaimed && (
+          {/* Primary Action Row */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: isAdmin ? '12px' : '0' }}>
+            {/* Main action button - context-aware */}
+            {isClaimedByOther ? (
+              <div style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#fff3e0',
+                borderRadius: '6px',
+                textAlign: 'center',
+                fontSize: '13px',
+                color: '#e67700',
+              }}>
+                🔒 Assigned to {video.claimed_by?.slice(0, 8)}...
+              </div>
+            ) : isClaimedByMe ? (
+              <>
+                {/* Primary: Do the next action OR Put Back */}
+                {primaryAction.type !== 'done' && (
+                  <button
+                    onClick={handlePrimaryAction}
+                    disabled={loading}
+                    style={{
+                      flex: 2,
+                      padding: '12px',
+                      backgroundColor: loading ? '#ccc' : primaryAction.color,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {loading ? '...' : `${primaryAction.icon} ${primaryAction.label}`}
+                  </button>
+                )}
+                <button
+                  onClick={handleRelease}
+                  disabled={loading}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    backgroundColor: colors.bgSecondary,
+                    color: colors.text,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  Put Back
+                </button>
+              </>
+            ) : (
+              /* Unclaimed - show Start button */
               <button
                 onClick={handleClaim}
                 disabled={loading}
                 style={{
                   flex: 1,
-                  padding: '10px',
+                  padding: '12px',
                   backgroundColor: '#28a745',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: 'bold',
                 }}
               >
-                ▶️ Start
+                {loading ? '...' : '▶️ Start Working'}
               </button>
-            )}
-            {isClaimedByMe && (
-              <button
-                onClick={handleRelease}
-                disabled={loading}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                ↩️ Put Back
-              </button>
-            )}
-            {isClaimedByOther && (
-              <div style={{
-                flex: 1,
-                padding: '10px',
-                backgroundColor: '#fff3e0',
-                borderRadius: '6px',
-                textAlign: 'center',
-                fontSize: '12px',
-                color: '#e67700',
-              }}>
-                🔒 Assigned to {video.claimed_by?.slice(0, 8)}...
-              </div>
             )}
           </div>
 
-          {/* Admin actions */}
+          {/* Non-admin: Need Help button */}
+          {!isAdmin && isClaimedByMe && (
+            <div style={{ marginTop: '8px' }}>
+              <button
+                onClick={() => onOpenHandoffModal && onOpenHandoffModal(video)}
+                disabled={!onOpenHandoffModal}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: 'transparent',
+                  color: '#6f42c1',
+                  border: '1px solid #6f42c1',
+                  borderRadius: '6px',
+                  cursor: onOpenHandoffModal ? 'pointer' : 'not-allowed',
+                  fontSize: '13px',
+                }}
+              >
+                🙋 Need Help / Handoff
+              </button>
+            </div>
+          )}
+
+          {/* Admin actions row */}
           {isAdmin && (
             <div style={{ display: 'flex', gap: '8px' }}>
-              {onOpenHandoffModal && isClaimedByMe && (
+              {onOpenHandoffModal && (
                 <button
                   onClick={() => onOpenHandoffModal(video)}
                   style={{

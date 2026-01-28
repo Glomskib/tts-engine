@@ -1,46 +1,23 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { generateSlug, generateAccountSlug, formatDateForVideoCode } from "@/lib/createVideoFromProduct";
 
 export const runtime = "nodejs";
 
 /**
- * Generate a slug from a string (uppercase alphanumeric only)
- */
-function generateSlug(str: string, maxLength: number = 8): string {
-  return str
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, maxLength) || "UNKNOWN";
-}
-
-/**
- * Format date as YYMMDD from a timestamp in America/New_York timezone
- */
-function formatDateCode(date: Date): string {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "2-digit",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = formatter.formatToParts(date);
-  const year = parts.find(p => p.type === "year")?.value || "00";
-  const month = parts.find(p => p.type === "month")?.value || "00";
-  const day = parts.find(p => p.type === "day")?.value || "00";
-  return `${year}${month}${day}`;
-}
-
-/**
  * Generate a unique video code with retry on conflict
+ * New format: ACCOUNT-BRAND-SKU-MM/DD/YY-###
  */
 async function generateAndSetVideoCode(
   videoId: string,
+  accountName: string | null,
   brandName: string | null,
   productName: string | null,
   productSlug: string | null,
   createdAt: string
 ): Promise<{ success: boolean; videoCode: string | null; error?: string }> {
+  const accountSlug = generateAccountSlug(accountName);
   const brandSlug = brandName ? generateSlug(brandName, 6) : "UNMAPD";
   const skuSlug = productSlug
     ? productSlug.toUpperCase().slice(0, 6)
@@ -49,8 +26,8 @@ async function generateAndSetVideoCode(
       : "UNMAPD";
 
   const videoDate = new Date(createdAt);
-  const dateCode = formatDateCode(videoDate);
-  const prefix = `${brandSlug}-${skuSlug}-${dateCode}`;
+  const dateCode = formatDateForVideoCode(videoDate);
+  const prefix = `${accountSlug}-${brandSlug}-${skuSlug}-${dateCode}`;
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -97,9 +74,27 @@ async function generateAndSetVideoCode(
 }
 
 /**
+ * Extract account name from video data
+ * Priority: account.name > posting_meta.target_account > null
+ */
+function extractAccountName(
+  account: { name: string } | null,
+  postingMeta: Record<string, unknown> | null
+): string | null {
+  if (account?.name) {
+    return account.name;
+  }
+  if (postingMeta?.target_account && typeof postingMeta.target_account === "string") {
+    return postingMeta.target_account;
+  }
+  return null;
+}
+
+/**
  * POST /api/admin/backfill-video-codes
  *
  * Backfills video_code for all videos where it's currently null.
+ * New format: ACCOUNT-BRAND-SKU-MM/DD/YY-###
  * Admin-only. Use with caution in production.
  *
  * Query params:
@@ -117,13 +112,16 @@ export async function POST(request: Request) {
   console.log(`[${correlationId}] Starting video_code backfill (dry_run=${dryRun}, limit=${limit})`);
 
   try {
-    // Fetch videos without video_code, join with products for brand/name
+    // Fetch videos without video_code, join with products for data
+    // Note: accounts table may not exist, so we get account info from posting_meta
     const { data: videos, error: fetchError } = await supabaseAdmin
       .from("videos")
       .select(`
         id,
         created_at,
         product_id,
+        account_id,
+        posting_meta,
         products:product_id (
           name,
           brand,
@@ -160,25 +158,31 @@ export async function POST(request: Request) {
       const productData = video.products as unknown;
       const product = productData as { name: string; brand: string; slug: string | null } | null;
 
+      const postingMeta = video.posting_meta as Record<string, unknown> | null;
+      // Get account name from posting_meta.target_account (accounts table may not exist)
+      const accountName = extractAccountName(null, postingMeta);
+
       if (dryRun) {
         // In dry run, just show what would be generated
+        const accountSlug = generateAccountSlug(accountName);
         const brandSlug = product?.brand ? generateSlug(product.brand, 6) : "UNMAPD";
         const skuSlug = product?.slug
           ? product.slug.toUpperCase().slice(0, 6)
           : product?.name
             ? generateSlug(product.name, 6)
             : "UNMAPD";
-        const dateCode = formatDateCode(new Date(video.created_at));
+        const dateCode = formatDateForVideoCode(new Date(video.created_at));
 
         results.push({
           videoId: video.id,
-          videoCode: `${brandSlug}-${skuSlug}-${dateCode}-???`,
+          videoCode: `${accountSlug}-${brandSlug}-${skuSlug}-${dateCode}-???`,
           success: true,
         });
       } else {
         // Actually generate and set the code
         const result = await generateAndSetVideoCode(
           video.id,
+          accountName,
           product?.brand || null,
           product?.name || null,
           product?.slug || null,

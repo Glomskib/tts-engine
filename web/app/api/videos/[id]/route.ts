@@ -70,6 +70,10 @@ export async function PATCH(
     status,
     google_drive_url,
     final_video_url,
+    raw_footage_url,
+    assets_url,
+    script_locked_text,
+    product_id,
     reason_code,
     reason_message,
   } = body as Record<string, unknown>;
@@ -149,13 +153,30 @@ export async function PATCH(
     });
   }
 
-  // Non-status updates (google_drive_url only)
+  // Non-status updates
   const updatePayload: Record<string, unknown> = {};
 
   if (google_drive_url !== undefined) {
     updatePayload.google_drive_url = google_drive_url;
-  } else if (final_video_url !== undefined) {
-    updatePayload.google_drive_url = final_video_url;
+  }
+  if (final_video_url !== undefined) {
+    updatePayload.final_video_url = final_video_url;
+  }
+  if (raw_footage_url !== undefined) {
+    updatePayload.raw_footage_url = raw_footage_url;
+  }
+  if (assets_url !== undefined) {
+    updatePayload.assets_url = assets_url;
+  }
+  if (script_locked_text !== undefined) {
+    updatePayload.script_locked_text = script_locked_text;
+    // Also update version if script is being set
+    if (typeof script_locked_text === "string" && script_locked_text.trim()) {
+      updatePayload.script_locked_version = 1;
+    }
+  }
+  if (product_id !== undefined) {
+    updatePayload.product_id = product_id;
   }
 
   if (Object.keys(updatePayload).length === 0) {

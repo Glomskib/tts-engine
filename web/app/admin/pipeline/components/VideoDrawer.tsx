@@ -177,9 +177,12 @@ export default function VideoDrawer({
   // Skit generator state
   const [skitPersona, setSkitPersona] = useState<'NONE' | 'DR_PICKLE' | 'CASH_KING' | 'ABSURD_BUDDY' | 'DEADPAN_OFFICE' | 'INFOMERCIAL_CHAOS'>('NONE');
   const [skitRiskTier, setSkitRiskTier] = useState<'SAFE' | 'BALANCED' | 'SPICY'>('SAFE');
+  const [skitPreset, setSkitPreset] = useState<string>('NONE');
+  const [skitPresets, setSkitPresets] = useState<Array<{ id: string; name: string; description: string }>>([]);
   const [skitTemplate, setSkitTemplate] = useState<string>('');
   const [skitTemplates, setSkitTemplates] = useState<Array<{ id: string; name: string; description: string }>>([]);
   const [skitIntensity, setSkitIntensity] = useState(50);
+  const [skitIntensityNote, setSkitIntensityNote] = useState<string | null>(null);
   const [skitGenerating, setSkitGenerating] = useState(false);
   const [skitResult, setSkitResult] = useState<{
     risk_tier_applied: string;
@@ -187,9 +190,12 @@ export default function VideoDrawer({
     risk_flags: string[];
     template_id: string | null;
     template_validation: { valid: boolean; issues: string[] } | null;
+    preset_id: string | null;
+    preset_name: string | null;
     intensity_requested: number;
     intensity_applied: number;
     budget_clamped: boolean;
+    preset_intensity_clamped: boolean;
     skit: {
       hook_line: string;
       beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
@@ -445,7 +451,7 @@ export default function VideoDrawer({
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  // Fetch skit templates on mount
+  // Fetch skit templates and presets on mount
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
@@ -458,7 +464,19 @@ export default function VideoDrawer({
         console.error('Failed to fetch skit templates:', err);
       }
     };
+    const fetchPresets = async () => {
+      try {
+        const res = await fetch('/api/ai/skit-presets');
+        const data = await res.json();
+        if (data.ok && data.data) {
+          setSkitPresets(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch skit presets:', err);
+      }
+    };
     fetchTemplates();
+    fetchPresets();
   }, []);
 
   // Save script and hooks to library when approving
@@ -803,9 +821,12 @@ export default function VideoDrawer({
       risk_flags: string[];
       template_id: string | null;
       template_validation: { valid: boolean; issues: string[] } | null;
+      preset_id: string | null;
+      preset_name: string | null;
       intensity_requested: number;
       intensity_applied: number;
       budget_clamped: boolean;
+      preset_intensity_clamped: boolean;
       skit: {
         hook_line: string;
         beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
@@ -822,6 +843,7 @@ export default function VideoDrawer({
       persona: skitPersona,
       template_id: skitTemplate || undefined,
       intensity: skitIntensity,
+      preset_id: skitPreset !== 'NONE' ? skitPreset : undefined,
     });
 
     setSkitGenerating(false);
@@ -2489,6 +2511,39 @@ export default function VideoDrawer({
                           </select>
                         </div>
 
+                        {/* Character Preset Dropdown */}
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                            Character
+                          </label>
+                          <select
+                            value={skitPreset}
+                            onChange={(e) => {
+                              const newPreset = e.target.value;
+                              setSkitPreset(newPreset);
+                              setSkitIntensityNote(null);
+                              // Note: Preset defaults are applied server-side
+                              // UI just shows what was selected
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              color: colors.text,
+                              cursor: 'pointer',
+                              minWidth: '140px',
+                            }}
+                          >
+                            {skitPresets.map((preset) => (
+                              <option key={preset.id} value={preset.id}>
+                                {preset.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         {/* Template Dropdown */}
                         <div>
                           <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
@@ -2505,10 +2560,10 @@ export default function VideoDrawer({
                               fontSize: '12px',
                               color: colors.text,
                               cursor: 'pointer',
-                              minWidth: '180px',
+                              minWidth: '160px',
                             }}
                           >
-                            <option value="">No Template</option>
+                            <option value="">Auto (use preset default)</option>
                             {skitTemplates.map((template) => (
                               <option key={template.id} value={template.id}>
                                 {template.name}
@@ -2518,7 +2573,7 @@ export default function VideoDrawer({
                         </div>
 
                         {/* Intensity Slider */}
-                        <div style={{ minWidth: '180px' }}>
+                        <div style={{ minWidth: '160px' }}>
                           <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
                             Comedy Intensity: {skitIntensity}
                           </label>
@@ -2527,7 +2582,10 @@ export default function VideoDrawer({
                             min="0"
                             max="100"
                             value={skitIntensity}
-                            onChange={(e) => setSkitIntensity(Number(e.target.value))}
+                            onChange={(e) => {
+                              setSkitIntensity(Number(e.target.value));
+                              setSkitIntensityNote(null);
+                            }}
                             style={{
                               width: '100%',
                               height: '6px',
@@ -2537,7 +2595,7 @@ export default function VideoDrawer({
                             }}
                           />
                           <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '2px' }}>
-                            Higher = faster, sharper parody
+                            {skitIntensityNote || 'Higher = faster, sharper parody'}
                           </div>
                         </div>
 
@@ -2614,6 +2672,17 @@ export default function VideoDrawer({
                                 {skitResult.risk_flags.length} flag(s)
                               </span>
                             )}
+                            {skitResult.preset_name && skitResult.preset_id !== 'NONE' && (
+                              <span style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#dbeafe',
+                                color: '#1e40af',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                              }}>
+                                {skitResult.preset_name}
+                              </span>
+                            )}
                             {skitResult.template_id && (
                               <span style={{
                                 padding: '4px 8px',
@@ -2634,7 +2703,7 @@ export default function VideoDrawer({
                             }}>
                               Intensity: {skitResult.intensity_applied}
                             </span>
-                            {skitResult.budget_clamped && (
+                            {(skitResult.budget_clamped || skitResult.preset_intensity_clamped) && (
                               <span style={{
                                 padding: '4px 8px',
                                 backgroundColor: '#fef3c7',
@@ -2642,7 +2711,7 @@ export default function VideoDrawer({
                                 borderRadius: '4px',
                                 fontSize: '10px',
                               }}>
-                                Intensity clamped for stability
+                                {skitResult.preset_intensity_clamped ? 'Adjusted to fit character range' : 'Intensity clamped for stability'}
                               </span>
                             )}
                           </div>

@@ -3,6 +3,7 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { recordHookOutcome } from "@/lib/hook-feedback-loop";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -103,6 +104,22 @@ export async function POST(
     }
 
     if (is_winner) {
+      // Audit log for winner marking
+      auditLogAsync({
+        correlation_id: correlationId,
+        event_type: AuditEventTypes.HOOK_WINNER,
+        entity_type: EntityTypes.VIDEO,
+        entity_id: video_id,
+        actor: authContext.user?.id || "admin",
+        summary: `Video ${video_id} marked as winner`,
+        details: {
+          winner_reason: winner_reason || null,
+          notes: notes || null,
+          views: video.views_total || 0,
+          orders: video.orders_total || 0,
+        },
+      });
+
       // Extract winning elements from video
       const concept = video.concepts as { hook_options?: string[]; angle?: string } | null;
       const winningHook = concept?.hook_options?.[0] || null;

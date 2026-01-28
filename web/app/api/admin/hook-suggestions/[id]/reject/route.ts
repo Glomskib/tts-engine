@@ -3,6 +3,7 @@ import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import crypto from "crypto";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -127,6 +128,22 @@ export async function POST(request: Request, { params }: RouteParams) {
         provenHookId = existingHook.id;
       }
     }
+
+    // Audit log for hook rejection
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: AuditEventTypes.HOOK_REJECTED,
+      entity_type: EntityTypes.HOOK,
+      entity_id: provenHookId || id,
+      actor: authContext.user?.id || "admin",
+      summary: `Hook suggestion ${id} rejected`,
+      details: {
+        suggestion_id: id,
+        proven_hook_id: provenHookId,
+        hook_type: suggestion.hook_type,
+        review_note: reviewNote,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

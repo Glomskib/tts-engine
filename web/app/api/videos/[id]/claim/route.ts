@@ -16,6 +16,7 @@ import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-er
 import { NextResponse } from "next/server";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 import { getAssignmentTtlMinutes } from "@/lib/settings";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -143,6 +144,22 @@ export async function POST(
       .select("id,variant_id,account_id,status,google_drive_url,created_at,claimed_by,claimed_at,claim_expires_at,claim_role")
       .eq("id", id)
       .single();
+
+    // Audit log for claim
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: AuditEventTypes.VIDEO_CLAIMED,
+      entity_type: EntityTypes.VIDEO,
+      entity_id: id,
+      actor: actor,
+      summary: `Video ${id} claimed by ${actor}`,
+      details: {
+        action: result.action,
+        claim_role: actorRole,
+        ttl_minutes: ttl,
+        claim_expires_at: result.claim_expires_at,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

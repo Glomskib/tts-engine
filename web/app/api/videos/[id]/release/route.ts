@@ -11,7 +11,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { atomicReleaseVideo } from "@/lib/video-claim";
-import { apiError, generateCorrelationId, isAdminUser, type ApiErrorCode } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, isAdminUser, createApiErrorResponse, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { checkIncidentReadOnlyBlock } from "@/lib/settings";
@@ -28,14 +28,12 @@ export async function POST(
 
   // Validate video ID
   if (!id || typeof id !== "string") {
-    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
 
   // Parse request body
@@ -43,8 +41,7 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   // Support both claimed_by (legacy) and released_by (preferred)
@@ -62,13 +59,13 @@ export async function POST(
       : null);
 
   if (!actor) {
-    const err = apiError(
+    return createApiErrorResponse(
       "MISSING_ACTOR",
       "Authentication required. Please sign in to release claims.",
       401,
+      correlationId,
       { hint: "Sign in or provide released_by in request body for test mode" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   const forceRequested = force === true;
@@ -77,24 +74,25 @@ export async function POST(
 
   // Force is only allowed for admin users
   if (forceRequested && !isAdmin) {
-    const err = apiError(
+    return createApiErrorResponse(
       "FORBIDDEN",
       "force=true is only allowed for admin users",
       403,
+      correlationId,
       { actor, hint: "Only authenticated admin users can use force" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Incident mode read-only check (admin bypass)
   const incidentCheck = await checkIncidentReadOnlyBlock(actor, isAdmin);
   if (incidentCheck.blocked) {
-    return NextResponse.json({
-      ok: false,
-      error: "incident_mode_read_only",
-      message: incidentCheck.message || "System is in maintenance mode.",
-      correlation_id: correlationId,
-    }, { status: 503 });
+    return createApiErrorResponse(
+      "CONFLICT",
+      incidentCheck.message || "System is in maintenance mode.",
+      503,
+      correlationId,
+      { reason: "incident_mode_read_only" }
+    );
   }
 
   try {
@@ -117,11 +115,10 @@ export async function POST(
       };
 
       const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-      const err = apiError(errorInfo.code, result.message, errorInfo.status, {
+      return createApiErrorResponse(errorInfo.code, result.message, errorInfo.status, correlationId, {
         current_claimed_by: result.previous_claimed_by,
         actor,
       });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     // Fetch full video data for response
@@ -146,7 +143,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: video,
       meta: {
@@ -155,10 +152,11 @@ export async function POST(
       },
       correlation_id: correlationId,
     });
+    response.headers.set("x-correlation-id", correlationId);
+    return response;
 
   } catch (err) {
     console.error("POST /api/videos/[id]/release error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

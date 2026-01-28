@@ -12,7 +12,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { atomicClaimVideo, type ClaimRole } from "@/lib/video-claim";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, createApiErrorResponse, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 import { getAssignmentTtlMinutes } from "@/lib/settings";
@@ -31,14 +31,12 @@ export async function POST(
 
   // Validate video ID
   if (!id || typeof id !== "string") {
-    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
 
   // Parse request body
@@ -46,8 +44,7 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const { claimed_by, claim_role, ttl_minutes } = body as Record<string, unknown>;
@@ -62,13 +59,13 @@ export async function POST(
     : (typeof claimed_by === "string" && claimed_by.trim() !== "" ? claimed_by.trim() : null);
 
   if (!actor) {
-    const err = apiError(
+    return createApiErrorResponse(
       "MISSING_ACTOR",
       "Authentication required. Please sign in to claim videos.",
       401,
+      correlationId,
       { hint: "Sign in or provide claimed_by in request body for test mode" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Determine role: prefer authenticated role, fallback to legacy claim_role for tests
@@ -80,16 +77,14 @@ export async function POST(
 
   // Validate claim_role if provided in body (for non-authenticated requests)
   if (!isAuthenticated && claim_role !== undefined && !VALID_CLAIM_ROLES.includes(claim_role as ClaimRole)) {
-    const err = apiError("INVALID_ROLE", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claim_role });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_ROLE", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, correlationId, { provided: claim_role });
   }
 
   // Require claim_role
   if (!actorRole) {
-    const err = apiError("BAD_REQUEST", "claim_role is required (one of: recorder, editor, uploader, admin)", 400, {
+    return createApiErrorResponse("BAD_REQUEST", "claim_role is required (one of: recorder, editor, uploader, admin)", 400, correlationId, {
       valid_roles: VALID_CLAIM_ROLES,
     });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Get effective TTL: request body -> system setting -> default (240)
@@ -129,13 +124,12 @@ export async function POST(
       };
 
       const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-      const err = apiError(errorInfo.code, result.message, errorInfo.status, {
+      return createApiErrorResponse(errorInfo.code, result.message, errorInfo.status, correlationId, {
         claimed_by: result.claimed_by,
         claim_expires_at: result.claim_expires_at,
         limit: result.limit,
         current_count: result.current_count,
       });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     // Fetch full video data for response
@@ -161,7 +155,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: video,
       meta: {
@@ -171,10 +165,11 @@ export async function POST(
       },
       correlation_id: correlationId,
     });
+    response.headers.set("x-correlation-id", correlationId);
+    return response;
 
   } catch (err) {
     console.error("POST /api/videos/[id]/claim error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

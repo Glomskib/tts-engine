@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import crypto from "crypto";
@@ -270,21 +270,18 @@ export async function GET(request: Request) {
   // Admin-only check
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   const type = searchParams.get("type");
   const id = searchParams.get("id");
 
   if (!type || !id) {
-    const err = apiError("BAD_REQUEST", "Missing required params: type and id", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Missing required params: type and id", 400, correlationId);
   }
 
   try {
@@ -301,8 +298,7 @@ export async function GET(request: Request) {
         warnings = await getVideoFeedbackWarnings(id);
         break;
       default:
-        const err = apiError("BAD_REQUEST", `Unknown warning type: ${type}`, 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", `Unknown warning type: ${type}`, 400, correlationId);
     }
 
     const response = NextResponse.json({
@@ -316,7 +312,6 @@ export async function GET(request: Request) {
 
   } catch (err) {
     console.error("GET /api/admin/ops-warnings error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

@@ -214,6 +214,9 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   // Hook feedback state
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // Hook expansion state (show only top 4 by default)
+  const [showAllHooks, setShowAllHooks] = useState(false);
+
   // Debug state for AI response (admin only)
   const [showDebug, setShowDebug] = useState(false);
   const [aiResponseDebug, setAiResponseDebug] = useState<Record<string, unknown> | null>(null);
@@ -1292,7 +1295,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     <label style={{ ...labelStyle, marginBottom: 0, fontSize: '11px' }}>
                       Spoken Hook
                       {userModifiedFields.has('selectedSpokenHook') && (
-                        <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                        <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                       )}
                     </label>
                     {/* Hook Strength Indicator */}
@@ -1313,146 +1316,148 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       );
                     })()}
                   </div>
-                  {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).length === 0 ? (
-                    <div style={{
-                      padding: '10px', backgroundColor: isDark ? '#4a1f1f' : '#ffe0e0',
-                      border: `1px solid ${colors.danger}`, borderRadius: '6px',
-                      fontSize: '12px', color: colors.danger,
-                    }}>
-                      ⚠️ AI returned 0 hooks. Click Regenerate above.
-                    </div>
-                  ) : aiDraft.hooks_by_emotional_driver && Object.keys(aiDraft.hooks_by_emotional_driver).some(k => (aiDraft.hooks_by_emotional_driver?.[k as EmotionalDriver]?.length || 0) > 0) ? (
-                    /* New: Hooks grouped by emotional driver */
-                    <div style={{ maxHeight: '280px', overflowY: 'auto', border: `1px solid ${colors.border}`, borderRadius: '6px', backgroundColor: colors.input }}>
-                      {(Object.keys(EMOTIONAL_DRIVER_UI) as EmotionalDriver[]).map((driver) => {
+                  {(() => {
+                    // Build flat, score-sorted hook list
+                    const allHooks: { text: string; score: number; driver?: EmotionalDriver }[] = [];
+
+                    // Collect from emotional driver groups if available
+                    if (aiDraft.hooks_by_emotional_driver) {
+                      (Object.keys(aiDraft.hooks_by_emotional_driver) as EmotionalDriver[]).forEach(driver => {
                         const hooks = aiDraft.hooks_by_emotional_driver?.[driver] || [];
-                        if (hooks.length === 0) return null;
-                        const driverUI = EMOTIONAL_DRIVER_UI[driver];
-                        return (
-                          <div key={driver} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                            <div style={{
-                              padding: '6px 10px',
-                              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                              fontSize: '11px',
-                              fontWeight: 'bold',
-                              color: driverUI.color,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                            }}>
-                              <span>{driverUI.emoji}</span>
-                              <span>{driverUI.label}</span>
-                              <span style={{ fontSize: '9px', opacity: 0.7 }}>({hooks.length})</span>
-                            </div>
-                            {hooks.map((hook, idx) => {
-                              const isSelected = selectedSpokenHook === hook.text;
-                              const score = aiDraft.hook_scores?.[hook.text]?.overall;
-                              return (
-                                <label
-                                  key={idx}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: '8px',
-                                    padding: '8px 10px',
-                                    backgroundColor: isSelected ? (isDark ? 'rgba(64, 192, 87, 0.15)' : '#d3f9d8') : 'transparent',
-                                    cursor: 'pointer',
-                                    borderBottom: idx < hooks.length - 1 ? `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` : 'none',
+                        hooks.forEach(h => {
+                          const score = aiDraft.hook_scores?.[h.text]?.overall || 0;
+                          allHooks.push({ text: h.text, score, driver });
+                        });
+                      });
+                    }
+
+                    // Fallback to spoken_hook_options or hook_options
+                    if (allHooks.length === 0) {
+                      const options = aiDraft.spoken_hook_options || aiDraft.hook_options || [];
+                      options.forEach(text => {
+                        const score = aiDraft.hook_scores?.[text]?.overall || 0;
+                        allHooks.push({ text, score });
+                      });
+                    }
+
+                    // Sort by score descending
+                    allHooks.sort((a, b) => b.score - a.score);
+
+                    if (allHooks.length === 0) {
+                      return (
+                        <div style={{
+                          padding: '10px', backgroundColor: isDark ? '#4a1f1f' : '#ffe0e0',
+                          border: `1px solid ${colors.danger}`, borderRadius: '6px',
+                          fontSize: '12px', color: colors.danger,
+                        }}>
+                          No hooks generated. Click Regenerate above.
+                        </div>
+                      );
+                    }
+
+                    // Show top 4 by default, or all if expanded
+                    const visibleHooks = showAllHooks ? allHooks : allHooks.slice(0, 4);
+                    const hiddenCount = allHooks.length - 4;
+
+                    return (
+                      <div>
+                        <div style={{
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '6px',
+                          backgroundColor: colors.input,
+                          overflow: 'hidden',
+                        }}>
+                          {visibleHooks.map((hook, idx) => {
+                            const isSelected = selectedSpokenHook === hook.text;
+                            return (
+                              <label
+                                key={idx}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '10px',
+                                  padding: '10px 12px',
+                                  backgroundColor: isSelected ? (isDark ? 'rgba(64, 192, 87, 0.12)' : '#ecfdf5') : 'transparent',
+                                  cursor: 'pointer',
+                                  borderBottom: idx < visibleHooks.length - 1 ? `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` : 'none',
+                                }}
+                              >
+                                <input
+                                  type="radio"
+                                  name="spokenHook"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setSelectedSpokenHook(hook.text);
+                                    if (hook.driver) setSelectedEmotionalDriver(hook.driver);
+                                    markFieldModified('selectedSpokenHook');
                                   }}
-                                >
-                                  <input
-                                    type="radio"
-                                    name="spokenHook"
-                                    checked={isSelected}
-                                    onChange={() => {
-                                      setSelectedSpokenHook(hook.text);
-                                      setSelectedEmotionalDriver(driver);
-                                      markFieldModified('selectedSpokenHook');
-                                    }}
-                                    style={{ marginTop: '2px' }}
-                                  />
-                                  <span style={{ flex: 1, fontSize: '12px', color: colors.text }}>{hook.text}</span>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {hook.edge_push && (
-                                      <span style={{
-                                        fontSize: '9px',
-                                        padding: '2px 5px',
-                                        backgroundColor: '#ff6b6b',
-                                        color: 'white',
-                                        borderRadius: '3px',
-                                        fontWeight: 'bold',
-                                      }}>
-                                        EDGE
-                                      </span>
-                                    )}
-                                    {score && (
-                                      <span style={{ fontSize: '10px', color: colors.textMuted }}>
-                                        {Math.round(score * 10)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* Fallback: simple select for legacy format */
-                    <select
-                      value={selectedSpokenHook}
-                      onChange={(e) => {
-                        setSelectedSpokenHook(e.target.value);
-                        markFieldModified('selectedSpokenHook');
-                      }}
-                      style={selectStyle}
-                    >
-                      {(aiDraft.spoken_hook_options || aiDraft.hook_options || []).map((hook, idx) => {
-                        const score = aiDraft.hook_scores?.[hook]?.overall;
-                        const scoreLabel = score ? ` (${Math.round(score * 100)}%)` : '';
-                        return (
-                          <option key={idx} value={hook}>{hook}{scoreLabel}</option>
-                        );
-                      })}
-                    </select>
-                  )}
-                  {/* Thumbs up/down feedback buttons */}
+                                  style={{ marginTop: '3px', flexShrink: 0 }}
+                                />
+                                <span style={{ flex: 1, fontSize: '13px', lineHeight: 1.4, color: colors.text }}>
+                                  {hook.text}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        {/* Show more / Show less toggle */}
+                        {hiddenCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllHooks(!showAllHooks)}
+                            style={{
+                              marginTop: '8px',
+                              padding: '0',
+                              background: 'none',
+                              border: 'none',
+                              color: colors.textMuted,
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {showAllHooks ? 'Show fewer ideas' : `Show ${hiddenCount} more ideas`}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {/* Feedback buttons */}
                   {selectedSpokenHook && (
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button
                         onClick={() => submitHookFeedback(selectedSpokenHook, 1)}
                         disabled={feedbackLoading}
-                        title="Approve this hook for future generations"
+                        title="Save this hook for future generations"
                         style={{
-                          padding: '4px 10px',
+                          padding: '4px 12px',
                           backgroundColor: 'transparent',
-                          color: isDark ? '#69db7c' : '#2b8a3e',
-                          border: `1px solid ${isDark ? '#69db7c' : '#40c057'}`,
+                          color: colors.textMuted,
+                          border: `1px solid ${colors.border}`,
                           borderRadius: '4px',
                           cursor: feedbackLoading ? 'not-allowed' : 'pointer',
                           fontSize: '11px',
                           opacity: feedbackLoading ? 0.6 : 1,
                         }}
                       >
-                        👍 Approve
+                        Save
                       </button>
                       <button
                         onClick={() => submitHookFeedback(selectedSpokenHook, -1)}
                         disabled={feedbackLoading}
-                        title="Ban this hook - won't be used again for this brand"
+                        title="Exclude this hook from future generations"
                         style={{
-                          padding: '4px 10px',
+                          padding: '4px 12px',
                           backgroundColor: 'transparent',
-                          color: isDark ? '#ff6b6b' : '#c92a2a',
-                          border: `1px solid ${isDark ? '#ff6b6b' : '#e03131'}`,
+                          color: colors.textMuted,
+                          border: `1px solid ${colors.border}`,
                           borderRadius: '4px',
                           cursor: feedbackLoading ? 'not-allowed' : 'pointer',
                           fontSize: '11px',
                           opacity: feedbackLoading ? 0.6 : 1,
                         }}
                       >
-                        👎 Ban
+                        Exclude
                       </button>
                     </div>
                   )}
@@ -1463,7 +1468,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
                     Visual Hook (opening shot)
                     {userModifiedFields.has('visualHook') && (
-                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                     )}
                   </label>
                   {aiDraft.visual_hook_options && aiDraft.visual_hook_options.length > 0 ? (
@@ -1497,7 +1502,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
                     On-Screen Text Hook
                     {userModifiedFields.has('selectedTextHook') && (
-                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                     )}
                   </label>
                   <select
@@ -1519,7 +1524,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
                     Mid-Video Overlays
                     {userModifiedFields.has('onScreenTextMid') && (
-                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                     )}
                   </label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -1550,7 +1555,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
                     CTA Overlay
                     {userModifiedFields.has('onScreenTextCta') && (
-                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                     )}
                   </label>
                   {aiDraft.cta_overlay_options && aiDraft.cta_overlay_options.length > 0 ? (
@@ -1586,7 +1591,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                 <label style={labelStyle}>
                   Angle
                   {userModifiedFields.has('selectedAngle') && (
-                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                   )}
                 </label>
                 <select
@@ -1668,7 +1673,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                 <label style={labelStyle}>
                   Script Draft
                   {userModifiedFields.has('scriptDraft') && (
-                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>✏️ edited</span>
+                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                   )}
                 </label>
                 <textarea

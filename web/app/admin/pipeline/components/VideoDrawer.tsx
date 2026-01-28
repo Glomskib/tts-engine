@@ -1688,8 +1688,7 @@ export default function VideoDrawer({
                       borderRadius: '8px',
                       color: '#868e96',
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
-                      <div>No concept/brief linked to this video</div>
+                      <div>No concept or brief linked to this video</div>
                     </div>
                   )}
 
@@ -1864,11 +1863,11 @@ export default function VideoDrawer({
                     <div style={{
                       textAlign: 'center',
                       padding: '40px 20px',
-                      backgroundColor: '#fff3cd',
+                      backgroundColor: '#fefce8',
                       borderRadius: '8px',
+                      border: '1px solid #fef08a',
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>📝</div>
-                      <div style={{ color: '#856404', marginBottom: '16px' }}>No script attached yet</div>
+                      <div style={{ color: '#854d0e', marginBottom: '16px' }}>No script attached yet</div>
                       <button
                         onClick={() => onOpenAttachModal(video)}
                         style={{
@@ -2044,10 +2043,9 @@ export default function VideoDrawer({
                         border: '1px solid #ffd43b',
                       }}
                     >
-                      <span style={{ fontSize: '20px' }}>📁</span>
                       <div>
-                        <div style={{ fontWeight: 'bold', color: '#e67700', fontSize: '13px' }}>Google Drive Folder</div>
-                        <div style={{ fontSize: '11px', color: '#856404' }}>Raw footage & assets</div>
+                        <div style={{ fontWeight: '600', color: '#854d0e', fontSize: '13px' }}>Open Drive Folder</div>
+                        <div style={{ fontSize: '11px', color: '#a16207' }}>Raw footage and assets</div>
                       </div>
                     </a>
                   )}
@@ -2143,11 +2141,10 @@ export default function VideoDrawer({
                     <div style={{
                       textAlign: 'center',
                       padding: '40px 20px',
-                      backgroundColor: '#f8f9fa',
+                      backgroundColor: '#f8fafc',
                       borderRadius: '8px',
-                      color: '#868e96',
+                      color: '#64748b',
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>📁</div>
                       <div>No assets linked yet</div>
                     </div>
                   )}
@@ -2172,10 +2169,9 @@ export default function VideoDrawer({
                         padding: '40px 20px',
                         color: colors.textMuted,
                       }}>
-                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
-                        <div style={{ marginBottom: '8px' }}>Ask AI for script tweaks, hook ideas, or creative feedback</div>
+                        <div style={{ fontSize: '14px', marginBottom: '8px' }}>Ask AI for script tweaks, hook ideas, or creative feedback</div>
                         <div style={{ fontSize: '12px', color: colors.textMuted }}>
-                          Examples: "Make the hook punchier" or "Suggest 3 alternative CTAs"
+                          Try the suggestions below or type your own request
                         </div>
                       </div>
                     )}
@@ -2255,13 +2251,15 @@ export default function VideoDrawer({
                     </button>
                   </div>
 
-                  {/* Quick actions */}
-                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {/* Nudges - pre-fill input only */}
+                  <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {[
-                      'Make hook punchier',
-                      'Suggest alt CTA',
-                      'Shorten script',
-                      'Add urgency',
+                      'Make this more polarizing',
+                      'Rewrite for an older audience',
+                      'Increase urgency without hype',
+                      'Lean into insecurity',
+                      'Dial up curiosity',
+                      'Shorten the first 2 seconds',
                     ].map((prompt) => (
                       <button
                         key={prompt}
@@ -2270,9 +2268,8 @@ export default function VideoDrawer({
                         }}
                         style={{
                           padding: '4px 10px',
-                          backgroundColor: isDark ? colors.bgTertiary : '#f1f3f5',
-                          border: `1px solid ${colors.border}`,
-                          borderRadius: '12px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
                           fontSize: '11px',
                           color: colors.textMuted,
                           cursor: 'pointer',
@@ -2332,11 +2329,10 @@ export default function VideoDrawer({
                     <div style={{
                       textAlign: 'center',
                       padding: '40px 20px',
-                      backgroundColor: '#f8f9fa',
+                      backgroundColor: '#f8fafc',
                       borderRadius: '8px',
-                      color: '#868e96',
+                      color: '#64748b',
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>📊</div>
                       <div>No activity yet</div>
                     </div>
                   )}

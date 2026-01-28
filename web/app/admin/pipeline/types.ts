@@ -116,7 +116,7 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
       label: 'Add Script',
       shortLabel: 'Script',
       color: '#17a2b8',
-      icon: '📝',
+      icon: '',
     };
   }
 
@@ -127,7 +127,7 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
       label: 'Mark Recorded',
       shortLabel: 'Record',
       color: '#228be6',
-      icon: '🎬',
+      icon: '',
     };
   }
 
@@ -138,18 +138,18 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
       label: 'Mark Edited',
       shortLabel: 'Edited',
       color: '#fab005',
-      icon: '✂️',
+      icon: '',
     };
   }
 
-  // If EDITED: primary = Approve / Mark Ready
+  // If EDITED: primary = Approve for Testing
   if (video.recording_status === 'EDITED') {
     return {
       type: 'approve',
-      label: 'Mark Ready',
-      shortLabel: 'Ready',
+      label: 'Approve for Testing',
+      shortLabel: 'Approve',
       color: '#40c057',
-      icon: '✅',
+      icon: '',
     };
   }
 
@@ -160,7 +160,7 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
       label: 'Post Video',
       shortLabel: 'Post',
       color: '#1971c2',
-      icon: '🚀',
+      icon: '',
     };
   }
 
@@ -171,7 +171,7 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
       label: 'View Notes',
       shortLabel: 'Notes',
       color: '#e03131',
-      icon: '⚠️',
+      icon: '',
     };
   }
 
@@ -181,7 +181,7 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
     label: 'Complete',
     shortLabel: 'Done',
     color: '#40c057',
-    icon: '🎉',
+    icon: '',
   };
 }
 

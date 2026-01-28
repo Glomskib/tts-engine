@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, isAdminUser, createApiErrorResponse } from "@/lib/api-errors";
 import { createHookSuggestionsFromVideo } from "@/lib/hook-suggestions";
 import { applyHookPostedCounts } from "@/lib/hook-usage-counts";
 import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
@@ -98,16 +98,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId, { provided: id });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const {
@@ -153,13 +151,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   // If require_claim=true and not authenticated and no legacy actor, require auth
   if (enforceClaimCheck && recording_status !== undefined && !actor) {
-    const err = apiError(
+    return createApiErrorResponse(
       "MISSING_ACTOR",
       "Authentication required. Please sign in to update recording status.",
       401,
+      correlationId,
       { hint: "Sign in or set require_claim=false for test mode" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Force bypass is only allowed for admin users
@@ -167,13 +165,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
   // Admin check: prefer role check, fallback to legacy ADMIN_USERS check for tests
   const isAdmin = actorRole === "admin" || (!isAuthenticated && isAdminUser(actor));
   if (forceRequested && !isAdmin) {
-    const err = apiError(
+    return createApiErrorResponse(
       "FORBIDDEN",
       "force=true is only allowed for admin users",
       403,
+      correlationId,
       { actor, actor_role: actorRole, hint: "Only admin users can use force" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Subscription gating check (fail-safe: allows if not configured)
@@ -181,12 +179,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
   if (isAuthenticated && actor && recording_status !== undefined) {
     const subscriptionCheck = await canPerformGatedAction(actor, isAdmin);
     if (!subscriptionCheck.allowed) {
-      return NextResponse.json({
-        ok: false,
-        error: subscriptionCheck.reason || "subscription_required",
-        message: "Upgrade required to submit status changes.",
-        correlation_id: correlationId,
-      }, { status: 403 });
+      return createApiErrorResponse(
+        "FORBIDDEN",
+        "Upgrade required to submit status changes.",
+        403,
+        correlationId,
+        { reason: subscriptionCheck.reason || "subscription_required" }
+      );
     }
   }
 
@@ -194,22 +193,25 @@ export async function PUT(request: Request, { params }: RouteParams) {
   if (isAuthenticated && actor && recording_status !== undefined) {
     const incidentCheck = await checkIncidentReadOnlyBlock(actor, isAdmin);
     if (incidentCheck.blocked) {
-      return NextResponse.json({
-        ok: false,
-        error: "incident_mode_read_only",
-        message: incidentCheck.message || "System is in maintenance mode.",
-        correlation_id: correlationId,
-      }, { status: 503 });
+      return createApiErrorResponse(
+        "CONFLICT",
+        incidentCheck.message || "System is in maintenance mode.",
+        503,
+        correlationId,
+        { reason: "incident_mode_read_only" }
+      );
     }
   }
 
   // Validate recording_status if provided
   if (recording_status !== undefined && !isValidRecordingStatus(recording_status)) {
-    const err = apiError("INVALID_RECORDING_STATUS", `Invalid recording_status. Must be one of: ${RECORDING_STATUSES.join(', ')}`, 400, {
-      provided: recording_status,
-      allowed: RECORDING_STATUSES,
-    });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse(
+      "INVALID_RECORDING_STATUS",
+      `Invalid recording_status. Must be one of: ${RECORDING_STATUSES.join(', ')}`,
+      400,
+      correlationId,
+      { provided: recording_status, allowed: RECORDING_STATUSES }
+    );
   }
 
   // Fetch current video
@@ -221,11 +223,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   if (fetchError) {
     if (fetchError.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId, { video_id: id });
     }
-    const err = apiError("DB_ERROR", fetchError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", fetchError.message, 500, correlationId);
   }
 
   // Role-based claim enforcement
@@ -243,17 +243,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // Admin users with force can bypass claim ownership check
     if (!isClaimedByUser && !(forceRequested && isAdmin)) {
-      const err = apiError(
+      return createApiErrorResponse(
         "CLAIM_NOT_OWNED",
         `You must claim this video before updating execution status. Current claimant: ${currentVideo.claimed_by || "none"}`,
         403,
+        correlationId,
         {
           claimed_by: currentVideo.claimed_by || null,
           claim_expires_at: currentVideo.claim_expires_at || null,
           actor: actor || null,
         }
       );
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     // Assignment enforcement (if work package columns exist)
@@ -267,31 +267,31 @@ export async function PUT(request: Request, { params }: RouteParams) {
       if (assignedTo && assignmentState === "ASSIGNED") {
         // Check if assignment is expired
         if (assignedExpiresAt && assignedExpiresAt < now) {
-          const err = apiError(
+          return createApiErrorResponse(
             "ASSIGNMENT_EXPIRED",
             "Your assignment has expired. Please dispatch again to get a new assignment.",
             409,
+            correlationId,
             {
               assigned_to: assignedTo,
               assigned_expires_at: assignedExpiresAt,
               actor: actor,
             }
           );
-          return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
         }
 
         // Check if assigned to someone else
         if (assignedTo !== actor) {
-          const err = apiError(
+          return createApiErrorResponse(
             "NOT_ASSIGNED_TO_YOU",
-            `This video is assigned to another user. You cannot update its status.`,
+            "This video is assigned to another user. You cannot update its status.",
             403,
+            correlationId,
             {
               assigned_to: assignedTo,
               actor: actor,
             }
           );
-          return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
         }
       }
     }
@@ -311,17 +311,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
       const allowedRoles = roleForStatus[recording_status as string];
       if (allowedRoles && !allowedRoles.includes(claimRole)) {
-        const err = apiError(
+        return createApiErrorResponse(
           "ROLE_MISMATCH",
           `Your claim role (${claimRole}) does not match the required role for this action. Expected: ${allowedRoles.join(" or ")}`,
           403,
+          correlationId,
           {
             current_role: claimRole,
             required_role: allowedRoles,
             attempted_status: recording_status,
           }
         );
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
     }
   }
@@ -350,13 +350,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
     );
 
     if (!validation.valid && validation.code) {
-      const err = apiError(
+      return createApiErrorResponse(
         validation.code,
         `${validation.error} (use force=true to override)`,
         400,
+        correlationId,
         validation.details || {}
       );
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
   }
 
@@ -411,8 +411,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   // If no valid fields to update
   if (Object.keys(updatePayload).length === 0) {
-    const err = apiError("BAD_REQUEST", "No valid fields provided for update", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "No valid fields provided for update", 400, correlationId);
   }
 
   // Perform update
@@ -425,8 +424,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   if (updateError) {
     console.error("Failed to update video execution:", updateError);
-    const err = apiError("DB_ERROR", updateError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
   }
 
   // Log video_event if recording_status changed
@@ -620,7 +618,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     data: updatedVideo,
     meta: {
@@ -629,4 +627,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
     },
     correlation_id: correlationId,
   });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }

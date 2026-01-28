@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
@@ -37,10 +37,7 @@ export async function GET(
   const { id } = await params;
 
   if (!id || id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Product ID is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Product ID is required", 400, correlationId);
   }
 
   const { data, error } = await supabaseAdmin
@@ -52,18 +49,14 @@ export async function GET(
   if (error) {
     console.error("GET /api/products/[id] error:", error);
     if (error.code === "PGRST116") {
-      return NextResponse.json(
-        { ok: false, error: "Product not found", correlation_id: correlationId },
-        { status: 404 }
-      );
+      return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId, { product_id: id.trim() });
     }
-    return NextResponse.json(
-      { ok: false, error: error.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
-  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  const response = NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }
 
 /**
@@ -80,51 +73,37 @@ export async function PATCH(
   // ============== ADMIN AUTHORIZATION CHECK ==============
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
   // ========================================================
 
   if (!id || id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Product ID is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Product ID is required", 400, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   // Validate input with strict mode (rejects unknown fields)
   const parseResult = UpdateProductSchema.safeParse(body);
   if (!parseResult.success) {
     const errors = parseResult.error.issues.map(e => `${e.path.join(".")}: ${e.message}`);
-    return NextResponse.json(
-      { ok: false, error: "Validation failed", details: errors, correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "Validation failed", 400, correlationId, { errors });
   }
 
   const updates = parseResult.data;
 
   // Check if any fields were provided
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json(
-      { ok: false, error: "No fields to update", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "No fields to update", 400, correlationId);
   }
 
   // Verify product exists
@@ -135,10 +114,7 @@ export async function PATCH(
     .single();
 
   if (existError || !existing) {
-    return NextResponse.json(
-      { ok: false, error: "Product not found", correlation_id: correlationId },
-      { status: 404 }
-    );
+    return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId, { product_id: id.trim() });
   }
 
   // Build update payload (only include non-undefined fields)
@@ -159,10 +135,7 @@ export async function PATCH(
 
   if (error) {
     console.error("PATCH /api/products/[id] error:", error);
-    return NextResponse.json(
-      { ok: false, error: error.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   // Audit log for product update
@@ -180,7 +153,9 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  const response = NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }
 
 /**
@@ -197,21 +172,16 @@ export async function DELETE(
   // ============== ADMIN AUTHORIZATION CHECK ==============
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
   // ========================================================
 
   if (!id || id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Product ID is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Product ID is required", 400, correlationId);
   }
 
   // Verify product exists
@@ -222,10 +192,7 @@ export async function DELETE(
     .single();
 
   if (existError || !existing) {
-    return NextResponse.json(
-      { ok: false, error: "Product not found", correlation_id: correlationId },
-      { status: 404 }
-    );
+    return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId, { product_id: id.trim() });
   }
 
   // Check if product has associated videos
@@ -235,10 +202,7 @@ export async function DELETE(
     .eq("product_id", id.trim());
 
   if (videoCount && videoCount > 0) {
-    return NextResponse.json(
-      { ok: false, error: `Cannot delete product with ${videoCount} associated videos. Archive instead.`, correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", `Cannot delete product with ${videoCount} associated videos. Archive instead.`, 400, correlationId, { video_count: videoCount });
   }
 
   const { error } = await supabaseAdmin
@@ -248,11 +212,10 @@ export async function DELETE(
 
   if (error) {
     console.error("DELETE /api/products/[id] error:", error);
-    return NextResponse.json(
-      { ok: false, error: error.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
-  return NextResponse.json({ ok: true, deleted: id.trim(), correlation_id: correlationId });
+  const response = NextResponse.json({ ok: true, deleted: id.trim(), correlation_id: correlationId });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }

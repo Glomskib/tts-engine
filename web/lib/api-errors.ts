@@ -1,4 +1,7 @@
-// api-errors.ts - Standardized API error codes and responses (Phase 8.2)
+// api-errors.ts - Standardized API error codes and responses
+// Phase 1: Unified API Error Taxonomy
+
+import { NextResponse } from "next/server";
 
 export type ApiErrorCode =
   | 'INVALID_UUID'
@@ -42,7 +45,9 @@ export type ApiErrorCode =
   | 'COMPLIANCE_BLOCKED'
   | 'NO_SCRIPT'
   | 'POSTING_META_INCOMPLETE'
-  | 'FINAL_ASSET_REQUIRED';
+  | 'FINAL_ASSET_REQUIRED'
+  | 'RATE_LIMITED'
+  | 'GENERATION_IN_PROGRESS';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {
@@ -60,20 +65,46 @@ export function isAdminUser(actor: string | null | undefined): boolean {
   return getAdminUsers().includes(actor);
 }
 
+/**
+ * Standardized API error response shape (Phase 1: Unified Error Taxonomy)
+ *
+ * All API errors should follow this shape:
+ * - ok: false (always)
+ * - error_code: machine-readable error code (e.g., "NOT_FOUND", "BAD_REQUEST")
+ * - message: human-readable error message
+ * - correlation_id: request correlation ID for debugging
+ * - details?: optional additional context
+ */
 export interface ApiErrorResponse {
+  ok: false;
+  error_code: ApiErrorCode;
+  message: string;
+  correlation_id: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Legacy interface for backwards compatibility
+ * @deprecated Use ApiErrorResponse instead
+ */
+export interface LegacyApiErrorResponse {
   ok: false;
   error: string;
   code: ApiErrorCode;
   details?: Record<string, unknown>;
 }
 
+/**
+ * Legacy apiError helper - returns body + status for manual response construction
+ * @deprecated Use createApiErrorResponse() for full NextResponse with headers
+ */
 export function apiError(
   code: ApiErrorCode,
   message: string,
   httpStatus: number,
   details?: Record<string, unknown>
-): { body: ApiErrorResponse; status: number } {
-  const body: ApiErrorResponse = {
+): { body: LegacyApiErrorResponse; status: number } {
+  const body: LegacyApiErrorResponse = {
     ok: false,
     error: message,
     code,
@@ -82,6 +113,35 @@ export function apiError(
     body.details = details;
   }
   return { body, status: httpStatus };
+}
+
+/**
+ * Create a standardized API error response with correlation_id header
+ *
+ * Usage:
+ *   return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
+ *   return createApiErrorResponse("BAD_REQUEST", "Invalid input", 400, correlationId, { field: "email" });
+ */
+export function createApiErrorResponse(
+  errorCode: ApiErrorCode,
+  message: string,
+  httpStatus: number,
+  correlationId: string,
+  details?: Record<string, unknown>
+): NextResponse<ApiErrorResponse> {
+  const body: ApiErrorResponse = {
+    ok: false,
+    error_code: errorCode,
+    message,
+    correlation_id: correlationId,
+  };
+  if (details) {
+    body.details = details;
+  }
+
+  const response = NextResponse.json(body, { status: httpStatus });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }
 
 export function generateCorrelationId(): string {

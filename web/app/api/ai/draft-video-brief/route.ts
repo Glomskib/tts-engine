@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
 import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
@@ -1317,10 +1317,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", error_code: "BAD_REQUEST", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const {
@@ -1340,10 +1337,7 @@ export async function POST(request: Request) {
 
   // Validate product_id
   if (!product_id || typeof product_id !== "string" || product_id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "product_id is required", error_code: "VALIDATION_ERROR", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "product_id is required", 400, correlationId);
   }
 
   // Validate tone_preset
@@ -1357,10 +1351,7 @@ export async function POST(request: Request) {
     .single();
 
   if (productError || !product) {
-    return NextResponse.json(
-      { ok: false, error: "Product not found", error_code: "NOT_FOUND", correlation_id: correlationId },
-      { status: 404 }
-    );
+    return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId, { product_id: product_id.trim() });
   }
 
   // If reference_script_id provided, fetch it
@@ -1424,14 +1415,11 @@ export async function POST(request: Request) {
   // Templates produce repetitive, weak hooks
   if (!anthropicKey && !openaiKey) {
     console.error(`[${correlationId}] No AI API key configured - cannot generate quality hooks`);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "AI generation unavailable. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY.",
-        error_code: "AI_UNAVAILABLE",
-        correlation_id: correlationId,
-      },
-      { status: 503 }
+    return createApiErrorResponse(
+      "AI_ERROR",
+      "AI generation unavailable. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY.",
+      503,
+      correlationId
     );
   }
 

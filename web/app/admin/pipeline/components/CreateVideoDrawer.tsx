@@ -55,6 +55,10 @@ const EMOTIONAL_DRIVER_UI: Record<EmotionalDriver, { label: string; color: strin
 
 // Enhanced AI Draft interface
 interface AIDraft {
+  // Product Display Name (TikTok-safe, max 30 chars)
+  product_display_name_options?: string[];
+  selected_product_display_name?: string;
+
   // Spoken hooks (expanded)
   spoken_hook_options: string[];
   spoken_hook_by_family?: Record<string, string[]>;
@@ -73,6 +77,12 @@ interface AIDraft {
   on_screen_text_hook_options: string[];
   selected_on_screen_text_hook: string;
   mid_overlays?: string[];
+
+  // CTA Script Line (persuasive, for script body)
+  cta_script_options?: string[];
+  selected_cta_script?: string;
+
+  // CTA Overlay (mechanical action only)
   cta_overlay_options?: string[];
   selected_cta_overlay?: string;
   on_screen_text_mid: string[];
@@ -94,10 +104,12 @@ interface AIDraft {
 
 // Track which fields user has modified
 type ModifiableField =
+  | 'productDisplayName'
   | 'selectedSpokenHook'
   | 'visualHook'
   | 'selectedTextHook'
   | 'onScreenTextMid'
+  | 'ctaScript'
   | 'onScreenTextCta'
   | 'selectedAngle'
   | 'proofType'
@@ -197,12 +209,18 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   // Form state - Script path (default to AI)
   const [scriptPath, setScriptPath] = useState<ScriptPath>('ai_draft');
 
+  // Form state - Product Display Name (TikTok-safe, max 30 chars)
+  const [productDisplayName, setProductDisplayName] = useState('');
+
   // Form state - Hook Package (editable after AI draft)
   const [selectedSpokenHook, setSelectedSpokenHook] = useState('');
   const [selectedEmotionalDriver, setSelectedEmotionalDriver] = useState<EmotionalDriver | null>(null);
   const [visualHook, setVisualHook] = useState('');
   const [selectedTextHook, setSelectedTextHook] = useState('');
   const [onScreenTextMid, setOnScreenTextMid] = useState<string[]>([]);
+
+  // Form state - CTA (separated: script line vs overlay)
+  const [ctaScript, setCtaScript] = useState('');
   const [onScreenTextCta, setOnScreenTextCta] = useState('');
 
   // Form state - Brief (editable after AI draft)
@@ -579,13 +597,20 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           }
         }
 
+        // Populate Product Display Name
+        setProductDisplayName(draft.selected_product_display_name || draft.product_display_name_options?.[0] || '');
+
         // Populate Hook Package fields
         setSelectedSpokenHook(bestHook);
         setSelectedEmotionalDriver(bestDriver);
         setVisualHook(draft.selected_visual_hook || draft.visual_hook_options?.[0] || draft.visual_hook || '');
         setSelectedTextHook(draft.selected_on_screen_text_hook || '');
         setOnScreenTextMid(draft.on_screen_text_mid || draft.mid_overlays || []);
+
+        // Populate CTA fields (script line vs overlay)
+        setCtaScript(draft.selected_cta_script || draft.cta_script_options?.[0] || '');
         setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Link in bio!');
+
         // Populate standard fields
         setSelectedAngle(draft.selected_angle || draft.angle_options?.[0] || '');
         setProofType(draft.proof_type || 'testimonial');
@@ -616,10 +641,12 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
     // Build current state
     const currentState = {
+      productDisplayName,
       selectedSpokenHook,
       visualHook,
       selectedTextHook,
       onScreenTextMid,
+      ctaScript,
       onScreenTextCta,
       selectedAngle,
       proofType,
@@ -652,6 +679,9 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
       if (data.ok && data.data) {
         const draft = data.data as AIDraft;
         // Only update non-locked fields
+        if (!userModifiedFields.has('productDisplayName')) {
+          setProductDisplayName(draft.selected_product_display_name || draft.product_display_name_options?.[0] || '');
+        }
         if (!userModifiedFields.has('selectedSpokenHook')) {
           setSelectedSpokenHook(draft.selected_spoken_hook || draft.selected_hook);
         }
@@ -664,8 +694,11 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
         if (!userModifiedFields.has('onScreenTextMid')) {
           setOnScreenTextMid(draft.on_screen_text_mid || []);
         }
+        if (!userModifiedFields.has('ctaScript')) {
+          setCtaScript(draft.selected_cta_script || draft.cta_script_options?.[0] || '');
+        }
         if (!userModifiedFields.has('onScreenTextCta')) {
-          setOnScreenTextCta(draft.on_screen_text_cta || 'Link in bio!');
+          setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Link in bio!');
         }
         if (!userModifiedFields.has('selectedAngle')) {
           setSelectedAngle(draft.selected_angle);
@@ -719,11 +752,15 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     setOriginalAiDraft(null);
     setAiError(null);
     setUserModifiedFields(new Set());
+    // Reset Product Display Name
+    setProductDisplayName('');
     // Reset Hook Package
     setSelectedSpokenHook('');
     setVisualHook('');
     setSelectedTextHook('');
     setOnScreenTextMid([]);
+    // Reset CTA fields
+    setCtaScript('');
     setOnScreenTextCta('');
     // Reset brief
     setSelectedAngle('');
@@ -758,6 +795,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             proof_type: proofType,
             notes: notes.trim() || undefined,
           },
+          // Product display name (TikTok-safe)
+          product_display_name: productDisplayName.trim() || undefined,
           // Hook Package data
           hook_package: aiDraft ? {
             spoken_hook: selectedSpokenHook.trim(),
@@ -767,6 +806,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             on_screen_text_cta: onScreenTextCta.trim(),
             hook_type: hookType,
           } : undefined,
+          // CTA Script (persuasive copy for script body)
+          cta_script: ctaScript.trim() || undefined,
           // Reference data
           reference: (referenceScriptText.trim() || referenceVideoUrl.trim() || tonePreset !== 'ugc_casual') ? {
             script_text: referenceScriptText.trim() || undefined,
@@ -1274,6 +1315,45 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                 </div>
               </div>
 
+              {/* ===== PRODUCT DISPLAY NAME SECTION ===== */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>
+                  Product Display Name
+                  {userModifiedFields.has('productDisplayName') && (
+                    <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
+                  )}
+                </label>
+                {aiDraft.product_display_name_options && aiDraft.product_display_name_options.length > 0 ? (
+                  <select
+                    value={productDisplayName}
+                    onChange={(e) => {
+                      setProductDisplayName(e.target.value);
+                      markFieldModified('productDisplayName');
+                    }}
+                    style={selectStyle}
+                  >
+                    {aiDraft.product_display_name_options.map((name, idx) => (
+                      <option key={idx} value={name}>{name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={productDisplayName}
+                    onChange={(e) => {
+                      setProductDisplayName(e.target.value);
+                      markFieldModified('productDisplayName');
+                    }}
+                    maxLength={30}
+                    placeholder="TikTok-safe product name (max 30 chars)"
+                    style={inputStyle}
+                  />
+                )}
+                <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                  Short, TikTok-compliant product name. Letters, numbers, spaces only. No emojis, prices, or medical claims.
+                </div>
+              </div>
+
               {/* ===== HOOK PACKAGE SECTION ===== */}
               <div style={{
                 padding: '12px',
@@ -1546,10 +1626,48 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   </div>
                 </div>
 
-                {/* CTA Overlay - dropdown if options available, else text input */}
+                {/* CTA Script Line - persuasive copy for script body */}
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>
+                    CTA Script Line
+                    {userModifiedFields.has('ctaScript') && (
+                      <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
+                    )}
+                  </label>
+                  {aiDraft.cta_script_options && aiDraft.cta_script_options.length > 0 ? (
+                    <select
+                      value={ctaScript}
+                      onChange={(e) => {
+                        setCtaScript(e.target.value);
+                        markFieldModified('ctaScript');
+                      }}
+                      style={selectStyle}
+                    >
+                      {aiDraft.cta_script_options.map((cta, idx) => (
+                        <option key={idx} value={cta}>{cta}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <textarea
+                      value={ctaScript}
+                      onChange={(e) => {
+                        setCtaScript(e.target.value);
+                        markFieldModified('ctaScript');
+                      }}
+                      rows={2}
+                      placeholder="Persuasive CTA for the script body..."
+                      style={{ ...inputStyle, fontSize: '13px', resize: 'vertical' }}
+                    />
+                  )}
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    Persuasive copy with urgency/scarcity (1-2 sentences). Goes in the spoken script, not on screen.
+                  </div>
+                </div>
+
+                {/* CTA Overlay (Final Action) - mechanical only */}
                 <div>
                   <label style={{ ...labelStyle, fontSize: '11px' }}>
-                    CTA Overlay
+                    CTA Overlay (Final Action)
                     {userModifiedFields.has('onScreenTextCta') && (
                       <span style={{ marginLeft: '6px', fontSize: '9px', color: '#fab005' }}>edited</span>
                     )}
@@ -1575,9 +1693,13 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                         setOnScreenTextCta(e.target.value);
                         markFieldModified('onScreenTextCta');
                       }}
+                      placeholder="Tap the orange cart"
                       style={inputStyle}
                     />
                   )}
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    Mechanical action only (2-6 words). Just tells viewer what to tap. No hype or product names.
+                  </div>
                 </div>
               </div>
 

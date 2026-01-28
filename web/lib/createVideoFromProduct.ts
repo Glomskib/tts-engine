@@ -200,6 +200,10 @@ export interface CreateVideoParams {
   posting_account_id?: string;
   /** @deprecated Use posting_account_id instead */
   target_account?: string;
+  /** TikTok-safe product display name (max 30 chars) */
+  product_display_name?: string;
+  /** Persuasive CTA script line for the script body */
+  cta_script?: string;
 }
 
 export interface CreateVideoResult {
@@ -233,6 +237,8 @@ export async function createVideoFromProduct(
     priority,
     posting_account_id,
     target_account, // deprecated, kept for backwards compatibility
+    product_display_name,
+    cta_script,
   } = params;
 
   // Validate product_id
@@ -349,6 +355,14 @@ export async function createVideoFromProduct(
       conceptPayload.tone_preset = reference.tone_preset || null;
     }
 
+    // Update product's display name if provided (TikTok-safe name)
+    if (product_display_name && product_display_name.trim()) {
+      await supabaseAdmin
+        .from("products")
+        .update({ product_display_name: product_display_name.trim() })
+        .eq("id", product_id.trim());
+    }
+
     // Create concept first (to link brief data)
     const { data: concept, error: conceptError } = await supabaseAdmin
       .from("concepts")
@@ -378,6 +392,11 @@ export async function createVideoFromProduct(
     // Set posting_account_id if provided
     if (posting_account_id) {
       videoPayload.posting_account_id = posting_account_id;
+    }
+
+    // Set CTA script if provided (persuasive CTA for script body)
+    if (cta_script && cta_script.trim()) {
+      videoPayload.cta_script = cta_script.trim();
     }
 
     // If script draft is provided, lock it immediately

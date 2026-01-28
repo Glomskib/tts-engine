@@ -78,6 +78,10 @@ interface HookWithMeta {
 
 // Enhanced output interface
 interface DraftVideoBriefResult {
+  // Product Display Name (TikTok-safe, max 30 chars)
+  product_display_name_options: string[];
+  selected_product_display_name: string;
+
   // Hook Package (expanded)
   spoken_hook_options: string[];
   spoken_hook_by_family: Record<string, string[]>;
@@ -96,6 +100,12 @@ interface DraftVideoBriefResult {
   on_screen_text_hook_options: string[];
   selected_on_screen_text_hook: string;
   mid_overlays: string[];
+
+  // CTA Script Line (persuasive, 1-2 sentences for script body)
+  cta_script_options: string[];
+  selected_cta_script: string;
+
+  // CTA Overlay (mechanical action only, 2-6 words)
   cta_overlay_options: string[];
   selected_cta_overlay: string;
 
@@ -859,20 +869,42 @@ VISUAL HOOKS (6 options):
 5. visual_hook_options: Array of 6 opening shot directions (1-2 sentences each)
 6. selected_visual_hook: Best visual hook from options
 
+PRODUCT DISPLAY NAME (TikTok-safe product naming):
+7. product_display_name_options: Array of 5 short product names (max 30 chars each)
+   - Letters, numbers, spaces only
+   - NO emojis, special characters, prices, or medical claims
+   - Clear and scroll-stopping
+   - NOT a CTA or hook - just a clean product reference
+8. selected_product_display_name: Best product display name
+
 ON-SCREEN TEXT:
-7. on_screen_text_hook_options: Array of 10 text overlays (max 6 words each, minimal punctuation)
-8. selected_on_screen_text_hook: Best text overlay
-9. mid_overlays: Array of 6 mid-video overlays (2-4 words each)
-10. cta_overlay_options: Array of 5 CTA overlays (TikTok Shop compliant)
-11. selected_cta_overlay: Best CTA overlay
+9. on_screen_text_hook_options: Array of 10 text overlays (max 6 words each, minimal punctuation)
+10. selected_on_screen_text_hook: Best text overlay
+11. mid_overlays: Array of 6 mid-video overlays (2-4 words each)
+
+CTA SCRIPT LINE (persuasive copy for script body):
+12. cta_script_options: Array of 5 persuasive CTA sentences (1-2 sentences each)
+    - Use urgency, scarcity, popularity ("selling out", "high demand", "blowing up")
+    - Can mention "up to X% off" but NO exact prices
+    - NO medical claims or guarantees
+    - This goes IN the script, not the overlay
+13. selected_cta_script: Best CTA script line
+
+CTA OVERLAY (mechanical action only - final seconds):
+14. cta_overlay_options: Array of 5 mechanical CTAs (2-6 words max)
+    - ONLY the action: "Tap the orange cart", "Link in bio", "Shop it here"
+    - NO hype, NO product names, NO benefits
+    - Simple instruction for viewer action
+15. selected_cta_overlay: Best CTA overlay
 
 STANDARD FIELDS:
-12. angle_options: Array of 4 marketing angles
-13. selected_angle: Best angle
-14. proof_type: "testimonial", "demo", or "comparison"
-15. notes: Production notes (1-2 sentences)
-16. broll_ideas: Array of 4 B-roll shot ideas
-17. script_draft: Complete ${targetLength} script in ${tonePreset} tone
+16. angle_options: Array of 4 marketing angles
+17. selected_angle: Best angle
+18. proof_type: "testimonial", "demo", or "comparison"
+19. notes: Production notes (1-2 sentences)
+20. broll_ideas: Array of 4 B-roll shot ideas
+21. script_draft: Complete ${targetLength} script in ${tonePreset} tone
+    - Include the selected_cta_script near the end of the script body
 
 REQUIREMENTS:
 - Every hook must be UNIQUE and FRESH
@@ -881,6 +913,9 @@ REQUIREMENTS:
 - Hooks should feel natural for UGC/TikTok
 - Scores should be honest - don't give everything 10/10
 - Text overlays: SHORT, punchy, no excessive punctuation
+- product_display_name: Clean product reference only (max 30 chars)
+- cta_script: Persuasive copy with urgency (for script body)
+- cta_overlay: Mechanical action only (for final overlay)
 
 Return ONLY valid JSON. No markdown. No code fences.`;
 
@@ -903,6 +938,10 @@ function readjustBrief(
 
   // Start with original as base
   const result: DraftVideoBriefResult = {
+    // Product Display Name
+    product_display_name_options: original.product_display_name_options || [productName.slice(0, 30)],
+    selected_product_display_name: original.selected_product_display_name || productName.slice(0, 30),
+
     spoken_hook_options: original.spoken_hook_options || [],
     spoken_hook_by_family: original.spoken_hook_by_family || {},
     hooks_by_emotional_driver: original.hooks_by_emotional_driver || { shock: [], fear: [], curiosity: [], insecurity: [], fomo: [] },
@@ -916,10 +955,16 @@ function readjustBrief(
     on_screen_text_hook_options: original.on_screen_text_hook_options || [],
     selected_on_screen_text_hook: original.selected_on_screen_text_hook || "",
     mid_overlays: original.mid_overlays || original.on_screen_text_mid || [],
-    cta_overlay_options: original.cta_overlay_options || [],
-    selected_cta_overlay: original.selected_cta_overlay || original.on_screen_text_cta || "Link in bio",
+
+    // CTA Script Line (persuasive)
+    cta_script_options: original.cta_script_options || ["This is selling out fast - grab yours!", "Everyone's talking about this!", "High demand - tap the cart!"],
+    selected_cta_script: original.selected_cta_script || "This is selling out fast - grab yours!",
+
+    // CTA Overlay (mechanical action only)
+    cta_overlay_options: original.cta_overlay_options || ["Tap the orange cart", "Link in bio", "Shop it here"],
+    selected_cta_overlay: original.selected_cta_overlay || original.on_screen_text_cta || "Tap the orange cart",
     on_screen_text_mid: original.on_screen_text_mid || [],
-    on_screen_text_cta: original.on_screen_text_cta || "Link in bio",
+    on_screen_text_cta: original.on_screen_text_cta || "Tap the orange cart",
     angle_options: original.angle_options || [],
     selected_angle: original.selected_angle || "",
     proof_type: original.proof_type || "testimonial",
@@ -972,17 +1017,43 @@ function readjustBrief(
     result.on_screen_text_mid = currentState.onScreenTextMid;
   }
 
-  // CTA based on tone
+  // CTA Script Line based on tone (persuasive, for script body)
+  if (!isLocked("ctaScript")) {
+    if (tonePreset === "soft_sell") {
+      result.selected_cta_script = "If you're curious, the link is in my bio - no pressure!";
+      result.cta_script_options = [
+        "If you're curious, the link is in my bio - no pressure!",
+        "I'll leave the link below if you want to check it out",
+        "Just thought I'd share in case anyone else needed this",
+      ];
+    } else if (tonePreset === "fast_paced") {
+      result.selected_cta_script = "This is blowing up right now - tap the cart before it sells out!";
+      result.cta_script_options = [
+        "This is blowing up right now - tap the cart before it sells out!",
+        "High demand alert - grab yours NOW!",
+        "Everyone's adding this to cart - don't miss out!",
+      ];
+    } else {
+      result.selected_cta_script = "This is selling out fast - link's in my bio!";
+      result.cta_script_options = [
+        "This is selling out fast - link's in my bio!",
+        "Seriously, grab this before it's gone!",
+        "Trust me, you need this - link below!",
+      ];
+    }
+  }
+
+  // CTA Overlay based on tone (mechanical action only, 2-6 words)
   if (!isLocked("onScreenTextCta")) {
     if (tonePreset === "soft_sell") {
-      result.selected_cta_overlay = "Link if curious";
-      result.cta_overlay_options = ["Link if curious", "Check it out", "In my bio", "Details below", "More info linked"];
-    } else if (tonePreset === "fast_paced") {
-      result.selected_cta_overlay = "Link NOW";
-      result.cta_overlay_options = ["Link NOW", "Go go go", "Tap fast", "Link in bio GO", "Get it"];
-    } else {
       result.selected_cta_overlay = "Link in bio";
-      result.cta_overlay_options = ["Link in bio", "Linked below", "Shop now", "Grab yours", "Available now"];
+      result.cta_overlay_options = ["Link in bio", "Check it out", "Details below", "Tap to learn more", "Bio link"];
+    } else if (tonePreset === "fast_paced") {
+      result.selected_cta_overlay = "Tap the cart NOW";
+      result.cta_overlay_options = ["Tap the cart NOW", "Shop it", "Get it fast", "Tap here", "Go go go"];
+    } else {
+      result.selected_cta_overlay = "Tap the orange cart";
+      result.cta_overlay_options = ["Tap the orange cart", "Link in bio", "Shop it here", "Tap to shop", "Get yours"];
     }
     result.on_screen_text_cta = result.selected_cta_overlay;
   } else if (currentState?.onScreenTextCta) {
@@ -1310,6 +1381,16 @@ export async function POST(request: Request) {
     const midOverlays = Array.isArray(aiResult.mid_overlays) ? aiResult.mid_overlays.slice(0, 6) : [];
     const ctaOptions = Array.isArray(aiResult.cta_overlay_options) ? aiResult.cta_overlay_options.slice(0, 5) : [];
 
+    // NEW: Product display name options (TikTok-safe, max 30 chars)
+    const productDisplayNameOptions = Array.isArray(aiResult.product_display_name_options)
+      ? aiResult.product_display_name_options.slice(0, 5).map((n: string) => String(n).slice(0, 30))
+      : [productName.slice(0, 30)];
+
+    // NEW: CTA script options (persuasive, 1-2 sentences)
+    const ctaScriptOptions = Array.isArray(aiResult.cta_script_options)
+      ? aiResult.cta_script_options.slice(0, 5)
+      : ["This is selling out fast - grab yours before it's gone!", "Everyone's talking about this - link below!", "High demand right now - tap the cart!"];
+
     // Process hooks_by_emotional_driver
     const hooksByDriver: Record<EmotionalDriver, HookWithMeta[]> = {
       shock: [],
@@ -1396,6 +1477,10 @@ export async function POST(request: Request) {
     }
 
     const validatedResult: DraftVideoBriefResult = {
+      // Product Display Name (TikTok-safe)
+      product_display_name_options: productDisplayNameOptions,
+      selected_product_display_name: String(aiResult.selected_product_display_name || productDisplayNameOptions[0] || productName.slice(0, 30)),
+
       // Hook Package (expanded)
       spoken_hook_options: spokenHooks,
       spoken_hook_by_family: aiResult.spoken_hook_by_family || {},
@@ -1414,12 +1499,18 @@ export async function POST(request: Request) {
       on_screen_text_hook_options: textHooks,
       selected_on_screen_text_hook: textHooks[0] || "Watch this",
       mid_overlays: midOverlays,
-      cta_overlay_options: ctaOptions.length > 0 ? ctaOptions : ["Link in bio", "Shop now", "Grab yours", "Get it", "Linked below"],
-      selected_cta_overlay: ctaOptions[0] || "Link in bio",
+
+      // CTA Script Line (persuasive, for script body)
+      cta_script_options: ctaScriptOptions,
+      selected_cta_script: String(aiResult.selected_cta_script || ctaScriptOptions[0] || "This is selling out fast - grab yours!"),
+
+      // CTA Overlay (mechanical action only)
+      cta_overlay_options: ctaOptions.length > 0 ? ctaOptions : ["Tap the orange cart", "Link in bio", "Shop it here", "Get it now", "Tap to shop"],
+      selected_cta_overlay: ctaOptions[0] || "Tap the orange cart",
 
       // Legacy fields
       on_screen_text_mid: midOverlays.slice(0, 3),
-      on_screen_text_cta: ctaOptions[0] || "Link in bio",
+      on_screen_text_cta: ctaOptions[0] || "Tap the orange cart",
 
       // Standard fields
       angle_options: Array.isArray(aiResult.angle_options) ? aiResult.angle_options.slice(0, 5) : [],
@@ -1437,7 +1528,7 @@ export async function POST(request: Request) {
       on_screen_text: [
         textHooks[0] || "",
         ...midOverlays.slice(0, 3),
-        ctaOptions[0] || "Link in bio",
+        ctaOptions[0] || "Tap the orange cart",
       ],
     };
 

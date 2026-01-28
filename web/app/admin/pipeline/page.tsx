@@ -466,6 +466,14 @@ export default function AdminPipelinePage() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Queue health state
+  const [queueHealth, setQueueHealth] = useState<{
+    stuck_items: { video_id: string; video_code: string | null; hours_in_status: number; recording_status: string | null }[];
+    aging_buckets: { under_4h: number; h4_to_12h: number; h12_to_24h: number; over_24h: number };
+    total_in_progress: number;
+  } | null>(null);
+  const [queueHealthLoading, setQueueHealthLoading] = useState(false);
+
   // Show toast with auto-dismiss
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -755,6 +763,22 @@ export default function AdminPipelinePage() {
       setError('Failed to fetch observability data');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Fetch queue health data (admin only)
+  const fetchQueueHealth = useCallback(async () => {
+    setQueueHealthLoading(true);
+    try {
+      const res = await fetch('/api/admin/queue-health');
+      const data = await res.json();
+      if (data.ok && data.data) {
+        setQueueHealth(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch queue health:', err);
+    } finally {
+      setQueueHealthLoading(false);
     }
   }, []);
 
@@ -1141,13 +1165,15 @@ export default function AdminPipelinePage() {
     if (adminEnabled === true) {
       fetchData();
       fetchQueueVideos();
+      fetchQueueHealth();
       const interval = setInterval(() => {
         fetchData();
         fetchQueueVideos();
+        fetchQueueHealth();
       }, 10000);
       return () => clearInterval(interval);
     }
-  }, [adminEnabled, fetchData, fetchQueueVideos]);
+  }, [adminEnabled, fetchData, fetchQueueVideos, fetchQueueHealth]);
 
   // Refetch queue when tab or claimed filter changes
   useEffect(() => {
@@ -1482,6 +1508,65 @@ export default function AdminPipelinePage() {
       {reclaimMessage && (
         <div style={{ color: reclaimMessage.startsWith('Error') ? colors.danger : colors.success, marginBottom: '16px', fontSize: '13px' }}>
           {reclaimMessage}
+        </div>
+      )}
+
+      {/* Queue Health Card (admin only) */}
+      {isAdminMode && queueHealth && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px 16px',
+          backgroundColor: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '24px',
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Queue Health
+          </span>
+
+          {/* Aging buckets */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span style={{ fontSize: '12px', color: colors.textMuted }}>
+              &lt;4h: <span style={{ fontWeight: 500, color: colors.success }}>{queueHealth.aging_buckets.under_4h}</span>
+            </span>
+            <span style={{ fontSize: '12px', color: colors.textMuted }}>
+              4-12h: <span style={{ fontWeight: 500, color: colors.text }}>{queueHealth.aging_buckets.h4_to_12h}</span>
+            </span>
+            <span style={{ fontSize: '12px', color: colors.textMuted }}>
+              12-24h: <span style={{ fontWeight: 500, color: colors.warning }}>{queueHealth.aging_buckets.h12_to_24h}</span>
+            </span>
+            <span style={{ fontSize: '12px', color: colors.textMuted }}>
+              &gt;24h: <span style={{ fontWeight: 500, color: colors.danger }}>{queueHealth.aging_buckets.over_24h}</span>
+            </span>
+          </div>
+
+          {/* Stuck items indicator */}
+          {queueHealth.stuck_items.length > 0 && (
+            <button
+              onClick={() => setFilterIntent('overdue')}
+              style={{
+                padding: '4px 10px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                color: colors.danger,
+                border: `1px solid rgba(239, 68, 68, 0.2)`,
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {queueHealth.stuck_items.length} stuck
+            </button>
+          )}
+
+          {/* Total count */}
+          <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textMuted }}>
+            {queueHealth.total_in_progress} in progress
+          </span>
         </div>
       )}
 

@@ -430,6 +430,8 @@ interface ProvenHook {
   underperform_count?: number;
   rejected_count?: number;
   used_count?: number;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 interface WeakHook {
@@ -610,7 +612,7 @@ async function getProvenHooksForBrand(brandName: string, productId?: string): Pr
     // Try to fetch from proven_hooks table
     let query = supabaseAdmin
       .from("proven_hooks")
-      .select("hook_type, hook_text, hook_family, approved_count, posted_count, winner_count, underperform_count, rejected_count, used_count")
+      .select("hook_type, hook_text, hook_family, approved_count, posted_count, winner_count, underperform_count, rejected_count, used_count, created_at, updated_at")
       .eq("brand_name", brandName)
       .gte("approved_count", 1) // At least 1 approval
       .order("winner_count", { ascending: false })
@@ -1702,6 +1704,7 @@ export async function POST(request: Request) {
 
     // --- Deterministic hook scoring + sorting ---
     // Build scoring context from proven hooks and winners bank data
+    const nowMs = Date.now(); // Capture once for consistent temporal calculations
     const scoringContext: HookScoringContext = {
       provenHooks: provenHooks.map((h) => ({
         text: h.hook_text,
@@ -1712,10 +1715,13 @@ export async function POST(request: Request) {
         posted_count: h.posted_count,
         used_count: h.used_count,
         hook_family: h.hook_family,
+        created_at: h.created_at,
+        updated_at: h.updated_at,
       })),
       winners: winnersBank.map((w) => ({
         hook: w.hook,
       })),
+      nowMs,
     };
 
     // Build a lookup map from normalized hook text to proven hook's family

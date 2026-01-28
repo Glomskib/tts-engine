@@ -177,11 +177,15 @@ export default function VideoDrawer({
   // Skit generator state
   const [skitPersona, setSkitPersona] = useState<'NONE' | 'DR_PICKLE' | 'CASH_KING' | 'ABSURD_BUDDY' | 'DEADPAN_OFFICE' | 'INFOMERCIAL_CHAOS'>('NONE');
   const [skitRiskTier, setSkitRiskTier] = useState<'SAFE' | 'BALANCED' | 'SPICY'>('SAFE');
+  const [skitTemplate, setSkitTemplate] = useState<string>('');
+  const [skitTemplates, setSkitTemplates] = useState<Array<{ id: string; name: string; description: string }>>([]);
   const [skitGenerating, setSkitGenerating] = useState(false);
   const [skitResult, setSkitResult] = useState<{
     risk_tier_applied: string;
     risk_score: number;
     risk_flags: string[];
+    template_id: string | null;
+    template_validation: { valid: boolean; issues: string[] } | null;
     skit: {
       hook_line: string;
       beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
@@ -436,6 +440,22 @@ export default function VideoDrawer({
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
+
+  // Fetch skit templates on mount
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/ai/skit-templates');
+        const data = await res.json();
+        if (data.ok && data.data) {
+          setSkitTemplates(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch skit templates:', err);
+      }
+    };
+    fetchTemplates();
+  }, []);
 
   // Save script and hooks to library when approving
   const saveToLibrary = async () => {
@@ -777,6 +797,8 @@ export default function VideoDrawer({
       risk_tier_applied: string;
       risk_score: number;
       risk_flags: string[];
+      template_id: string | null;
+      template_validation: { valid: boolean; issues: string[] } | null;
       skit: {
         hook_line: string;
         beats: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
@@ -791,6 +813,7 @@ export default function VideoDrawer({
       product_display_name: video.brand_name || details?.video.brand_name,
       risk_tier: skitRiskTier,
       persona: skitPersona,
+      template_id: skitTemplate || undefined,
     });
 
     setSkitGenerating(false);
@@ -2458,6 +2481,34 @@ export default function VideoDrawer({
                           </select>
                         </div>
 
+                        {/* Template Dropdown */}
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>
+                            Template (optional)
+                          </label>
+                          <select
+                            value={skitTemplate}
+                            onChange={(e) => setSkitTemplate(e.target.value)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: colors.input,
+                              border: `1px solid ${colors.inputBorder}`,
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              color: colors.text,
+                              cursor: 'pointer',
+                              minWidth: '180px',
+                            }}
+                          >
+                            <option value="">No Template</option>
+                            {skitTemplates.map((template) => (
+                              <option key={template.id} value={template.id}>
+                                {template.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         {/* Generate Button */}
                         <div style={{ alignSelf: 'flex-end' }}>
                           <button
@@ -2531,7 +2582,38 @@ export default function VideoDrawer({
                                 {skitResult.risk_flags.length} flag(s)
                               </span>
                             )}
+                            {skitResult.template_id && (
+                              <span style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#e0e7ff',
+                                color: '#3730a3',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                              }}>
+                                Template: {skitTemplates.find(t => t.id === skitResult.template_id)?.name || skitResult.template_id}
+                              </span>
+                            )}
                           </div>
+
+                          {/* Template Validation Warning */}
+                          {skitResult.template_validation && !skitResult.template_validation.valid && (
+                            <div style={{
+                              marginBottom: '12px',
+                              padding: '8px 12px',
+                              backgroundColor: '#fef3c7',
+                              border: '1px solid #fcd34d',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              color: '#92400e',
+                            }}>
+                              <div style={{ fontWeight: 600, marginBottom: '4px' }}>Template mismatch:</div>
+                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                {skitResult.template_validation.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
 
                           {/* Hook Line */}
                           <div style={{ marginBottom: '16px' }}>

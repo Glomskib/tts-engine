@@ -92,3 +92,40 @@ export function generateCorrelationId(): string {
   }
   return `vid_${Date.now()}_${random}`;
 }
+
+/**
+ * Standardized API error response shape
+ */
+export interface StandardApiErrorResponse {
+  ok: false;
+  error_code: ApiErrorCode;
+  message: string;
+  correlation_id: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Create a standardized API error response with correlation_id header
+ */
+export function createApiErrorResponse(
+  errorCode: ApiErrorCode,
+  message: string,
+  httpStatus: number,
+  correlationId: string,
+  details?: Record<string, unknown>
+): import("next/server").NextResponse<StandardApiErrorResponse> {
+  const { NextResponse } = require("next/server");
+  const body: StandardApiErrorResponse = {
+    ok: false,
+    error_code: errorCode,
+    message,
+    correlation_id: correlationId,
+  };
+  if (details) {
+    body.details = details;
+  }
+
+  const response = NextResponse.json(body, { status: httpStatus });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
+}

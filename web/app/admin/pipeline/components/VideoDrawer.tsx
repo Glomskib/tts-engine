@@ -151,6 +151,10 @@ export default function VideoDrawer({
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRejectTag, setSelectedRejectTag] = useState<string | null>(null);
 
+  // Underperform feedback state
+  const [showUnderperformMenu, setShowUnderperformMenu] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
   // Reject quick tags configuration
   const REJECT_TAGS = [
     { code: 'too_generic', label: 'Too Generic' },
@@ -159,6 +163,16 @@ export default function VideoDrawer({
     { code: 'wrong_angle', label: 'Wrong Angle' },
     { code: 'compliance', label: 'Compliance Issue' },
     { code: 'bad_cta', label: 'Bad CTA' },
+  ];
+
+  // Underperform reason codes
+  const UNDERPERFORM_TAGS = [
+    { code: 'low_engagement', label: 'Low Engagement' },
+    { code: 'weak_cta', label: 'Weak CTA' },
+    { code: 'wrong_tone', label: 'Wrong Tone' },
+    { code: 'too_generic', label: 'Too Generic' },
+    { code: 'poor_timing', label: 'Poor Timing' },
+    { code: 'saturated', label: 'Overused Pattern' },
   ];
 
   const statusColors = getStatusBadgeColor(video.recording_status);
@@ -577,6 +591,66 @@ export default function VideoDrawer({
       onRefresh();
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle marking hooks as underperforming (soft negative signal)
+  const handleMarkUnderperform = async (reasonCode?: string) => {
+    setFeedbackLoading(true);
+    try {
+      const brandName = video.brand_name || details?.video.brand_name;
+      const spokenHook = details?.brief?.hook_options?.[0];
+      const visualHook = details?.brief?.visual_hook;
+      const textHook = details?.brief?.on_screen_text_hook;
+
+      if (!brandName) {
+        setSavedToast('Cannot record feedback: brand not set');
+        setTimeout(() => setSavedToast(null), 3000);
+        return;
+      }
+
+      // Record underperform on hooks via the proven hooks API
+      const hooksToMark: { type: 'spoken' | 'visual' | 'text'; text: string }[] = [];
+      if (spokenHook) hooksToMark.push({ type: 'spoken', text: spokenHook });
+      if (visualHook) hooksToMark.push({ type: 'visual', text: visualHook });
+      if (textHook) hooksToMark.push({ type: 'text', text: textHook });
+
+      for (const hook of hooksToMark) {
+        try {
+          await fetch('/api/hooks/proven', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              brand_name: brandName,
+              product_id: video.product_id,
+              hook_type: hook.type,
+              hook_text: hook.text,
+              source_video_id: video.id,
+              increment_field: 'underperform_count',
+            }),
+          });
+        } catch (err) {
+          console.error(`Failed to mark ${hook.type} hook as underperforming:`, err);
+        }
+      }
+
+      setShowUnderperformMenu(false);
+      setSavedToast(`Marked ${hooksToMark.length} hook(s) as underperforming${reasonCode ? ` (${reasonCode})` : ''}`);
+      setTimeout(() => setSavedToast(null), 3000);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  // Handle saving hooks as winners (positive signal)
+  const handleSaveAsWinner = async () => {
+    setFeedbackLoading(true);
+    try {
+      await saveToLibrary();
+      setSavedToast('Saved as winner');
+      setTimeout(() => setSavedToast(null), 3000);
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -1856,6 +1930,139 @@ export default function VideoDrawer({
                           </div>
                         )}
                       </div>
+
+                      {/* Feedback Buttons - Rate this content */}
+                      {isAdmin && (
+                        <div style={{
+                          marginTop: '20px',
+                          paddingTop: '16px',
+                          borderTop: `1px solid ${colors.border}`,
+                        }}>
+                          <h4 style={{ margin: '0 0 12px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>
+                            Rate This Content
+                          </h4>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {/* Save as Winner */}
+                            <button
+                              onClick={handleSaveAsWinner}
+                              disabled={feedbackLoading}
+                              style={{
+                                padding: '8px 14px',
+                                backgroundColor: feedbackLoading ? colors.border : '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: feedbackLoading ? 'not-allowed' : 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Save as Winner
+                            </button>
+
+                            {/* Mark as Weak - with optional reason dropdown */}
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                onClick={() => setShowUnderperformMenu(!showUnderperformMenu)}
+                                disabled={feedbackLoading}
+                                style={{
+                                  padding: '8px 14px',
+                                  backgroundColor: feedbackLoading ? colors.border : '#f59e0b',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: feedbackLoading ? 'not-allowed' : 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Mark as Weak
+                              </button>
+                              {showUnderperformMenu && (
+                                <>
+                                  <div
+                                    onClick={() => setShowUnderperformMenu(false)}
+                                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1050 }}
+                                  />
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    marginTop: '4px',
+                                    backgroundColor: colors.surface,
+                                    border: `1px solid ${colors.border}`,
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    zIndex: 1051,
+                                    minWidth: '160px',
+                                    overflow: 'hidden',
+                                  }}>
+                                    <button
+                                      onClick={() => handleMarkUnderperform()}
+                                      style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        padding: '10px 14px',
+                                        textAlign: 'left',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: `1px solid ${colors.border}`,
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        color: colors.text,
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      No specific reason
+                                    </button>
+                                    {UNDERPERFORM_TAGS.map((tag) => (
+                                      <button
+                                        key={tag.code}
+                                        onClick={() => handleMarkUnderperform(tag.code)}
+                                        style={{
+                                          display: 'block',
+                                          width: '100%',
+                                          padding: '10px 14px',
+                                          textAlign: 'left',
+                                          background: 'none',
+                                          border: 'none',
+                                          borderBottom: `1px solid ${colors.border}`,
+                                          cursor: 'pointer',
+                                          fontSize: '13px',
+                                          color: colors.text,
+                                        }}
+                                      >
+                                        {tag.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Reject */}
+                            <button
+                              onClick={handleReject}
+                              disabled={feedbackLoading}
+                              style={{
+                                padding: '8px 14px',
+                                backgroundColor: feedbackLoading ? colors.border : '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: feedbackLoading ? 'not-allowed' : 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                          <p style={{ margin: '8px 0 0', fontSize: '11px', color: colors.textMuted }}>
+                            Winners boost reuse. Weak fades naturally. Reject blocks future use.
+                          </p>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div style={{

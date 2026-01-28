@@ -24,7 +24,7 @@ interface UpsertHookParams {
   edge_push?: boolean;
   source?: "internal" | "external";
   source_video_id?: string;
-  increment_field?: "used_count" | "approved_count" | "posted_count" | "winner_count" | "rejected_count";
+  increment_field?: "used_count" | "approved_count" | "posted_count" | "winner_count" | "rejected_count" | "underperform_count";
   approved_by?: string;
 }
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     // Check if hook already exists
     const { data: existing } = await supabaseAdmin
       .from("proven_hooks")
-      .select("id, used_count, approved_count, posted_count, winner_count, rejected_count")
+      .select("id, used_count, approved_count, posted_count, winner_count, rejected_count, underperform_count")
       .eq("brand_name", brand_name)
       .eq("hook_type", hook_type)
       .eq("hook_hash", hookHash)
@@ -99,6 +99,8 @@ export async function POST(request: Request) {
         updateData.winner_count = (existing.winner_count || 0) + 1;
       } else if (increment_field === "rejected_count") {
         updateData.rejected_count = (existing.rejected_count || 0) + 1;
+      } else if (increment_field === "underperform_count") {
+        updateData.underperform_count = (existing.underperform_count || 0) + 1;
       }
 
       const { error: updateError } = await supabaseAdmin
@@ -140,6 +142,7 @@ export async function POST(request: Request) {
         posted_count: increment_field === "posted_count" ? 1 : 0,
         winner_count: increment_field === "winner_count" ? 1 : 0,
         rejected_count: increment_field === "rejected_count" ? 1 : 0,
+        underperform_count: increment_field === "underperform_count" ? 1 : 0,
         approved_by: approved_by || null,
       })
       .select()
@@ -234,16 +237,20 @@ export async function GET(request: Request) {
     }
 
     // Add computed score if requested
-    // Score formula: (winner_count * 5) + (approved_count * 2) - (rejected_count * 3)
+    // Score formula: (approved_count * 3) - (underperform_count * 1) - (rejected_count * 3)
+    // - Rejected hooks are hard-penalized (-3 each)
+    // - Underperforming hooks fade naturally (-1 each)
+    // - Winners dominate without banning experimentation
     let resultData = data || [];
     if (scored) {
       resultData = resultData.map((hook) => ({
         ...hook,
         computed_score:
-          (hook.winner_count || 0) * 5 +
-          (hook.approved_count || 0) * 2 -
+          (hook.approved_count || 0) * 3 -
+          (hook.underperform_count || 0) * 1 -
           (hook.rejected_count || 0) * 3,
         is_quarantined: (hook.rejected_count || 0) >= 3,
+        is_underperforming: (hook.underperform_count || 0) > 0,
       }));
       // Sort by computed score
       resultData.sort((a, b) => (b.computed_score || 0) - (a.computed_score || 0));

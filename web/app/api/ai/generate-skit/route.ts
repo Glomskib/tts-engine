@@ -40,6 +40,7 @@ const GenerateSkitInputSchema = z.object({
   risk_tier: RiskTierSchema,
   persona: PersonaSchema,
   template_id: z.string().max(50).optional(),
+  intensity: z.number().min(0).max(100).optional(),
 }).strict();
 
 type GenerateSkitInput = z.infer<typeof GenerateSkitInputSchema>;
@@ -136,7 +137,115 @@ CRITICAL COMPLIANCE RULES - NEVER VIOLATE:
 6. Product benefits should be stated as experiences, not medical outcomes
    BAD: "cures your fatigue"
    GOOD: "I actually have energy for my 3pm meetings now"
+
+REAL PERSON IMITATION PROHIBITION:
+- NEVER imitate, reference, or parody any real celebrities, influencers, or public figures
+- NEVER use catchphrases, mannerisms, or speaking styles associated with real people
+- Only use the provided fictional character archetypes (Dr. Pickle, Cash King, etc.)
+- Generic comedic archetypes (office worker, friend, news anchor) are fine as TYPES, not specific people
 `;
+
+// --- Intensity Guidelines ---
+
+function buildIntensityGuidelines(intensity: number): string {
+  if (intensity <= 20) {
+    return `
+COMEDY INTENSITY: LOW (${intensity}/100)
+- Keep pacing relaxed and conversational
+- Minimal exaggeration, understated humor
+- Gentle observations rather than punchlines
+- Calm, friendly energy throughout
+`;
+  } else if (intensity <= 40) {
+    return `
+COMEDY INTENSITY: MILD (${intensity}/100)
+- Moderate pacing with some energy peaks
+- Light exaggeration for comedic effect
+- A few clear punchlines mixed with conversational moments
+- Approachable, relatable energy
+`;
+  } else if (intensity <= 60) {
+    return `
+COMEDY INTENSITY: MEDIUM (${intensity}/100)
+- Good comedic rhythm and pacing
+- Confident exaggeration and callbacks
+- Clear setup/punchline structure
+- Engaging energy that holds attention
+`;
+  } else if (intensity <= 80) {
+    return `
+COMEDY INTENSITY: HIGH (${intensity}/100)
+- Fast pacing with punchy delivery
+- Bold exaggeration and sharp punchlines
+- Quick cuts and rapid-fire energy
+- Memorable one-liners and callbacks
+`;
+  } else {
+    return `
+COMEDY INTENSITY: MAXIMUM (${intensity}/100)
+- Rapid-fire pacing, high energy throughout
+- Maximum comedic exaggeration (within policy)
+- Sharpest punchlines, fastest delivery
+- Absurdist escalation and bold choices
+- Still policy-compliant - no health claims or real person imitation
+`;
+  }
+}
+
+// --- Intensity Budget Throttle ---
+
+// In-memory budget tracker (resets on server restart, which is acceptable for soft throttle)
+const intensityBudgets = new Map<string, { points: number; resetAt: number }>();
+
+// Tuneable constants
+const INTENSITY_BUDGET_MAX = 300; // points per window
+const INTENSITY_BUDGET_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const INTENSITY_CLAMP_VALUE = 30; // clamp to this intensity when budget exceeded
+
+function calculateIntensityCost(intensity: number): number {
+  // ceil(intensity/10) * 5 points
+  // intensity 100 = 50 points, intensity 50 = 25 points, intensity 10 = 5 points
+  return Math.ceil(intensity / 10) * 5;
+}
+
+function checkAndDeductIntensityBudget(
+  orgId: string,
+  userId: string,
+  requestedIntensity: number
+): { intensityApplied: number; budgetClamped: boolean; budgetRemaining: number } {
+  const key = `${orgId}:${userId}:skit_intensity_budget`;
+  const now = Date.now();
+
+  // Get or initialize budget
+  let budget = intensityBudgets.get(key);
+  if (!budget || now >= budget.resetAt) {
+    budget = { points: INTENSITY_BUDGET_MAX, resetAt: now + INTENSITY_BUDGET_WINDOW_MS };
+    intensityBudgets.set(key, budget);
+  }
+
+  const cost = calculateIntensityCost(requestedIntensity);
+
+  // Check if we have enough budget
+  if (budget.points >= cost) {
+    // Deduct and allow full intensity
+    budget.points -= cost;
+    return {
+      intensityApplied: requestedIntensity,
+      budgetClamped: false,
+      budgetRemaining: budget.points,
+    };
+  }
+
+  // Budget exceeded - clamp intensity
+  const clampedCost = calculateIntensityCost(INTENSITY_CLAMP_VALUE);
+  budget.points = Math.max(0, budget.points - clampedCost);
+
+  return {
+    intensityApplied: INTENSITY_CLAMP_VALUE,
+    budgetClamped: true,
+    budgetRemaining: budget.points,
+  };
+}
 
 // --- Skit Structure Template ---
 
@@ -191,8 +300,9 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
-  // Note: All authenticated users can request any tier.
+  // Note: All authenticated users can request any tier and intensity.
   // Safety is enforced by deterministic sanitization + risk scoring + auto-downgrade.
+  // Intensity is soft-throttled via budget to prevent abuse at scale.
 
   try {
     // Fetch product info
@@ -215,6 +325,14 @@ export async function POST(request: Request) {
       }
     }
 
+    // Check intensity budget (soft throttle - clamps instead of blocking)
+    const requestedIntensity = input.intensity ?? 50;
+    const intensityBudget = checkAndDeductIntensityBudget(
+      "default", // org_id not available in auth context, use default bucket
+      authContext.user.id,
+      requestedIntensity
+    );
+
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
     const ctaOverlay = input.cta_overlay || "Link in bio!";
@@ -228,6 +346,7 @@ export async function POST(request: Request) {
       riskTier: input.risk_tier,
       persona: input.persona,
       template,
+      intensity: intensityBudget.intensityApplied,
     });
 
     // Call Anthropic API
@@ -253,7 +372,7 @@ export async function POST(request: Request) {
       entity_type: input.video_id ? "video" : "product",
       entity_id: input.video_id || input.product_id,
       actor: authContext.user.id,
-      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}${template ? `, template=${template.id}` : ""}`,
+      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${intensityBudget.intensityApplied}${intensityBudget.budgetClamped ? " (clamped)" : ""}${template ? `, template=${template.id}` : ""}`,
       details: {
         risk_tier_requested: input.risk_tier,
         risk_tier_applied: processed.appliedTier,
@@ -263,6 +382,9 @@ export async function POST(request: Request) {
         flags_count: processed.riskFlags.length,
         was_downgraded: processed.wasDowngraded,
         template_validation: templateValidation,
+        intensity_requested: requestedIntensity,
+        intensity_applied: intensityBudget.intensityApplied,
+        budget_clamped: intensityBudget.budgetClamped,
       },
     });
 
@@ -276,6 +398,9 @@ export async function POST(request: Request) {
         risk_flags: processed.riskFlags,
         template_id: input.template_id || null,
         template_validation: templateValidation,
+        intensity_requested: requestedIntensity,
+        intensity_applied: intensityBudget.intensityApplied,
+        budget_clamped: intensityBudget.budgetClamped,
         skit: processed.skit,
       },
     });
@@ -304,14 +429,16 @@ interface PromptParams {
   riskTier: RiskTier;
   persona: Persona;
   template: SkitTemplate | null;
+  intensity: number;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, intensity } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
   const templateSection = template ? buildTemplatePromptSection(template) : "";
+  const intensityGuideline = buildIntensityGuidelines(intensity);
 
   return `You are a TikTok skit writer for product advertisements. Generate a short, engaging skit.
 
@@ -324,6 +451,8 @@ PRODUCT INFO:
 CTA OVERLAY TO USE: "${ctaOverlay}"
 
 ${tierGuideline}
+
+${intensityGuideline}
 
 PERSONA/CHARACTER:
 ${personaGuideline}

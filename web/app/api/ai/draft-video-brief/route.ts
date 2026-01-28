@@ -756,7 +756,52 @@ function buildEnhancedPrompt(params: {
     nonce,
   } = params;
 
-  let prompt = `Generation ID: ${nonce}
+  // STRICT JSON-ONLY INSTRUCTIONS (placed at START for maximum compliance)
+  let prompt = `You are a JSON-only response API. Your ENTIRE response must be a single valid JSON object.
+
+CRITICAL OUTPUT RULES:
+1. Output ONLY raw JSON - no markdown, no code fences, no explanatory text
+2. Do NOT wrap JSON in \`\`\`json or \`\`\` blocks
+3. Do NOT include any text before or after the JSON object
+4. Ensure all strings are properly escaped (use \\" for quotes inside strings)
+5. Use double quotes for all keys and string values
+6. No trailing commas in arrays or objects
+
+REQUIRED JSON SCHEMA (all fields required):
+{
+  "spoken_hook_options": string[],           // Array of 12 unique hooks (5-15 words each)
+  "hooks_by_emotional_driver": {             // Hooks grouped by driver
+    "shock": [{ "text": string, "emotional_driver": "shock", "hook_family": string, "edge_push": boolean }],
+    "fear": [{ "text": string, "emotional_driver": "fear", "hook_family": string, "edge_push": boolean }],
+    "curiosity": [{ "text": string, "emotional_driver": "curiosity", "hook_family": string, "edge_push": boolean }],
+    "insecurity": [{ "text": string, "emotional_driver": "insecurity", "hook_family": string, "edge_push": boolean }],
+    "fomo": [{ "text": string, "emotional_driver": "fomo", "hook_family": string, "edge_push": boolean }]
+  },
+  "hook_scores": { [hookText: string]: { "curiosity": number, "clarity": number, "ugc_fit": number, "overall": number } },
+  "selected_spoken_hook": string,
+  "selected_emotional_driver": string,
+  "visual_hook_options": string[],           // Array of 6 visual directions
+  "selected_visual_hook": string,
+  "product_display_name_options": string[],  // Array of 5 product names (max 30 chars)
+  "selected_product_display_name": string,
+  "on_screen_text_hook_options": string[],   // Array of 10 text overlays (max 6 words)
+  "selected_on_screen_text_hook": string,
+  "mid_overlays": string[],                  // Array of 6 mid-video overlays
+  "cta_script_options": string[],            // Array of 5 persuasive CTAs
+  "selected_cta_script": string,
+  "cta_overlay_options": string[],           // Array of 5 mechanical CTAs
+  "selected_cta_overlay": string,
+  "angle_options": string[],                 // Array of 4 marketing angles
+  "selected_angle": string,
+  "proof_type": "testimonial" | "demo" | "comparison",
+  "notes": string,
+  "broll_ideas": string[],                   // Array of 4 B-roll ideas
+  "script_draft": string
+}
+
+---
+
+Generation ID: ${nonce}
 Generate a FRESH, NOVEL TikTok Shop video brief. Do NOT reuse hooks from previous generations.
 
 PRODUCT:
@@ -1038,7 +1083,7 @@ REQUIREMENTS:
 - cta_script: Persuasive copy with urgency (for script body)
 - cta_overlay: Mechanical action only (for final overlay)
 
-Return ONLY valid JSON. No markdown. No code fences.`;
+REMINDER: Output ONLY the raw JSON object. No markdown, no code fences, no explanatory text.`;
 
   return prompt;
 }

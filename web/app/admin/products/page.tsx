@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminNav from '../components/AdminNav';
 
 interface Product {
   id: string;
@@ -289,7 +288,6 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      <AdminNav isAdmin={isAdmin} />
 
       {/* Filters */}
       <div style={{

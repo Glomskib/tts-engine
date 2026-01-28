@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import AdminNav from '../components/AdminNav';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import {
   getRequestSLAStatus,
@@ -352,7 +351,6 @@ export default function AdminRequestsPage() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
-      <AdminNav isAdmin={authUser.isAdmin} />
 
       <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '20px 0' }}>
         Client Requests

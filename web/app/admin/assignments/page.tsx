@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
-import AdminNav from '../components/AdminNav';
 import { EmptyState } from '../components/AdminPageLayout';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
@@ -290,11 +289,6 @@ export default function AssignmentsPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Admin Navigation */}
-      <AdminNav
-        isAdmin={authUser.role === 'admin'}
-        showNotificationBadge={<NotificationBadge />}
-      />
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>Assignment Dashboard</h1>

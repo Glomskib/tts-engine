@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import NotificationBadge from '../components/NotificationBadge';
-import AdminNav from '../components/AdminNav';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -205,11 +204,6 @@ export default function OpsPage() {
         </div>
       </div>
 
-      {/* Admin Navigation */}
-      <AdminNav
-        isAdmin={true}
-        showNotificationBadge={<NotificationBadge />}
-      />
 
       {/* User info bar */}
       <div style={{

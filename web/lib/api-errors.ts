@@ -1,4 +1,7 @@
-// api-errors.ts - Standardized API error codes and responses (Phase 8.2)
+// api-errors.ts - Standardized API error codes and responses
+// Phase 3: Added GENERATION_IN_PROGRESS for single-flight
+
+import { NextResponse } from "next/server";
 
 export type ApiErrorCode =
   | 'INVALID_UUID'
@@ -42,7 +45,8 @@ export type ApiErrorCode =
   | 'COMPLIANCE_BLOCKED'
   | 'NO_SCRIPT'
   | 'POSTING_META_INCOMPLETE'
-  | 'FINAL_ASSET_REQUIRED';
+  | 'FINAL_ASSET_REQUIRED'
+  | 'GENERATION_IN_PROGRESS';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {
@@ -91,4 +95,40 @@ export function generateCorrelationId(): string {
     random += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `vid_${Date.now()}_${random}`;
+}
+
+/**
+ * Standardized API error response shape
+ */
+export interface StandardApiErrorResponse {
+  ok: false;
+  error_code: ApiErrorCode;
+  message: string;
+  correlation_id: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Create a standardized API error response with correlation_id header
+ */
+export function createApiErrorResponse(
+  errorCode: ApiErrorCode,
+  message: string,
+  httpStatus: number,
+  correlationId: string,
+  details?: Record<string, unknown>
+): NextResponse<StandardApiErrorResponse> {
+  const body: StandardApiErrorResponse = {
+    ok: false,
+    error_code: errorCode,
+    message,
+    correlation_id: correlationId,
+  };
+  if (details) {
+    body.details = details;
+  }
+
+  const response = NextResponse.json(body, { status: httpStatus });
+  response.headers.set("x-correlation-id", correlationId);
+  return response;
 }

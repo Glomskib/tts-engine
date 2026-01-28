@@ -287,7 +287,7 @@ export default function BrandsPage() {
                         fontSize: '12px',
                       }}
                     >
-                      View Pipeline
+                      View Videos
                     </Link>
                   </td>
                 </tr>

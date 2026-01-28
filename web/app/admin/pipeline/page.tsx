@@ -117,9 +117,9 @@ type VAMode = typeof VA_MODES[number];
 // Filter intent types
 type FilterIntent = 'all' | 'my_work' | 'needs_action' | 'overdue' | 'needs_mapping' | 'ready_to_post';
 const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
-  { value: 'all', label: 'All Jobs' },
+  { value: 'all', label: 'All Videos' },
   { value: 'my_work', label: 'Assigned to Me' },
-  { value: 'needs_action', label: 'Ready for Action' },
+  { value: 'needs_action', label: 'Needs Attention' },
   { value: 'overdue', label: 'Past Due' },
   { value: 'needs_mapping', label: 'Missing Info' },
   { value: 'ready_to_post', label: 'Ready to Publish' },
@@ -1370,7 +1370,7 @@ export default function AdminPipelinePage() {
                 fontWeight: 500,
               }}
             >
-              New Job
+              New Video
             </button>
           )}
 
@@ -1546,7 +1546,7 @@ export default function AdminPipelinePage() {
 
         {/* Count */}
         <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
-          {getIntentFilteredVideos().length} {getIntentFilteredVideos().length === 1 ? 'job' : 'jobs'}
+          {getIntentFilteredVideos().length} {getIntentFilteredVideos().length === 1 ? 'video' : 'videos'}
           {queueLoading && ' (loading...)'}
         </span>
       </div>
@@ -1557,9 +1557,9 @@ export default function AdminPipelinePage() {
           <thead>
             <tr>
               <th style={thStyle}>Status</th>
-              <th style={thStyle}>Job</th>
+              <th style={thStyle}>Video</th>
               <th style={thStyle}>Brand / Product</th>
-              <th style={thStyle}>Step</th>
+              <th style={thStyle}>Workflow</th>
               <th style={thStyle}>Assigned To</th>
             </tr>
           </thead>
@@ -1592,7 +1592,7 @@ export default function AdminPipelinePage() {
                   <td style={{ ...tdStyle, width: '90px' }}>
                     {video.sla_status === 'overdue' ? (
                       <span
-                        title="This job is past its expected completion time"
+                        title="This video is past its expected completion time"
                         style={{
                           display: 'inline-block',
                           padding: '2px 8px',
@@ -1681,7 +1681,7 @@ export default function AdminPipelinePage() {
           borderRadius: '10px',
           border: `1px solid ${colors.border}`,
         }}>
-          {queueLoading ? 'Loading...' : 'No jobs match this filter'}
+          {queueLoading ? 'Loading...' : 'No videos match this filter'}
         </div>
       )}
 

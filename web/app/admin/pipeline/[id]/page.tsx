@@ -630,7 +630,7 @@ export default function VideoDetailPage() {
       {/* Navigation */}
       <div style={{ marginBottom: '20px' }}>
         <Link href="/admin/pipeline" style={{ padding: '8px 16px', marginRight: '10px', textDecoration: 'none', color: '#333', border: '1px solid #ccc', borderRadius: '4px', display: 'inline-block' }}>
-          &larr; Back to Pipeline
+          &larr; Back to Work Queue
         </Link>
         <button onClick={fetchData} style={{ padding: '8px 16px' }}>
           Refresh

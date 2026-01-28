@@ -82,17 +82,19 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
     }
 
     if (role === 'admin') {
+      // Primary work section
       sections.push({
-        title: 'Work Queue',
+        title: 'Work',
         items: [
-          { label: 'All Jobs', href: '/admin/pipeline' },
-          { label: 'Ready for Review', href: '/admin/pipeline?filter=approve' },
+          { label: 'Work Queue', href: '/admin/pipeline' },
+          { label: 'My Work', href: '/admin/pipeline?filter=my_work' },
           { label: 'Ready to Publish', href: '/uploader' },
         ],
       });
 
+      // Content library
       sections.push({
-        title: 'Content',
+        title: 'Library',
         items: [
           { label: 'Brands', href: '/admin/brands' },
           { label: 'Products', href: '/admin/products' },
@@ -101,8 +103,9 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
         ],
       });
 
+      // Insights and reporting
       sections.push({
-        title: "What's Working",
+        title: 'Insights',
         items: [
           { label: 'Performance', href: '/admin/analytics' },
           { label: 'Activity Log', href: '/admin/events' },

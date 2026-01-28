@@ -443,7 +443,7 @@ export default function UploaderPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '13px', color: colors.textMuted }}>{authUser?.email}</span>
             <Link href="/admin/pipeline" style={{ fontSize: '13px', color: colors.accent }}>
-              Pipeline
+              Work Queue
             </Link>
           </div>
         </div>

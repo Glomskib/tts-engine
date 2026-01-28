@@ -304,7 +304,7 @@ export default function WinnersPage() {
           <h1 className="text-2xl font-bold text-red-600 mb-2">Forbidden</h1>
           <p className="text-slate-600 mb-4">Admin access required.</p>
           <Link href="/admin/pipeline" className="text-blue-600 hover:underline">
-            Go to Pipeline
+            Go to Work Queue
           </Link>
         </div>
       </div>

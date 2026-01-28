@@ -386,7 +386,7 @@ export default function ProductsPage() {
                         fontSize: '12px',
                       }}
                     >
-                      View Pipeline
+                      View Videos
                     </Link>
                   </td>
                 </tr>

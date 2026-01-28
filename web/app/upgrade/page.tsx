@@ -170,7 +170,7 @@ Thank you!`;
             href="/admin/pipeline"
             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
           >
-            ← Back to Pipeline
+            ← Back to Work Queue
           </Link>
         </div>
 

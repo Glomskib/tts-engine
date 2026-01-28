@@ -72,11 +72,11 @@ export default function PipelinePage() {
     }
   }, [accountId]);
 
-  if (loading) return <div>Loading pipeline data...</div>;
+  if (loading) return <div>Loading videos...</div>;
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>Pipeline Manager - Account {accountId}</h1>
+      <h1>Videos - Account {accountId}</h1>
       
       {error && <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>}
 

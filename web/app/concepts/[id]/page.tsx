@@ -254,7 +254,7 @@ export default function ConceptWorkbenchPage() {
                   onClick={() => setShowVideoForm(variant.id)}
                   style={{ marginTop: '5px', padding: '2px 5px', fontSize: '12px' }}
                 >
-                  Create Video Job
+                  Create Video
                 </button>
               </div>
             ))}

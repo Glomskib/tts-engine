@@ -268,7 +268,7 @@ export default function OpsPage() {
           {/* KPI Cards - Status Distribution */}
           <section style={{ marginBottom: '30px' }}>
             <h2 style={{ fontSize: '18px', marginBottom: '15px', borderBottom: '1px solid #dee2e6', paddingBottom: '8px' }}>
-              Pipeline Status Distribution
+              Video Status Distribution
             </h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
               {Object.entries(metrics.totals.by_status).map(([status, count]) => {

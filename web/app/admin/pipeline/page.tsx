@@ -117,12 +117,12 @@ type VAMode = typeof VA_MODES[number];
 // Filter intent types
 type FilterIntent = 'all' | 'my_work' | 'needs_action' | 'overdue' | 'needs_mapping' | 'ready_to_post';
 const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
-  { value: 'all', label: 'All Videos' },
-  { value: 'my_work', label: 'My Work' },
-  { value: 'needs_action', label: 'Needs Action' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'needs_mapping', label: 'Needs Mapping' },
-  { value: 'ready_to_post', label: 'Ready to Post' },
+  { value: 'all', label: 'All Jobs' },
+  { value: 'my_work', label: 'Assigned to Me' },
+  { value: 'needs_action', label: 'Ready for Action' },
+  { value: 'overdue', label: 'Past Due' },
+  { value: 'needs_mapping', label: 'Missing Info' },
+  { value: 'ready_to_post', label: 'Ready to Publish' },
 ];
 
 // localStorage keys
@@ -1345,9 +1345,14 @@ export default function AdminPipelinePage() {
         alignItems: 'center',
         marginBottom: '24px',
       }}>
-        <h1 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, margin: 0 }}>
-          Video Pipeline
-        </h1>
+        <div>
+          <h1 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, margin: 0 }}>
+            Work Queue
+          </h1>
+          <p style={{ fontSize: '13px', color: colors.textMuted, margin: '4px 0 0 0' }}>
+            Everything currently in progress
+          </p>
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Create Video - Primary Action */}
@@ -1365,7 +1370,7 @@ export default function AdminPipelinePage() {
                 fontWeight: 500,
               }}
             >
-              Create Video
+              New Job
             </button>
           )}
 
@@ -1510,7 +1515,7 @@ export default function AdminPipelinePage() {
         {/* Search */}
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="Search by job, brand, or product..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
@@ -1541,7 +1546,7 @@ export default function AdminPipelinePage() {
 
         {/* Count */}
         <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
-          {getIntentFilteredVideos().length} videos
+          {getIntentFilteredVideos().length} {getIntentFilteredVideos().length === 1 ? 'job' : 'jobs'}
           {queueLoading && ' (loading...)'}
         </span>
       </div>
@@ -1551,11 +1556,11 @@ export default function AdminPipelinePage() {
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={thStyle}>Due</th>
-              <th style={thStyle}>Video</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}>Job</th>
               <th style={thStyle}>Brand / Product</th>
-              <th style={thStyle}>Stage</th>
-              <th style={thStyle}>Owner</th>
+              <th style={thStyle}>Step</th>
+              <th style={thStyle}>Assigned To</th>
             </tr>
           </thead>
           <tbody>
@@ -1583,16 +1588,28 @@ export default function AdminPipelinePage() {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  {/* Due - subtle indicator */}
-                  <td style={{ ...tdStyle, width: '80px' }}>
-                    <span style={{
-                      fontSize: '11px',
-                      color: video.sla_status === 'overdue' ? colors.danger :
-                        video.sla_status === 'due_soon' ? colors.warning : colors.textMuted,
-                    }}>
-                      {video.sla_status === 'overdue' ? 'Overdue' :
-                        video.sla_status === 'due_soon' ? 'Soon' : 'OK'}
-                    </span>
+                  {/* Status - subtle indicator */}
+                  <td style={{ ...tdStyle, width: '90px' }}>
+                    {video.sla_status === 'overdue' ? (
+                      <span
+                        title="This job is past its expected completion time"
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: colors.danger,
+                        }}
+                      >
+                        Past Due
+                      </span>
+                    ) : video.sla_status === 'due_soon' ? (
+                      <span style={{ fontSize: '11px', color: colors.warning }}>Due Soon</span>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: colors.textMuted }}>On Track</span>
+                    )}
                   </td>
                   {/* Video - code prominent, UUID muted */}
                   <td style={tdStyle}>
@@ -1608,8 +1625,8 @@ export default function AdminPipelinePage() {
                   {/* Brand / Product */}
                   <td style={tdStyle}>
                     {metaBadges.brand === '—' && metaBadges.sku === '—' ? (
-                      <span style={{ fontSize: '12px', color: colors.textMuted }}>
-                        Unmapped
+                      <span style={{ fontSize: '12px', color: colors.textMuted, fontStyle: 'italic' }}>
+                        Not set
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: colors.text }}>
@@ -1617,7 +1634,7 @@ export default function AdminPipelinePage() {
                       </span>
                     )}
                   </td>
-                  {/* Stage - neutral pill */}
+                  {/* Step - neutral pill with friendly label */}
                   <td style={tdStyle}>
                     <span style={{
                       display: 'inline-block',
@@ -1628,7 +1645,20 @@ export default function AdminPipelinePage() {
                       fontSize: '11px',
                       fontWeight: 500,
                     }}>
-                      {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
+                      {(() => {
+                        const status = video.recording_status || 'NOT_RECORDED';
+                        switch (status) {
+                          case 'NEEDS_SCRIPT': return 'Needs Script';
+                          case 'GENERATING_SCRIPT': return 'Writing Script';
+                          case 'NOT_RECORDED': return 'Ready to Record';
+                          case 'RECORDED': return 'Ready to Edit';
+                          case 'EDITED': return 'Needs Review';
+                          case 'READY_TO_POST': return 'Ready to Publish';
+                          case 'POSTED': return 'Published';
+                          case 'REJECTED': return 'Needs Revision';
+                          default: return status.replace(/_/g, ' ');
+                        }
+                      })()}
                     </span>
                   </td>
                   {/* Owner */}
@@ -1651,7 +1681,7 @@ export default function AdminPipelinePage() {
           borderRadius: '10px',
           border: `1px solid ${colors.border}`,
         }}>
-          {queueLoading ? 'Loading...' : 'No videos match this filter'}
+          {queueLoading ? 'Loading...' : 'No jobs match this filter'}
         </div>
       )}
 

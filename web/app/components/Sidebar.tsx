@@ -54,8 +54,8 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       sections.push({
         title: 'Recording',
         items: [
-          { label: 'My Tasks', href: '/admin/recorder/workbench' },
-          { label: 'Record Queue', href: '/admin/pipeline?filter=record' },
+          { label: 'My Work', href: '/admin/recorder/workbench' },
+          { label: 'Recording Queue', href: '/admin/pipeline?filter=record' },
         ],
       });
     }
@@ -64,30 +64,30 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
       sections.push({
         title: 'Editing',
         items: [
-          { label: 'My Tasks', href: '/admin/editor/workbench' },
-          { label: 'Edit Queue', href: '/admin/pipeline?filter=edit' },
+          { label: 'My Work', href: '/admin/editor/workbench' },
+          { label: 'Editing Queue', href: '/admin/pipeline?filter=edit' },
         ],
       });
     }
 
     if (role === 'uploader') {
       sections.push({
-        title: 'Uploading',
+        title: 'Publishing',
         items: [
-          { label: 'My Tasks', href: '/admin/uploader/workbench' },
-          { label: 'Post Queue', href: '/uploader' },
-          { label: 'Posted Log', href: '/admin/pipeline?filter=posted' },
+          { label: 'My Work', href: '/admin/uploader/workbench' },
+          { label: 'Ready to Publish', href: '/uploader' },
+          { label: 'Published', href: '/admin/pipeline?filter=posted' },
         ],
       });
     }
 
     if (role === 'admin') {
       sections.push({
-        title: 'Pipeline',
+        title: 'Work Queue',
         items: [
-          { label: 'All Videos', href: '/admin/pipeline' },
-          { label: 'Approvals', href: '/admin/pipeline?filter=approve' },
-          { label: 'Post Queue', href: '/uploader' },
+          { label: 'All Jobs', href: '/admin/pipeline' },
+          { label: 'Ready for Review', href: '/admin/pipeline?filter=approve' },
+          { label: 'Ready to Publish', href: '/uploader' },
         ],
       });
 
@@ -96,15 +96,16 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
         items: [
           { label: 'Brands', href: '/admin/brands' },
           { label: 'Products', href: '/admin/products' },
-          { label: 'Scripts', href: '/admin/scripts' },
+          { label: 'Script Library', href: '/admin/scripts' },
+          { label: 'Winning Examples', href: '/admin/winners' },
         ],
       });
 
       sections.push({
-        title: 'Insights',
+        title: "What's Working",
         items: [
-          { label: 'Analytics', href: '/admin/analytics' },
-          { label: 'Events', href: '/admin/events' },
+          { label: 'Performance', href: '/admin/analytics' },
+          { label: 'Activity Log', href: '/admin/events' },
         ],
       });
     }
@@ -112,18 +113,18 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
     return sections;
   };
 
-  // Admin advanced section (collapsed by default)
-  const adminAdvancedItems: NavItem[] = [
-    { label: 'Ops', href: '/admin/ops' },
-    { label: 'Ingestion', href: '/admin/ingestion' },
-    { label: 'Assignments', href: '/admin/assignments' },
-    { label: 'Users', href: '/admin/users' },
-    { label: 'Upgrades', href: '/admin/upgrade-requests' },
-    { label: 'Client Orgs', href: '/admin/client-orgs' },
-    { label: 'Requests', href: '/admin/requests' },
+  // Admin tools section (collapsed by default)
+  const adminToolsItems: NavItem[] = [
+    { label: 'System Health', href: '/admin/ops' },
+    { label: 'Add Content', href: '/admin/ingestion' },
+    { label: 'Work Routing', href: '/admin/assignments' },
+    { label: 'Team Members', href: '/admin/users' },
+    { label: 'Plans & Access', href: '/admin/upgrade-requests' },
+    { label: 'Clients', href: '/admin/client-orgs' },
+    { label: 'Requests & Approvals', href: '/admin/requests' },
     { label: 'Billing', href: '/admin/billing' },
-    { label: 'Settings', href: '/admin/settings' },
-    { label: 'Status', href: '/admin/status' },
+    { label: 'System Settings', href: '/admin/settings' },
+    { label: 'System Status', href: '/admin/status' },
   ];
 
   const navSections = getNavSections();
@@ -255,7 +256,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
           </div>
         ))}
 
-        {/* Admin Advanced Section */}
+        {/* Admin Tools Section */}
         {role === 'admin' && (
           <div style={{ marginTop: '8px', borderTop: `1px solid ${colors.border}`, paddingTop: '8px' }}>
             <button
@@ -284,11 +285,11 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
               }}>
                 {'>'}
               </span>
-              <span>Advanced</span>
+              <span>Admin Tools</span>
             </button>
             {advancedExpanded && (
               <div>
-                {adminAdvancedItems.map((item) => (
+                {adminToolsItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

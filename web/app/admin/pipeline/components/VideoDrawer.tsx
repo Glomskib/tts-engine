@@ -606,11 +606,11 @@ export default function VideoDrawer({
   };
 
   const tabs: { key: TabType; label: string }[] = [
-    { key: 'brief', label: 'Brief' },
-    { key: 'script', label: 'Script' },
-    { key: 'assets', label: 'Assets' },
-    { key: 'chat', label: 'AI Chat' },
-    { key: 'activity', label: 'Activity' },
+    { key: 'brief', label: 'Creative Direction' },
+    { key: 'script', label: 'Script & Hooks' },
+    { key: 'assets', label: 'Video Files' },
+    { key: 'chat', label: 'AI Help' },
+    { key: 'activity', label: 'History' },
   ];
 
   return (

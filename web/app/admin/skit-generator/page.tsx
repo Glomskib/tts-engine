@@ -590,9 +590,11 @@ export default function SkitGeneratorPage() {
 
   // Add a new beat
   const addBeat = () => {
-    if (!localSkit) return;
+    // Get the current skit data - use localSkit if available, otherwise initialize from result
+    const skit = localSkit || getCurrentSkit();
+    if (!skit) return;
 
-    const newBeatIndex = localSkit.beats.length;
+    const newBeatIndex = skit.beats.length;
     const newBeat = {
       t: `0:${String((newBeatIndex + 1) * 5).padStart(2, '0')}-0:${String((newBeatIndex + 2) * 5).padStart(2, '0')}`,
       action: 'New action here...',
@@ -600,7 +602,12 @@ export default function SkitGeneratorPage() {
       on_screen_text: undefined,
     };
 
-    setLocalSkit({ ...localSkit, beats: [...localSkit.beats, newBeat] });
+    // If localSkit wasn't set yet, initialize it from the current skit
+    const updatedSkit = localSkit
+      ? { ...localSkit, beats: [...localSkit.beats, newBeat] }
+      : { ...skit, beats: [...skit.beats, newBeat] };
+
+    setLocalSkit(updatedSkit);
     setIsModified(true);
     setAiScore(null);
 
@@ -917,10 +924,12 @@ export default function SkitGeneratorPage() {
   }, [authLoading, authUser]);
 
   // Filter products by selected brand (memoized)
-  const filteredProducts = useMemo(() =>
-    selectedBrand ? products.filter(p => p.brand === selectedBrand) : products,
-    [products, selectedBrand]
-  );
+  const filteredProducts = useMemo(() => {
+    if (!selectedBrand) return products;
+    // Trim and compare to handle any whitespace inconsistencies
+    const normalizedBrand = selectedBrand.trim();
+    return products.filter(p => p.brand?.trim() === normalizedBrand);
+  }, [products, selectedBrand]);
 
   // Auto-select product from URL param
   useEffect(() => {
@@ -2507,7 +2516,8 @@ export default function SkitGeneratorPage() {
             const variations = result.variations || [];
             const hasVariations = variations.length > 1;
             const currentVariation = hasVariations ? variations[selectedVariationIndex] : null;
-            const currentSkit = currentVariation?.skit || result.skit;
+            // Use localSkit if modified, otherwise use variation/result skit
+            const currentSkit = localSkit || currentVariation?.skit || result.skit;
             const currentScore = currentVariation?.ai_score || result.ai_score;
             const currentRiskTier = currentVariation?.risk_tier_applied || result.risk_tier_applied;
             const currentRiskScore = currentVariation?.risk_score ?? result.risk_score;

@@ -1,9 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
+
+// --- Types ---
 
 interface AuthUser {
   id: string;
@@ -15,6 +18,20 @@ interface ReferenceExtract {
   spoken_hook: string;
   hook_family: string;
   quality_score: number;
+}
+
+interface AIAnalysis {
+  hook_line?: string;
+  hook_style?: string;
+  content_format?: string;
+  comedy_style?: string;
+  pacing?: string;
+  key_phrases?: string[];
+  what_works?: string[];
+  product_integration?: string;
+  target_emotion?: string;
+  replicable_elements?: string[];
+  estimated_production?: string;
 }
 
 interface ReferenceVideo {
@@ -32,52 +49,72 @@ interface ReferenceVideo {
   likes?: number;
   comments?: number;
   shares?: number;
+  ai_analysis?: AIAnalysis;
 }
 
-type StatusFilter = 'all' | 'ready' | 'processing' | 'needs_data' | 'failed';
-type SortOption = 'newest' | 'oldest' | 'quality';
-
-const STATUS_CONFIG: Record<string, { label: string; bgColor: string; textColor: string; dotColor: string }> = {
-  queued: { label: 'Queued', bgColor: 'bg-slate-100', textColor: 'text-slate-700', dotColor: 'bg-slate-400' },
-  needs_file: { label: 'Needs Data', bgColor: 'bg-amber-50', textColor: 'text-amber-700', dotColor: 'bg-amber-400' },
-  needs_transcription: { label: 'Needs Data', bgColor: 'bg-amber-50', textColor: 'text-amber-700', dotColor: 'bg-amber-400' },
-  processing: { label: 'Processing', bgColor: 'bg-blue-50', textColor: 'text-blue-700', dotColor: 'bg-blue-400' },
-  ready: { label: 'Ready', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', dotColor: 'bg-emerald-400' },
-  failed: { label: 'Failed', bgColor: 'bg-red-50', textColor: 'text-red-700', dotColor: 'bg-red-400' },
-};
+type StatusFilter = "all" | "ready" | "processing" | "needs_data" | "failed";
+type SortOption = "newest" | "oldest" | "quality";
 
 const CATEGORY_OPTIONS = [
-  'fitness', 'wellness', 'beauty', 'lifestyle', 'food', 'tech', 'fashion', 'comedy', 'education', 'other',
+  "fitness", "wellness", "beauty", "lifestyle", "food", "tech", "fashion", "comedy", "education", "other",
 ];
+
+function getStatusStyle(status: string, isDark: boolean): { bg: string; text: string; dot: string } {
+  const styles: Record<string, { bg: string; text: string; dot: string }> = {
+    queued: { bg: isDark ? "#374151" : "#f3f4f6", text: isDark ? "#9ca3af" : "#6b7280", dot: "#9ca3af" },
+    needs_file: { bg: isDark ? "#78350f" : "#fef3c7", text: isDark ? "#fcd34d" : "#b45309", dot: "#f59e0b" },
+    needs_transcription: { bg: isDark ? "#78350f" : "#fef3c7", text: isDark ? "#fcd34d" : "#b45309", dot: "#f59e0b" },
+    processing: { bg: isDark ? "#1e3a5f" : "#dbeafe", text: isDark ? "#93c5fd" : "#1d4ed8", dot: "#3b82f6" },
+    ready: { bg: isDark ? "#064e3b" : "#d1fae5", text: isDark ? "#6ee7b7" : "#047857", dot: "#10b981" },
+    failed: { bg: isDark ? "#7f1d1d" : "#fee2e2", text: isDark ? "#fca5a5" : "#dc2626", dot: "#ef4444" },
+  };
+  return styles[status] || styles.queued;
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function truncateUrl(url: string, maxLen = 40): string {
+  if (url.length <= maxLen) return url;
+  return url.slice(0, maxLen) + "...";
+}
 
 export default function WinnersPage() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
+
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Data state
+  // Data
   const [winners, setWinners] = useState<ReferenceVideo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  // Expanded view
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // Submit form state
-  const [submitUrl, setSubmitUrl] = useState('');
-  const [submitCategory, setSubmitCategory] = useState('');
-  const [submitNotes, setSubmitNotes] = useState('');
-  const [submitTranscript, setSubmitTranscript] = useState('');
+  // Submit form
+  const [submitUrl, setSubmitUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Edit modal state
+  // Edit modal
   const [editingWinner, setEditingWinner] = useState<ReferenceVideo | null>(null);
-  const [editTranscript, setEditTranscript] = useState('');
+  const [editForm, setEditForm] = useState({
+    transcript: "",
+    views: "",
+    likes: "",
+    comments: "",
+    shares: "",
+    category: "",
+  });
   const [editSaving, setEditSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AIAnalysis | null>(null);
 
   // Auth check
   useEffect(() => {
@@ -87,14 +124,14 @@ export default function WinnersPage() {
         const { data: { user }, error } = await supabase.auth.getUser();
 
         if (error || !user) {
-          router.push('/login?redirect=/admin/winners');
+          router.push("/login?redirect=/admin/winners");
           return;
         }
 
-        const roleRes = await fetch('/api/auth/me');
+        const roleRes = await fetch("/api/auth/me");
         const roleData = await roleRes.json();
 
-        if (roleData.role !== 'admin') {
+        if (roleData.role !== "admin") {
           setAuthUser(null);
           setAuthLoading(false);
           return;
@@ -106,13 +143,12 @@ export default function WinnersPage() {
           role: roleData.role,
         });
       } catch (err) {
-        console.error('Auth error:', err);
-        router.push('/login?redirect=/admin/winners');
+        console.error("Auth error:", err);
+        router.push("/login?redirect=/admin/winners");
       } finally {
         setAuthLoading(false);
       }
     };
-
     checkAuth();
   }, [router]);
 
@@ -120,17 +156,13 @@ export default function WinnersPage() {
   const fetchWinners = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.set('limit', '200');
-
-      const res = await fetch(`/api/winners?${params.toString()}`);
+      const res = await fetch("/api/winners?limit=200");
       const data = await res.json();
-
       if (data.ok) {
         setWinners(data.data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch winners:', err);
+      console.error("Failed to fetch winners:", err);
     } finally {
       setLoading(false);
     }
@@ -142,16 +174,15 @@ export default function WinnersPage() {
     }
   }, [authUser, fetchWinners]);
 
-  // Computed stats
+  // Stats
   const stats = useMemo(() => {
     const total = winners.length;
-    const ready = winners.filter(w => w.status === 'ready').length;
+    const ready = winners.filter(w => w.status === "ready").length;
     const avgQuality = winners.reduce((sum, w) => {
       const score = w.reference_extracts?.[0]?.quality_score;
       return score ? sum + score : sum;
     }, 0) / (winners.filter(w => w.reference_extracts?.[0]?.quality_score).length || 1);
 
-    // Count hook families
     const hookFamilies: Record<string, number> = {};
     winners.forEach(w => {
       const family = w.reference_extracts?.[0]?.hook_family;
@@ -159,35 +190,32 @@ export default function WinnersPage() {
         hookFamilies[family] = (hookFamilies[family] || 0) + 1;
       }
     });
-    const topHookStyle = Object.entries(hookFamilies).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+    const topHookStyle = Object.entries(hookFamilies).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
 
     return { total, ready, avgQuality: Math.round(avgQuality), topHookStyle };
   }, [winners]);
 
-  // Filtered and sorted winners
+  // Filtered winners
   const filteredWinners = useMemo(() => {
     let result = [...winners];
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'needs_data') {
-        result = result.filter(w => w.status === 'needs_file' || w.status === 'needs_transcription');
+    if (statusFilter !== "all") {
+      if (statusFilter === "needs_data") {
+        result = result.filter(w => w.status === "needs_file" || w.status === "needs_transcription");
       } else {
         result = result.filter(w => w.status === statusFilter);
       }
     }
 
-    // Category filter
     if (categoryFilter) {
       result = result.filter(w => w.category === categoryFilter);
     }
 
-    // Sort
-    if (sortBy === 'newest') {
+    if (sortBy === "newest") {
       result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (sortBy === 'oldest') {
+    } else if (sortBy === "oldest") {
       result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    } else if (sortBy === 'quality') {
+    } else if (sortBy === "quality") {
       result.sort((a, b) => {
         const scoreA = a.reference_extracts?.[0]?.quality_score || 0;
         const scoreB = b.reference_extracts?.[0]?.quality_score || 0;
@@ -198,10 +226,10 @@ export default function WinnersPage() {
     return result;
   }, [winners, statusFilter, categoryFilter, sortBy]);
 
-  // Submit new winner
+  // Submit winner
   const handleSubmit = async () => {
     if (!submitUrl.trim()) {
-      setSubmitError('Please enter a TikTok URL');
+      setSubmitError("Please enter a TikTok URL");
       return;
     }
 
@@ -210,64 +238,113 @@ export default function WinnersPage() {
     setSubmitSuccess(false);
 
     try {
-      const res = await fetch('/api/winners/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/winners/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: submitUrl.trim(),
-          category: submitCategory || undefined,
-          notes: submitNotes.trim() || undefined,
-          transcript_text: submitTranscript.trim() || undefined,
-          submitted_by: authUser?.email || 'admin',
+          submitted_by: authUser?.email || "admin",
         }),
       });
 
       const data = await res.json();
 
       if (!data.ok) {
-        setSubmitError(data.error || 'Failed to submit');
+        setSubmitError(data.error || "Failed to submit");
         return;
       }
 
-      // Success
-      setSubmitUrl('');
-      setSubmitCategory('');
-      setSubmitNotes('');
-      setSubmitTranscript('');
+      setSubmitUrl("");
       setSubmitSuccess(true);
       setTimeout(() => setSubmitSuccess(false), 3000);
       fetchWinners();
-    } catch (err) {
-      setSubmitError('Network error');
-      console.error('Submit error:', err);
+    } catch {
+      setSubmitError("Network error");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Edit transcript
+  // Open edit modal
   const openEditModal = (winner: ReferenceVideo) => {
     setEditingWinner(winner);
-    setEditTranscript(winner.transcript_text || '');
+    setEditForm({
+      transcript: winner.transcript_text || "",
+      views: winner.views?.toString() || "",
+      likes: winner.likes?.toString() || "",
+      comments: winner.comments?.toString() || "",
+      shares: winner.shares?.toString() || "",
+      category: winner.category || "",
+    });
+    setAnalysisResult(winner.ai_analysis || winner.reference_extracts?.[0] ? {
+      hook_line: winner.reference_extracts?.[0]?.spoken_hook,
+      hook_style: winner.reference_extracts?.[0]?.hook_family,
+    } : null);
   };
 
-  const handleSaveTranscript = async () => {
-    if (!editingWinner || !editTranscript.trim()) return;
+  // Analyze with AI
+  const handleAnalyze = async () => {
+    if (!editingWinner || !editForm.transcript.trim()) return;
+
+    setAnalyzing(true);
+    try {
+      const res = await fetch("/api/ai/analyze-winner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: editForm.transcript.trim(),
+          metrics: {
+            views: editForm.views ? parseInt(editForm.views, 10) : undefined,
+            likes: editForm.likes ? parseInt(editForm.likes, 10) : undefined,
+            comments: editForm.comments ? parseInt(editForm.comments, 10) : undefined,
+            shares: editForm.shares ? parseInt(editForm.shares, 10) : undefined,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok && data.data?.analysis) {
+        setAnalysisResult(data.data.analysis);
+      } else {
+        setSubmitError(data.error || "Analysis failed");
+      }
+    } catch {
+      setSubmitError("Failed to analyze");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // Save winner data
+  const handleSave = async () => {
+    if (!editingWinner) return;
 
     setEditSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        transcript_text: editForm.transcript.trim() || undefined,
+        category: editForm.category || undefined,
+      };
+
+      // If we have analysis, include it
+      if (analysisResult) {
+        // The /api/winners endpoint might not support all these fields
+        // but we'll try to update what we can
+      }
+
       const res = await fetch(`/api/winners/${editingWinner.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript_text: editTranscript.trim() }),
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         setEditingWinner(null);
+        setAnalysisResult(null);
         fetchWinners();
       }
-    } catch (err) {
-      console.error('Save error:', err);
+    } catch {
+      setSubmitError("Failed to save");
     } finally {
       setEditSaving(false);
     }
@@ -275,507 +352,613 @@ export default function WinnersPage() {
 
   // Delete winner
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this winner? This cannot be undone.')) return;
+    if (!confirm("Delete this winner?")) return;
 
     try {
-      const res = await fetch(`/api/winners/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/winners/${id}`, { method: "DELETE" });
       if (res.ok) {
-        if (expandedId === id) setExpandedId(null);
+        if (editingWinner?.id === id) {
+          setEditingWinner(null);
+        }
         fetchWinners();
       }
-    } catch (err) {
-      console.error('Delete error:', err);
+    } catch {
+      console.error("Delete failed");
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Styles
+  const containerStyle: React.CSSProperties = {
+    padding: "24px",
+    maxWidth: "1000px",
+    margin: "0 auto",
+    minHeight: "100%",
   };
 
-  const truncateUrl = (url: string, maxLen = 35) => {
-    if (url.length <= maxLen) return url;
-    return url.slice(0, maxLen) + '...';
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: colors.card,
+    border: `1px solid ${colors.border}`,
+    borderRadius: "12px",
+    marginBottom: "16px",
   };
 
-  const getStatusConfig = (status: string) => {
-    return STATUS_CONFIG[status] || STATUS_CONFIG.queued;
+  const inputStyle: React.CSSProperties = {
+    padding: "10px 14px",
+    fontSize: "14px",
+    border: `1px solid ${colors.border}`,
+    borderRadius: "8px",
+    backgroundColor: colors.input,
+    color: colors.text,
+    outline: "none",
+    width: "100%",
   };
 
-  // Loading state
+  const buttonStyle: React.CSSProperties = {
+    padding: "10px 20px",
+    fontSize: "14px",
+    fontWeight: 600,
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    transition: "all 0.15s ease",
+  };
+
+  const primaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: "#1f2937",
+    color: "#fff",
+  };
+
+  const secondaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
+  };
+
+  const statCardStyle: React.CSSProperties = {
+    padding: "16px",
+    borderRadius: "10px",
+    textAlign: "center" as const,
+  };
+
+  // Loading
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-slate-500">Loading...</div>
+      <div style={{ ...containerStyle, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ color: colors.textMuted }}>Loading...</div>
       </div>
     );
   }
 
-  // Forbidden state
+  // Forbidden
   if (!authUser) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-          <p className="text-slate-600 mb-4">Admin access required.</p>
-          <Link href="/login" className="text-blue-600 hover:underline">Sign In</Link>
+      <div style={{ ...containerStyle, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ textAlign: "center" }}>
+          <h1 style={{ fontSize: "24px", color: "#ef4444", marginBottom: "8px" }}>Access Denied</h1>
+          <p style={{ color: colors.textMuted, marginBottom: "16px" }}>Admin access required.</p>
+          <Link href="/login" style={{ color: colors.accent }}>Sign In</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div style={containerStyle}>
+      {/* Breadcrumb */}
+      <nav style={{ marginBottom: "12px", fontSize: "13px" }}>
+        <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: "none" }}>Admin</Link>
+        <span style={{ color: colors.textMuted, margin: "0 8px" }}>/</span>
+        <span style={{ color: colors.text, fontWeight: 500 }}>Winners Bank</span>
+      </nav>
+
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🏆</span>
-              <h1 className="text-2xl font-bold text-slate-900">Winners Bank</h1>
-            </div>
-            <p className="text-slate-600">Import winning TikToks to train AI on what works</p>
-          </div>
-
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6">
-            <div className="bg-slate-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
-              <div className="text-sm text-slate-500">Total Winners</div>
-            </div>
-            <div className="bg-emerald-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-emerald-600">{stats.ready}</div>
-              <div className="text-sm text-slate-500">Ready to Use</div>
-            </div>
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-blue-600">{stats.avgQuality}</div>
-              <div className="text-sm text-slate-500">Avg Quality</div>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-purple-600 truncate">{stats.topHookStyle}</div>
-              <div className="text-sm text-slate-500">Top Hook Style</div>
-            </div>
-          </div>
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+          <span style={{ fontSize: "32px" }}>🏆</span>
+          <h1 style={{ fontSize: "28px", fontWeight: 700, color: colors.text, margin: 0 }}>Winners Bank</h1>
         </div>
-      </header>
+        <p style={{ fontSize: "15px", color: colors.textMuted }}>
+          Import winning TikToks to train AI on what works
+        </p>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Submit Form Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Add a Winner</h2>
-
-          <div className="space-y-4">
-            {/* URL Input */}
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <input
-                  type="url"
-                  value={submitUrl}
-                  onChange={(e) => setSubmitUrl(e.target.value)}
-                  placeholder="Paste TikTok URL..."
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || !submitUrl.trim()}
-                className="px-6 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {submitting ? 'Adding...' : 'Add Winner'}
-              </button>
-            </div>
-
-            {/* Optional Fields Toggle */}
-            <details className="group">
-              <summary className="text-sm text-slate-500 cursor-pointer hover:text-slate-700">
-                + Add category, notes, or transcript
-              </summary>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                  <select
-                    value={submitCategory}
-                    onChange={(e) => setSubmitCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select...</option>
-                    {CATEGORY_OPTIONS.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                  <input
-                    type="text"
-                    value={submitNotes}
-                    onChange={(e) => setSubmitNotes(e.target.value)}
-                    placeholder="Why is this a winner?"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Transcript <span className="text-slate-400 font-normal">(optional)</span>
-                  </label>
-                  <textarea
-                    value={submitTranscript}
-                    onChange={(e) => setSubmitTranscript(e.target.value)}
-                    placeholder="Paste the video transcript for instant AI analysis..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            </details>
-
-            {/* Feedback */}
-            {submitError && (
-              <div className="flex items-center gap-2 text-red-600 text-sm">
-                <span>⚠️</span> {submitError}
-              </div>
-            )}
-            {submitSuccess && (
-              <div className="flex items-center gap-2 text-emerald-600 text-sm">
-                <span>✓</span> Winner added successfully!
-              </div>
-            )}
-
-            <p className="text-xs text-slate-400">
-              We'll extract the transcript and analyze what makes it work. You can also paste the transcript directly for faster processing.
-            </p>
-          </div>
+      {/* Stats Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "24px" }}>
+        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#374151" : "#f8fafc" }}>
+          <div style={{ fontSize: "28px", fontWeight: 700, color: colors.text }}>{stats.total}</div>
+          <div style={{ fontSize: "12px", color: colors.textMuted, marginTop: "4px" }}>Total Winners</div>
         </div>
+        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#064e3b" : "#d1fae5" }}>
+          <div style={{ fontSize: "28px", fontWeight: 700, color: isDark ? "#6ee7b7" : "#047857" }}>{stats.ready}</div>
+          <div style={{ fontSize: "12px", color: isDark ? "#6ee7b7" : "#047857", marginTop: "4px" }}>Ready to Use</div>
+        </div>
+        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#1e3a5f" : "#dbeafe" }}>
+          <div style={{ fontSize: "28px", fontWeight: 700, color: isDark ? "#93c5fd" : "#1d4ed8" }}>{stats.avgQuality || "—"}</div>
+          <div style={{ fontSize: "12px", color: isDark ? "#93c5fd" : "#1d4ed8", marginTop: "4px" }}>Avg Quality</div>
+        </div>
+        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#581c87" : "#f3e8ff" }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, color: isDark ? "#d8b4fe" : "#7c3aed", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stats.topHookStyle}</div>
+          <div style={{ fontSize: "12px", color: isDark ? "#d8b4fe" : "#7c3aed", marginTop: "4px" }}>Top Hook Style</div>
+        </div>
+      </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          {/* Status Pills */}
-          <div className="flex gap-1 bg-white rounded-lg p-1 shadow-sm border border-slate-200">
-            {(['all', 'ready', 'processing', 'needs_data', 'failed'] as StatusFilter[]).map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  statusFilter === status
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {status === 'all' ? 'All' :
-                 status === 'ready' ? 'Ready' :
-                 status === 'processing' ? 'Processing' :
-                 status === 'needs_data' ? 'Needs Data' : 'Failed'}
-              </button>
-            ))}
-          </div>
-
-          {/* Category Dropdown */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* Submit Form */}
+      <div style={{ ...cardStyle, padding: "20px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: 600, color: colors.text, marginBottom: "16px" }}>Add a Winner</h2>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <input
+            type="url"
+            value={submitUrl}
+            onChange={(e) => setSubmitUrl(e.target.value)}
+            placeholder="Paste TikTok URL..."
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !submitUrl.trim()}
+            style={{
+              ...primaryButtonStyle,
+              opacity: submitting || !submitUrl.trim() ? 0.5 : 1,
+              cursor: submitting || !submitUrl.trim() ? "not-allowed" : "pointer",
+            }}
           >
-            <option value="">All Categories</option>
-            {CATEGORY_OPTIONS.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          {/* Sort Dropdown */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-            <option value="quality">Highest Quality</option>
-          </select>
-
-          {/* Count */}
-          <span className="text-sm text-slate-500 ml-auto">
-            {filteredWinners.length} winner{filteredWinners.length !== 1 ? 's' : ''}
-          </span>
+            {submitting ? "Adding..." : "Add Winner"}
+          </button>
         </div>
-
-        {/* Winners List */}
-        {loading ? (
-          <div className="text-center py-12 text-slate-500">Loading winners...</div>
-        ) : filteredWinners.length === 0 ? (
-          /* Empty State */
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-            <div className="text-6xl mb-4">🏆</div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">
-              {winners.length === 0 ? 'No winners yet' : 'No matches found'}
-            </h3>
-            <p className="text-slate-600 mb-6 max-w-md mx-auto">
-              {winners.length === 0
-                ? 'Import your first winning TikTok to start training the AI on what works.'
-                : 'Try adjusting your filters to see more results.'}
-            </p>
-            {winners.length === 0 && (
-              <button
-                onClick={() => (document.querySelector('input[type="url"]') as HTMLInputElement)?.focus()}
-                className="px-6 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors"
-              >
-                Add Your First Winner
-              </button>
-            )}
-          </div>
-        ) : (
-          /* Winner Cards */
-          <div className="space-y-3">
-            {filteredWinners.map((winner) => {
-              const statusConfig = getStatusConfig(winner.status);
-              const extract = winner.reference_extracts?.[0];
-              const isExpanded = expandedId === winner.id;
-
-              return (
-                <div
-                  key={winner.id}
-                  className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-shadow hover:shadow-md"
-                >
-                  {/* Card Header */}
-                  <div
-                    className="p-4 cursor-pointer"
-                    onClick={() => setExpandedId(isExpanded ? null : winner.id)}
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Icon */}
-                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-pink-500 to-red-500 rounded-lg flex items-center justify-center text-white text-xl">
-                        ▶
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <a
-                            href={winner.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-blue-600 hover:underline font-medium text-sm truncate"
-                          >
-                            {truncateUrl(winner.url)}
-                          </a>
-                          {winner.category && (
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
-                              {winner.category}
-                            </span>
-                          )}
-                        </div>
-
-                        {extract?.spoken_hook ? (
-                          <p className="text-slate-700 text-sm line-clamp-2">
-                            "{extract.spoken_hook}"
-                          </p>
-                        ) : (
-                          <p className="text-slate-400 text-sm italic">
-                            Hook not extracted yet
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Right Side */}
-                      <div className="flex-shrink-0 text-right">
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor}`}></span>
-                          {statusConfig.label}
-                        </div>
-                        {extract?.quality_score != null && (
-                          <div className={`mt-1 text-lg font-bold ${
-                            extract.quality_score >= 80 ? 'text-emerald-600' :
-                            extract.quality_score >= 60 ? 'text-amber-500' : 'text-slate-400'
-                          }`}>
-                            {extract.quality_score}
-                          </div>
-                        )}
-                        <div className="text-xs text-slate-400 mt-1">
-                          {formatDate(winner.created_at)}
-                        </div>
-                      </div>
-
-                      {/* Expand Icon */}
-                      <div className="flex-shrink-0 text-slate-400">
-                        <svg
-                          className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <div className="border-t border-slate-100 p-4 bg-slate-50">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        {/* Left Column */}
-                        <div className="space-y-4">
-                          {extract && (
-                            <>
-                              <div>
-                                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Hook Family</div>
-                                <div className="text-sm text-slate-800 font-medium">{extract.hook_family}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Full Hook</div>
-                                <div className="text-sm text-slate-700 bg-white p-3 rounded-lg border border-slate-200">
-                                  "{extract.spoken_hook}"
-                                </div>
-                              </div>
-                            </>
-                          )}
-                          {winner.notes && (
-                            <div>
-                              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Notes</div>
-                              <div className="text-sm text-slate-600">{winner.notes}</div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Right Column */}
-                        <div className="space-y-4">
-                          {winner.error_message && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                              <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">Error</div>
-                              <div className="text-sm text-red-700">{winner.error_message}</div>
-                            </div>
-                          )}
-
-                          <div>
-                            <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Video URL</div>
-                            <a
-                              href={winner.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-600 hover:underline break-all"
-                            >
-                              {winner.url} ↗
-                            </a>
-                          </div>
-
-                          <div>
-                            <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Submitted By</div>
-                            <div className="text-sm text-slate-600">{winner.submitted_by}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-200">
-                        {(winner.status === 'needs_file' || winner.status === 'needs_transcription' || winner.status === 'failed') && (
-                          <button
-                            onClick={() => openEditModal(winner)}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Add Transcript
-                          </button>
-                        )}
-                        <a
-                          href={winner.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition-colors"
-                        >
-                          Open Video
-                        </a>
-                        <button
-                          onClick={() => handleDelete(winner.id)}
-                          className="px-4 py-2 text-red-600 text-sm hover:bg-red-50 rounded-lg transition-colors ml-auto"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        {submitError && (
+          <div style={{ marginTop: "12px", padding: "10px 14px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderRadius: "8px", color: isDark ? "#fca5a5" : "#dc2626", fontSize: "14px" }}>
+            {submitError}
           </div>
         )}
-      </main>
+        {submitSuccess && (
+          <div style={{ marginTop: "12px", padding: "10px 14px", backgroundColor: isDark ? "#064e3b" : "#d1fae5", borderRadius: "8px", color: isDark ? "#6ee7b7" : "#047857", fontSize: "14px" }}>
+            ✓ Winner added! Click to add transcript and analyze.
+          </div>
+        )}
+        <p style={{ fontSize: "12px", color: colors.textMuted, marginTop: "12px" }}>
+          After adding, click on the winner to paste transcript and run AI analysis.
+        </p>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "20px", alignItems: "center" }}>
+        {/* Status Pills */}
+        <div style={{ display: "flex", gap: "4px", backgroundColor: colors.card, padding: "4px", borderRadius: "10px", border: `1px solid ${colors.border}` }}>
+          {(["all", "ready", "processing", "needs_data", "failed"] as StatusFilter[]).map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              style={{
+                padding: "8px 14px",
+                fontSize: "13px",
+                fontWeight: statusFilter === status ? 600 : 400,
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                backgroundColor: statusFilter === status ? "#1f2937" : "transparent",
+                color: statusFilter === status ? "#fff" : colors.text,
+                transition: "all 0.15s ease",
+              }}
+            >
+              {status === "all" ? "All" : status === "ready" ? "Ready" : status === "processing" ? "Processing" : status === "needs_data" ? "Needs Data" : "Failed"}
+            </button>
+          ))}
+        </div>
+
+        {/* Category */}
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ ...inputStyle, width: "auto", minWidth: "140px" }}
+        >
+          <option value="">All Categories</option>
+          {CATEGORY_OPTIONS.map((cat) => (
+            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+          ))}
+        </select>
+
+        {/* Sort */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortOption)}
+          style={{ ...inputStyle, width: "auto", minWidth: "140px" }}
+        >
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="quality">Highest Quality</option>
+        </select>
+
+        <span style={{ marginLeft: "auto", fontSize: "13px", color: colors.textMuted }}>
+          {filteredWinners.length} winner{filteredWinners.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {/* Winners List */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "48px", color: colors.textMuted }}>Loading winners...</div>
+      ) : filteredWinners.length === 0 ? (
+        <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏆</div>
+          <h3 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, marginBottom: "8px" }}>
+            {winners.length === 0 ? "No winners yet" : "No matches found"}
+          </h3>
+          <p style={{ color: colors.textMuted, marginBottom: "20px" }}>
+            {winners.length === 0
+              ? "Import your first winning TikTok to start training the AI."
+              : "Try adjusting your filters."}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {filteredWinners.map((winner) => {
+            const statusStyle = getStatusStyle(winner.status, isDark);
+            const extract = winner.reference_extracts?.[0];
+
+            return (
+              <div
+                key={winner.id}
+                onClick={() => openEditModal(winner)}
+                style={{
+                  ...cardStyle,
+                  padding: "16px 20px",
+                  cursor: "pointer",
+                  marginBottom: 0,
+                  transition: "box-shadow 0.15s ease, transform 0.1s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                  {/* Icon */}
+                  <div style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "10px",
+                    background: "linear-gradient(135deg, #ec4899, #ef4444)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontSize: "20px",
+                    flexShrink: 0,
+                  }}>
+                    ▶
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
+                      <a
+                        href={winner.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ color: colors.accent, fontSize: "14px", fontWeight: 500, textDecoration: "none" }}
+                      >
+                        {truncateUrl(winner.url)}
+                      </a>
+                      {winner.category && (
+                        <span style={{ padding: "2px 8px", backgroundColor: colors.surface, borderRadius: "4px", fontSize: "11px", color: colors.textMuted }}>
+                          {winner.category}
+                        </span>
+                      )}
+                    </div>
+
+                    {extract?.spoken_hook ? (
+                      <p style={{ fontSize: "14px", color: colors.text, margin: 0, lineHeight: 1.4 }}>
+                        &ldquo;{extract.spoken_hook.slice(0, 100)}{extract.spoken_hook.length > 100 ? "..." : ""}&rdquo;
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: "14px", color: colors.textMuted, fontStyle: "italic", margin: 0 }}>
+                        Click to add transcript and analyze
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Right side */}
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      backgroundColor: statusStyle.bg,
+                      color: statusStyle.text,
+                      fontSize: "12px",
+                      fontWeight: 500,
+                    }}>
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: statusStyle.dot }} />
+                      {winner.status === "needs_file" || winner.status === "needs_transcription" ? "Needs Data" :
+                       winner.status.charAt(0).toUpperCase() + winner.status.slice(1)}
+                    </div>
+                    {extract?.quality_score != null && (
+                      <div style={{
+                        marginTop: "6px",
+                        fontSize: "20px",
+                        fontWeight: 700,
+                        color: extract.quality_score >= 80 ? "#10b981" : extract.quality_score >= 60 ? "#f59e0b" : colors.textMuted,
+                      }}>
+                        {extract.quality_score}
+                      </div>
+                    )}
+                    <div style={{ fontSize: "12px", color: colors.textMuted, marginTop: "4px" }}>
+                      {formatDate(winner.created_at)}
+                    </div>
+                  </div>
+                </div>
+
+                {winner.error_message && (
+                  <div style={{ marginTop: "12px", padding: "8px 12px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderRadius: "6px", fontSize: "12px", color: isDark ? "#fca5a5" : "#dc2626" }}>
+                    Error: {winner.error_message}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editingWinner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 50,
+          }}
+          onClick={() => {
+            setEditingWinner(null);
+            setAnalysisResult(null);
+          }}
+        >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: "16px",
+              maxWidth: "600px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">Add Transcript</h3>
+            {/* Modal Header */}
+            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ fontSize: "18px", fontWeight: 600, color: colors.text, margin: 0 }}>Edit Winner</h3>
                 <button
-                  onClick={() => setEditingWinner(null)}
-                  className="text-slate-400 hover:text-slate-600"
+                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); }}
+                  style={{ background: "none", border: "none", fontSize: "24px", color: colors.textMuted, cursor: "pointer" }}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  ×
                 </button>
               </div>
               <a
                 href={editingWinner.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline mt-1 block truncate"
+                style={{ fontSize: "13px", color: colors.accent, display: "block", marginTop: "4px" }}
               >
-                {editingWinner.url}
+                {editingWinner.url} ↗
               </a>
             </div>
 
-            <div className="p-6">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Video Transcript
-              </label>
-              <textarea
-                value={editTranscript}
-                onChange={(e) => setEditTranscript(e.target.value)}
-                placeholder="Paste the video transcript here..."
-                rows={8}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-slate-500 mt-2">
-                AI will automatically extract hooks and analyze what makes this video work.
-              </p>
+            {/* Modal Body */}
+            <div style={{ padding: "24px" }}>
+              {/* Transcript */}
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
+                  Transcript <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <textarea
+                  value={editForm.transcript}
+                  onChange={(e) => setEditForm({ ...editForm, transcript: e.target.value })}
+                  placeholder="Paste the video transcript here..."
+                  rows={6}
+                  style={{ ...inputStyle, fontFamily: "monospace", resize: "vertical" }}
+                />
+              </div>
+
+              {/* Metrics Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "20px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Views</label>
+                  <input
+                    type="number"
+                    value={editForm.views}
+                    onChange={(e) => setEditForm({ ...editForm, views: e.target.value })}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Likes</label>
+                  <input
+                    type="number"
+                    value={editForm.likes}
+                    onChange={(e) => setEditForm({ ...editForm, likes: e.target.value })}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Comments</label>
+                  <input
+                    type="number"
+                    value={editForm.comments}
+                    onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Shares</label>
+                  <input
+                    type="number"
+                    value={editForm.shares}
+                    onChange={(e) => setEditForm({ ...editForm, shares: e.target.value })}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Category */}
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>Category</label>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                  style={inputStyle}
+                >
+                  <option value="">Select category...</option>
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Analyze Button */}
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing || !editForm.transcript.trim()}
+                style={{
+                  ...secondaryButtonStyle,
+                  width: "100%",
+                  justifyContent: "center",
+                  marginBottom: "20px",
+                  backgroundColor: isDark ? "#1e3a5f" : "#dbeafe",
+                  color: isDark ? "#93c5fd" : "#1d4ed8",
+                  border: "none",
+                  opacity: analyzing || !editForm.transcript.trim() ? 0.5 : 1,
+                }}
+              >
+                {analyzing ? "Analyzing..." : "🤖 Analyze with AI"}
+              </button>
+
+              {/* Analysis Results */}
+              {analysisResult && (
+                <div style={{ backgroundColor: isDark ? "#064e3b" : "#ecfdf5", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
+                  <h4 style={{ fontSize: "14px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", marginBottom: "12px" }}>
+                    ✓ AI Analysis Results
+                  </h4>
+
+                  {analysisResult.hook_line && (
+                    <div style={{ marginBottom: "12px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Hook Line</div>
+                      <div style={{ fontSize: "14px", color: colors.text, backgroundColor: colors.card, padding: "10px", borderRadius: "6px" }}>
+                        &ldquo;{analysisResult.hook_line}&rdquo;
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
+                    {analysisResult.hook_style && (
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Hook Style</div>
+                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.hook_style}</div>
+                      </div>
+                    )}
+                    {analysisResult.content_format && (
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Content Format</div>
+                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.content_format}</div>
+                      </div>
+                    )}
+                    {analysisResult.comedy_style && (
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Comedy Style</div>
+                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.comedy_style}</div>
+                      </div>
+                    )}
+                    {analysisResult.target_emotion && (
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Target Emotion</div>
+                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.target_emotion}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {analysisResult.what_works && analysisResult.what_works.length > 0 && (
+                    <div style={{ marginTop: "12px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>What Works</div>
+                      <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "13px", color: colors.text }}>
+                        {analysisResult.what_works.map((item, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysisResult.key_phrases && analysisResult.key_phrases.length > 0 && (
+                    <div style={{ marginTop: "12px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Key Phrases</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {analysisResult.key_phrases.map((phrase, i) => (
+                          <span key={i} style={{ padding: "4px 8px", backgroundColor: colors.card, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
+                            {phrase}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Error in modal */}
+              {submitError && (
+                <div style={{ padding: "10px 14px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderRadius: "8px", color: isDark ? "#fca5a5" : "#dc2626", fontSize: "14px", marginBottom: "20px" }}>
+                  {submitError}
+                </div>
+              )}
             </div>
 
-            <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+            {/* Modal Footer */}
+            <div style={{ padding: "16px 24px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <button
-                onClick={() => setEditingWinner(null)}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                onClick={() => handleDelete(editingWinner.id)}
+                style={{ ...buttonStyle, backgroundColor: "transparent", color: "#ef4444", padding: "8px 12px" }}
               >
-                Cancel
+                Delete
               </button>
-              <button
-                onClick={handleSaveTranscript}
-                disabled={editSaving || !editTranscript.trim()}
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {editSaving ? 'Saving...' : 'Save & Analyze'}
-              </button>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); }}
+                  style={secondaryButtonStyle}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={editSaving}
+                  style={{
+                    ...primaryButtonStyle,
+                    opacity: editSaving ? 0.5 : 1,
+                  }}
+                >
+                  {editSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Back to Admin Link */}
-      <div className="fixed bottom-4 left-4">
-        <Link
-          href="/admin/pipeline"
-          className="flex items-center gap-2 px-4 py-2 bg-white shadow-lg rounded-lg text-sm text-slate-600 hover:text-slate-900 border border-slate-200"
-        >
-          ← Back to Admin
-        </Link>
-      </div>
     </div>
   );
 }

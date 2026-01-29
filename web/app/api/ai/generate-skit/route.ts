@@ -75,10 +75,46 @@ const GenerateSkitInputSchema = z.object({
   content_format: ContentFormatSchema.optional(),
   product_context: z.string().max(2000).optional(),
   variation_count: z.number().int().min(1).max(5).optional(),
+  // Audience Intelligence
+  audience_persona_id: z.string().uuid().optional(),
+  pain_point_id: z.string().uuid().optional(),
+  use_audience_language: z.boolean().optional().default(true),
 }).strict().refine(
   (data) => data.product_id || data.product_name,
   { message: "Either product_id or product_name is required" }
 );
+
+// Audience Persona type from database
+interface AudiencePersona {
+  id: string;
+  name: string;
+  description?: string;
+  age_range?: string;
+  gender?: string;
+  lifestyle?: string;
+  pain_points?: Array<{ point: string; intensity?: string; triggers?: string[] }>;
+  phrases_they_use?: string[];
+  phrases_to_avoid?: string[];
+  tone?: string;
+  humor_style?: string;
+  common_objections?: string[];
+  beliefs?: Record<string, string>;
+  content_they_engage_with?: string[];
+  times_used?: number;
+}
+
+// Pain Point type from database
+interface PainPointData {
+  id: string;
+  pain_point: string;
+  category?: string;
+  when_it_happens?: string;
+  emotional_state?: string;
+  how_they_describe_it?: string[];
+  what_they_want?: string;
+  objections_to_solutions?: string[];
+  times_used?: number;
+}
 
 type GenerateSkitInput = z.infer<typeof GenerateSkitInputSchema>;
 type Persona = z.infer<typeof PersonaSchema>;
@@ -181,6 +217,94 @@ REAL PERSON IMITATION PROHIBITION:
 - Only use the provided fictional character archetypes (Dr. Pickle, Cash King, etc.)
 - Generic comedic archetypes (office worker, friend, news anchor) are fine as TYPES, not specific people
 `;
+
+// --- Audience Intelligence Context Builder ---
+
+function buildAudienceContext(
+  audiencePersona: AudiencePersona | null,
+  painPoint: PainPointData | null,
+  useAudienceLanguage: boolean
+): string {
+  if (!audiencePersona && !painPoint) return "";
+  if (!useAudienceLanguage) return "";
+
+  let context = "\n=== TARGET AUDIENCE INTELLIGENCE ===\n";
+
+  if (audiencePersona) {
+    context += `
+TARGET PERSONA: "${audiencePersona.name}"
+${audiencePersona.description ? `Who they are: ${audiencePersona.description}` : ""}
+${audiencePersona.lifestyle ? `Lifestyle: ${audiencePersona.lifestyle}` : ""}
+${audiencePersona.age_range ? `Age range: ${audiencePersona.age_range}` : ""}
+
+`;
+
+    // Pain points from persona
+    if (audiencePersona.pain_points && audiencePersona.pain_points.length > 0) {
+      context += "THEIR PAIN POINTS:\n";
+      for (const pp of audiencePersona.pain_points.slice(0, 3)) {
+        context += `- ${pp.point}${pp.intensity ? ` (${pp.intensity} intensity)` : ""}\n`;
+      }
+      context += "\n";
+    }
+
+    // Language patterns
+    if (audiencePersona.phrases_they_use && audiencePersona.phrases_they_use.length > 0) {
+      context += `HOW THEY TALK (use these exact phrases or similar):\n`;
+      context += audiencePersona.phrases_they_use.slice(0, 5).map(p => `- "${p}"`).join("\n");
+      context += "\n\n";
+    }
+
+    if (audiencePersona.tone) {
+      context += `THEIR TONE: ${audiencePersona.tone}\n`;
+    }
+    if (audiencePersona.humor_style) {
+      context += `THEIR HUMOR STYLE: ${audiencePersona.humor_style}\n`;
+    }
+    context += "\n";
+
+    // Phrases to avoid
+    if (audiencePersona.phrases_to_avoid && audiencePersona.phrases_to_avoid.length > 0) {
+      context += `AVOID THESE PHRASES (they sound fake to this audience):\n`;
+      context += audiencePersona.phrases_to_avoid.slice(0, 5).map(p => `- "${p}"`).join("\n");
+      context += "\n\n";
+    }
+
+    // Objections
+    if (audiencePersona.common_objections && audiencePersona.common_objections.length > 0) {
+      context += `THEIR OBJECTIONS (address naturally, don't be defensive):\n`;
+      context += audiencePersona.common_objections.slice(0, 3).map(o => `- "${o}"`).join("\n");
+      context += "\n\n";
+    }
+  }
+
+  // Specific pain point focus
+  if (painPoint) {
+    context += `
+FOCUS ON THIS SPECIFIC PAIN POINT: "${painPoint.pain_point}"
+${painPoint.when_it_happens ? `When it happens: ${painPoint.when_it_happens}` : ""}
+${painPoint.emotional_state ? `How they feel: ${painPoint.emotional_state}` : ""}
+${painPoint.what_they_want ? `What they want: ${painPoint.what_they_want}` : ""}
+
+`;
+    if (painPoint.how_they_describe_it && painPoint.how_they_describe_it.length > 0) {
+      context += `How they describe it (use their words):\n`;
+      context += painPoint.how_they_describe_it.slice(0, 3).map(d => `- "${d}"`).join("\n");
+      context += "\n";
+    }
+  }
+
+  context += `
+AUTHENTICITY REQUIREMENT:
+Write this as if YOU ARE this person talking to their friends, not as a brand talking AT them.
+Sound like a real person who discovered something helpful, not an ad.
+Use their actual language patterns, not marketing speak.
+===
+
+`;
+
+  return context;
+}
 
 // --- Intensity Guidelines ---
 
@@ -733,6 +857,44 @@ export async function POST(request: Request) {
       requestedIntensity = intensityBudget.intensityApplied;
     }
 
+    // Fetch audience persona if provided
+    let audiencePersona: AudiencePersona | null = null;
+    if (input.audience_persona_id) {
+      const { data: personaData, error: personaError } = await supabaseAdmin
+        .from("audience_personas")
+        .select("*")
+        .eq("id", input.audience_persona_id)
+        .single();
+
+      if (!personaError && personaData) {
+        audiencePersona = personaData as AudiencePersona;
+        // Increment usage count
+        await supabaseAdmin
+          .from("audience_personas")
+          .update({ times_used: (audiencePersona.times_used || 0) + 1 })
+          .eq("id", input.audience_persona_id);
+      }
+    }
+
+    // Fetch pain point if provided
+    let painPoint: PainPointData | null = null;
+    if (input.pain_point_id) {
+      const { data: ppData, error: ppError } = await supabaseAdmin
+        .from("pain_points")
+        .select("*")
+        .eq("id", input.pain_point_id)
+        .single();
+
+      if (!ppError && ppData) {
+        painPoint = ppData as PainPointData;
+        // Increment usage count
+        await supabaseAdmin
+          .from("pain_points")
+          .update({ times_used: (painPoint.times_used || 0) + 1 })
+          .eq("id", input.pain_point_id);
+      }
+    }
+
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
     const ctaOverlay = input.cta_overlay || "Link in bio!";
@@ -754,6 +916,9 @@ export async function POST(request: Request) {
       targetDuration: input.target_duration ?? "standard",
       contentFormat: input.content_format ?? "skit_dialogue",
       productContext: input.product_context || "",
+      audiencePersona,
+      painPoint,
+      useAudienceLanguage: input.use_audience_language ?? true,
     });
 
     // Determine variation count (default 3)
@@ -907,10 +1072,14 @@ interface PromptParams {
   targetDuration: TargetDuration;
   contentFormat: ContentFormat;
   productContext: string;
+  // Audience Intelligence
+  audiencePersona: AudiencePersona | null;
+  painPoint: PainPointData | null;
+  useAudienceLanguage: boolean;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, audiencePersona, painPoint, useAudienceLanguage } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
@@ -921,6 +1090,7 @@ function buildSkitPrompt(params: PromptParams): string {
   const actorGuideline = buildActorTypeGuidelines(actorType);
   const durationGuideline = buildDurationGuidelines(targetDuration);
   const contentFormatGuideline = buildContentFormatGuidelines(contentFormat);
+  const audienceContext = buildAudienceContext(audiencePersona, painPoint, useAudienceLanguage);
   const creativeDirectionSection = creativeDirection
     ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the skit)\n`
     : "";
@@ -940,6 +1110,7 @@ PRODUCT INFO:
 ${productContextSection}
 CTA OVERLAY TO USE: "${ctaOverlay}"
 ${creativeDirectionSection}
+${audienceContext}
 ${contentFormatGuideline}
 
 ${actorGuideline}

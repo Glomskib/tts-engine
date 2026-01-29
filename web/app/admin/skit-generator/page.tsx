@@ -85,6 +85,24 @@ interface Product {
   category: string;
 }
 
+interface AudiencePersona {
+  id: string;
+  name: string;
+  description?: string;
+  lifestyle?: string;
+  tone?: string;
+  humor_style?: string;
+  pain_points?: Array<{ point: string }>;
+  times_used?: number;
+}
+
+interface PainPoint {
+  id: string;
+  pain_point: string;
+  category?: string;
+  intensity?: string;
+}
+
 interface SkitPreset {
   id: string;
   name: string;
@@ -295,6 +313,13 @@ export default function SkitGeneratorPage() {
   const [presets, setPresets] = useState<SkitPreset[]>([]);
   const [templates, setTemplates] = useState<SkitTemplate[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Audience Intelligence state
+  const [audiencePersonas, setAudiencePersonas] = useState<AudiencePersona[]>([]);
+  const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
+  const [selectedPainPointId, setSelectedPainPointId] = useState<string>('');
+  const [useAudienceLanguage, setUseAudienceLanguage] = useState(true);
 
   // Form state
   const [selectedBrand, setSelectedBrand] = useState<string>('');
@@ -913,6 +938,20 @@ export default function SkitGeneratorPage() {
         if (templatesData.ok) {
           setTemplates(templatesData.data || []);
         }
+
+        // Fetch audience personas
+        const personasRes = await fetch('/api/audience/personas');
+        const personasData = await personasRes.json();
+        if (personasData.ok) {
+          setAudiencePersonas(personasData.data || []);
+        }
+
+        // Fetch pain points
+        const painPointsRes = await fetch('/api/audience/pain-points');
+        const painPointsData = await painPointsRes.json();
+        if (painPointsData.ok) {
+          setPainPoints(painPointsData.data || []);
+        }
       } catch (err) {
         console.error('Failed to fetch data:', err);
       } finally {
@@ -1007,6 +1046,10 @@ export default function SkitGeneratorPage() {
       content_format: contentFormat,
       product_context: productContext.trim() || undefined,
       variation_count: variationCount,
+      // Audience Intelligence
+      audience_persona_id: selectedPersonaId || undefined,
+      pain_point_id: selectedPainPointId || undefined,
+      use_audience_language: useAudienceLanguage,
     };
 
     if (!retryWithPayload) {
@@ -1831,6 +1874,111 @@ export default function SkitGeneratorPage() {
                     {productContext.length}/1000
                   </div>
                 </div>
+              </div>
+
+              {/* Audience Intelligence */}
+              <div style={{ borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px' }}>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
+                  Target Audience
+                </h3>
+
+                {/* Persona Selection */}
+                <div style={{ marginBottom: '12px' }}>
+                  <label
+                    style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
+                    title="Select an audience persona to match their language and pain points"
+                  >
+                    Audience Persona <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                  </label>
+                  <select
+                    value={selectedPersonaId}
+                    onChange={(e) => {
+                      setSelectedPersonaId(e.target.value);
+                      // Reset pain point when persona changes
+                      setSelectedPainPointId('');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px',
+                      color: colors.text,
+                      fontSize: '14px',
+                    }}
+                  >
+                    <option value="">-- No specific persona --</option>
+                    {audiencePersonas.map((persona) => (
+                      <option key={persona.id} value={persona.id}>
+                        {persona.name}
+                        {persona.times_used ? ` (used ${persona.times_used}x)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedPersonaId && (() => {
+                    const selectedPersona = audiencePersonas.find(p => p.id === selectedPersonaId);
+                    return selectedPersona?.description ? (
+                      <div style={{ marginTop: '6px', fontSize: '11px', color: colors.textSecondary, padding: '8px', backgroundColor: colors.bg, borderRadius: '4px' }}>
+                        {selectedPersona.description}
+                        {selectedPersona.tone && <span style={{ marginLeft: '8px', opacity: 0.7 }}>• Tone: {selectedPersona.tone}</span>}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+
+                {/* Pain Point Focus (show if persona selected) */}
+                {selectedPersonaId && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                      Pain Point Focus (optional)
+                    </label>
+                    <select
+                      value={selectedPainPointId}
+                      onChange={(e) => setSelectedPainPointId(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        color: colors.text,
+                        fontSize: '14px',
+                      }}
+                    >
+                      <option value="">-- Any pain point --</option>
+                      {painPoints.map((pp) => (
+                        <option key={pp.id} value={pp.id}>
+                          {pp.pain_point}
+                          {pp.category ? ` (${pp.category})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Use Audience Language Toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id="useAudienceLanguage"
+                    checked={useAudienceLanguage}
+                    onChange={(e) => setUseAudienceLanguage(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <label
+                    htmlFor="useAudienceLanguage"
+                    style={{ fontSize: '12px', color: colors.textSecondary, cursor: 'pointer' }}
+                  >
+                    Use authentic audience language
+                  </label>
+                </div>
+
+                {audiencePersonas.length === 0 && (
+                  <div style={{ marginTop: '12px', fontSize: '11px', color: colors.textSecondary, fontStyle: 'italic' }}>
+                    No personas yet.{' '}
+                    <a href="/admin/audience" style={{ color: colors.accent }}>Create one →</a>
+                  </div>
+                )}
               </div>
 
               {/* Actor & Style */}

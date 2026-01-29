@@ -273,30 +273,64 @@ export async function POST(request: Request) {
     // Fetch product info if product_id provided, otherwise use fallback product_name
     let product: { id: string | null; name: string; brand: string | null; category: string | null; description: string | null } | null = null;
 
+    // Debug info collected during product lookup
+    let productLookupDebug: Record<string, unknown> | null = null;
+
     if (input.product_id) {
+      const productIdReceived = input.product_id;
+      const productIdTrimmed = input.product_id.trim();
+
+      // Fetch sample product IDs for comparison (debug only)
+      let sampleProductIds: string[] = [];
+      if (debugMode) {
+        const { data: sampleProducts } = await supabaseAdmin
+          .from("products")
+          .select("id")
+          .limit(3);
+        sampleProductIds = sampleProducts?.map((p: { id: string }) => p.id) || [];
+      }
+
+      // Build debug info
+      productLookupDebug = {
+        product_id_received: productIdReceived,
+        product_id_received_typeof: typeof productIdReceived,
+        product_id_received_length: productIdReceived.length,
+        product_id_trimmed: productIdTrimmed,
+        product_id_trimmed_length: productIdTrimmed.length,
+        sample_product_ids: sampleProductIds,
+        query_attempted: {
+          table: "products",
+          select: "id, name, brand, category, description",
+          filter: { column: "id", operator: "eq", value: productIdTrimmed },
+          method: "single",
+        },
+      };
+
+      // Log to console for terminal visibility
+      console.log(`[${correlationId}] Product lookup debug:`, JSON.stringify(productLookupDebug, null, 2));
+
       // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
         .select("id, name, brand, category, description")
-        .eq("id", input.product_id)
+        .eq("id", productIdTrimmed)
         .single();
+
+      // Add query result to debug info
+      productLookupDebug.query_result = {
+        found: !!dbProduct && !productError,
+        error_code: productError?.code || null,
+        error_message: productError?.message || null,
+        row_returned: dbProduct ? { id: dbProduct.id, name: dbProduct.name } : null,
+      };
+
+      console.log(`[${correlationId}] Product lookup result:`, JSON.stringify(productLookupDebug.query_result, null, 2));
 
       // Distinguish error types:
       // - PGRST116: query succeeded but returned 0 rows (not found)
       // - Other errors: database/network issues
       if (productError) {
         const isNotFoundError = productError.code === "PGRST116";
-
-        // Build debug details if debug mode enabled
-        const debugDetails: Record<string, unknown> = debugMode
-          ? {
-              product_id_received: input.product_id,
-              org_id: authContext.user?.id || null,
-              used_service_role: true,
-              supabase_error_code: productError.code,
-              supabase_error_message: productError.message,
-            }
-          : {};
 
         if (isNotFoundError) {
           return createApiErrorResponse(
@@ -306,7 +340,7 @@ export async function POST(request: Request) {
             correlationId,
             {
               product_id: input.product_id,
-              ...debugDetails,
+              ...(debugMode ? { debug: productLookupDebug } : {}),
             }
           );
         }
@@ -320,7 +354,7 @@ export async function POST(request: Request) {
           correlationId,
           {
             product_id: input.product_id,
-            ...debugDetails,
+            ...(debugMode ? { debug: productLookupDebug } : {}),
           }
         );
       }
@@ -332,7 +366,10 @@ export async function POST(request: Request) {
           "Product not found",
           404,
           correlationId,
-          debugMode ? { product_id_received: input.product_id, used_service_role: true } : { product_id: input.product_id }
+          {
+            product_id: input.product_id,
+            ...(debugMode ? { debug: productLookupDebug } : {}),
+          }
         );
       }
 
@@ -477,9 +514,12 @@ export async function POST(request: Request) {
       skit: processed.skit,
     };
 
-    // Include budget diagnostics only in debug mode
+    // Include diagnostics only in debug mode
     if (debugMode) {
       responseData.budget_diagnostics = intensityBudget.diagnostics;
+      if (productLookupDebug) {
+        responseData.product_lookup_debug = productLookupDebug;
+      }
     }
 
     // Success response

@@ -13,7 +13,40 @@ import {
   type ErrorSummaryEntry,
 } from '@/lib/client/ingestion-client';
 
-type Tab = 'tiktok' | 'csv';
+type Tab = 'tiktok' | 'csv' | 'winners';
+
+// Types for winner imports
+interface ImportedVideo {
+  id: string;
+  video_url: string;
+  platform: string;
+  platform_video_id?: string;
+  title?: string;
+  transcript?: string;
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  engagement_rate?: number;
+  creator_handle?: string;
+  hook_line?: string;
+  hook_style?: string;
+  content_format?: string;
+  comedy_style?: string;
+  product_id?: string;
+  product_mentioned?: string;
+  ai_analysis?: Record<string, unknown>;
+  status: 'pending' | 'processing' | 'analyzed' | 'error';
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  brand?: string;
+}
 
 interface AuthUser {
   id: string;
@@ -67,6 +100,41 @@ export default function IngestionPage() {
     errors?: ErrorSummaryEntry[];
     counts?: { validated: number; failed: number; duplicate: number; committed?: number };
   } | null>(null);
+
+  // Winners state
+  const [winnerUrls, setWinnerUrls] = useState('');
+  const [winnerImporting, setWinnerImporting] = useState(false);
+  const [winnerImportResult, setWinnerImportResult] = useState<{
+    ok: boolean;
+    message: string;
+    summary?: { imported: number; duplicates: number; failed: number };
+  } | null>(null);
+  const [importedVideos, setImportedVideos] = useState<ImportedVideo[]>([]);
+  const [winnersLoading, setWinnersLoading] = useState(false);
+  const [winnersFilter, setWinnersFilter] = useState<'all' | 'pending' | 'analyzed'>('all');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [editingVideo, setEditingVideo] = useState<ImportedVideo | null>(null);
+  const [editForm, setEditForm] = useState<{
+    transcript: string;
+    views: string;
+    likes: string;
+    comments: string;
+    shares: string;
+    creator_handle: string;
+    hook_line: string;
+    product_id: string;
+  }>({
+    transcript: '',
+    views: '',
+    likes: '',
+    comments: '',
+    shares: '',
+    creator_handle: '',
+    hook_line: '',
+    product_id: '',
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   // Auth check
   useEffect(() => {
@@ -245,6 +313,215 @@ export default function IngestionPage() {
     setCsvLoading(false);
   }, [csvRows, csvMapping, csvFile, csvValidateOnly]);
 
+  // Load products for winner import
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const res = await fetch('/api/products?limit=500');
+        const data = await res.json();
+        if (data.ok && data.data) {
+          setProducts(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load products:', err);
+      }
+    };
+    if (activeTab === 'winners') {
+      loadProducts();
+    }
+  }, [activeTab]);
+
+  // Load imported videos
+  const loadImportedVideos = useCallback(async () => {
+    setWinnersLoading(true);
+    try {
+      const statusParam = winnersFilter === 'all' ? '' : `&status=${winnersFilter}`;
+      const res = await fetch(`/api/videos/import?limit=100${statusParam}`);
+      const data = await res.json();
+      if (data.ok && data.data) {
+        setImportedVideos(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load imported videos:', err);
+    } finally {
+      setWinnersLoading(false);
+    }
+  }, [winnersFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'winners') {
+      loadImportedVideos();
+    }
+  }, [activeTab, loadImportedVideos]);
+
+  // Handle winner URL import
+  const handleWinnerImport = useCallback(async () => {
+    const urls = winnerUrls
+      .split('\n')
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+
+    if (urls.length === 0) {
+      setWinnerImportResult({ ok: false, message: 'Please enter at least one URL' });
+      return;
+    }
+
+    setWinnerImporting(true);
+    setWinnerImportResult(null);
+
+    try {
+      const res = await fetch('/api/videos/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        setWinnerImportResult({
+          ok: true,
+          message: `Imported ${data.data.summary.imported} videos`,
+          summary: data.data.summary,
+        });
+        setWinnerUrls('');
+        loadImportedVideos();
+      } else {
+        setWinnerImportResult({
+          ok: false,
+          message: data.error || 'Import failed',
+        });
+      }
+    } catch (err) {
+      setWinnerImportResult({
+        ok: false,
+        message: err instanceof Error ? err.message : 'Import failed',
+      });
+    } finally {
+      setWinnerImporting(false);
+    }
+  }, [winnerUrls, loadImportedVideos]);
+
+  // Open edit form for a video
+  const openEditForm = (video: ImportedVideo) => {
+    setEditingVideo(video);
+    setEditForm({
+      transcript: video.transcript || '',
+      views: video.views?.toString() || '',
+      likes: video.likes?.toString() || '',
+      comments: video.comments?.toString() || '',
+      shares: video.shares?.toString() || '',
+      creator_handle: video.creator_handle || '',
+      hook_line: video.hook_line || '',
+      product_id: video.product_id || '',
+    });
+  };
+
+  // Save video edits
+  const handleSaveVideo = useCallback(async () => {
+    if (!editingVideo) return;
+
+    setEditSaving(true);
+    try {
+      const updates: Record<string, unknown> = {
+        transcript: editForm.transcript || null,
+        views: editForm.views ? parseInt(editForm.views, 10) : null,
+        likes: editForm.likes ? parseInt(editForm.likes, 10) : null,
+        comments: editForm.comments ? parseInt(editForm.comments, 10) : null,
+        shares: editForm.shares ? parseInt(editForm.shares, 10) : null,
+        creator_handle: editForm.creator_handle || null,
+        hook_line: editForm.hook_line || null,
+        product_id: editForm.product_id || null,
+      };
+
+      // If we have transcript and hook_line, mark as analyzed
+      if (editForm.transcript && editForm.hook_line) {
+        updates.status = 'analyzed';
+      }
+
+      const res = await fetch(`/api/videos/import/${editingVideo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (res.ok) {
+        setEditingVideo(null);
+        loadImportedVideos();
+      }
+    } catch (err) {
+      console.error('Failed to save video:', err);
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editingVideo, editForm, loadImportedVideos]);
+
+  // Analyze video with AI
+  const handleAnalyzeVideo = useCallback(async () => {
+    if (!editingVideo || !editForm.transcript) return;
+
+    setAnalyzing(true);
+    try {
+      const res = await fetch('/api/ai/analyze-winner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: editForm.transcript,
+          metrics: {
+            views: editForm.views ? parseInt(editForm.views, 10) : undefined,
+            likes: editForm.likes ? parseInt(editForm.likes, 10) : undefined,
+            comments: editForm.comments ? parseInt(editForm.comments, 10) : undefined,
+            shares: editForm.shares ? parseInt(editForm.shares, 10) : undefined,
+          },
+          creator_handle: editForm.creator_handle,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok && data.data?.analysis) {
+        const analysis = data.data.analysis;
+        // Update form with extracted data
+        setEditForm((prev) => ({
+          ...prev,
+          hook_line: analysis.hook_line || prev.hook_line,
+        }));
+
+        // Save the full analysis to the video
+        await fetch(`/api/videos/import/${editingVideo.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hook_line: analysis.hook_line,
+            hook_style: analysis.hook_style,
+            content_format: analysis.content_format,
+            comedy_style: analysis.comedy_style,
+            ai_analysis: analysis,
+            status: 'analyzed',
+          }),
+        });
+
+        loadImportedVideos();
+      }
+    } catch (err) {
+      console.error('Failed to analyze video:', err);
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [editingVideo, editForm, loadImportedVideos]);
+
+  // Delete imported video
+  const handleDeleteVideo = useCallback(async (id: string) => {
+    if (!confirm('Delete this imported video?')) return;
+
+    try {
+      const res = await fetch(`/api/videos/import/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        loadImportedVideos();
+      }
+    } catch (err) {
+      console.error('Failed to delete video:', err);
+    }
+  }, [loadImportedVideos]);
+
   // Loading state
   if (authLoading) {
     return (
@@ -300,6 +577,16 @@ export default function IngestionPage() {
           }`}
         >
           CSV Import
+        </button>
+        <button
+          onClick={() => setActiveTab('winners')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'winners'
+              ? 'border-slate-800 text-slate-800'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Import Winners
         </button>
       </div>
 
@@ -585,6 +872,334 @@ export default function IngestionPage() {
                 )}
               </div>
             </AdminCard>
+          )}
+        </div>
+      )}
+
+      {/* Winners Tab */}
+      {activeTab === 'winners' && (
+        <div className="space-y-6">
+          {/* Import URLs */}
+          <AdminCard title="Import Winning TikTok Videos" subtitle="Paste TikTok URLs (one per line) to import for AI learning">
+            <div className="space-y-4">
+              <textarea
+                value={winnerUrls}
+                onChange={(e) => setWinnerUrls(e.target.value)}
+                placeholder="https://www.tiktok.com/@creator/video/123456789&#10;https://vm.tiktok.com/ABC123&#10;..."
+                className="w-full h-32 p-3 border border-slate-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+              />
+
+              <div className="flex items-center gap-3">
+                <AdminButton
+                  onClick={handleWinnerImport}
+                  disabled={winnerImporting || !winnerUrls.trim()}
+                >
+                  {winnerImporting ? 'Importing...' : 'Import URLs'}
+                </AdminButton>
+                <span className="text-sm text-slate-500">
+                  {winnerUrls.split('\n').filter((u) => u.trim()).length} URLs
+                </span>
+              </div>
+
+              {winnerImportResult && (
+                <div
+                  className={`p-4 rounded-md ${
+                    winnerImportResult.ok
+                      ? 'bg-green-50 border border-green-200'
+                      : 'bg-red-50 border border-red-200'
+                  }`}
+                >
+                  <div className={`font-medium ${winnerImportResult.ok ? 'text-green-800' : 'text-red-800'}`}>
+                    {winnerImportResult.message}
+                  </div>
+                  {winnerImportResult.summary && (
+                    <div className="mt-2 flex gap-4 text-sm">
+                      <span className="text-green-600">Imported: {winnerImportResult.summary.imported}</span>
+                      <span className="text-amber-600">Duplicates: {winnerImportResult.summary.duplicates}</span>
+                      <span className="text-red-600">Failed: {winnerImportResult.summary.failed}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </AdminCard>
+
+          {/* Filter and List */}
+          <AdminCard
+            title="Imported Videos"
+            subtitle={`${importedVideos.length} videos`}
+            headerActions={
+              <div className="flex items-center gap-2">
+                <select
+                  value={winnersFilter}
+                  onChange={(e) => setWinnersFilter(e.target.value as 'all' | 'pending' | 'analyzed')}
+                  className="px-3 py-1 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+                >
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="analyzed">Analyzed</option>
+                </select>
+                <AdminButton variant="secondary" onClick={loadImportedVideos}>
+                  Refresh
+                </AdminButton>
+              </div>
+            }
+          >
+            {winnersLoading ? (
+              <div className="text-center py-8 text-slate-500">Loading...</div>
+            ) : importedVideos.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                No imported videos. Add URLs above to get started.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-2 px-3 font-medium text-slate-600">Video</th>
+                      <th className="text-left py-2 px-3 font-medium text-slate-600">Hook</th>
+                      <th className="text-right py-2 px-3 font-medium text-slate-600">Views</th>
+                      <th className="text-right py-2 px-3 font-medium text-slate-600">Engagement</th>
+                      <th className="text-left py-2 px-3 font-medium text-slate-600">Status</th>
+                      <th className="text-left py-2 px-3 font-medium text-slate-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importedVideos.map((video) => (
+                      <tr key={video.id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-2 px-3">
+                          <a
+                            href={video.video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline truncate block max-w-[200px]"
+                            title={video.video_url}
+                          >
+                            {video.creator_handle ? `@${video.creator_handle}` : video.platform_video_id || 'View'}
+                          </a>
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className="truncate block max-w-[250px] text-slate-700" title={video.hook_line || ''}>
+                            {video.hook_line || <span className="text-slate-400 italic">Not set</span>}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-right tabular-nums">
+                          {video.views?.toLocaleString() || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-right tabular-nums">
+                          {video.engagement_rate
+                            ? `${(video.engagement_rate * 100).toFixed(2)}%`
+                            : '-'}
+                        </td>
+                        <td className="py-2 px-3">
+                          <span
+                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                              video.status === 'analyzed'
+                                ? 'bg-green-100 text-green-700'
+                                : video.status === 'error'
+                                ? 'bg-red-100 text-red-700'
+                                : video.status === 'processing'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {video.status}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openEditForm(video)}
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteVideo(video.id)}
+                              className="text-sm text-red-600 hover:underline"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </AdminCard>
+
+          {/* Edit Modal */}
+          {editingVideo && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div
+                className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                onKeyDown={(e) => e.key === 'Escape' && setEditingVideo(null)}
+              >
+                <div className="p-6 border-b border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-800">Edit Video Data</h3>
+                    <button
+                      onClick={() => setEditingVideo(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <a
+                    href={editingVideo.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline mt-1 block"
+                  >
+                    {editingVideo.video_url} ↗
+                  </a>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Transcript */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Transcript <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={editForm.transcript}
+                      onChange={(e) => setEditForm({ ...editForm, transcript: e.target.value })}
+                      placeholder="Paste the video transcript here..."
+                      className="w-full h-32 p-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    />
+                  </div>
+
+                  {/* Metrics Row */}
+                  <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Views</label>
+                      <input
+                        type="number"
+                        value={editForm.views}
+                        onChange={(e) => setEditForm({ ...editForm, views: e.target.value })}
+                        placeholder="0"
+                        className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Likes</label>
+                      <input
+                        type="number"
+                        value={editForm.likes}
+                        onChange={(e) => setEditForm({ ...editForm, likes: e.target.value })}
+                        placeholder="0"
+                        className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Comments</label>
+                      <input
+                        type="number"
+                        value={editForm.comments}
+                        onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
+                        placeholder="0"
+                        className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Shares</label>
+                      <input
+                        type="number"
+                        value={editForm.shares}
+                        onChange={(e) => setEditForm({ ...editForm, shares: e.target.value })}
+                        placeholder="0"
+                        className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Creator and Hook */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Creator Handle</label>
+                      <input
+                        type="text"
+                        value={editForm.creator_handle}
+                        onChange={(e) => setEditForm({ ...editForm, creator_handle: e.target.value })}
+                        placeholder="@username"
+                        className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Product</label>
+                      <select
+                        value={editForm.product_id}
+                        onChange={(e) => setEditForm({ ...editForm, product_id: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      >
+                        <option value="">-- Select Product --</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} {p.brand ? `(${p.brand})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Hook Line */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Hook Line <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.hook_line}
+                      onChange={(e) => setEditForm({ ...editForm, hook_line: e.target.value })}
+                      placeholder="First 1-2 sentences that grab attention"
+                      className="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    />
+                  </div>
+
+                  {/* AI Analysis (if available) */}
+                  {editingVideo.ai_analysis && (
+                    <div className="p-3 bg-slate-50 rounded-md">
+                      <div className="text-sm font-medium text-slate-700 mb-2">AI Analysis</div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">Hook Style:</span>{' '}
+                          <span className="font-medium">{editingVideo.hook_style || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Content Format:</span>{' '}
+                          <span className="font-medium">{editingVideo.content_format || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Comedy Style:</span>{' '}
+                          <span className="font-medium">{editingVideo.comedy_style || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6 border-t border-slate-200 flex items-center justify-between">
+                  <AdminButton
+                    variant="secondary"
+                    onClick={handleAnalyzeVideo}
+                    disabled={analyzing || !editForm.transcript}
+                  >
+                    {analyzing ? 'Analyzing...' : 'Analyze with AI'}
+                  </AdminButton>
+
+                  <div className="flex items-center gap-3">
+                    <AdminButton variant="secondary" onClick={() => setEditingVideo(null)}>
+                      Cancel
+                    </AdminButton>
+                    <AdminButton onClick={handleSaveVideo} disabled={editSaving}>
+                      {editSaving ? 'Saving...' : 'Save'}
+                    </AdminButton>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}

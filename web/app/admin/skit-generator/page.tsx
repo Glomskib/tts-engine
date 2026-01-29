@@ -7,6 +7,8 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 
 // --- Helper Functions ---
 
@@ -110,10 +112,10 @@ const ENERGY_CATEGORY_LABELS: Record<string, string> = {
 type TargetDuration = 'quick' | 'standard' | 'extended' | 'long';
 
 const DURATION_OPTIONS: { value: TargetDuration; label: string; description: string }[] = [
-  { value: 'quick', label: 'Quick (15-20s)', description: '3-4 beats, ultra-tight pacing' },
-  { value: 'standard', label: 'Standard (30-45s)', description: '5-6 beats, classic TikTok rhythm' },
-  { value: 'extended', label: 'Extended (45-60s)', description: '7-8 beats, room for development' },
-  { value: 'long', label: 'Long Form (60-90s)', description: '9-12 beats, full narrative arc' },
+  { value: 'quick', label: 'Quick (15-20s)', description: '3-4 scenes, ultra-tight pacing' },
+  { value: 'standard', label: 'Standard (30-45s)', description: '5-6 scenes, classic TikTok rhythm' },
+  { value: 'extended', label: 'Extended (45-60s)', description: '7-8 scenes, room for development' },
+  { value: 'long', label: 'Long Form (60-90s)', description: '9-12 scenes, full narrative arc' },
 ];
 
 type ContentFormat = 'skit_dialogue' | 'scene_montage' | 'pov_story' | 'product_demo_parody' | 'reaction_commentary' | 'day_in_life';
@@ -219,6 +221,7 @@ interface AIScore {
   virality_potential: number;
   clarity: number;
   production_feasibility: number;
+  audience_language: number;
   overall_score: number;
   strengths: string[];
   improvements: string[];
@@ -371,6 +374,11 @@ export default function SkitGeneratorPage() {
   const [savedSkitId, setSavedSkitId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // Send to Video Queue state
+  const [sendingToVideo, setSendingToVideo] = useState(false);
+  const [linkedVideoId, setLinkedVideoId] = useState<string | null>(null);
+  const [linkedVideoCode, setLinkedVideoCode] = useState<string | null>(null);
 
   // Recent products state (persisted in localStorage)
   const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([]);
@@ -1115,53 +1123,6 @@ export default function SkitGeneratorPage() {
     }
   }, [isRateLimited, rateLimitResetTime]);
 
-  // Quick Generate - use last settings with minimal config
-  const handleQuickGenerate = () => {
-    // Try to get last used product from localStorage
-    let productId = selectedProductId;
-    let productName = manualProductName;
-
-    if (!productId && !productName.trim()) {
-      try {
-        const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-        if (saved) {
-          const settings: SavedSettings = JSON.parse(saved);
-          if (settings.lastProductId && products.find(p => p.id === settings.lastProductId)) {
-            productId = settings.lastProductId;
-            setSelectedProductId(productId);
-          } else if (settings.lastProductName) {
-            productName = settings.lastProductName;
-            setManualProductName(productName);
-            if (settings.lastBrandName) {
-              setManualBrandName(settings.lastBrandName);
-            }
-          }
-        }
-      } catch {
-        // Ignore
-      }
-    }
-
-    // If still no product, use first product in list
-    if (!productId && !productName.trim() && products.length > 0) {
-      productId = products[0].id;
-      setSelectedProductId(productId);
-    }
-
-    // Now generate
-    if (productId || productName.trim()) {
-      // Small delay to let state updates propagate
-      setTimeout(() => handleGenerate(), 50);
-    } else {
-      setError({
-        ok: false,
-        error_code: 'VALIDATION_ERROR',
-        message: 'Please select a product first to use Quick Generate',
-        correlation_id: 'quick_generate',
-        httpStatus: 400,
-      });
-    }
-  };
 
   // Handle skit refinement
   const handleRefine = async (instruction: string) => {
@@ -1378,6 +1339,37 @@ export default function SkitGeneratorPage() {
     // Don't auto-close - let user see success state and click "View in Library"
   };
 
+  // Send skit to video queue
+  const handleSendToVideo = async () => {
+    if (!savedSkitId) {
+      // Must save to library first
+      setError({
+        message: 'Please save to library first',
+        error_code: 'VALIDATION_ERROR',
+      } as ApiClientError);
+      return;
+    }
+
+    setSendingToVideo(true);
+
+    const response = await postJson<{ video_id: string; video_code: string }>(
+      `/api/skits/${savedSkitId}/send-to-video`,
+      { priority: 'normal' }
+    );
+
+    setSendingToVideo(false);
+
+    if (isApiError(response)) {
+      setError(response);
+      return;
+    }
+
+    if (response.data) {
+      setLinkedVideoId(response.data.video_id);
+      setLinkedVideoCode(response.data.video_code);
+    }
+  };
+
   // Fetch saved skits for library
   const fetchSavedSkits = async () => {
     setLoadingSkits(true);
@@ -1539,7 +1531,23 @@ export default function SkitGeneratorPage() {
           from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
           to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+          .variation-tabs { flex-wrap: nowrap !important; }
+          input, select, textarea { font-size: 16px !important; } /* Prevent iOS zoom */
+          button { min-height: 44px; }
+        }
       `}</style>
+
+      {/* Breadcrumb Navigation */}
+      <nav style={{ marginBottom: '12px', fontSize: '13px' }}>
+        <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: 'none' }}>
+          Admin
+        </Link>
+        <span style={{ color: colors.textMuted, margin: '0 8px' }}>/</span>
+        <span style={{ color: colors.text, fontWeight: 500 }}>Skit Generator</span>
+      </nav>
 
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px' }}>
@@ -1549,11 +1557,11 @@ export default function SkitGeneratorPage() {
             Generate AI-powered comedy skits for product marketing
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="header-buttons" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             onClick={openLoadModal}
             style={{
-              padding: '8px 16px',
+              padding: '10px 16px',
               backgroundColor: '#7c3aed',
               border: 'none',
               borderRadius: '6px',
@@ -1561,6 +1569,7 @@ export default function SkitGeneratorPage() {
               fontSize: '14px',
               cursor: 'pointer',
               fontWeight: 500,
+              minHeight: '44px',
             }}
           >
             Load from Library
@@ -1568,7 +1577,7 @@ export default function SkitGeneratorPage() {
           <Link
             href="/admin/skit-library"
             style={{
-              padding: '8px 16px',
+              padding: '10px 16px',
               backgroundColor: colors.card,
               border: `1px solid ${colors.border}`,
               borderRadius: '6px',
@@ -1577,6 +1586,7 @@ export default function SkitGeneratorPage() {
               fontSize: '14px',
               display: 'flex',
               alignItems: 'center',
+              minHeight: '44px',
             }}
           >
             View Library
@@ -1584,12 +1594,13 @@ export default function SkitGeneratorPage() {
           <Link
             href="/admin/pipeline"
             style={{
-              padding: '8px 16px',
+              padding: '10px 16px',
               backgroundColor: colors.card,
               border: `1px solid ${colors.border}`,
               borderRadius: '6px',
               color: colors.text,
               textDecoration: 'none',
+              minHeight: '44px',
               fontSize: '14px',
             }}
           >
@@ -2241,52 +2252,28 @@ export default function SkitGeneratorPage() {
                 </>
               )}
 
-              {/* Generate Buttons */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                {/* Quick Generate */}
-                <button
-                  onClick={handleQuickGenerate}
-                  disabled={generating}
-                  title="Generate instantly with your last settings. Uses last product or first in list."
-                  style={{
-                    flex: '0 0 auto',
-                    padding: '14px 16px',
-                    backgroundColor: generating ? colors.border : '#059669',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: generating ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  ⚡ Quick
-                </button>
-
-                {/* Main Generate */}
-                <button
-                  onClick={() => handleGenerate()}
-                  disabled={generating}
-                  style={{
-                    flex: '1 1 auto',
-                    padding: '14px 20px',
-                    backgroundColor: generating ? colors.border : '#7c3aed',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    cursor: generating ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {generating
-                    ? `Generating ${variationCount} Variation${variationCount > 1 ? 's' : ''} & Scoring...`
-                    : `Generate ${variationCount > 1 ? `${variationCount} Variations` : 'Skit'}`}
-                </button>
-              </div>
+              {/* Generate Button */}
+              <button
+                onClick={() => handleGenerate()}
+                disabled={generating}
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  backgroundColor: generating ? colors.border : '#7c3aed',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: generating ? 'not-allowed' : 'pointer',
+                  marginTop: '8px',
+                  minHeight: '52px',
+                }}
+              >
+                {generating
+                  ? `Generating ${variationCount} Variation${variationCount > 1 ? 's' : ''} & Scoring...`
+                  : `Generate ${variationCount > 1 ? `${variationCount} Variations` : 'Skit'}`}
+              </button>
               {!generating && (
                 <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: colors.textSecondary }}>
                   <kbd style={{ padding: '1px 4px', backgroundColor: colors.bg, borderRadius: '2px', border: `1px solid ${colors.border}` }}>Ctrl</kbd>+<kbd style={{ padding: '1px 4px', backgroundColor: colors.bg, borderRadius: '2px', border: `1px solid ${colors.border}` }}>Enter</kbd> to generate
@@ -2539,7 +2526,7 @@ export default function SkitGeneratorPage() {
                   <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>
                     Variations ({variations.length})
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className="variation-tabs" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px' }}>
                     {variations.map((v, idx) => {
                       const score = v.ai_score?.overall_score;
                       const isSelected = idx === selectedVariationIndex;
@@ -2551,7 +2538,7 @@ export default function SkitGeneratorPage() {
                             setAiScore(v.ai_score || null);
                           }}
                           style={{
-                            padding: '8px 14px',
+                            padding: '10px 14px',
                             backgroundColor: isSelected ? '#7c3aed' : colors.card,
                             color: isSelected ? 'white' : colors.text,
                             border: `2px solid ${isSelected ? '#7c3aed' : colors.border}`,
@@ -2562,6 +2549,8 @@ export default function SkitGeneratorPage() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
+                            minHeight: '44px',
+                            flexShrink: 0,
                           }}
                         >
                           <span>V{idx + 1}</span>
@@ -2644,6 +2633,7 @@ export default function SkitGeneratorPage() {
                         { key: 'hook_strength', label: 'Hook', value: currentScore.hook_strength },
                         { key: 'humor_level', label: 'Humor', value: currentScore.humor_level },
                         { key: 'virality_potential', label: 'Viral', value: currentScore.virality_potential },
+                        { key: 'audience_language', label: 'Voice', value: currentScore.audience_language },
                         { key: 'clarity', label: 'Clear', value: currentScore.clarity },
                       ].map(({ key, label, value }) => (
                         <span
@@ -2669,7 +2659,7 @@ export default function SkitGeneratorPage() {
                   onClick={() => {
                     const script = `HOOK: ${currentSkit.hook_line || '(No hook)'}
 
-${(currentSkit.beats || []).map((b, i) => `BEAT ${i + 1} [${b.t || '0:00'}]
+${(currentSkit.beats || []).map((b, i) => `SCENE ${i + 1} [${b.t || '0:00'}]
 Action: ${b.action || '(No action)'}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n') || '(No beats)'}
 
 CTA: ${currentSkit.cta_line || '(No CTA)'}
@@ -2918,11 +2908,11 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 )}
               </div>
 
-              {/* Beats */}
+              {/* Scenes */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>Beats ({currentSkit.beats?.length ?? 0})</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>Scenes ({currentSkit.beats?.length ?? 0})</span>
                     {/* Total reading time estimate */}
                     {currentSkit.beats && currentSkit.beats.length > 0 && (() => {
                       const totalDialogue = currentSkit.beats
@@ -2960,16 +2950,16 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                         color: 'white',
                       }}
                     >
-                      + Add Beat
+                      + Add Scene
                     </button>
                     <button
                       onClick={() => copyToClipboard(
                         (currentSkit.beats || []).map(b => `[${b.t}] ${b.action}${b.dialogue ? `\n"${b.dialogue}"` : ''}${b.on_screen_text ? `\n(Text: ${b.on_screen_text})` : ''}`).join('\n\n'),
-                        'beats'
+                        'scenes'
                       )}
                       style={{
                         padding: '2px 8px',
-                        backgroundColor: copiedField === 'beats' ? '#d3f9d8' : colors.bg,
+                        backgroundColor: copiedField === 'scenes' ? '#d3f9d8' : colors.bg,
                         border: `1px solid ${colors.border}`,
                         borderRadius: '4px',
                         fontSize: '11px',
@@ -2977,7 +2967,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                         color: colors.text,
                       }}
                     >
-                      {copiedField === 'beats' ? 'Copied!' : 'Copy All'}
+                      {copiedField === 'scenes' ? 'Copied!' : 'Copy All'}
                     </button>
                   </div>
                 </div>
@@ -2997,7 +2987,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       fontSize: '13px',
                     }}>
                       <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }}>📝</div>
-                      No beats yet. Click "+ Add Beat" to create the first one.
+                      No scenes yet. Click "+ Add Scene" to create the first one.
                     </div>
                   )}
                   {(currentSkit.beats || []).map((beat, i) => (
@@ -3796,7 +3786,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 <button
                   onClick={() => copyToClipboard(
                     `HOOK: ${currentSkit.hook_line}\n\n` +
-                    `BEATS:\n${currentSkit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n')}\n\n` +
+                    `SCENES:\n${currentSkit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n')}\n\n` +
                     `CTA: ${currentSkit.cta_line}\nOverlay: ${currentSkit.cta_overlay}\n\n` +
                     `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n` +
                     `OVERLAYS:\n${currentSkit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}`,
@@ -3858,8 +3848,8 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     const productBrand = product?.brand ? `${product.brand} ` : manualBrandName ? `${manualBrandName} ` : '';
                     const md = `# Skit: ${productBrand}${productName}\n\n` +
                       `## Hook\n> ${currentSkit.hook_line}\n\n` +
-                      `## Beats\n${currentSkit.beats.map((b, i) =>
-                        `### Beat ${i + 1} (${b.t})\n**Action:** ${b.action}${b.dialogue ? `\n\n*"${b.dialogue}"*` : ''}${b.on_screen_text ? `\n\n**On-screen:** ${b.on_screen_text}` : ''}`
+                      `## Scenes\n${currentSkit.beats.map((b, i) =>
+                        `### Scene ${i + 1} (${b.t})\n**Action:** ${b.action}${b.dialogue ? `\n\n*"${b.dialogue}"*` : ''}${b.on_screen_text ? `\n\n**On-screen:** ${b.on_screen_text}` : ''}`
                       ).join('\n\n')}\n\n` +
                       `## CTA\n**Spoken:** ${currentSkit.cta_line}\n\n**Overlay:** ${currentSkit.cta_overlay}\n\n` +
                       `## B-Roll Suggestions\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n` +
@@ -3889,6 +3879,261 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   }}
                 >
                   Export Markdown
+                </button>
+
+                {/* Download as Plain Text */}
+                <button
+                  onClick={() => {
+                    const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+                    const productName = product?.name || manualProductName || 'Product';
+                    const productBrand = product?.brand || manualBrandName || '';
+                    const txt = `SKIT: ${productBrand ? productBrand + ' ' : ''}${productName}\n` +
+                      `${'='.repeat(50)}\n\n` +
+                      `HOOK:\n${currentSkit.hook_line}\n\n` +
+                      `SCENES:\n${currentSkit.beats.map((b, i) =>
+                        `Scene ${i + 1} [${b.t}]\n  Action: ${b.action}${b.dialogue ? `\n  Dialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\n  On-screen text: ${b.on_screen_text}` : ''}`
+                      ).join('\n\n')}\n\n` +
+                      `CTA:\n  Spoken: ${currentSkit.cta_line}\n  Overlay: ${currentSkit.cta_overlay}\n\n` +
+                      `B-ROLL SUGGESTIONS:\n${currentSkit.b_roll.map((b, i) => `  ${i + 1}. ${b}`).join('\n')}\n\n` +
+                      `TEXT OVERLAYS:\n${currentSkit.overlays.map((o, i) => `  ${i + 1}. ${o}`).join('\n')}\n\n` +
+                      (aiScore ? `AI SCORE: ${aiScore.overall_score.toFixed(1)}/10\n` : '') +
+                      `\n${'='.repeat(50)}\nGenerated: ${new Date().toLocaleString()}`;
+
+                    const blob = new Blob([txt], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `skit-${Date.now()}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: colors.text,
+                    fontWeight: 500,
+                  }}
+                >
+                  Download .txt
+                </button>
+
+                {/* Copy for Google Docs (HTML/Rich Text) */}
+                <button
+                  onClick={async () => {
+                    const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+                    const productName = product?.name || manualProductName || 'Product';
+                    const productBrand = product?.brand || manualBrandName || '';
+
+                    // Create HTML for rich text clipboard
+                    const html = `
+                      <h1>Skit: ${productBrand ? productBrand + ' ' : ''}${productName}</h1>
+                      <h2>Hook</h2>
+                      <p><em>"${currentSkit.hook_line}"</em></p>
+                      <h2>Scenes</h2>
+                      ${currentSkit.beats.map((b, i) => `
+                        <h3>Scene ${i + 1} (${b.t})</h3>
+                        <p><strong>Action:</strong> ${b.action}</p>
+                        ${b.dialogue ? `<p><strong>Dialogue:</strong> <em>"${b.dialogue}"</em></p>` : ''}
+                        ${b.on_screen_text ? `<p><strong>On-screen:</strong> ${b.on_screen_text}</p>` : ''}
+                      `).join('')}
+                      <h2>CTA</h2>
+                      <p><strong>Spoken:</strong> ${currentSkit.cta_line}</p>
+                      <p><strong>Overlay:</strong> ${currentSkit.cta_overlay}</p>
+                      <h2>B-Roll Suggestions</h2>
+                      <ol>${currentSkit.b_roll.map(b => `<li>${b}</li>`).join('')}</ol>
+                      <h2>Text Overlays</h2>
+                      <ol>${currentSkit.overlays.map(o => `<li>${o}</li>`).join('')}</ol>
+                      ${aiScore ? `<h2>AI Score: ${aiScore.overall_score.toFixed(1)}/10</h2>` : ''}
+                    `;
+
+                    // Also create plain text fallback
+                    const plainText = `SKIT: ${productBrand ? productBrand + ' ' : ''}${productName}\n\nHOOK:\n${currentSkit.hook_line}\n\nSCENES:\n${currentSkit.beats.map((b, i) => `Scene ${i + 1}: ${b.action}`).join('\n')}\n\nCTA: ${currentSkit.cta_line}`;
+
+                    try {
+                      await navigator.clipboard.write([
+                        new ClipboardItem({
+                          'text/html': new Blob([html], { type: 'text/html' }),
+                          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+                        }),
+                      ]);
+                      setCopiedField('gdocs');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    } catch {
+                      // Fallback to plain text copy
+                      await navigator.clipboard.writeText(plainText);
+                      setCopiedField('gdocs');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    }
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: copiedField === 'gdocs' ? '#d3f9d8' : colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: colors.text,
+                    fontWeight: 500,
+                  }}
+                  title="Copy formatted text - paste into Google Docs"
+                >
+                  {copiedField === 'gdocs' ? 'Copied!' : 'Copy for Docs'}
+                </button>
+
+                {/* Download Word Doc */}
+                <button
+                  onClick={async () => {
+                    const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+                    const productName = product?.name || manualProductName || 'Product';
+                    const productBrand = product?.brand || manualBrandName || '';
+                    const title = `${productBrand ? productBrand + ' ' : ''}${productName} Skit`;
+
+                    const children: Paragraph[] = [];
+
+                    // Title
+                    children.push(new Paragraph({
+                      text: title,
+                      heading: HeadingLevel.HEADING_1,
+                      spacing: { after: 200 },
+                    }));
+
+                    // Hook
+                    children.push(new Paragraph({
+                      text: 'HOOK',
+                      heading: HeadingLevel.HEADING_2,
+                      spacing: { before: 300, after: 100 },
+                    }));
+                    children.push(new Paragraph({
+                      children: [new TextRun({ text: `"${currentSkit.hook_line}"`, italics: true })],
+                      spacing: { after: 200 },
+                    }));
+
+                    // Scenes
+                    children.push(new Paragraph({
+                      text: 'SCENES',
+                      heading: HeadingLevel.HEADING_2,
+                      spacing: { before: 300, after: 100 },
+                    }));
+                    currentSkit.beats.forEach((beat, idx) => {
+                      children.push(new Paragraph({
+                        text: `Scene ${idx + 1} [${beat.t}]`,
+                        heading: HeadingLevel.HEADING_3,
+                        spacing: { before: 200 },
+                      }));
+                      children.push(new Paragraph({
+                        children: [
+                          new TextRun({ text: 'Action: ', bold: true }),
+                          new TextRun({ text: beat.action }),
+                        ],
+                      }));
+                      if (beat.dialogue) {
+                        children.push(new Paragraph({
+                          children: [
+                            new TextRun({ text: 'Dialogue: ', bold: true }),
+                            new TextRun({ text: `"${beat.dialogue}"`, italics: true }),
+                          ],
+                        }));
+                      }
+                      if (beat.on_screen_text) {
+                        children.push(new Paragraph({
+                          children: [
+                            new TextRun({ text: 'On-screen: ', bold: true }),
+                            new TextRun({ text: beat.on_screen_text }),
+                          ],
+                        }));
+                      }
+                    });
+
+                    // CTA
+                    children.push(new Paragraph({
+                      text: 'CALL TO ACTION',
+                      heading: HeadingLevel.HEADING_2,
+                      spacing: { before: 300, after: 100 },
+                    }));
+                    children.push(new Paragraph({
+                      children: [
+                        new TextRun({ text: 'Spoken: ', bold: true }),
+                        new TextRun({ text: currentSkit.cta_line }),
+                      ],
+                    }));
+                    children.push(new Paragraph({
+                      children: [
+                        new TextRun({ text: 'Overlay: ', bold: true }),
+                        new TextRun({ text: currentSkit.cta_overlay }),
+                      ],
+                    }));
+
+                    // B-Roll
+                    if (currentSkit.b_roll.length > 0) {
+                      children.push(new Paragraph({
+                        text: 'B-ROLL SUGGESTIONS',
+                        heading: HeadingLevel.HEADING_2,
+                        spacing: { before: 300, after: 100 },
+                      }));
+                      currentSkit.b_roll.forEach((item, idx) => {
+                        children.push(new Paragraph({
+                          text: `${idx + 1}. ${item}`,
+                          bullet: { level: 0 },
+                        }));
+                      });
+                    }
+
+                    // Overlays
+                    if (currentSkit.overlays.length > 0) {
+                      children.push(new Paragraph({
+                        text: 'TEXT OVERLAYS',
+                        heading: HeadingLevel.HEADING_2,
+                        spacing: { before: 300, after: 100 },
+                      }));
+                      currentSkit.overlays.forEach((item, idx) => {
+                        children.push(new Paragraph({
+                          text: `${idx + 1}. ${item}`,
+                          bullet: { level: 0 },
+                        }));
+                      });
+                    }
+
+                    // AI Score
+                    if (aiScore) {
+                      children.push(new Paragraph({
+                        text: 'AI SCORE',
+                        heading: HeadingLevel.HEADING_2,
+                        spacing: { before: 300, after: 100 },
+                      }));
+                      children.push(new Paragraph({
+                        children: [
+                          new TextRun({ text: `Overall: ${aiScore.overall_score.toFixed(1)}/10`, bold: true, size: 28 }),
+                        ],
+                      }));
+                      children.push(new Paragraph({
+                        text: `Hook: ${aiScore.hook_strength}/10 | Humor: ${aiScore.humor_level}/10 | Product: ${aiScore.product_integration}/10 | Virality: ${aiScore.virality_potential}/10`,
+                        spacing: { before: 100 },
+                      }));
+                    }
+
+                    const doc = new Document({
+                      sections: [{ children }],
+                    });
+
+                    const blob = await Packer.toBlob(doc);
+                    saveAs(blob, `skit-${Date.now()}.docx`);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: '#2563eb',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: 'white',
+                    fontWeight: 500,
+                  }}
+                >
+                  Download .docx
                 </button>
               </div>
 
@@ -3972,6 +4217,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                         { key: 'humor_level', label: 'Humor' },
                         { key: 'product_integration', label: 'Product Fit' },
                         { key: 'virality_potential', label: 'Virality' },
+                        { key: 'audience_language', label: 'Voice' },
                         { key: 'clarity', label: 'Clarity' },
                         { key: 'production_feasibility', label: 'Feasibility' },
                       ].map(({ key, label }) => {
@@ -4311,6 +4557,67 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 >
                   Save to Library
                 </button>
+
+                {/* Send to Video Queue - only show after saving to library */}
+                {savedSkitId && !linkedVideoId && (
+                  <button
+                    onClick={handleSendToVideo}
+                    disabled={sendingToVideo}
+                    style={{
+                      width: '100%',
+                      marginTop: '8px',
+                      padding: '12px 20px',
+                      backgroundColor: sendingToVideo ? colors.surface2 : '#6366f1',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: sendingToVideo ? 'default' : 'pointer',
+                      opacity: sendingToVideo ? 0.7 : 1,
+                    }}
+                  >
+                    {sendingToVideo ? 'Sending to Queue...' : 'Send to Video Queue'}
+                  </button>
+                )}
+
+                {/* Show linked video info */}
+                {linkedVideoId && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    backgroundColor: colors.surface2,
+                    borderRadius: '6px',
+                    border: `1px solid ${colors.border}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ color: '#10b981', fontSize: '16px' }}>&#10003;</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: colors.text }}>
+                        Video Created
+                      </span>
+                    </div>
+                    {linkedVideoCode && (
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
+                        Code: {linkedVideoCode}
+                      </div>
+                    )}
+                    <Link
+                      href={`/admin/pipeline/${linkedVideoId}`}
+                      style={{
+                        display: 'inline-block',
+                        padding: '8px 12px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        color: colors.text,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      View in Pipeline
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
             );
@@ -4320,26 +4627,34 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
 
       {/* Save to Library Modal */}
       {saveModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: colors.card,
-            borderRadius: '8px',
-            padding: '24px',
-            width: '400px',
-            maxWidth: '90vw',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-          }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setSaveModalOpen(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setSaveModalOpen(false)}
+          tabIndex={-1}
+        >
+          <div
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: '8px',
+              padding: '24px',
+              width: '400px',
+              maxWidth: '90vw',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 style={{ margin: '0 0 16px 0', color: colors.text }}>Save to Library</h3>
 
             {/* Show which variation is being saved */}
@@ -4506,30 +4821,38 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
 
       {/* Load from Library Modal */}
       {loadModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: colors.card,
-            borderRadius: '8px',
-            padding: '24px',
-            width: '600px',
-            maxWidth: '90vw',
-            maxHeight: '80vh',
-            overflow: 'hidden',
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
             display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-          }}>
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setLoadModalOpen(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setLoadModalOpen(false)}
+          tabIndex={-1}
+        >
+          <div
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: '8px',
+              padding: '24px',
+              width: '600px',
+              maxWidth: '90vw',
+              maxHeight: '80vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: colors.text }}>Load from Library</h3>
               <button

@@ -40,6 +40,7 @@ interface AIScoreResponse {
   virality_potential: number;
   clarity: number;
   production_feasibility: number;
+  audience_language: number;
   overall_score: number;
   strengths: string[];
   improvements: string[];
@@ -110,7 +111,13 @@ EVALUATION CRITERIA (score each 1-10):
    - 7-8: Achievable with basic equipment and planning
    - 9-10: Can shoot this with a phone in an afternoon
 
-OVERALL SCORE: Weighted average emphasizing hook (25%), humor (20%), product integration (20%), virality (20%), clarity (10%), feasibility (5%).
+7. AUDIENCE LANGUAGE: Does this sound like how the target customer actually talks?
+   - 1-3: Corporate-speak, forced humor, unnatural phrasing, no one talks like this
+   - 4-6: Somewhat natural but has awkward moments or generic language
+   - 7-8: Authentic voice, sounds like a real person, relatable phrasing
+   - 9-10: Perfectly captures how the target demographic speaks, slang and all
+
+OVERALL SCORE: Weighted average emphasizing hook (20%), humor (20%), product integration (20%), virality (15%), audience language (15%), clarity (5%), feasibility (5%).
 
 Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 {
@@ -120,6 +127,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
   "virality_potential": <1-10>,
   "clarity": <1-10>,
   "production_feasibility": <1-10>,
+  "audience_language": <1-10>,
   "overall_score": <1-10>,
   "strengths": ["specific strength 1", "specific strength 2", "specific strength 3"],
   "improvements": ["actionable improvement 1", "actionable improvement 2", "actionable improvement 3"]
@@ -262,7 +270,8 @@ function validateScoreStructure(score: unknown): score is AIScoreResponse {
 
   const numberFields = [
     'hook_strength', 'humor_level', 'product_integration',
-    'virality_potential', 'clarity', 'production_feasibility', 'overall_score'
+    'virality_potential', 'clarity', 'production_feasibility',
+    'audience_language', 'overall_score'
   ];
 
   for (const field of numberFields) {

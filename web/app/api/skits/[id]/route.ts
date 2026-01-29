@@ -15,16 +15,29 @@ const AIScoreSchema = z.object({
   virality_potential: z.number().min(1).max(10),
   clarity: z.number().min(1).max(10),
   production_feasibility: z.number().min(1).max(10),
+  audience_language: z.number().min(1).max(10).optional(),
   overall_score: z.number().min(1).max(10),
   strengths: z.array(z.string()),
   improvements: z.array(z.string()),
 });
+
+const PerformanceMetricsSchema = z.object({
+  view_count: z.number().int().min(0).optional(),
+  engagement_rate: z.number().min(0).max(100).optional(),
+  likes: z.number().int().min(0).optional(),
+  comments: z.number().int().min(0).optional(),
+  shares: z.number().int().min(0).optional(),
+}).optional().nullable();
 
 const UpdateSkitSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   status: z.enum(['draft', 'approved', 'produced', 'posted', 'archived']).optional(),
   user_rating: z.number().int().min(1).max(5).optional().nullable(),
   ai_score: AIScoreSchema.optional().nullable(),
+  is_winner: z.boolean().optional(),
+  performance_metrics: PerformanceMetricsSchema,
+  posted_video_url: z.string().url().optional().nullable(),
+  marked_winner_at: z.string().datetime().optional().nullable(),
 }).strict();
 
 // --- GET: Fetch a single skit ---

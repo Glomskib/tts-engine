@@ -44,6 +44,7 @@ const AIScoreSchema = z.object({
   virality_potential: z.number().min(1).max(10),
   clarity: z.number().min(1).max(10),
   production_feasibility: z.number().min(1).max(10),
+  audience_language: z.number().min(1).max(10).optional(),
   overall_score: z.number().min(1).max(10),
   strengths: z.array(z.string()),
   improvements: z.array(z.string()),
@@ -158,7 +159,7 @@ export async function GET(request: Request) {
   try {
     let query = supabaseAdmin
       .from("saved_skits")
-      .select("id, title, status, product_name, product_brand, user_rating, ai_score, created_at, updated_at", { count: "exact" })
+      .select("id, title, status, product_name, product_brand, user_rating, ai_score, created_at, updated_at, video_id, is_winner, performance_metrics, posted_video_url", { count: "exact" })
       .eq("user_id", authContext.user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -171,6 +172,12 @@ export async function GET(request: Request) {
     // Search by title (case-insensitive)
     if (search && search.trim()) {
       query = query.ilike("title", `%${search.trim()}%`);
+    }
+
+    // Filter by winners
+    const winnersOnly = searchParams.get("winners_only");
+    if (winnersOnly === "true") {
+      query = query.eq("is_winner", true);
     }
 
     const { data, error, count } = await query;

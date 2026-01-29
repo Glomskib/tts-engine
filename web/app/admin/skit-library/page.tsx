@@ -39,9 +39,18 @@ interface AIScore {
   virality_potential: number;
   clarity: number;
   production_feasibility: number;
+  audience_language: number;
   overall_score: number;
   strengths: string[];
   improvements: string[];
+}
+
+interface PerformanceMetrics {
+  view_count?: number;
+  engagement_rate?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
 }
 
 interface SavedSkit {
@@ -56,6 +65,11 @@ interface SavedSkit {
   updated_at: string;
   skit_data?: SkitData;
   generation_config?: Record<string, unknown>;
+  video_id?: string | null;
+  is_winner?: boolean;
+  performance_metrics?: PerformanceMetrics | null;
+  posted_video_url?: string | null;
+  marked_winner_at?: string | null;
 }
 
 interface Pagination {
@@ -147,6 +161,18 @@ export default function SkitLibraryPage() {
   // Duplicate
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
+  // Send to Video
+  const [sendingToVideoId, setSendingToVideoId] = useState<string | null>(null);
+
+  // Winners
+  const [winnerModalOpen, setWinnerModalOpen] = useState(false);
+  const [winnerSkitId, setWinnerSkitId] = useState<string | null>(null);
+  const [winnerViewCount, setWinnerViewCount] = useState("");
+  const [winnerEngagement, setWinnerEngagement] = useState("");
+  const [winnerVideoUrl, setWinnerVideoUrl] = useState("");
+  const [savingWinner, setSavingWinner] = useState(false);
+  const [showWinnersOnly, setShowWinnersOnly] = useState(false);
+
   // Load preferences from localStorage on mount
   useEffect(() => {
     try {
@@ -181,6 +207,7 @@ export default function SkitLibraryPage() {
     params.set("offset", String((currentPage - 1) * ITEMS_PER_PAGE));
     if (statusFilter) params.set("status", statusFilter);
     if (debouncedSearchTerm.trim()) params.set("search", debouncedSearchTerm.trim());
+    if (showWinnersOnly) params.set("winners_only", "true");
 
     try {
       const res = await fetch(`/api/skits?${params.toString()}`);
@@ -231,7 +258,7 @@ export default function SkitLibraryPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax]);
+  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly]);
 
   useEffect(() => {
     fetchSkits();
@@ -239,12 +266,12 @@ export default function SkitLibraryPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax]);
+  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly]);
 
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax]);
+  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly]);
 
   const handleExpand = async (skitId: string) => {
     if (expandedId === skitId) {
@@ -430,6 +457,129 @@ export default function SkitLibraryPage() {
     }
   };
 
+  // Send skit to video queue
+  const handleSendToVideo = async (skitId: string) => {
+    const skit = skits.find(s => s.id === skitId);
+    if (!skit || skit.video_id) return;
+
+    setSendingToVideoId(skitId);
+    try {
+      const res = await fetch(`/api/skits/${skitId}/send-to-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority: "normal" }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.data) {
+        // Update the skit in the list to show it has a linked video
+        setSkits(prev => prev.map(s =>
+          s.id === skitId ? { ...s, video_id: data.data.video_id, status: "produced" as const } : s
+        ));
+        // Also update expanded skit if it's this one
+        if (expandedSkit && expandedSkit.id === skitId) {
+          setExpandedSkit({ ...expandedSkit, video_id: data.data.video_id, status: "produced" });
+        }
+      } else {
+        setError(data.error || "Failed to create video from skit");
+      }
+    } catch {
+      setError("Failed to send skit to video queue");
+    } finally {
+      setSendingToVideoId(null);
+    }
+  };
+
+  // Open winner modal
+  const openWinnerModal = (skitId: string) => {
+    const skit = skits.find(s => s.id === skitId);
+    setWinnerSkitId(skitId);
+    setWinnerViewCount(skit?.performance_metrics?.view_count?.toString() || "");
+    setWinnerEngagement(skit?.performance_metrics?.engagement_rate?.toString() || "");
+    setWinnerVideoUrl(skit?.posted_video_url || "");
+    setWinnerModalOpen(true);
+  };
+
+  // Save winner status
+  const handleSaveWinner = async () => {
+    if (!winnerSkitId) return;
+
+    setSavingWinner(true);
+    try {
+      const metrics: PerformanceMetrics = {};
+      if (winnerViewCount) metrics.view_count = parseInt(winnerViewCount, 10);
+      if (winnerEngagement) metrics.engagement_rate = parseFloat(winnerEngagement);
+
+      const res = await fetch(`/api/skits/${winnerSkitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          is_winner: true,
+          performance_metrics: Object.keys(metrics).length > 0 ? metrics : null,
+          posted_video_url: winnerVideoUrl || null,
+          marked_winner_at: new Date().toISOString(),
+        }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        // Update the skit in the list
+        setSkits(prev => prev.map(s =>
+          s.id === winnerSkitId ? {
+            ...s,
+            is_winner: true,
+            performance_metrics: Object.keys(metrics).length > 0 ? metrics : null,
+            posted_video_url: winnerVideoUrl || null,
+          } : s
+        ));
+        // Update expanded skit if it's this one
+        if (expandedSkit && expandedSkit.id === winnerSkitId) {
+          setExpandedSkit({
+            ...expandedSkit,
+            is_winner: true,
+            performance_metrics: Object.keys(metrics).length > 0 ? metrics : null,
+            posted_video_url: winnerVideoUrl || null,
+          });
+        }
+        setWinnerModalOpen(false);
+      } else {
+        setError(data.error || "Failed to mark as winner");
+      }
+    } catch {
+      setError("Failed to save winner status");
+    } finally {
+      setSavingWinner(false);
+    }
+  };
+
+  // Remove winner status
+  const handleRemoveWinner = async (skitId: string) => {
+    try {
+      const res = await fetch(`/api/skits/${skitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          is_winner: false,
+          performance_metrics: null,
+          posted_video_url: null,
+          marked_winner_at: null,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        setSkits(prev => prev.map(s =>
+          s.id === skitId ? { ...s, is_winner: false, performance_metrics: null, posted_video_url: null } : s
+        ));
+        if (expandedSkit && expandedSkit.id === skitId) {
+          setExpandedSkit({ ...expandedSkit, is_winner: false, performance_metrics: null, posted_video_url: null });
+        }
+      }
+    } catch {
+      setError("Failed to remove winner status");
+    }
+  };
+
   const handleScoreSkit = async (skitId: string) => {
     if (!expandedSkit?.skit_data) return;
 
@@ -566,19 +716,61 @@ export default function SkitLibraryPage() {
 
   return (
     <div style={containerStyle}>
+      {/* Breadcrumb Navigation */}
+      <nav style={{ marginBottom: "12px", fontSize: "13px" }}>
+        <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: "none" }}>
+          Admin
+        </Link>
+        <span style={{ color: colors.textMuted, margin: "0 8px" }}>/</span>
+        <span style={{ color: colors.text, fontWeight: 500 }}>Skit Library</span>
+      </nav>
+
       {/* Header */}
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 600, color: colors.text, margin: 0 }}>
-          Skit Library
-          {!loading && (
-            <span style={{ fontSize: "16px", fontWeight: 400, color: colors.textMuted, marginLeft: "8px" }}>
-              ({totalCount} skit{totalCount !== 1 ? "s" : ""})
-            </span>
-          )}
-        </h1>
-        <p style={{ fontSize: "14px", color: colors.textMuted, marginTop: "4px" }}>
-          Browse, manage, and reuse your saved skits
-        </p>
+      <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h1 style={{ fontSize: "24px", fontWeight: 600, color: colors.text, margin: 0 }}>
+            Skit Library
+            {!loading && (
+              <span style={{ fontSize: "16px", fontWeight: 400, color: colors.textMuted, marginLeft: "8px" }}>
+                ({totalCount} skit{totalCount !== 1 ? "s" : ""})
+              </span>
+            )}
+          </h1>
+          <p style={{ fontSize: "14px", color: colors.textMuted, marginTop: "4px" }}>
+            Browse, manage, and reuse your saved skits
+          </p>
+        </div>
+        {/* Quick Nav Links */}
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <Link
+            href="/admin/skit-generator"
+            style={{
+              padding: "8px 14px",
+              backgroundColor: "#059669",
+              color: "white",
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontSize: "13px",
+              fontWeight: 500,
+            }}
+          >
+            Create New Skit
+          </Link>
+          <Link
+            href="/admin/pipeline"
+            style={{
+              padding: "8px 14px",
+              backgroundColor: colors.card,
+              border: `1px solid ${colors.border}`,
+              color: colors.text,
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontSize: "13px",
+            }}
+          >
+            Video Pipeline
+          </Link>
+        </div>
       </div>
 
       {/* Stats Dashboard */}
@@ -668,6 +860,29 @@ export default function SkitLibraryPage() {
               </option>
             ))}
           </select>
+
+          {/* Winners Filter */}
+          <label style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "8px 12px",
+            backgroundColor: showWinnersOnly ? "#fef3c7" : colors.surface,
+            border: `1px solid ${showWinnersOnly ? "#f59e0b" : colors.border}`,
+            borderRadius: "6px",
+            fontSize: "13px",
+            cursor: "pointer",
+            color: showWinnersOnly ? "#b45309" : colors.text,
+            fontWeight: showWinnersOnly ? 600 : 400,
+          }}>
+            <input
+              type="checkbox"
+              checked={showWinnersOnly}
+              onChange={(e) => setShowWinnersOnly(e.target.checked)}
+              style={{ cursor: "pointer" }}
+            />
+            Winners Only
+          </label>
 
           {/* Sort */}
           <select
@@ -865,6 +1080,13 @@ export default function SkitLibraryPage() {
             input:focus, select:focus { border-color: ${colors.accent} !important; box-shadow: 0 0 0 2px ${colors.accent}20 !important; }
             button:hover:not(:disabled) { opacity: 0.9; }
             button:active:not(:disabled) { transform: scale(0.98); }
+
+            /* Mobile Responsive */
+            @media (max-width: 768px) {
+              input, select { font-size: 16px !important; min-height: 44px; }
+              button { min-height: 44px; }
+              .skit-row-right { flex-wrap: wrap; gap: 8px !important; }
+            }
           `}</style>
         </div>
       ) : skits.length === 0 ? (
@@ -917,7 +1139,7 @@ export default function SkitLibraryPage() {
                 </div>
 
                 {/* Right */}
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+                <div className="skit-row-right" style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
                   {/* AI Score Badge */}
                   {skit.ai_score && (
                     <span style={{
@@ -933,6 +1155,49 @@ export default function SkitLibraryPage() {
                              (isDark ? '#6ee7b7' : '#059669'),
                     }}>
                       AI: {skit.ai_score.overall_score.toFixed(1)}
+                    </span>
+                  )}
+                  {/* Video Linked Badge */}
+                  {skit.video_id && (
+                    <Link
+                      href={`/admin/pipeline/${skit.video_id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      title="View linked video in pipeline"
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        backgroundColor: isDark ? "#312e81" : "#eef2ff",
+                        color: isDark ? "#a5b4fc" : "#4f46e5",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <span style={{ fontSize: "10px" }}>&#9658;</span>
+                      Video
+                    </Link>
+                  )}
+                  {/* Winner Badge */}
+                  {skit.is_winner && (
+                    <span
+                      title={skit.performance_metrics?.view_count ? `${skit.performance_metrics.view_count.toLocaleString()} views` : "Top performer"}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        backgroundColor: isDark ? "#854d0e" : "#fef3c7",
+                        color: isDark ? "#fcd34d" : "#b45309",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <span style={{ fontSize: "11px" }}>&#9733;</span>
+                      Winner
                     </span>
                   )}
                   <span style={{ ...getStatusStyle(skit.status, isDark), padding: "4px 10px", borderRadius: "4px", fontSize: "12px", fontWeight: 500, textTransform: "capitalize" }}>
@@ -975,11 +1240,11 @@ export default function SkitLibraryPage() {
                         </div>
                       </div>
 
-                      {/* Beats */}
+                      {/* Scenes */}
                       {expandedSkit.skit_data.beats?.length > 0 && (
                         <div style={{ marginBottom: "16px" }}>
                           <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, textTransform: "uppercase", marginBottom: "6px" }}>
-                            Beats ({expandedSkit.skit_data.beats.length})
+                            Scenes ({expandedSkit.skit_data.beats.length})
                           </div>
                           <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: "6px" }}>
                             {expandedSkit.skit_data.beats.map((beat, idx) => (
@@ -1064,6 +1329,7 @@ export default function SkitLibraryPage() {
                                 { key: 'humor_level', label: 'Humor' },
                                 { key: 'product_integration', label: 'Product Fit' },
                                 { key: 'virality_potential', label: 'Virality' },
+                                { key: 'audience_language', label: 'Voice' },
                                 { key: 'clarity', label: 'Clarity' },
                                 { key: 'production_feasibility', label: 'Feasibility' },
                               ].map(({ key, label }) => {
@@ -1145,6 +1411,62 @@ export default function SkitLibraryPage() {
                           {duplicatingId === skit.id ? "Duplicating..." : "Duplicate"}
                         </button>
 
+                        {/* Create Video Button */}
+                        {skit.video_id ? (
+                          <Link
+                            href={`/admin/pipeline/${skit.video_id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              ...secondaryButtonStyle,
+                              backgroundColor: "#6366f1",
+                              borderColor: "#6366f1",
+                              color: "white",
+                            }}
+                          >
+                            View Video
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleSendToVideo(skit.id); }}
+                            disabled={sendingToVideoId === skit.id || !skit.product_name}
+                            title={!skit.product_name ? "Skit must have a product to create a video" : "Create video from this skit"}
+                            style={{
+                              ...secondaryButtonStyle,
+                              backgroundColor: sendingToVideoId === skit.id ? colors.surface2 : "#059669",
+                              borderColor: sendingToVideoId === skit.id ? colors.border : "#059669",
+                              color: sendingToVideoId === skit.id ? colors.textMuted : "white",
+                              opacity: (!skit.product_name || sendingToVideoId === skit.id) ? 0.6 : 1,
+                              cursor: (!skit.product_name || sendingToVideoId === skit.id) ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {sendingToVideoId === skit.id ? "Creating..." : "Create Video"}
+                          </button>
+                        )}
+
+                        {/* Mark as Winner Button */}
+                        {skit.is_winner ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRemoveWinner(skit.id); }}
+                            style={{
+                              ...secondaryButtonStyle,
+                              backgroundColor: isDark ? "#854d0e" : "#fef3c7",
+                              borderColor: isDark ? "#a16207" : "#fcd34d",
+                              color: isDark ? "#fcd34d" : "#b45309",
+                            }}
+                          >
+                            &#9733; Winner
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openWinnerModal(skit.id); }}
+                            style={{
+                              ...secondaryButtonStyle,
+                            }}
+                          >
+                            Mark Winner
+                          </button>
+                        )}
+
                         {/* Export Dropdown */}
                         <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
                           <select
@@ -1176,8 +1498,8 @@ export default function SkitLibraryPage() {
                                 const md = `# ${expandedSkit.title}\n\n` +
                                   `**Product:** ${productBrand}${productName}\n\n` +
                                   `## Hook\n> ${skitData.hook_line}\n\n` +
-                                  `## Beats\n${skitData.beats?.map((b, i) =>
-                                    `### Beat ${i + 1} (${b.t})\n**Action:** ${b.action}${b.dialogue ? `\n\n*"${b.dialogue}"*` : ""}${b.on_screen_text ? `\n\n**On-screen:** ${b.on_screen_text}` : ""}`
+                                  `## Scenes\n${skitData.beats?.map((b, i) =>
+                                    `### Scene ${i + 1} (${b.t})\n**Action:** ${b.action}${b.dialogue ? `\n\n*"${b.dialogue}"*` : ""}${b.on_screen_text ? `\n\n**On-screen:** ${b.on_screen_text}` : ""}`
                                   ).join("\n\n") || "No beats"}\n\n` +
                                   `## CTA\n**Spoken:** ${skitData.cta_line}\n\n**Overlay:** ${skitData.cta_overlay}\n\n` +
                                   `## B-Roll Suggestions\n${skitData.b_roll?.map((b, i) => `${i + 1}. ${b}`).join("\n") || "None"}\n\n` +
@@ -1244,6 +1566,41 @@ export default function SkitLibraryPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Linked Video Section */}
+                      {expandedSkit?.video_id && (
+                        <div style={{
+                          marginTop: "12px",
+                          padding: "12px",
+                          backgroundColor: colors.surface2,
+                          borderRadius: "6px",
+                          border: `1px solid ${colors.border}`,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ color: "#6366f1", fontSize: "14px" }}>&#9658;</span>
+                              <span style={{ fontSize: "13px", fontWeight: 600, color: colors.text }}>
+                                Linked Video
+                              </span>
+                            </div>
+                            <Link
+                              href={`/admin/pipeline/${expandedSkit.video_id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                padding: "6px 12px",
+                                backgroundColor: "#6366f1",
+                                color: "white",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                textDecoration: "none",
+                              }}
+                            >
+                              View in Pipeline
+                            </Link>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div style={{ padding: "24px", textAlign: "center", color: colors.textMuted }}>Could not load details</div>
@@ -1277,6 +1634,129 @@ export default function SkitLibraryPage() {
             >
               Next
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Winner Modal */}
+      {winnerModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setWinnerModalOpen(false)}
+          onKeyDown={(e) => e.key === "Escape" && setWinnerModalOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: "12px",
+              padding: "24px",
+              width: "400px",
+              maxWidth: "90vw",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0", color: colors.text, fontSize: "18px" }}>
+              Mark as Winner
+            </h3>
+            <p style={{ fontSize: "13px", color: colors.textMuted, marginBottom: "16px" }}>
+              Add performance metrics for this winning skit (optional).
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: colors.textMuted, display: "block", marginBottom: "4px" }}>
+                  View Count
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g., 150000"
+                  value={winnerViewCount}
+                  onChange={(e) => setWinnerViewCount(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: colors.textMuted, display: "block", marginBottom: "4px" }}>
+                  Engagement Rate (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="e.g., 8.5"
+                  value={winnerEngagement}
+                  onChange={(e) => setWinnerEngagement(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: colors.textMuted, display: "block", marginBottom: "4px" }}>
+                  Posted Video URL (optional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://tiktok.com/@account/video/..."
+                  value={winnerVideoUrl}
+                  onChange={(e) => setWinnerVideoUrl(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "20px" }}>
+              <button
+                onClick={() => setWinnerModalOpen(false)}
+                style={{
+                  padding: "10px 16px",
+                  backgroundColor: "transparent",
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: "6px",
+                  color: colors.text,
+                  fontSize: "14px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveWinner}
+                disabled={savingWinner}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: savingWinner ? colors.surface2 : "#f59e0b",
+                  border: "none",
+                  borderRadius: "6px",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: savingWinner ? "not-allowed" : "pointer",
+                }}
+              >
+                {savingWinner ? "Saving..." : "Mark as Winner"}
+              </button>
+            </div>
           </div>
         </div>
       )}

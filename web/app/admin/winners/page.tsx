@@ -131,6 +131,7 @@ export default function WinnersPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AIAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Auth check
   useEffect(() => {
@@ -271,6 +272,7 @@ export default function WinnersPage() {
       hook_style: winner.reference_extracts[0].hook_family,
     } : null));
     setAnalysisError(null);
+    setSaveMessage(null);
   };
 
   // Analyze with AI
@@ -279,32 +281,39 @@ export default function WinnersPage() {
 
     setAnalyzing(true);
     setAnalysisError(null);
+    setSaveMessage(null);
+
+    const payload = {
+      transcript: editForm.transcript.trim(),
+      metrics: {
+        views: editForm.views ? parseInt(editForm.views, 10) : undefined,
+        likes: editForm.likes ? parseInt(editForm.likes, 10) : undefined,
+        comments: editForm.comments ? parseInt(editForm.comments, 10) : undefined,
+        shares: editForm.shares ? parseInt(editForm.shares, 10) : undefined,
+      },
+    };
+
+    console.log("[Winners] Analyzing:", { transcriptLength: payload.transcript.length, metrics: payload.metrics });
 
     try {
       const res = await fetch("/api/ai/analyze-winner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcript: editForm.transcript.trim(),
-          metrics: {
-            views: editForm.views ? parseInt(editForm.views, 10) : undefined,
-            likes: editForm.likes ? parseInt(editForm.likes, 10) : undefined,
-            comments: editForm.comments ? parseInt(editForm.comments, 10) : undefined,
-            shares: editForm.shares ? parseInt(editForm.shares, 10) : undefined,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
+      console.log("[Winners] Analysis response:", { ok: data.ok, hasAnalysis: !!data.data?.analysis, error: data.error });
 
       if (data.ok && data.data?.analysis) {
         setAnalysisResult(data.data.analysis);
         setAnalysisError(null);
       } else {
-        setAnalysisError(data.error || "Analysis failed");
+        setAnalysisError(data.error || "Analysis failed - no data returned");
       }
     } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : "Failed to analyze");
+      console.error("[Winners] Analysis error:", err);
+      setAnalysisError(err instanceof Error ? err.message : "Network error - check console");
     } finally {
       setAnalyzing(false);
     }
@@ -315,11 +324,43 @@ export default function WinnersPage() {
     if (!editingWinner) return;
 
     setEditSaving(true);
+    setSaveMessage(null);
+    setAnalysisError(null);
+
     try {
-      const payload: Record<string, unknown> = {
-        transcript_text: editForm.transcript.trim() || undefined,
-        category: editForm.category || undefined,
-      };
+      // Build payload with all fields
+      const payload: Record<string, unknown> = {};
+
+      // Transcript
+      if (editForm.transcript.trim()) {
+        payload.transcript_text = editForm.transcript.trim();
+      }
+
+      // Category
+      if (editForm.category) {
+        payload.category = editForm.category;
+      }
+
+      // Metrics (convert strings to numbers)
+      if (editForm.views) {
+        payload.views = parseInt(editForm.views, 10);
+      }
+      if (editForm.likes) {
+        payload.likes = parseInt(editForm.likes, 10);
+      }
+      if (editForm.comments) {
+        payload.comments = parseInt(editForm.comments, 10);
+      }
+      if (editForm.shares) {
+        payload.shares = parseInt(editForm.shares, 10);
+      }
+
+      // AI Analysis (if we have one)
+      if (analysisResult) {
+        payload.ai_analysis = analysisResult;
+      }
+
+      console.log("[Winners] Saving:", payload);
 
       const res = await fetch(`/api/winners/${editingWinner.id}`, {
         method: "PATCH",
@@ -327,13 +368,26 @@ export default function WinnersPage() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+      console.log("[Winners] Save response:", data);
+
+      if (!res.ok || !data.ok) {
+        setSaveMessage({ type: "error", text: data.error || "Failed to save" });
+        return;
+      }
+
+      setSaveMessage({ type: "success", text: data.message || "Saved successfully" });
+
+      // Close modal and refresh after brief delay
+      setTimeout(() => {
         setEditingWinner(null);
         setAnalysisResult(null);
+        setSaveMessage(null);
         fetchWinners();
-      }
-    } catch {
-      setAnalysisError("Failed to save");
+      }, 1000);
+    } catch (err) {
+      console.error("[Winners] Save error:", err);
+      setSaveMessage({ type: "error", text: err instanceof Error ? err.message : "Network error" });
     } finally {
       setEditSaving(false);
     }
@@ -686,7 +740,7 @@ export default function WinnersPage() {
               padding: "20px",
               zIndex: 50,
             }}
-            onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); }}
+            onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); setSaveMessage(null); }}
           >
             <div
               style={{
@@ -714,7 +768,7 @@ export default function WinnersPage() {
                   </a>
                 </div>
                 <button
-                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); }}
+                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); setSaveMessage(null); }}
                   style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer", padding: "4px" }}
                 >
                   ×
@@ -809,6 +863,21 @@ export default function WinnersPage() {
                   </div>
                 )}
 
+                {/* Save Message */}
+                {saveMessage && (
+                  <div style={{
+                    padding: "12px",
+                    backgroundColor: saveMessage.type === "success" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                    border: `1px solid ${saveMessage.type === "success" ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)"}`,
+                    borderRadius: "6px",
+                    marginBottom: "16px",
+                  }}>
+                    <div style={{ fontSize: "12px", fontWeight: 500, color: saveMessage.type === "success" ? "#10b981" : "#ef4444" }}>
+                      {saveMessage.text}
+                    </div>
+                  </div>
+                )}
+
                 {/* Analysis Results */}
                 {analysisResult && (
                   <div style={{
@@ -882,7 +951,7 @@ export default function WinnersPage() {
                 </button>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
-                    onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); }}
+                    onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); setSaveMessage(null); }}
                     style={secondaryButtonStyle}
                   >
                     Cancel

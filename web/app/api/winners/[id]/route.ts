@@ -74,61 +74,38 @@ export async function PATCH(
   const updates = body as Record<string, unknown>;
 
   try {
-    // Check if adding a transcript
-    if (updates.transcript_text && typeof updates.transcript_text === "string") {
-      const transcript = updates.transcript_text.trim();
-
-      if (transcript) {
-        // Save transcript asset
-        await supabaseAdmin
-          .from("reference_assets")
-          .upsert({
-            reference_video_id: id,
-            asset_type: "transcript",
-            transcript_text: transcript,
-          }, {
-            onConflict: "reference_video_id,asset_type"
-          });
-
-        // Update status and trigger extraction
-        await supabaseAdmin
-          .from("reference_videos")
-          .update({ status: "processing" })
-          .eq("id", id);
-
-        // Trigger extraction async
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000";
-
-        fetch(`${baseUrl}/api/winners/extract`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-correlation-id": correlationId,
-          },
-          body: JSON.stringify({
-            reference_video_id: id,
-            transcript_text: transcript,
-          }),
-        }).catch(err => {
-          console.error(`[${correlationId}] Extraction trigger failed:`, err);
-        });
-
-        return NextResponse.json({
-          ok: true,
-          message: "Transcript added, extraction started",
-          correlation_id: correlationId,
-        });
-      }
-    }
-
-    // Handle other updates
-    const allowedFields = ["notes", "category", "status"];
+    // Build update payload
+    const allowedFields = ["notes", "category", "status", "views", "likes", "comments", "shares", "ai_analysis", "transcript_text"];
     const updatePayload: Record<string, unknown> = {};
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
         updatePayload[field] = updates[field];
+      }
+    }
+
+    // Check if adding/updating a transcript
+    const transcript = typeof updates.transcript_text === "string" ? updates.transcript_text.trim() : null;
+    let triggerExtraction = false;
+
+    if (transcript) {
+      // Save transcript to reference_assets as well
+      await supabaseAdmin
+        .from("reference_assets")
+        .upsert({
+          reference_video_id: id,
+          asset_type: "transcript",
+          transcript_text: transcript,
+        }, {
+          onConflict: "reference_video_id,asset_type"
+        });
+
+      // Set status to processing if no AI analysis provided (triggers extraction)
+      if (!updates.ai_analysis) {
+        updatePayload.status = "processing";
+        triggerExtraction = true;
+      } else {
+        // If AI analysis provided, mark as ready
+        updatePayload.status = "ready";
       }
     }
 
@@ -153,9 +130,31 @@ export async function PATCH(
       );
     }
 
+    // Trigger extraction async if we have a new transcript without analysis
+    if (triggerExtraction && transcript) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+
+      fetch(`${baseUrl}/api/winners/extract`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-correlation-id": correlationId,
+        },
+        body: JSON.stringify({
+          reference_video_id: id,
+          transcript_text: transcript,
+        }),
+      }).catch(err => {
+        console.error(`[${correlationId}] Extraction trigger failed:`, err);
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       data,
+      message: triggerExtraction ? "Saved, extraction started" : "Saved",
       correlation_id: correlationId,
     });
 

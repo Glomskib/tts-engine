@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import AppLayout from "@/app/components/AppLayout";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 
 // --- Types ---
@@ -53,32 +54,49 @@ interface ReferenceVideo {
 }
 
 type StatusFilter = "all" | "ready" | "processing" | "needs_data" | "failed";
-type SortOption = "newest" | "oldest" | "quality";
 
 const CATEGORY_OPTIONS = [
   "fitness", "wellness", "beauty", "lifestyle", "food", "tech", "fashion", "comedy", "education", "other",
 ];
 
-function getStatusStyle(status: string, isDark: boolean): { bg: string; text: string; dot: string } {
-  const styles: Record<string, { bg: string; text: string; dot: string }> = {
-    queued: { bg: isDark ? "#374151" : "#f3f4f6", text: isDark ? "#9ca3af" : "#6b7280", dot: "#9ca3af" },
-    needs_file: { bg: isDark ? "#78350f" : "#fef3c7", text: isDark ? "#fcd34d" : "#b45309", dot: "#f59e0b" },
-    needs_transcription: { bg: isDark ? "#78350f" : "#fef3c7", text: isDark ? "#fcd34d" : "#b45309", dot: "#f59e0b" },
-    processing: { bg: isDark ? "#1e3a5f" : "#dbeafe", text: isDark ? "#93c5fd" : "#1d4ed8", dot: "#3b82f6" },
-    ready: { bg: isDark ? "#064e3b" : "#d1fae5", text: isDark ? "#6ee7b7" : "#047857", dot: "#10b981" },
-    failed: { bg: isDark ? "#7f1d1d" : "#fee2e2", text: isDark ? "#fca5a5" : "#dc2626", dot: "#ef4444" },
-  };
-  return styles[status] || styles.queued;
+// Muted status badge colors matching Work Queue
+function getStatusBadgeStyle(status: string): { bg: string; text: string } {
+  switch (status) {
+    case "ready":
+      return { bg: "rgba(16, 185, 129, 0.15)", text: "#10b981" };
+    case "processing":
+      return { bg: "rgba(59, 130, 246, 0.15)", text: "#3b82f6" };
+    case "needs_file":
+    case "needs_transcription":
+      return { bg: "rgba(245, 158, 11, 0.15)", text: "#f59e0b" };
+    case "failed":
+      return { bg: "rgba(239, 68, 68, 0.15)", text: "#ef4444" };
+    default:
+      return { bg: "rgba(107, 114, 128, 0.15)", text: "#6b7280" };
+  }
+}
+
+function getStatusLabel(status: string): string {
+  if (status === "needs_file" || status === "needs_transcription") return "Needs Data";
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-function truncateUrl(url: string, maxLen = 40): string {
-  if (url.length <= maxLen) return url;
-  return url.slice(0, maxLen) + "...";
+function truncateUrl(url: string, maxLen = 50): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    if (path.length > maxLen - 15) {
+      return parsed.hostname + path.slice(0, maxLen - 18) + "...";
+    }
+    return parsed.hostname + path;
+  } catch {
+    return url.length > maxLen ? url.slice(0, maxLen - 3) + "..." : url;
+  }
 }
 
 export default function WinnersPage() {
@@ -93,14 +111,11 @@ export default function WinnersPage() {
   const [winners, setWinners] = useState<ReferenceVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   // Submit form
   const [submitUrl, setSubmitUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Edit modal
   const [editingWinner, setEditingWinner] = useState<ReferenceVideo | null>(null);
@@ -115,6 +130,7 @@ export default function WinnersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AIAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Auth check
   useEffect(() => {
@@ -178,21 +194,9 @@ export default function WinnersPage() {
   const stats = useMemo(() => {
     const total = winners.length;
     const ready = winners.filter(w => w.status === "ready").length;
-    const avgQuality = winners.reduce((sum, w) => {
-      const score = w.reference_extracts?.[0]?.quality_score;
-      return score ? sum + score : sum;
-    }, 0) / (winners.filter(w => w.reference_extracts?.[0]?.quality_score).length || 1);
-
-    const hookFamilies: Record<string, number> = {};
-    winners.forEach(w => {
-      const family = w.reference_extracts?.[0]?.hook_family;
-      if (family) {
-        hookFamilies[family] = (hookFamilies[family] || 0) + 1;
-      }
-    });
-    const topHookStyle = Object.entries(hookFamilies).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
-
-    return { total, ready, avgQuality: Math.round(avgQuality), topHookStyle };
+    const pending = winners.filter(w => w.status === "needs_file" || w.status === "needs_transcription" || w.status === "processing").length;
+    const failed = winners.filter(w => w.status === "failed").length;
+    return { total, ready, pending, failed };
   }, [winners]);
 
   // Filtered winners
@@ -207,35 +211,21 @@ export default function WinnersPage() {
       }
     }
 
-    if (categoryFilter) {
-      result = result.filter(w => w.category === categoryFilter);
-    }
-
-    if (sortBy === "newest") {
-      result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (sortBy === "oldest") {
-      result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    } else if (sortBy === "quality") {
-      result.sort((a, b) => {
-        const scoreA = a.reference_extracts?.[0]?.quality_score || 0;
-        const scoreB = b.reference_extracts?.[0]?.quality_score || 0;
-        return scoreB - scoreA;
-      });
-    }
+    // Sort by date descending
+    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return result;
-  }, [winners, statusFilter, categoryFilter, sortBy]);
+  }, [winners, statusFilter]);
 
   // Submit winner
   const handleSubmit = async () => {
     if (!submitUrl.trim()) {
-      setSubmitError("Please enter a TikTok URL");
+      setSubmitMessage({ type: "error", text: "Please enter a URL" });
       return;
     }
 
     setSubmitting(true);
-    setSubmitError(null);
-    setSubmitSuccess(false);
+    setSubmitMessage(null);
 
     try {
       const res = await fetch("/api/winners/submit", {
@@ -250,16 +240,16 @@ export default function WinnersPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        setSubmitError(data.error || "Failed to submit");
+        setSubmitMessage({ type: "error", text: data.error || "Failed to submit" });
         return;
       }
 
       setSubmitUrl("");
-      setSubmitSuccess(true);
-      setTimeout(() => setSubmitSuccess(false), 3000);
+      setSubmitMessage({ type: "success", text: "Winner added. Click to add transcript." });
+      setTimeout(() => setSubmitMessage(null), 5000);
       fetchWinners();
     } catch {
-      setSubmitError("Network error");
+      setSubmitMessage({ type: "error", text: "Network error" });
     } finally {
       setSubmitting(false);
     }
@@ -276,10 +266,11 @@ export default function WinnersPage() {
       shares: winner.shares?.toString() || "",
       category: winner.category || "",
     });
-    setAnalysisResult(winner.ai_analysis || winner.reference_extracts?.[0] ? {
-      hook_line: winner.reference_extracts?.[0]?.spoken_hook,
-      hook_style: winner.reference_extracts?.[0]?.hook_family,
-    } : null);
+    setAnalysisResult(winner.ai_analysis || (winner.reference_extracts?.[0] ? {
+      hook_line: winner.reference_extracts[0].spoken_hook,
+      hook_style: winner.reference_extracts[0].hook_family,
+    } : null));
+    setAnalysisError(null);
   };
 
   // Analyze with AI
@@ -287,6 +278,8 @@ export default function WinnersPage() {
     if (!editingWinner || !editForm.transcript.trim()) return;
 
     setAnalyzing(true);
+    setAnalysisError(null);
+
     try {
       const res = await fetch("/api/ai/analyze-winner", {
         method: "POST",
@@ -303,13 +296,15 @@ export default function WinnersPage() {
       });
 
       const data = await res.json();
+
       if (data.ok && data.data?.analysis) {
         setAnalysisResult(data.data.analysis);
+        setAnalysisError(null);
       } else {
-        setSubmitError(data.error || "Analysis failed");
+        setAnalysisError(data.error || "Analysis failed");
       }
-    } catch {
-      setSubmitError("Failed to analyze");
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : "Failed to analyze");
     } finally {
       setAnalyzing(false);
     }
@@ -326,12 +321,6 @@ export default function WinnersPage() {
         category: editForm.category || undefined,
       };
 
-      // If we have analysis, include it
-      if (analysisResult) {
-        // The /api/winners endpoint might not support all these fields
-        // but we'll try to update what we can
-      }
-
       const res = await fetch(`/api/winners/${editingWinner.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -344,7 +333,7 @@ export default function WinnersPage() {
         fetchWinners();
       }
     } catch {
-      setSubmitError("Failed to save");
+      setAnalysisError("Failed to save");
     } finally {
       setEditSaving(false);
     }
@@ -367,48 +356,58 @@ export default function WinnersPage() {
     }
   };
 
-  // Styles
-  const containerStyle: React.CSSProperties = {
-    padding: "24px",
-    maxWidth: "1000px",
-    margin: "0 auto",
-    minHeight: "100%",
+  // Styles matching Work Queue
+  const tableStyle: React.CSSProperties = {
+    width: "100%",
+    borderCollapse: "collapse",
+    backgroundColor: colors.surface,
+    borderRadius: "10px",
+    overflow: "hidden",
   };
 
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: "12px",
-    marginBottom: "16px",
+  const thStyle: React.CSSProperties = {
+    padding: "12px 16px",
+    textAlign: "left",
+    backgroundColor: colors.surface,
+    color: colors.textMuted,
+    fontSize: "11px",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    borderBottom: `1px solid ${colors.border}`,
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: "12px 16px",
+    borderBottom: `1px solid ${colors.border}`,
+    color: colors.text,
+    fontSize: "13px",
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: "10px 14px",
-    fontSize: "14px",
+    padding: "8px 12px",
     border: `1px solid ${colors.border}`,
-    borderRadius: "8px",
-    backgroundColor: colors.input,
+    borderRadius: "6px",
+    backgroundColor: colors.surface,
     color: colors.text,
+    fontSize: "13px",
     outline: "none",
     width: "100%",
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: 600,
+    padding: "8px 16px",
+    fontSize: "13px",
+    fontWeight: 500,
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "6px",
     cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-    transition: "all 0.15s ease",
+    transition: "opacity 0.15s",
   };
 
   const primaryButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: "#1f2937",
+    backgroundColor: colors.accent,
     color: "#fff",
   };
 
@@ -419,546 +418,488 @@ export default function WinnersPage() {
     border: `1px solid ${colors.border}`,
   };
 
-  const statCardStyle: React.CSSProperties = {
-    padding: "16px",
-    borderRadius: "10px",
-    textAlign: "center" as const,
-  };
-
   // Loading
   if (authLoading) {
     return (
-      <div style={{ ...containerStyle, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ color: colors.textMuted }}>Loading...</div>
-      </div>
+      <AppLayout>
+        <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}>
+          Loading...
+        </div>
+      </AppLayout>
     );
   }
 
   // Forbidden
   if (!authUser) {
     return (
-      <div style={{ ...containerStyle, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center" }}>
-          <h1 style={{ fontSize: "24px", color: "#ef4444", marginBottom: "8px" }}>Access Denied</h1>
-          <p style={{ color: colors.textMuted, marginBottom: "16px" }}>Admin access required.</p>
-          <Link href="/login" style={{ color: colors.accent }}>Sign In</Link>
+      <AppLayout>
+        <div style={{ padding: "40px", textAlign: "center" }}>
+          <div style={{ color: "#ef4444", fontSize: "18px", marginBottom: "8px" }}>Access Denied</div>
+          <div style={{ color: colors.textMuted }}>Admin access required.</div>
+          <Link href="/login" style={{ color: colors.accent, marginTop: "16px", display: "inline-block" }}>Sign In</Link>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div style={containerStyle}>
-      {/* Breadcrumb */}
-      <nav style={{ marginBottom: "12px", fontSize: "13px" }}>
-        <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: "none" }}>Admin</Link>
-        <span style={{ color: colors.textMuted, margin: "0 8px" }}>/</span>
-        <span style={{ color: colors.text, fontWeight: 500 }}>Winners Bank</span>
-      </nav>
-
-      {/* Header */}
-      <div style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <span style={{ fontSize: "32px" }}>🏆</span>
-          <h1 style={{ fontSize: "28px", fontWeight: 700, color: colors.text, margin: 0 }}>Winners Bank</h1>
-        </div>
-        <p style={{ fontSize: "15px", color: colors.textMuted }}>
-          Import winning TikToks to train AI on what works
-        </p>
-      </div>
-
-      {/* Stats Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "24px" }}>
-        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#374151" : "#f8fafc" }}>
-          <div style={{ fontSize: "28px", fontWeight: 700, color: colors.text }}>{stats.total}</div>
-          <div style={{ fontSize: "12px", color: colors.textMuted, marginTop: "4px" }}>Total Winners</div>
-        </div>
-        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#064e3b" : "#d1fae5" }}>
-          <div style={{ fontSize: "28px", fontWeight: 700, color: isDark ? "#6ee7b7" : "#047857" }}>{stats.ready}</div>
-          <div style={{ fontSize: "12px", color: isDark ? "#6ee7b7" : "#047857", marginTop: "4px" }}>Ready to Use</div>
-        </div>
-        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#1e3a5f" : "#dbeafe" }}>
-          <div style={{ fontSize: "28px", fontWeight: 700, color: isDark ? "#93c5fd" : "#1d4ed8" }}>{stats.avgQuality || "—"}</div>
-          <div style={{ fontSize: "12px", color: isDark ? "#93c5fd" : "#1d4ed8", marginTop: "4px" }}>Avg Quality</div>
-        </div>
-        <div style={{ ...statCardStyle, backgroundColor: isDark ? "#581c87" : "#f3e8ff" }}>
-          <div style={{ fontSize: "20px", fontWeight: 700, color: isDark ? "#d8b4fe" : "#7c3aed", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stats.topHookStyle}</div>
-          <div style={{ fontSize: "12px", color: isDark ? "#d8b4fe" : "#7c3aed", marginTop: "4px" }}>Top Hook Style</div>
-        </div>
-      </div>
-
-      {/* Submit Form */}
-      <div style={{ ...cardStyle, padding: "20px" }}>
-        <h2 style={{ fontSize: "16px", fontWeight: 600, color: colors.text, marginBottom: "16px" }}>Add a Winner</h2>
-        <div style={{ display: "flex", gap: "12px" }}>
-          <input
-            type="url"
-            value={submitUrl}
-            onChange={(e) => setSubmitUrl(e.target.value)}
-            placeholder="Paste TikTok URL..."
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !submitUrl.trim()}
-            style={{
-              ...primaryButtonStyle,
-              opacity: submitting || !submitUrl.trim() ? 0.5 : 1,
-              cursor: submitting || !submitUrl.trim() ? "not-allowed" : "pointer",
-            }}
-          >
-            {submitting ? "Adding..." : "Add Winner"}
-          </button>
-        </div>
-        {submitError && (
-          <div style={{ marginTop: "12px", padding: "10px 14px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderRadius: "8px", color: isDark ? "#fca5a5" : "#dc2626", fontSize: "14px" }}>
-            {submitError}
+    <AppLayout>
+      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+          <div>
+            <h1 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              Winners Bank
+            </h1>
+            <p style={{ fontSize: "13px", color: colors.textMuted, marginTop: "4px" }}>
+              Import winning TikToks to train AI on what works
+            </p>
           </div>
-        )}
-        {submitSuccess && (
-          <div style={{ marginTop: "12px", padding: "10px 14px", backgroundColor: isDark ? "#064e3b" : "#d1fae5", borderRadius: "8px", color: isDark ? "#6ee7b7" : "#047857", fontSize: "14px" }}>
-            ✓ Winner added! Click to add transcript and analyze.
-          </div>
-        )}
-        <p style={{ fontSize: "12px", color: colors.textMuted, marginTop: "12px" }}>
-          After adding, click on the winner to paste transcript and run AI analysis.
-        </p>
-      </div>
+        </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "20px", alignItems: "center" }}>
-        {/* Status Pills */}
-        <div style={{ display: "flex", gap: "4px", backgroundColor: colors.card, padding: "4px", borderRadius: "10px", border: `1px solid ${colors.border}` }}>
+        {/* Stats Row */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: "12px",
+          marginBottom: "20px",
+        }}>
+          <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "14px" }}>
+            <div style={{ fontSize: "22px", fontWeight: 600, color: colors.text }}>{stats.total}</div>
+            <div style={{ fontSize: "11px", color: colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Total</div>
+          </div>
+          <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "14px" }}>
+            <div style={{ fontSize: "22px", fontWeight: 600, color: "#10b981" }}>{stats.ready}</div>
+            <div style={{ fontSize: "11px", color: colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Ready</div>
+          </div>
+          <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "14px" }}>
+            <div style={{ fontSize: "22px", fontWeight: 600, color: "#f59e0b" }}>{stats.pending}</div>
+            <div style={{ fontSize: "11px", color: colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Pending</div>
+          </div>
+          <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "14px" }}>
+            <div style={{ fontSize: "22px", fontWeight: 600, color: "#ef4444" }}>{stats.failed}</div>
+            <div style={{ fontSize: "11px", color: colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Failed</div>
+          </div>
+        </div>
+
+        {/* Add Winner Form */}
+        <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "16px", marginBottom: "20px" }}>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <input
+              type="url"
+              value={submitUrl}
+              onChange={(e) => setSubmitUrl(e.target.value)}
+              placeholder="Paste TikTok URL..."
+              style={{ ...inputStyle, flex: 1 }}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !submitUrl.trim()}
+              style={{
+                ...primaryButtonStyle,
+                opacity: submitting || !submitUrl.trim() ? 0.5 : 1,
+                cursor: submitting || !submitUrl.trim() ? "not-allowed" : "pointer",
+              }}
+            >
+              {submitting ? "Adding..." : "Add Winner"}
+            </button>
+          </div>
+          {submitMessage && (
+            <div style={{
+              marginTop: "10px",
+              fontSize: "13px",
+              color: submitMessage.type === "success" ? "#10b981" : "#ef4444",
+            }}>
+              {submitMessage.text}
+            </div>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
           {(["all", "ready", "processing", "needs_data", "failed"] as StatusFilter[]).map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
               style={{
-                padding: "8px 14px",
-                fontSize: "13px",
-                fontWeight: statusFilter === status ? 600 : 400,
-                border: "none",
-                borderRadius: "8px",
+                padding: "6px 14px",
+                fontSize: "12px",
+                fontWeight: 500,
+                border: `1px solid ${statusFilter === status ? colors.accent : colors.border}`,
+                borderRadius: "6px",
                 cursor: "pointer",
-                backgroundColor: statusFilter === status ? "#1f2937" : "transparent",
+                backgroundColor: statusFilter === status ? colors.accent : colors.surface,
                 color: statusFilter === status ? "#fff" : colors.text,
-                transition: "all 0.15s ease",
+                transition: "all 0.15s",
               }}
             >
-              {status === "all" ? "All" : status === "ready" ? "Ready" : status === "processing" ? "Processing" : status === "needs_data" ? "Needs Data" : "Failed"}
+              {status === "all" ? "All" : status === "needs_data" ? "Needs Data" : status.charAt(0).toUpperCase() + status.slice(1)}
             </button>
           ))}
+          <span style={{ marginLeft: "auto", fontSize: "12px", color: colors.textMuted, alignSelf: "center" }}>
+            {filteredWinners.length} winner{filteredWinners.length !== 1 ? "s" : ""}
+          </span>
         </div>
 
-        {/* Category */}
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          style={{ ...inputStyle, width: "auto", minWidth: "140px" }}
-        >
-          <option value="">All Categories</option>
-          {CATEGORY_OPTIONS.map((cat) => (
-            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-          ))}
-        </select>
+        {/* Winners Table */}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "48px", color: colors.textMuted }}>Loading...</div>
+        ) : filteredWinners.length === 0 ? (
+          <div style={{
+            backgroundColor: colors.surface,
+            border: `1px solid ${colors.border}`,
+            borderRadius: "8px",
+            padding: "48px",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "8px" }}>
+              {winners.length === 0 ? "No winners yet" : "No matching winners"}
+            </div>
+            <div style={{ fontSize: "12px", color: colors.textMuted }}>
+              {winners.length === 0 ? "Add your first TikTok URL above to get started." : "Try adjusting your filters."}
+            </div>
+          </div>
+        ) : (
+          <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "10px", overflow: "hidden" }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Video URL</th>
+                  <th style={thStyle}>Hook Preview</th>
+                  <th style={thStyle}>Category</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Quality</th>
+                  <th style={thStyle}>Date</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredWinners.map((winner) => {
+                  const badgeStyle = getStatusBadgeStyle(winner.status);
+                  const extract = winner.reference_extracts?.[0];
 
-        {/* Sort */}
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortOption)}
-          style={{ ...inputStyle, width: "auto", minWidth: "140px" }}
-        >
-          <option value="newest">Newest First</option>
-          <option value="oldest">Oldest First</option>
-          <option value="quality">Highest Quality</option>
-        </select>
-
-        <span style={{ marginLeft: "auto", fontSize: "13px", color: colors.textMuted }}>
-          {filteredWinners.length} winner{filteredWinners.length !== 1 ? "s" : ""}
-        </span>
-      </div>
-
-      {/* Winners List */}
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "48px", color: colors.textMuted }}>Loading winners...</div>
-      ) : filteredWinners.length === 0 ? (
-        <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
-          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏆</div>
-          <h3 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, marginBottom: "8px" }}>
-            {winners.length === 0 ? "No winners yet" : "No matches found"}
-          </h3>
-          <p style={{ color: colors.textMuted, marginBottom: "20px" }}>
-            {winners.length === 0
-              ? "Import your first winning TikTok to start training the AI."
-              : "Try adjusting your filters."}
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {filteredWinners.map((winner) => {
-            const statusStyle = getStatusStyle(winner.status, isDark);
-            const extract = winner.reference_extracts?.[0];
-
-            return (
-              <div
-                key={winner.id}
-                onClick={() => openEditModal(winner)}
-                style={{
-                  ...cardStyle,
-                  padding: "16px 20px",
-                  cursor: "pointer",
-                  marginBottom: 0,
-                  transition: "box-shadow 0.15s ease, transform 0.1s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
-                  {/* Icon */}
-                  <div style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "10px",
-                    background: "linear-gradient(135deg, #ec4899, #ef4444)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    fontSize: "20px",
-                    flexShrink: 0,
-                  }}>
-                    ▶
-                  </div>
-
-                  {/* Content */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
-                      <a
-                        href={winner.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ color: colors.accent, fontSize: "14px", fontWeight: 500, textDecoration: "none" }}
-                      >
-                        {truncateUrl(winner.url)}
-                      </a>
-                      {winner.category && (
-                        <span style={{ padding: "2px 8px", backgroundColor: colors.surface, borderRadius: "4px", fontSize: "11px", color: colors.textMuted }}>
-                          {winner.category}
+                  return (
+                    <tr
+                      key={winner.id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => openEditModal(winner)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      <td style={tdStyle}>
+                        <span style={{
+                          padding: "4px 10px",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                          backgroundColor: badgeStyle.bg,
+                          color: badgeStyle.text,
+                        }}>
+                          {getStatusLabel(winner.status)}
                         </span>
-                      )}
-                    </div>
+                      </td>
+                      <td style={tdStyle}>
+                        <a
+                          href={winner.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: colors.accent, textDecoration: "none", fontSize: "12px", fontFamily: "monospace" }}
+                        >
+                          {truncateUrl(winner.url)}
+                        </a>
+                      </td>
+                      <td style={{ ...tdStyle, maxWidth: "250px" }}>
+                        {extract?.spoken_hook ? (
+                          <span style={{ color: colors.text, fontSize: "12px" }} title={extract.spoken_hook}>
+                            &ldquo;{extract.spoken_hook.slice(0, 60)}{extract.spoken_hook.length > 60 ? "..." : ""}&rdquo;
+                          </span>
+                        ) : (
+                          <span style={{ color: colors.textMuted, fontSize: "12px", fontStyle: "italic" }}>
+                            Click to add transcript
+                          </span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ color: colors.textMuted, fontSize: "12px" }}>
+                          {winner.category || "—"}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        {extract?.quality_score != null ? (
+                          <span style={{
+                            fontWeight: 600,
+                            fontSize: "13px",
+                            color: extract.quality_score >= 80 ? "#10b981" : extract.quality_score >= 60 ? "#f59e0b" : colors.textMuted,
+                          }}>
+                            {extract.quality_score}
+                          </span>
+                        ) : (
+                          <span style={{ color: colors.textMuted }}>—</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ color: colors.textMuted, fontSize: "12px" }}>
+                          {formatDate(winner.created_at)}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(winner.id); }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: colors.textMuted,
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            padding: "4px 8px",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = colors.textMuted; }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-                    {extract?.spoken_hook ? (
-                      <p style={{ fontSize: "14px", color: colors.text, margin: 0, lineHeight: 1.4 }}>
-                        &ldquo;{extract.spoken_hook.slice(0, 100)}{extract.spoken_hook.length > 100 ? "..." : ""}&rdquo;
-                      </p>
-                    ) : (
-                      <p style={{ fontSize: "14px", color: colors.textMuted, fontStyle: "italic", margin: 0 }}>
-                        Click to add transcript and analyze
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Right side */}
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      padding: "4px 10px",
-                      borderRadius: "6px",
-                      backgroundColor: statusStyle.bg,
-                      color: statusStyle.text,
-                      fontSize: "12px",
-                      fontWeight: 500,
-                    }}>
-                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: statusStyle.dot }} />
-                      {winner.status === "needs_file" || winner.status === "needs_transcription" ? "Needs Data" :
-                       winner.status.charAt(0).toUpperCase() + winner.status.slice(1)}
-                    </div>
-                    {extract?.quality_score != null && (
-                      <div style={{
-                        marginTop: "6px",
-                        fontSize: "20px",
-                        fontWeight: 700,
-                        color: extract.quality_score >= 80 ? "#10b981" : extract.quality_score >= 60 ? "#f59e0b" : colors.textMuted,
-                      }}>
-                        {extract.quality_score}
-                      </div>
-                    )}
-                    <div style={{ fontSize: "12px", color: colors.textMuted, marginTop: "4px" }}>
-                      {formatDate(winner.created_at)}
-                    </div>
-                  </div>
-                </div>
-
-                {winner.error_message && (
-                  <div style={{ marginTop: "12px", padding: "8px 12px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderRadius: "6px", fontSize: "12px", color: isDark ? "#fca5a5" : "#dc2626" }}>
-                    Error: {winner.error_message}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {editingWinner && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            zIndex: 50,
-          }}
-          onClick={() => {
-            setEditingWinner(null);
-            setAnalysisResult(null);
-          }}
-        >
+        {/* Edit Modal */}
+        {editingWinner && (
           <div
             style={{
-              backgroundColor: colors.card,
-              borderRadius: "16px",
-              maxWidth: "600px",
-              width: "100%",
-              maxHeight: "90vh",
-              overflow: "auto",
-              boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0,0,0,0.7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 50,
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); }}
           >
-            {/* Modal Header */}
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${colors.border}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h3 style={{ fontSize: "18px", fontWeight: 600, color: colors.text, margin: 0 }}>Edit Winner</h3>
+            <div
+              style={{
+                backgroundColor: colors.card,
+                border: `1px solid ${colors.border}`,
+                borderRadius: "12px",
+                maxWidth: "600px",
+                width: "100%",
+                maxHeight: "85vh",
+                overflow: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div style={{ padding: "16px 20px", borderBottom: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "15px", fontWeight: 600, color: colors.text }}>Edit Winner</div>
+                  <a
+                    href={editingWinner.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: "12px", color: colors.accent }}
+                  >
+                    Open in TikTok ↗
+                  </a>
+                </div>
                 <button
-                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); }}
-                  style={{ background: "none", border: "none", fontSize: "24px", color: colors.textMuted, cursor: "pointer" }}
+                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); }}
+                  style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer", padding: "4px" }}
                 >
                   ×
                 </button>
               </div>
-              <a
-                href={editingWinner.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: "13px", color: colors.accent, display: "block", marginTop: "4px" }}
-              >
-                {editingWinner.url} ↗
-              </a>
-            </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: "24px" }}>
-              {/* Transcript */}
-              <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
-                  Transcript <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <textarea
-                  value={editForm.transcript}
-                  onChange={(e) => setEditForm({ ...editForm, transcript: e.target.value })}
-                  placeholder="Paste the video transcript here..."
-                  rows={6}
-                  style={{ ...inputStyle, fontFamily: "monospace", resize: "vertical" }}
-                />
-              </div>
-
-              {/* Metrics Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "20px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Views</label>
-                  <input
-                    type="number"
-                    value={editForm.views}
-                    onChange={(e) => setEditForm({ ...editForm, views: e.target.value })}
-                    placeholder="0"
-                    style={inputStyle}
+              {/* Modal Body */}
+              <div style={{ padding: "20px" }}>
+                {/* Transcript */}
+                <div style={{ marginBottom: "16px" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Transcript
+                  </label>
+                  <textarea
+                    value={editForm.transcript}
+                    onChange={(e) => setEditForm({ ...editForm, transcript: e.target.value })}
+                    placeholder="Paste the video transcript here..."
+                    rows={5}
+                    style={{ ...inputStyle, fontFamily: "monospace", fontSize: "12px", resize: "vertical" }}
                   />
                 </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Likes</label>
-                  <input
-                    type="number"
-                    value={editForm.likes}
-                    onChange={(e) => setEditForm({ ...editForm, likes: e.target.value })}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Comments</label>
-                  <input
-                    type="number"
-                    value={editForm.comments}
-                    onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>Shares</label>
-                  <input
-                    type="number"
-                    value={editForm.shares}
-                    onChange={(e) => setEditForm({ ...editForm, shares: e.target.value })}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
 
-              {/* Category */}
-              <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>Category</label>
-                <select
-                  value={editForm.category}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  style={inputStyle}
-                >
-                  <option value="">Select category...</option>
-                  {CATEGORY_OPTIONS.map((cat) => (
-                    <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Analyze Button */}
-              <button
-                onClick={handleAnalyze}
-                disabled={analyzing || !editForm.transcript.trim()}
-                style={{
-                  ...secondaryButtonStyle,
-                  width: "100%",
-                  justifyContent: "center",
-                  marginBottom: "20px",
-                  backgroundColor: isDark ? "#1e3a5f" : "#dbeafe",
-                  color: isDark ? "#93c5fd" : "#1d4ed8",
-                  border: "none",
-                  opacity: analyzing || !editForm.transcript.trim() ? 0.5 : 1,
-                }}
-              >
-                {analyzing ? "Analyzing..." : "🤖 Analyze with AI"}
-              </button>
-
-              {/* Analysis Results */}
-              {analysisResult && (
-                <div style={{ backgroundColor: isDark ? "#064e3b" : "#ecfdf5", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
-                  <h4 style={{ fontSize: "14px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", marginBottom: "12px" }}>
-                    ✓ AI Analysis Results
-                  </h4>
-
-                  {analysisResult.hook_line && (
-                    <div style={{ marginBottom: "12px" }}>
-                      <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Hook Line</div>
-                      <div style={{ fontSize: "14px", color: colors.text, backgroundColor: colors.card, padding: "10px", borderRadius: "6px" }}>
-                        &ldquo;{analysisResult.hook_line}&rdquo;
-                      </div>
+                {/* Metrics */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+                  {[
+                    { key: "views", label: "Views" },
+                    { key: "likes", label: "Likes" },
+                    { key: "comments", label: "Comments" },
+                    { key: "shares", label: "Shares" },
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>
+                        {label}
+                      </label>
+                      <input
+                        type="number"
+                        value={editForm[key as keyof typeof editForm]}
+                        onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                        placeholder="0"
+                        style={{ ...inputStyle, fontSize: "12px" }}
+                      />
                     </div>
-                  )}
+                  ))}
+                </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
-                    {analysisResult.hook_style && (
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Hook Style</div>
-                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.hook_style}</div>
+                {/* Category */}
+                <div style={{ marginBottom: "16px" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Category
+                  </label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    style={{ ...inputStyle, fontSize: "12px" }}
+                  >
+                    <option value="">Select...</option>
+                    {CATEGORY_OPTIONS.map((cat) => (
+                      <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Analyze Button */}
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing || !editForm.transcript.trim()}
+                  style={{
+                    ...secondaryButtonStyle,
+                    width: "100%",
+                    justifyContent: "center",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "16px",
+                    opacity: analyzing || !editForm.transcript.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {analyzing ? "Analyzing..." : "Analyze with AI"}
+                </button>
+
+                {/* Analysis Error */}
+                {analysisError && (
+                  <div style={{
+                    padding: "12px",
+                    backgroundColor: "rgba(239, 68, 68, 0.1)",
+                    border: "1px solid rgba(239, 68, 68, 0.2)",
+                    borderRadius: "6px",
+                    marginBottom: "16px",
+                  }}>
+                    <div style={{ fontSize: "12px", fontWeight: 500, color: "#ef4444", marginBottom: "4px" }}>Analysis Error</div>
+                    <div style={{ fontSize: "12px", color: "#ef4444" }}>{analysisError}</div>
+                  </div>
+                )}
+
+                {/* Analysis Results */}
+                {analysisResult && (
+                  <div style={{
+                    padding: "14px",
+                    backgroundColor: "rgba(16, 185, 129, 0.08)",
+                    border: "1px solid rgba(16, 185, 129, 0.2)",
+                    borderRadius: "8px",
+                    marginBottom: "16px",
+                  }}>
+                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#10b981", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      AI Analysis
+                    </div>
+
+                    {analysisResult.hook_line && (
+                      <div style={{ marginBottom: "12px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>HOOK LINE</div>
+                        <div style={{ fontSize: "13px", color: colors.text, backgroundColor: colors.surface, padding: "10px", borderRadius: "6px" }}>
+                          &ldquo;{analysisResult.hook_line}&rdquo;
+                        </div>
                       </div>
                     )}
-                    {analysisResult.content_format && (
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Content Format</div>
-                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.content_format}</div>
-                      </div>
-                    )}
-                    {analysisResult.comedy_style && (
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Comedy Style</div>
-                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.comedy_style}</div>
-                      </div>
-                    )}
-                    {analysisResult.target_emotion && (
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Target Emotion</div>
-                        <div style={{ fontSize: "14px", color: colors.text }}>{analysisResult.target_emotion}</div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
+                      {analysisResult.hook_style && (
+                        <div>
+                          <div style={{ fontSize: "10px", fontWeight: 500, color: colors.textMuted, marginBottom: "2px" }}>HOOK STYLE</div>
+                          <div style={{ fontSize: "12px", color: colors.text }}>{analysisResult.hook_style}</div>
+                        </div>
+                      )}
+                      {analysisResult.content_format && (
+                        <div>
+                          <div style={{ fontSize: "10px", fontWeight: 500, color: colors.textMuted, marginBottom: "2px" }}>FORMAT</div>
+                          <div style={{ fontSize: "12px", color: colors.text }}>{analysisResult.content_format}</div>
+                        </div>
+                      )}
+                      {analysisResult.comedy_style && (
+                        <div>
+                          <div style={{ fontSize: "10px", fontWeight: 500, color: colors.textMuted, marginBottom: "2px" }}>COMEDY</div>
+                          <div style={{ fontSize: "12px", color: colors.text }}>{analysisResult.comedy_style}</div>
+                        </div>
+                      )}
+                      {analysisResult.target_emotion && (
+                        <div>
+                          <div style={{ fontSize: "10px", fontWeight: 500, color: colors.textMuted, marginBottom: "2px" }}>EMOTION</div>
+                          <div style={{ fontSize: "12px", color: colors.text }}>{analysisResult.target_emotion}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {analysisResult.what_works && analysisResult.what_works.length > 0 && (
+                      <div style={{ marginTop: "12px" }}>
+                        <div style={{ fontSize: "10px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>WHAT WORKS</div>
+                        <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: colors.text }}>
+                          {analysisResult.what_works.map((item, i) => (
+                            <li key={i} style={{ marginBottom: "2px" }}>{item}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
+                )}
+              </div>
 
-                  {analysisResult.what_works && analysisResult.what_works.length > 0 && (
-                    <div style={{ marginTop: "12px" }}>
-                      <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>What Works</div>
-                      <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "13px", color: colors.text }}>
-                        {analysisResult.what_works.map((item, i) => (
-                          <li key={i} style={{ marginBottom: "4px" }}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {analysisResult.key_phrases && analysisResult.key_phrases.length > 0 && (
-                    <div style={{ marginTop: "12px" }}>
-                      <div style={{ fontSize: "11px", fontWeight: 600, color: isDark ? "#6ee7b7" : "#047857", textTransform: "uppercase", marginBottom: "4px" }}>Key Phrases</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {analysisResult.key_phrases.map((phrase, i) => (
-                          <span key={i} style={{ padding: "4px 8px", backgroundColor: colors.card, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
-                            {phrase}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Error in modal */}
-              {submitError && (
-                <div style={{ padding: "10px 14px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderRadius: "8px", color: isDark ? "#fca5a5" : "#dc2626", fontSize: "14px", marginBottom: "20px" }}>
-                  {submitError}
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div style={{ padding: "16px 24px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button
-                onClick={() => handleDelete(editingWinner.id)}
-                style={{ ...buttonStyle, backgroundColor: "transparent", color: "#ef4444", padding: "8px 12px" }}
-              >
-                Delete
-              </button>
-              <div style={{ display: "flex", gap: "12px" }}>
+              {/* Modal Footer */}
+              <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
                 <button
-                  onClick={() => { setEditingWinner(null); setAnalysisResult(null); }}
-                  style={secondaryButtonStyle}
+                  onClick={() => handleDelete(editingWinner.id)}
+                  style={{ ...buttonStyle, backgroundColor: "transparent", color: "#ef4444", padding: "8px 12px" }}
                 >
-                  Cancel
+                  Delete
                 </button>
-                <button
-                  onClick={handleSave}
-                  disabled={editSaving}
-                  style={{
-                    ...primaryButtonStyle,
-                    opacity: editSaving ? 0.5 : 1,
-                  }}
-                >
-                  {editSaving ? "Saving..." : "Save"}
-                </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); }}
+                    style={secondaryButtonStyle}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={editSaving}
+                    style={{ ...primaryButtonStyle, opacity: editSaving ? 0.5 : 1 }}
+                  >
+                    {editSaving ? "Saving..." : "Save"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </AppLayout>
   );
 }

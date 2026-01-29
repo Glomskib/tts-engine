@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // --- Validation ---
 
 const AnalyzeWinnerSchema = z.object({
-  transcript: z.string().min(10).max(50000),
+  transcript: z.string().min(10, "Transcript must be at least 10 characters").max(50000),
   metrics: z.object({
     views: z.number().int().min(0).optional(),
     likes: z.number().int().min(0).optional(),
@@ -17,37 +17,60 @@ const AnalyzeWinnerSchema = z.object({
   }).optional(),
   creator_handle: z.string().optional(),
   video_url: z.string().url().optional(),
-}).strict();
+});
 
 // --- POST: Analyze winning video transcript ---
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const debugMode = process.env.DEBUG_AI === "true";
 
   // Auth check
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
+    console.log(`[${correlationId}] Unauthorized request to analyze-winner`);
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Check for API key
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return createApiErrorResponse("INTERNAL", "AI service not configured", 500, correlationId);
+    console.error(`[${correlationId}] ANTHROPIC_API_KEY not configured`);
+    return NextResponse.json({
+      ok: false,
+      error: "AI service not configured. Please add ANTHROPIC_API_KEY to environment variables.",
+      correlation_id: correlationId,
+    }, { status: 500 });
   }
 
   // Parse and validate input
   let input: z.infer<typeof AnalyzeWinnerSchema>;
   try {
     const body = await request.json();
+
+    if (debugMode) {
+      console.log(`[${correlationId}] Received analyze request:`, {
+        transcriptLength: body.transcript?.length,
+        hasMetrics: !!body.metrics,
+      });
+    }
+
     input = AnalyzeWinnerSchema.parse(body);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return createApiErrorResponse("VALIDATION_ERROR", "Invalid input", 400, correlationId, {
-        issues: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
-      });
+      const issues = err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
+      console.log(`[${correlationId}] Validation error:`, issues);
+      return NextResponse.json({
+        ok: false,
+        error: `Validation error: ${issues}`,
+        correlation_id: correlationId,
+      }, { status: 400 });
     }
-    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
+    return NextResponse.json({
+      ok: false,
+      error: "Invalid JSON body",
+      correlation_id: correlationId,
+    }, { status: 400 });
   }
 
   try {
@@ -82,6 +105,10 @@ Analyze and extract the following in JSON format:
 
 Return ONLY valid JSON, no markdown or explanation.`;
 
+    if (debugMode) {
+      console.log(`[${correlationId}] Sending request to Anthropic API...`);
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -99,15 +126,46 @@ Return ONLY valid JSON, no markdown or explanation.`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[${correlationId}] Anthropic API error: ${response.status} - ${errorText}`);
-      return createApiErrorResponse("INTERNAL", "AI service error", 500, correlationId);
+
+      // Parse error for better message
+      let errorMessage = `AI API error (${response.status})`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.message) {
+          errorMessage = errorJson.error.message;
+        }
+      } catch {
+        // Use raw text if not JSON
+        if (errorText.length < 200) {
+          errorMessage = errorText;
+        }
+      }
+
+      return NextResponse.json({
+        ok: false,
+        error: errorMessage,
+        correlation_id: correlationId,
+      }, { status: 500 });
     }
 
     const data = await response.json();
 
+    if (debugMode) {
+      console.log(`[${correlationId}] Anthropic response received:`, {
+        hasContent: !!data.content,
+        usage: data.usage,
+      });
+    }
+
     // Extract text response
     const textContent = data.content?.find((c: { type: string }) => c.type === "text");
     if (!textContent || textContent.type !== "text") {
-      return createApiErrorResponse("INTERNAL", "No response from AI", 500, correlationId);
+      console.error(`[${correlationId}] No text content in response:`, data);
+      return NextResponse.json({
+        ok: false,
+        error: "No response from AI - empty content",
+        correlation_id: correlationId,
+      }, { status: 500 });
     }
 
     // Parse JSON response
@@ -125,10 +183,17 @@ Return ONLY valid JSON, no markdown or explanation.`;
         jsonText = jsonText.slice(0, -3);
       }
       analysis = JSON.parse(jsonText.trim());
-    } catch {
-      console.error(`[${correlationId}] Failed to parse AI response:`, textContent.text);
-      return createApiErrorResponse("INTERNAL", "Failed to parse AI analysis", 500, correlationId);
+    } catch (parseErr) {
+      console.error(`[${correlationId}] Failed to parse AI response:`, textContent.text.slice(0, 500));
+      return NextResponse.json({
+        ok: false,
+        error: "Failed to parse AI response as JSON. The AI may have returned invalid formatting.",
+        raw_response: debugMode ? textContent.text.slice(0, 500) : undefined,
+        correlation_id: correlationId,
+      }, { status: 500 });
     }
+
+    console.log(`[${correlationId}] Analysis completed successfully`);
 
     const apiResponse = NextResponse.json({
       ok: true,
@@ -146,11 +211,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
   } catch (error) {
     console.error(`[${correlationId}] Analyze winner error:`, error);
-    return createApiErrorResponse(
-      "INTERNAL",
-      error instanceof Error ? error.message : "Failed to analyze video",
-      500,
-      correlationId
-    );
+
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+    return NextResponse.json({
+      ok: false,
+      error: errorMessage,
+      correlation_id: correlationId,
+    }, { status: 500 });
   }
 }

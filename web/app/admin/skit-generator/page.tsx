@@ -1,12 +1,75 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+
+// --- Helper Functions ---
+
+/** Truncate text with ellipsis, full text available on hover */
+function truncateText(text: string, maxLength: number): string {
+  if (!text || text.length <= maxLength) return text || '';
+  return text.substring(0, maxLength - 3) + '...';
+}
+
+/** Get user-friendly error message with actionable next steps */
+function getActionableErrorMessage(error: ApiClientError): { message: string; action?: string } {
+  const code = error.error_code;
+  const msg = error.message;
+
+  switch (code) {
+    case 'VALIDATION_ERROR':
+      return {
+        message: msg || 'Please check your inputs',
+        action: 'Review the highlighted fields and try again.',
+      };
+    case 'UNAUTHORIZED':
+      return {
+        message: 'Your session has expired',
+        action: 'Please refresh the page and sign in again.',
+      };
+    case 'RATE_LIMITED':
+      return {
+        message: 'Too many requests',
+        action: 'Please wait a moment before trying again.',
+      };
+    case 'AI_ERROR':
+      return {
+        message: msg || 'AI generation failed',
+        action: 'Try adjusting your settings or regenerate.',
+      };
+    case 'PRODUCT_NOT_FOUND':
+      return {
+        message: 'Product not found',
+        action: 'Select a different product or enter details manually.',
+      };
+    default:
+      return {
+        message: msg || 'Something went wrong',
+        action: 'Please try again. If the problem persists, contact support.',
+      };
+  }
+}
+
+/** Estimate reading time for text (words per minute) */
+function estimateReadingTime(text: string, wpm: number = 150): number {
+  if (!text) return 0;
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  return Math.ceil((words / wpm) * 60); // seconds
+}
+
+/** Get character count warning for overlay text */
+function getOverlayCharWarning(text: string, limit: number = 40): string | null {
+  if (!text) return null;
+  if (text.length > limit) {
+    return `${text.length}/${limit} chars - may be truncated on screen`;
+  }
+  return null;
+}
 
 interface AuthUser {
   id: string;
@@ -24,6 +87,58 @@ interface SkitPreset {
   id: string;
   name: string;
   description: string;
+  energy_category: 'neutral' | 'high_energy' | 'deadpan' | 'chaotic' | 'wholesome';
+}
+
+type ActorType = 'human' | 'ai_avatar' | 'voiceover' | 'mixed';
+
+const ACTOR_TYPE_OPTIONS: { value: ActorType; label: string; description: string }[] = [
+  { value: 'human', label: 'Human Actor', description: 'On-camera performer with physical comedy' },
+  { value: 'ai_avatar', label: 'AI Avatar', description: 'AI-generated character, visual gags & text-heavy' },
+  { value: 'voiceover', label: 'Voiceover Only', description: 'Narration over B-roll, no on-camera talent' },
+  { value: 'mixed', label: 'Mixed (Human + AI)', description: 'Combination of human and AI elements' },
+];
+
+const ENERGY_CATEGORY_LABELS: Record<string, string> = {
+  neutral: 'Neutral',
+  high_energy: 'High Energy',
+  deadpan: 'Deadpan',
+  chaotic: 'Chaotic',
+  wholesome: 'Wholesome',
+};
+
+type TargetDuration = 'quick' | 'standard' | 'extended' | 'long';
+
+const DURATION_OPTIONS: { value: TargetDuration; label: string; description: string }[] = [
+  { value: 'quick', label: 'Quick (15-20s)', description: '3-4 beats, ultra-tight pacing' },
+  { value: 'standard', label: 'Standard (30-45s)', description: '5-6 beats, classic TikTok rhythm' },
+  { value: 'extended', label: 'Extended (45-60s)', description: '7-8 beats, room for development' },
+  { value: 'long', label: 'Long Form (60-90s)', description: '9-12 beats, full narrative arc' },
+];
+
+type ContentFormat = 'skit_dialogue' | 'scene_montage' | 'pov_story' | 'product_demo_parody' | 'reaction_commentary' | 'day_in_life';
+
+const CONTENT_FORMAT_OPTIONS: { value: ContentFormat; label: string; description: string }[] = [
+  { value: 'skit_dialogue', label: 'Skit/Dialogue', description: 'Person-to-person comedy scenes with dialogue' },
+  { value: 'scene_montage', label: 'Scene Montage', description: 'Visual scenes with voiceover narration' },
+  { value: 'pov_story', label: 'POV Story', description: 'First-person, natural slice-of-life feel' },
+  { value: 'product_demo_parody', label: 'Product Demo Parody', description: 'Infomercial style with intentional comedy' },
+  { value: 'reaction_commentary', label: 'Reaction/Commentary', description: 'Reacting to something with product tie-in' },
+  { value: 'day_in_life', label: 'Day in the Life', description: 'Following a routine, product naturally integrated' },
+];
+
+const QUICK_ACTIONS = [
+  { id: 'punch_hook', label: 'Punch Up Hook', instruction: 'Make the hook more aggressive and attention-grabbing. It should stop the scroll immediately.' },
+  { id: 'plot_twist', label: 'Add Plot Twist', instruction: 'Add an unexpected plot twist or reversal somewhere in the middle of the skit.' },
+  { id: 'funnier', label: 'Make Funnier', instruction: 'Punch up the comedy throughout. Add more jokes, better punchlines, and funnier moments.' },
+  { id: 'product_focus', label: 'More Product Focus', instruction: 'Make the product integration more prominent and the benefits clearer, while keeping it organic.' },
+];
+
+interface SkitVersion {
+  id: number;
+  result: SkitResult;
+  refinement?: string;
+  timestamp: Date;
 }
 
 interface SkitTemplate {
@@ -32,24 +147,42 @@ interface SkitTemplate {
   description: string;
 }
 
-interface SkitResult {
-  skit: {
-    hook_line: string;
-    beats: Array<{
-      t: string;
-      action: string;
-      dialogue?: string;
-      on_screen_text?: string;
-    }>;
-    cta_line: string;
-    cta_overlay: string;
-    b_roll: string[];
-    overlays: string[];
-  };
+interface SkitData {
+  hook_line: string;
+  beats: Array<{
+    t: string;
+    action: string;
+    dialogue?: string;
+    on_screen_text?: string;
+  }>;
+  cta_line: string;
+  cta_overlay: string;
+  b_roll: string[];
+  overlays: string[];
+}
+
+interface SkitVariation {
+  skit: SkitData;
+  ai_score: AIScore | null;
   risk_tier_applied: 'SAFE' | 'BALANCED' | 'SPICY';
-  risk_score: number;
-  risk_flags: string[];
-  intensity_applied: number;
+  risk_score?: number;
+  risk_flags?: string[];
+  template_validation?: {
+    valid: boolean;
+    issues: string[];
+  };
+}
+
+interface SkitResult {
+  // New variation support
+  variations?: SkitVariation[];
+  variation_count?: number;
+  // Legacy single-skit fields (backward compatible)
+  skit: SkitData;
+  risk_tier_applied: 'SAFE' | 'BALANCED' | 'SPICY';
+  risk_score?: number;
+  risk_flags?: string[];
+  intensity_applied?: number;
   budget_clamped?: boolean;
   preset_intensity_clamped?: boolean;
   preset_id?: string;
@@ -59,10 +192,89 @@ interface SkitResult {
     valid: boolean;
     issues: string[];
   };
+  ai_score?: AIScore | null;
 }
 
 type Persona = 'NONE' | 'DR_PICKLE' | 'CASH_KING' | 'ABSURD_BUDDY' | 'DEADPAN_OFFICE' | 'INFOMERCIAL_CHAOS';
 type RiskTier = 'SAFE' | 'BALANCED' | 'SPICY';
+
+interface SavedSkit {
+  id: string;
+  title: string;
+  status: 'draft' | 'approved' | 'produced' | 'posted' | 'archived';
+  product_name: string | null;
+  product_brand: string | null;
+  user_rating: number | null;
+  created_at: string;
+  updated_at: string;
+  skit_data?: SkitResult['skit'];
+  generation_config?: Record<string, unknown>;
+  ai_score?: AIScore | null;
+}
+
+interface AIScore {
+  hook_strength: number;
+  humor_level: number;
+  product_integration: number;
+  virality_potential: number;
+  clarity: number;
+  production_feasibility: number;
+  overall_score: number;
+  strengths: string[];
+  improvements: string[];
+}
+
+type SkitStatus = 'draft' | 'approved' | 'produced' | 'posted' | 'archived';
+
+const SKIT_STATUS_OPTIONS: { value: SkitStatus; label: string }[] = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'produced', label: 'Produced' },
+  { value: 'posted', label: 'Posted' },
+  { value: 'archived', label: 'Archived' },
+];
+
+// localStorage keys for persisting user preferences
+const SETTINGS_STORAGE_KEY = 'skit-generator-settings';
+const RECENT_PRODUCTS_KEY = 'skit-generator-recent-products';
+const TEMPLATE_FAVORITES_KEY = 'skit-generator-favorites';
+const GENERATION_HISTORY_KEY = 'skit-generator-history';
+
+interface RecentProduct {
+  id: string;
+  name: string;
+  brand: string;
+  usedAt: number; // timestamp
+}
+
+interface TemplateFavorite {
+  id: string;
+  presetId: string;
+  templateId: string;
+  name: string;
+  createdAt: number;
+}
+
+interface GenerationHistoryItem {
+  id: string;
+  result: SkitResult;
+  productName: string;
+  timestamp: number;
+}
+
+interface SavedSettings {
+  actorType: ActorType;
+  targetDuration: TargetDuration;
+  contentFormat: ContentFormat;
+  riskTier: RiskTier;
+  chaosLevel: number;
+  intensity: number;
+  variationCount: number;
+  showAdvanced: boolean;
+  lastProductId?: string;
+  lastProductName?: string;
+  lastBrandName?: string;
+}
 
 export default function SkitGeneratorPage() {
   const router = useRouter();
@@ -86,17 +298,342 @@ export default function SkitGeneratorPage() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [manualProductName, setManualProductName] = useState<string>('');
   const [manualBrandName, setManualBrandName] = useState<string>('');
+  const [actorType, setActorType] = useState<ActorType>('human');
   const [selectedPreset, setSelectedPreset] = useState<string>('NONE');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [riskTier, setRiskTier] = useState<RiskTier>('SAFE');
   const [persona, setPersona] = useState<Persona>('NONE');
   const [intensity, setIntensity] = useState<number>(50);
+  const [chaosLevel, setChaosLevel] = useState<number>(50);
+  const [creativeDirection, setCreativeDirection] = useState<string>('');
+  const [targetDuration, setTargetDuration] = useState<TargetDuration>('standard');
+  const [contentFormat, setContentFormat] = useState<ContentFormat>('skit_dialogue');
+  const [productContext, setProductContext] = useState<string>('');
+  const [variationCount, setVariationCount] = useState<number>(3);
 
   // Result state
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<SkitResult | null>(null);
   const [error, setError] = useState<ApiClientError | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Version history state
+  const [versions, setVersions] = useState<SkitVersion[]>([]);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState<number>(0);
+
+  // Refinement state
+  const [refinementOpen, setRefinementOpen] = useState(false);
+  const [refinementText, setRefinementText] = useState('');
+  const [refining, setRefining] = useState(false);
+
+  // Rating state
+  const [userRating, setUserRating] = useState<number>(0);
+  const [ratingFeedback, setRatingFeedback] = useState('');
+  const [savingRating, setSavingRating] = useState(false);
+  const [ratingSaved, setRatingSaved] = useState(false);
+
+  // Library state
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveTitle, setSaveTitle] = useState('');
+  const [saveStatus, setSaveStatus] = useState<SkitStatus>('draft');
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
+  const [loadModalOpen, setLoadModalOpen] = useState(false);
+  const [savedSkits, setSavedSkits] = useState<SavedSkit[]>([]);
+  const [loadingSkits, setLoadingSkits] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [libraryStatusFilter, setLibraryStatusFilter] = useState<string>('');
+
+  // AI Score state
+  const [aiScore, setAiScore] = useState<AIScore | null>(null);
+  const [scoringInProgress, setScoringInProgress] = useState(false);
+
+  // Variation state
+  const [selectedVariationIndex, setSelectedVariationIndex] = useState(0);
+
+  // Network/retry state
+  const [retryPayload, setRetryPayload] = useState<Record<string, unknown> | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [rateLimitResetTime, setRateLimitResetTime] = useState<Date | null>(null);
+
+  // Inline editing state
+  const [editingSection, setEditingSection] = useState<string | null>(null); // 'hook', 'cta', 'beat-0', etc.
+  const [undoStack, setUndoStack] = useState<{ sectionId: string; previousValue: SkitData }[]>([]);
+  const [editValue, setEditValue] = useState('');
+  const [editDialogue, setEditDialogue] = useState('');
+  const [editOnScreenText, setEditOnScreenText] = useState('');
+  const [improvingSection, setImprovingSection] = useState(false);
+  const [isModified, setIsModified] = useState(false);
+  const [localSkit, setLocalSkit] = useState<SkitData | null>(null);
+
+  // UX state
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [savedSkitId, setSavedSkitId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Recent products state (persisted in localStorage)
+  const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([]);
+
+  // Template favorites state
+  const [templateFavorites, setTemplateFavorites] = useState<TemplateFavorite[]>([]);
+
+  // Generation history (session only - last 10 generations)
+  const [generationHistory, setGenerationHistory] = useState<GenerationHistoryItem[]>([]);
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+
+  // Helper to get current skit data based on selected variation
+  const getCurrentSkit = useCallback((): SkitData | null => {
+    // If we have local modifications, use those
+    if (localSkit) return localSkit;
+    if (!result) return null;
+    const variations = result.variations || [];
+    if (variations.length > 0 && variations[selectedVariationIndex]) {
+      return variations[selectedVariationIndex].skit;
+    }
+    return result.skit;
+  }, [result, selectedVariationIndex, localSkit]);
+
+  // Initialize local skit when result or variation changes
+  useEffect(() => {
+    if (result) {
+      const variations = result.variations || [];
+      if (variations.length > 0 && variations[selectedVariationIndex]) {
+        setLocalSkit(JSON.parse(JSON.stringify(variations[selectedVariationIndex].skit)));
+      } else {
+        setLocalSkit(JSON.parse(JSON.stringify(result.skit)));
+      }
+      setIsModified(false);
+    }
+  }, [result, selectedVariationIndex]);
+
+  // Start editing a section
+  const startEditing = (sectionId: string, content: string, dialogue?: string, onScreenText?: string) => {
+    setEditingSection(sectionId);
+    setEditValue(content);
+    setEditDialogue(dialogue || '');
+    setEditOnScreenText(onScreenText || '');
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingSection(null);
+    setEditValue('');
+    setEditDialogue('');
+    setEditOnScreenText('');
+  };
+
+  // Save manual edit
+  const saveEdit = (sectionId: string) => {
+    if (!localSkit) return;
+
+    // Push current state to undo stack (limit to 10 items)
+    setUndoStack(prev => [...prev.slice(-9), { sectionId, previousValue: JSON.parse(JSON.stringify(localSkit)) }]);
+
+    const updatedSkit = { ...localSkit };
+
+    if (sectionId === 'hook') {
+      updatedSkit.hook_line = editValue;
+    } else if (sectionId === 'cta') {
+      updatedSkit.cta_line = editValue;
+    } else if (sectionId === 'cta_overlay') {
+      updatedSkit.cta_overlay = editValue;
+    } else if (sectionId.startsWith('beat-')) {
+      const beatIndex = parseInt(sectionId.replace('beat-', ''), 10);
+      if (updatedSkit.beats[beatIndex]) {
+        updatedSkit.beats[beatIndex] = {
+          ...updatedSkit.beats[beatIndex],
+          action: editValue,
+          dialogue: editDialogue || undefined,
+          on_screen_text: editOnScreenText || undefined,
+        };
+      }
+    } else if (sectionId.startsWith('broll-')) {
+      const index = parseInt(sectionId.replace('broll-', ''), 10);
+      updatedSkit.b_roll[index] = editValue;
+    } else if (sectionId.startsWith('overlay-')) {
+      const index = parseInt(sectionId.replace('overlay-', ''), 10);
+      updatedSkit.overlays[index] = editValue;
+    }
+
+    setLocalSkit(updatedSkit);
+    setIsModified(true);
+    cancelEditing();
+    setAiScore(null); // Clear score since skit changed
+  };
+
+  // Undo last edit
+  const undoEdit = useCallback(() => {
+    if (undoStack.length === 0) return;
+    const lastUndo = undoStack[undoStack.length - 1];
+    setLocalSkit(lastUndo.previousValue);
+    setUndoStack(prev => prev.slice(0, -1));
+    setIsModified(true);
+  }, [undoStack]);
+
+  // Keyboard shortcuts for editing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to cancel editing
+      if (e.key === 'Escape' && editingSection) {
+        cancelEditing();
+      }
+      // Ctrl/Cmd + Z to undo (only when not in a text input)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !editingSection && undoStack.length > 0) {
+        e.preventDefault();
+        undoEdit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingSection, undoStack, undoEdit]);
+
+  // AI improve section
+  const improveSection = async (sectionId: string, currentContent: string) => {
+    setImprovingSection(true);
+
+    const product = selectedProductId
+      ? products.find(p => p.id === selectedProductId)
+      : null;
+
+    // Determine section type for API
+    let sectionType = 'hook';
+    let beatIndex: number | undefined;
+    if (sectionId === 'hook') sectionType = 'hook';
+    else if (sectionId === 'cta') sectionType = 'cta';
+    else if (sectionId === 'cta_overlay') sectionType = 'cta_overlay';
+    else if (sectionId.startsWith('beat-')) {
+      sectionType = 'beat';
+      beatIndex = parseInt(sectionId.replace('beat-', ''), 10);
+    }
+    else if (sectionId.startsWith('broll-')) sectionType = 'broll';
+    else if (sectionId.startsWith('overlay-')) sectionType = 'overlay';
+
+    try {
+      const res = await fetch('/api/ai/improve-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section_type: sectionType,
+          current_content: currentContent,
+          context: {
+            product_name: product?.name || manualProductName || 'Product',
+            product_brand: product?.brand || manualBrandName,
+            beat_index: beatIndex,
+          },
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok && data.data?.improved) {
+        if (sectionType === 'beat' && typeof data.data.improved === 'object') {
+          setEditValue(data.data.improved.action || currentContent);
+          setEditDialogue(data.data.improved.dialogue || '');
+          setEditOnScreenText(data.data.improved.on_screen_text || '');
+        } else {
+          setEditValue(data.data.improved);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to improve section:', err);
+    } finally {
+      setImprovingSection(false);
+    }
+  };
+
+  // Move beat up or down
+  const moveBeat = (index: number, direction: 'up' | 'down') => {
+    if (!localSkit) return;
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= localSkit.beats.length) return;
+
+    const updatedBeats = [...localSkit.beats];
+    const [removed] = updatedBeats.splice(index, 1);
+    updatedBeats.splice(newIndex, 0, removed);
+
+    // Update timestamps based on new order
+    const updatedBeatsWithTiming = updatedBeats.map((beat, i) => ({
+      ...beat,
+      t: `0:${String((i + 1) * 5).padStart(2, '0')}-0:${String((i + 2) * 5).padStart(2, '0')}`,
+    }));
+
+    setLocalSkit({ ...localSkit, beats: updatedBeatsWithTiming });
+    setIsModified(true);
+    setAiScore(null);
+  };
+
+  // Delete a beat
+  const deleteBeat = (index: number) => {
+    if (!localSkit || localSkit.beats.length <= 1) return;
+
+    const updatedBeats = localSkit.beats.filter((_, i) => i !== index);
+
+    // Update timestamps
+    const updatedBeatsWithTiming = updatedBeats.map((beat, i) => ({
+      ...beat,
+      t: `0:${String((i + 1) * 5).padStart(2, '0')}-0:${String((i + 2) * 5).padStart(2, '0')}`,
+    }));
+
+    setLocalSkit({ ...localSkit, beats: updatedBeatsWithTiming });
+    setIsModified(true);
+    setAiScore(null);
+  };
+
+  // Add a new beat
+  const addBeat = () => {
+    if (!localSkit) return;
+
+    const newBeatIndex = localSkit.beats.length;
+    const newBeat = {
+      t: `0:${String((newBeatIndex + 1) * 5).padStart(2, '0')}-0:${String((newBeatIndex + 2) * 5).padStart(2, '0')}`,
+      action: 'New action here...',
+      dialogue: undefined,
+      on_screen_text: undefined,
+    };
+
+    setLocalSkit({ ...localSkit, beats: [...localSkit.beats, newBeat] });
+    setIsModified(true);
+    setAiScore(null);
+
+    // Open editor for new beat
+    startEditing(`beat-${newBeatIndex}`, newBeat.action);
+  };
+
+  // Add new B-roll item
+  const addBrollItem = () => {
+    if (!localSkit) return;
+    const newIndex = localSkit.b_roll.length;
+    setLocalSkit({ ...localSkit, b_roll: [...localSkit.b_roll, 'New B-roll suggestion...'] });
+    setIsModified(true);
+    setAiScore(null);
+    startEditing(`broll-${newIndex}`, 'New B-roll suggestion...');
+  };
+
+  // Delete B-roll item
+  const deleteBrollItem = (index: number) => {
+    if (!localSkit) return;
+    setLocalSkit({ ...localSkit, b_roll: localSkit.b_roll.filter((_, i) => i !== index) });
+    setIsModified(true);
+    setAiScore(null);
+  };
+
+  // Add new overlay item
+  const addOverlayItem = () => {
+    if (!localSkit) return;
+    const newIndex = localSkit.overlays.length;
+    setLocalSkit({ ...localSkit, overlays: [...localSkit.overlays, 'New overlay text...'] });
+    setIsModified(true);
+    setAiScore(null);
+    startEditing(`overlay-${newIndex}`, 'New overlay text...');
+  };
+
+  // Delete overlay item
+  const deleteOverlayItem = (index: number) => {
+    if (!localSkit) return;
+    setLocalSkit({ ...localSkit, overlays: localSkit.overlays.filter((_, i) => i !== index) });
+    setIsModified(true);
+    setAiScore(null);
+  };
 
   // Check for product_id from URL
   useEffect(() => {
@@ -105,6 +642,202 @@ export default function SkitGeneratorPage() {
       setSelectedProductId(productId);
     }
   }, [searchParams]);
+
+  // Load saved settings from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (saved) {
+        const settings: SavedSettings = JSON.parse(saved);
+        if (settings.actorType) setActorType(settings.actorType);
+        if (settings.targetDuration) setTargetDuration(settings.targetDuration);
+        if (settings.contentFormat) setContentFormat(settings.contentFormat);
+        if (settings.riskTier) setRiskTier(settings.riskTier);
+        if (typeof settings.chaosLevel === 'number') setChaosLevel(settings.chaosLevel);
+        if (typeof settings.intensity === 'number') setIntensity(settings.intensity);
+        if (typeof settings.variationCount === 'number') setVariationCount(settings.variationCount);
+        if (typeof settings.showAdvanced === 'boolean') setShowAdvanced(settings.showAdvanced);
+        // Don't auto-select last product on load if URL has product_id
+        // The URL param takes precedence
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    try {
+      // Get current product info for saving
+      const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+      const settings: SavedSettings = {
+        actorType,
+        targetDuration,
+        contentFormat,
+        riskTier,
+        chaosLevel,
+        intensity,
+        variationCount,
+        showAdvanced,
+        lastProductId: selectedProductId || undefined,
+        lastProductName: product?.name || manualProductName || undefined,
+        lastBrandName: product?.brand || manualBrandName || undefined,
+      };
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [actorType, targetDuration, contentFormat, riskTier, chaosLevel, intensity, variationCount, showAdvanced, selectedProductId, manualProductName, manualBrandName, products]);
+
+  // Load recent products from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(RECENT_PRODUCTS_KEY);
+      if (saved) {
+        const recentList: RecentProduct[] = JSON.parse(saved);
+        setRecentProducts(recentList.slice(0, 5)); // Keep max 5
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  // Load template favorites from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(TEMPLATE_FAVORITES_KEY);
+      if (saved) {
+        setTemplateFavorites(JSON.parse(saved));
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  // Function to track recently used product
+  const trackRecentProduct = useCallback((productId: string, name: string, brand: string) => {
+    setRecentProducts(prev => {
+      // Remove if already exists
+      const filtered = prev.filter(p => p.id !== productId);
+      // Add to front with timestamp
+      const updated = [
+        { id: productId, name, brand, usedAt: Date.now() },
+        ...filtered
+      ].slice(0, 5); // Keep max 5
+
+      // Persist to localStorage
+      try {
+        localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify(updated));
+      } catch {
+        // Ignore
+      }
+
+      return updated;
+    });
+  }, []);
+
+  // Function to toggle template favorite
+  const toggleFavorite = useCallback((presetId: string, templateId: string) => {
+    setTemplateFavorites(prev => {
+      const existingIndex = prev.findIndex(
+        f => f.presetId === presetId && f.templateId === templateId
+      );
+
+      let updated: TemplateFavorite[];
+      if (existingIndex >= 0) {
+        // Remove favorite
+        updated = prev.filter((_, i) => i !== existingIndex);
+      } else {
+        // Add favorite
+        const preset = presets.find(p => p.id === presetId);
+        const template = templates.find(t => t.id === templateId);
+        const name = `${preset?.name || presetId} + ${template?.name || templateId || 'No Template'}`;
+        updated = [
+          ...prev,
+          {
+            id: `${presetId}-${templateId || 'none'}`,
+            presetId,
+            templateId: templateId || '',
+            name,
+            createdAt: Date.now(),
+          }
+        ];
+      }
+
+      // Persist to localStorage
+      try {
+        localStorage.setItem(TEMPLATE_FAVORITES_KEY, JSON.stringify(updated));
+      } catch {
+        // Ignore
+      }
+
+      return updated;
+    });
+  }, [presets, templates]);
+
+  // Check if current combo is favorited
+  const isFavorited = useCallback((presetId: string, templateId: string) => {
+    return templateFavorites.some(
+      f => f.presetId === presetId && f.templateId === (templateId || '')
+    );
+  }, [templateFavorites]);
+
+  // Add generation to history
+  const addToHistory = useCallback((result: SkitResult, productName: string) => {
+    setGenerationHistory(prev => {
+      const updated = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          result,
+          productName,
+          timestamp: Date.now(),
+        },
+        ...prev
+      ].slice(0, 10); // Keep max 10
+      return updated;
+    });
+  }, []);
+
+  // Load a generation from history
+  const loadFromHistory = useCallback((item: GenerationHistoryItem) => {
+    setResult(item.result);
+    setSelectedVariationIndex(0);
+
+    // Reset version history with loaded generation
+    const newVersion: SkitVersion = {
+      id: 1,
+      result: item.result,
+      timestamp: new Date(item.timestamp),
+    };
+    setVersions([newVersion]);
+    setCurrentVersionIndex(0);
+
+    // Set AI score if available
+    const variations = item.result.variations || [];
+    if (variations.length > 0) {
+      setAiScore(variations[0].ai_score || null);
+    } else {
+      setAiScore(item.result.ai_score || null);
+    }
+
+    setShowHistoryDropdown(false);
+  }, []);
+
+  // Keyboard shortcuts (Ctrl+Enter to generate)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Enter or Cmd+Enter to generate
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!generating && (selectedProductId || manualProductName.trim())) {
+          handleGenerate();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [generating, selectedProductId, manualProductName]);
 
   // Fetch auth user
   useEffect(() => {
@@ -174,10 +907,11 @@ export default function SkitGeneratorPage() {
     fetchData();
   }, [authLoading, authUser]);
 
-  // Filter products by selected brand
-  const filteredProducts = selectedBrand
-    ? products.filter(p => p.brand === selectedBrand)
-    : products;
+  // Filter products by selected brand (memoized)
+  const filteredProducts = useMemo(() =>
+    selectedBrand ? products.filter(p => p.brand === selectedBrand) : products,
+    [products, selectedBrand]
+  );
 
   // Auto-select product from URL param
   useEffect(() => {
@@ -199,9 +933,22 @@ export default function SkitGeneratorPage() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (retryWithPayload?: Record<string, unknown>) => {
+    // Check if rate limited
+    if (isRateLimited && rateLimitResetTime && new Date() < rateLimitResetTime) {
+      const secondsRemaining = Math.ceil((rateLimitResetTime.getTime() - Date.now()) / 1000);
+      setError({
+        ok: false,
+        error_code: 'RATE_LIMITED',
+        message: `AI service is busy. Please wait ${secondsRemaining} seconds.`,
+        correlation_id: 'rate_limit_check',
+        httpStatus: 429,
+      });
+      return;
+    }
+
     // Validate: need either product_id or manual product name
-    if (!selectedProductId && !manualProductName.trim()) {
+    if (!retryWithPayload && !selectedProductId && !manualProductName.trim()) {
       setError({
         ok: false,
         error_code: 'VALIDATION_ERROR',
@@ -212,43 +959,520 @@ export default function SkitGeneratorPage() {
       return;
     }
 
+    // Validate manual product name length
+    if (!selectedProductId && manualProductName.trim().length < 3) {
+      setError({
+        ok: false,
+        error_code: 'VALIDATION_ERROR',
+        message: 'Product name must be at least 3 characters',
+        correlation_id: 'client_validation',
+        httpStatus: 400,
+      });
+      return;
+    }
+
     setGenerating(true);
     setError(null);
-    setResult(null);
+    if (!retryWithPayload) {
+      setResult(null);
+    }
+    setIsRateLimited(false);
 
-    const payload: Record<string, unknown> = {
+    const payload: Record<string, unknown> = retryWithPayload || {
       risk_tier: riskTier,
       persona: persona,
       intensity: intensity,
+      chaos_level: chaosLevel,
+      creative_direction: creativeDirection.trim() || undefined,
+      actor_type: actorType,
+      target_duration: targetDuration,
+      content_format: contentFormat,
+      product_context: productContext.trim() || undefined,
+      variation_count: variationCount,
     };
 
-    if (selectedProductId) {
-      payload.product_id = selectedProductId;
-    } else {
-      payload.product_name = manualProductName.trim();
-      if (manualBrandName.trim()) {
-        payload.brand_name = manualBrandName.trim();
+    if (!retryWithPayload) {
+      if (selectedProductId) {
+        payload.product_id = selectedProductId;
+      } else {
+        payload.product_name = manualProductName.trim();
+        if (manualBrandName.trim()) {
+          payload.brand_name = manualBrandName.trim();
+        }
+      }
+
+      if (selectedPreset && selectedPreset !== 'NONE') {
+        payload.preset_id = selectedPreset;
+      }
+
+      if (selectedTemplate) {
+        payload.template_id = selectedTemplate;
       }
     }
 
-    if (selectedPreset && selectedPreset !== 'NONE') {
-      payload.preset_id = selectedPreset;
-    }
+    // Store payload for potential retry
+    setRetryPayload(payload);
 
-    if (selectedTemplate) {
-      payload.template_id = selectedTemplate;
+    let response;
+    try {
+      response = await postJson<SkitResult>('/api/ai/generate-skit', payload);
+    } catch (networkError) {
+      setGenerating(false);
+      setError({
+        ok: false,
+        error_code: 'INTERNAL',
+        message: 'Network error: Unable to reach the server',
+        correlation_id: 'network_error',
+        httpStatus: 0,
+      });
+      return;
     }
-
-    const response = await postJson<SkitResult>('/api/ai/generate-skit', payload);
 
     setGenerating(false);
+
+    if (isApiError(response)) {
+      // Handle rate limiting specially
+      if (response.error_code === 'RATE_LIMITED') {
+        setIsRateLimited(true);
+        setRateLimitResetTime(new Date(Date.now() + 30000)); // 30 second cooldown
+      }
+      setError(response);
+      return;
+    }
+
+    setResult(response.data);
+
+    // Reset version history with new generation
+    const newVersion: SkitVersion = {
+      id: 1,
+      result: response.data,
+      timestamp: new Date(),
+    };
+    setVersions([newVersion]);
+    setCurrentVersionIndex(0);
+
+    // Reset rating state
+    setUserRating(0);
+    setRatingFeedback('');
+    setRatingSaved(false);
+    setRefinementOpen(false);
+    setRefinementText('');
+
+    // Reset variation selection to best (first) variation
+    setSelectedVariationIndex(0);
+
+    // Set AI score from response (use best variation's score)
+    const variations = response.data.variations;
+    if (variations && variations.length > 0) {
+      setAiScore(variations[0].ai_score || null);
+    } else {
+      setAiScore(response.data.ai_score || null);
+    }
+
+    // Track recent product if using product_id
+    if (selectedProductId && !retryWithPayload) {
+      const product = products.find(p => p.id === selectedProductId);
+      if (product) {
+        trackRecentProduct(selectedProductId, product.name, product.brand);
+      }
+    }
+
+    // Add to generation history
+    const productName = selectedProductId
+      ? products.find(p => p.id === selectedProductId)?.name || 'Product'
+      : manualProductName || 'Product';
+    addToHistory(response.data, productName);
+  };
+
+  // Retry last failed generation
+  const handleRetry = () => {
+    if (retryPayload) {
+      handleGenerate(retryPayload);
+    } else {
+      handleGenerate();
+    }
+  };
+
+  // Clear rate limit after timeout
+  useEffect(() => {
+    if (isRateLimited && rateLimitResetTime) {
+      const timeout = setTimeout(() => {
+        if (new Date() >= rateLimitResetTime) {
+          setIsRateLimited(false);
+          setRateLimitResetTime(null);
+        }
+      }, rateLimitResetTime.getTime() - Date.now());
+      return () => clearTimeout(timeout);
+    }
+  }, [isRateLimited, rateLimitResetTime]);
+
+  // Quick Generate - use last settings with minimal config
+  const handleQuickGenerate = () => {
+    // Try to get last used product from localStorage
+    let productId = selectedProductId;
+    let productName = manualProductName;
+
+    if (!productId && !productName.trim()) {
+      try {
+        const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (saved) {
+          const settings: SavedSettings = JSON.parse(saved);
+          if (settings.lastProductId && products.find(p => p.id === settings.lastProductId)) {
+            productId = settings.lastProductId;
+            setSelectedProductId(productId);
+          } else if (settings.lastProductName) {
+            productName = settings.lastProductName;
+            setManualProductName(productName);
+            if (settings.lastBrandName) {
+              setManualBrandName(settings.lastBrandName);
+            }
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    // If still no product, use first product in list
+    if (!productId && !productName.trim() && products.length > 0) {
+      productId = products[0].id;
+      setSelectedProductId(productId);
+    }
+
+    // Now generate
+    if (productId || productName.trim()) {
+      // Small delay to let state updates propagate
+      setTimeout(() => handleGenerate(), 50);
+    } else {
+      setError({
+        ok: false,
+        error_code: 'VALIDATION_ERROR',
+        message: 'Please select a product first to use Quick Generate',
+        correlation_id: 'quick_generate',
+        httpStatus: 400,
+      });
+    }
+  };
+
+  // Handle skit refinement
+  const handleRefine = async (instruction: string) => {
+    if (!result || !instruction.trim()) return;
+
+    setRefining(true);
+    setError(null);
+
+    const product = selectedProductId
+      ? products.find(p => p.id === selectedProductId)
+      : null;
+
+    const currentSkit = getCurrentSkit();
+    if (!currentSkit) return;
+
+    const payload = {
+      current_skit: currentSkit,
+      instruction: instruction.trim(),
+      product_name: product?.name || manualProductName || 'Product',
+      product_brand: product?.brand || manualBrandName || undefined,
+      risk_tier: riskTier,
+    };
+
+    const response = await postJson<SkitResult>('/api/ai/refine-skit', payload);
+
+    setRefining(false);
 
     if (isApiError(response)) {
       setError(response);
       return;
     }
 
+    // Add new version
+    const newVersion: SkitVersion = {
+      id: versions.length + 1,
+      result: response.data,
+      refinement: instruction.trim(),
+      timestamp: new Date(),
+    };
+    setVersions(prev => [...prev, newVersion]);
+    setCurrentVersionIndex(versions.length);
     setResult(response.data);
+    setRefinementText('');
+
+    // Reset rating and score for new version
+    setUserRating(0);
+    setRatingFeedback('');
+    setRatingSaved(false);
+    setAiScore(null);
+  };
+
+  // Handle rating save
+  const handleSaveRating = async () => {
+    if (!result || userRating === 0) return;
+
+    setSavingRating(true);
+
+    const product = selectedProductId
+      ? products.find(p => p.id === selectedProductId)
+      : null;
+
+    const currentSkit = getCurrentSkit();
+    if (!currentSkit) return;
+
+    const payload = {
+      skit_data: currentSkit,
+      rating: userRating,
+      feedback: ratingFeedback.trim() || undefined,
+      product_id: selectedProductId || undefined,
+      product_name: product?.name || manualProductName || undefined,
+      product_brand: product?.brand || manualBrandName || undefined,
+      generation_config: {
+        risk_tier: riskTier,
+        persona,
+        chaos_level: chaosLevel,
+        intensity,
+        actor_type: actorType,
+        target_duration: targetDuration,
+        preset_id: selectedPreset !== 'NONE' ? selectedPreset : undefined,
+        template_id: selectedTemplate || undefined,
+        creative_direction: creativeDirection || undefined,
+      },
+    };
+
+    const response = await postJson('/api/ai/rate-skit', payload);
+
+    setSavingRating(false);
+
+    if (isApiError(response)) {
+      setError(response);
+      return;
+    }
+
+    setRatingSaved(true);
+  };
+
+  // Handle AI score request
+  const handleGetAIScore = async () => {
+    if (!result) return;
+    const currentSkit = getCurrentSkit();
+    if (!currentSkit) return;
+
+    setScoringInProgress(true);
+    setError(null);
+
+    const product = selectedProductId
+      ? products.find(p => p.id === selectedProductId)
+      : null;
+
+    const payload = {
+      skit_data: currentSkit,
+      product_name: product?.name || manualProductName || 'Product',
+      product_brand: product?.brand || manualBrandName || undefined,
+    };
+
+    const response = await postJson<AIScore>('/api/ai/score-skit', payload);
+
+    setScoringInProgress(false);
+
+    if (isApiError(response)) {
+      setError(response);
+      return;
+    }
+
+    setAiScore(response.data);
+  };
+
+  // Switch to a specific version
+  const switchToVersion = (index: number) => {
+    if (index >= 0 && index < versions.length) {
+      setCurrentVersionIndex(index);
+      setResult(versions[index].result);
+      // Reset rating state for this version
+      setUserRating(0);
+      setRatingFeedback('');
+      setRatingSaved(false);
+    }
+  };
+
+  // Open save modal with auto-generated title
+  const openSaveModal = () => {
+    if (!result) return;
+    const currentSkit = getCurrentSkit();
+    if (!currentSkit) return;
+    // Generate default title from hook line
+    const hookLine = currentSkit.hook_line || '';
+    const defaultTitle = hookLine.length > 50
+      ? hookLine.substring(0, 50) + '...'
+      : hookLine || 'Untitled Skit';
+    setSaveTitle(defaultTitle);
+    setSaveStatus('draft');
+    setSaveModalOpen(true);
+    setSavedToLibrary(false);
+  };
+
+  // Save skit to library
+  const handleSaveToLibrary = async () => {
+    if (!result || !saveTitle.trim()) return;
+    const currentSkit = getCurrentSkit();
+    if (!currentSkit) return;
+
+    setSavingToLibrary(true);
+
+    const product = selectedProductId
+      ? products.find(p => p.id === selectedProductId)
+      : null;
+
+    const payload = {
+      title: saveTitle.trim(),
+      skit_data: currentSkit,
+      status: saveStatus,
+      product_id: selectedProductId || undefined,
+      product_name: product?.name || manualProductName || undefined,
+      product_brand: product?.brand || manualBrandName || undefined,
+      user_rating: userRating > 0 ? userRating : undefined,
+      ai_score: aiScore || undefined,
+      generation_config: {
+        risk_tier: riskTier,
+        persona,
+        chaos_level: chaosLevel,
+        intensity,
+        actor_type: actorType,
+        target_duration: targetDuration,
+        content_format: contentFormat,
+        preset_id: selectedPreset !== 'NONE' ? selectedPreset : undefined,
+        template_id: selectedTemplate || undefined,
+        creative_direction: creativeDirection || undefined,
+        variation_count: variationCount,
+        selected_variation_index: selectedVariationIndex,
+        is_modified: isModified,
+      },
+    };
+
+    const response = await postJson<{ id: string }>('/api/skits', payload);
+
+    setSavingToLibrary(false);
+
+    if (isApiError(response)) {
+      setError(response);
+      return;
+    }
+
+    setSavedToLibrary(true);
+    // Store the saved skit ID for the "View in Library" link
+    if (response.data?.id) {
+      setSavedSkitId(response.data.id);
+    }
+    // Don't auto-close - let user see success state and click "View in Library"
+  };
+
+  // Fetch saved skits for library
+  const fetchSavedSkits = async () => {
+    setLoadingSkits(true);
+
+    let url = '/api/skits?limit=50';
+    if (libraryStatusFilter) {
+      url += `&status=${libraryStatusFilter}`;
+    }
+    if (librarySearch.trim()) {
+      url += `&search=${encodeURIComponent(librarySearch.trim())}`;
+    }
+
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (!json.ok) {
+        console.error('Failed to fetch skits:', json);
+        return;
+      }
+
+      setSavedSkits(json.data || []);
+    } catch (err) {
+      console.error('Failed to fetch skits:', err);
+    } finally {
+      setLoadingSkits(false);
+    }
+  };
+
+  // Open load modal and fetch skits
+  const openLoadModal = () => {
+    setLoadModalOpen(true);
+    setLibrarySearch('');
+    setLibraryStatusFilter('');
+    fetchSavedSkits();
+  };
+
+  // Load a skit from library
+  const handleLoadSkit = async (skitId: string) => {
+    try {
+      const res = await fetch(`/api/skits/${skitId}`);
+      const json = await res.json();
+
+      if (!json.ok) {
+        setError({
+          ok: false,
+          error_code: json.error_code || 'INTERNAL',
+          message: json.message || 'Failed to load skit',
+          correlation_id: json.correlation_id || 'unknown',
+          httpStatus: res.status,
+        });
+        return;
+      }
+
+      const skit = json.data as SavedSkit;
+
+      // Set the result
+      if (skit.skit_data) {
+        const loadedResult: SkitResult = {
+          skit: skit.skit_data,
+          risk_tier_applied: (skit.generation_config?.risk_tier as RiskTier) || 'SAFE',
+          intensity_applied: (skit.generation_config?.intensity as number) || 50,
+        };
+        setResult(loadedResult);
+
+        // Reset version history with loaded skit
+        const newVersion: SkitVersion = {
+          id: 1,
+          result: loadedResult,
+          timestamp: new Date(),
+        };
+        setVersions([newVersion]);
+        setCurrentVersionIndex(0);
+      }
+
+      // Restore generation config if available
+      if (skit.generation_config) {
+        const config = skit.generation_config;
+        if (config.risk_tier) setRiskTier(config.risk_tier as RiskTier);
+        if (config.persona) setPersona(config.persona as Persona);
+        if (typeof config.chaos_level === 'number') setChaosLevel(config.chaos_level);
+        if (typeof config.intensity === 'number') setIntensity(config.intensity);
+        if (config.actor_type) setActorType(config.actor_type as ActorType);
+        if (config.target_duration) setTargetDuration(config.target_duration as TargetDuration);
+        if (config.content_format) setContentFormat(config.content_format as ContentFormat);
+        if (config.preset_id) setSelectedPreset(config.preset_id as string);
+        if (config.template_id) setSelectedTemplate(config.template_id as string);
+        if (config.creative_direction) setCreativeDirection(config.creative_direction as string);
+      }
+
+      // Set rating if available
+      if (skit.user_rating) {
+        setUserRating(skit.user_rating);
+      } else {
+        setUserRating(0);
+      }
+      setRatingFeedback('');
+      setRatingSaved(false);
+
+      // Set AI score if available
+      if (skit.ai_score) {
+        setAiScore(skit.ai_score);
+      } else {
+        setAiScore(null);
+      }
+
+      setLoadModalOpen(false);
+    } catch (err) {
+      console.error('Failed to load skit:', err);
+    }
   };
 
   if (authLoading) {
@@ -268,39 +1492,74 @@ export default function SkitGeneratorPage() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div ref={containerRef} style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px' }}>
         <div>
           <h1 style={{ margin: 0, color: colors.text }}>Skit Generator</h1>
           <p style={{ margin: '4px 0 0 0', color: colors.textSecondary, fontSize: '14px' }}>
             Generate AI-powered comedy skits for product marketing
           </p>
         </div>
-        <Link
-          href="/admin/pipeline"
-          style={{
-            padding: '8px 16px',
-            backgroundColor: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '6px',
-            color: colors.text,
-            textDecoration: 'none',
-            fontSize: '14px',
-          }}
-        >
-          Back to Pipeline
-        </Link>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={openLoadModal}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#7c3aed',
+              border: 'none',
+              borderRadius: '6px',
+              color: 'white',
+              fontSize: '14px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            Load from Library
+          </button>
+          <Link
+            href="/admin/skit-library"
+            style={{
+              padding: '8px 16px',
+              backgroundColor: colors.card,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '6px',
+              color: colors.text,
+              textDecoration: 'none',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            View Library
+          </Link>
+          <Link
+            href="/admin/pipeline"
+            style={{
+              padding: '8px 16px',
+              backgroundColor: colors.card,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '6px',
+              color: colors.text,
+              textDecoration: 'none',
+              fontSize: '14px',
+            }}
+          >
+            Back to Pipeline
+          </Link>
+        </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      {/* Main content - responsive grid */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
         {/* Left column: Form */}
         <div style={{
           backgroundColor: colors.card,
           border: `1px solid ${colors.border}`,
           borderRadius: '8px',
           padding: '20px',
+          flex: '1 1 400px',
+          minWidth: '320px',
         }}>
           <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: colors.text }}>Configuration</h2>
 
@@ -315,6 +1574,49 @@ export default function SkitGeneratorPage() {
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
                   Product
                 </h3>
+
+                {/* Recent Products Quick Access */}
+                {recentProducts.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', color: colors.textSecondary, textTransform: 'uppercase' }}>
+                      Recent
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {recentProducts
+                        .filter(rp => products.some(p => p.id === rp.id)) // Only show if product still exists
+                        .map((rp) => (
+                        <button
+                          key={rp.id}
+                          onClick={() => {
+                            setSelectedProductId(rp.id);
+                            setManualProductName('');
+                            setManualBrandName('');
+                            // Also set the brand filter if it matches
+                            if (brands.includes(rp.brand)) {
+                              setSelectedBrand(rp.brand);
+                            }
+                          }}
+                          title={`${rp.name} (${rp.brand})`}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '12px',
+                            backgroundColor: selectedProductId === rp.id ? '#7c3aed' : colors.bg,
+                            color: selectedProductId === rp.id ? 'white' : colors.text,
+                            border: `1px solid ${selectedProductId === rp.id ? '#7c3aed' : colors.border}`,
+                            borderRadius: '16px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '150px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {truncateText(rp.name, 20)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Brand Filter */}
                 <div style={{ marginBottom: '12px' }}>
@@ -370,8 +1672,12 @@ export default function SkitGeneratorPage() {
                   >
                     <option value="">-- Select a Product --</option>
                     {filteredProducts.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} ({product.brand})
+                      <option
+                        key={product.id}
+                        value={product.id}
+                        title={`${product.name} (${product.brand})`}
+                      >
+                        {truncateText(product.name, 40)} ({truncateText(product.brand, 20)})
                       </option>
                     ))}
                   </select>
@@ -428,22 +1734,55 @@ export default function SkitGeneratorPage() {
                     }}
                   />
                 </div>
+
+                {/* Product Context */}
+                <div style={{ marginTop: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                    Product Link or Description (optional)
+                  </label>
+                  <textarea
+                    placeholder="Paste a product URL or describe key features, benefits, unique selling points..."
+                    value={productContext}
+                    onChange={(e) => setProductContext(e.target.value)}
+                    maxLength={1000}
+                    style={{
+                      width: '100%',
+                      minHeight: '70px',
+                      padding: '8px',
+                      backgroundColor: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px',
+                      color: colors.text,
+                      fontSize: '13px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  <div style={{ fontSize: '10px', color: colors.textSecondary, marginTop: '4px', textAlign: 'right' }}>
+                    {productContext.length}/1000
+                  </div>
+                </div>
               </div>
 
-              {/* Character & Style */}
+              {/* Actor & Style */}
               <div style={{ borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px' }}>
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
-                  Character & Style
+                  Actor & Style
                 </h3>
 
-                {/* Preset */}
+                {/* Actor/Role */}
                 <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                    Character Preset
+                  <label
+                    style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
+                    title="Who will perform this skit? Affects dialogue style and visual suggestions."
+                  >
+                    Actor/Role <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                   </label>
                   <select
-                    value={selectedPreset}
-                    onChange={(e) => setSelectedPreset(e.target.value)}
+                    value={actorType}
+                    onChange={(e) => setActorType(e.target.value as ActorType)}
+                    title="Select performer type"
                     style={{
                       width: '100%',
                       padding: '8px',
@@ -454,11 +1793,111 @@ export default function SkitGeneratorPage() {
                       fontSize: '14px',
                     }}
                   >
-                    {presets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.name}
+                    {ACTOR_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} title={option.description}>
+                        {option.label}
                       </option>
                     ))}
+                  </select>
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: colors.textSecondary }}>
+                    {ACTOR_TYPE_OPTIONS.find(o => o.value === actorType)?.description}
+                  </div>
+                </div>
+
+                {/* Target Length */}
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                    Target Length
+                  </label>
+                  <select
+                    value={targetDuration}
+                    onChange={(e) => setTargetDuration(e.target.value as TargetDuration)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px',
+                      color: colors.text,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {DURATION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: colors.textSecondary }}>
+                    {DURATION_OPTIONS.find(o => o.value === targetDuration)?.description}
+                  </div>
+                </div>
+
+                {/* Content Format */}
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                    Content Format
+                  </label>
+                  <select
+                    value={contentFormat}
+                    onChange={(e) => setContentFormat(e.target.value as ContentFormat)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px',
+                      color: colors.text,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {CONTENT_FORMAT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: colors.textSecondary }}>
+                    {CONTENT_FORMAT_OPTIONS.find(o => o.value === contentFormat)?.description}
+                  </div>
+                </div>
+
+                {/* Personality Type (grouped) */}
+                <div style={{ marginBottom: '12px' }}>
+                  <label
+                    style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
+                    title="Choose a comedic persona or archetype to shape the skit's voice and humor style"
+                  >
+                    Personality Type <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                  </label>
+                  <select
+                    value={selectedPreset}
+                    onChange={(e) => setSelectedPreset(e.target.value)}
+                    title="Select comedic persona"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '4px',
+                      color: colors.text,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {/* Group presets by energy category */}
+                    {(['neutral', 'high_energy', 'deadpan', 'chaotic', 'wholesome'] as const).map((category) => {
+                      const categoryPresets = presets.filter(p => p.energy_category === category);
+                      if (categoryPresets.length === 0) return null;
+                      return (
+                        <optgroup key={category} label={ENERGY_CATEGORY_LABELS[category]}>
+                          {categoryPresets.map((preset) => (
+                            <option key={preset.id} value={preset.id} title={preset.description}>
+                              {preset.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                   {selectedPreset !== 'NONE' && presets.find(p => p.id === selectedPreset)?.description && (
                     <div style={{ marginTop: '4px', fontSize: '11px', color: colors.textSecondary }}>
@@ -468,10 +1907,27 @@ export default function SkitGeneratorPage() {
                 </div>
 
                 {/* Template */}
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                    Skit Template (optional)
-                  </label>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '12px', color: colors.textSecondary }}>
+                      Skit Template (optional)
+                    </label>
+                    {/* Favorite button for current combo */}
+                    <button
+                      onClick={() => toggleFavorite(selectedPreset, selectedTemplate)}
+                      title={isFavorited(selectedPreset, selectedTemplate) ? 'Remove from favorites' : 'Add to favorites'}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '14px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: isFavorited(selectedPreset, selectedTemplate) ? '#f59e0b' : colors.textSecondary,
+                      }}
+                    >
+                      {isFavorited(selectedPreset, selectedTemplate) ? '★' : '☆'}
+                    </button>
+                  </div>
                   <select
                     value={selectedTemplate}
                     onChange={(e) => setSelectedTemplate(e.target.value)}
@@ -499,68 +1955,194 @@ export default function SkitGeneratorPage() {
                   )}
                 </div>
 
-                {/* Persona */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                    Persona
-                  </label>
-                  <select
-                    value={persona}
-                    onChange={(e) => setPersona(e.target.value as Persona)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      backgroundColor: colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  >
-                    <option value="NONE">No Persona</option>
-                    <option value="DR_PICKLE">Dr. Pickle</option>
-                    <option value="CASH_KING">Cash King</option>
-                    <option value="ABSURD_BUDDY">Absurd Buddy</option>
-                    <option value="DEADPAN_OFFICE">Deadpan Office</option>
-                    <option value="INFOMERCIAL_CHAOS">Infomercial Chaos</option>
-                  </select>
-                </div>
+                {/* Template Favorites Quick Select */}
+                {templateFavorites.length > 0 && (
+                  <div style={{ marginTop: '12px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', color: colors.textSecondary, textTransform: 'uppercase' }}>
+                      Favorite Combos
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {templateFavorites.map((fav) => (
+                        <button
+                          key={fav.id}
+                          onClick={() => {
+                            setSelectedPreset(fav.presetId);
+                            setSelectedTemplate(fav.templateId);
+                          }}
+                          title={fav.name}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            backgroundColor: (selectedPreset === fav.presetId && selectedTemplate === fav.templateId)
+                              ? '#7c3aed' : colors.bg,
+                            color: (selectedPreset === fav.presetId && selectedTemplate === fav.templateId)
+                              ? 'white' : colors.text,
+                            border: `1px solid ${(selectedPreset === fav.presetId && selectedTemplate === fav.templateId)
+                              ? '#7c3aed' : colors.border}`,
+                            borderRadius: '16px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <span style={{ color: '#f59e0b' }}>★</span>
+                          {truncateText(fav.name, 25)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Intensity & Risk */}
+              {/* Advanced Options Toggle */}
               <div>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
-                  Intensity & Risk
-                </h3>
+                <button
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    color: colors.text,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', fontSize: '10px' }}>
+                    ▶
+                  </span>
+                  Advanced Options
+                  {(creativeDirection || chaosLevel !== 50 || intensity !== 50 || riskTier !== 'SAFE') && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      padding: '2px 8px',
+                      backgroundColor: '#7c3aed',
+                      color: 'white',
+                      borderRadius: '10px',
+                      fontSize: '10px',
+                    }}>
+                      Customized
+                    </span>
+                  )}
+                </button>
+              </div>
 
-                {/* Risk Tier */}
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                    Risk Tier
-                  </label>
-                  <select
-                    value={riskTier}
-                    onChange={(e) => setRiskTier(e.target.value as RiskTier)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      backgroundColor: colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      color: colors.text,
-                      fontSize: '14px',
-                    }}
-                  >
-                    <option value="SAFE">Safe (Light Humor)</option>
-                    <option value="BALANCED">Balanced (Sharper)</option>
-                    <option value="SPICY">Spicy (Bold Parody)</option>
-                  </select>
+              {showAdvanced && (
+                <>
+                  {/* Creative Direction */}
+                  <div style={{ borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px' }}>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
+                      Creative Direction
+                    </h3>
+                    <textarea
+                      placeholder="Optional: Give specific guidance like 'make it feel like a fever dream' or 'corporate satire vibes' or 'POV: you're the main character'..."
+                      value={creativeDirection}
+                      onChange={(e) => setCreativeDirection(e.target.value)}
+                      maxLength={500}
+                      style={{
+                        width: '100%',
+                        minHeight: '80px',
+                        padding: '10px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        color: colors.text,
+                        fontSize: '13px',
+                        resize: 'vertical',
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                    <div style={{ fontSize: '10px', color: colors.textSecondary, marginTop: '4px', textAlign: 'right' }}>
+                      {creativeDirection.length}/500
+                    </div>
+                  </div>
+
+                  {/* Intensity & Risk */}
+                  <div>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
+                      Intensity & Chaos
+                    </h3>
+
+                    {/* Risk Tier */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
+                        title="Controls content safety level. SAFE = family-friendly, BALANCED = mild edge, SPICY = pushing boundaries"
+                      >
+                        Risk Tier <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <select
+                        value={riskTier}
+                        onChange={(e) => setRiskTier(e.target.value as RiskTier)}
+                        title="Controls content safety level"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          color: colors.text,
+                          fontSize: '14px',
+                        }}
+                      >
+                        <option value="SAFE" title="Family-friendly, mild humor">Safe (Light Humor)</option>
+                        <option value="BALANCED" title="Sharper jokes, slight edge">Balanced (Sharper)</option>
+                        <option value="SPICY" title="Bold parody, pushing boundaries">Spicy (Bold Parody)</option>
+                      </select>
+                    </div>
+
+                    {/* Chaos Level Slider */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
+                        title="0 = grounded/relatable scenarios, 50 = playfully absurd, 100 = unhinged fever dream"
+                      >
+                        Chaos Level: {chaosLevel} <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={chaosLevel}
+                        onChange={(e) => setChaosLevel(Number(e.target.value))}
+                        title={`Chaos: ${chaosLevel}% - ${chaosLevel <= 20 ? 'Grounded' : chaosLevel <= 50 ? 'Playful' : chaosLevel <= 80 ? 'Absurd' : 'Fever Dream'}`}
+                        style={{ width: '100%' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary }}>
+                    <span>Grounded</span>
+                    <span>Fever Dream</span>
+                  </div>
+                  <div style={{
+                    fontSize: '11px',
+                    color: colors.textSecondary,
+                    marginTop: '6px',
+                    padding: '6px 8px',
+                    backgroundColor: colors.bg,
+                    borderRadius: '4px',
+                  }}>
+                    {chaosLevel <= 20 && "Realistic, relatable scenarios"}
+                    {chaosLevel > 20 && chaosLevel <= 40 && "Slightly exaggerated, one weird element"}
+                    {chaosLevel > 40 && chaosLevel <= 60 && "Absurd premises, unexpected turns"}
+                    {chaosLevel > 60 && chaosLevel <= 80 && "Unhinged energy, logic optional"}
+                    {chaosLevel > 80 && "Full surrealist mode, reality is a suggestion"}
+                  </div>
                 </div>
 
-                {/* Intensity Slider */}
+                {/* Comedy Intensity Slider */}
                 <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                    Comedy Intensity: {intensity}
+                  <label
+                    style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
+                    title="Higher = more jokes per beat, faster pacing, more punchlines. Affects generation budget."
+                  >
+                    Comedy Intensity: {intensity} <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                   </label>
                   <input
                     type="range"
@@ -568,33 +2150,100 @@ export default function SkitGeneratorPage() {
                     max="100"
                     value={intensity}
                     onChange={(e) => setIntensity(Number(e.target.value))}
+                    title={`Intensity: ${intensity}% - ${intensity <= 30 ? 'Subtle, conversational' : intensity <= 60 ? 'Balanced comedy' : 'Rapid-fire jokes'}`}
                     style={{ width: '100%' }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary }}>
                     <span>Subtle</span>
-                    <span>Bold</span>
+                    <span>Maximum</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Generate Button */}
-              <button
-                onClick={handleGenerate}
-                disabled={generating}
-                style={{
-                  padding: '12px 20px',
-                  backgroundColor: generating ? colors.border : '#7c3aed',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: generating ? 'not-allowed' : 'pointer',
-                  marginTop: '8px',
-                }}
-              >
-                {generating ? 'Generating...' : 'Generate Skit'}
-              </button>
+                    {/* Number of Variations */}
+                    <div style={{ marginTop: '16px' }}>
+                      <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                        Number of Variations
+                      </label>
+                      <select
+                        value={variationCount}
+                        onChange={(e) => setVariationCount(Number(e.target.value))}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          color: colors.text,
+                          fontSize: '14px',
+                        }}
+                      >
+                        <option value={1}>1 (Single)</option>
+                        <option value={3}>3 (Recommended)</option>
+                        <option value={5}>5 (Maximum)</option>
+                      </select>
+                      <div style={{
+                        fontSize: '11px',
+                        color: colors.textSecondary,
+                        marginTop: '4px',
+                      }}>
+                        More variations = more creative options to choose from
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Generate Buttons */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                {/* Quick Generate */}
+                <button
+                  onClick={handleQuickGenerate}
+                  disabled={generating}
+                  title="Generate instantly with your last settings. Uses last product or first in list."
+                  style={{
+                    flex: '0 0 auto',
+                    padding: '14px 16px',
+                    backgroundColor: generating ? colors.border : '#059669',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: generating ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  ⚡ Quick
+                </button>
+
+                {/* Main Generate */}
+                <button
+                  onClick={() => handleGenerate()}
+                  disabled={generating}
+                  style={{
+                    flex: '1 1 auto',
+                    padding: '14px 20px',
+                    backgroundColor: generating ? colors.border : '#7c3aed',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    cursor: generating ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {generating
+                    ? `Generating ${variationCount} Variation${variationCount > 1 ? 's' : ''} & Scoring...`
+                    : `Generate ${variationCount > 1 ? `${variationCount} Variations` : 'Skit'}`}
+                </button>
+              </div>
+              {!generating && (
+                <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: colors.textSecondary }}>
+                  <kbd style={{ padding: '1px 4px', backgroundColor: colors.bg, borderRadius: '2px', border: `1px solid ${colors.border}` }}>Ctrl</kbd>+<kbd style={{ padding: '1px 4px', backgroundColor: colors.bg, borderRadius: '2px', border: `1px solid ${colors.border}` }}>Enter</kbd> to generate
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -605,8 +2254,118 @@ export default function SkitGeneratorPage() {
           border: `1px solid ${colors.border}`,
           borderRadius: '8px',
           padding: '20px',
+          flex: '1 1 400px',
+          minWidth: '320px',
         }}>
-          <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: colors.text }}>Result</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0, fontSize: '16px', color: colors.text }}>Result</h2>
+              {/* Undo Button */}
+              {undoStack.length > 0 && (
+                <button
+                  onClick={undoEdit}
+                  title={`Undo last edit (Ctrl+Z) - ${undoStack.length} action${undoStack.length > 1 ? 's' : ''} available`}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    backgroundColor: colors.bg,
+                    color: colors.textSecondary,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  ↩ Undo ({undoStack.length})
+                </button>
+              )}
+            </div>
+
+            {/* Generation History Dropdown */}
+            {generationHistory.length > 0 && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    backgroundColor: colors.bg,
+                    color: colors.text,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  📜 History ({generationHistory.length})
+                  <span style={{ transform: showHistoryDropdown ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+                </button>
+
+                {showHistoryDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '4px',
+                    width: '280px',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    backgroundColor: colors.card,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    zIndex: 100,
+                  }}>
+                    <div style={{ padding: '8px', borderBottom: `1px solid ${colors.border}`, fontSize: '11px', color: colors.textSecondary }}>
+                      Session History (clears on refresh)
+                    </div>
+                    {generationHistory.map((item) => {
+                      const score = item.result.variations?.[0]?.ai_score?.overall_score
+                        || item.result.ai_score?.overall_score;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => loadFromHistory(item)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            textAlign: 'left',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            borderBottom: `1px solid ${colors.border}`,
+                            cursor: 'pointer',
+                            color: colors.text,
+                          }}
+                        >
+                          <div style={{ fontWeight: 500, fontSize: '13px', marginBottom: '2px' }}>
+                            {truncateText(item.productName, 30)}
+                          </div>
+                          <div style={{ fontSize: '11px', color: colors.textSecondary, display: 'flex', gap: '8px' }}>
+                            <span>{new Date(item.timestamp).toLocaleTimeString()}</span>
+                            {score && (
+                              <span style={{
+                                padding: '1px 4px',
+                                borderRadius: '3px',
+                                backgroundColor: score >= 7 ? '#d1fae5' : score >= 5 ? '#fef3c7' : '#fee2e2',
+                                color: score >= 7 ? '#059669' : score >= 5 ? '#d97706' : '#dc2626',
+                              }}>
+                                {score.toFixed(1)}
+                              </span>
+                            )}
+                            <span>{item.result.variations?.length || 1} var</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {error && (
             <div style={{ marginBottom: '16px' }}>
@@ -614,23 +2373,288 @@ export default function SkitGeneratorPage() {
                 error={error}
                 onDismiss={() => setError(null)}
               />
+              {/* Actionable error message and retry button */}
+              {(() => {
+                const { action } = getActionableErrorMessage(error);
+                const canRetry = error.error_code !== 'VALIDATION_ERROR' &&
+                                 error.error_code !== 'UNAUTHORIZED' &&
+                                 !isRateLimited;
+                return (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    backgroundColor: colors.bg,
+                    borderRadius: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                  }}>
+                    <span style={{ fontSize: '12px', color: colors.textSecondary }}>
+                      {action}
+                    </span>
+                    {canRetry && retryPayload && (
+                      <button
+                        onClick={handleRetry}
+                        disabled={generating}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: generating ? colors.border : '#7c3aed',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: generating ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {generating ? 'Retrying...' : 'Retry'}
+                      </button>
+                    )}
+                    {isRateLimited && rateLimitResetTime && (
+                      <span style={{ fontSize: '11px', color: '#dc2626' }}>
+                        Available in {Math.max(0, Math.ceil((rateLimitResetTime.getTime() - Date.now()) / 1000))}s
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
+          {/* Empty State - before generating */}
           {!result && !error && !generating && (
-            <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
-              Configure your skit and click Generate to see results
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>🎬</div>
+              <div style={{ fontSize: '16px', fontWeight: 500, color: colors.text, marginBottom: '8px' }}>
+                Ready to Generate
+              </div>
+              <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '16px' }}>
+                Select a product and click Generate to create skit variations
+              </div>
+              <div style={{
+                padding: '10px 16px',
+                backgroundColor: colors.bg,
+                borderRadius: '6px',
+                display: 'inline-block',
+                fontSize: '12px',
+                color: colors.textSecondary,
+              }}>
+                Tip: Press <kbd style={{ padding: '2px 6px', backgroundColor: colors.card, borderRadius: '3px', border: `1px solid ${colors.border}` }}>Ctrl</kbd> + <kbd style={{ padding: '2px 6px', backgroundColor: colors.card, borderRadius: '3px', border: `1px solid ${colors.border}` }}>Enter</kbd> to generate quickly
+              </div>
             </div>
           )}
 
+          {/* Generating State */}
           {generating && (
-            <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
-              Generating your skit...
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                margin: '0 auto 16px',
+                border: '3px solid #7c3aed',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+              }} />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: colors.text, marginBottom: '4px' }}>
+                Generating {variationCount} Variation{variationCount > 1 ? 's' : ''} & Scoring...
+              </div>
+              <div style={{ fontSize: '12px', color: colors.textSecondary }}>
+                Creating distinct creative approaches for your product
+              </div>
             </div>
           )}
 
-          {result && (
+          {result && (() => {
+            // Get current variation data
+            const variations = result.variations || [];
+            const hasVariations = variations.length > 1;
+            const currentVariation = hasVariations ? variations[selectedVariationIndex] : null;
+            const currentSkit = currentVariation?.skit || result.skit;
+            const currentScore = currentVariation?.ai_score || result.ai_score;
+            const currentRiskTier = currentVariation?.risk_tier_applied || result.risk_tier_applied;
+            const currentRiskScore = currentVariation?.risk_score ?? result.risk_score;
+            const currentRiskFlags = currentVariation?.risk_flags || result.risk_flags;
+
+            return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Variation Selector */}
+              {hasVariations && (
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: colors.bg,
+                  borderRadius: '8px',
+                  marginBottom: '4px',
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>
+                    Variations ({variations.length})
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {variations.map((v, idx) => {
+                      const score = v.ai_score?.overall_score;
+                      const isSelected = idx === selectedVariationIndex;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setSelectedVariationIndex(idx);
+                            setAiScore(v.ai_score || null);
+                          }}
+                          style={{
+                            padding: '8px 14px',
+                            backgroundColor: isSelected ? '#7c3aed' : colors.card,
+                            color: isSelected ? 'white' : colors.text,
+                            border: `2px solid ${isSelected ? '#7c3aed' : colors.border}`,
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: isSelected ? 600 : 500,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <span>V{idx + 1}</span>
+                          {score !== undefined && (
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' :
+                                (score < 5 ? '#fee2e2' : score < 7 ? '#fef3c7' : '#d1fae5'),
+                              color: isSelected ? 'white' :
+                                (score < 5 ? '#dc2626' : score < 7 ? '#d97706' : '#059669'),
+                            }}>
+                              {score.toFixed(1)}
+                            </span>
+                          )}
+                          {idx === 0 && <span style={{ fontSize: '10px', opacity: 0.7 }}>Best</span>}
+                        </button>
+                      );
+                    })}
+                    {/* Generate More button */}
+                    {variations.length < 5 && (
+                      <button
+                        onClick={() => handleGenerate()}
+                        disabled={generating}
+                        title="Generate more variations"
+                        style={{
+                          padding: '8px 14px',
+                          backgroundColor: generating ? colors.border : colors.bg,
+                          color: generating ? colors.textSecondary : '#7c3aed',
+                          border: `2px dashed ${generating ? colors.border : '#7c3aed'}`,
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          cursor: generating ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {generating ? '...' : '+ More'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Score Summary + Actions Bar */}
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '12px',
+                padding: '12px',
+                backgroundColor: colors.bg,
+                borderRadius: '8px',
+                alignItems: 'center',
+              }}>
+                {/* Score Summary */}
+                {currentScore && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 auto' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: currentScore.overall_score >= 7 ? '#d1fae5' :
+                        currentScore.overall_score >= 5 ? '#fef3c7' : '#fee2e2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '18px',
+                      color: currentScore.overall_score >= 7 ? '#059669' :
+                        currentScore.overall_score >= 5 ? '#d97706' : '#dc2626',
+                    }}>
+                      {currentScore.overall_score.toFixed(1)}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {[
+                        { key: 'hook_strength', label: 'Hook', value: currentScore.hook_strength },
+                        { key: 'humor_level', label: 'Humor', value: currentScore.humor_level },
+                        { key: 'virality_potential', label: 'Viral', value: currentScore.virality_potential },
+                        { key: 'clarity', label: 'Clear', value: currentScore.clarity },
+                      ].map(({ key, label, value }) => (
+                        <span
+                          key={key}
+                          title={`${label}: ${value}/10`}
+                          style={{
+                            padding: '2px 6px',
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            backgroundColor: value >= 7 ? '#d1fae5' : value >= 5 ? '#fef3c7' : '#fee2e2',
+                            color: value >= 7 ? '#059669' : value >= 5 ? '#92400e' : '#dc2626',
+                          }}
+                        >
+                          {label} {value}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Copy Full Script Button */}
+                <button
+                  onClick={() => {
+                    const script = `HOOK: ${currentSkit.hook_line || '(No hook)'}
+
+${(currentSkit.beats || []).map((b, i) => `BEAT ${i + 1} [${b.t || '0:00'}]
+Action: ${b.action || '(No action)'}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n') || '(No beats)'}
+
+CTA: ${currentSkit.cta_line || '(No CTA)'}
+Overlay: ${currentSkit.cta_overlay || '(No overlay)'}
+
+B-ROLL IDEAS:
+${(currentSkit.b_roll || []).map(b => `- ${b}`).join('\n') || '(No B-roll suggestions)'}
+
+OVERLAY IDEAS:
+${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay suggestions)'}`;
+                    navigator.clipboard.writeText(script);
+                    setCopiedField('script');
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: copiedField === 'script' ? '#10b981' : '#7c3aed',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {copiedField === 'script' ? '✓ Copied!' : '📋 Copy Full Script'}
+                </button>
+              </div>
+
               {/* Metadata badges */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 <span style={{
@@ -638,12 +2662,12 @@ export default function SkitGeneratorPage() {
                   borderRadius: '4px',
                   fontSize: '11px',
                   fontWeight: 600,
-                  backgroundColor: result.risk_tier_applied === 'SAFE' ? '#d1fae5' :
-                    result.risk_tier_applied === 'BALANCED' ? '#fef3c7' : '#fce7f3',
-                  color: result.risk_tier_applied === 'SAFE' ? '#065f46' :
-                    result.risk_tier_applied === 'BALANCED' ? '#92400e' : '#9d174d',
+                  backgroundColor: currentRiskTier === 'SAFE' ? '#d1fae5' :
+                    currentRiskTier === 'BALANCED' ? '#fef3c7' : '#fce7f3',
+                  color: currentRiskTier === 'SAFE' ? '#065f46' :
+                    currentRiskTier === 'BALANCED' ? '#92400e' : '#9d174d',
                 }}>
-                  {result.risk_tier_applied}
+                  {currentRiskTier}
                 </span>
                 <span style={{
                   padding: '4px 8px',
@@ -652,7 +2676,7 @@ export default function SkitGeneratorPage() {
                   backgroundColor: colors.bg,
                   color: colors.textSecondary,
                 }}>
-                  Risk Score: {result.risk_score}
+                  Risk Score: {currentRiskScore ?? 'N/A'}
                 </span>
                 <span style={{
                   padding: '4px 8px',
@@ -661,7 +2685,7 @@ export default function SkitGeneratorPage() {
                   backgroundColor: colors.bg,
                   color: colors.textSecondary,
                 }}>
-                  Intensity: {result.intensity_applied}
+                  Intensity: {result.intensity_applied ?? intensity}
                 </span>
                 {result.preset_name && result.preset_id !== 'NONE' && (
                   <span style={{
@@ -688,7 +2712,7 @@ export default function SkitGeneratorPage() {
               </div>
 
               {/* Warnings */}
-              {result.risk_flags.length > 0 && (
+              {(currentRiskFlags?.length ?? 0) > 0 && (
                 <div style={{
                   padding: '8px 12px',
                   backgroundColor: '#fef3c7',
@@ -696,7 +2720,7 @@ export default function SkitGeneratorPage() {
                   fontSize: '12px',
                   color: '#92400e',
                 }}>
-                  {result.risk_flags.length} risk flag(s) detected
+                  {currentRiskFlags?.length} risk flag(s) detected
                 </div>
               )}
               {(result.budget_clamped || result.preset_intensity_clamped) && (
@@ -718,90 +2742,419 @@ export default function SkitGeneratorPage() {
                   fontSize: '12px',
                   color: '#92400e',
                 }}>
-                  Template validation: {result.template_validation.issues.join(', ')}
+                  Template validation: {result.template_validation.issues?.join(', ')}
                 </div>
               )}
 
               {/* Hook Line */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>Hook Line</span>
-                  <button
-                    onClick={() => copyToClipboard(result.skit.hook_line, 'hook')}
-                    style={{
-                      padding: '2px 8px',
-                      backgroundColor: copiedField === 'hook' ? '#d3f9d8' : colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      color: colors.text,
-                    }}
-                  >
-                    {copiedField === 'hook' ? 'Copied!' : 'Copy'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>Hook Line</span>
+                    {isModified && <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px' }}>Modified</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {editingSection !== 'hook' && (
+                      <button
+                        onClick={() => startEditing('hook', currentSkit.hook_line)}
+                        style={{
+                          padding: '2px 8px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          color: colors.text,
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
+                      style={{
+                        padding: '2px 8px',
+                        backgroundColor: copiedField === 'hook' ? '#d3f9d8' : colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        color: colors.text,
+                      }}
+                    >
+                      {copiedField === 'hook' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: colors.bg,
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  color: colors.text,
-                  fontStyle: 'italic',
-                }}>
-                  {result.skit.hook_line}
-                </div>
+                {editingSection === 'hook' ? (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: colors.bg,
+                    borderRadius: '4px',
+                    border: `2px solid #7c3aed`,
+                  }}>
+                    <textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      style={{
+                        width: '100%',
+                        minHeight: '60px',
+                        padding: '8px',
+                        backgroundColor: colors.card,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        color: colors.text,
+                        fontSize: '14px',
+                        resize: 'vertical',
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        onClick={() => saveEdit('hook')}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#059669',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => improveSection('hook', currentSkit.hook_line)}
+                        disabled={improvingSection}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: improvingSection ? colors.border : '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: improvingSection ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {improvingSection ? 'Improving...' : 'AI Improve'}
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: 'transparent',
+                          color: colors.textSecondary,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: colors.bg,
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    color: colors.text,
+                    fontStyle: 'italic',
+                  }}>
+                    {currentSkit.hook_line}
+                  </div>
+                )}
               </div>
 
               {/* Beats */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>Beats ({result.skit.beats.length})</span>
-                  <button
-                    onClick={() => copyToClipboard(
-                      result.skit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\n"${b.dialogue}"` : ''}${b.on_screen_text ? `\n(Text: ${b.on_screen_text})` : ''}`).join('\n\n'),
-                      'beats'
-                    )}
-                    style={{
-                      padding: '2px 8px',
-                      backgroundColor: copiedField === 'beats' ? '#d3f9d8' : colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      color: colors.text,
-                    }}
-                  >
-                    {copiedField === 'beats' ? 'Copied!' : 'Copy All'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>Beats ({currentSkit.beats?.length ?? 0})</span>
+                    {/* Total reading time estimate */}
+                    {currentSkit.beats && currentSkit.beats.length > 0 && (() => {
+                      const totalDialogue = currentSkit.beats
+                        .map(b => (b.dialogue || '') + ' ' + (b.action || ''))
+                        .join(' ');
+                      const totalSecs = estimateReadingTime(totalDialogue);
+                      const targetSecs = targetDuration === 'quick' ? 20 : targetDuration === 'standard' ? 45 : targetDuration === 'extended' ? 60 : 90;
+                      const isOverTarget = totalSecs > targetSecs + 10;
+                      return (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: isOverTarget ? '#fee2e2' : colors.bg,
+                            color: isOverTarget ? '#dc2626' : colors.textSecondary,
+                          }}
+                          title={isOverTarget ? `Script may be too long for ${targetDuration} format (target: ${targetSecs}s)` : `Estimated speaking time`}
+                        >
+                          ~{totalSecs}s {isOverTarget && '⚠️'}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={addBeat}
+                      style={{
+                        padding: '2px 8px',
+                        backgroundColor: '#059669',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        color: 'white',
+                      }}
+                    >
+                      + Add Beat
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(
+                        (currentSkit.beats || []).map(b => `[${b.t}] ${b.action}${b.dialogue ? `\n"${b.dialogue}"` : ''}${b.on_screen_text ? `\n(Text: ${b.on_screen_text})` : ''}`).join('\n\n'),
+                        'beats'
+                      )}
+                      style={{
+                        padding: '2px 8px',
+                        backgroundColor: copiedField === 'beats' ? '#d3f9d8' : colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        color: colors.text,
+                      }}
+                    >
+                      {copiedField === 'beats' ? 'Copied!' : 'Copy All'}
+                    </button>
+                  </div>
                 </div>
                 <div style={{
                   backgroundColor: colors.bg,
                   borderRadius: '4px',
                   padding: '8px',
-                  maxHeight: '300px',
+                  maxHeight: '400px',
                   overflowY: 'auto',
                 }}>
-                  {result.skit.beats.map((beat, i) => (
+                  {/* Empty beats state */}
+                  {(!currentSkit.beats || currentSkit.beats.length === 0) && (
+                    <div style={{
+                      padding: '20px',
+                      textAlign: 'center',
+                      color: colors.textSecondary,
+                      fontSize: '13px',
+                    }}>
+                      <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }}>📝</div>
+                      No beats yet. Click "+ Add Beat" to create the first one.
+                    </div>
+                  )}
+                  {(currentSkit.beats || []).map((beat, i) => (
                     <div key={i} style={{
                       padding: '8px',
-                      borderBottom: i < result.skit.beats.length - 1 ? `1px solid ${colors.border}` : 'none',
+                      borderBottom: i < currentSkit.beats.length - 1 ? `1px solid ${colors.border}` : 'none',
+                      position: 'relative',
                     }}>
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#7c3aed', marginBottom: '4px' }}>
-                        [{beat.t}]
-                      </div>
-                      <div style={{ fontSize: '13px', color: colors.text, marginBottom: beat.dialogue ? '4px' : 0 }}>
-                        {beat.action}
-                      </div>
-                      {beat.dialogue && (
-                        <div style={{ fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
-                          &quot;{beat.dialogue}&quot;
+                      {editingSection === `beat-${i}` ? (
+                        <div style={{
+                          padding: '12px',
+                          backgroundColor: colors.card,
+                          borderRadius: '4px',
+                          border: `2px solid #7c3aed`,
+                        }}>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Action</label>
+                            <textarea
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              style={{
+                                width: '100%',
+                                minHeight: '60px',
+                                padding: '8px',
+                                backgroundColor: colors.bg,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                color: colors.text,
+                                fontSize: '13px',
+                                resize: 'vertical',
+                                boxSizing: 'border-box',
+                                fontFamily: 'inherit',
+                              }}
+                            />
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Dialogue (optional)</label>
+                            <input
+                              type="text"
+                              value={editDialogue}
+                              onChange={(e) => setEditDialogue(e.target.value)}
+                              placeholder="What the character says..."
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                backgroundColor: colors.bg,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                color: colors.text,
+                                fontSize: '13px',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>On-screen Text (optional)</label>
+                            <input
+                              type="text"
+                              value={editOnScreenText}
+                              onChange={(e) => setEditOnScreenText(e.target.value)}
+                              placeholder="Text overlay..."
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                backgroundColor: colors.bg,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                color: colors.text,
+                                fontSize: '13px',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => saveEdit(`beat-${i}`)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#059669',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => improveSection(`beat-${i}`, beat.action)}
+                              disabled={improvingSection}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: improvingSection ? colors.border : '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: improvingSection ? 'not-allowed' : 'pointer',
+                              }}
+                            >
+                              {improvingSection ? 'Improving...' : 'AI Improve'}
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: 'transparent',
+                                color: colors.textSecondary,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      )}
-                      {beat.on_screen_text && (
-                        <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
-                          Text: {beat.on_screen_text}
-                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#7c3aed', marginBottom: '4px' }}>
+                              [{beat.t}]
+                            </div>
+                            <div style={{ display: 'flex', gap: '2px' }}>
+                              <button
+                                onClick={() => moveBeat(i, 'up')}
+                                disabled={i === 0}
+                                title="Move up"
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: i === 0 ? 'not-allowed' : 'pointer',
+                                  color: i === 0 ? colors.border : colors.text,
+                                }}
+                              >
+                                ▲
+                              </button>
+                              <button
+                                onClick={() => moveBeat(i, 'down')}
+                                disabled={i === currentSkit.beats.length - 1}
+                                title="Move down"
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: i === currentSkit.beats.length - 1 ? 'not-allowed' : 'pointer',
+                                  color: i === currentSkit.beats.length - 1 ? colors.border : colors.text,
+                                }}
+                              >
+                                ▼
+                              </button>
+                              <button
+                                onClick={() => startEditing(`beat-${i}`, beat.action, beat.dialogue, beat.on_screen_text)}
+                                title="Edit beat"
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                  color: colors.text,
+                                }}
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => deleteBeat(i)}
+                                disabled={currentSkit.beats.length <= 1}
+                                title="Delete beat"
+                                style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: currentSkit.beats.length <= 1 ? 'not-allowed' : 'pointer',
+                                  color: currentSkit.beats.length <= 1 ? colors.border : '#ef4444',
+                                }}
+                              >
+                                🗑
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '13px', color: colors.text, marginBottom: beat.dialogue ? '4px' : 0 }}>
+                            {beat.action}
+                          </div>
+                          {beat.dialogue && (
+                            <div style={{ fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
+                              &quot;{beat.dialogue}&quot;
+                            </div>
+                          )}
+                          {beat.on_screen_text && (
+                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                              Text: {beat.on_screen_text}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   ))}
@@ -812,86 +3165,1434 @@ export default function SkitGeneratorPage() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>CTA</span>
-                  <button
-                    onClick={() => copyToClipboard(`${result.skit.cta_line}\n[Overlay: ${result.skit.cta_overlay}]`, 'cta')}
-                    style={{
-                      padding: '2px 8px',
-                      backgroundColor: copiedField === 'cta' ? '#d3f9d8' : colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      color: colors.text,
-                    }}
-                  >
-                    {copiedField === 'cta' ? 'Copied!' : 'Copy'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {editingSection !== 'cta' && editingSection !== 'cta_overlay' && (
+                      <button
+                        onClick={() => startEditing('cta', currentSkit.cta_line)}
+                        style={{
+                          padding: '2px 8px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          color: colors.text,
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={() => copyToClipboard(`${currentSkit.cta_line}\n[Overlay: ${currentSkit.cta_overlay}]`, 'cta')}
+                      style={{
+                        padding: '2px 8px',
+                        backgroundColor: copiedField === 'cta' ? '#d3f9d8' : colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        color: colors.text,
+                      }}
+                    >
+                      {copiedField === 'cta' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#fef3c7',
-                  borderRadius: '4px',
-                }}>
-                  <div style={{ color: '#92400e', marginBottom: '4px', fontSize: '14px' }}>{result.skit.cta_line}</div>
-                  <div style={{ color: '#b45309', fontSize: '11px' }}>Overlay: {result.skit.cta_overlay}</div>
-                </div>
+                {editingSection === 'cta' ? (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: '4px',
+                    border: `2px solid #7c3aed`,
+                  }}>
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#92400e', display: 'block', marginBottom: '4px' }}>CTA Line</label>
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          backgroundColor: 'white',
+                          border: `1px solid #d97706`,
+                          borderRadius: '4px',
+                          color: '#92400e',
+                          fontSize: '14px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => saveEdit('cta')}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#059669',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => improveSection('cta', currentSkit.cta_line)}
+                        disabled={improvingSection}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: improvingSection ? colors.border : '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: improvingSection ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {improvingSection ? 'Improving...' : 'AI Improve'}
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: 'transparent',
+                          color: '#92400e',
+                          border: `1px solid #d97706`,
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #d97706' }}>
+                      <div style={{ color: '#b45309', fontSize: '11px', marginBottom: '4px' }}>
+                        Overlay: {currentSkit.cta_overlay}
+                        <button
+                          onClick={() => {
+                            cancelEditing();
+                            startEditing('cta_overlay', currentSkit.cta_overlay);
+                          }}
+                          style={{
+                            marginLeft: '8px',
+                            padding: '2px 6px',
+                            backgroundColor: 'transparent',
+                            border: `1px solid #d97706`,
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            color: '#b45309',
+                          }}
+                        >
+                          Edit Overlay
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : editingSection === 'cta_overlay' ? (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: '4px',
+                    border: `2px solid #7c3aed`,
+                  }}>
+                    <div style={{ color: '#92400e', marginBottom: '8px', fontSize: '14px' }}>
+                      {currentSkit.cta_line}
+                      <button
+                        onClick={() => {
+                          cancelEditing();
+                          startEditing('cta', currentSkit.cta_line);
+                        }}
+                        style={{
+                          marginLeft: '8px',
+                          padding: '2px 6px',
+                          backgroundColor: 'transparent',
+                          border: `1px solid #d97706`,
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          cursor: 'pointer',
+                          color: '#92400e',
+                        }}
+                      >
+                        Edit Line
+                      </button>
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#b45309', display: 'block', marginBottom: '4px' }}>Overlay Text</label>
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        maxLength={40}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          backgroundColor: 'white',
+                          border: `1px solid #d97706`,
+                          borderRadius: '4px',
+                          color: '#b45309',
+                          fontSize: '12px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <div style={{ fontSize: '10px', color: '#92400e', marginTop: '2px' }}>{editValue.length}/40 characters</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => saveEdit('cta_overlay')}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#059669',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => improveSection('cta_overlay', currentSkit.cta_overlay)}
+                        disabled={improvingSection}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: improvingSection ? colors.border : '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: improvingSection ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {improvingSection ? 'Improving...' : 'AI Improve'}
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: 'transparent',
+                          color: '#92400e',
+                          border: `1px solid #d97706`,
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: '4px',
+                  }}>
+                    <div style={{ color: '#92400e', marginBottom: '4px', fontSize: '14px' }}>{currentSkit.cta_line}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#b45309', fontSize: '11px' }}>Overlay: {currentSkit.cta_overlay}</span>
+                      {/* Character count warning for overlay */}
+                      {(() => {
+                        const warning = getOverlayCharWarning(currentSkit.cta_overlay, 40);
+                        if (warning) {
+                          return (
+                            <span style={{
+                              fontSize: '10px',
+                              padding: '1px 4px',
+                              borderRadius: '3px',
+                              backgroundColor: '#fee2e2',
+                              color: '#dc2626',
+                            }} title="TikTok overlays should be under 40 characters">
+                              {currentSkit.cta_overlay.length}/40 ⚠️
+                            </span>
+                          );
+                        }
+                        return (
+                          <span style={{ fontSize: '10px', color: '#d97706' }}>
+                            {currentSkit.cta_overlay.length}/40
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* B-Roll & Overlays */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {/* B-Roll */}
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: colors.text, marginBottom: '4px' }}>
-                    B-Roll ({result.skit.b_roll.length})
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>
+                      B-Roll ({currentSkit.b_roll.length})
+                    </span>
+                    <button
+                      onClick={addBrollItem}
+                      style={{
+                        padding: '2px 6px',
+                        backgroundColor: '#059669',
+                        border: 'none',
+                        borderRadius: '3px',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        color: 'white',
+                      }}
+                    >
+                      + Add
+                    </button>
                   </div>
                   <div style={{ padding: '8px', backgroundColor: colors.bg, borderRadius: '4px', fontSize: '12px' }}>
-                    {result.skit.b_roll.map((item, i) => (
-                      <div key={i} style={{ color: colors.textSecondary, marginBottom: i < result.skit.b_roll.length - 1 ? '4px' : 0 }}>
-                        {i + 1}. {item}
+                    {currentSkit.b_roll.map((item, i) => (
+                      <div key={i} style={{ marginBottom: i < currentSkit.b_roll.length - 1 ? '8px' : 0 }}>
+                        {editingSection === `broll-${i}` ? (
+                          <div style={{
+                            padding: '8px',
+                            backgroundColor: colors.card,
+                            borderRadius: '4px',
+                            border: `2px solid #7c3aed`,
+                          }}>
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '6px',
+                                backgroundColor: colors.bg,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                color: colors.text,
+                                fontSize: '12px',
+                                boxSizing: 'border-box',
+                                marginBottom: '8px',
+                              }}
+                            />
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                onClick={() => saveEdit(`broll-${i}`)}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: '#059669',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => improveSection(`broll-${i}`, item)}
+                                disabled={improvingSection}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: improvingSection ? colors.border : '#3b82f6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: improvingSection ? 'not-allowed' : 'pointer',
+                                }}
+                              >
+                                {improvingSection ? '...' : 'AI'}
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: 'transparent',
+                                  color: colors.textSecondary,
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ color: colors.textSecondary, flex: 1 }}>
+                              {i + 1}. {item}
+                            </div>
+                            <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
+                              <button
+                                onClick={() => startEditing(`broll-${i}`, item)}
+                                style={{
+                                  padding: '2px 4px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '2px',
+                                  fontSize: '9px',
+                                  cursor: 'pointer',
+                                  color: colors.text,
+                                }}
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => deleteBrollItem(i)}
+                                style={{
+                                  padding: '2px 4px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '2px',
+                                  fontSize: '9px',
+                                  cursor: 'pointer',
+                                  color: '#ef4444',
+                                }}
+                              >
+                                🗑
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Overlays */}
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: colors.text, marginBottom: '4px' }}>
-                    Overlays ({result.skit.overlays.length})
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>
+                      Overlays ({currentSkit.overlays.length})
+                    </span>
+                    <button
+                      onClick={addOverlayItem}
+                      style={{
+                        padding: '2px 6px',
+                        backgroundColor: '#059669',
+                        border: 'none',
+                        borderRadius: '3px',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        color: 'white',
+                      }}
+                    >
+                      + Add
+                    </button>
                   </div>
                   <div style={{ padding: '8px', backgroundColor: colors.bg, borderRadius: '4px', fontSize: '12px' }}>
-                    {result.skit.overlays.map((item, i) => (
-                      <div key={i} style={{ color: colors.textSecondary, marginBottom: i < result.skit.overlays.length - 1 ? '4px' : 0 }}>
-                        {i + 1}. {item}
+                    {currentSkit.overlays.map((item, i) => (
+                      <div key={i} style={{ marginBottom: i < currentSkit.overlays.length - 1 ? '8px' : 0 }}>
+                        {editingSection === `overlay-${i}` ? (
+                          <div style={{
+                            padding: '8px',
+                            backgroundColor: colors.card,
+                            borderRadius: '4px',
+                            border: `2px solid #7c3aed`,
+                          }}>
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              maxLength={50}
+                              style={{
+                                width: '100%',
+                                padding: '6px',
+                                backgroundColor: colors.bg,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                color: colors.text,
+                                fontSize: '12px',
+                                boxSizing: 'border-box',
+                                marginBottom: '4px',
+                              }}
+                            />
+                            <div style={{ fontSize: '9px', color: colors.textSecondary, marginBottom: '8px' }}>{editValue.length}/50</div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                onClick={() => saveEdit(`overlay-${i}`)}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: '#059669',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => improveSection(`overlay-${i}`, item)}
+                                disabled={improvingSection}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: improvingSection ? colors.border : '#3b82f6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: improvingSection ? 'not-allowed' : 'pointer',
+                                }}
+                              >
+                                {improvingSection ? '...' : 'AI'}
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: 'transparent',
+                                  color: colors.textSecondary,
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ color: colors.textSecondary }}>{i + 1}. {item}</span>
+                              {/* Character count warning */}
+                              {item.length > 40 && (
+                                <span style={{
+                                  marginLeft: '6px',
+                                  fontSize: '9px',
+                                  padding: '1px 3px',
+                                  borderRadius: '2px',
+                                  backgroundColor: '#fee2e2',
+                                  color: '#dc2626',
+                                }} title="Overlay text too long">
+                                  {item.length}ch
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
+                              <button
+                                onClick={() => startEditing(`overlay-${i}`, item)}
+                                style={{
+                                  padding: '2px 4px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '2px',
+                                  fontSize: '9px',
+                                  cursor: 'pointer',
+                                  color: colors.text,
+                                }}
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => deleteOverlayItem(i)}
+                                style={{
+                                  padding: '2px 4px',
+                                  backgroundColor: 'transparent',
+                                  border: `1px solid ${colors.border}`,
+                                  borderRadius: '2px',
+                                  fontSize: '9px',
+                                  cursor: 'pointer',
+                                  color: '#ef4444',
+                                }}
+                              >
+                                🗑
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Copy Full Skit */}
-              <button
-                onClick={() => copyToClipboard(
-                  `HOOK: ${result.skit.hook_line}\n\n` +
-                  `BEATS:\n${result.skit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n')}\n\n` +
-                  `CTA: ${result.skit.cta_line}\nOverlay: ${result.skit.cta_overlay}\n\n` +
-                  `B-ROLL:\n${result.skit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n` +
-                  `OVERLAYS:\n${result.skit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}`,
-                  'full'
+              {/* Export Actions */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {/* Copy Full Skit */}
+                <button
+                  onClick={() => copyToClipboard(
+                    `HOOK: ${currentSkit.hook_line}\n\n` +
+                    `BEATS:\n${currentSkit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n')}\n\n` +
+                    `CTA: ${currentSkit.cta_line}\nOverlay: ${currentSkit.cta_overlay}\n\n` +
+                    `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n` +
+                    `OVERLAYS:\n${currentSkit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}`,
+                    'full'
+                  )}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: copiedField === 'full' ? '#d3f9d8' : colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: colors.text,
+                    fontWeight: 500,
+                  }}
+                >
+                  {copiedField === 'full' ? 'Copied Full Skit!' : 'Copy Full Skit'}
+                </button>
+
+                {/* Export as JSON */}
+                <button
+                  onClick={() => {
+                    const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+                    const productName = product?.name || manualProductName || 'Product';
+                    const exportData = {
+                      title: productName ? `Skit for ${productName}` : 'Untitled Skit',
+                      product: product ? { name: product.name, brand: product.brand } : manualProductName ? { name: manualProductName, brand: manualBrandName || null } : null,
+                      skit_data: currentSkit,
+                      ai_score: aiScore || null,
+                      generated_at: new Date().toISOString(),
+                    };
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `skit-${Date.now()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: colors.text,
+                    fontWeight: 500,
+                  }}
+                >
+                  Export JSON
+                </button>
+
+                {/* Export as Markdown */}
+                <button
+                  onClick={() => {
+                    const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+                    const productName = product?.name || manualProductName || 'Product';
+                    const productBrand = product?.brand ? `${product.brand} ` : manualBrandName ? `${manualBrandName} ` : '';
+                    const md = `# Skit: ${productBrand}${productName}\n\n` +
+                      `## Hook\n> ${currentSkit.hook_line}\n\n` +
+                      `## Beats\n${currentSkit.beats.map((b, i) =>
+                        `### Beat ${i + 1} (${b.t})\n**Action:** ${b.action}${b.dialogue ? `\n\n*"${b.dialogue}"*` : ''}${b.on_screen_text ? `\n\n**On-screen:** ${b.on_screen_text}` : ''}`
+                      ).join('\n\n')}\n\n` +
+                      `## CTA\n**Spoken:** ${currentSkit.cta_line}\n\n**Overlay:** ${currentSkit.cta_overlay}\n\n` +
+                      `## B-Roll Suggestions\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n` +
+                      `## Text Overlays\n${currentSkit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\n` +
+                      (aiScore ? `## AI Score: ${aiScore.overall_score.toFixed(1)}/10\n\n` +
+                        `**Strengths:**\n${aiScore.strengths.map(s => `- ${s}`).join('\n')}\n\n` +
+                        `**Suggestions:**\n${aiScore.improvements.map(s => `- ${s}`).join('\n')}` : '') +
+                      `\n\n---\n*Generated on ${new Date().toLocaleString()}*`;
+
+                    const blob = new Blob([md], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `skit-${Date.now()}.md`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: colors.text,
+                    fontWeight: 500,
+                  }}
+                >
+                  Export Markdown
+                </button>
+              </div>
+
+              {/* AI Score Section */}
+              <div style={{
+                marginTop: '16px',
+                borderTop: `1px solid ${colors.border}`,
+                paddingTop: '16px',
+              }}>
+                {!aiScore && (
+                  <div style={{
+                    padding: '16px',
+                    backgroundColor: colors.bg,
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '12px' }}>
+                      Auto-scoring was unavailable. You can manually score this skit.
+                    </div>
+                    <button
+                      onClick={handleGetAIScore}
+                      disabled={scoringInProgress}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: scoringInProgress ? colors.border : '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: scoringInProgress ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {scoringInProgress ? 'Scoring...' : 'Get AI Score'}
+                    </button>
+                  </div>
                 )}
-                style={{
-                  padding: '10px 16px',
-                  backgroundColor: copiedField === 'full' ? '#d3f9d8' : colors.bg,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  color: colors.text,
-                  fontWeight: 500,
-                }}
-              >
-                {copiedField === 'full' ? 'Copied Full Skit!' : 'Copy Full Skit'}
-              </button>
+
+                {aiScore && (
+                  <div style={{
+                    backgroundColor: colors.bg,
+                    borderRadius: '8px',
+                    padding: '16px',
+                  }}>
+                    {/* Overall Score */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '16px',
+                    }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: colors.text }}>
+                        AI Score
+                      </span>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}>
+                        <span style={{
+                          fontSize: '28px',
+                          fontWeight: 700,
+                          color: aiScore.overall_score < 5 ? '#ef4444' :
+                                 aiScore.overall_score < 7 ? '#f59e0b' : '#10b981',
+                        }}>
+                          {aiScore.overall_score.toFixed(1)}
+                        </span>
+                        <span style={{ fontSize: '14px', color: colors.textSecondary }}>/10</span>
+                      </div>
+                    </div>
+
+                    {/* Individual Scores */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '8px',
+                      marginBottom: '16px',
+                    }}>
+                      {[
+                        { key: 'hook_strength', label: 'Hook' },
+                        { key: 'humor_level', label: 'Humor' },
+                        { key: 'product_integration', label: 'Product Fit' },
+                        { key: 'virality_potential', label: 'Virality' },
+                        { key: 'clarity', label: 'Clarity' },
+                        { key: 'production_feasibility', label: 'Feasibility' },
+                      ].map(({ key, label }) => {
+                        const score = aiScore[key as keyof AIScore] as number;
+                        const barColor = score < 5 ? '#ef4444' : score < 7 ? '#f59e0b' : '#10b981';
+                        return (
+                          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: colors.textSecondary, width: '70px', flexShrink: 0 }}>
+                              {label}
+                            </span>
+                            <div style={{
+                              flex: 1,
+                              height: '8px',
+                              backgroundColor: colors.border,
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                            }}>
+                              <div style={{
+                                width: `${score * 10}%`,
+                                height: '100%',
+                                backgroundColor: barColor,
+                                borderRadius: '4px',
+                                transition: 'width 0.3s ease',
+                              }} />
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: barColor, width: '20px', textAlign: 'right' }}>
+                              {score}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Strengths */}
+                    {aiScore.strengths.length > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '6px' }}>
+                          Strengths
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: colors.text }}>
+                          {aiScore.strengths.map((s, i) => (
+                            <li key={i} style={{ marginBottom: '4px' }}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Improvements */}
+                    {aiScore.improvements.length > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#f59e0b', marginBottom: '6px' }}>
+                          Suggestions
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: colors.text }}>
+                          {aiScore.improvements.map((s, i) => (
+                            <li key={i} style={{ marginBottom: '4px' }}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Re-score Button */}
+                    <button
+                      onClick={handleGetAIScore}
+                      disabled={scoringInProgress}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: scoringInProgress ? 'not-allowed' : 'pointer',
+                        color: colors.textSecondary,
+                        opacity: scoringInProgress ? 0.6 : 1,
+                      }}
+                    >
+                      {scoringInProgress ? 'Scoring...' : 'Re-score'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Version History */}
+              {versions.length > 1 && (
+                <div style={{ marginTop: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: colors.text, marginBottom: '8px' }}>
+                    Version History
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {versions.map((v, i) => (
+                      <button
+                        key={v.id}
+                        onClick={() => switchToVersion(i)}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: i === currentVersionIndex ? '#7c3aed' : colors.bg,
+                          color: i === currentVersionIndex ? 'white' : colors.text,
+                          border: `1px solid ${i === currentVersionIndex ? '#7c3aed' : colors.border}`,
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        V{v.id}
+                        {v.refinement && (
+                          <span style={{ marginLeft: '4px', opacity: 0.7 }}>
+                            ({v.refinement.slice(0, 15)}...)
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Refinement Panel */}
+              <div style={{
+                marginTop: '16px',
+                borderTop: `1px solid ${colors.border}`,
+                paddingTop: '16px',
+              }}>
+                <button
+                  onClick={() => setRefinementOpen(!refinementOpen)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: colors.text,
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ transform: refinementOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                    ▶
+                  </span>
+                  Refine This Skit
+                </button>
+
+                {refinementOpen && (
+                  <div style={{ marginTop: '12px', padding: '12px', backgroundColor: colors.bg, borderRadius: '6px' }}>
+                    {/* Quick Actions */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
+                        Quick Actions
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {QUICK_ACTIONS.map((action) => (
+                          <button
+                            key={action.id}
+                            onClick={() => handleRefine(action.instruction)}
+                            disabled={refining}
+                            style={{
+                              padding: '6px 10px',
+                              backgroundColor: colors.card,
+                              border: `1px solid ${colors.border}`,
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              cursor: refining ? 'not-allowed' : 'pointer',
+                              color: colors.text,
+                              opacity: refining ? 0.6 : 1,
+                            }}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleGenerate()}
+                          disabled={refining || generating}
+                          style={{
+                            padding: '6px 10px',
+                            backgroundColor: '#dc2626',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: (refining || generating) ? 'not-allowed' : 'pointer',
+                            color: 'white',
+                            opacity: (refining || generating) ? 0.6 : 1,
+                          }}
+                        >
+                          Regenerate All
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom Refinement */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: colors.textSecondary, marginBottom: '4px' }}>
+                        What would you like to change?
+                      </label>
+                      <textarea
+                        value={refinementText}
+                        onChange={(e) => setRefinementText(e.target.value)}
+                        placeholder="e.g., Make the hook more aggressive, add a plot twist in beat 3, make the CTA funnier..."
+                        style={{
+                          width: '100%',
+                          minHeight: '60px',
+                          padding: '8px',
+                          backgroundColor: colors.card,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          color: colors.text,
+                          fontSize: '12px',
+                          resize: 'vertical',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                        }}
+                      />
+                      <button
+                        onClick={() => handleRefine(refinementText)}
+                        disabled={refining || !refinementText.trim()}
+                        style={{
+                          marginTop: '8px',
+                          padding: '8px 16px',
+                          backgroundColor: (refining || !refinementText.trim()) ? colors.border : '#7c3aed',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          cursor: (refining || !refinementText.trim()) ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {refining ? 'Refining...' : 'Send'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Rating System */}
+              <div style={{
+                marginTop: '16px',
+                borderTop: `1px solid ${colors.border}`,
+                paddingTop: '16px',
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: colors.text, marginBottom: '12px' }}>
+                  Rate This Skit
+                </div>
+
+                {/* Star Rating */}
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => {
+                        setUserRating(star);
+                        setRatingSaved(false);
+                      }}
+                      style={{
+                        padding: '4px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        fontSize: '24px',
+                        cursor: 'pointer',
+                        color: star <= userRating ? '#fbbf24' : colors.border,
+                        transition: 'color 0.15s',
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {userRating > 0 && (
+                    <span style={{ marginLeft: '8px', fontSize: '12px', color: colors.textSecondary, alignSelf: 'center' }}>
+                      {userRating}/5
+                    </span>
+                  )}
+                </div>
+
+                {/* Feedback */}
+                {userRating > 0 && (
+                  <>
+                    <textarea
+                      value={ratingFeedback}
+                      onChange={(e) => {
+                        setRatingFeedback(e.target.value);
+                        setRatingSaved(false);
+                      }}
+                      placeholder="What worked? What didn't? (optional)"
+                      style={{
+                        width: '100%',
+                        minHeight: '50px',
+                        padding: '8px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '4px',
+                        color: colors.text,
+                        fontSize: '12px',
+                        resize: 'vertical',
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit',
+                        marginBottom: '8px',
+                      }}
+                    />
+                    <button
+                      onClick={handleSaveRating}
+                      disabled={savingRating || ratingSaved}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: ratingSaved ? '#10b981' : (savingRating ? colors.border : '#7c3aed'),
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        cursor: (savingRating || ratingSaved) ? 'default' : 'pointer',
+                      }}
+                    >
+                      {ratingSaved ? 'Rating Saved!' : (savingRating ? 'Saving...' : 'Save Rating')}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Save to Library */}
+              <div style={{
+                marginTop: '16px',
+                borderTop: `1px solid ${colors.border}`,
+                paddingTop: '16px',
+              }}>
+                <button
+                  onClick={openSaveModal}
+                  style={{
+                    width: '100%',
+                    padding: '12px 20px',
+                    backgroundColor: '#059669',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Save to Library
+                </button>
+              </div>
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
+
+      {/* Save to Library Modal */}
+      {saveModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: colors.card,
+            borderRadius: '8px',
+            padding: '24px',
+            width: '400px',
+            maxWidth: '90vw',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', color: colors.text }}>Save to Library</h3>
+
+            {/* Show which variation is being saved */}
+            {result?.variations && result.variations.length > 1 && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '10px 12px',
+                backgroundColor: colors.bg,
+                borderRadius: '6px',
+                border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{ fontSize: '12px', color: colors.textSecondary, marginBottom: '4px' }}>
+                  Saving Variation
+                </div>
+                <div style={{ fontSize: '14px', color: colors.text, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>V{selectedVariationIndex + 1}</span>
+                  {result.variations[selectedVariationIndex]?.ai_score && (
+                    <span style={{
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      backgroundColor: (result.variations[selectedVariationIndex]?.ai_score?.overall_score || 0) >= 7 ? '#d1fae5' : '#fef3c7',
+                      color: (result.variations[selectedVariationIndex]?.ai_score?.overall_score || 0) >= 7 ? '#059669' : '#d97706',
+                    }}>
+                      Score: {result.variations[selectedVariationIndex]?.ai_score?.overall_score?.toFixed(1)}
+                    </span>
+                  )}
+                  {selectedVariationIndex === 0 && <span style={{ fontSize: '10px', color: '#7c3aed' }}>(Best)</span>}
+                  {isModified && <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px' }}>Modified</span>}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                Title
+              </label>
+              <input
+                type="text"
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+                placeholder="Enter a title for this skit"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.text,
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
+                Status
+              </label>
+              <select
+                value={saveStatus}
+                onChange={(e) => setSaveStatus(e.target.value as SkitStatus)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.text,
+                  fontSize: '14px',
+                }}
+              >
+                {SKIT_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setSaveModalOpen(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.text,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveToLibrary}
+                disabled={savingToLibrary || !saveTitle.trim() || savedToLibrary}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: savedToLibrary ? '#10b981' : (savingToLibrary || !saveTitle.trim() ? colors.border : '#059669'),
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  cursor: (savingToLibrary || !saveTitle.trim() || savedToLibrary) ? 'default' : 'pointer',
+                }}
+              >
+                {savedToLibrary ? 'Saved!' : (savingToLibrary ? 'Saving...' : 'Save')}
+              </button>
+            </div>
+
+            {/* Success state with link to library */}
+            {savedToLibrary && (
+              <div style={{
+                marginTop: '16px',
+                padding: '12px',
+                backgroundColor: '#d1fae5',
+                borderRadius: '6px',
+                textAlign: 'center',
+              }}>
+                <div style={{ color: '#065f46', fontWeight: 500, marginBottom: '8px' }}>
+                  Skit saved successfully!
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <Link
+                    href="/admin/skit-library"
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#059669',
+                      color: 'white',
+                      borderRadius: '4px',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    View in Library
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setSaveModalOpen(false);
+                      setSavedToLibrary(false);
+                      setSaveTitle('');
+                      setSavedSkitId(null);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'transparent',
+                      color: '#065f46',
+                      border: `1px solid #059669`,
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Continue Editing
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Load from Library Modal */}
+      {loadModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: colors.card,
+            borderRadius: '8px',
+            padding: '24px',
+            width: '600px',
+            maxWidth: '90vw',
+            maxHeight: '80vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: colors.text }}>Load from Library</h3>
+              <button
+                onClick={() => setLoadModalOpen(false)}
+                style={{
+                  padding: '4px 8px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: colors.textSecondary,
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Search and Filter */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <input
+                type="text"
+                placeholder="Search by title..."
+                value={librarySearch}
+                onChange={(e) => setLibrarySearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchSavedSkits()}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.text,
+                  fontSize: '14px',
+                }}
+              />
+              <select
+                value={libraryStatusFilter}
+                onChange={(e) => {
+                  setLibraryStatusFilter(e.target.value);
+                  setTimeout(fetchSavedSkits, 0);
+                }}
+                style={{
+                  padding: '8px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.text,
+                  fontSize: '14px',
+                }}
+              >
+                <option value="">All Statuses</option>
+                {SKIT_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={fetchSavedSkits}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#7c3aed',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Search
+              </button>
+            </div>
+
+            {/* Skits List */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {loadingSkits ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
+                  Loading skits...
+                </div>
+              ) : savedSkits.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
+                  No saved skits found
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {savedSkits.map((skit) => (
+                    <button
+                      key={skit.id}
+                      onClick={() => handleLoadSkit(skit.id)}
+                      style={{
+                        padding: '12px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '6px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.borderColor = '#7c3aed'}
+                      onMouseLeave={(e) => e.currentTarget.style.borderColor = colors.border}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 500, color: colors.text, marginBottom: '4px' }}>
+                            {skit.title}
+                          </div>
+                          <div style={{ fontSize: '12px', color: colors.textSecondary }}>
+                            {skit.product_name && <span>{skit.product_brand ? `${skit.product_brand} - ` : ''}{skit.product_name}</span>}
+                            {!skit.product_name && <span>No product</span>}
+                            <span style={{ margin: '0 8px' }}>|</span>
+                            {new Date(skit.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {skit.user_rating && (
+                            <span style={{ fontSize: '12px', color: '#fbbf24' }}>
+                              {'★'.repeat(skit.user_rating)}
+                            </span>
+                          )}
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            backgroundColor: skit.status === 'approved' ? '#d1fae5' :
+                              skit.status === 'produced' ? '#dbeafe' :
+                              skit.status === 'posted' ? '#ede9fe' :
+                              skit.status === 'archived' ? '#f3f4f6' : '#fef3c7',
+                            color: skit.status === 'approved' ? '#065f46' :
+                              skit.status === 'produced' ? '#1e40af' :
+                              skit.status === 'posted' ? '#5b21b6' :
+                              skit.status === 'archived' ? '#6b7280' : '#92400e',
+                          }}>
+                            {skit.status}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

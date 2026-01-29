@@ -43,6 +43,19 @@ const PersonaSchema = z.enum([
   "INFOMERCIAL_CHAOS",
 ]);
 
+const ActorTypeSchema = z.enum(["human", "ai_avatar", "voiceover", "mixed"]);
+
+const TargetDurationSchema = z.enum(["quick", "standard", "extended", "long"]);
+
+const ContentFormatSchema = z.enum([
+  "skit_dialogue",
+  "scene_montage",
+  "pov_story",
+  "product_demo_parody",
+  "reaction_commentary",
+  "day_in_life",
+]);
+
 const GenerateSkitInputSchema = z.object({
   video_id: z.string().uuid().optional(),
   product_id: z.string().uuid().optional(),
@@ -55,6 +68,13 @@ const GenerateSkitInputSchema = z.object({
   template_id: z.string().max(50).optional(),
   intensity: z.number().min(0).max(100).optional(),
   preset_id: z.string().max(50).optional(),
+  chaos_level: z.number().min(0).max(100).optional(),
+  creative_direction: z.string().max(500).optional(),
+  actor_type: ActorTypeSchema.optional(),
+  target_duration: TargetDurationSchema.optional(),
+  content_format: ContentFormatSchema.optional(),
+  product_context: z.string().max(2000).optional(),
+  variation_count: z.number().int().min(1).max(5).optional(),
 }).strict().refine(
   (data) => data.product_id || data.product_name,
   { message: "Either product_id or product_name is required" }
@@ -209,6 +229,270 @@ COMEDY INTENSITY: MAXIMUM (${intensity}/100)
   }
 }
 
+// --- Creative Principles (Core Philosophy) ---
+
+const CREATIVE_PRINCIPLES = `
+CREATIVE PRINCIPLES - MAKE CONTENT THAT SLAPS:
+
+1. HOOKS MUST STOP THE SCROLL (<1 second)
+   - Use pattern interrupts: unexpected visuals, provocative statements, or jarring cuts
+   - Open mid-action, mid-sentence, or with something visually bizarre
+   - Examples: "I finally did it..." (mystery), "NOBODY talks about this..." (forbidden knowledge), starting with the punchline
+
+2. CHAOS IS GOOD
+   - Absurdist humor, unexpected turns, and breaking the 4th wall all work
+   - Let the energy escalate—don't plateau
+   - Embrace non-sequiturs that somehow land
+   - The algorithm rewards "wait what?" moments
+
+3. RELATABILITY WINS
+   - "POV: you at 3am" style content makes people feel SEEN
+   - Tap into universal frustrations, guilty pleasures, and "why is this so true" moments
+   - Specific scenarios beat vague premises
+
+4. PRODUCT SHOULD FEEL ORGANIC, NEVER SALESY
+   - The best ads don't feel like ads
+   - Product is the solution to a comedic problem, not the focus
+   - Viewer should be entertained first, sold second
+   - If you removed the product, it should still be a funny video
+
+5. SPECIFICITY BEATS GENERIC
+   - "Your aunt who sells MLM products" is funnier than "someone annoying"
+   - "That one coworker who microwaves fish" > "an annoying person"
+   - Precise references create "omg that's literally me" moments
+
+6. STRUCTURE: 5-8 BEATS, 30-60 SECONDS
+   - Hook (0-3s): Pattern interrupt
+   - Setup (3-15s): Establish the comedic premise
+   - Escalation (15-40s): Build tension/absurdity
+   - Product moment (organic, not forced)
+   - CTA (final 5s): Quick, not preachy
+`;
+
+// --- Chaos Level Guidelines ---
+
+function buildChaosGuidelines(chaosLevel: number): string {
+  if (chaosLevel <= 20) {
+    return `
+CHAOS LEVEL: GROUNDED (${chaosLevel}/100)
+- Keep the premise realistic and relatable
+- Humor comes from observation and truth
+- "This is literally my life" energy
+- Situations people actually encounter
+- Subtle escalation, nothing too wild
+`;
+  } else if (chaosLevel <= 40) {
+    return `
+CHAOS LEVEL: PLAYFUL (${chaosLevel}/100)
+- Slightly exaggerated scenarios
+- One unexpected element per beat is fine
+- Light absurdity that still tracks logically
+- "This could happen on a weird day"
+- Room for quirky character choices
+`;
+  } else if (chaosLevel <= 60) {
+    return `
+CHAOS LEVEL: PLAYFULLY ABSURD (${chaosLevel}/100)
+- Embrace weird premises and strange logic
+- Non-sequiturs that somehow make sense
+- Characters can have bizarre reactions
+- "Wait, what?" followed by "okay I'm with it"
+- Breaking expectations is encouraged
+`;
+  } else if (chaosLevel <= 80) {
+    return `
+CHAOS LEVEL: UNHINGED (${chaosLevel}/100)
+- Wild premises, surreal situations
+- Logic is optional, vibes are mandatory
+- Rapid escalation into absurdity
+- Characters operating on different wavelengths
+- "This makes no sense and I love it"
+`;
+  } else {
+    return `
+CHAOS LEVEL: FEVER DREAM (${chaosLevel}/100)
+- Full surrealist energy
+- Reality is a suggestion
+- Stream of consciousness escalation
+- Breaking the 4th wall encouraged
+- "I watched this 5 times and I still don't know what happened"
+- Maximum weirdness while somehow landing the product
+`;
+  }
+}
+
+// --- Actor Type Guidelines ---
+
+type ActorType = "human" | "ai_avatar" | "voiceover" | "mixed";
+
+function buildActorTypeGuidelines(actorType: ActorType): string {
+  switch (actorType) {
+    case "human":
+      return `
+ACTOR TYPE: HUMAN PERFORMER
+- Write for a human actor who will perform on camera
+- Include physical comedy, facial expressions, gestures
+- Dialogue should feel natural and speakable
+- Consider blocking and movement in the frame
+- Props and interactions are fair game
+`;
+    case "ai_avatar":
+      return `
+ACTOR TYPE: AI AVATAR
+- Content will be performed by an AI-generated avatar
+- Focus on VISUAL GAGS and TEXT OVERLAYS (less dialogue-dependent)
+- Exaggerated facial expressions work great
+- Text overlays carry more weight than spoken word
+- Keep dialogue simple and punchy (AI avatars have limitations)
+- Suggest more on-screen text to enhance the comedy
+- B-roll and quick cuts are your friends
+`;
+    case "voiceover":
+      return `
+ACTOR TYPE: VOICEOVER ONLY
+- No on-camera performer - narration over footage
+- Focus on NARRATION STYLE and RHYTHM
+- B-roll heavy - describe visual suggestions in detail
+- Dialogue is ALL voiceover, make it punchy and engaging
+- Text overlays complement the narration
+- Think documentary/essay style but funny
+- Pacing through voice, not physical comedy
+`;
+    case "mixed":
+      return `
+ACTOR TYPE: MIXED (HUMAN + AI/VOICEOVER)
+- Combination of human performer and AI elements
+- Human appears on camera for key moments
+- AI avatar or voiceover fills in other parts
+- Clear distinction in beats: note which are [HUMAN] vs [AI/VO]
+- Use each medium's strengths: human for authenticity, AI for effects
+`;
+    default:
+      return "";
+  }
+}
+
+// --- Target Duration Guidelines ---
+
+type TargetDuration = "quick" | "standard" | "extended" | "long";
+
+function buildDurationGuidelines(duration: TargetDuration): string {
+  switch (duration) {
+    case "quick":
+      return `
+TARGET LENGTH: QUICK (15-20 seconds)
+- Generate exactly 3-4 beats
+- Ultra-tight pacing, every second counts
+- Hook + 1-2 setup beats + CTA
+- Perfect for attention-challenged scrollers
+`;
+    case "standard":
+      return `
+TARGET LENGTH: STANDARD (30-45 seconds)
+- Generate exactly 5-6 beats
+- Classic TikTok rhythm
+- Hook + 3-4 story beats + CTA
+- Room for one callback or twist
+`;
+    case "extended":
+      return `
+TARGET LENGTH: EXTENDED (45-60 seconds)
+- Generate exactly 7-8 beats
+- More room for character development
+- Hook + 5-6 story beats + CTA
+- Can include subplot or B-story
+`;
+    case "long":
+      return `
+TARGET LENGTH: LONG FORM (60-90 seconds)
+- Generate exactly 9-12 beats
+- Full narrative arc possible
+- Hook + 7-10 story beats + CTA
+- Multiple escalations, callbacks encouraged
+- Consider chapter/act structure
+`;
+    default:
+      return buildDurationGuidelines("standard");
+  }
+}
+
+// --- Content Format Guidelines ---
+
+type ContentFormat = "skit_dialogue" | "scene_montage" | "pov_story" | "product_demo_parody" | "reaction_commentary" | "day_in_life";
+
+function buildContentFormatGuidelines(format: ContentFormat): string {
+  switch (format) {
+    case "skit_dialogue":
+      return `
+CONTENT FORMAT: SKIT/DIALOGUE
+- Person-to-person comedy scenes with dialogue
+- Natural back-and-forth conversation
+- Character reactions and interactions drive the comedy
+- Product appears organically in the scene
+`;
+    case "scene_montage":
+      return `
+CONTENT FORMAT: SCENE MONTAGE
+- Series of visual scenes with voiceover narration
+- Focus on DETAILED VISUAL/SETTING DESCRIPTIONS for each beat
+- Include lighting/mood suggestions (warm, cold, dramatic, soft)
+- Suggest camera angles: close-up, wide shot, tracking shot, POV
+- Voiceover text should be SEPARATE from scene action in each beat
+- B-roll heavy - describe exact shots needed
+- Beat format should be:
+  - action: "[SCENE: Location/setting description. Camera: angle. Lighting: mood]"
+  - dialogue: "[VO] The voiceover script for this scene"
+`;
+    case "pov_story":
+      return `
+CONTENT FORMAT: POV STORY
+- First-person perspective, natural/authentic feel
+- Less "produced", more slice-of-life
+- Write dialogue as internal monologue or talking to camera
+- Situations feel real and relatable
+- "POV: you when..." energy
+- Product discovery should feel genuine, not staged
+- Raw, unpolished aesthetic implied
+`;
+    case "product_demo_parody":
+      return `
+CONTENT FORMAT: PRODUCT DEMO PARODY
+- Infomercial style with intentional comedy
+- Exaggerated problems, over-the-top solutions
+- Self-aware humor about advertising tropes
+- "But wait, there's more!" energy
+- Can include fake testimonials, dramatic before/afters
+- Product as the hero that saves the day (ironically)
+`;
+    case "reaction_commentary":
+      return `
+CONTENT FORMAT: REACTION/COMMENTARY
+- Reacting to something (video, trend, situation) with product tie-in
+- Split focus: reaction content + product integration
+- Commentary should be witty and engaging
+- Product appears as natural part of the reaction setup
+- "Okay but have you tried..." energy
+`;
+    case "day_in_life":
+      return `
+CONTENT FORMAT: DAY IN THE LIFE
+- Following someone's routine from morning to night
+- Product naturally integrated into daily moments
+- Detailed scene descriptions for each beat:
+  - Location (bedroom, kitchen, office, gym, etc.)
+  - Time of day (morning light, afternoon sun, evening ambiance)
+  - Camera suggestions (wide establishing, close-up details)
+- Voiceover or minimal dialogue
+- Cozy, aspirational, or relatable depending on tone
+- Beat format should include:
+  - action: "[TIME: 7:00am - Kitchen. Morning light through windows. Wide shot → close-up on coffee]"
+  - dialogue: Optional narration or thought bubble
+`;
+    default:
+      return buildContentFormatGuidelines("skit_dialogue");
+  }
+}
+
 // --- Skit Structure Template ---
 
 const SKIT_STRUCTURE_TEMPLATE = `
@@ -230,11 +514,19 @@ OUTPUT FORMAT (JSON only, no markdown):
 }
 
 TIMING GUIDELINES:
-- Total skit: 15-45 seconds
-- Hook: First 3 seconds
-- Problem/Setup: 3-10 seconds
-- Solution/Product: 10-25 seconds
-- CTA: Final 5 seconds
+- Total skit: 30-60 seconds (5-8 beats typically)
+- Hook: First 1-3 seconds (MUST stop the scroll)
+- Setup: 3-15 seconds (establish the comedic premise)
+- Escalation: 15-45 seconds (build tension, let it get weird)
+- Product moment: Organic, feels like part of the bit
+- CTA: Final 3-5 seconds (quick, not preachy)
+
+BEAT QUALITY CHECKLIST:
+- Does the hook create a "wait what?" moment?
+- Is there at least one unexpected turn?
+- Would this be funny WITHOUT the product?
+- Are the specifics... specific? (not "someone" but "your coworker named Brad")
+- Does it escalate or does it plateau?
 `;
 
 // --- Main API Handler ---
@@ -252,13 +544,22 @@ export async function POST(request: Request) {
   let input: GenerateSkitInput;
   try {
     const body = await request.json();
+    console.log(`[${correlationId}] Request body:`, JSON.stringify(body, null, 2));
     input = GenerateSkitInputSchema.parse(body);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return createApiErrorResponse("VALIDATION_ERROR", "Invalid input", 400, correlationId, {
+      // Build a user-friendly error message listing all validation issues
+      const issueMessages = err.issues.map((i) => {
+        const field = i.path.join(".") || "request";
+        return `${field}: ${i.message}`;
+      });
+      const friendlyMessage = `Validation failed: ${issueMessages.join("; ")}`;
+      console.error(`[${correlationId}] Validation error:`, friendlyMessage);
+      return createApiErrorResponse("VALIDATION_ERROR", friendlyMessage, 400, correlationId, {
         issues: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
       });
     }
+    console.error(`[${correlationId}] JSON parse error:`, err);
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
@@ -271,7 +572,7 @@ export async function POST(request: Request) {
 
   try {
     // Fetch product info if product_id provided, otherwise use fallback product_name
-    let product: { id: string | null; name: string; brand: string | null; category: string | null; description: string | null } | null = null;
+    let product: { id: string | null; name: string; brand: string | null; category: string | null; notes: string | null } | null = null;
 
     // Debug info collected during product lookup
     let productLookupDebug: Record<string, unknown> | null = null;
@@ -300,7 +601,7 @@ export async function POST(request: Request) {
         sample_product_ids: sampleProductIds,
         query_attempted: {
           table: "products",
-          select: "id, name, brand, category, description",
+          select: "id, name, brand, category, notes",
           filter: { column: "id", operator: "eq", value: productIdTrimmed },
           method: "single",
         },
@@ -312,7 +613,7 @@ export async function POST(request: Request) {
       // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand, category, description")
+        .select("id, name, brand, category, notes")
         .eq("id", productIdTrimmed)
         .single();
 
@@ -382,7 +683,7 @@ export async function POST(request: Request) {
         name: input.product_name || "the product",
         brand: input.brand_name || null,
         category: null,
-        description: null,
+        notes: null,
       };
     }
 
@@ -440,30 +741,74 @@ export async function POST(request: Request) {
       productName,
       brandName: product.brand || "",
       category: product.category || "",
-      description: product.description || "",
+      description: product.notes || "",
       ctaOverlay,
       riskTier: input.risk_tier,
       persona: input.persona,
       template,
       preset,
       intensity: requestedIntensity,
+      chaosLevel: input.chaos_level ?? 50,
+      creativeDirection: input.creative_direction || "",
+      actorType: input.actor_type ?? "human",
+      targetDuration: input.target_duration ?? "standard",
+      contentFormat: input.content_format ?? "skit_dialogue",
+      productContext: input.product_context || "",
     });
 
-    // Call Anthropic API
-    const rawSkit = await callAnthropicForSkit(prompt, correlationId);
+    // Determine variation count (default 3)
+    const variationCount = input.variation_count ?? 3;
 
-    if (!rawSkit) {
-      return createApiErrorResponse("AI_ERROR", "Failed to generate skit", 500, correlationId);
+    // Generate multiple variations in parallel with different creative seeds
+    const variationPromises = Array.from({ length: variationCount }, (_, i) =>
+      generateSingleVariation(prompt, i, variationCount, correlationId)
+    );
+
+    const variationResults = await Promise.all(variationPromises);
+
+    // Filter out failed generations
+    const successfulVariations = variationResults.filter((v): v is Skit => v !== null);
+
+    if (successfulVariations.length === 0) {
+      return createApiErrorResponse("AI_ERROR", "Failed to generate any skit variations", 500, correlationId);
     }
 
-    // Post-process with throttle enforcement
-    const processed = postProcessSkit(rawSkit, input.risk_tier);
+    // Post-process and score all variations in parallel
+    const processedVariations = await Promise.all(
+      successfulVariations.map(async (rawSkit, idx) => {
+        const processed = postProcessSkit(rawSkit, input.risk_tier);
 
-    // Validate against template constraints if template was used
-    let templateValidation: { valid: boolean; issues: string[] } | null = null;
-    if (template) {
-      templateValidation = validateSkitAgainstTemplate(processed.skit, template);
-    }
+        // Validate against template if used
+        let templateValidation: { valid: boolean; issues: string[] } | null = null;
+        if (template) {
+          templateValidation = validateSkitAgainstTemplate(processed.skit, template);
+        }
+
+        // Score the variation
+        let aiScore: AIScoreResult | null = null;
+        try {
+          aiScore = await scoreSkitInternal(processed.skit, productName, product.brand || undefined, `${correlationId}-v${idx}`);
+        } catch (scoreError) {
+          console.error(`[${correlationId}] Variation ${idx} scoring failed:`, scoreError);
+        }
+
+        return {
+          skit: processed.skit,
+          ai_score: aiScore,
+          risk_tier_applied: processed.appliedTier,
+          risk_score: processed.riskScore,
+          risk_flags: processed.riskFlags,
+          template_validation: templateValidation,
+        };
+      })
+    );
+
+    // Sort by overall score (best first), null scores go last
+    const sortedVariations = processedVariations.sort((a, b) => {
+      const scoreA = a.ai_score?.overall_score ?? 0;
+      const scoreB = b.ai_score?.overall_score ?? 0;
+      return scoreB - scoreA;
+    });
 
     // Determine entity type/id for audit: video > product > system
     const auditEntityType = input.video_id ? "video" : input.product_id ? "product" : "system";
@@ -476,20 +821,17 @@ export async function POST(request: Request) {
       entity_type: auditEntityType,
       entity_id: auditEntityId,
       actor: authContext.user.id,
-      summary: `Skit generated: ${input.risk_tier} -> ${processed.appliedTier}, persona=${input.persona}, intensity=${requestedIntensity}${intensityBudget.budgetClamped ? " (budget)" : ""}${presetIntensityClamped ? " (preset)" : ""}${preset ? `, preset=${preset.id}` : ""}${template ? `, template=${template.id}` : ""}`,
+      summary: `${sortedVariations.length} skit variations generated: ${input.risk_tier}, persona=${input.persona}, intensity=${requestedIntensity}`,
       details: {
         risk_tier_requested: input.risk_tier,
-        risk_tier_applied: processed.appliedTier,
         persona: input.persona,
         template_id: effectiveTemplateId || null,
         preset_id: preset?.id || null,
         preset_name: preset?.name || null,
         product_id: input.product_id || null,
         product_name: product.name,
-        risk_score: processed.riskScore,
-        flags_count: processed.riskFlags.length,
-        was_downgraded: processed.wasDowngraded,
-        template_validation: templateValidation,
+        variation_count: sortedVariations.length,
+        variation_scores: sortedVariations.map(v => v.ai_score?.overall_score ?? null),
         intensity_requested: originalRequestedIntensity,
         intensity_applied: requestedIntensity,
         budget_clamped: intensityBudget.budgetClamped,
@@ -500,18 +842,22 @@ export async function POST(request: Request) {
 
     // Build response data
     const responseData: Record<string, unknown> = {
-      risk_tier_applied: processed.appliedTier,
-      risk_score: processed.riskScore,
-      risk_flags: processed.riskFlags,
+      variations: sortedVariations,
+      variation_count: sortedVariations.length,
       template_id: effectiveTemplateId || null,
-      template_validation: templateValidation,
       preset_id: preset?.id || null,
       preset_name: preset?.name || null,
       intensity_requested: originalRequestedIntensity,
       intensity_applied: requestedIntensity,
       budget_clamped: intensityBudget.budgetClamped,
       preset_intensity_clamped: presetIntensityClamped,
-      skit: processed.skit,
+      // Legacy single-skit fields for backward compatibility (best variation)
+      skit: sortedVariations[0].skit,
+      ai_score: sortedVariations[0].ai_score,
+      risk_tier_applied: sortedVariations[0].risk_tier_applied,
+      risk_score: sortedVariations[0].risk_score,
+      risk_flags: sortedVariations[0].risk_flags,
+      template_validation: sortedVariations[0].template_validation,
     };
 
     // Include diagnostics only in debug mode
@@ -555,26 +901,52 @@ interface PromptParams {
   template: SkitTemplate | null;
   preset: SkitPreset | null;
   intensity: number;
+  chaosLevel: number;
+  creativeDirection: string;
+  actorType: ActorType;
+  targetDuration: TargetDuration;
+  contentFormat: ContentFormat;
+  productContext: string;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
   const templateSection = template ? buildTemplatePromptSection(template) : "";
   const presetSection = preset ? buildPresetPromptSection(preset) : "";
   const intensityGuideline = buildIntensityGuidelines(intensity);
+  const chaosGuideline = buildChaosGuidelines(chaosLevel);
+  const actorGuideline = buildActorTypeGuidelines(actorType);
+  const durationGuideline = buildDurationGuidelines(targetDuration);
+  const contentFormatGuideline = buildContentFormatGuidelines(contentFormat);
+  const creativeDirectionSection = creativeDirection
+    ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the skit)\n`
+    : "";
+  const productContextSection = productContext
+    ? `\nADDITIONAL PRODUCT INFORMATION:\n${productContext}\n(Use these details to make the product integration more specific and compelling)\n`
+    : "";
 
-  return `You are a TikTok skit writer for product advertisements. Generate a short, engaging skit.
+  return `You are an elite TikTok comedy writer who creates viral product skits. Your content has that "wait I need to show this to everyone" energy.
+
+${CREATIVE_PRINCIPLES}
 
 PRODUCT INFO:
 - Product Name: ${productName}
 - Brand: ${brandName || "N/A"}
 - Category: ${category || "General"}
-- Description: ${description || "A great product"}
-
+- Notes: ${description || "None provided"}
+${productContextSection}
 CTA OVERLAY TO USE: "${ctaOverlay}"
+${creativeDirectionSection}
+${contentFormatGuideline}
+
+${actorGuideline}
+
+${durationGuideline}
+
+${chaosGuideline}
 
 ${tierGuideline}
 
@@ -657,6 +1029,262 @@ async function callAnthropicForSkit(prompt: string, correlationId: string): Prom
     return parsed as Skit;
   } catch (parseErr) {
     console.error(`[${correlationId}] Failed to parse skit JSON:`, parseErr);
+    return null;
+  }
+}
+
+// --- Variation Generation ---
+
+const VARIATION_APPROACHES = [
+  "Use a CONVERSATIONAL/DIALOGUE-HEAVY approach. Focus on witty back-and-forth exchanges.",
+  "Use a VISUAL/PHYSICAL COMEDY approach. Focus on actions, reactions, and visual gags over dialogue.",
+  "Use a STORYTELLING/NARRATIVE approach. Build a mini-arc with setup, escalation, and payoff.",
+  "Use an ABSURDIST/SURREAL approach. Lean into unexpected turns and fever-dream logic.",
+  "Use a RELATABLE/SLICE-OF-LIFE approach. Focus on universal frustrations and 'this is so me' moments.",
+];
+
+async function generateSingleVariation(
+  basePrompt: string,
+  variationIndex: number,
+  totalVariations: number,
+  correlationId: string
+): Promise<Skit | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error(`[${correlationId}] ANTHROPIC_API_KEY not configured`);
+    throw new Error("AI service not configured");
+  }
+
+  // Add variation-specific instructions to encourage distinct approaches
+  const variationInstruction = totalVariations > 1
+    ? `\n\nVARIATION INSTRUCTION: This is variation ${variationIndex + 1} of ${totalVariations}.
+${VARIATION_APPROACHES[variationIndex % VARIATION_APPROACHES.length]}
+Make this skit DISTINCTLY DIFFERENT from other variations - don't just change words, change the creative approach, hook style, and comedic angle.\n`
+    : "";
+
+  const prompt = basePrompt + variationInstruction;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[${correlationId}] Variation ${variationIndex} API error: ${response.status} - ${errorText}`);
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data.content?.[0]?.text;
+
+  if (!content) {
+    console.error(`[${correlationId}] No content for variation ${variationIndex}`);
+    return null;
+  }
+
+  try {
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    }
+
+    const parsed = JSON.parse(jsonStr.trim());
+
+    if (!validateSkitStructure(parsed)) {
+      console.error(`[${correlationId}] Invalid structure for variation ${variationIndex}`);
+      return null;
+    }
+
+    return parsed as Skit;
+  } catch (parseErr) {
+    console.error(`[${correlationId}] Failed to parse variation ${variationIndex}:`, parseErr);
+    return null;
+  }
+}
+
+// --- AI Score Types and Functions ---
+
+interface AIScoreResult {
+  hook_strength: number;
+  humor_level: number;
+  product_integration: number;
+  virality_potential: number;
+  clarity: number;
+  production_feasibility: number;
+  overall_score: number;
+  strengths: string[];
+  improvements: string[];
+}
+
+function buildScoringPrompt(skit: Skit, productName: string, productBrand?: string): string {
+  const productDesc = productBrand ? `${productBrand} ${productName}` : productName;
+
+  const skitText = `
+HOOK: "${skit.hook_line}"
+
+BEATS:
+${skit.beats.map((beat, i) => `${i + 1}. [${beat.t}] ${beat.action}${beat.dialogue ? `\n   Dialogue: "${beat.dialogue}"` : ''}${beat.on_screen_text ? `\n   Text: "${beat.on_screen_text}"` : ''}`).join('\n\n')}
+
+CTA: "${skit.cta_line}"
+CTA Overlay: "${skit.cta_overlay}"
+
+B-ROLL SUGGESTIONS:
+${skit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+
+OVERLAYS:
+${skit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}
+`.trim();
+
+  return `You are a TikTok content strategist evaluating short-form video scripts. Score this skit for a "${productDesc}" product. Be critical but constructive.
+
+THE SKIT TO EVALUATE:
+${skitText}
+
+EVALUATION CRITERIA (score each 1-10):
+
+1. HOOK STRENGTH: How attention-grabbing is the opening? Will it stop the scroll in the first 1-2 seconds?
+   - 1-3: Generic, forgettable, wouldn't make someone pause
+   - 4-6: Decent but predictable, might get a glance
+   - 7-8: Strong pattern interrupt, creates curiosity
+   - 9-10: Exceptional, guaranteed scroll-stopper
+
+2. HUMOR LEVEL: How funny/entertaining is the content?
+   - 1-3: Flat, cringey, or trying too hard
+   - 4-6: Has moments, but not memorable
+   - 7-8: Genuinely funny, would share with friends
+   - 9-10: Comedy gold, quotable moments
+
+3. PRODUCT INTEGRATION: How naturally is the product woven in? (not salesy)
+   - 1-3: Feels like a forced ad, product mention is jarring
+   - 4-6: Product is there but feels shoehorned
+   - 7-8: Natural integration, product feels like part of the story
+   - 9-10: You forget it's an ad, product is the hero organically
+
+4. VIRALITY POTENTIAL: How shareable/relatable is this? Would people tag friends?
+   - 1-3: No rewatch value, wouldn't share
+   - 4-6: Some people might relate, limited appeal
+   - 7-8: Highly relatable, people will tag friends
+   - 9-10: "OMG this is literally me" energy, guaranteed shares
+
+5. CLARITY: Is the message clear? Easy to follow?
+   - 1-3: Confusing, hard to follow, too many ideas
+   - 4-6: Gets the point across but messy
+   - 7-8: Clear narrative, easy to follow
+   - 9-10: Crystal clear, every beat lands perfectly
+
+6. PRODUCTION FEASIBILITY: How easy is this to actually film?
+   - 1-3: Would require major budget, complex setups, CGI
+   - 4-6: Needs some planning and resources
+   - 7-8: Achievable with basic equipment and planning
+   - 9-10: Can shoot this with a phone in an afternoon
+
+OVERALL SCORE: Weighted average emphasizing hook (25%), humor (20%), product integration (20%), virality (20%), clarity (10%), feasibility (5%).
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+{
+  "hook_strength": <1-10>,
+  "humor_level": <1-10>,
+  "product_integration": <1-10>,
+  "virality_potential": <1-10>,
+  "clarity": <1-10>,
+  "production_feasibility": <1-10>,
+  "overall_score": <1-10>,
+  "strengths": ["specific strength 1", "specific strength 2", "specific strength 3"],
+  "improvements": ["actionable improvement 1", "actionable improvement 2", "actionable improvement 3"]
+}
+
+IMPORTANT:
+- Be honest and critical. Average skits should score 5-6. Only exceptional work gets 8+.
+- Strengths should be SPECIFIC to this skit, not generic praise.
+- Improvements should be ACTIONABLE, not vague.
+- Each array should have 2-3 items, no more.`;
+}
+
+async function scoreSkitInternal(skit: Skit, productName: string, productBrand: string | undefined, correlationId: string): Promise<AIScoreResult | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error(`[${correlationId}] ANTHROPIC_API_KEY not configured for scoring`);
+    return null;
+  }
+
+  const prompt = buildScoringPrompt(skit, productName, productBrand);
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[${correlationId}] Anthropic API scoring error: ${response.status} - ${errorText}`);
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data.content?.[0]?.text;
+
+  if (!content) {
+    console.error(`[${correlationId}] No scoring content from Anthropic`);
+    return null;
+  }
+
+  try {
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    }
+
+    const parsed = JSON.parse(jsonStr.trim()) as AIScoreResult;
+
+    // Basic validation
+    const numberFields = ['hook_strength', 'humor_level', 'product_integration', 'virality_potential', 'clarity', 'production_feasibility', 'overall_score'];
+    for (const field of numberFields) {
+      const val = parsed[field as keyof AIScoreResult];
+      if (typeof val !== 'number' || val < 1 || val > 10) {
+        console.error(`[${correlationId}] Invalid score field ${field}: ${val}`);
+        return null;
+      }
+    }
+
+    if (!Array.isArray(parsed.strengths) || !Array.isArray(parsed.improvements)) {
+      console.error(`[${correlationId}] Missing strengths/improvements arrays`);
+      return null;
+    }
+
+    return parsed;
+  } catch (parseErr) {
+    console.error(`[${correlationId}] Failed to parse score JSON:`, parseErr);
     return null;
   }
 }

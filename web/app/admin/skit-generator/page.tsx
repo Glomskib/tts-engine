@@ -370,6 +370,7 @@ export default function SkitGeneratorPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [savedSkitId, setSavedSkitId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Recent products state (persisted in localStorage)
   const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([]);
@@ -1063,10 +1064,18 @@ export default function SkitGeneratorPage() {
 
     // Set AI score from response (use best variation's score)
     const variations = response.data.variations;
+    let newScore = null;
     if (variations && variations.length > 0) {
-      setAiScore(variations[0].ai_score || null);
+      newScore = variations[0].ai_score || null;
     } else {
-      setAiScore(response.data.ai_score || null);
+      newScore = response.data.ai_score || null;
+    }
+    setAiScore(newScore);
+
+    // Celebrate high scores!
+    if (newScore && newScore.overall_score >= 8.0) {
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 3000);
     }
 
     // Track recent product if using product_id
@@ -1278,6 +1287,12 @@ export default function SkitGeneratorPage() {
     }
 
     setAiScore(response.data);
+
+    // Celebrate high scores!
+    if (response.data && response.data.overall_score >= 8.0) {
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 3000);
+    }
   };
 
   // Switch to a specific version
@@ -1493,6 +1508,39 @@ export default function SkitGeneratorPage() {
 
   return (
     <div ref={containerRef} style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+      {/* Celebration Toast */}
+      {showCelebration && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#10b981',
+            color: 'white',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            fontSize: '16px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'slideDown 0.3s ease-out',
+          }}
+        >
+          <span style={{ fontSize: '20px' }}>🎉</span>
+          Great score! This skit has high viral potential.
+        </div>
+      )}
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
+
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px' }}>
         <div>
@@ -3159,6 +3207,38 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     </div>
                   ))}
                 </div>
+
+                {/* Total Duration Summary */}
+                {currentSkit.beats && currentSkit.beats.length > 0 && (() => {
+                  // Parse timestamps and sum durations
+                  let totalSeconds = 0;
+                  currentSkit.beats.forEach(beat => {
+                    const match = beat.t?.match(/(\d+):(\d+)-(\d+):(\d+)/);
+                    if (match) {
+                      const startSec = parseInt(match[1]) * 60 + parseInt(match[2]);
+                      const endSec = parseInt(match[3]) * 60 + parseInt(match[4]);
+                      totalSeconds = Math.max(totalSeconds, endSec);
+                    }
+                  });
+                  const targetSecs = targetDuration === 'quick' ? 20 : targetDuration === 'standard' ? 45 : targetDuration === 'extended' ? 60 : 90;
+                  const isOverTarget = totalSeconds > targetSecs + 10;
+                  return totalSeconds > 0 ? (
+                    <div style={{
+                      marginTop: '8px',
+                      padding: '6px 10px',
+                      backgroundColor: isOverTarget ? '#fef2f2' : colors.bg,
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      color: isOverTarget ? '#dc2626' : colors.textSecondary,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <span>Total Duration: <strong>{Math.floor(totalSeconds / 60)}:{(totalSeconds % 60).toString().padStart(2, '0')}</strong></span>
+                      <span>Target: {targetSecs}s {isOverTarget && '⚠️ Over target'}</span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* CTA */}

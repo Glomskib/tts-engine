@@ -13,6 +13,45 @@ interface SubmitWinnerRequest {
   // For file uploads, we'll handle storage_path separately
   asset_storage_path?: string;
   asset_type?: "mp4" | "audio";
+  // oEmbed data (auto-fetched or passed from client)
+  title?: string;
+  creator_handle?: string;
+  thumbnail_url?: string;
+}
+
+interface OEmbedResponse {
+  title?: string;
+  author_name?: string;
+  author_url?: string;
+  thumbnail_url?: string;
+}
+
+/**
+ * Fetch oEmbed data from TikTok (limited but free)
+ */
+async function fetchOEmbedData(url: string): Promise<OEmbedResponse | null> {
+  try {
+    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+    const res = await fetch(oembedUrl, {
+      headers: { "User-Agent": "TTS-Engine/1.0" },
+    });
+
+    if (!res.ok) {
+      console.log(`[oEmbed] Failed for ${url}: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    return {
+      title: data.title,
+      author_name: data.author_name,
+      author_url: data.author_url,
+      thumbnail_url: data.thumbnail_url,
+    };
+  } catch (err) {
+    console.log(`[oEmbed] Error for ${url}:`, err);
+    return null;
+  }
 }
 
 /**
@@ -46,6 +85,9 @@ export async function POST(request: Request) {
     submitted_by,
     asset_storage_path,
     asset_type,
+    title,
+    creator_handle,
+    thumbnail_url,
   } = body as SubmitWinnerRequest;
 
   // Validate URL
@@ -98,6 +140,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch oEmbed data if not provided
+    let oembedData: OEmbedResponse | null = null;
+    if (!title && !creator_handle) {
+      oembedData = await fetchOEmbedData(cleanUrl);
+    }
+
     // Create reference_video record
     const { data: refVideo, error: insertError } = await supabaseAdmin
       .from("reference_videos")
@@ -107,6 +155,9 @@ export async function POST(request: Request) {
         notes: notes?.trim() || null,
         category: category?.trim() || null,
         status,
+        title: title || oembedData?.title || null,
+        creator_handle: creator_handle || oembedData?.author_name || null,
+        thumbnail_url: thumbnail_url || oembedData?.thumbnail_url || null,
       })
       .select()
       .single();

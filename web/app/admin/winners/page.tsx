@@ -51,6 +51,9 @@ interface ReferenceVideo {
   comments?: number;
   shares?: number;
   ai_analysis?: AIAnalysis;
+  title?: string;
+  creator_handle?: string;
+  thumbnail_url?: string;
 }
 
 type StatusFilter = "all" | "ready" | "processing" | "needs_data" | "failed";
@@ -79,6 +82,42 @@ function getStatusBadgeStyle(status: string): { bg: string; text: string } {
 function getStatusLabel(status: string): string {
   if (status === "needs_file" || status === "needs_transcription") return "Needs Data";
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// Get hook preview from multiple sources
+function getHookPreview(winner: ReferenceVideo): string | null {
+  // 1. Try AI analysis hook_line
+  if (winner.ai_analysis?.hook_line) {
+    return winner.ai_analysis.hook_line;
+  }
+  // 2. Try reference_extracts spoken_hook
+  if (winner.reference_extracts?.[0]?.spoken_hook) {
+    return winner.reference_extracts[0].spoken_hook;
+  }
+  // 3. Try first sentence of transcript
+  if (winner.transcript_text) {
+    const firstSentence = winner.transcript_text.split(/[.!?]/)[0]?.trim();
+    if (firstSentence && firstSentence.length > 5) {
+      return firstSentence;
+    }
+  }
+  return null;
+}
+
+// Calculate quality score from metrics or stored value
+function getQualityScore(winner: ReferenceVideo): number | null {
+  // 1. Try reference_extracts quality_score
+  if (winner.reference_extracts?.[0]?.quality_score != null) {
+    return winner.reference_extracts[0].quality_score;
+  }
+  // 2. Calculate from engagement metrics
+  if (winner.views && winner.views > 0) {
+    const engagement = (winner.likes || 0) + (winner.comments || 0) + (winner.shares || 0);
+    const rate = (engagement / winner.views) * 100;
+    // Cap at 100, round to integer
+    return Math.min(100, Math.round(rate));
+  }
+  return null;
 }
 
 function formatDate(dateStr: string): string {
@@ -246,8 +285,12 @@ export default function WinnersPage() {
       }
 
       setSubmitUrl("");
-      setSubmitMessage({ type: "success", text: "Winner added. Click to add transcript." });
-      setTimeout(() => setSubmitMessage(null), 5000);
+      const creatorInfo = data.data?.creator_handle ? ` (@${data.data.creator_handle})` : "";
+      setSubmitMessage({
+        type: "success",
+        text: `Winner added${creatorInfo}! Click the row to add transcript and metrics.`
+      });
+      setTimeout(() => setSubmitMessage(null), 8000);
       fetchWinners();
     } catch {
       setSubmitMessage({ type: "error", text: "Network error" });
@@ -631,7 +674,8 @@ export default function WinnersPage() {
               <tbody>
                 {filteredWinners.map((winner) => {
                   const badgeStyle = getStatusBadgeStyle(winner.status);
-                  const extract = winner.reference_extracts?.[0];
+                  const hookPreview = getHookPreview(winner);
+                  const qualityScore = getQualityScore(winner);
 
                   return (
                     <tr
@@ -658,20 +702,27 @@ export default function WinnersPage() {
                         </span>
                       </td>
                       <td style={tdStyle}>
-                        <a
-                          href={winner.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ color: colors.accent, textDecoration: "none", fontSize: "12px", fontFamily: "monospace" }}
-                        >
-                          {truncateUrl(winner.url)}
-                        </a>
+                        <div>
+                          <a
+                            href={winner.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ color: colors.accent, textDecoration: "none", fontSize: "12px", fontFamily: "monospace" }}
+                          >
+                            {truncateUrl(winner.url)}
+                          </a>
+                          {winner.creator_handle && (
+                            <div style={{ fontSize: "11px", color: colors.textMuted, marginTop: "2px" }}>
+                              @{winner.creator_handle}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td style={{ ...tdStyle, maxWidth: "250px" }}>
-                        {extract?.spoken_hook ? (
-                          <span style={{ color: colors.text, fontSize: "12px" }} title={extract.spoken_hook}>
-                            &ldquo;{extract.spoken_hook.slice(0, 60)}{extract.spoken_hook.length > 60 ? "..." : ""}&rdquo;
+                        {hookPreview ? (
+                          <span style={{ color: colors.text, fontSize: "12px" }} title={hookPreview}>
+                            &ldquo;{hookPreview.slice(0, 60)}{hookPreview.length > 60 ? "..." : ""}&rdquo;
                           </span>
                         ) : (
                           <span style={{ color: colors.textMuted, fontSize: "12px", fontStyle: "italic" }}>
@@ -685,13 +736,13 @@ export default function WinnersPage() {
                         </span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
-                        {extract?.quality_score != null ? (
+                        {qualityScore != null ? (
                           <span style={{
                             fontWeight: 600,
                             fontSize: "13px",
-                            color: extract.quality_score >= 80 ? "#10b981" : extract.quality_score >= 60 ? "#f59e0b" : colors.textMuted,
+                            color: qualityScore >= 10 ? "#10b981" : qualityScore >= 5 ? "#f59e0b" : colors.textMuted,
                           }}>
-                            {extract.quality_score}
+                            {qualityScore}%
                           </span>
                         ) : (
                           <span style={{ color: colors.textMuted }}>—</span>
@@ -777,6 +828,27 @@ export default function WinnersPage() {
 
               {/* Modal Body */}
               <div style={{ padding: "20px" }}>
+                {/* Helper Instructions (show if no transcript) */}
+                {!editForm.transcript.trim() && (
+                  <div style={{
+                    padding: "14px",
+                    backgroundColor: "rgba(59, 130, 246, 0.08)",
+                    border: "1px solid rgba(59, 130, 246, 0.2)",
+                    borderRadius: "8px",
+                    marginBottom: "16px",
+                  }}>
+                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#3b82f6", marginBottom: "8px" }}>
+                      How to get video data:
+                    </div>
+                    <ol style={{ margin: 0, paddingLeft: "18px", fontSize: "12px", color: colors.text, lineHeight: 1.6 }}>
+                      <li>Open the TikTok video (link above)</li>
+                      <li>Copy the caption/spoken text as the transcript</li>
+                      <li>Note the views, likes, comments, shares from TikTok</li>
+                      <li>Click &quot;Analyze with AI&quot; to extract hook patterns</li>
+                    </ol>
+                  </div>
+                )}
+
                 {/* Transcript */}
                 <div style={{ marginBottom: "16px" }}>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>

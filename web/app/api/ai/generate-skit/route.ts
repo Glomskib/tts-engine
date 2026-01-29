@@ -268,12 +268,12 @@ export async function POST(request: Request) {
 
   try {
     // Fetch product info if product_id provided, otherwise use fallback product_name
-    let product: { id: string | null; name: string; brand_name: string | null; category: string | null; description: string | null } | null = null;
+    let product: { id: string | null; name: string; brand: string | null; category: string | null; description: string | null } | null = null;
 
     if (input.product_id) {
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand_name, category, description")
+        .select("id, name, brand, category, description")
         .eq("id", input.product_id)
         .single();
 
@@ -286,7 +286,7 @@ export async function POST(request: Request) {
       product = {
         id: null,
         name: input.product_name || "the product",
-        brand_name: input.brand_name || null,
+        brand: input.brand_name || null,
         category: null,
         description: null,
       };
@@ -347,7 +347,7 @@ export async function POST(request: Request) {
 
     const prompt = buildSkitPrompt({
       productName,
-      brandName: product.brand_name || "",
+      brandName: product.brand || "",
       category: product.category || "",
       description: product.description || "",
       ctaOverlay,

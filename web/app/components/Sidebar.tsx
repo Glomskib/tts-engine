@@ -99,6 +99,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
           { label: 'Brands', href: '/admin/brands' },
           { label: 'Products', href: '/admin/products' },
           { label: 'Script Library', href: '/admin/scripts' },
+          { label: 'Skit Generator', href: '/admin/skit-generator' },
           { label: 'Winning Examples', href: '/admin/winners' },
         ],
       });

@@ -73,7 +73,7 @@ export async function GET(request: Request) {
         claimed_by,
         product_id,
         products:product_id (
-          brand_name
+          brand
         )
       `)
       .not("recording_status", "in", "(POSTED,REJECTED)")
@@ -116,7 +116,7 @@ export async function GET(request: Request) {
 
       // Stuck = > 24h in same status
       if (hoursInStatus > 24) {
-        const product = video.products as { brand_name?: string } | null;
+        const product = video.products as { brand?: string } | null;
         stuckItems.push({
           video_id: video.id,
           video_code: video.video_code,
@@ -125,7 +125,7 @@ export async function GET(request: Request) {
           hours_in_status: Math.round(hoursInStatus * 10) / 10,
           claimed_by: video.claimed_by,
           product_id: video.product_id,
-          brand_name: product?.brand_name || null,
+          brand_name: product?.brand || null,
         });
       }
     }

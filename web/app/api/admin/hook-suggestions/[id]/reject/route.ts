@@ -98,10 +98,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!brandName && suggestion.product_id) {
       const { data: product } = await supabaseAdmin
         .from("products")
-        .select("brand_name")
+        .select("brand")
         .eq("id", suggestion.product_id)
         .single();
-      brandName = product?.brand_name || null;
+      brandName = product?.brand || null;
     }
 
     let provenHookId: string | null = null;

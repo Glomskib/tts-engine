@@ -91,7 +91,7 @@ export async function POST(request: Request) {
           product_id,
           recording_status,
           products:product_id (
-            brand_name
+            brand
           )
         `)
         .eq("id", video_id.trim())
@@ -108,8 +108,8 @@ export async function POST(request: Request) {
       }
 
       // Get brand_name from product
-      const product = video.products as { brand_name?: string } | null;
-      const brandName = product?.brand_name;
+      const product = video.products as { brand?: string } | null;
+      const brandName = product?.brand;
 
       if (!brandName) {
         results.push({

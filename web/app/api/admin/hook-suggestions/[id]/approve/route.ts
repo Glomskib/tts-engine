@@ -101,10 +101,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!brandName && suggestion.product_id) {
       const { data: product } = await supabaseAdmin
         .from("products")
-        .select("brand_name")
+        .select("brand")
         .eq("id", suggestion.product_id)
         .single();
-      brandName = product?.brand_name || null;
+      brandName = product?.brand || null;
     }
 
     // If still no brand_name, use a placeholder (required for proven_hooks)

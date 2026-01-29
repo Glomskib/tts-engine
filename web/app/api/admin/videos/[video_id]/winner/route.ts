@@ -80,7 +80,7 @@ export async function POST(
           angle
         ),
         products:product_id (
-          brand_name
+          brand
         )
       `)
       .eq("id", video_id)
@@ -157,8 +157,8 @@ export async function POST(
       }
 
       // Hook feedback loop: increment winner_count on proven_hooks (idempotent)
-      const product = video.products as { brand_name?: string } | null;
-      const brandName = product?.brand_name;
+      const product = video.products as { brand?: string } | null;
+      const brandName = product?.brand;
       let hookFeedback = null;
 
       if (brandName) {

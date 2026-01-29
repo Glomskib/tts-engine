@@ -46,7 +46,7 @@ const PersonaSchema = z.enum([
 const GenerateSkitInputSchema = z.object({
   video_id: z.string().uuid().optional(),
   product_id: z.string().uuid().optional(),
-  product_name: z.string().min(2).max(100).optional(),
+  product_name: z.string().min(3).max(100).optional(),
   brand_name: z.string().max(100).optional(),
   product_display_name: z.string().max(100).optional(),
   cta_overlay: z.string().max(50).optional(),
@@ -266,23 +266,80 @@ export async function POST(request: Request) {
   // Safety is enforced by deterministic sanitization + risk scoring + auto-downgrade.
   // Intensity is soft-throttled via budget to prevent abuse at scale.
 
+  // Check debug mode early for conditional diagnostics
+  const debugMode = isDebugMode(request);
+
   try {
     // Fetch product info if product_id provided, otherwise use fallback product_name
     let product: { id: string | null; name: string; brand: string | null; category: string | null; description: string | null } | null = null;
 
     if (input.product_id) {
+      // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
         .select("id, name, brand, category, description")
         .eq("id", input.product_id)
         .single();
 
-      if (productError || !dbProduct) {
-        return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId);
+      // Distinguish error types:
+      // - PGRST116: query succeeded but returned 0 rows (not found)
+      // - Other errors: database/network issues
+      if (productError) {
+        const isNotFoundError = productError.code === "PGRST116";
+
+        // Build debug details if debug mode enabled
+        const debugDetails: Record<string, unknown> = debugMode
+          ? {
+              product_id_received: input.product_id,
+              org_id: authContext.user?.id || null,
+              used_service_role: true,
+              supabase_error_code: productError.code,
+              supabase_error_message: productError.message,
+            }
+          : {};
+
+        if (isNotFoundError) {
+          return createApiErrorResponse(
+            "PRODUCT_NOT_FOUND",
+            "Product not found",
+            404,
+            correlationId,
+            {
+              product_id: input.product_id,
+              ...debugDetails,
+            }
+          );
+        }
+
+        // Actual database error
+        console.error(`[${correlationId}] Product lookup DB error:`, productError);
+        return createApiErrorResponse(
+          "DB_ERROR",
+          "Failed to fetch product",
+          500,
+          correlationId,
+          {
+            product_id: input.product_id,
+            ...debugDetails,
+          }
+        );
       }
+
+      if (!dbProduct) {
+        // Should not happen after error check, but defensive
+        return createApiErrorResponse(
+          "PRODUCT_NOT_FOUND",
+          "Product not found",
+          404,
+          correlationId,
+          debugMode ? { product_id_received: input.product_id, used_service_role: true } : { product_id: input.product_id }
+        );
+      }
+
       product = dbProduct;
     } else {
       // No product_id - use product_name fallback (standalone tool mode)
+      // product_name is validated by Zod (min length 3)
       product = {
         id: null,
         name: input.product_name || "the product",
@@ -322,9 +379,6 @@ export async function POST(request: Request) {
         requestedIntensity = presetClamp.intensity;
       }
     }
-
-    // Check debug mode for conditional diagnostics
-    const debugMode = isDebugMode(request);
 
     // Check intensity budget (soft throttle - clamps instead of blocking)
     // Cost is based on original requested intensity (user intent) to prevent spam at high values

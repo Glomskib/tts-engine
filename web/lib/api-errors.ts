@@ -9,6 +9,7 @@ export type ApiErrorCode =
   | 'INVALID_TRANSITION'
   | 'DUPLICATE_QUEUE'
   | 'NOT_FOUND'
+  | 'PRODUCT_NOT_FOUND'
   | 'DB_ERROR'
   | 'BAD_REQUEST'
   | 'ALREADY_CLAIMED'

@@ -49,6 +49,8 @@ export async function GET(request: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
   try {
+    console.log(`[${correlationId}] Fetching personas for user ${authContext.user.id}, category=${category}, search=${search}, limit=${limit}`);
+
     let query = supabaseAdmin
       .from("audience_personas")
       .select("*")
@@ -67,9 +69,23 @@ export async function GET(request: Request) {
     const { data, error } = await query;
 
     if (error) {
-      console.error(`[${correlationId}] Failed to fetch personas:`, error);
-      return createApiErrorResponse("DB_ERROR", "Failed to fetch personas", 500, correlationId);
+      console.error(`[${correlationId}] Failed to fetch personas:`, {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return NextResponse.json({
+        ok: false,
+        error: `DB_ERROR: ${error.message}`,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        correlation_id: correlationId,
+      }, { status: 500 });
     }
+
+    console.log(`[${correlationId}] Fetched ${data?.length || 0} personas`);
 
     return NextResponse.json({
       ok: true,
@@ -77,8 +93,14 @@ export async function GET(request: Request) {
       correlation_id: correlationId,
     });
   } catch (error) {
-    console.error(`[${correlationId}] Personas error:`, error);
-    return createApiErrorResponse("INTERNAL", "Failed to fetch personas", 500, correlationId);
+    const err = error as Error;
+    console.error(`[${correlationId}] Personas error:`, err.message, err.stack);
+    return NextResponse.json({
+      ok: false,
+      error: `INTERNAL: ${err.message}`,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      correlation_id: correlationId,
+    }, { status: 500 });
   }
 }
 

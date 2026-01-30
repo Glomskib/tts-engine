@@ -4,35 +4,18 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useCredits } from '@/hooks/useCredits';
 
 interface AuthUser {
   id: string;
   email: string | null;
 }
 
-interface PlanStatus {
-  plan: 'free' | 'pro';
-  isActive: boolean;
-  gatingEnabled: boolean;
-}
-
-interface RuntimeConfig {
-  is_admin: boolean;
-  subscription_gating_enabled: boolean;
-  email_enabled: boolean;
-  slack_enabled: boolean;
-  assignment_ttl_minutes: number;
-  user_plan: string;
-  user_plan_active: boolean;
-}
-
 export default function UpgradePage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
-  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { credits, subscription, isLoading: creditsLoading, refetch } = useCredits();
 
   // Self-service upgrade request state
   const [requestMessage, setRequestMessage] = useState('');
@@ -55,24 +38,6 @@ export default function UpgradePage() {
           id: user.id,
           email: user.email || null,
         });
-
-        // Fetch plan status
-        const planRes = await fetch('/api/auth/plan-status');
-        if (planRes.ok) {
-          const planData = await planRes.json();
-          if (planData.ok) {
-            setPlanStatus(planData.data);
-          }
-        }
-
-        // Fetch runtime config
-        const configRes = await fetch('/api/auth/runtime-config');
-        if (configRes.ok) {
-          const configData = await configRes.json();
-          if (configData.ok) {
-            setRuntimeConfig(configData.data);
-          }
-        }
       } catch (err) {
         console.error('Auth error:', err);
         router.push('/login?redirect=/upgrade');
@@ -83,25 +48,6 @@ export default function UpgradePage() {
 
     fetchAuthUser();
   }, [router]);
-
-  const copyContactMessage = async () => {
-    const message = `Hi Admin,
-
-I would like to upgrade my account to Pro to access the full workbench features.
-
-User ID: ${authUser?.id || 'Unknown'}
-Email: ${authUser?.email || 'Unknown'}
-
-Thank you!`;
-
-    try {
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
 
   const submitUpgradeRequest = async () => {
     setRequestSubmitting(true);
@@ -120,14 +66,7 @@ Thank you!`;
         if (data.status === 'already_requested') {
           setRequestStatus('already_requested');
         } else if (data.status === 'already_pro') {
-          // Refresh plan status
-          const planRes = await fetch('/api/auth/plan-status');
-          if (planRes.ok) {
-            const planData = await planRes.json();
-            if (planData.ok) {
-              setPlanStatus(planData.data);
-            }
-          }
+          refetch();
         } else {
           setRequestStatus('requested');
           setRequestMessage('');
@@ -143,178 +82,253 @@ Thank you!`;
     }
   };
 
-  if (authLoading) {
+  if (authLoading || creditsLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking access...</div>
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <div className="text-zinc-500">Loading...</div>
       </div>
     );
   }
 
   if (!authUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Redirecting to login...</div>
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <div className="text-zinc-500">Redirecting to login...</div>
       </div>
     );
   }
 
-  const isPro = planStatus?.plan === 'pro' && planStatus?.isActive;
+  const isUnlimited = credits?.remaining === -1 || (credits as { isUnlimited?: boolean })?.isUnlimited;
+  const isPro = subscription?.planId === 'pro' || subscription?.planId === 'team' || subscription?.planId === 'admin';
+  const currentPlan = subscription?.planName || 'Free';
+  const creditsRemaining = isUnlimited ? 'Unlimited' : (credits?.remaining ?? 5);
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4">
-      <div className="max-w-xl mx-auto">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 py-10 px-4">
+      <div className="max-w-4xl mx-auto">
         {/* Back Link */}
         <div className="mb-6">
           <Link
-            href="/admin/pipeline"
-            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+            href="/admin/skit-generator"
+            className="text-sm text-zinc-400 hover:text-white transition-colors"
           >
-            ← Back to Work Queue
+            ← Back to Skit Generator
           </Link>
         </div>
 
-        {/* Pro Status Banner */}
-        {isPro ? (
-          <div className="mb-8 p-8 bg-green-50 rounded-xl border-2 border-green-300 text-center">
-            <div className="text-5xl mb-4">★</div>
-            <h1 className="text-2xl font-bold text-green-700 mb-2">You're Pro!</h1>
-            <p className="text-green-600">You have full access to all workbench features.</p>
+        {/* Current Plan Banner */}
+        <div className={`mb-8 p-6 rounded-xl border ${
+          isUnlimited
+            ? 'bg-emerald-500/10 border-emerald-500/30'
+            : 'bg-zinc-900/50 border-white/10'
+        }`}>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <div className="text-sm text-zinc-400 mb-1">Current Plan</div>
+              <div className="text-2xl font-bold">{currentPlan}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-zinc-400 mb-1">Credits</div>
+              <div className={`text-2xl font-bold ${isUnlimited ? 'text-emerald-400' : ''}`}>
+                {creditsRemaining}
+              </div>
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Upgrade Hero */}
-            <div className="mb-8 p-8 bg-blue-50 rounded-xl border-2 border-blue-300 text-center">
-              <h1 className="text-2xl font-bold text-blue-800 mb-3">Upgrade to Pro</h1>
-              <p className="text-blue-600">Unlock full access to workbench actions and task dispatch.</p>
+        </div>
+
+        {/* Pricing Tiers */}
+        <h2 className="text-xl font-semibold mb-6">Choose Your Plan</h2>
+
+        <div className="grid md:grid-cols-3 gap-6 mb-10">
+          {/* Free Tier */}
+          <div className={`p-6 rounded-xl border ${
+            currentPlan === 'Free' ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 bg-zinc-900/30'
+          }`}>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Free</h3>
+              <div className="text-3xl font-bold mt-2">$0</div>
+              <div className="text-sm text-zinc-500">forever</div>
             </div>
+            <div className="text-sm text-blue-400 mb-4">5 generations total</div>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Skit Generator
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Basic character presets
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Save up to 3 skits
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-zinc-600 mt-0.5">✗</span>
+                <span className="text-zinc-600">Audience Intelligence</span>
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-zinc-600 mt-0.5">✗</span>
+                <span className="text-zinc-600">Winners Bank</span>
+              </li>
+            </ul>
+            {currentPlan === 'Free' && (
+              <div className="text-center text-sm text-zinc-500 py-2">Current Plan</div>
+            )}
+          </div>
 
-            {/* Features List */}
-            <div className="mb-6 p-6 bg-white rounded-lg border border-slate-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">What Pro Unlocks</h2>
-              <ul className="space-y-3 text-slate-600">
-                <li className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span><strong className="text-slate-800">Auto-Dispatch</strong> – Get work assigned automatically</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span><strong className="text-slate-800">Status Updates</strong> – Mark tasks as Recorded, Edited, Posted</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span><strong className="text-slate-800">Workbench Actions</strong> – Full control over assigned tasks</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span><strong className="text-slate-800">Priority Queue</strong> – Access to high-priority assignments</span>
-                </li>
-              </ul>
+          {/* Starter Tier */}
+          <div className={`p-6 rounded-xl border ${
+            subscription?.planId === 'starter' ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 bg-zinc-900/30'
+          }`}>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Starter</h3>
+              <div className="text-3xl font-bold mt-2">$29</div>
+              <div className="text-sm text-zinc-500">/month</div>
             </div>
+            <div className="text-sm text-blue-400 mb-4">100 generations/mo</div>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Everything in Free
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                All character presets
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Unlimited saved skits
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Product catalog (10)
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Email support
+              </li>
+            </ul>
+            <button
+              onClick={() => window.open('/contact?plan=starter', '_blank')}
+              className="w-full py-2.5 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-colors"
+            >
+              Contact Sales
+            </button>
+          </div>
 
-            {/* Request Upgrade */}
-            <div className="p-6 bg-white rounded-lg border border-slate-200 shadow-sm">
-              <h3 className="text-base font-semibold text-slate-800 mb-4">Request Upgrade</h3>
+          {/* Pro Tier */}
+          <div className={`p-6 rounded-xl border-2 ${
+            isPro && subscription?.planId === 'pro'
+              ? 'border-emerald-500/50 bg-emerald-500/5'
+              : 'border-blue-500/50 bg-blue-500/5'
+          } relative`}>
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white">
+              Most Popular
+            </div>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Pro</h3>
+              <div className="text-3xl font-bold mt-2">$79</div>
+              <div className="text-sm text-zinc-500">/month</div>
+            </div>
+            <div className="text-sm text-blue-400 mb-4">500 generations/mo</div>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Everything in Starter
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Audience Intelligence
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Winners Bank
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Custom presets
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Priority support
+              </li>
+            </ul>
+            {isPro ? (
+              <div className="text-center text-sm text-emerald-400 py-2 font-medium">✓ Active</div>
+            ) : (
+              <button
+                onClick={() => window.open('/contact?plan=pro', '_blank')}
+                className="w-full py-2.5 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-colors"
+              >
+                Upgrade to Pro
+              </button>
+            )}
+          </div>
+        </div>
 
-              {/* Status messages */}
-              {requestStatus === 'requested' && (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-                  Your upgrade request has been submitted. An administrator will review it shortly.
+        {/* Request Upgrade (for non-pro users) */}
+        {!isPro && !isUnlimited && (
+          <div className="p-6 bg-zinc-900/50 rounded-xl border border-white/10">
+            <h3 className="text-base font-semibold mb-4">Request Upgrade</h3>
+            <p className="text-sm text-zinc-400 mb-4">
+              Send a request to our team and we'll get back to you within 24 hours.
+            </p>
+
+            {/* Status messages */}
+            {requestStatus === 'requested' && (
+              <div className="mb-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">
+                Your upgrade request has been submitted. We'll review it shortly.
+              </div>
+            )}
+
+            {requestStatus === 'already_requested' && (
+              <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 text-sm">
+                You have already requested an upgrade. Please wait for admin review.
+              </div>
+            )}
+
+            {requestStatus === 'error' && (
+              <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                Failed to submit request. Please try again.
+              </div>
+            )}
+
+            {requestStatus !== 'requested' && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+                    Message <span className="text-zinc-600">(optional)</span>
+                  </label>
+                  <textarea
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                    placeholder="Tell us about your use case..."
+                    maxLength={500}
+                    className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                  />
                 </div>
-              )}
 
-              {requestStatus === 'already_requested' && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
-                  You have already requested an upgrade within the last 24 hours. Please wait for admin review.
-                </div>
-              )}
-
-              {requestStatus === 'error' && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                  Failed to submit request. Please try again.
-                </div>
-              )}
-
-              {requestStatus !== 'requested' && (
-                <>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                      Message <span className="text-slate-400 font-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      value={requestMessage}
-                      onChange={(e) => setRequestMessage(e.target.value)}
-                      placeholder="Tell us why you need Pro access..."
-                      maxLength={500}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                      rows={3}
-                    />
-                  </div>
-
-                  <button
-                    onClick={submitUpgradeRequest}
-                    disabled={requestSubmitting}
-                    className="w-full py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {requestSubmitting ? 'Submitting...' : 'Request Upgrade'}
-                  </button>
-                </>
-              )}
-
-              {/* Manual contact option */}
-              <div className="mt-6 pt-5 border-t border-slate-200">
-                <p className="text-sm text-slate-500 text-center mb-3">Or contact your administrator directly:</p>
                 <button
-                  onClick={copyContactMessage}
-                  className={`w-full py-2.5 rounded-md font-medium text-sm transition-colors ${
-                    copied
-                      ? 'bg-green-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                  onClick={submitUpgradeRequest}
+                  disabled={requestSubmitting}
+                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {copied ? 'Copied!' : 'Copy Contact Message'}
+                  {requestSubmitting ? 'Submitting...' : 'Request Upgrade'}
                 </button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Runtime Config Summary */}
-        {runtimeConfig && (
-          <div className="mt-6 p-5 bg-white rounded-lg border border-slate-200">
-            <h3 className="text-sm font-medium text-slate-600 mb-4">System Configuration</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className={`p-3 rounded-lg ${runtimeConfig.subscription_gating_enabled ? 'bg-amber-50' : 'bg-green-50'}`}>
-                <div className="text-xs text-slate-500 mb-0.5">Subscription Gating</div>
-                <div className={`font-semibold ${runtimeConfig.subscription_gating_enabled ? 'text-amber-700' : 'text-green-700'}`}>
-                  {runtimeConfig.subscription_gating_enabled ? 'Enabled' : 'Disabled'}
-                </div>
-              </div>
-              <div className={`p-3 rounded-lg ${runtimeConfig.email_enabled ? 'bg-green-50' : 'bg-slate-50'}`}>
-                <div className="text-xs text-slate-500 mb-0.5">Email Notifications</div>
-                <div className={`font-semibold ${runtimeConfig.email_enabled ? 'text-green-700' : 'text-slate-500'}`}>
-                  {runtimeConfig.email_enabled ? 'Enabled' : 'Disabled'}
-                </div>
-              </div>
-              <div className={`p-3 rounded-lg ${runtimeConfig.slack_enabled ? 'bg-green-50' : 'bg-slate-50'}`}>
-                <div className="text-xs text-slate-500 mb-0.5">Slack Notifications</div>
-                <div className={`font-semibold ${runtimeConfig.slack_enabled ? 'text-green-700' : 'text-slate-500'}`}>
-                  {runtimeConfig.slack_enabled ? 'Enabled' : 'Disabled'}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-blue-50">
-                <div className="text-xs text-slate-500 mb-0.5">Assignment TTL</div>
-                <div className="font-semibold text-blue-700">{runtimeConfig.assignment_ttl_minutes} min</div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         )}
 
         {/* User Info */}
-        <div className="mt-4 p-4 bg-slate-100 rounded-lg text-xs text-slate-500">
-          <div>User ID: {authUser.id}</div>
-          <div>Email: {authUser.email || 'Not set'}</div>
-          <div>Current Plan: {planStatus?.plan || 'Unknown'}</div>
+        <div className="mt-6 p-4 bg-zinc-900/30 rounded-lg border border-white/5">
+          <div className="text-xs text-zinc-600 space-y-1">
+            <div>User ID: {authUser.id}</div>
+            <div>Email: {authUser.email || 'Not set'}</div>
+            <div>Plan: {subscription?.planId || 'free'}</div>
+          </div>
         </div>
       </div>
     </div>

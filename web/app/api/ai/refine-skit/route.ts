@@ -6,6 +6,7 @@ import {
   validateSkitStructure,
   type Skit,
 } from "@/lib/ai/skitPostProcess";
+import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -59,6 +60,18 @@ export async function POST(request: Request) {
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
+  // Credit check (admins bypass)
+  const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+  if (creditError) {
+    return NextResponse.json({
+      ok: false,
+      error: creditError.error,
+      creditsRemaining: creditError.remaining,
+      upgrade: true,
+      correlation_id: correlationId,
+    }, { status: creditError.status });
   }
 
   // Parse and validate input
@@ -186,6 +199,13 @@ Generate the refined skit now. Output ONLY valid JSON, no explanation.`;
     const riskTier = input.risk_tier || "BALANCED";
     const processed = postProcessSkit(refinedSkit, riskTier);
 
+    // Deduct credit after successful generation (admins bypass)
+    let creditsRemaining: number | undefined;
+    if (!authContext.isAdmin) {
+      const deductResult = await useCredit(authContext.user.id, false, 1, "Skit refinement");
+      creditsRemaining = deductResult.remaining;
+    }
+
     // Return the refined skit with all expected fields
     return NextResponse.json({
       ok: true,
@@ -197,6 +217,7 @@ Generate the refined skit now. Output ONLY valid JSON, no explanation.`;
         intensity_applied: 50, // Default for refinements
         refinement_applied: input.instruction,
       },
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
       correlation_id: correlationId,
     });
 

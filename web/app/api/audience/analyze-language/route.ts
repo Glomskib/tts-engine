@@ -1,6 +1,7 @@
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -16,6 +17,18 @@ export async function POST(request: Request) {
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
+  // Credit check (admins bypass)
+  const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+  if (creditError) {
+    return NextResponse.json({
+      ok: false,
+      error: creditError.error,
+      creditsRemaining: creditError.remaining,
+      upgrade: true,
+      correlation_id: correlationId,
+    }, { status: creditError.status });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -136,6 +149,13 @@ Return ONLY valid JSON, no markdown.`;
       }, { status: 500 });
     }
 
+    // Deduct credit after successful analysis (admins bypass)
+    let creditsRemaining: number | undefined;
+    if (!authContext.isAdmin) {
+      const deductResult = await useCredit(authContext.user.id, false, 1, "Language analysis");
+      creditsRemaining = deductResult.remaining;
+    }
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -145,6 +165,7 @@ Return ONLY valid JSON, no markdown.`;
           output_tokens: data.usage?.output_tokens,
         },
       },
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
       correlation_id: correlationId,
     });
   } catch (error) {

@@ -10,6 +10,7 @@ interface Credits {
   freeCreditsUsed: number;
   periodStart: string | null;
   periodEnd: string | null;
+  isUnlimited?: boolean;
 }
 
 interface Subscription {
@@ -95,7 +96,9 @@ export function useCredits(): UseCreditsReturn {
     fetchCredits();
   }, [fetchCredits]);
 
-  const hasCredits = (credits?.remaining ?? 0) > 0;
+  // -1 remaining or isUnlimited flag indicates unlimited credits (admin/pro users)
+  const isUnlimited = credits?.remaining === -1 || credits?.isUnlimited === true;
+  const hasCredits = isUnlimited || (credits?.remaining ?? 0) > 0;
   const isFreeUser = subscription?.planId === 'free';
 
   return {

@@ -1,6 +1,7 @@
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -30,6 +31,18 @@ export async function POST(request: Request) {
   if (!authContext.user) {
     console.log(`[${correlationId}] Unauthorized request to analyze-winner`);
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
+  // Credit check (admins bypass)
+  const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+  if (creditError) {
+    return NextResponse.json({
+      ok: false,
+      error: creditError.error,
+      creditsRemaining: creditError.remaining,
+      upgrade: true,
+      correlation_id: correlationId,
+    }, { status: creditError.status });
   }
 
   // Check for API key
@@ -195,6 +208,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
     console.log(`[${correlationId}] Analysis completed successfully`);
 
+    // Deduct credit after successful analysis (admins bypass)
+    let creditsRemaining: number | undefined;
+    if (!authContext.isAdmin) {
+      const deductResult = await useCredit(authContext.user.id, false, 1, "Winner analysis");
+      creditsRemaining = deductResult.remaining;
+    }
+
     const apiResponse = NextResponse.json({
       ok: true,
       data: {
@@ -204,6 +224,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
           output_tokens: data.usage?.output_tokens,
         },
       },
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
       correlation_id: correlationId,
     });
     apiResponse.headers.set("x-correlation-id", correlationId);

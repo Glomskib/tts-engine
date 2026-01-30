@@ -199,13 +199,49 @@ export default function AudiencePage() {
       const url = isNew ? "/api/audience/personas" : `/api/audience/personas/${editingPersona?.id}`;
       const method = isNew ? "POST" : "PATCH";
 
+      // Clean up the form data - remove empty arrays and undefined values
+      const cleanedForm: Record<string, unknown> = {
+        name: personaForm.name?.trim(),
+      };
+
+      // Only include non-empty fields
+      if (personaForm.description?.trim()) cleanedForm.description = personaForm.description.trim();
+      if (personaForm.age_range?.trim()) cleanedForm.age_range = personaForm.age_range.trim();
+      if (personaForm.gender?.trim()) cleanedForm.gender = personaForm.gender.trim();
+      if (personaForm.lifestyle?.trim()) cleanedForm.lifestyle = personaForm.lifestyle.trim();
+      if (personaForm.tone?.trim()) cleanedForm.tone = personaForm.tone.trim();
+      if (personaForm.humor_style?.trim()) cleanedForm.humor_style = personaForm.humor_style.trim();
+
+      // Arrays - only include if non-empty
+      if (personaForm.phrases_they_use && personaForm.phrases_they_use.length > 0) {
+        cleanedForm.phrases_they_use = personaForm.phrases_they_use.filter(Boolean);
+      }
+      if (personaForm.phrases_to_avoid && personaForm.phrases_to_avoid.length > 0) {
+        cleanedForm.phrases_to_avoid = personaForm.phrases_to_avoid.filter(Boolean);
+      }
+      if (personaForm.common_objections && personaForm.common_objections.length > 0) {
+        cleanedForm.common_objections = personaForm.common_objections.filter(Boolean);
+      }
+      if (personaForm.content_they_engage_with && personaForm.content_they_engage_with.length > 0) {
+        cleanedForm.content_they_engage_with = personaForm.content_they_engage_with;
+      }
+      if (personaForm.platforms && personaForm.platforms.length > 0) {
+        cleanedForm.platforms = personaForm.platforms;
+      }
+      if (personaForm.pain_points && personaForm.pain_points.length > 0) {
+        cleanedForm.pain_points = personaForm.pain_points;
+      }
+
+      console.log("[Audience] Saving persona:", cleanedForm);
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(personaForm),
+        body: JSON.stringify(cleanedForm),
       });
 
       const data = await res.json();
+      console.log("[Audience] Save response:", data);
 
       if (!data.ok) {
         setMessage({ type: "error", text: data.error || "Failed to save" });
@@ -215,7 +251,8 @@ export default function AudiencePage() {
       setMessage({ type: "success", text: isNew ? "Persona created!" : "Persona updated!" });
       setEditingPersona(null);
       fetchPersonas();
-    } catch {
+    } catch (err) {
+      console.error("[Audience] Save error:", err);
       setMessage({ type: "error", text: "Network error" });
     } finally {
       setSavingPersona(false);

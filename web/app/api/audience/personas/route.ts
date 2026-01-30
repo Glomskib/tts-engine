@@ -99,27 +99,34 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
+  console.log(`[${correlationId}] Creating persona, body:`, JSON.stringify(body).slice(0, 500));
+
   const parseResult = CreatePersonaSchema.safeParse(body);
   if (!parseResult.success) {
     const errors = parseResult.error.issues.map(e => `${e.path.join(".")}: ${e.message}`);
+    console.error(`[${correlationId}] Validation failed:`, errors);
     return createApiErrorResponse("VALIDATION_ERROR", errors.join(", "), 400, correlationId);
   }
 
   const input = parseResult.data;
+  console.log(`[${correlationId}] Validated input:`, JSON.stringify(input).slice(0, 500));
 
   try {
+    const insertPayload = {
+      ...input,
+      created_by: authContext.user.id,
+    };
+    console.log(`[${correlationId}] Insert payload:`, JSON.stringify(insertPayload).slice(0, 500));
+
     const { data, error } = await supabaseAdmin
       .from("audience_personas")
-      .insert({
-        ...input,
-        created_by: authContext.user.id,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
     if (error) {
-      console.error(`[${correlationId}] Failed to create persona:`, error);
-      return createApiErrorResponse("DB_ERROR", "Failed to create persona", 500, correlationId);
+      console.error(`[${correlationId}] Failed to create persona:`, error.message, error.details, error.hint);
+      return createApiErrorResponse("DB_ERROR", `Failed to create persona: ${error.message}`, 500, correlationId);
     }
 
     return NextResponse.json({

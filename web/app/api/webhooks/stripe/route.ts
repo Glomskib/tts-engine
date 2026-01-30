@@ -5,7 +5,14 @@ import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+// Lazy initialization to avoid build-time errors
+let stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripe && process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return stripe!;
+}
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
@@ -35,7 +42,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.text();
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error(`[${correlationId}] Webhook signature verification failed:`, err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });

@@ -7,7 +7,14 @@ import { z } from "zod";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+// Lazy initialization to avoid build-time errors
+let stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripe && process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return stripe!;
+}
 
 const CheckoutSchema = z.object({
   planId: z.enum(["starter", "pro", "team"]),
@@ -78,7 +85,7 @@ export async function POST(request: Request) {
       stripeCustomerId = subscription.stripe_customer_id;
     } else {
       // Create new Stripe customer
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: authContext.user.email,
         metadata: {
           user_id: authContext.user.id,
@@ -93,7 +100,7 @@ export async function POST(request: Request) {
     const cancelUrl = `${origin}/pricing?checkout=cancelled`;
 
     // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: stripeCustomerId,
       mode: "subscription",
       line_items: [

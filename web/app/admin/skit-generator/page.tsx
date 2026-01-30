@@ -310,7 +310,7 @@ export default function SkitGeneratorPage() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Credits state
-  const { hasCredits, refetch: refetchCredits } = useCredits();
+  const { credits, hasCredits, refetch: refetchCredits } = useCredits();
   const noCreditsModal = useNoCreditsModal();
 
   // Data state
@@ -2430,29 +2430,101 @@ export default function SkitGeneratorPage() {
                 </>
               )}
 
+              {/* Credits Display */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                backgroundColor: credits?.isUnlimited || (credits?.remaining ?? 0) === -1
+                  ? 'rgba(45, 212, 191, 0.1)'
+                  : (credits?.remaining ?? 0) === 0
+                    ? 'rgba(239, 68, 68, 0.1)'
+                    : (credits?.remaining ?? 0) <= 5
+                      ? 'rgba(245, 158, 11, 0.1)'
+                      : colors.bg,
+                border: `1px solid ${
+                  credits?.isUnlimited || (credits?.remaining ?? 0) === -1
+                    ? 'rgba(45, 212, 191, 0.2)'
+                    : (credits?.remaining ?? 0) === 0
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : (credits?.remaining ?? 0) <= 5
+                        ? 'rgba(245, 158, 11, 0.2)'
+                        : colors.border
+                }`,
+                borderRadius: '6px',
+                marginTop: '8px',
+              }}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={
+                    credits?.isUnlimited || (credits?.remaining ?? 0) === -1
+                      ? '#2dd4bf'
+                      : (credits?.remaining ?? 0) === 0
+                        ? '#ef4444'
+                        : (credits?.remaining ?? 0) <= 5
+                          ? '#f59e0b'
+                          : colors.text
+                  }
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: credits?.isUnlimited || (credits?.remaining ?? 0) === -1
+                    ? '#2dd4bf'
+                    : (credits?.remaining ?? 0) === 0
+                      ? '#ef4444'
+                      : (credits?.remaining ?? 0) <= 5
+                        ? '#f59e0b'
+                        : colors.text,
+                }}>
+                  {credits?.isUnlimited || (credits?.remaining ?? 0) === -1
+                    ? 'Unlimited credits'
+                    : `${credits?.remaining ?? 0} credit${(credits?.remaining ?? 0) !== 1 ? 's' : ''} remaining`}
+                </span>
+                {!hasCredits && (
+                  <Link href="/upgrade" style={{ fontSize: '12px', color: colors.accent, marginLeft: '8px' }}>
+                    Upgrade
+                  </Link>
+                )}
+              </div>
+
               {/* Generate Button */}
               <button
                 onClick={() => handleGenerate()}
-                disabled={generating}
+                disabled={generating || !hasCredits}
                 style={{
                   width: '100%',
                   padding: '16px 20px',
-                  backgroundColor: generating ? colors.border : '#7c3aed',
+                  backgroundColor: generating || !hasCredits ? colors.border : '#7c3aed',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '16px',
                   fontWeight: 600,
-                  cursor: generating ? 'not-allowed' : 'pointer',
+                  cursor: generating || !hasCredits ? 'not-allowed' : 'pointer',
                   marginTop: '8px',
                   minHeight: '52px',
                 }}
               >
                 {generating
                   ? `Generating ${variationCount} Variation${variationCount > 1 ? 's' : ''} & Scoring...`
-                  : `Generate ${variationCount > 1 ? `${variationCount} Variations` : 'Skit'}`}
+                  : !hasCredits
+                    ? 'No Credits - Upgrade to Continue'
+                    : `Generate ${variationCount > 1 ? `${variationCount} Variations` : 'Skit'}`}
               </button>
-              {!generating && (
+              {!generating && hasCredits && (
                 <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: colors.textSecondary }}>
                   <kbd style={{ padding: '1px 4px', backgroundColor: colors.bg, borderRadius: '2px', border: `1px solid ${colors.border}` }}>Ctrl</kbd>+<kbd style={{ padding: '1px 4px', backgroundColor: colors.bg, borderRadius: '2px', border: `1px solid ${colors.border}` }}>Enter</kbd> to generate
                 </div>

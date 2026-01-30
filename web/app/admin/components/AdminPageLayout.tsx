@@ -24,6 +24,7 @@ const MAX_WIDTH_CLASSES = {
 /**
  * Shared layout wrapper for admin pages.
  * Provides consistent spacing, typography, and structure.
+ * Uses dark theme to match the main admin layout.
  */
 export default function AdminPageLayout({
   children,
@@ -35,7 +36,7 @@ export default function AdminPageLayout({
   headerActions,
 }: AdminPageLayoutProps) {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#09090b]">
       <div className={`${MAX_WIDTH_CLASSES[maxWidth]} mx-auto px-4 sm:px-6 py-6`}>
         {/* Incident Banner */}
         <IncidentBanner />
@@ -44,11 +45,11 @@ export default function AdminPageLayout({
         {showNav && <AdminNav isAdmin={isAdmin} />}
 
         {/* Page Header */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-800">{title}</h1>
+            <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
             {subtitle && (
-              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+              <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>
             )}
           </div>
           {headerActions && (
@@ -65,6 +66,7 @@ export default function AdminPageLayout({
 
 /**
  * Card component for consistent styling within admin pages.
+ * Uses dark theme with subtle borders.
  */
 export function AdminCard({
   children,
@@ -80,13 +82,13 @@ export function AdminCard({
   noPadding?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-zinc-900/50 rounded-xl border border-white/10 overflow-hidden">
       {title && (
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+            <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
             {subtitle && (
-              <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
+              <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p>
             )}
           </div>
           {headerActions && <div className="flex items-center gap-2">{headerActions}</div>}
@@ -99,6 +101,7 @@ export function AdminCard({
 
 /**
  * Empty state component for consistent messaging.
+ * Uses dark theme styling.
  */
 export function EmptyState({
   icon,
@@ -114,12 +117,12 @@ export function EmptyState({
   return (
     <div className="py-12 text-center">
       {icon && (
-        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
           {icon}
         </div>
       )}
-      <h3 className="text-lg font-medium text-slate-800 mb-1">{title}</h3>
-      <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">{description}</p>
+      <h3 className="text-lg font-medium text-zinc-100 mb-1">{title}</h3>
+      <p className="text-sm text-zinc-500 mb-4 max-w-sm mx-auto">{description}</p>
       {action && <div>{action}</div>}
     </div>
   );
@@ -127,6 +130,7 @@ export function EmptyState({
 
 /**
  * Standard button styles for admin pages.
+ * Uses dark theme styling.
  */
 export function AdminButton({
   children,
@@ -143,13 +147,13 @@ export function AdminButton({
   disabled?: boolean;
   type?: 'button' | 'submit';
 }) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variantClasses = {
-    primary: 'bg-slate-800 text-white hover:bg-slate-700 focus:ring-slate-500',
-    secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-500',
+    primary: 'bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-500',
+    secondary: 'bg-zinc-800 text-zinc-100 border border-white/10 hover:bg-zinc-700 focus:ring-zinc-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    ghost: 'text-slate-600 hover:bg-slate-100 focus:ring-slate-500',
+    ghost: 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100 focus:ring-zinc-500',
   };
 
   const sizeClasses = {
@@ -172,6 +176,7 @@ export function AdminButton({
 
 /**
  * Stat card for dashboard metrics.
+ * Uses dark theme styling.
  */
 export function StatCard({
   label,
@@ -185,24 +190,24 @@ export function StatCard({
   variant?: 'default' | 'success' | 'warning' | 'danger';
 }) {
   const variantClasses = {
-    default: 'bg-slate-50 border-slate-200',
-    success: 'bg-green-50 border-green-200',
-    warning: 'bg-amber-50 border-amber-200',
-    danger: 'bg-red-50 border-red-200',
+    default: 'bg-zinc-800/50 border-white/10',
+    success: 'bg-emerald-500/10 border-emerald-500/20',
+    warning: 'bg-amber-500/10 border-amber-500/20',
+    danger: 'bg-red-500/10 border-red-500/20',
   };
 
   const valueColors = {
-    default: 'text-slate-800',
-    success: 'text-green-700',
-    warning: 'text-amber-700',
-    danger: 'text-red-700',
+    default: 'text-zinc-100',
+    success: 'text-emerald-400',
+    warning: 'text-amber-400',
+    danger: 'text-red-400',
   };
 
   return (
-    <div className={`px-4 py-3 rounded-lg border ${variantClasses[variant]}`}>
-      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{label}</div>
+    <div className={`px-4 py-3 rounded-xl border ${variantClasses[variant]}`}>
+      <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">{label}</div>
       <div className={`text-xl font-semibold ${valueColors[variant]}`}>{value}</div>
-      {trend && <div className="text-xs text-slate-400 mt-0.5">{trend}</div>}
+      {trend && <div className="text-xs text-zinc-500 mt-0.5">{trend}</div>}
     </div>
   );
 }

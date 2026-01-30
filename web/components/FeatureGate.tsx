@@ -98,7 +98,7 @@ function UpgradePrompt({ requiredPlan, currentPlan }: { requiredPlan: string; cu
         This feature requires a {requiredPlan} plan or higher. You&apos;re currently on the {currentPlan} plan.
       </p>
       <Link
-        href="/pricing"
+        href="/upgrade"
         style={{
           display: 'inline-block',
           padding: '8px 24px',
@@ -148,7 +148,7 @@ function NoCreditsPrompt() {
         You&apos;ve used all your credits. Upgrade your plan to continue generating content.
       </p>
       <Link
-        href="/pricing"
+        href="/upgrade"
         style={{
           display: 'inline-block',
           padding: '8px 24px',
@@ -292,7 +292,7 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <Link
-              href="/pricing"
+              href="/upgrade"
               style={{
                 display: 'block',
                 width: '100%',

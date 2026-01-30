@@ -254,16 +254,16 @@ export default function ProductsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking access...</div>
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <div className="text-zinc-500">Checking access...</div>
       </div>
     );
   }
 
   if (!authUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Redirecting to login...</div>
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <div className="text-zinc-500">Redirecting to login...</div>
       </div>
     );
   }

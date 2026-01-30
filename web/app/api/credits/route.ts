@@ -15,6 +15,34 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Admin bypass: Return unlimited credits for admin users
+    if (authContext.isAdmin) {
+      return NextResponse.json({
+        ok: true,
+        credits: {
+          remaining: -1, // -1 indicates unlimited
+          usedThisPeriod: 0,
+          lifetimeUsed: 0,
+          freeCreditsTotal: 0,
+          freeCreditsUsed: 0,
+          periodStart: null,
+          periodEnd: null,
+          isUnlimited: true,
+        },
+        subscription: {
+          planId: "admin",
+          planName: "Admin",
+          status: "active",
+          creditsPerMonth: -1,
+          billingPeriod: null,
+          currentPeriodEnd: null,
+          isUnlimited: true,
+        },
+        isAdmin: true,
+        correlation_id: correlationId,
+      });
+    }
+
     // Get credits
     const { data: credits, error: creditsError } = await supabaseAdmin
       .from("user_credits")

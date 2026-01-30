@@ -21,9 +21,12 @@ interface NavSection {
 interface SidebarProps {
   role: UserRole;
   unreadNotifications?: number;
+  isOpen: boolean;
+  onClose: () => void;
+  isMobile: boolean;
 }
 
-export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps) {
+export default function Sidebar({ role, unreadNotifications = 0, isOpen, onClose, isMobile }: SidebarProps) {
   const pathname = usePathname();
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const { toggleTheme, isDark } = useTheme();
@@ -133,218 +136,265 @@ export default function Sidebar({ role, unreadNotifications = 0 }: SidebarProps)
 
   const navSections = getNavSections();
 
+  const handleLinkClick = () => {
+    if (isMobile) {
+      onClose();
+    }
+  };
+
   return (
-    <aside
-      style={{
-        width: '220px',
-        minHeight: '100vh',
-        backgroundColor: colors.surface2,
-        color: colors.text,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        zIndex: 100,
-        overflowY: 'auto',
-        borderRight: `1px solid ${colors.border}`,
-      }}
-    >
-      {/* Logo/Brand */}
-      <div
+    <>
+      {/* Overlay for mobile */}
+      {isMobile && isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 99,
+            transition: 'opacity 0.3s ease',
+          }}
+        />
+      )}
+
+      <aside
         style={{
-          padding: '20px 16px',
-          borderBottom: `1px solid ${colors.border}`,
+          width: '260px',
+          minHeight: '100vh',
+          backgroundColor: colors.surface2,
+          color: colors.text,
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
+          overflowY: 'auto',
+          borderRight: `1px solid ${colors.border}`,
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.3s ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link
-            href="/"
-            style={{
-              textDecoration: 'none',
-              color: 'inherit',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-            }}
-          >
-            <span style={{
-              fontWeight: 600,
-              fontSize: '15px',
-              letterSpacing: '-0.01em',
-            }}>TTS Engine</span>
-          </Link>
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '14px',
-              padding: '6px',
-              borderRadius: '6px',
-              color: colors.textMuted,
-              transition: 'background 0.15s, color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = colors.bgHover;
-              e.currentTarget.style.color = colors.text;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'none';
-              e.currentTarget.style.color = colors.textMuted;
-            }}
-          >
-            {isDark ? 'Light' : 'Dark'}
-          </button>
-        </div>
-      </div>
-
-      {/* Nav Sections */}
-      <nav style={{ flex: 1, padding: '12px 0' }}>
-        {navSections.map((section, sectionIdx) => (
-          <div key={sectionIdx} style={{ marginBottom: '16px' }}>
-            {section.title && (
-              <div
+        {/* Logo/Brand */}
+        <div
+          style={{
+            padding: '20px 16px',
+            borderBottom: `1px solid ${colors.border}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Link
+              href="/"
+              onClick={handleLinkClick}
+              style={{
+                textDecoration: 'none',
+                color: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <span style={{
+                fontWeight: 600,
+                fontSize: '15px',
+                letterSpacing: '-0.01em',
+              }}>TTS Engine</span>
+            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
                 style={{
-                  padding: '8px 16px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '6px',
+                  borderRadius: '6px',
                   color: colors.textMuted,
-                  letterSpacing: '0.5px',
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = colors.bgHover;
+                  e.currentTarget.style.color = colors.text;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'none';
+                  e.currentTarget.style.color = colors.textMuted;
                 }}
               >
-                {section.title}
-              </div>
-            )}
-            {section.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
+                {isDark ? 'Light' : 'Dark'}
+              </button>
+              {/* Close button for mobile */}
+              {isMobile && (
+                <button
+                  onClick={onClose}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    color: colors.textMuted,
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Nav Sections */}
+        <nav style={{ flex: 1, padding: '12px 0' }}>
+          {navSections.map((section, sectionIdx) => (
+            <div key={sectionIdx} style={{ marginBottom: '16px' }}>
+              {section.title && (
+                <div
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    color: colors.textMuted,
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {section.title}
+                </div>
+              )}
+              {section.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 16px',
+                    textDecoration: 'none',
+                    color: isActive(item.href) ? colors.text : colors.textMuted,
+                    backgroundColor: isActive(item.href) ? colors.accentSubtle : 'transparent',
+                    borderLeft: isActive(item.href) ? `2px solid ${colors.accent}` : '2px solid transparent',
+                    fontSize: '14px',
+                    fontWeight: isActive(item.href) ? 500 : 400,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{item.label}</span>
+                  {item.label.includes('Inbox') && unreadNotifications > 0 && (
+                    <span
+                      style={{
+                        marginLeft: 'auto',
+                        backgroundColor: colors.danger,
+                        color: 'white',
+                        borderRadius: '10px',
+                        padding: '2px 8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {unreadNotifications}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          ))}
+
+          {/* Admin Tools Section */}
+          {role === 'admin' && (
+            <div style={{ marginTop: '8px', borderTop: `1px solid ${colors.border}`, paddingTop: '8px' }}>
+              <button
+                onClick={() => setAdvancedExpanded(!advancedExpanded)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
                   padding: '10px 16px',
-                  textDecoration: 'none',
-                  color: isActive(item.href) ? colors.text : colors.textMuted,
-                  backgroundColor: isActive(item.href) ? colors.accentSubtle : 'transparent',
-                  borderLeft: isActive(item.href) ? `2px solid ${colors.accent}` : '2px solid transparent',
-                  fontSize: '14px',
-                  fontWeight: isActive(item.href) ? 500 : 400,
-                  transition: 'all 0.15s ease',
+                  width: '100%',
+                  textAlign: 'left',
+                  background: 'none',
+                  border: 'none',
+                  color: colors.textMuted,
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  cursor: 'pointer',
                 }}
               >
-                <span>{item.label}</span>
-                {item.label.includes('Inbox') && unreadNotifications > 0 && (
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      backgroundColor: colors.danger,
-                      color: 'white',
-                      borderRadius: '10px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {unreadNotifications}
-                  </span>
-                )}
-              </Link>
-            ))}
-          </div>
-        ))}
+                <span style={{
+                  fontSize: '10px',
+                  transition: 'transform 0.15s',
+                  transform: advancedExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                }}>
+                  {'>'}
+                </span>
+                <span>Admin Tools</span>
+              </button>
+              {advancedExpanded && (
+                <div>
+                  {adminToolsItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={handleLinkClick}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 16px 8px 28px',
+                        textDecoration: 'none',
+                        color: isActive(item.href) ? colors.text : colors.textMuted,
+                        backgroundColor: isActive(item.href) ? colors.accentSubtle : 'transparent',
+                        fontSize: '13px',
+                        fontWeight: isActive(item.href) ? 500 : 400,
+                      }}
+                    >
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </nav>
 
-        {/* Admin Tools Section */}
-        {role === 'admin' && (
-          <div style={{ marginTop: '8px', borderTop: `1px solid ${colors.border}`, paddingTop: '8px' }}>
-            <button
-              onClick={() => setAdvancedExpanded(!advancedExpanded)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 16px',
-                width: '100%',
-                textAlign: 'left',
-                background: 'none',
-                border: 'none',
-                color: colors.textMuted,
-                fontSize: '11px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                cursor: 'pointer',
-              }}
-            >
-              <span style={{
-                fontSize: '10px',
-                transition: 'transform 0.15s',
-                transform: advancedExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-              }}>
-                {'>'}
-              </span>
-              <span>Admin Tools</span>
-            </button>
-            {advancedExpanded && (
-              <div>
-                {adminToolsItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 16px 8px 28px',
-                      textDecoration: 'none',
-                      color: isActive(item.href) ? colors.text : colors.textMuted,
-                      backgroundColor: isActive(item.href) ? colors.accentSubtle : 'transparent',
-                      fontSize: '13px',
-                      fontWeight: isActive(item.href) ? 500 : 400,
-                    }}
-                  >
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </nav>
-
-      {/* User/Role indicator at bottom */}
-      <div
-        style={{
-          padding: '16px',
-          borderTop: `1px solid ${colors.border}`,
-          fontSize: '12px',
-        }}
-      >
+        {/* User/Role indicator at bottom */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: colors.textMuted,
+            padding: '16px',
+            borderTop: `1px solid ${colors.border}`,
+            fontSize: '12px',
           }}
         >
-          <span
+          <div
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: colors.success,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: colors.textMuted,
             }}
-          />
-          <span style={{ textTransform: 'capitalize' }}>{role || 'Guest'}</span>
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: colors.success,
+              }}
+            />
+            <span style={{ textTransform: 'capitalize' }}>{role || 'Guest'}</span>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

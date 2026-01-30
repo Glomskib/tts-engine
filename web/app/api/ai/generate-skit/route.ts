@@ -664,25 +664,32 @@ export async function POST(request: Request) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
-  // Check and deduct credit BEFORE generating
-  const { data: creditResult, error: creditError } = await supabaseAdmin.rpc("deduct_credit", {
-    p_user_id: authContext.user.id,
-    p_description: "Skit generation",
-  });
+  // Admin bypass: Admins don't need credits
+  let creditResult: { success: boolean; credits_remaining: number }[] | null = null;
+  if (!authContext.isAdmin) {
+    // Check and deduct credit BEFORE generating (non-admins only)
+    const { data, error: creditError } = await supabaseAdmin.rpc("deduct_credit", {
+      p_user_id: authContext.user.id,
+      p_description: "Skit generation",
+    });
+    creditResult = data;
 
-  if (creditError) {
-    console.error(`[${correlationId}] Credit deduction error:`, creditError);
-    // Continue anyway for now - don't block on credit system errors
-  } else {
-    const result = creditResult?.[0];
-    if (result && !result.success) {
-      return NextResponse.json({
-        ok: false,
-        error: "No credits remaining",
-        creditsRemaining: result.credits_remaining || 0,
-        correlation_id: correlationId,
-      }, { status: 402 });
+    if (creditError) {
+      console.error(`[${correlationId}] Credit deduction error:`, creditError);
+      // Continue anyway for now - don't block on credit system errors
+    } else {
+      const result = data?.[0];
+      if (result && !result.success) {
+        return NextResponse.json({
+          ok: false,
+          error: "No credits remaining",
+          creditsRemaining: result.credits_remaining || 0,
+          correlation_id: correlationId,
+        }, { status: 402 });
+      }
     }
+  } else {
+    console.log(`[${correlationId}] Admin user ${authContext.user.email} - bypassing credit check`);
   }
 
   // Parse and validate input

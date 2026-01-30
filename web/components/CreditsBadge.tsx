@@ -41,10 +41,18 @@ export function CreditsBadge({ showPlan = false }: CreditsBadgeProps) {
   }
 
   const remaining = credits?.remaining ?? 0;
-  const isLow = remaining > 0 && remaining <= 5;
-  const isEmpty = remaining === 0;
+  const isUnlimited = remaining === -1 || (credits as { isUnlimited?: boolean })?.isUnlimited;
+  const isLow = !isUnlimited && remaining > 0 && remaining <= 5;
+  const isEmpty = !isUnlimited && remaining === 0;
 
   const getBadgeColors = () => {
+    if (isUnlimited) {
+      return {
+        backgroundColor: 'rgba(45, 212, 191, 0.1)',
+        borderColor: 'rgba(45, 212, 191, 0.2)',
+        color: '#2dd4bf',
+      };
+    }
     if (isEmpty) {
       return {
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -97,7 +105,9 @@ export function CreditsBadge({ showPlan = false }: CreditsBadgeProps) {
             d="M13 10V3L4 14h7v7l9-11h-7z"
           />
         </svg>
-        <span style={{ fontSize: '13px', fontWeight: 500 }}>{remaining} credits</span>
+        <span style={{ fontSize: '13px', fontWeight: 500 }}>
+          {isUnlimited ? 'Unlimited' : `${remaining} credits`}
+        </span>
       </div>
 
       {/* Plan badge */}
@@ -115,8 +125,8 @@ export function CreditsBadge({ showPlan = false }: CreditsBadgeProps) {
         </div>
       )}
 
-      {/* Upgrade prompt */}
-      {(isEmpty || (isFreeUser && isLow)) && (
+      {/* Upgrade prompt - not shown for unlimited users */}
+      {!isUnlimited && (isEmpty || (isFreeUser && isLow)) && (
         <Link
           href="/pricing"
           style={{
@@ -143,7 +153,10 @@ export function CreditsCount() {
   }
 
   const remaining = credits?.remaining ?? 0;
-  const textColor = remaining === 0
+  const isUnlimited = remaining === -1 || (credits as { isUnlimited?: boolean })?.isUnlimited;
+  const textColor = isUnlimited
+    ? '#2dd4bf'
+    : remaining === 0
     ? '#ef4444'
     : remaining <= 5
     ? '#f59e0b'
@@ -151,7 +164,7 @@ export function CreditsCount() {
 
   return (
     <span style={{ fontWeight: 500, color: textColor }}>
-      {remaining}
+      {isUnlimited ? '∞' : remaining}
     </span>
   );
 }

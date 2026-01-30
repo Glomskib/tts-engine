@@ -15,6 +15,9 @@ interface AuthState {
   userId: string | null;
 }
 
+const SIDEBAR_STORAGE_KEY = 'admin-sidebar-open';
+const MOBILE_BREAKPOINT = 768;
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -27,6 +30,35 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     userId: null,
   });
   const [unreadCount, setUnreadCount] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+
+      // On mobile, sidebar starts closed; on desktop, restore from storage
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+        setSidebarOpen(stored !== 'false');
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Save sidebar preference (desktop only)
+  useEffect(() => {
+    if (!isMobile) {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarOpen));
+    }
+  }, [sidebarOpen, isMobile]);
 
   useEffect(() => {
     const fetchAuth = async () => {
@@ -79,6 +111,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [auth.authenticated]);
 
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const closeSidebar = () => setSidebarOpen(false);
+
   if (auth.loading) {
     return (
       <div style={{
@@ -100,31 +135,88 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar role={auth.role} unreadNotifications={unreadCount} />
+      <Sidebar
+        role={auth.role}
+        unreadNotifications={unreadCount}
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+        isMobile={isMobile}
+      />
       <main
         style={{
           flex: 1,
-          marginLeft: '220px',
+          marginLeft: isMobile ? 0 : (sidebarOpen ? '260px' : 0),
           backgroundColor: colors.bg,
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
+          transition: 'margin-left 0.3s ease',
         }}
       >
-        {/* Top bar with credits */}
+        {/* Top bar with hamburger and credits */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 24px',
             borderBottom: `1px solid ${colors.border}`,
             backgroundColor: colors.surface,
+            position: 'sticky',
+            top: 0,
+            zIndex: 50,
           }}
         >
+          <button
+            onClick={toggleSidebar}
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '40px',
+              height: '40px',
+              background: 'none',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              color: colors.text,
+              transition: 'background-color 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.bgHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {sidebarOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </>
+              )}
+            </svg>
+          </button>
           <CreditsBadge showPlan />
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, padding: isMobile ? '16px' : '0' }}>
           {children}
         </div>
       </main>

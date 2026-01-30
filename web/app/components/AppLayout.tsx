@@ -2,7 +2,6 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import Sidebar from './Sidebar';
-import { useTheme, getThemeColors } from './ThemeProvider';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -10,12 +9,39 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
+const SIDEBAR_STORAGE_KEY = 'applayout-sidebar-open';
+const MOBILE_BREAKPOINT = 768;
+
 export default function AppLayout({ children }: AppLayoutProps) {
-  const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
   const [role, setRole] = useState<UserRole>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+        setSidebarOpen(stored !== 'false');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Save sidebar preference
+  useEffect(() => {
+    if (!isMobile) {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarOpen));
+    }
+  }, [sidebarOpen, isMobile]);
 
   useEffect(() => {
     // Fetch user role
@@ -54,32 +80,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => clearInterval(interval);
   }, []);
 
+  const closeSidebar = () => setSidebarOpen(false);
+
   if (loading) {
     return (
-      <div style={{
-        padding: '40px',
-        textAlign: 'center',
-        color: colors.textMuted,
-        backgroundColor: colors.bg,
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
+      <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-zinc-500">
         Loading...
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar role={role} unreadNotifications={unreadCount} />
+    <div className="flex min-h-screen">
+      <Sidebar
+        role={role}
+        unreadNotifications={unreadCount}
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+        isMobile={isMobile}
+      />
       <main
+        className="flex-1 bg-[#09090b] min-h-screen transition-all duration-300"
         style={{
-          flex: 1,
-          marginLeft: '220px',
-          backgroundColor: colors.bg,
-          minHeight: '100vh',
+          marginLeft: isMobile ? 0 : (sidebarOpen ? '260px' : 0),
         }}
       >
         {children}

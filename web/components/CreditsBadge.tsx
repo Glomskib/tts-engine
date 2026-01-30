@@ -128,7 +128,7 @@ export function CreditsBadge({ showPlan = false }: CreditsBadgeProps) {
       {/* Upgrade prompt - not shown for unlimited users */}
       {!isUnlimited && (isEmpty || (isFreeUser && isLow)) && (
         <Link
-          href="/pricing"
+          href="/upgrade"
           style={{
             fontSize: '13px',
             color: colors.accent,

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { BRAND } from '@/lib/brand';
 
 // ============================================================================
 // FLASHFLOW AI — LANDING PAGE WITH PRICING
@@ -31,14 +33,16 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span className="font-semibold text-lg tracking-tight">FlashFlow AI</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src={BRAND.logo}
+              alt={BRAND.name}
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+            <span className="font-semibold text-lg tracking-tight">{BRAND.name}</span>
+          </Link>
           <div className="flex items-center gap-6">
             <Link href="#features" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Features</Link>
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Pricing</Link>
@@ -469,14 +473,16 @@ export default function LandingPage() {
       <footer className="border-t border-white/5 py-12 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <span className="font-medium text-sm text-zinc-400">FlashFlow AI</span>
-            </div>
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src={BRAND.logo}
+                alt={BRAND.name}
+                width={24}
+                height={24}
+                className="rounded-md"
+              />
+              <span className="font-medium text-sm text-zinc-400">{BRAND.name}</span>
+            </Link>
             <div className="flex items-center gap-6 text-sm text-zinc-500">
               <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>
@@ -484,7 +490,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="text-center text-sm text-zinc-600 mt-8">
-            Ideas move faster here.
+            {BRAND.tagline}
           </p>
         </div>
       </footer>

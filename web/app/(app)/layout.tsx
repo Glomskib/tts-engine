@@ -13,6 +13,9 @@ interface AuthState {
   userId: string | null;
 }
 
+const SIDEBAR_STORAGE_KEY = 'app-sidebar-open';
+const MOBILE_BREAKPOINT = 768;
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -23,6 +26,32 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     userId: null,
   });
   const [unreadCount, setUnreadCount] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+        setSidebarOpen(stored !== 'false');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Save sidebar preference
+  useEffect(() => {
+    if (!isMobile) {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarOpen));
+    }
+  }, [sidebarOpen, isMobile]);
 
   useEffect(() => {
     const fetchAuth = async () => {
@@ -80,16 +109,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [auth.authenticated]);
 
+  const closeSidebar = () => setSidebarOpen(false);
+
   if (auth.loading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        backgroundColor: '#f8f9fa',
-        color: '#666',
-      }}>
+      <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-zinc-500">
         Loading...
       </div>
     );
@@ -100,14 +124,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar role={auth.role} unreadNotifications={unreadCount} />
+    <div className="flex min-h-screen">
+      <Sidebar
+        role={auth.role}
+        unreadNotifications={unreadCount}
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+        isMobile={isMobile}
+      />
       <main
+        className="flex-1 bg-[#09090b] min-h-screen transition-all duration-300"
         style={{
-          flex: 1,
-          marginLeft: '220px',
-          backgroundColor: '#f8f9fa',
-          minHeight: '100vh',
+          marginLeft: isMobile ? 0 : (sidebarOpen ? '260px' : 0),
         }}
       >
         {children}

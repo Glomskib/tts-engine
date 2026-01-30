@@ -139,7 +139,7 @@ export default function UpgradePage() {
         {/* Pricing Tiers */}
         <h2 className="text-xl font-semibold mb-6">Choose Your Plan</h2>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-10">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {/* Free Tier */}
           <div className={`p-6 rounded-xl border ${
             currentPlan === 'Free' ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 bg-zinc-900/30'
@@ -262,6 +262,50 @@ export default function UpgradePage() {
                 className="w-full py-2.5 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-colors"
               >
                 Upgrade to Pro
+              </button>
+            )}
+          </div>
+
+          {/* Team Tier */}
+          <div className={`p-6 rounded-xl border ${
+            subscription?.planId === 'team' ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/10 bg-zinc-900/30'
+          }`}>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Team</h3>
+              <div className="text-3xl font-bold mt-2">$199</div>
+              <div className="text-sm text-zinc-500">/month</div>
+            </div>
+            <div className="text-sm text-blue-400 mb-4">2,000 generations/mo</div>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Everything in Pro
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Up to 10 team members
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Shared workspaces
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Usage analytics
+              </li>
+              <li className="flex items-start gap-2 text-sm text-zinc-400">
+                <span className="text-emerald-500 mt-0.5">✓</span>
+                Dedicated support
+              </li>
+            </ul>
+            {subscription?.planId === 'team' ? (
+              <div className="text-center text-sm text-emerald-400 py-2 font-medium">✓ Active</div>
+            ) : (
+              <button
+                onClick={() => window.open('/contact?plan=team', '_blank')}
+                className="w-full py-2.5 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-colors"
+              >
+                Contact Sales
               </button>
             )}
           </div>

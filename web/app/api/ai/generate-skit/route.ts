@@ -664,6 +664,27 @@ export async function POST(request: Request) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
+  // Check and deduct credit BEFORE generating
+  const { data: creditResult, error: creditError } = await supabaseAdmin.rpc("deduct_credit", {
+    p_user_id: authContext.user.id,
+    p_description: "Skit generation",
+  });
+
+  if (creditError) {
+    console.error(`[${correlationId}] Credit deduction error:`, creditError);
+    // Continue anyway for now - don't block on credit system errors
+  } else {
+    const result = creditResult?.[0];
+    if (result && !result.success) {
+      return NextResponse.json({
+        ok: false,
+        error: "No credits remaining",
+        creditsRemaining: result.credits_remaining || 0,
+        correlation_id: correlationId,
+      }, { status: 402 });
+    }
+  }
+
   // Parse and validate input
   let input: GenerateSkitInput;
   try {
@@ -1033,11 +1054,15 @@ export async function POST(request: Request) {
       }
     }
 
+    // Get remaining credits for response
+    const creditsRemaining = creditResult?.[0]?.credits_remaining;
+
     // Success response
     const response = NextResponse.json({
       ok: true,
       correlation_id: correlationId,
       data: responseData,
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
     });
     response.headers.set("x-correlation-id", correlationId);
     return response;

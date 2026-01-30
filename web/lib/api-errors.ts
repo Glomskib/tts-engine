@@ -51,7 +51,8 @@ export type ApiErrorCode =
   | 'GENERATION_IN_PROGRESS'
   | 'AI_PARSE'
   | 'AI_UNKNOWN'
-  | 'INTERNAL';
+  | 'INTERNAL'
+  | 'CONFIG_ERROR';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

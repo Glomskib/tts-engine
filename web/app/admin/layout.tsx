@@ -4,6 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { CreditsBadge } from '@/components/CreditsBadge';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -106,9 +107,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           marginLeft: '220px',
           backgroundColor: colors.bg,
           minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {children}
+        {/* Top bar with credits */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            padding: '12px 24px',
+            borderBottom: `1px solid ${colors.border}`,
+            backgroundColor: colors.surface,
+          }}
+        >
+          <CreditsBadge showPlan />
+        </div>
+        <div style={{ flex: 1 }}>
+          {children}
+        </div>
       </main>
     </div>
   );

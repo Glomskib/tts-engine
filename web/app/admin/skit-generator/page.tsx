@@ -9,6 +9,8 @@ import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
+import { useCredits } from '@/hooks/useCredits';
+import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 
 // --- Helper Functions ---
 
@@ -306,6 +308,10 @@ export default function SkitGeneratorPage() {
   // Auth state
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Credits state
+  const { hasCredits, refetch: refetchCredits } = useCredits();
+  const noCreditsModal = useNoCreditsModal();
 
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
@@ -991,6 +997,12 @@ export default function SkitGeneratorPage() {
   };
 
   const handleGenerate = async (retryWithPayload?: Record<string, unknown>) => {
+    // Check if user has credits
+    if (!hasCredits) {
+      noCreditsModal.open();
+      return;
+    }
+
     // Check if rate limited
     if (isRateLimited && rateLimitResetTime && new Date() < rateLimitResetTime) {
       const secondsRemaining = Math.ceil((rateLimitResetTime.getTime() - Date.now()) / 1000);
@@ -1097,9 +1109,18 @@ export default function SkitGeneratorPage() {
         setIsRateLimited(true);
         setRateLimitResetTime(new Date(Date.now() + 30000)); // 30 second cooldown
       }
+      // Handle no credits (402 Payment Required)
+      if (response.httpStatus === 402) {
+        refetchCredits();
+        noCreditsModal.open();
+        return;
+      }
       setError(response);
       return;
     }
+
+    // Refetch credits after successful generation
+    refetchCredits();
 
     setResult(response.data);
 
@@ -5154,6 +5175,9 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
           </div>
         </div>
       )}
+
+      {/* No Credits Modal */}
+      <NoCreditsModal isOpen={noCreditsModal.isOpen} onClose={noCreditsModal.close} />
     </div>
   );
 }

@@ -88,8 +88,26 @@ export default function AudiencePage() {
 
   // Extract from text state
   const [extractText, setExtractText] = useState("");
+  const [extractSourceUrl, setExtractSourceUrl] = useState("");
   const [extracting, setExtracting] = useState(false);
-  const [extractResult, setExtractResult] = useState<Record<string, unknown> | null>(null);
+  const [extractResult, setExtractResult] = useState<{
+    pain_points?: Array<{
+      pain_point: string;
+      how_they_describe_it: string[];
+      emotional_state: string;
+      intensity: "low" | "medium" | "high";
+      frequency: number;
+    }>;
+    language_patterns?: {
+      complaints: string[];
+      desires: string[];
+      phrases: string[];
+    };
+    objections?: string[];
+    review_count_detected?: number;
+  } | null>(null);
+  const [addingPainPointIndex, setAddingPainPointIndex] = useState<number | null>(null);
+  const [addingAllPainPoints, setAddingAllPainPoints] = useState(false);
 
   // Messages
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -125,13 +143,20 @@ export default function AudiencePage() {
   const fetchPersonas = useCallback(async () => {
     setPersonasLoading(true);
     try {
-      const res = await fetch("/api/audience/personas");
+      // Add cache buster to avoid stale data
+      const res = await fetch(`/api/audience/personas?_=${Date.now()}`, {
+        cache: "no-store",
+      });
       const data = await res.json();
+      console.log("[Audience] Fetched personas:", data);
       if (data.ok) {
         setPersonas(data.data || []);
+      } else {
+        console.error("[Audience] Failed to fetch personas:", data.error);
+        setMessage({ type: "error", text: data.error || "Failed to fetch personas" });
       }
     } catch (err) {
-      console.error("Failed to fetch personas:", err);
+      console.error("[Audience] Failed to fetch personas:", err);
     } finally {
       setPersonasLoading(false);
     }
@@ -142,15 +167,18 @@ export default function AudiencePage() {
     setPainPointsLoading(true);
     try {
       const url = categoryFilter === "all"
-        ? "/api/audience/pain-points"
-        : `/api/audience/pain-points?category=${categoryFilter}`;
-      const res = await fetch(url);
+        ? `/api/audience/pain-points?_=${Date.now()}`
+        : `/api/audience/pain-points?category=${categoryFilter}&_=${Date.now()}`;
+      const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
+      console.log("[Audience] Fetched pain points:", data);
       if (data.ok) {
         setPainPoints(data.data || []);
+      } else {
+        console.error("[Audience] Failed to fetch pain points:", data.error);
       }
     } catch (err) {
-      console.error("Failed to fetch pain points:", err);
+      console.error("[Audience] Failed to fetch pain points:", err);
     } finally {
       setPainPointsLoading(false);
     }
@@ -212,16 +240,14 @@ export default function AudiencePage() {
       if (personaForm.tone?.trim()) cleanedForm.tone = personaForm.tone.trim();
       if (personaForm.humor_style?.trim()) cleanedForm.humor_style = personaForm.humor_style.trim();
 
-      // Arrays - only include if non-empty
-      if (personaForm.phrases_they_use && personaForm.phrases_they_use.length > 0) {
-        cleanedForm.phrases_they_use = personaForm.phrases_they_use.filter(Boolean);
-      }
-      if (personaForm.phrases_to_avoid && personaForm.phrases_to_avoid.length > 0) {
-        cleanedForm.phrases_to_avoid = personaForm.phrases_to_avoid.filter(Boolean);
-      }
-      if (personaForm.common_objections && personaForm.common_objections.length > 0) {
-        cleanedForm.common_objections = personaForm.common_objections.filter(Boolean);
-      }
+      // Arrays - only include if non-empty (send empty array to clear)
+      const phrasesTheyUse = (personaForm.phrases_they_use || []).filter(Boolean);
+      const phrasesToAvoid = (personaForm.phrases_to_avoid || []).filter(Boolean);
+      const commonObjections = (personaForm.common_objections || []).filter(Boolean);
+
+      if (phrasesTheyUse.length > 0) cleanedForm.phrases_they_use = phrasesTheyUse;
+      if (phrasesToAvoid.length > 0) cleanedForm.phrases_to_avoid = phrasesToAvoid;
+      if (commonObjections.length > 0) cleanedForm.common_objections = commonObjections;
       if (personaForm.content_they_engage_with && personaForm.content_they_engage_with.length > 0) {
         cleanedForm.content_they_engage_with = personaForm.content_they_engage_with;
       }
@@ -232,7 +258,7 @@ export default function AudiencePage() {
         cleanedForm.pain_points = personaForm.pain_points;
       }
 
-      console.log("[Audience] Saving persona:", cleanedForm);
+      console.log("[Audience] Saving persona:", { method, url, cleanedForm });
 
       const res = await fetch(url, {
         method,
@@ -240,20 +266,31 @@ export default function AudiencePage() {
         body: JSON.stringify(cleanedForm),
       });
 
+      console.log("[Audience] Response status:", res.status);
       const data = await res.json();
       console.log("[Audience] Save response:", data);
+
+      if (!res.ok) {
+        const errorMsg = data.error || data.message || `HTTP ${res.status}`;
+        console.error("[Audience] Save failed:", errorMsg, data);
+        setMessage({ type: "error", text: errorMsg });
+        return;
+      }
 
       if (!data.ok) {
         setMessage({ type: "error", text: data.error || "Failed to save" });
         return;
       }
 
+      console.log("[Audience] Persona saved successfully:", data.data?.id);
       setMessage({ type: "success", text: isNew ? "Persona created!" : "Persona updated!" });
       setEditingPersona(null);
-      fetchPersonas();
+
+      // Immediately refresh the list
+      await fetchPersonas();
     } catch (err) {
       console.error("[Audience] Save error:", err);
-      setMessage({ type: "error", text: "Network error" });
+      setMessage({ type: "error", text: `Network error: ${err instanceof Error ? err.message : "Unknown"}` });
     } finally {
       setSavingPersona(false);
     }
@@ -305,13 +342,34 @@ export default function AudiencePage() {
       const url = isNew ? "/api/audience/pain-points" : `/api/audience/pain-points/${editingPainPoint?.id}`;
       const method = isNew ? "POST" : "PATCH";
 
+      // Clean up the form data
+      const cleanedForm: Record<string, unknown> = {
+        pain_point: painPointForm.pain_point?.trim(),
+      };
+
+      if (painPointForm.category?.trim()) cleanedForm.category = painPointForm.category.trim();
+      if (painPointForm.when_it_happens?.trim()) cleanedForm.when_it_happens = painPointForm.when_it_happens.trim();
+      if (painPointForm.emotional_state?.trim()) cleanedForm.emotional_state = painPointForm.emotional_state.trim();
+      if (painPointForm.intensity) cleanedForm.intensity = painPointForm.intensity;
+      if (painPointForm.what_they_want?.trim()) cleanedForm.what_they_want = painPointForm.what_they_want.trim();
+
+      if (painPointForm.how_they_describe_it && painPointForm.how_they_describe_it.length > 0) {
+        cleanedForm.how_they_describe_it = painPointForm.how_they_describe_it.filter(Boolean);
+      }
+      if (painPointForm.objections_to_solutions && painPointForm.objections_to_solutions.length > 0) {
+        cleanedForm.objections_to_solutions = painPointForm.objections_to_solutions.filter(Boolean);
+      }
+
+      console.log("[Audience] Saving pain point:", cleanedForm);
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(painPointForm),
+        body: JSON.stringify(cleanedForm),
       });
 
       const data = await res.json();
+      console.log("[Audience] Save pain point response:", data);
 
       if (!data.ok) {
         setMessage({ type: "error", text: data.error || "Failed to save" });
@@ -321,39 +379,154 @@ export default function AudiencePage() {
       setMessage({ type: "success", text: isNew ? "Pain point created!" : "Pain point updated!" });
       setEditingPainPoint(null);
       fetchPainPoints();
-    } catch {
+    } catch (err) {
+      console.error("[Audience] Save pain point error:", err);
       setMessage({ type: "error", text: "Network error" });
     } finally {
       setSavingPainPoint(false);
     }
   };
 
+  const deletePainPoint = async (id: string) => {
+    if (!confirm("Delete this pain point?")) return;
+
+    try {
+      const res = await fetch(`/api/audience/pain-points/${id}`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (data.ok) {
+        setMessage({ type: "success", text: "Pain point deleted" });
+        fetchPainPoints();
+        if (editingPainPoint?.id === id) setEditingPainPoint(null);
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to delete" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to delete" });
+    }
+  };
+
   // --- Extract from text ---
 
   const extractFromText = async () => {
-    if (!extractText.trim()) return;
+    if (!extractText.trim() || extractText.trim().length < 50) {
+      setMessage({ type: "error", text: "Please paste at least 50 characters of review content" });
+      return;
+    }
 
     setExtracting(true);
     setExtractResult(null);
+    setMessage(null);
 
     try {
-      const res = await fetch("/api/audience/analyze-language", {
+      console.log("[Audience] Extracting from reviews, length:", extractText.length);
+      const res = await fetch("/api/audience/extract-from-reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: extractText, context: "review" }),
+        body: JSON.stringify({
+          text: extractText,
+          source_url: extractSourceUrl || undefined,
+          source_type: extractSourceUrl?.includes("amazon") ? "amazon" :
+            extractSourceUrl?.includes("tiktok") ? "tiktok" : "generic",
+        }),
+      });
+
+      const data = await res.json();
+      console.log("[Audience] Extract response:", data);
+
+      if (data.ok && data.data?.extraction) {
+        setExtractResult(data.data.extraction);
+        setMessage({ type: "success", text: `Extracted ${data.data.extraction.pain_points?.length || 0} pain points from ~${data.data.extraction.review_count_detected || 0} reviews` });
+      } else {
+        setMessage({ type: "error", text: data.error || "Extraction failed" });
+      }
+    } catch (err) {
+      console.error("[Audience] Extract error:", err);
+      setMessage({ type: "error", text: "Network error" });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  // --- Add extracted pain point to library ---
+
+  const addExtractedPainPoint = async (painPoint: {
+    pain_point: string;
+    how_they_describe_it: string[];
+    emotional_state: string;
+    intensity: "low" | "medium" | "high";
+  }, index: number) => {
+    setAddingPainPointIndex(index);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/audience/pain-points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pain_point: painPoint.pain_point,
+          how_they_describe_it: painPoint.how_they_describe_it,
+          emotional_state: painPoint.emotional_state,
+          intensity: painPoint.intensity,
+        }),
       });
 
       const data = await res.json();
 
-      if (data.ok && data.data?.analysis) {
-        setExtractResult(data.data.analysis);
+      if (data.ok) {
+        setMessage({ type: "success", text: `Added "${painPoint.pain_point}" to library` });
+        fetchPainPoints();
       } else {
-        setMessage({ type: "error", text: data.error || "Analysis failed" });
+        setMessage({ type: "error", text: data.error || "Failed to add pain point" });
       }
     } catch {
       setMessage({ type: "error", text: "Network error" });
     } finally {
-      setExtracting(false);
+      setAddingPainPointIndex(null);
+    }
+  };
+
+  // --- Add all extracted pain points ---
+
+  const addAllExtractedPainPoints = async () => {
+    if (!extractResult?.pain_points?.length) return;
+
+    setAddingAllPainPoints(true);
+    setMessage(null);
+    let added = 0;
+    let failed = 0;
+
+    for (const pp of extractResult.pain_points) {
+      try {
+        const res = await fetch("/api/audience/pain-points", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pain_point: pp.pain_point,
+            how_they_describe_it: pp.how_they_describe_it,
+            emotional_state: pp.emotional_state,
+            intensity: pp.intensity,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          added++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }
+
+    setAddingAllPainPoints(false);
+    fetchPainPoints();
+
+    if (failed === 0) {
+      setMessage({ type: "success", text: `Added ${added} pain points to library` });
+    } else {
+      setMessage({ type: "error", text: `Added ${added} pain points, ${failed} failed` });
     }
   };
 
@@ -554,65 +727,208 @@ export default function AudiencePage() {
             {/* Extract from Text Panel */}
             <div style={{ ...cardStyle, marginBottom: "16px" }}>
               <div style={{ fontSize: "13px", fontWeight: 600, color: colors.text, marginBottom: "10px" }}>
-                Extract Pain Points from Reviews/Comments
+                Extract Pain Points from Product Reviews
               </div>
+
+              {/* Source URL Input */}
+              <div style={{ marginBottom: "10px" }}>
+                <input
+                  value={extractSourceUrl}
+                  onChange={(e) => setExtractSourceUrl(e.target.value)}
+                  placeholder="Paste Amazon/product URL here (optional)..."
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ fontSize: "12px", color: colors.textMuted, textAlign: "center", margin: "8px 0" }}>
+                -- OR --
+              </div>
+
+              {/* Reviews Text Input */}
               <textarea
                 value={extractText}
                 onChange={(e) => setExtractText(e.target.value)}
-                placeholder="Paste Amazon reviews, TikTok comments, or customer feedback..."
-                rows={3}
+                placeholder="Paste reviews directly here...&#10;&#10;Copy reviews from Amazon, TikTok comments, or customer feedback and paste them here. The AI will extract pain points and authentic customer language."
+                rows={5}
                 style={{ ...inputStyle, resize: "vertical", marginBottom: "10px" }}
               />
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                 <button
                   onClick={extractFromText}
-                  disabled={extracting || !extractText.trim()}
-                  style={{ ...secondaryButton, opacity: extracting || !extractText.trim() ? 0.5 : 1 }}
+                  disabled={extracting || extractText.trim().length < 50}
+                  style={{ ...primaryButton, opacity: extracting || extractText.trim().length < 50 ? 0.5 : 1 }}
                 >
-                  {extracting ? "Analyzing..." : "Extract with AI"}
+                  {extracting ? "Extracting..." : "Extract Pain Points"}
                 </button>
-                {extractResult && (
-                  <span style={{ fontSize: "12px", color: "#10b981" }}>Analysis complete - see results below</span>
+                {extractText.trim().length > 0 && extractText.trim().length < 50 && (
+                  <span style={{ fontSize: "11px", color: colors.textMuted }}>
+                    Need {50 - extractText.trim().length} more characters
+                  </span>
                 )}
               </div>
 
               {/* Extract Results */}
               {extractResult && (
-                <div style={{ marginTop: "16px", padding: "12px", backgroundColor: colors.card, borderRadius: "6px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 600, color: colors.text, marginBottom: "10px" }}>Extracted Insights:</div>
+                <div style={{ marginTop: "16px", padding: "16px", backgroundColor: colors.card, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: colors.text }}>
+                      Extracted from ~{extractResult.review_count_detected || 0} reviews
+                    </div>
+                    {extractResult.pain_points && extractResult.pain_points.length > 0 && (
+                      <button
+                        onClick={addAllExtractedPainPoints}
+                        disabled={addingAllPainPoints}
+                        style={{ ...primaryButton, fontSize: "11px", padding: "6px 12px", opacity: addingAllPainPoints ? 0.5 : 1 }}
+                      >
+                        {addingAllPainPoints ? "Adding..." : `Add All ${extractResult.pain_points.length} to Library`}
+                      </button>
+                    )}
+                  </div>
 
                   {/* Pain Points */}
-                  {Array.isArray((extractResult as Record<string, unknown>).pain_points) ? (
-                    <div style={{ marginBottom: "12px" }}>
-                      <div style={{ fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>PAIN POINTS</div>
-                      {((extractResult as Record<string, unknown>).pain_points as Array<Record<string, unknown>>).map((pp, i) => (
-                        <div key={i} style={{ fontSize: "12px", color: colors.text, padding: "4px 0" }}>
-                          • <strong>{String(pp.point || "")}</strong> ({String(pp.intensity || "")})
-                          {Array.isArray(pp.how_they_describe_it) && pp.how_they_describe_it.length > 0 ? (
-                            <span style={{ color: colors.textMuted }}> — &quot;{String((pp.how_they_describe_it as string[])[0])}&quot;</span>
-                          ) : null}
-                        </div>
-                      ))}
+                  {extractResult.pain_points && extractResult.pain_points.length > 0 && (
+                    <div style={{ marginBottom: "16px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, marginBottom: "8px", textTransform: "uppercase" }}>
+                        Pain Points ({extractResult.pain_points.length})
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {extractResult.pain_points.map((pp, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              padding: "12px",
+                              backgroundColor: colors.surface,
+                              borderRadius: "6px",
+                              border: `1px solid ${colors.border}`,
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "13px", fontWeight: 500, color: colors.text, marginBottom: "4px" }}>
+                                  {pp.pain_point}
+                                </div>
+                                {pp.how_they_describe_it && pp.how_they_describe_it.length > 0 && (
+                                  <div style={{ fontSize: "12px", color: colors.textMuted, fontStyle: "italic", marginBottom: "6px" }}>
+                                    &quot;{pp.how_they_describe_it[0]}&quot;
+                                    {pp.how_they_describe_it.length > 1 && (
+                                      <span style={{ color: colors.textMuted }}> (+{pp.how_they_describe_it.length - 1} more)</span>
+                                    )}
+                                  </div>
+                                )}
+                                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                                  <span style={{
+                                    fontSize: "10px",
+                                    padding: "2px 6px",
+                                    borderRadius: "3px",
+                                    backgroundColor: pp.intensity === "high" ? "rgba(239, 68, 68, 0.1)" :
+                                      pp.intensity === "medium" ? "rgba(245, 158, 11, 0.1)" : "rgba(107, 114, 128, 0.1)",
+                                    color: pp.intensity === "high" ? "#ef4444" :
+                                      pp.intensity === "medium" ? "#f59e0b" : colors.textMuted,
+                                  }}>
+                                    {pp.intensity}
+                                  </span>
+                                  <span style={{
+                                    fontSize: "10px",
+                                    padding: "2px 6px",
+                                    borderRadius: "3px",
+                                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                                    color: "#3b82f6",
+                                  }}>
+                                    {pp.emotional_state}
+                                  </span>
+                                  {pp.frequency > 1 && (
+                                    <span style={{
+                                      fontSize: "10px",
+                                      padding: "2px 6px",
+                                      borderRadius: "3px",
+                                      backgroundColor: "rgba(16, 185, 129, 0.1)",
+                                      color: "#10b981",
+                                    }}>
+                                      {pp.frequency}x mentioned
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => addExtractedPainPoint(pp, i)}
+                                disabled={addingPainPointIndex === i}
+                                style={{
+                                  ...secondaryButton,
+                                  fontSize: "11px",
+                                  padding: "4px 10px",
+                                  opacity: addingPainPointIndex === i ? 0.5 : 1,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {addingPainPointIndex === i ? "Adding..." : "Add to Library"}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ) : null}
+                  )}
 
                   {/* Language Patterns */}
-                  {(extractResult as Record<string, unknown>).language_patterns ? (
-                    <div style={{ marginBottom: "12px" }}>
-                      <div style={{ fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LANGUAGE PATTERNS</div>
-                      <div style={{ fontSize: "12px", color: colors.text }}>
-                        Tone: {String(((extractResult as Record<string, unknown>).language_patterns as Record<string, unknown>).tone || "")}
-                        {((extractResult as Record<string, unknown>).language_patterns as Record<string, unknown>).humor_style
-                          ? ` • Humor: ${String(((extractResult as Record<string, unknown>).language_patterns as Record<string, unknown>).humor_style)}`
-                          : ""}
+                  {extractResult.language_patterns && (
+                    <div style={{ marginBottom: "16px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, marginBottom: "8px", textTransform: "uppercase" }}>
+                        Language Patterns
                       </div>
-                      {Array.isArray(((extractResult as Record<string, unknown>).language_patterns as Record<string, unknown>).phrases_used) ? (
-                        <div style={{ fontSize: "12px", color: colors.textMuted, marginTop: "4px" }}>
-                          Phrases: {(((extractResult as Record<string, unknown>).language_patterns as Record<string, unknown>).phrases_used as string[]).slice(0, 5).join(", ")}
-                        </div>
-                      ) : null}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+                        {extractResult.language_patterns.complaints && extractResult.language_patterns.complaints.length > 0 && (
+                          <div style={{ padding: "10px", backgroundColor: "rgba(239, 68, 68, 0.05)", borderRadius: "6px" }}>
+                            <div style={{ fontSize: "10px", fontWeight: 600, color: "#ef4444", marginBottom: "6px" }}>COMPLAINTS</div>
+                            {extractResult.language_patterns.complaints.slice(0, 5).map((c, i) => (
+                              <div key={i} style={{ fontSize: "11px", color: colors.text, padding: "2px 0" }}>• {c}</div>
+                            ))}
+                          </div>
+                        )}
+                        {extractResult.language_patterns.desires && extractResult.language_patterns.desires.length > 0 && (
+                          <div style={{ padding: "10px", backgroundColor: "rgba(16, 185, 129, 0.05)", borderRadius: "6px" }}>
+                            <div style={{ fontSize: "10px", fontWeight: 600, color: "#10b981", marginBottom: "6px" }}>DESIRES</div>
+                            {extractResult.language_patterns.desires.slice(0, 5).map((d, i) => (
+                              <div key={i} style={{ fontSize: "11px", color: colors.text, padding: "2px 0" }}>• {d}</div>
+                            ))}
+                          </div>
+                        )}
+                        {extractResult.language_patterns.phrases && extractResult.language_patterns.phrases.length > 0 && (
+                          <div style={{ padding: "10px", backgroundColor: "rgba(59, 130, 246, 0.05)", borderRadius: "6px" }}>
+                            <div style={{ fontSize: "10px", fontWeight: 600, color: "#3b82f6", marginBottom: "6px" }}>NOTABLE PHRASES</div>
+                            {extractResult.language_patterns.phrases.slice(0, 5).map((p, i) => (
+                              <div key={i} style={{ fontSize: "11px", color: colors.text, padding: "2px 0" }}>• {p}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : null}
+                  )}
+
+                  {/* Objections */}
+                  {extractResult.objections && extractResult.objections.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, marginBottom: "8px", textTransform: "uppercase" }}>
+                        Objections ({extractResult.objections.length})
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {extractResult.objections.map((obj, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              fontSize: "11px",
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(245, 158, 11, 0.1)",
+                              color: "#f59e0b",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            {obj}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1084,11 +1400,20 @@ export default function AudiencePage() {
               </div>
 
               {/* Modal Footer */}
-              <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-                <button onClick={() => setEditingPainPoint(null)} style={secondaryButton}>Cancel</button>
-                <button onClick={savePainPoint} disabled={savingPainPoint} style={{ ...primaryButton, opacity: savingPainPoint ? 0.5 : 1 }}>
-                  {savingPainPoint ? "Saving..." : "Save Pain Point"}
-                </button>
+              <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
+                {editingPainPoint.id !== "new" ? (
+                  <button onClick={() => deletePainPoint(editingPainPoint.id)} style={{ ...buttonStyle, color: "#ef4444", backgroundColor: "transparent" }}>
+                    Delete
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button onClick={() => setEditingPainPoint(null)} style={secondaryButton}>Cancel</button>
+                  <button onClick={savePainPoint} disabled={savingPainPoint} style={{ ...primaryButton, opacity: savingPainPoint ? 0.5 : 1 }}>
+                    {savingPainPoint ? "Saving..." : "Save Pain Point"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

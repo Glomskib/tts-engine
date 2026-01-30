@@ -28,23 +28,23 @@ interface AuditResponse {
   message?: string;
 }
 
-// Event type colors for badges
+// Event type colors for badges (dark theme)
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  'video.posted': 'bg-green-100 text-green-800',
-  'video.claimed': 'bg-blue-100 text-blue-800',
-  'video.released': 'bg-slate-100 text-slate-800',
-  'hook.winner': 'bg-amber-100 text-amber-800',
-  'hook.underperform': 'bg-red-100 text-red-800',
-  'hook.approved': 'bg-emerald-100 text-emerald-800',
-  'hook.rejected': 'bg-rose-100 text-rose-800',
-  'product.updated': 'bg-purple-100 text-purple-800',
+  'video.posted': 'bg-green-500/20 text-green-400',
+  'video.claimed': 'bg-blue-500/20 text-blue-400',
+  'video.released': 'bg-zinc-500/20 text-zinc-400',
+  'hook.winner': 'bg-amber-500/20 text-amber-400',
+  'hook.underperform': 'bg-red-500/20 text-red-400',
+  'hook.approved': 'bg-emerald-500/20 text-emerald-400',
+  'hook.rejected': 'bg-rose-500/20 text-rose-400',
+  'product.updated': 'bg-purple-500/20 text-purple-400',
 };
 
-// Entity type colors
+// Entity type colors (dark theme)
 const ENTITY_TYPE_COLORS: Record<string, string> = {
-  video: 'bg-blue-50 text-blue-700',
-  hook: 'bg-amber-50 text-amber-700',
-  product: 'bg-purple-50 text-purple-700',
+  video: 'bg-blue-500/20 text-blue-400',
+  hook: 'bg-amber-500/20 text-amber-400',
+  product: 'bg-purple-500/20 text-purple-400',
 };
 
 export default function AdminAuditLogPage() {
@@ -163,11 +163,11 @@ export default function AdminAuditLogPage() {
   };
 
   const getEventTypeColor = (eventType: string) => {
-    return EVENT_TYPE_COLORS[eventType] || 'bg-slate-100 text-slate-700';
+    return EVENT_TYPE_COLORS[eventType] || 'bg-zinc-700/50 text-zinc-300';
   };
 
   const getEntityTypeColor = (entityType: string) => {
-    return ENTITY_TYPE_COLORS[entityType] || 'bg-slate-50 text-slate-600';
+    return ENTITY_TYPE_COLORS[entityType] || 'bg-zinc-700/50 text-zinc-400';
   };
 
   const handleCopyCorrelationId = async () => {
@@ -221,11 +221,11 @@ export default function AdminAuditLogPage() {
       <AdminCard>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[160px]">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Event Type</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1">Event Type</label>
             <select
               value={eventTypeFilter}
               onChange={(e) => setEventTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-md text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="">All Events</option>
               {eventTypes.map((t) => (
@@ -235,11 +235,11 @@ export default function AdminAuditLogPage() {
           </div>
 
           <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Entity Type</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1">Entity Type</label>
             <select
               value={entityTypeFilter}
               onChange={(e) => setEntityTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-md text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="">All Entities</option>
               {entityTypes.map((t) => (
@@ -249,33 +249,33 @@ export default function AdminAuditLogPage() {
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Entity ID</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1">Entity ID</label>
             <input
               type="text"
               value={entityIdFilter}
               onChange={(e) => setEntityIdFilter(e.target.value)}
               placeholder="UUID..."
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400 font-mono"
+              className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-md text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
             />
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Correlation ID</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1">Correlation ID</label>
             <input
               type="text"
               value={correlationIdFilter}
               onChange={(e) => setCorrelationIdFilter(e.target.value)}
               placeholder="Correlation ID..."
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400 font-mono"
+              className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-md text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
             />
           </div>
 
           <div className="w-24">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Limit</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1">Limit</label>
             <select
               value={limit}
               onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-md text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value={50}>50</option>
               <option value={100}>100</option>
@@ -319,12 +319,12 @@ export default function AdminAuditLogPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Time</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Event</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Entity</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Actor</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Summary</th>
+              <tr className="bg-zinc-800/50 border-b border-white/10">
+                <th className="px-4 py-3 text-left font-medium text-zinc-400">Time</th>
+                <th className="px-4 py-3 text-left font-medium text-zinc-400">Event</th>
+                <th className="px-4 py-3 text-left font-medium text-zinc-400">Entity</th>
+                <th className="px-4 py-3 text-left font-medium text-zinc-400">Actor</th>
+                <th className="px-4 py-3 text-left font-medium text-zinc-400">Summary</th>
               </tr>
             </thead>
             <tbody>
@@ -346,9 +346,9 @@ export default function AdminAuditLogPage() {
                 <tr
                   key={row.id}
                   onClick={() => setSelectedRow(row)}
-                  className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
                 >
-                  <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                  <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
                     <span title={row.created_at}>{formatTime(row.created_at)}</span>
                   </td>
                   <td className="px-4 py-3">
@@ -362,20 +362,20 @@ export default function AdminAuditLogPage() {
                         {row.entity_type}
                       </span>
                       {row.entity_id && (
-                        <span className="font-mono text-xs text-slate-500" title={row.entity_id}>
+                        <span className="font-mono text-xs text-zinc-500" title={row.entity_id}>
                           {row.entity_id.slice(0, 8)}...
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                  <td className="px-4 py-3 font-mono text-xs text-zinc-500">
                     {row.actor ? (
                       <span title={row.actor}>{row.actor.slice(0, 8)}...</span>
                     ) : (
-                      <span className="text-slate-400">system</span>
+                      <span className="text-zinc-600">system</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={row.summary}>
+                  <td className="px-4 py-3 text-zinc-300 max-w-xs truncate" title={row.summary}>
                     {row.summary}
                   </td>
                 </tr>
@@ -395,13 +395,13 @@ export default function AdminAuditLogPage() {
           />
 
           {/* Drawer Panel */}
-          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl flex flex-col">
+          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-zinc-900 shadow-xl flex flex-col border-l border-white/10">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-800">Audit Entry Details</h2>
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-100">Audit Entry Details</h2>
               <button
                 onClick={closeDrawer}
-                className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none"
               >
                 &times;
               </button>
@@ -412,36 +412,36 @@ export default function AdminAuditLogPage() {
               {/* Key Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Event Type</label>
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">Event Type</label>
                   <span className={`inline-block px-2 py-1 rounded text-sm font-medium ${getEventTypeColor(selectedRow.event_type)}`}>
                     {selectedRow.event_type}
                   </span>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Entity Type</label>
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">Entity Type</label>
                   <span className={`inline-block px-2 py-1 rounded text-sm font-medium ${getEntityTypeColor(selectedRow.entity_type)}`}>
                     {selectedRow.entity_type}
                   </span>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Entity ID</label>
-                  <span className="font-mono text-sm text-slate-700">{selectedRow.entity_id || '-'}</span>
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">Entity ID</label>
+                  <span className="font-mono text-sm text-zinc-300">{selectedRow.entity_id || '-'}</span>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Actor</label>
-                  <span className="font-mono text-sm text-slate-700">{selectedRow.actor || 'system'}</span>
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">Actor</label>
+                  <span className="font-mono text-sm text-zinc-300">{selectedRow.actor || 'system'}</span>
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Created At</label>
-                  <span className="text-sm text-slate-700">{formatTime(selectedRow.created_at)}</span>
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">Created At</label>
+                  <span className="text-sm text-zinc-300">{formatTime(selectedRow.created_at)}</span>
                 </div>
               </div>
 
               {/* Correlation ID with Copy */}
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Correlation ID</label>
+                <label className="block text-xs font-medium text-zinc-500 mb-1">Correlation ID</label>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-slate-100 rounded text-sm font-mono text-slate-700 break-all">
+                  <code className="flex-1 px-3 py-2 bg-zinc-800 rounded text-sm font-mono text-zinc-300 break-all">
                     {selectedRow.correlation_id}
                   </code>
                   <AdminButton
@@ -456,21 +456,21 @@ export default function AdminAuditLogPage() {
 
               {/* Summary */}
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Summary</label>
-                <p className="text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded">{selectedRow.summary}</p>
+                <label className="block text-xs font-medium text-zinc-500 mb-1">Summary</label>
+                <p className="text-sm text-zinc-300 bg-zinc-800 px-3 py-2 rounded">{selectedRow.summary}</p>
               </div>
 
               {/* Details JSON */}
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Details</label>
-                <pre className="text-xs bg-slate-900 text-slate-100 p-4 rounded overflow-auto max-h-64 font-mono">
+                <label className="block text-xs font-medium text-zinc-500 mb-1">Details</label>
+                <pre className="text-xs bg-zinc-950 text-zinc-100 p-4 rounded overflow-auto max-h-64 font-mono border border-white/10">
                   {JSON.stringify(selectedRow.details, null, 2)}
                 </pre>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-200">
+            <div className="px-6 py-4 border-t border-white/10">
               <AdminButton variant="secondary" onClick={closeDrawer}>
                 Close
               </AdminButton>

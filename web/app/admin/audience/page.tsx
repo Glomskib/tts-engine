@@ -148,7 +148,6 @@ export default function AudiencePage() {
         cache: "no-store",
       });
       const data = await res.json();
-      console.log("[Audience] Fetched personas:", data);
       if (data.ok) {
         setPersonas(data.data || []);
       } else {
@@ -171,7 +170,6 @@ export default function AudiencePage() {
         : `/api/audience/pain-points?category=${categoryFilter}&_=${Date.now()}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
-      console.log("[Audience] Fetched pain points:", data);
       if (data.ok) {
         setPainPoints(data.data || []);
       } else {
@@ -258,17 +256,13 @@ export default function AudiencePage() {
         cleanedForm.pain_points = personaForm.pain_points;
       }
 
-      console.log("[Audience] Saving persona:", { method, url, cleanedForm });
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleanedForm),
       });
 
-      console.log("[Audience] Response status:", res.status);
       const data = await res.json();
-      console.log("[Audience] Save response:", data);
 
       if (!res.ok) {
         const errorMsg = data.error || data.message || `HTTP ${res.status}`;
@@ -282,7 +276,6 @@ export default function AudiencePage() {
         return;
       }
 
-      console.log("[Audience] Persona saved successfully:", data.data?.id);
       setMessage({ type: "success", text: isNew ? "Persona created!" : "Persona updated!" });
       setEditingPersona(null);
 
@@ -360,8 +353,6 @@ export default function AudiencePage() {
         cleanedForm.objections_to_solutions = painPointForm.objections_to_solutions.filter(Boolean);
       }
 
-      console.log("[Audience] Saving pain point:", cleanedForm);
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -369,7 +360,6 @@ export default function AudiencePage() {
       });
 
       const data = await res.json();
-      console.log("[Audience] Save pain point response:", data);
 
       if (!data.ok) {
         setMessage({ type: "error", text: data.message || data.error || "Failed to save" });
@@ -419,7 +409,6 @@ export default function AudiencePage() {
     setMessage(null);
 
     try {
-      console.log("[Audience] Extracting from reviews, length:", extractText.length);
       const res = await fetch("/api/audience/extract-from-reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -432,7 +421,6 @@ export default function AudiencePage() {
       });
 
       const data = await res.json();
-      console.log("[Audience] Extract response:", data);
 
       if (data.ok && data.data?.extraction) {
         setExtractResult(data.data.extraction);

@@ -336,8 +336,6 @@ export default function WinnersPage() {
       },
     };
 
-    console.log("[Winners] Analyzing:", { transcriptLength: payload.transcript.length, metrics: payload.metrics });
-
     try {
       const res = await fetch("/api/ai/analyze-winner", {
         method: "POST",
@@ -346,7 +344,6 @@ export default function WinnersPage() {
       });
 
       const data = await res.json();
-      console.log("[Winners] Analysis response:", { ok: data.ok, hasAnalysis: !!data.data?.analysis, error: data.error });
 
       if (data.ok && data.data?.analysis) {
         setAnalysisResult(data.data.analysis);
@@ -403,8 +400,6 @@ export default function WinnersPage() {
         payload.ai_analysis = analysisResult;
       }
 
-      console.log("[Winners] Saving:", payload);
-
       const res = await fetch(`/api/winners/${editingWinner.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -412,7 +407,6 @@ export default function WinnersPage() {
       });
 
       const data = await res.json();
-      console.log("[Winners] Save response:", data);
 
       if (!res.ok || !data.ok) {
         setSaveMessage({ type: "error", text: data.error || "Failed to save" });

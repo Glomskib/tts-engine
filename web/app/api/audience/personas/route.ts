@@ -49,8 +49,6 @@ export async function GET(request: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
   try {
-    console.log(`[${correlationId}] Fetching personas for user ${authContext.user.id}, category=${category}, search=${search}, limit=${limit}`);
-
     let query = supabaseAdmin
       .from("audience_personas")
       .select("*")
@@ -84,8 +82,6 @@ export async function GET(request: Request) {
         correlation_id: correlationId,
       }, { status: 500 });
     }
-
-    console.log(`[${correlationId}] Fetched ${data?.length || 0} personas`);
 
     return NextResponse.json({
       ok: true,
@@ -121,8 +117,6 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
-  console.log(`[${correlationId}] Creating persona, body:`, JSON.stringify(body).slice(0, 500));
-
   const parseResult = CreatePersonaSchema.safeParse(body);
   if (!parseResult.success) {
     const errors = parseResult.error.issues.map(e => `${e.path.join(".")}: ${e.message}`);
@@ -131,14 +125,12 @@ export async function POST(request: Request) {
   }
 
   const input = parseResult.data;
-  console.log(`[${correlationId}] Validated input:`, JSON.stringify(input).slice(0, 500));
 
   try {
     const insertPayload = {
       ...input,
       created_by: authContext.user.id,
     };
-    console.log(`[${correlationId}] Insert payload:`, JSON.stringify(insertPayload).slice(0, 500));
 
     const { data, error } = await supabaseAdmin
       .from("audience_personas")

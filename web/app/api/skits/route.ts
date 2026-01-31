@@ -137,14 +137,10 @@ export async function POST(request: Request) {
 // --- GET: List saved skits ---
 
 export async function GET(request: Request) {
-  console.log("[skits/GET] Request received");
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
-  console.log("[skits/GET] Correlation ID:", correlationId);
 
   // Auth check
-  console.log("[skits/GET] Checking auth...");
   const authContext = await getApiAuthContext();
-  console.log("[skits/GET] Auth context:", authContext.user?.id || "no user");
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }

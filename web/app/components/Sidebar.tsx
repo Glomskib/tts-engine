@@ -93,6 +93,7 @@ export default function Sidebar({ role, unreadNotifications = 0, isOpen, onClose
           { label: 'Work Queue', href: '/admin/pipeline' },
           { label: 'My Work', href: '/admin/pipeline?filter=my_work' },
           { label: 'Ready to Publish', href: '/uploader' },
+          { label: 'Calendar', href: '/admin/calendar' },
         ],
       });
 

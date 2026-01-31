@@ -1,476 +1,140 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AppLayout from '../../components/AppLayout';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { useHydrated, formatDateString } from '@/lib/useHydrated';
-import IncidentBanner from '../components/IncidentBanner';
+import { useCredits } from '@/hooks/useCredits';
 
-interface EffectiveSetting {
-  key: string;
-  effective_value: boolean | number | string | string[];
-  source: 'system_setting' | 'env_default';
-  last_updated_at: string | null;
+interface UserProfile {
+  id: string;
+  email: string | null;
+  created_at: string;
 }
 
-// Setting type info for proper input rendering
-const SETTING_TYPES: Record<string, 'boolean' | 'number' | 'string' | 'string[]'> = {
-  SUBSCRIPTION_GATING_ENABLED: 'boolean',
-  EMAIL_ENABLED: 'boolean',
-  SLACK_ENABLED: 'boolean',
-  ASSIGNMENT_TTL_MINUTES: 'number',
-  SLACK_OPS_EVENTS: 'string[]',
-  ANALYTICS_DEFAULT_WINDOW_DAYS: 'number',
-  // Incident mode settings
-  INCIDENT_MODE_ENABLED: 'boolean',
-  INCIDENT_MODE_MESSAGE: 'string',
-  INCIDENT_MODE_READ_ONLY: 'boolean',
-  INCIDENT_MODE_ALLOWLIST_USER_IDS: 'string[]',
-};
-
-const SETTING_DESCRIPTIONS: Record<string, string> = {
-  SUBSCRIPTION_GATING_ENABLED: 'When enabled, only Pro users can perform certain actions (claim videos, etc.)',
-  EMAIL_ENABLED: 'When enabled, the system will send email notifications',
-  SLACK_ENABLED: 'When enabled, the system will send Slack notifications for ops events',
-  ASSIGNMENT_TTL_MINUTES: 'Default assignment TTL in minutes (1-10080, i.e., up to 7 days)',
-  SLACK_OPS_EVENTS: 'List of event types that trigger Slack notifications',
-  ANALYTICS_DEFAULT_WINDOW_DAYS: 'Default analytics time window (7, 14, or 30 days)',
-  // Incident mode settings
-  INCIDENT_MODE_ENABLED: 'When enabled, shows a maintenance banner to all authenticated users',
-  INCIDENT_MODE_MESSAGE: 'Custom message to display in the maintenance banner',
-  INCIDENT_MODE_READ_ONLY: 'When enabled (with incident mode), blocks all write operations for non-admin users',
-  INCIDENT_MODE_ALLOWLIST_USER_IDS: 'User IDs that bypass read-only mode (comma-separated UUIDs)',
-};
-
-export default function AdminSettingsPage() {
-  const router = useRouter();
-  const hydrated = useHydrated();
-  const [authLoading, setAuthLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [settings, setSettings] = useState<EffectiveSetting[]>([]);
-  const [allowedKeys, setAllowedKeys] = useState<string[]>([]);
+export default function SettingsPage() {
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState<string>('');
+  const [loggingOut, setLoggingOut] = useState(false);
+  const { credits, subscription, isLoading: creditsLoading } = useCredits();
 
-  // Fetch authenticated user and check admin status
   useEffect(() => {
-    const checkAuth = async () => {
+    const fetchUser = async () => {
       try {
         const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
-
-        if (error || !user) {
-          router.push('/login?redirect=/admin/settings');
-          return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser({
+            id: user.id,
+            email: user.email || null,
+            created_at: user.created_at || new Date().toISOString(),
+          });
         }
-
-        // Check if admin
-        const roleRes = await fetch('/api/auth/me');
-        const roleData = await roleRes.json();
-
-        if (roleData.role !== 'admin') {
-          router.push('/admin/pipeline');
-          return;
-        }
-
-        setIsAdmin(true);
       } catch (err) {
-        console.error('Auth error:', err);
-        router.push('/login?redirect=/admin/settings');
+        console.error('Failed to fetch user:', err);
       } finally {
-        setAuthLoading(false);
+        setLoading(false);
       }
     };
+    fetchUser();
+  }, []);
 
-    checkAuth();
-  }, [router]);
-
-  // Fetch settings
-  const fetchSettings = async () => {
+  const handleLogout = async () => {
+    setLoggingOut(true);
     try {
-      const res = await fetch('/api/admin/settings');
-      const data = await res.json();
-
-      if (data.ok) {
-        setSettings(data.data.settings);
-        setAllowedKeys(data.data.allowed_keys);
-        setError('');
-      } else {
-        setError(data.error || 'Failed to load settings');
-      }
+      const supabase = createBrowserSupabaseClient();
+      await supabase.auth.signOut();
+      window.location.href = '/login';
     } catch (err) {
-      setError('Network error');
-    } finally {
-      setLoading(false);
+      console.error('Logout error:', err);
+      setLoggingOut(false);
     }
   };
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchSettings();
-    }
-  }, [isAdmin]);
+  const isUnlimited = credits?.remaining === -1;
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Format value for display
-  const formatValue = (value: boolean | number | string | string[]): string => {
-    if (typeof value === 'boolean') {
-      return value ? 'true' : 'false';
-    }
-    if (Array.isArray(value)) {
-      return value.join(', ');
-    }
-    return String(value);
-  };
-
-  // Parse input value based on setting type
-  const parseValue = (key: string, inputValue: string): boolean | number | string | string[] | null => {
-    const type = SETTING_TYPES[key];
-
-    if (type === 'boolean') {
-      const lower = inputValue.toLowerCase().trim();
-      if (lower === 'true' || lower === '1') return true;
-      if (lower === 'false' || lower === '0') return false;
-      return null;
-    }
-
-    if (type === 'number') {
-      const num = parseInt(inputValue, 10);
-      if (isNaN(num)) return null;
-      // Special validation for ANALYTICS_DEFAULT_WINDOW_DAYS
-      if (key === 'ANALYTICS_DEFAULT_WINDOW_DAYS') {
-        if (![7, 14, 30].includes(num)) return null;
-        return num;
-      }
-      // General number validation
-      if (num < 1 || num > 10080) return null;
-      return num;
-    }
-
-    if (type === 'string') {
-      // Allow any non-empty string
-      const trimmed = inputValue.trim();
-      if (trimmed.length === 0) return null;
-      return trimmed;
-    }
-
-    if (type === 'string[]') {
-      return inputValue.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    }
-
-    return null;
-  };
-
-  // Start editing a setting
-  const startEdit = (setting: EffectiveSetting) => {
-    setEditingKey(setting.key);
-    setEditValue(formatValue(setting.effective_value));
-    setMessage(null);
-  };
-
-  // Cancel editing
-  const cancelEdit = () => {
-    setEditingKey(null);
-    setEditValue('');
-  };
-
-  // Save a setting
-  const saveSetting = async (key: string) => {
-    const parsedValue = parseValue(key, editValue);
-
-    if (parsedValue === null) {
-      setMessage({ type: 'error', text: `Invalid value for ${key}` });
-      return;
-    }
-
-    setSavingKey(key);
-    setMessage(null);
-
-    try {
-      const res = await fetch('/api/admin/settings/set', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value: parsedValue }),
-      });
-
-      const data = await res.json();
-
-      if (data.ok) {
-        setMessage({ type: 'success', text: `${key} updated successfully` });
-        setEditingKey(null);
-        setEditValue('');
-        await fetchSettings();
-      } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to save setting' });
-      }
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Network error' });
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
-  if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
-  }
-
-  if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 w-32 bg-zinc-800 rounded"></div>
+            <div className="h-48 bg-zinc-800/50 rounded-xl"></div>
+          </div>
+        </div>
+      </AppLayout>
+    );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-      {/* Incident Mode Banner */}
-      <IncidentBanner />
-
-
-      {/* Header */}
-      <h1 style={{ margin: '0 0 20px 0' }}>System Settings</h1>
-
-      {/* Info Box */}
-      <div style={{
-        padding: '15px',
-        backgroundColor: '#e7f5ff',
-        borderRadius: '8px',
-        border: '1px solid #74c0fc',
-        marginBottom: '20px',
-        fontSize: '13px',
-        color: '#1864ab',
-      }}>
-        <strong>Resolution Order:</strong> System Setting &rarr; Environment Variable &rarr; Default
-        <br />
-        <span style={{ color: '#495057' }}>
-          Changes here override environment variables. Set a system setting to use runtime configuration without redeploying.
-        </span>
-      </div>
-
-      {/* Message */}
-      {message && (
-        <div style={{
-          marginBottom: '15px',
-          padding: '12px 16px',
-          backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-          color: message.type === 'success' ? '#155724' : '#721c24',
-          borderRadius: '4px',
-          border: `1px solid ${message.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
-        }}>
-          {message.text}
+    <AppLayout>
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
+          <p className="text-zinc-400">Manage your account and preferences</p>
         </div>
-      )}
 
-      {/* Loading/Error */}
-      {loading && (
-        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-          Loading settings...
-        </div>
-      )}
-
-      {error && (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          borderRadius: '4px',
-          color: '#721c24',
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* Settings List */}
-      {!loading && !error && (
-        <div style={{
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          overflow: 'hidden',
-        }}>
-          {settings.map((setting, index) => (
-            <div
-              key={setting.key}
-              style={{
-                padding: '16px 20px',
-                borderBottom: index < settings.length - 1 ? '1px solid #dee2e6' : 'none',
-                backgroundColor: editingKey === setting.key ? '#fff9db' : 'white',
-              }}
-            >
-              {/* Setting Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <div>
-                  <div style={{ fontWeight: 'bold', fontFamily: 'monospace', fontSize: '14px' }}>
-                    {setting.key}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
-                    {SETTING_DESCRIPTIONS[setting.key] || 'No description'}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    padding: '3px 8px',
-                    backgroundColor: setting.source === 'system_setting' ? '#d3f9d8' : '#f8f9fa',
-                    color: setting.source === 'system_setting' ? '#2b8a3e' : '#6c757d',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                  }}>
-                    {setting.source === 'system_setting' ? 'System' : 'Env/Default'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Current Value or Edit Form */}
-              {editingKey === setting.key ? (
-                <div style={{ marginTop: '12px' }}>
-                  {SETTING_TYPES[setting.key] === 'boolean' ? (
-                    <select
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      style={{
-                        padding: '8px 12px',
-                        border: '1px solid #ced4da',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        width: '150px',
-                      }}
-                    >
-                      <option value="true">true</option>
-                      <option value="false">false</option>
-                    </select>
-                  ) : SETTING_TYPES[setting.key] === 'number' ? (
-                    <input
-                      type="number"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      min={1}
-                      max={10080}
-                      style={{
-                        padding: '8px 12px',
-                        border: '1px solid #ced4da',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        width: '150px',
-                      }}
-                    />
-                  ) : SETTING_TYPES[setting.key] === 'string' ? (
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      placeholder="Enter message text"
-                      style={{
-                        padding: '8px 12px',
-                        border: '1px solid #ced4da',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        width: '100%',
-                      }}
-                    />
-                  ) : (
-                    <textarea
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      rows={3}
-                      placeholder="Comma-separated values"
-                      style={{
-                        padding: '8px 12px',
-                        border: '1px solid #ced4da',
-                        borderRadius: '4px',
-                        fontSize: '13px',
-                        width: '100%',
-                        fontFamily: 'monospace',
-                        resize: 'vertical',
-                      }}
-                    />
-                  )}
-                  <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={() => saveSetting(setting.key)}
-                      disabled={savingKey === setting.key}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: savingKey === setting.key ? '#adb5bd' : '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: savingKey === setting.key ? 'not-allowed' : 'pointer',
-                        fontSize: '13px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {savingKey === setting.key ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#6c757d',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-                  <div>
-                    <span style={{
-                      fontFamily: 'monospace',
-                      fontSize: '14px',
-                      backgroundColor: '#f8f9fa',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      color: typeof setting.effective_value === 'boolean'
-                        ? (setting.effective_value ? '#2b8a3e' : '#c92a2a')
-                        : '#495057',
-                    }}>
-                      {formatValue(setting.effective_value)}
-                    </span>
-                    {setting.last_updated_at && hydrated && (
-                      <span style={{ marginLeft: '12px', fontSize: '12px', color: '#adb5bd' }}>
-                        Updated: {formatDateString(setting.last_updated_at)}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => startEdit(setting)}
-                    style={{
-                      padding: '6px 14px',
-                      backgroundColor: '#007bff',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                    }}
-                  >
-                    Edit
-                  </button>
-                </div>
-              )}
+        <div className="mb-6 p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+          <h2 className="text-lg font-semibold text-white mb-4">Account</h2>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-sm text-zinc-400 sm:w-32">Email</span>
+              <span className="text-zinc-200">{user?.email || 'Not set'}</span>
             </div>
-          ))}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-sm text-zinc-400 sm:w-32">User ID</span>
+              <span className="text-zinc-500 font-mono text-sm">{user?.id}</span>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-sm text-zinc-400 sm:w-32">Member since</span>
+              <span className="text-zinc-200">{user?.created_at ? formatDate(user.created_at) : '-'}</span>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Footer Note */}
-      <div style={{
-        marginTop: '20px',
-        padding: '12px 16px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '4px',
-        fontSize: '12px',
-        color: '#6c757d',
-      }}>
-        <strong>Note:</strong> Changes take effect immediately for new requests. Existing in-progress operations may use cached values.
+        <div className="mb-6 p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Subscription</h2>
+            <Link href="/upgrade" className="text-sm text-violet-400 hover:text-violet-300">{isUnlimited ? 'View plans' : 'Upgrade'}</Link>
+          </div>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-sm text-zinc-400 sm:w-32">Current plan</span>
+              <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnlimited ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-300'}`}>
+                {subscription?.planName || 'Free'}
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-sm text-zinc-400 sm:w-32">Credits</span>
+              <span className={`font-semibold ${isUnlimited ? 'text-emerald-400' : 'text-white'}`}>
+                {creditsLoading ? '-' : isUnlimited ? 'Unlimited' : credits?.remaining ?? 0}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-6 p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+          <h2 className="text-lg font-semibold text-white mb-4">Preferences</h2>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-sm text-zinc-400 sm:w-32">Theme</span>
+              <span className="text-zinc-300">Dark (default)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-xl border border-red-500/20 bg-red-500/5">
+          <h2 className="text-lg font-semibold text-red-400 mb-4">Danger Zone</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-zinc-200">Sign out</div>
+              <div className="text-sm text-zinc-500">Sign out of your account</div>
+            </div>
+            <button onClick={handleLogout} disabled={loggingOut} className="px-4 py-2 bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 border border-white/10 disabled:opacity-50">{loggingOut ? 'Signing out...' : 'Sign Out'}</button>
+          </div>
+        </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

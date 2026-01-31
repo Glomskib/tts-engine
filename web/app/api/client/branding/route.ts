@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const branding = await getOrgBranding(supabaseAdmin, membership.org_id);
 
     // If org_display_name not customized, use org name from creation event
-    if (branding.org_display_name === "TTS Engine" && org?.org_name) {
+    if ((branding.org_display_name === "TTS Engine" || branding.org_display_name === "FlashFlow AI") && org?.org_name) {
       branding.org_display_name = org.org_name;
     }
 

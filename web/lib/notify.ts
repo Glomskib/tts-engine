@@ -190,7 +190,7 @@ function generateEmailContent(
             <li><strong>Role:</strong> ${payload.role || "unknown"}</li>
             <li><strong>Video ID:</strong> ${payload.videoId}</li>
           </ul>
-          <p>Please log in to the TTS Engine to view and complete this task.</p>
+          <p>Please log in to the FlashFlow AI to view and complete this task.</p>
         `,
       };
 
@@ -205,7 +205,7 @@ function generateEmailContent(
             <li><strong>Video ID:</strong> ${payload.videoId}</li>
             ${payload.expiresAt ? `<li><strong>Expires:</strong> ${payload.expiresAt}</li>` : ""}
           </ul>
-          <p>Please log in to the TTS Engine to view and complete this task.</p>
+          <p>Please log in to the FlashFlow AI to view and complete this task.</p>
         `,
       };
 

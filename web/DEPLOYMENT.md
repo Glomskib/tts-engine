@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers deploying the TTS Engine web application to Vercel with Supabase.
+This guide covers deploying the FlashFlow AI web application to Vercel with Supabase.
 
 ## Vercel Deployment
 

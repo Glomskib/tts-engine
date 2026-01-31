@@ -1,6 +1,6 @@
 # FlashFlow AI — Complete Freemium System
 
-A production-ready landing page and credits-based subscription system for your TTS Engine webapp.
+A production-ready landing page and credits-based subscription system for the FlashFlow AI webapp.
 
 ## What's Included
 

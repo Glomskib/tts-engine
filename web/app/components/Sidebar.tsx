@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useTheme, getThemeColors } from './ThemeProvider';
 
@@ -196,11 +197,18 @@ export default function Sidebar({ role, unreadNotifications = 0, isOpen, onClose
                 gap: '10px',
               }}
             >
+              <Image
+                src="/FFAI.png"
+                alt="FlashFlow AI"
+                width={28}
+                height={28}
+                style={{ borderRadius: '6px' }}
+              />
               <span style={{
                 fontWeight: 600,
                 fontSize: '15px',
                 letterSpacing: '-0.01em',
-              }}>TTS Engine</span>
+              }}>FlashFlow AI</span>
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {/* Theme Toggle */}

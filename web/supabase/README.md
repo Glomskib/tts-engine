@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-This directory contains SQL migrations for the TTS Engine database schema.
+This directory contains SQL migrations for the FlashFlow AI database schema.
 
 ## Required Manual Migrations
 

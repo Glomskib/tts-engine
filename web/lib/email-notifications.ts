@@ -125,7 +125,7 @@ export async function sendAssignmentEmail(
       <li><strong>Role:</strong> ${role}</li>
       <li><strong>Video ID:</strong> ${videoId}</li>
     </ul>
-    <p>Please log in to the TTS Engine to view and complete this task.</p>
+    <p>Please log in to the FlashFlow AI to view and complete this task.</p>
   `;
 
   const result = await sendEmail({

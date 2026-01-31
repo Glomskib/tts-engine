@@ -219,8 +219,8 @@ export default function HookSuggestionsPage() {
   // Loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking admin access...</div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-zinc-400">Checking admin access...</div>
       </div>
     );
   }
@@ -228,11 +228,11 @@ export default function HookSuggestionsPage() {
   // Forbidden state
   if (!authUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Forbidden</h1>
-          <p className="text-slate-600 mb-4">Admin access required.</p>
-          <Link href="/admin/pipeline" className="text-blue-600 hover:underline">
+          <h1 className="text-2xl font-bold text-red-400 mb-2">Forbidden</h1>
+          <p className="text-zinc-400 mb-4">Admin access required.</p>
+          <Link href="/admin/pipeline" className="text-violet-400 hover:underline">
             Go to Work Queue
           </Link>
         </div>
@@ -254,8 +254,8 @@ export default function HookSuggestionsPage() {
             onClick={() => setStatusFilter(status)}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               statusFilter === status
-                ? 'bg-slate-800 text-white'
-                : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+                ? 'bg-violet-600 text-white'
+                : 'bg-zinc-800 text-zinc-300 border border-white/10 hover:bg-zinc-700'
             }`}
           >
             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -266,7 +266,7 @@ export default function HookSuggestionsPage() {
       {/* Suggestions List */}
       <AdminCard noPadding>
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading...</div>
+          <div className="p-8 text-center text-zinc-400">Loading...</div>
         ) : suggestions.length === 0 ? (
           <EmptyState
             title={statusFilter === 'pending' ? 'No pending suggestions' : `No ${statusFilter} suggestions`}
@@ -280,33 +280,33 @@ export default function HookSuggestionsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Type</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Hook Text</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Brand</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Created</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
+                <tr className="bg-zinc-800/50 border-b border-white/10">
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Type</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Hook Text</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Brand</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Created</th>
+                  <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {suggestions.map((suggestion) => (
                   <tr
                     key={suggestion.id}
-                    className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                    className="border-b border-white/5 hover:bg-white/5 cursor-pointer"
                     onClick={() => openDrawer(suggestion)}
                   >
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-700/50 text-zinc-300">
                         {HOOK_TYPE_LABELS[suggestion.hook_type] || suggestion.hook_type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700 max-w-[400px]" title={suggestion.hook_text}>
+                    <td className="px-4 py-3 text-zinc-300 max-w-[400px]" title={suggestion.hook_text}>
                       {truncateText(suggestion.hook_text)}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td className="px-4 py-3 text-zinc-400">
                       {suggestion.brand_name || '-'}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">
                       {formatDate(suggestion.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -317,7 +317,7 @@ export default function HookSuggestionsPage() {
                               setSelectedSuggestion(suggestion);
                               handleApprove();
                             }}
-                            className="text-xs text-green-600 hover:underline"
+                            className="text-xs text-green-400 hover:underline"
                           >
                             Approve
                           </button>
@@ -326,14 +326,14 @@ export default function HookSuggestionsPage() {
                               setSelectedSuggestion(suggestion);
                               handleReject();
                             }}
-                            className="text-xs text-red-600 hover:underline"
+                            className="text-xs text-red-400 hover:underline"
                           >
                             Reject
                           </button>
                         </div>
                       )}
                       {statusFilter !== 'pending' && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-zinc-500">
                           {suggestion.reviewed_at ? formatDate(suggestion.reviewed_at) : '-'}
                         </span>
                       )}
@@ -351,20 +351,20 @@ export default function HookSuggestionsPage() {
         <div className="fixed inset-0 z-50 flex justify-end">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/30"
+            className="absolute inset-0 bg-black/50"
             onClick={() => setDrawerOpen(false)}
           />
 
           {/* Drawer Panel */}
-          <div className="relative w-full max-w-md bg-white shadow-xl flex flex-col">
+          <div className="relative w-full max-w-md bg-zinc-900 shadow-xl flex flex-col border-l border-white/10">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-800">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-100">
                 Review Hook Suggestion
               </h2>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-zinc-400 hover:text-zinc-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -376,20 +376,20 @@ export default function HookSuggestionsPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Hook Type */}
               <div>
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
                   Hook Type
                 </div>
-                <span className="px-2 py-1 rounded text-sm font-medium bg-slate-100 text-slate-700">
+                <span className="px-2 py-1 rounded text-sm font-medium bg-zinc-700/50 text-zinc-300">
                   {HOOK_TYPE_LABELS[selectedSuggestion.hook_type] || selectedSuggestion.hook_type}
                 </span>
               </div>
 
               {/* Hook Text */}
               <div>
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
                   Hook Text
                 </div>
-                <div className="text-sm text-slate-800 bg-slate-50 p-3 rounded-md border border-slate-200">
+                <div className="text-sm text-zinc-200 bg-zinc-800 p-3 rounded-md border border-white/10">
                   {selectedSuggestion.hook_text}
                 </div>
               </div>
@@ -397,10 +397,10 @@ export default function HookSuggestionsPage() {
               {/* Brand */}
               {selectedSuggestion.brand_name && (
                 <div>
-                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                  <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
                     Brand
                   </div>
-                  <div className="text-sm text-slate-700">
+                  <div className="text-sm text-zinc-300">
                     {selectedSuggestion.brand_name}
                   </div>
                 </div>
@@ -408,12 +408,12 @@ export default function HookSuggestionsPage() {
 
               {/* Source Video */}
               <div>
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
                   Source Video
                 </div>
                 <Link
                   href={`/admin/pipeline/${selectedSuggestion.source_video_id}`}
-                  className="text-sm text-blue-600 hover:underline font-mono"
+                  className="text-sm text-violet-400 hover:underline font-mono"
                   target="_blank"
                 >
                   {selectedSuggestion.source_video_id.slice(0, 8)}...
@@ -422,19 +422,19 @@ export default function HookSuggestionsPage() {
 
               {/* Created At */}
               <div>
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
                   Created
                 </div>
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-zinc-400">
                   {formatDate(selectedSuggestion.created_at)}
                 </div>
               </div>
 
               {/* Audit Trail Link */}
-              <div className="pt-2 border-t border-slate-100">
+              <div className="pt-2 border-t border-white/10">
                 <Link
                   href={`/admin/audit-log?entity_type=hook&entity_id=${selectedSuggestion.id}`}
-                  className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+                  className="text-xs text-zinc-500 hover:text-zinc-300 hover:underline"
                 >
                   View audit trail
                 </Link>
@@ -448,8 +448,8 @@ export default function HookSuggestionsPage() {
                       key={warning.code}
                       className={`p-3 rounded-md text-sm ${
                         warning.severity === 'warn'
-                          ? 'bg-amber-50 border border-amber-200 text-amber-800'
-                          : 'bg-slate-50 border border-slate-200 text-slate-700'
+                          ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300'
+                          : 'bg-zinc-800 border border-white/10 text-zinc-300'
                       }`}
                     >
                       <div className="font-medium text-xs uppercase tracking-wide mb-1">
@@ -459,7 +459,7 @@ export default function HookSuggestionsPage() {
                       {warning.cta && (
                         <Link
                           href={warning.cta.href || '#'}
-                          className="text-xs text-slate-500 hover:underline mt-1 inline-block"
+                          className="text-xs text-zinc-400 hover:underline mt-1 inline-block"
                         >
                           {warning.cta.label}
                         </Link>
@@ -480,7 +480,7 @@ export default function HookSuggestionsPage() {
 
             {/* Footer */}
             {selectedSuggestion.status === 'pending' && (
-              <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
                 <AdminButton
                   variant="danger"
                   onClick={handleReject}

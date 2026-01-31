@@ -52,17 +52,17 @@ interface RoleWorkbenchProps {
   title: string;
 }
 
-// SLA badge colors
+// SLA badge colors (dark theme)
 function getSlaColor(status: SlaStatus): { bg: string; text: string; border: string } {
   switch (status) {
     case 'overdue':
-      return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' };
+      return { bg: 'rgba(239, 68, 68, 0.2)', text: '#f87171', border: 'rgba(239, 68, 68, 0.3)' };
     case 'due_soon':
-      return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' };
+      return { bg: 'rgba(245, 158, 11, 0.2)', text: '#fbbf24', border: 'rgba(245, 158, 11, 0.3)' };
     case 'on_track':
-      return { bg: '#dcfce7', text: '#16a34a', border: '#bbf7d0' };
+      return { bg: 'rgba(34, 197, 94, 0.2)', text: '#4ade80', border: 'rgba(34, 197, 94, 0.3)' };
     default:
-      return { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' };
+      return { bg: 'rgba(113, 113, 122, 0.2)', text: '#a1a1aa', border: 'rgba(113, 113, 122, 0.3)' };
   }
 }
 
@@ -78,11 +78,11 @@ function formatDuration(minutes: number): string {
 
 const PLATFORMS = ['tiktok', 'instagram', 'youtube', 'other'] as const;
 
-// Role display colors
+// Role display colors (dark theme)
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
-  recorder: { bg: '#dbeafe', text: '#1d4ed8' },
-  editor: { bg: '#fef3c7', text: '#b45309' },
-  uploader: { bg: '#dcfce7', text: '#15803d' },
+  recorder: { bg: 'rgba(59, 130, 246, 0.2)', text: '#60a5fa' },
+  editor: { bg: 'rgba(245, 158, 11, 0.2)', text: '#fbbf24' },
+  uploader: { bg: 'rgba(34, 197, 94, 0.2)', text: '#4ade80' },
 };
 
 export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
@@ -424,16 +424,16 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
   // Loading states
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking access...</div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-zinc-400">Checking access...</div>
       </div>
     );
   }
 
   if (!authUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Redirecting...</div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-zinc-400">Redirecting...</div>
       </div>
     );
   }
@@ -474,25 +474,25 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
     children: React.ReactNode;
     badge?: string;
   }) => (
-    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+    <div className="border border-white/10 rounded-lg overflow-hidden bg-zinc-900">
       <button
         onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between bg-zinc-800/50 hover:bg-zinc-800 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-700">{title}</span>
+          <span className="font-medium text-zinc-200">{title}</span>
           {badge && (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-slate-200 text-slate-600">{badge}</span>
+            <span className="px-2 py-0.5 text-xs rounded-full bg-zinc-700 text-zinc-400">{badge}</span>
           )}
         </div>
-        <span className="text-slate-400">{isOpen ? '−' : '+'}</span>
+        <span className="text-zinc-500">{isOpen ? '−' : '+'}</span>
       </button>
-      {isOpen && <div className="border-t border-slate-200">{children}</div>}
+      {isOpen && <div className="border-t border-white/10">{children}</div>}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-zinc-950">
       <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Incident Mode Banner */}
         <IncidentBanner />
@@ -501,7 +501,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-slate-800">Workbench</h1>
+              <h1 className="text-2xl font-semibold text-zinc-100">Workbench</h1>
               <span
                 className="px-3 py-1 rounded-full text-sm font-medium capitalize"
                 style={{ backgroundColor: roleColors.bg, color: roleColors.text }}
@@ -512,7 +512,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative px-3 py-1.5 text-sm rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
+                className="relative px-3 py-1.5 text-sm rounded-md border border-white/10 bg-zinc-900 hover:bg-zinc-800 transition-colors text-zinc-300"
               >
                 Notifications
                 {notifications.filter(n => !n.is_read).length > 0 && (
@@ -523,17 +523,17 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
               </button>
               <Link
                 href={`/admin/${role}`}
-                className="px-3 py-1.5 text-sm rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-slate-600"
+                className="px-3 py-1.5 text-sm rounded-md border border-white/10 bg-zinc-900 hover:bg-zinc-800 transition-colors text-zinc-300"
               >
                 Dashboard
               </Link>
             </div>
           </div>
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-zinc-400">
             {loading ? 'Loading...' : video ? 'Active task loaded' : 'No active task'}
             {video && timeLeft !== null && (
               <span className="ml-2">
-                • <span className={timeLeft < 30 ? 'text-amber-600 font-medium' : 'text-slate-500'}>
+                • <span className={timeLeft < 30 ? 'text-amber-400 font-medium' : 'text-zinc-400'}>
                   {timeLeft > 0 ? `${formatDuration(timeLeft)} remaining` : 'Time expired'}
                 </span>
               </span>
@@ -542,10 +542,10 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         </div>
 
         {/* User info bar */}
-        <div className="mb-4 px-4 py-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+        <div className="mb-4 px-4 py-3 bg-zinc-900 rounded-lg border border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-slate-600">{authUser.email || authUser.id.slice(0, 8)}</span>
-            <span className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 capitalize">{authUser.role}</span>
+            <span className="text-zinc-300">{authUser.email || authUser.id.slice(0, 8)}</span>
+            <span className="px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400 capitalize">{authUser.role}</span>
           </div>
           <button
             onClick={async () => {
@@ -553,7 +553,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
               await supabase.auth.signOut();
               router.push('/login');
             }}
-            className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+            className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
           >
             Sign Out
           </button>
@@ -561,32 +561,32 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
 
         {/* Notifications panel */}
         {showNotifications && (
-          <div className="mb-4 p-4 bg-white rounded-lg border border-slate-200 max-h-72 overflow-auto">
+          <div className="mb-4 p-4 bg-zinc-900 rounded-lg border border-white/10 max-h-72 overflow-auto">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-medium text-slate-700">Recent Notifications</span>
+              <span className="font-medium text-zinc-200">Recent Notifications</span>
               <button
                 onClick={() => setShowNotifications(false)}
-                className="text-xs text-slate-500 hover:text-slate-700"
+                className="text-xs text-zinc-400 hover:text-zinc-200"
               >
                 Close
               </button>
             </div>
             {notifications.length === 0 ? (
-              <div className="text-sm text-slate-400">No notifications</div>
+              <div className="text-sm text-zinc-500">No notifications</div>
             ) : (
               <div className="space-y-2">
                 {notifications.map(notif => (
                   <div
                     key={notif.id}
-                    className={`p-3 rounded-md text-sm ${notif.is_read ? 'bg-slate-50' : 'bg-blue-50 border border-blue-100'}`}
+                    className={`p-3 rounded-md text-sm ${notif.is_read ? 'bg-zinc-800/50' : 'bg-blue-500/10 border border-blue-500/20'}`}
                   >
-                    <div className={notif.is_read ? 'text-slate-600' : 'text-slate-800 font-medium'}>
+                    <div className={notif.is_read ? 'text-zinc-400' : 'text-zinc-200 font-medium'}>
                       {notif.type === 'assigned' && 'New assignment'}
                       {notif.type === 'assignment_expired' && 'Assignment expired'}
                       {notif.type === 'handoff' && 'Work handed off to you'}
                       {!['assigned', 'assignment_expired', 'handoff'].includes(notif.type) && notif.type}
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">
+                    <div className="text-xs text-zinc-500 mt-1">
                       {hydrated && formatDateString(notif.created_at)}
                       {notif.video_id && ` • ${notif.video_id.slice(0, 8)}...`}
                     </div>
@@ -599,21 +599,21 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
 
         {/* Previous expired message */}
         {previousExpiredMessage && (
-          <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+          <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-300 text-sm">
             {previousExpiredMessage}
           </div>
         )}
 
         {/* Subscription required prompt */}
         {subscriptionRequired && (
-          <div className="mb-4 p-6 bg-blue-50 border border-blue-200 rounded-lg text-center">
-            <div className="text-lg font-semibold text-blue-800 mb-2">Upgrade Required</div>
-            <div className="text-sm text-blue-600 mb-4">
+          <div className="mb-4 p-6 bg-violet-500/10 border border-violet-500/20 rounded-lg text-center">
+            <div className="text-lg font-semibold text-violet-300 mb-2">Upgrade Required</div>
+            <div className="text-sm text-violet-400 mb-4">
               You need a Pro subscription to dispatch and complete tasks.
             </div>
             <Link
               href="/upgrade"
-              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
+              className="inline-block px-6 py-2 bg-violet-600 text-white rounded-md font-medium hover:bg-violet-700 transition-colors"
             >
               View Upgrade Options
             </Link>
@@ -624,8 +624,8 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         {message && (
           <div className={`mb-4 px-4 py-3 rounded-lg text-sm ${
             message.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
+              ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
           }`}>
             {message.text}
           </div>
@@ -634,8 +634,8 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         {/* Loading state */}
         {loading && (
           <div className="py-16 text-center">
-            <div className="inline-block w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mb-4"></div>
-            <div className="text-slate-500">Loading your next task...</div>
+            <div className="inline-block w-8 h-8 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-4"></div>
+            <div className="text-zinc-400">Loading your next task...</div>
           </div>
         )}
 
@@ -643,16 +643,16 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         {!loading && !video && !error && !subscriptionRequired && (
           <div className="py-16 text-center">
             <div className="max-w-sm mx-auto">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
-                <span className="text-2xl">✓</span>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                <span className="text-2xl text-green-400">✓</span>
               </div>
-              <h2 className="text-xl font-semibold text-slate-800 mb-2">No work available</h2>
-              <p className="text-slate-500 mb-6">
+              <h2 className="text-xl font-semibold text-zinc-100 mb-2">No work available</h2>
+              <p className="text-zinc-400 mb-6">
                 You're all caught up. Check back soon or dispatch the next item.
               </p>
               <button
                 onClick={loadWork}
-                className="px-6 py-2.5 bg-slate-800 text-white rounded-md font-medium hover:bg-slate-700 transition-colors"
+                className="px-6 py-2.5 bg-violet-600 text-white rounded-md font-medium hover:bg-violet-700 transition-colors"
               >
                 Dispatch Next
               </button>
@@ -662,8 +662,8 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="text-red-700 mb-2">{error}</div>
+          <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <div className="text-red-400 mb-2">{error}</div>
             <button
               onClick={loadWork}
               className="px-4 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
@@ -675,19 +675,19 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
 
         {/* Current Task Card */}
         {video && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-zinc-900 rounded-xl border border-white/10 shadow-sm overflow-hidden">
             {/* Card Header */}
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <div className="px-6 py-4 border-b border-white/10 bg-zinc-800/50">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-500">Current Task</span>
-                  <span className="font-mono text-sm text-slate-700">{video.id.slice(0, 8)}...</span>
+                  <span className="text-sm font-medium text-zinc-400">Current Task</span>
+                  <span className="font-mono text-sm text-zinc-300">{video.id.slice(0, 8)}...</span>
                   <button
                     onClick={copyVideoId}
                     className={`px-2 py-0.5 text-xs rounded border transition-colors ${
                       copiedId
                         ? 'bg-green-500 text-white border-green-500'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                        : 'bg-zinc-800 text-zinc-400 border-white/10 hover:border-white/20'
                     }`}
                   >
                     {copiedId ? 'Copied!' : 'Copy ID'}
@@ -695,22 +695,22 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                   <Link
                     href={`/admin/pipeline/${video.id}`}
                     target="_blank"
-                    className="text-xs text-blue-600 hover:text-blue-700"
+                    className="text-xs text-violet-400 hover:text-violet-300"
                   >
                     Full Details →
                   </Link>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Status chip */}
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-700">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-zinc-700 text-zinc-300">
                     {video.recording_status?.replace(/_/g, ' ') || 'NOT RECORDED'}
                   </span>
                   {/* Time left chip */}
                   {timeLeft !== null && (
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       timeLeft < 30
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-green-100 text-green-700'
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-green-500/20 text-green-400'
                     }`}>
                       {timeLeft > 0 ? `${formatDuration(timeLeft)} left` : 'Expired'}
                     </span>
@@ -731,7 +731,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
               </div>
               {/* Time in stage */}
               {video.age_minutes_in_stage !== undefined && (
-                <div className="mt-2 text-xs text-slate-400">
+                <div className="mt-2 text-xs text-zinc-500">
                   Time in stage: {formatDuration(video.age_minutes_in_stage)}
                 </div>
               )}
@@ -740,19 +740,19 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
             {/* Required Fields Section */}
             <div className="px-6 py-5">
               <div className="mb-4">
-                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Required Fields</span>
+                <span className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Required Fields</span>
               </div>
 
               {/* Recorder form */}
               {role === 'recorder' && (
                 <div>
-                  <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                    Recording Notes <span className="text-slate-400 font-normal">(optional)</span>
+                  <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                    Recording Notes <span className="text-zinc-500 font-normal">(optional)</span>
                   </label>
                   <textarea
                     value={recordingNotes}
                     onChange={(e) => setRecordingNotes(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="Any notes about the recording..."
                   />
@@ -764,26 +764,26 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                 <div className="space-y-4">
                   {video.recording_status === 'EDITED' && (
                     <div>
-                      <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                        Final Video URL <span className="text-red-500">*</span>
+                      <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                        Final Video URL <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="text"
                         value={finalVideoUrl}
                         onChange={(e) => setFinalVideoUrl(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                         placeholder="https://..."
                       />
                     </div>
                   )}
                   <div>
-                    <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                      Editor Notes <span className="text-slate-400 font-normal">(optional)</span>
+                    <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                      Editor Notes <span className="text-zinc-500 font-normal">(optional)</span>
                     </label>
                     <textarea
                       value={editorNotes}
                       onChange={(e) => setEditorNotes(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
                       rows={3}
                       placeholder="Any notes about the editing..."
                     />
@@ -796,13 +796,13 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                        Platform <span className="text-red-500">*</span>
+                      <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                        Platform <span className="text-red-400">*</span>
                       </label>
                       <select
                         value={postedPlatform}
                         onChange={(e) => setPostedPlatform(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                       >
                         <option value="">Select platform</option>
                         {PLATFORMS.map(p => (
@@ -811,38 +811,38 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                       </select>
                     </div>
                     <div>
-                      <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                        Account/Handle <span className="text-slate-400 font-normal">(optional)</span>
+                      <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                        Account/Handle <span className="text-zinc-500 font-normal">(optional)</span>
                       </label>
                       <input
                         type="text"
                         value={postedAccount}
                         onChange={(e) => setPostedAccount(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                         placeholder="@username"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                      Posted URL <span className="text-red-500">*</span>
+                    <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                      Posted URL <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="text"
                       value={postedUrl}
                       onChange={(e) => setPostedUrl(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                       placeholder="https://..."
                     />
                   </div>
                   <div>
-                    <label className="block mb-1.5 text-sm font-medium text-slate-700">
-                      Uploader Notes <span className="text-slate-400 font-normal">(optional)</span>
+                    <label className="block mb-1.5 text-sm font-medium text-zinc-300">
+                      Uploader Notes <span className="text-zinc-500 font-normal">(optional)</span>
                     </label>
                     <textarea
                       value={uploaderNotes}
                       onChange={(e) => setUploaderNotes(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
                       rows={2}
                       placeholder="Any notes about the posting..."
                     />
@@ -852,14 +852,14 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
             </div>
 
             {/* Primary CTA */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+            <div className="px-6 py-4 bg-zinc-800/50 border-t border-white/10">
               {primaryAction && (
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || subscriptionRequired}
                   className="w-full py-3 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: (submitting || subscriptionRequired) ? '#94a3b8' : primaryAction.color
+                    backgroundColor: (submitting || subscriptionRequired) ? '#52525b' : primaryAction.color
                   }}
                 >
                   {submitting ? 'Submitting...' : subscriptionRequired ? 'Upgrade Required' : primaryAction.label}
@@ -868,7 +868,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
             </div>
 
             {/* Collapsible Sections */}
-            <div className="px-6 py-4 space-y-3 border-t border-slate-100">
+            <div className="px-6 py-4 space-y-3 border-t border-white/5">
               {/* Script accordion */}
               {video.script_locked_text && (
                 <Accordion
@@ -877,7 +877,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                   onToggle={() => setShowScript(!showScript)}
                   badge="Read-only"
                 >
-                  <pre className="p-4 bg-white text-sm font-mono whitespace-pre-wrap max-h-64 overflow-auto text-slate-700">
+                  <pre className="p-4 bg-zinc-950 text-sm font-mono whitespace-pre-wrap max-h-64 overflow-auto text-zinc-300">
                     {video.script_locked_text}
                   </pre>
                 </Accordion>
@@ -893,20 +893,20 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                   <div className="p-4 space-y-3 text-sm">
                     {video.recording_notes && (
                       <div>
-                        <div className="text-xs font-medium text-slate-500 mb-1">Recording Notes</div>
-                        <div className="text-slate-700">{video.recording_notes}</div>
+                        <div className="text-xs font-medium text-zinc-500 mb-1">Recording Notes</div>
+                        <div className="text-zinc-300">{video.recording_notes}</div>
                       </div>
                     )}
                     {video.editor_notes && (
                       <div>
-                        <div className="text-xs font-medium text-slate-500 mb-1">Editor Notes</div>
-                        <div className="text-slate-700">{video.editor_notes}</div>
+                        <div className="text-xs font-medium text-zinc-500 mb-1">Editor Notes</div>
+                        <div className="text-zinc-300">{video.editor_notes}</div>
                       </div>
                     )}
                     {video.uploader_notes && (
                       <div>
-                        <div className="text-xs font-medium text-slate-500 mb-1">Uploader Notes</div>
-                        <div className="text-slate-700">{video.uploader_notes}</div>
+                        <div className="text-xs font-medium text-zinc-500 mb-1">Uploader Notes</div>
+                        <div className="text-zinc-300">{video.uploader_notes}</div>
                       </div>
                     )}
                   </div>
@@ -923,11 +923,11 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
                   <button
                     onClick={handleRelease}
                     disabled={releasing}
-                    className="px-4 py-2 text-sm border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm border border-white/10 rounded-md text-zinc-400 hover:bg-zinc-800 transition-colors disabled:opacity-50"
                   >
                     {releasing ? 'Releasing...' : 'Release Assignment'}
                   </button>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-2 text-xs text-zinc-500">
                     Release this task back to the queue without completing it.
                   </p>
                 </div>
@@ -937,7 +937,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
         )}
 
         {/* Footer */}
-        <div className="mt-8 text-center text-xs text-slate-400">
+        <div className="mt-8 text-center text-xs text-zinc-500">
           {role.charAt(0).toUpperCase() + role.slice(1)} Workbench • Single-task focus mode
         </div>
       </div>

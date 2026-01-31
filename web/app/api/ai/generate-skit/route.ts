@@ -27,6 +27,7 @@ import {
   type BudgetDiagnostics,
 } from "@/lib/ai/skitBudget";
 import { z } from "zod";
+import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
 
 export const runtime = "nodejs";
 
@@ -332,13 +333,23 @@ The script should clearly show how the product solves THIS specific problem.
 
     context += "\n";
 
-    // Communication style
+    // Communication style with detailed AI guidance
     const tone = audiencePersona.tone_preference || audiencePersona.tone;
     if (tone) {
-      context += `PREFERRED TONE: ${tone}\n`;
+      const toneGuide = TONE_PROMPT_GUIDES[tone];
+      if (toneGuide) {
+        context += `PREFERRED TONE: ${tone}\n${toneGuide}\n`;
+      } else {
+        context += `PREFERRED TONE: ${tone}\n`;
+      }
     }
     if (audiencePersona.humor_style) {
-      context += `HUMOR STYLE: ${audiencePersona.humor_style}\n`;
+      const humorGuide = HUMOR_PROMPT_GUIDES[audiencePersona.humor_style];
+      if (humorGuide) {
+        context += `HUMOR STYLE: ${audiencePersona.humor_style}\n${humorGuide}\n`;
+      } else {
+        context += `HUMOR STYLE: ${audiencePersona.humor_style}\n`;
+      }
     }
     if (audiencePersona.attention_span) {
       context += `ATTENTION SPAN: ${audiencePersona.attention_span}\n`;

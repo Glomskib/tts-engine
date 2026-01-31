@@ -5,6 +5,23 @@ import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import AppLayout from "@/app/components/AppLayout";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
+import {
+  TONE_OPTIONS,
+  HUMOR_OPTIONS,
+  LIFE_STAGE_OPTIONS,
+  INCOME_OPTIONS,
+  LOCATION_OPTIONS,
+  ATTENTION_SPAN_OPTIONS,
+  VALUES_OPTIONS,
+  INTERESTS_OPTIONS,
+  PERSONALITY_OPTIONS,
+  TRUST_BUILDERS_OPTIONS,
+  EMOTIONAL_TRIGGERS_OPTIONS,
+  PURCHASE_MOTIVATORS_OPTIONS,
+  CONTENT_OPTIONS,
+  PLATFORM_OPTIONS,
+  type SelectOption,
+} from "@/lib/persona-options";
 
 // --- Types ---
 
@@ -75,24 +92,9 @@ interface PainPoint {
 
 type TabType = "personas" | "pain-points";
 
-const TONE_OPTIONS = ["casual", "professional", "humorous", "emotional", "enthusiastic", "skeptical", "desperate", "hopeful", "frustrated", "sarcastic"];
-const HUMOR_OPTIONS = ["self-deprecating", "sarcastic", "wholesome", "absurd", "dry", "none"];
+// Pain point category options (not in persona-options.ts as they're pain-point specific)
 const CATEGORY_OPTIONS = ["sleep", "energy", "stress", "weight", "skin", "digestion", "focus", "mood", "pain", "immunity", "aging", "fitness", "other"];
 const INTENSITY_OPTIONS = ["low", "medium", "high", "extreme"];
-const PLATFORM_OPTIONS = ["tiktok", "instagram", "youtube", "facebook", "twitter", "linkedin", "pinterest"];
-const CONTENT_OPTIONS = ["relatable fails", "before/after", "day in the life", "POV", "storytime", "tutorial", "review", "unboxing", "trend", "educational", "testimonials"];
-
-// New options for refactored personas
-const INCOME_OPTIONS = ["budget-conscious", "middle-income", "affluent", "luxury"];
-const LOCATION_OPTIONS = ["urban", "suburban", "rural"];
-const LIFE_STAGE_OPTIONS = ["student", "single professional", "new parent", "established parent", "empty nester", "retired"];
-const ATTENTION_SPAN_OPTIONS = ["quick hooks needed", "will watch longer content", "skims", "deep diver"];
-const VALUES_OPTIONS = ["health", "family", "convenience", "value", "quality", "sustainability", "status", "authenticity", "adventure", "security"];
-const INTERESTS_OPTIONS = ["fitness", "cooking", "technology", "travel", "parenting", "career", "fashion", "gaming", "wellness", "finance", "home improvement"];
-const PERSONALITY_OPTIONS = ["skeptical", "impulsive", "research-driven", "trend-follower", "early adopter", "cautious", "deal-seeker", "loyal"];
-const TRUST_BUILDERS_OPTIONS = ["testimonials", "data/stats", "expert endorsements", "relatable stories", "before/after", "money-back guarantee", "free trials"];
-const EMOTIONAL_TRIGGERS_OPTIONS = ["fear of missing out", "desire for simplicity", "wanting to belong", "fear of judgment", "need for control", "aspiration", "nostalgia"];
-const PURCHASE_MOTIVATORS_OPTIONS = ["discounts", "urgency/scarcity", "social proof", "quality", "convenience", "exclusivity", "free shipping"];
 
 export default function AudiencePage() {
   const router = useRouter();
@@ -1191,9 +1193,14 @@ export default function AudiencePage() {
                       >
                         <option value="">Select...</option>
                         {INCOME_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                          <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
                         ))}
                       </select>
+                      {personaForm.income_level && (
+                        <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
+                          {INCOME_OPTIONS.find(o => o.value === personaForm.income_level)?.description}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LOCATION TYPE</label>
@@ -1204,9 +1211,14 @@ export default function AudiencePage() {
                       >
                         <option value="">Select...</option>
                         {LOCATION_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                          <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
                         ))}
                       </select>
+                      {personaForm.location_type && (
+                        <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
+                          {LOCATION_OPTIONS.find(o => o.value === personaForm.location_type)?.description}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFE STAGE</label>
@@ -1217,9 +1229,14 @@ export default function AudiencePage() {
                       >
                         <option value="">Select...</option>
                         {LIFE_STAGE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                          <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
                         ))}
                       </select>
+                      {personaForm.life_stage && (
+                        <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
+                          {LIFE_STAGE_OPTIONS.find(o => o.value === personaForm.life_stage)?.description}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFESTYLE</label>
@@ -1242,17 +1259,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>VALUES</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {VALUES_OPTIONS.map((val) => {
-                          const selected = (personaForm.values || []).includes(val);
+                        {VALUES_OPTIONS.map((opt) => {
+                          const selected = (personaForm.values || []).includes(opt.value);
                           return (
                             <button
-                              key={val}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.values || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  values: selected ? current.filter((v) => v !== val) : [...current, val],
+                                  values: selected ? current.filter((v) => v !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1265,7 +1283,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {val}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1274,17 +1292,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>INTERESTS</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {INTERESTS_OPTIONS.map((interest) => {
-                          const selected = (personaForm.interests || []).includes(interest);
+                        {INTERESTS_OPTIONS.map((opt) => {
+                          const selected = (personaForm.interests || []).includes(opt.value);
                           return (
                             <button
-                              key={interest}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.interests || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  interests: selected ? current.filter((i) => i !== interest) : [...current, interest],
+                                  interests: selected ? current.filter((i) => i !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1297,7 +1316,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {interest}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1306,17 +1325,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>PERSONALITY TRAITS</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {PERSONALITY_OPTIONS.map((trait) => {
-                          const selected = (personaForm.personality_traits || []).includes(trait);
+                        {PERSONALITY_OPTIONS.map((opt) => {
+                          const selected = (personaForm.personality_traits || []).includes(opt.value);
                           return (
                             <button
-                              key={trait}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.personality_traits || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  personality_traits: selected ? current.filter((t) => t !== trait) : [...current, trait],
+                                  personality_traits: selected ? current.filter((t) => t !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1329,7 +1349,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {trait}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1353,10 +1373,17 @@ export default function AudiencePage() {
                           style={inputStyle}
                         >
                           <option value="">Select tone...</option>
-                          {TONE_OPTIONS.map((t) => (
-                            <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                          {TONE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value} title={opt.description}>
+                              {opt.label}
+                            </option>
                           ))}
                         </select>
+                        {personaForm.tone_preference && (
+                          <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
+                            {TONE_OPTIONS.find(o => o.value === personaForm.tone_preference)?.description}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>HUMOR STYLE</label>
@@ -1366,10 +1393,17 @@ export default function AudiencePage() {
                           style={inputStyle}
                         >
                           <option value="">Select humor...</option>
-                          {HUMOR_OPTIONS.map((h) => (
-                            <option key={h} value={h}>{h.charAt(0).toUpperCase() + h.slice(1)}</option>
+                          {HUMOR_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value} title={opt.description}>
+                              {opt.label}
+                            </option>
                           ))}
                         </select>
+                        {personaForm.humor_style && (
+                          <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
+                            {HUMOR_OPTIONS.find(o => o.value === personaForm.humor_style)?.description}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>ATTENTION SPAN</label>
@@ -1380,7 +1414,9 @@ export default function AudiencePage() {
                         >
                           <option value="">Select...</option>
                           {ATTENTION_SPAN_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                            <option key={opt.value} value={opt.value} title={opt.description}>
+                              {opt.label}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1388,17 +1424,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>WHAT BUILDS TRUST</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {TRUST_BUILDERS_OPTIONS.map((tb) => {
-                          const selected = (personaForm.trust_builders || []).includes(tb);
+                        {TRUST_BUILDERS_OPTIONS.map((opt) => {
+                          const selected = (personaForm.trust_builders || []).includes(opt.value);
                           return (
                             <button
-                              key={tb}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.trust_builders || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  trust_builders: selected ? current.filter((t) => t !== tb) : [...current, tb],
+                                  trust_builders: selected ? current.filter((t) => t !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1411,7 +1448,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {tb}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1465,17 +1502,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>EMOTIONAL TRIGGERS</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {EMOTIONAL_TRIGGERS_OPTIONS.map((trigger) => {
-                          const selected = (personaForm.emotional_triggers || []).includes(trigger);
+                        {EMOTIONAL_TRIGGERS_OPTIONS.map((opt) => {
+                          const selected = (personaForm.emotional_triggers || []).includes(opt.value);
                           return (
                             <button
-                              key={trigger}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.emotional_triggers || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  emotional_triggers: selected ? current.filter((t) => t !== trigger) : [...current, trigger],
+                                  emotional_triggers: selected ? current.filter((t) => t !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1488,7 +1526,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {trigger}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1509,17 +1547,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>PURCHASE MOTIVATORS</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {PURCHASE_MOTIVATORS_OPTIONS.map((mot) => {
-                          const selected = (personaForm.purchase_motivators || []).includes(mot);
+                        {PURCHASE_MOTIVATORS_OPTIONS.map((opt) => {
+                          const selected = (personaForm.purchase_motivators || []).includes(opt.value);
                           return (
                             <button
-                              key={mot}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.purchase_motivators || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  purchase_motivators: selected ? current.filter((m) => m !== mot) : [...current, mot],
+                                  purchase_motivators: selected ? current.filter((m) => m !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1532,7 +1571,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {mot}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1550,17 +1589,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>PLATFORMS</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {PLATFORM_OPTIONS.map((platform) => {
-                          const selected = (personaForm.platforms || []).includes(platform);
+                        {PLATFORM_OPTIONS.map((opt) => {
+                          const selected = (personaForm.platforms || []).includes(opt.value);
                           return (
                             <button
-                              key={platform}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.platforms || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  platforms: selected ? current.filter((p) => p !== platform) : [...current, platform],
+                                  platforms: selected ? current.filter((p) => p !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1573,7 +1613,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {platform}
+                              {opt.label}
                             </button>
                           );
                         })}
@@ -1582,17 +1622,18 @@ export default function AudiencePage() {
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>CONTENT TYPES THEY ENGAGE WITH</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {CONTENT_OPTIONS.map((content) => {
-                          const selected = (personaForm.content_types_preferred || []).includes(content);
+                        {CONTENT_OPTIONS.map((opt) => {
+                          const selected = (personaForm.content_types_preferred || []).includes(opt.value);
                           return (
                             <button
-                              key={content}
+                              key={opt.value}
                               type="button"
+                              title={opt.description}
                               onClick={() => {
                                 const current = personaForm.content_types_preferred || [];
                                 setPersonaForm({
                                   ...personaForm,
-                                  content_types_preferred: selected ? current.filter((c) => c !== content) : [...current, content],
+                                  content_types_preferred: selected ? current.filter((c) => c !== opt.value) : [...current, opt.value],
                                 });
                               }}
                               style={{
@@ -1605,7 +1646,7 @@ export default function AudiencePage() {
                                 cursor: "pointer",
                               }}
                             >
-                              {content}
+                              {opt.label}
                             </button>
                           );
                         })}

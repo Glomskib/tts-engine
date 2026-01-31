@@ -125,6 +125,36 @@ const Icons = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   ),
+  Layout: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="9" y1="21" x2="9" y2="9" />
+    </svg>
+  ),
+  Building: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+      <path d="M9 22v-4h6v4" />
+      <path d="M8 6h.01" />
+      <path d="M16 6h.01" />
+      <path d="M12 6h.01" />
+      <path d="M12 10h.01" />
+      <path d="M12 14h.01" />
+      <path d="M16 10h.01" />
+      <path d="M16 14h.01" />
+      <path d="M8 10h.01" />
+      <path d="M8 14h.01" />
+    </svg>
+  ),
+  Calendar: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  ),
   Server: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
@@ -300,16 +330,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       items: [
         { label: 'Script Generator', href: '/admin/skit-generator', icon: <Icons.Sparkles /> },
         { label: 'Script Library', href: '/admin/skit-library', icon: <Icons.FileText /> },
+        { label: 'Templates', href: '/admin/templates', icon: <Icons.Layout /> },
         { label: 'Winners Bank', href: '/admin/winners', icon: <Icons.Trophy /> },
       ],
     });
 
-    // Audience & Products - always visible
+    // Audience - always visible
     sections.push({
-      title: 'Audience & Products',
+      title: 'Audience',
       items: [
-        { label: 'Audience Personas', href: '/admin/audience', icon: <Icons.Users /> },
+        { label: 'Personas', href: '/admin/audience', icon: <Icons.Users /> },
+      ],
+    });
+
+    // Products - always visible
+    sections.push({
+      title: 'Products',
+      items: [
         { label: 'Products', href: '/admin/products', icon: <Icons.Package /> },
+        { label: 'Brands', href: '/admin/brands', icon: <Icons.Building /> },
       ],
     });
 
@@ -319,8 +358,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         title: 'Video Production',
         items: [
           { label: 'Video Pipeline', href: '/admin/pipeline', icon: <Icons.Video /> },
+          { label: 'Calendar', href: '/admin/calendar', icon: <Icons.Calendar /> },
           { label: 'Performance', href: '/admin/analytics', icon: <Icons.BarChart /> },
-          { label: 'Activity Log', href: '/admin/events', icon: <Icons.Activity /> },
+          { label: 'Activity', href: '/admin/activity', icon: <Icons.Activity /> },
         ],
       });
     }

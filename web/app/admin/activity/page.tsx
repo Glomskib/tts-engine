@@ -346,9 +346,9 @@ export default function ActivityPage() {
                             <span className="text-xs text-zinc-500">{formatTime(activity.created_at)}</span>
                             {activity.metadata && Object.keys(activity.metadata).length > 0 && (
                               <span className="text-xs text-zinc-600">
-                                {activity.metadata.product_name && `• ${activity.metadata.product_name}`}
-                                {activity.metadata.changed_fields && `• Changed: ${activity.metadata.changed_fields}`}
-                                {activity.metadata.format && `• Format: ${activity.metadata.format}`}
+                                {(activity.metadata as Record<string, string>).product_name && `• ${(activity.metadata as Record<string, string>).product_name}`}
+                                {(activity.metadata as Record<string, string>).changed_fields && `• Changed: ${(activity.metadata as Record<string, string>).changed_fields}`}
+                                {(activity.metadata as Record<string, string>).format && `• Format: ${(activity.metadata as Record<string, string>).format}`}
                               </span>
                             )}
                           </div>

@@ -2,11 +2,18 @@
 
 import { useState } from 'react';
 
+interface SkitData {
+  hook_line?: string;
+  beats?: Array<{ t: string; action?: string; dialogue?: string }>;
+  cta_line?: string;
+  [key: string]: unknown;
+}
+
 interface SkitVersion {
   id: string;
   version: number;
   title: string;
-  skit_data: Record<string, unknown>;
+  skit_data: SkitData;
   created_at: string;
   change_summary?: string;
 }
@@ -153,7 +160,7 @@ export default function VersionHistory({
                         <div className="mb-3">
                           <div className="text-xs text-zinc-500 mb-1">Hook:</div>
                           <div className="text-sm text-zinc-300 italic">
-                            "{String(version.skit_data.hook_line)}"
+                            &ldquo;{version.skit_data.hook_line}&rdquo;
                           </div>
                         </div>
                       )}

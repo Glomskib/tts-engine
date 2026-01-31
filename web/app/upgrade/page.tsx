@@ -11,6 +11,91 @@ interface AuthUser {
   email: string | null;
 }
 
+// FAQ data
+const faqs = [
+  {
+    question: 'What counts as one credit?',
+    answer: 'Each AI-powered action uses 1 credit: generating a skit, refining a skit, extracting pain points from reviews, or analyzing competitor videos. Free features like viewing, editing saved scripts, and AI scoring don\'t use credits.'
+  },
+  {
+    question: 'Do unused credits roll over?',
+    answer: 'Credits reset at the start of each billing cycle. We recommend using all your credits each month to get the most value from your plan.'
+  },
+  {
+    question: 'Can I upgrade or downgrade anytime?',
+    answer: 'Yes! You can change your plan at any time. When upgrading, you\'ll get immediate access to the new features. When downgrading, changes take effect at your next billing date.'
+  },
+  {
+    question: 'What payment methods do you accept?',
+    answer: 'We accept all major credit cards (Visa, Mastercard, American Express) through our secure payment processor Stripe.'
+  },
+  {
+    question: 'Is there a free trial?',
+    answer: 'Every new account starts with 5 free credits to try out the platform. This lets you test the Skit Generator before committing to a paid plan.'
+  },
+  {
+    question: 'What if I need more credits?',
+    answer: 'If you consistently run out of credits, consider upgrading to a higher tier. For enterprise needs, contact our sales team for a custom plan.'
+  },
+];
+
+// Feature comparison data
+const features = [
+  { name: 'Skit Generator', free: true, starter: true, pro: true, team: true },
+  { name: 'AI Script Scoring', free: true, starter: true, pro: true, team: true },
+  { name: 'Save Scripts', free: '3', starter: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
+  { name: 'Product Catalog', free: '1', starter: '10', pro: '50', team: 'Unlimited' },
+  { name: 'Audience Personas', free: false, starter: false, pro: true, team: true },
+  { name: 'Pain Point Extraction', free: false, starter: false, pro: true, team: true },
+  { name: 'Winners Bank', free: false, starter: false, pro: true, team: true },
+  { name: 'Custom Presets', free: false, starter: false, pro: true, team: true },
+  { name: 'API Access', free: false, starter: false, pro: true, team: true },
+  { name: 'Team Members', free: '1', starter: '1', pro: '3', team: '10' },
+  { name: 'Shared Workspaces', free: false, starter: false, pro: false, team: true },
+  { name: 'Usage Analytics', free: false, starter: false, pro: false, team: true },
+  { name: 'Support', free: 'Community', starter: 'Email', pro: 'Priority', team: 'Dedicated' },
+];
+
+// Helper function to render feature values
+function renderFeatureValue(value: boolean | string) {
+  if (value === true) {
+    return <span className="text-emerald-500">✓</span>;
+  }
+  if (value === false) {
+    return <span className="text-zinc-600">—</span>;
+  }
+  return <span className="text-zinc-300 text-sm">{value}</span>;
+}
+
+// FAQ Item component with expand/collapse
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="border border-white/10 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-zinc-900/50 transition-colors"
+      >
+        <span className="text-sm font-medium text-zinc-200">{question}</span>
+        <svg
+          className={`w-5 h-5 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="px-5 pb-4 text-sm text-zinc-400 leading-relaxed">
+          {answer}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function UpgradePage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -308,6 +393,53 @@ export default function UpgradePage() {
                 Contact Sales
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Feature Comparison Table */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-6">Compare Features</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
+                  <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Free</th>
+                  <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Starter</th>
+                  <th className="text-center py-4 px-4 text-sm font-medium text-blue-400">Pro</th>
+                  <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Team</th>
+                </tr>
+              </thead>
+              <tbody>
+                {features.map((feature, index) => (
+                  <tr key={feature.name} className={index % 2 === 0 ? 'bg-zinc-900/30' : ''}>
+                    <td className="py-3 px-4 text-sm text-zinc-300">{feature.name}</td>
+                    <td className="py-3 px-4 text-center">
+                      {renderFeatureValue(feature.free)}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {renderFeatureValue(feature.starter)}
+                    </td>
+                    <td className="py-3 px-4 text-center bg-blue-500/5">
+                      {renderFeatureValue(feature.pro)}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {renderFeatureValue(feature.team)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-6">Frequently Asked Questions</h2>
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <FAQItem key={index} question={faq.question} answer={faq.answer} />
+            ))}
           </div>
         </div>
 

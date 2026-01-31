@@ -14,14 +14,58 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FlashFlow AI - Ideas move faster here",
-  description: "AI-powered script generation for creators, marketers, and teams. Build momentum. Ship faster. Stay in flow.",
-  keywords: ["AI", "script generation", "content creation", "video scripts", "marketing"],
-  openGraph: {
-    title: "FlashFlow AI",
-    description: "AI-powered script generation for creators, marketers, and teams.",
-    type: "website",
+  title: {
+    default: "FlashFlow AI - AI-Powered Video Script Generator",
+    template: "%s | FlashFlow AI",
   },
+  description: "Create engaging TikTok and short-form video scripts in seconds. AI-powered script generation for creators, marketers, and teams.",
+  keywords: ["AI script generator", "TikTok scripts", "video scripts", "content creation", "UGC scripts", "marketing scripts", "short-form video"],
+  authors: [{ name: "FlashFlow AI" }],
+  creator: "FlashFlow AI",
+  publisher: "FlashFlow AI",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    title: "FlashFlow AI - AI-Powered Video Script Generator",
+    description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
+    url: "https://app.flashflow.ai",
+    siteName: "FlashFlow AI",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/FFAI.png",
+        width: 512,
+        height: 512,
+        alt: "FlashFlow AI Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FlashFlow AI - AI-Powered Video Script Generator",
+    description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
+    images: ["/FFAI.png"],
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+  },
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
+  category: "technology",
 };
 
 export default function RootLayout({

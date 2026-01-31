@@ -11,6 +11,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import { saveAs } from 'file-saver';
 import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
+import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 
 // --- Helper Functions ---
 
@@ -91,10 +92,38 @@ interface AudiencePersona {
   id: string;
   name: string;
   description?: string;
+  // Demographics
+  age_range?: string;
+  gender?: string;
+  income_level?: string;
+  location_type?: string;
+  life_stage?: string;
   lifestyle?: string;
+  // Psychographics
+  values?: string[];
+  interests?: string[];
+  personality_traits?: string[];
+  // Communication Style
   tone?: string;
+  tone_preference?: string;
   humor_style?: string;
-  pain_points?: Array<{ point: string }>;
+  attention_span?: string;
+  trust_builders?: string[];
+  phrases_they_use?: string[];
+  phrases_to_avoid?: string[];
+  // Pain Points & Motivations
+  pain_points?: Array<{ point: string; intensity?: string }>;
+  primary_pain_points?: string[];
+  emotional_triggers?: string[];
+  buying_objections?: string[];
+  purchase_motivators?: string[];
+  common_objections?: string[];
+  // Content Preferences
+  content_they_engage_with?: string[];
+  content_types_preferred?: string[];
+  platforms?: string[];
+  best_posting_times?: string;
+  // Meta
   times_used?: number;
 }
 
@@ -325,6 +354,8 @@ export default function SkitGeneratorPage() {
   const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedPainPointId, setSelectedPainPointId] = useState<string>('');
+  const [selectedPersonaPainPoints, setSelectedPersonaPainPoints] = useState<string[]>([]);
+  const [personaPreviewExpanded, setPersonaPreviewExpanded] = useState(true);
   const [useAudienceLanguage, setUseAudienceLanguage] = useState(true);
 
   // Form state
@@ -1061,6 +1092,7 @@ export default function SkitGeneratorPage() {
       // Audience Intelligence
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_id: selectedPainPointId || undefined,
+      pain_point_focus: selectedPersonaPainPoints.length > 0 ? selectedPersonaPainPoints : undefined,
       use_audience_language: useAudienceLanguage,
     };
 
@@ -1915,8 +1947,10 @@ export default function SkitGeneratorPage() {
                     value={selectedPersonaId}
                     onChange={(e) => {
                       setSelectedPersonaId(e.target.value);
-                      // Reset pain point when persona changes
+                      // Reset pain point selections when persona changes
                       setSelectedPainPointId('');
+                      setSelectedPersonaPainPoints([]);
+                      setPersonaPreviewExpanded(true);
                     }}
                     style={{
                       width: '100%',
@@ -1929,29 +1963,36 @@ export default function SkitGeneratorPage() {
                     }}
                   >
                     <option value="">-- No specific persona --</option>
-                    {audiencePersonas.map((persona) => (
-                      <option key={persona.id} value={persona.id}>
-                        {persona.name}
-                        {persona.times_used ? ` (used ${persona.times_used}x)` : ''}
+                    {audiencePersonas.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.times_used ? ` (used ${p.times_used}x)` : ''}
                       </option>
                     ))}
                   </select>
-                  {selectedPersonaId && (() => {
-                    const selectedPersona = audiencePersonas.find(p => p.id === selectedPersonaId);
-                    return selectedPersona?.description ? (
-                      <div style={{ marginTop: '6px', fontSize: '11px', color: colors.textSecondary, padding: '8px', backgroundColor: colors.bg, borderRadius: '4px' }}>
-                        {selectedPersona.description}
-                        {selectedPersona.tone && <span style={{ marginLeft: '8px', opacity: 0.7 }}>• Tone: {selectedPersona.tone}</span>}
-                      </div>
-                    ) : null;
-                  })()}
                 </div>
 
-                {/* Pain Point Focus (show if persona selected) */}
-                {selectedPersonaId && (
+                {/* Persona Preview Card (shows when persona selected) */}
+                {selectedPersonaId && (() => {
+                  const selectedPersona = audiencePersonas.find(p => p.id === selectedPersonaId);
+                  return selectedPersona ? (
+                    <div style={{ marginBottom: '12px' }}>
+                      <PersonaPreviewCard
+                        persona={selectedPersona}
+                        selectedPainPoints={selectedPersonaPainPoints}
+                        onPainPointsChange={setSelectedPersonaPainPoints}
+                        expanded={personaPreviewExpanded}
+                        onToggleExpand={() => setPersonaPreviewExpanded(!personaPreviewExpanded)}
+                      />
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Pain Point from Library (show if no persona or as additional option) */}
+                {!selectedPersonaId && painPoints.length > 0 && (
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                      Pain Point Focus (optional)
+                      Pain Point Focus (from library)
                     </label>
                     <select
                       value={selectedPainPointId}

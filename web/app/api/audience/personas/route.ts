@@ -15,20 +15,49 @@ const PainPointSchema = z.object({
 });
 
 const CreatePersonaSchema = z.object({
+  // Core Identity
   name: z.string().min(1).max(100),
   description: z.string().max(1000).optional(),
+  avatar_type: z.string().max(50).optional(),
+
+  // Demographics
   age_range: z.string().max(50).optional(),
   gender: z.string().max(50).optional(),
+  income_level: z.string().max(50).optional(),
+  location_type: z.string().max(50).optional(),
+  life_stage: z.string().max(100).optional(),
   lifestyle: z.string().max(200).optional(),
-  pain_points: z.array(PainPointSchema).optional(),
+
+  // Psychographics
+  values: z.array(z.string()).optional(),
+  interests: z.array(z.string()).optional(),
+  personality_traits: z.array(z.string()).optional(),
+
+  // Communication Style
+  tone: z.string().max(50).optional(), // legacy
+  tone_preference: z.string().max(50).optional(),
+  humor_style: z.string().max(50).optional(),
+  attention_span: z.string().max(100).optional(),
+  trust_builders: z.array(z.string()).optional(),
   phrases_they_use: z.array(z.string()).optional(),
   phrases_to_avoid: z.array(z.string()).optional(),
-  tone: z.string().max(50).optional(),
-  humor_style: z.string().max(50).optional(),
-  common_objections: z.array(z.string()).optional(),
-  beliefs: z.record(z.string(), z.string()).optional(),
-  content_they_engage_with: z.array(z.string()).optional(),
+
+  // Pain Points & Motivations
+  pain_points: z.array(PainPointSchema).optional(), // legacy
+  primary_pain_points: z.array(z.string()).optional(),
+  emotional_triggers: z.array(z.string()).optional(),
+  buying_objections: z.array(z.string()).optional(),
+  purchase_motivators: z.array(z.string()).optional(),
+  common_objections: z.array(z.string()).optional(), // legacy
+
+  // Content Preferences
+  content_they_engage_with: z.array(z.string()).optional(), // legacy
+  content_types_preferred: z.array(z.string()).optional(),
   platforms: z.array(z.string()).optional(),
+  best_posting_times: z.string().max(200).optional(),
+
+  // Legacy/Deprecated
+  beliefs: z.record(z.string(), z.string()).optional(),
   product_categories: z.array(z.string()).optional(),
   product_ids: z.array(z.string().uuid()).optional(),
 });

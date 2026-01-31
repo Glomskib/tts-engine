@@ -78,28 +78,51 @@ const GenerateSkitInputSchema = z.object({
   // Audience Intelligence
   audience_persona_id: z.string().uuid().optional(),
   pain_point_id: z.string().uuid().optional(),
+  pain_point_focus: z.array(z.string()).optional(), // Selected pain points from persona
   use_audience_language: z.boolean().optional().default(true),
 }).strict().refine(
   (data) => data.product_id || data.product_name,
   { message: "Either product_id or product_name is required" }
 );
 
-// Audience Persona type from database
+// Audience Persona type from database (updated with rich psychographics)
 interface AudiencePersona {
   id: string;
   name: string;
   description?: string;
+  // Demographics
   age_range?: string;
   gender?: string;
+  income_level?: string;
+  location_type?: string;
+  life_stage?: string;
   lifestyle?: string;
-  pain_points?: Array<{ point: string; intensity?: string; triggers?: string[] }>;
+  // Psychographics
+  values?: string[];
+  interests?: string[];
+  personality_traits?: string[];
+  // Communication Style
+  tone?: string; // legacy
+  tone_preference?: string;
+  humor_style?: string;
+  attention_span?: string;
+  trust_builders?: string[];
   phrases_they_use?: string[];
   phrases_to_avoid?: string[];
-  tone?: string;
-  humor_style?: string;
-  common_objections?: string[];
+  // Pain Points & Motivations
+  pain_points?: Array<{ point: string; intensity?: string; triggers?: string[] }>; // legacy
+  primary_pain_points?: string[];
+  emotional_triggers?: string[];
+  buying_objections?: string[];
+  purchase_motivators?: string[];
+  common_objections?: string[]; // legacy
+  // Content Preferences
+  content_they_engage_with?: string[]; // legacy
+  content_types_preferred?: string[];
+  platforms?: string[];
+  best_posting_times?: string;
+  // Meta
   beliefs?: Record<string, string>;
-  content_they_engage_with?: string[];
   times_used?: number;
 }
 
@@ -223,9 +246,10 @@ REAL PERSON IMITATION PROHIBITION:
 function buildAudienceContext(
   audiencePersona: AudiencePersona | null,
   painPoint: PainPointData | null,
+  painPointFocus: string[],
   useAudienceLanguage: boolean
 ): string {
-  if (!audiencePersona && !painPoint) return "";
+  if (!audiencePersona && !painPoint && painPointFocus.length === 0) return "";
   if (!useAudienceLanguage) return "";
 
   let context = "\n=== TARGET AUDIENCE INTELLIGENCE ===\n";
@@ -234,48 +258,133 @@ function buildAudienceContext(
     context += `
 TARGET PERSONA: "${audiencePersona.name}"
 ${audiencePersona.description ? `Who they are: ${audiencePersona.description}` : ""}
-${audiencePersona.lifestyle ? `Lifestyle: ${audiencePersona.lifestyle}` : ""}
-${audiencePersona.age_range ? `Age range: ${audiencePersona.age_range}` : ""}
-
 `;
 
-    // Pain points from persona
-    if (audiencePersona.pain_points && audiencePersona.pain_points.length > 0) {
-      context += "THEIR PAIN POINTS:\n";
-      for (const pp of audiencePersona.pain_points.slice(0, 3)) {
-        context += `- ${pp.point}${pp.intensity ? ` (${pp.intensity} intensity)` : ""}\n`;
+    // Demographics section
+    const demographics: string[] = [];
+    if (audiencePersona.age_range) demographics.push(`Age: ${audiencePersona.age_range}`);
+    if (audiencePersona.gender) demographics.push(`Gender: ${audiencePersona.gender}`);
+    if (audiencePersona.life_stage) demographics.push(`Life stage: ${audiencePersona.life_stage}`);
+    if (audiencePersona.income_level) demographics.push(`Income: ${audiencePersona.income_level}`);
+    if (audiencePersona.location_type) demographics.push(`Location: ${audiencePersona.location_type}`);
+    if (audiencePersona.lifestyle) demographics.push(`Lifestyle: ${audiencePersona.lifestyle}`);
+    if (demographics.length > 0) {
+      context += `DEMOGRAPHICS: ${demographics.join(" | ")}\n`;
+    }
+
+    // Psychographics section
+    if (audiencePersona.values && audiencePersona.values.length > 0) {
+      context += `THEIR VALUES: ${audiencePersona.values.join(", ")}\n`;
+    }
+    if (audiencePersona.interests && audiencePersona.interests.length > 0) {
+      context += `THEIR INTERESTS: ${audiencePersona.interests.join(", ")}\n`;
+    }
+    if (audiencePersona.personality_traits && audiencePersona.personality_traits.length > 0) {
+      context += `PERSONALITY: ${audiencePersona.personality_traits.join(", ")}\n`;
+    }
+
+    context += "\n";
+
+    // Pain points - prioritize user-selected focus, then persona pain points
+    const allPainPoints = audiencePersona.primary_pain_points?.length
+      ? audiencePersona.primary_pain_points
+      : audiencePersona.pain_points?.map(pp => pp.point) || [];
+
+    if (painPointFocus.length > 0) {
+      // User selected specific pain points to focus on
+      context += `
+=== PRIMARY PAIN POINT FOCUS ===
+The hook MUST call out or acknowledge one of these specific pain points:
+${painPointFocus.map((pp, i) => `${i + 1}. "${pp}"`).join("\n")}
+
+CRITICAL: Your opening hook should make the viewer immediately think "OMG that's exactly me!"
+The script should clearly show how the product solves THIS specific problem.
+===
+
+`;
+      // Also show other pain points for context
+      const otherPainPoints = allPainPoints.filter(pp => !painPointFocus.includes(pp));
+      if (otherPainPoints.length > 0) {
+        context += "OTHER PAIN POINTS (for additional context, not primary focus):\n";
+        for (const pp of otherPainPoints.slice(0, 3)) {
+          context += `- ${pp}\n`;
+        }
+        context += "\n";
       }
-      context += "\n";
+    } else if (allPainPoints.length > 0) {
+      // No specific focus - AI chooses the best fit
+      context += `THEIR PAIN POINTS - Choose the BEST fit for this product:\n`;
+      for (const pp of allPainPoints.slice(0, 4)) {
+        context += `- ${pp}\n`;
+      }
+      context += `\nPick the pain point that BEST connects to the product and build your hook around it.\n\n`;
+    }
+
+    // Emotional triggers
+    if (audiencePersona.emotional_triggers && audiencePersona.emotional_triggers.length > 0) {
+      context += `EMOTIONAL TRIGGERS (what motivates them): ${audiencePersona.emotional_triggers.join(", ")}\n`;
+    }
+
+    // What builds trust
+    if (audiencePersona.trust_builders && audiencePersona.trust_builders.length > 0) {
+      context += `WHAT BUILDS TRUST: ${audiencePersona.trust_builders.join(", ")}\n`;
+    }
+
+    context += "\n";
+
+    // Communication style
+    const tone = audiencePersona.tone_preference || audiencePersona.tone;
+    if (tone) {
+      context += `PREFERRED TONE: ${tone}\n`;
+    }
+    if (audiencePersona.humor_style) {
+      context += `HUMOR STYLE: ${audiencePersona.humor_style}\n`;
+    }
+    if (audiencePersona.attention_span) {
+      context += `ATTENTION SPAN: ${audiencePersona.attention_span}\n`;
     }
 
     // Language patterns
     if (audiencePersona.phrases_they_use && audiencePersona.phrases_they_use.length > 0) {
-      context += `HOW THEY TALK (use these exact phrases or similar):\n`;
+      context += `\nHOW THEY TALK (use these exact phrases or similar):\n`;
       context += audiencePersona.phrases_they_use.slice(0, 5).map(p => `- "${p}"`).join("\n");
-      context += "\n\n";
+      context += "\n";
     }
-
-    if (audiencePersona.tone) {
-      context += `THEIR TONE: ${audiencePersona.tone}\n`;
-    }
-    if (audiencePersona.humor_style) {
-      context += `THEIR HUMOR STYLE: ${audiencePersona.humor_style}\n`;
-    }
-    context += "\n";
 
     // Phrases to avoid
     if (audiencePersona.phrases_to_avoid && audiencePersona.phrases_to_avoid.length > 0) {
-      context += `AVOID THESE PHRASES (they sound fake to this audience):\n`;
+      context += `\nAVOID THESE PHRASES (they sound fake to this audience):\n`;
       context += audiencePersona.phrases_to_avoid.slice(0, 5).map(p => `- "${p}"`).join("\n");
-      context += "\n\n";
+      context += "\n";
     }
 
-    // Objections
-    if (audiencePersona.common_objections && audiencePersona.common_objections.length > 0) {
-      context += `THEIR OBJECTIONS (address naturally, don't be defensive):\n`;
-      context += audiencePersona.common_objections.slice(0, 3).map(o => `- "${o}"`).join("\n");
-      context += "\n\n";
+    // Objections (prefer new format, fallback to legacy)
+    const objections = audiencePersona.buying_objections?.length
+      ? audiencePersona.buying_objections
+      : audiencePersona.common_objections || [];
+    if (objections.length > 0) {
+      context += `\nTHEIR OBJECTIONS (address naturally, don't be defensive):\n`;
+      context += objections.slice(0, 4).map(o => `- "${o}"`).join("\n");
+      context += "\n";
     }
+
+    // Purchase motivators
+    if (audiencePersona.purchase_motivators && audiencePersona.purchase_motivators.length > 0) {
+      context += `\nWHAT MOTIVATES THEM TO BUY: ${audiencePersona.purchase_motivators.join(", ")}\n`;
+    }
+
+    // Content preferences
+    const contentPrefs = audiencePersona.content_types_preferred?.length
+      ? audiencePersona.content_types_preferred
+      : audiencePersona.content_they_engage_with || [];
+    if (contentPrefs.length > 0) {
+      context += `\nCONTENT THEY ENGAGE WITH: ${contentPrefs.join(", ")}\n`;
+    }
+    if (audiencePersona.platforms && audiencePersona.platforms.length > 0) {
+      context += `PLATFORMS THEY USE: ${audiencePersona.platforms.join(", ")}\n`;
+    }
+
+    context += "\n";
   }
 
   // Specific pain point focus
@@ -299,6 +408,7 @@ AUTHENTICITY REQUIREMENT:
 Write this as if YOU ARE this person talking to their friends, not as a brand talking AT them.
 Sound like a real person who discovered something helpful, not an ad.
 Use their actual language patterns, not marketing speak.
+Match their energy, tone, and communication style exactly.
 ===
 
 `;
@@ -946,6 +1056,7 @@ export async function POST(request: Request) {
       productContext: input.product_context || "",
       audiencePersona,
       painPoint,
+      painPointFocus: input.pain_point_focus || [],
       useAudienceLanguage: input.use_audience_language ?? true,
     });
 
@@ -1033,6 +1144,15 @@ export async function POST(request: Request) {
       },
     });
 
+    // Build audience metadata
+    const audienceMetadata = {
+      persona_id: audiencePersona?.id || null,
+      persona_name: audiencePersona?.name || null,
+      persona_tone: audiencePersona?.tone_preference || audiencePersona?.tone || null,
+      pain_points_targeted: input.pain_point_focus?.length ? input.pain_point_focus : null,
+      pain_point_mode: input.pain_point_focus?.length ? 'user_selected' : (audiencePersona ? 'ai_chosen' : null),
+    };
+
     // Build response data
     const responseData: Record<string, unknown> = {
       variations: sortedVariations,
@@ -1044,6 +1164,8 @@ export async function POST(request: Request) {
       intensity_applied: requestedIntensity,
       budget_clamped: intensityBudget.budgetClamped,
       preset_intensity_clamped: presetIntensityClamped,
+      // Audience Intelligence metadata
+      audience_metadata: audienceMetadata,
       // Legacy single-skit fields for backward compatibility (best variation)
       skit: sortedVariations[0].skit,
       ai_score: sortedVariations[0].ai_score,
@@ -1107,11 +1229,12 @@ interface PromptParams {
   // Audience Intelligence
   audiencePersona: AudiencePersona | null;
   painPoint: PainPointData | null;
+  painPointFocus: string[];  // Specific pain points selected by user
   useAudienceLanguage: boolean;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, audiencePersona, painPoint, useAudienceLanguage } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, audiencePersona, painPoint, painPointFocus, useAudienceLanguage } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
@@ -1122,7 +1245,7 @@ function buildSkitPrompt(params: PromptParams): string {
   const actorGuideline = buildActorTypeGuidelines(actorType);
   const durationGuideline = buildDurationGuidelines(targetDuration);
   const contentFormatGuideline = buildContentFormatGuidelines(contentFormat);
-  const audienceContext = buildAudienceContext(audiencePersona, painPoint, useAudienceLanguage);
+  const audienceContext = buildAudienceContext(audiencePersona, painPoint, painPointFocus, useAudienceLanguage);
   const creativeDirectionSection = creativeDirection
     ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the skit)\n`
     : "";

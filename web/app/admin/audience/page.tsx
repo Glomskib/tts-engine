@@ -18,19 +18,41 @@ interface Persona {
   id: string;
   name: string;
   description?: string;
+  // Demographics
   age_range?: string;
   gender?: string;
+  income_level?: string;
+  location_type?: string;
+  life_stage?: string;
   lifestyle?: string;
-  pain_points?: PainPointItem[];
+  // Psychographics
+  values?: string[];
+  interests?: string[];
+  personality_traits?: string[];
+  // Communication Style
+  tone?: string;  // legacy - mapped to tone_preference
+  tone_preference?: string;
+  humor_style?: string;
+  attention_span?: string;
+  trust_builders?: string[];
   phrases_they_use?: string[];
   phrases_to_avoid?: string[];
-  tone?: string;
-  humor_style?: string;
-  common_objections?: string[];
-  beliefs?: Record<string, string>;
-  content_they_engage_with?: string[];
+  // Pain Points & Motivations
+  pain_points?: PainPointItem[];  // legacy
+  primary_pain_points?: string[];
+  emotional_triggers?: string[];
+  buying_objections?: string[];
+  purchase_motivators?: string[];
+  common_objections?: string[];  // legacy - mapped to buying_objections
+  // Content Preferences
+  content_they_engage_with?: string[];  // legacy - mapped to content_types_preferred
+  content_types_preferred?: string[];
   platforms?: string[];
-  product_categories?: string[];
+  best_posting_times?: string;
+  // Meta
+  avatar_type?: string;
+  product_categories?: string[];  // deprecated
+  beliefs?: Record<string, string>;
   times_used?: number;
   created_at: string;
 }
@@ -53,12 +75,24 @@ interface PainPoint {
 
 type TabType = "personas" | "pain-points";
 
-const TONE_OPTIONS = ["casual", "enthusiastic", "skeptical", "desperate", "hopeful", "frustrated", "sarcastic"];
+const TONE_OPTIONS = ["casual", "professional", "humorous", "emotional", "enthusiastic", "skeptical", "desperate", "hopeful", "frustrated", "sarcastic"];
 const HUMOR_OPTIONS = ["self-deprecating", "sarcastic", "wholesome", "absurd", "dry", "none"];
 const CATEGORY_OPTIONS = ["sleep", "energy", "stress", "weight", "skin", "digestion", "focus", "mood", "pain", "immunity", "aging", "fitness", "other"];
 const INTENSITY_OPTIONS = ["low", "medium", "high", "extreme"];
-const PLATFORM_OPTIONS = ["tiktok", "instagram", "youtube", "facebook", "twitter"];
-const CONTENT_OPTIONS = ["relatable fails", "before/after", "day in the life", "POV", "storytime", "tutorial", "review", "unboxing", "trend"];
+const PLATFORM_OPTIONS = ["tiktok", "instagram", "youtube", "facebook", "twitter", "linkedin", "pinterest"];
+const CONTENT_OPTIONS = ["relatable fails", "before/after", "day in the life", "POV", "storytime", "tutorial", "review", "unboxing", "trend", "educational", "testimonials"];
+
+// New options for refactored personas
+const INCOME_OPTIONS = ["budget-conscious", "middle-income", "affluent", "luxury"];
+const LOCATION_OPTIONS = ["urban", "suburban", "rural"];
+const LIFE_STAGE_OPTIONS = ["student", "single professional", "new parent", "established parent", "empty nester", "retired"];
+const ATTENTION_SPAN_OPTIONS = ["quick hooks needed", "will watch longer content", "skims", "deep diver"];
+const VALUES_OPTIONS = ["health", "family", "convenience", "value", "quality", "sustainability", "status", "authenticity", "adventure", "security"];
+const INTERESTS_OPTIONS = ["fitness", "cooking", "technology", "travel", "parenting", "career", "fashion", "gaming", "wellness", "finance", "home improvement"];
+const PERSONALITY_OPTIONS = ["skeptical", "impulsive", "research-driven", "trend-follower", "early adopter", "cautious", "deal-seeker", "loyal"];
+const TRUST_BUILDERS_OPTIONS = ["testimonials", "data/stats", "expert endorsements", "relatable stories", "before/after", "money-back guarantee", "free trials"];
+const EMOTIONAL_TRIGGERS_OPTIONS = ["fear of missing out", "desire for simplicity", "wanting to belong", "fear of judgment", "need for control", "aspiration", "nostalgia"];
+const PURCHASE_MOTIVATORS_OPTIONS = ["discounts", "urgency/scarcity", "social proof", "quality", "convenience", "exclusivity", "free shipping"];
 
 export default function AudiencePage() {
   const router = useRouter();
@@ -194,19 +228,46 @@ export default function AudiencePage() {
   const openPersonaModal = (persona?: Persona) => {
     if (persona) {
       setEditingPersona(persona);
-      setPersonaForm({ ...persona });
+      // Map legacy fields to new fields for editing
+      setPersonaForm({
+        ...persona,
+        tone_preference: persona.tone_preference || persona.tone,
+        primary_pain_points: persona.primary_pain_points || persona.pain_points?.map(p => p.point) || [],
+        buying_objections: persona.buying_objections || persona.common_objections || [],
+        content_types_preferred: persona.content_types_preferred || persona.content_they_engage_with || [],
+      });
     } else {
       setEditingPersona({ id: "new" } as Persona);
       setPersonaForm({
         name: "",
         description: "",
-        pain_points: [],
+        // Demographics
+        age_range: "",
+        gender: "",
+        income_level: "",
+        location_type: "",
+        life_stage: "",
+        lifestyle: "",
+        // Psychographics
+        values: [],
+        interests: [],
+        personality_traits: [],
+        // Communication Style
+        tone_preference: "",
+        humor_style: "",
+        attention_span: "",
+        trust_builders: [],
         phrases_they_use: [],
         phrases_to_avoid: [],
-        common_objections: [],
-        content_they_engage_with: [],
+        // Pain Points & Motivations
+        primary_pain_points: [],
+        emotional_triggers: [],
+        buying_objections: [],
+        purchase_motivators: [],
+        // Content Preferences
+        content_types_preferred: [],
         platforms: [],
-        product_categories: [],
+        best_posting_times: "",
       });
     }
   };
@@ -230,30 +291,71 @@ export default function AudiencePage() {
         name: personaForm.name?.trim(),
       };
 
-      // Only include non-empty fields
+      // Core Identity
       if (personaForm.description?.trim()) cleanedForm.description = personaForm.description.trim();
+
+      // Demographics
       if (personaForm.age_range?.trim()) cleanedForm.age_range = personaForm.age_range.trim();
       if (personaForm.gender?.trim()) cleanedForm.gender = personaForm.gender.trim();
+      if (personaForm.income_level?.trim()) cleanedForm.income_level = personaForm.income_level.trim();
+      if (personaForm.location_type?.trim()) cleanedForm.location_type = personaForm.location_type.trim();
+      if (personaForm.life_stage?.trim()) cleanedForm.life_stage = personaForm.life_stage.trim();
       if (personaForm.lifestyle?.trim()) cleanedForm.lifestyle = personaForm.lifestyle.trim();
-      if (personaForm.tone?.trim()) cleanedForm.tone = personaForm.tone.trim();
-      if (personaForm.humor_style?.trim()) cleanedForm.humor_style = personaForm.humor_style.trim();
 
-      // Arrays - only include if non-empty (send empty array to clear)
+      // Psychographics arrays
+      if (personaForm.values && personaForm.values.length > 0) {
+        cleanedForm.values = personaForm.values;
+      }
+      if (personaForm.interests && personaForm.interests.length > 0) {
+        cleanedForm.interests = personaForm.interests;
+      }
+      if (personaForm.personality_traits && personaForm.personality_traits.length > 0) {
+        cleanedForm.personality_traits = personaForm.personality_traits;
+      }
+
+      // Communication Style
+      if (personaForm.tone_preference?.trim()) {
+        cleanedForm.tone_preference = personaForm.tone_preference.trim();
+        cleanedForm.tone = personaForm.tone_preference.trim(); // also set legacy field
+      }
+      if (personaForm.humor_style?.trim()) cleanedForm.humor_style = personaForm.humor_style.trim();
+      if (personaForm.attention_span?.trim()) cleanedForm.attention_span = personaForm.attention_span.trim();
+
+      const trustBuilders = (personaForm.trust_builders || []).filter(Boolean);
       const phrasesTheyUse = (personaForm.phrases_they_use || []).filter(Boolean);
       const phrasesToAvoid = (personaForm.phrases_to_avoid || []).filter(Boolean);
-      const commonObjections = (personaForm.common_objections || []).filter(Boolean);
 
+      if (trustBuilders.length > 0) cleanedForm.trust_builders = trustBuilders;
       if (phrasesTheyUse.length > 0) cleanedForm.phrases_they_use = phrasesTheyUse;
       if (phrasesToAvoid.length > 0) cleanedForm.phrases_to_avoid = phrasesToAvoid;
-      if (commonObjections.length > 0) cleanedForm.common_objections = commonObjections;
-      if (personaForm.content_they_engage_with && personaForm.content_they_engage_with.length > 0) {
-        cleanedForm.content_they_engage_with = personaForm.content_they_engage_with;
+
+      // Pain Points & Motivations
+      const primaryPainPoints = (personaForm.primary_pain_points || []).filter(Boolean);
+      const emotionalTriggers = (personaForm.emotional_triggers || []).filter(Boolean);
+      const buyingObjections = (personaForm.buying_objections || []).filter(Boolean);
+      const purchaseMotivators = (personaForm.purchase_motivators || []).filter(Boolean);
+
+      if (primaryPainPoints.length > 0) cleanedForm.primary_pain_points = primaryPainPoints;
+      if (emotionalTriggers.length > 0) cleanedForm.emotional_triggers = emotionalTriggers;
+      if (buyingObjections.length > 0) {
+        cleanedForm.buying_objections = buyingObjections;
+        cleanedForm.common_objections = buyingObjections; // also set legacy field
+      }
+      if (purchaseMotivators.length > 0) cleanedForm.purchase_motivators = purchaseMotivators;
+
+      // Content Preferences
+      if (personaForm.content_types_preferred && personaForm.content_types_preferred.length > 0) {
+        cleanedForm.content_types_preferred = personaForm.content_types_preferred;
+        cleanedForm.content_they_engage_with = personaForm.content_types_preferred; // also set legacy field
       }
       if (personaForm.platforms && personaForm.platforms.length > 0) {
         cleanedForm.platforms = personaForm.platforms;
       }
-      if (personaForm.pain_points && personaForm.pain_points.length > 0) {
-        cleanedForm.pain_points = personaForm.pain_points;
+      if (personaForm.best_posting_times?.trim()) cleanedForm.best_posting_times = personaForm.best_posting_times.trim();
+
+      // Legacy - still save pain_points JSONB if we have primary_pain_points
+      if (primaryPainPoints.length > 0) {
+        cleanedForm.pain_points = primaryPainPoints.map(pp => ({ point: pp, intensity: "medium" }));
       }
 
       const res = await fetch(url, {
@@ -648,42 +750,56 @@ export default function AudiencePage() {
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
-                {personas.map((persona) => (
-                  <div
-                    key={persona.id}
-                    style={{ ...cardStyle, cursor: "pointer" }}
-                    onClick={() => openPersonaModal(persona)}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                      <div style={{ fontSize: "15px", fontWeight: 600, color: colors.text }}>{persona.name}</div>
-                      {persona.times_used != null && persona.times_used > 0 && (
-                        <span style={{ fontSize: "11px", color: colors.textMuted }}>Used {persona.times_used}x</span>
-                      )}
-                    </div>
-                    {persona.description && (
-                      <div style={{ fontSize: "12px", color: colors.textMuted, marginBottom: "12px" }}>
-                        {persona.description.slice(0, 100)}{persona.description.length > 100 ? "..." : ""}
+                {personas.map((persona) => {
+                  const painPointCount = persona.primary_pain_points?.length || persona.pain_points?.length || 0;
+                  const displayTone = persona.tone_preference || persona.tone;
+                  return (
+                    <div
+                      key={persona.id}
+                      style={{ ...cardStyle, cursor: "pointer" }}
+                      onClick={() => openPersonaModal(persona)}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div style={{ fontSize: "15px", fontWeight: 600, color: colors.text }}>{persona.name}</div>
+                        {persona.times_used != null && persona.times_used > 0 && (
+                          <span style={{ fontSize: "11px", color: colors.textMuted }}>Used {persona.times_used}x</span>
+                        )}
                       </div>
-                    )}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                      {persona.lifestyle && (
-                        <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", borderRadius: "4px" }}>
-                          {persona.lifestyle}
-                        </span>
+                      {persona.description && (
+                        <div style={{ fontSize: "12px", color: colors.textMuted, marginBottom: "12px" }}>
+                          {persona.description.slice(0, 100)}{persona.description.length > 100 ? "..." : ""}
+                        </div>
                       )}
-                      {persona.tone && (
-                        <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderRadius: "4px" }}>
-                          {persona.tone}
-                        </span>
-                      )}
-                      {persona.pain_points && persona.pain_points.length > 0 && (
-                        <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderRadius: "4px" }}>
-                          {persona.pain_points.length} pain points
-                        </span>
-                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {persona.life_stage && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(139, 92, 246, 0.1)", color: "#8b5cf6", borderRadius: "4px" }}>
+                            {persona.life_stage}
+                          </span>
+                        )}
+                        {persona.income_level && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderRadius: "4px" }}>
+                            {persona.income_level}
+                          </span>
+                        )}
+                        {displayTone && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", borderRadius: "4px" }}>
+                            {displayTone}
+                          </span>
+                        )}
+                        {painPointCount > 0 && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderRadius: "4px" }}>
+                            {painPointCount} pain points
+                          </span>
+                        )}
+                        {persona.values && persona.values.length > 0 && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(236, 72, 153, 0.1)", color: "#ec4899", borderRadius: "4px" }}>
+                            {persona.values.length} values
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1009,210 +1125,501 @@ export default function AudiencePage() {
               </div>
 
               {/* Modal Body */}
-              <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-                {/* Name */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    PERSONA NAME *
-                  </label>
-                  <input
-                    value={personaForm.name || ""}
-                    onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
-                    placeholder="e.g., Stressed Mom, Skeptical Buyer"
-                    style={inputStyle}
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    DESCRIPTION
-                  </label>
-                  <textarea
-                    value={personaForm.description || ""}
-                    onChange={(e) => setPersonaForm({ ...personaForm, description: e.target.value })}
-                    placeholder="Who is this person? What's their life like?"
-                    rows={2}
-                    style={{ ...inputStyle, resize: "vertical" }}
-                  />
-                </div>
-
-                {/* Demographics Row */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>AGE RANGE</label>
-                    <input
-                      value={personaForm.age_range || ""}
-                      onChange={(e) => setPersonaForm({ ...personaForm, age_range: e.target.value })}
-                      placeholder="25-34"
-                      style={inputStyle}
-                    />
+              <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
+                {/* ===== CORE IDENTITY ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: colors.accent, marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Core Identity
                   </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>GENDER</label>
-                    <input
-                      value={personaForm.gender || ""}
-                      onChange={(e) => setPersonaForm({ ...personaForm, gender: e.target.value })}
-                      placeholder="Female, Male, Any"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFESTYLE</label>
-                    <input
-                      value={personaForm.lifestyle || ""}
-                      onChange={(e) => setPersonaForm({ ...personaForm, lifestyle: e.target.value })}
-                      placeholder="busy professional"
-                      style={inputStyle}
-                    />
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        PERSONA NAME *
+                      </label>
+                      <input
+                        value={personaForm.name || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
+                        placeholder="e.g., Stressed Mom, Skeptical Buyer"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        DESCRIPTION
+                      </label>
+                      <textarea
+                        value={personaForm.description || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, description: e.target.value })}
+                        placeholder="Who is this person? What's their life like? What do they struggle with?"
+                        rows={2}
+                        style={{ ...inputStyle, resize: "vertical" }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Tone and Humor */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>TONE</label>
-                    <select
-                      value={personaForm.tone || ""}
-                      onChange={(e) => setPersonaForm({ ...personaForm, tone: e.target.value })}
-                      style={inputStyle}
-                    >
-                      <option value="">Select tone...</option>
-                      {TONE_OPTIONS.map((t) => (
-                        <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                      ))}
-                    </select>
+                {/* ===== DEMOGRAPHICS ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: "#3b82f6", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Demographics
                   </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>HUMOR STYLE</label>
-                    <select
-                      value={personaForm.humor_style || ""}
-                      onChange={(e) => setPersonaForm({ ...personaForm, humor_style: e.target.value })}
-                      style={inputStyle}
-                    >
-                      <option value="">Select humor...</option>
-                      {HUMOR_OPTIONS.map((h) => (
-                        <option key={h} value={h}>{h.charAt(0).toUpperCase() + h.slice(1)}</option>
-                      ))}
-                    </select>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>AGE RANGE</label>
+                      <input
+                        value={personaForm.age_range || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, age_range: e.target.value })}
+                        placeholder="25-34"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>GENDER</label>
+                      <input
+                        value={personaForm.gender || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, gender: e.target.value })}
+                        placeholder="Female, Male, Any"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>INCOME LEVEL</label>
+                      <select
+                        value={personaForm.income_level || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, income_level: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Select...</option>
+                        {INCOME_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LOCATION TYPE</label>
+                      <select
+                        value={personaForm.location_type || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, location_type: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Select...</option>
+                        {LOCATION_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFE STAGE</label>
+                      <select
+                        value={personaForm.life_stage || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, life_stage: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Select...</option>
+                        {LIFE_STAGE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFESTYLE</label>
+                      <input
+                        value={personaForm.lifestyle || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, lifestyle: e.target.value })}
+                        placeholder="busy professional"
+                        style={inputStyle}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Phrases They Use */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    PHRASES THEY USE (one per line)
-                  </label>
-                  <textarea
-                    value={(personaForm.phrases_they_use || []).join("\n")}
-                    onChange={(e) => setPersonaForm({ ...personaForm, phrases_they_use: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="I'm so tired&#10;There's never enough time&#10;I've tried everything"
-                    rows={3}
-                    style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
-                  />
+                {/* ===== PSYCHOGRAPHICS ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: "#ec4899", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Psychographics
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>VALUES</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {VALUES_OPTIONS.map((val) => {
+                          const selected = (personaForm.values || []).includes(val);
+                          return (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.values || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  values: selected ? current.filter((v) => v !== val) : [...current, val],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#8b5cf6" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(139, 92, 246, 0.15)" : "transparent",
+                                color: selected ? "#a78bfa" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {val}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>INTERESTS</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {INTERESTS_OPTIONS.map((interest) => {
+                          const selected = (personaForm.interests || []).includes(interest);
+                          return (
+                            <button
+                              key={interest}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.interests || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  interests: selected ? current.filter((i) => i !== interest) : [...current, interest],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#06b6d4" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(6, 182, 212, 0.15)" : "transparent",
+                                color: selected ? "#22d3ee" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {interest}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>PERSONALITY TRAITS</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {PERSONALITY_OPTIONS.map((trait) => {
+                          const selected = (personaForm.personality_traits || []).includes(trait);
+                          return (
+                            <button
+                              key={trait}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.personality_traits || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  personality_traits: selected ? current.filter((t) => t !== trait) : [...current, trait],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#ec4899" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(236, 72, 153, 0.15)" : "transparent",
+                                color: selected ? "#f472b6" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {trait}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Phrases to Avoid */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    PHRASES TO AVOID (one per line)
-                  </label>
-                  <textarea
-                    value={(personaForm.phrases_to_avoid || []).join("\n")}
-                    onChange={(e) => setPersonaForm({ ...personaForm, phrases_to_avoid: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="synergy&#10;optimize&#10;leverage"
-                    rows={2}
-                    style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
-                  />
-                </div>
-
-                {/* Common Objections */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    COMMON OBJECTIONS (one per line)
-                  </label>
-                  <textarea
-                    value={(personaForm.common_objections || []).join("\n")}
-                    onChange={(e) => setPersonaForm({ ...personaForm, common_objections: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="It's too expensive&#10;I've been burned before&#10;Does this actually work?"
-                    rows={2}
-                    style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
-                  />
-                </div>
-
-                {/* Content They Engage With */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    CONTENT THEY ENGAGE WITH
-                  </label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {CONTENT_OPTIONS.map((content) => {
-                      const selected = (personaForm.content_they_engage_with || []).includes(content);
-                      return (
-                        <button
-                          key={content}
-                          type="button"
-                          onClick={() => {
-                            const current = personaForm.content_they_engage_with || [];
-                            setPersonaForm({
-                              ...personaForm,
-                              content_they_engage_with: selected
-                                ? current.filter((c) => c !== content)
-                                : [...current, content],
-                            });
-                          }}
-                          style={{
-                            padding: "4px 10px",
-                            fontSize: "11px",
-                            border: `1px solid ${selected ? colors.accent : colors.border}`,
-                            borderRadius: "4px",
-                            backgroundColor: selected ? colors.accent : "transparent",
-                            color: selected ? "#fff" : colors.text,
-                            cursor: "pointer",
-                          }}
+                {/* ===== COMMUNICATION STYLE ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: "#10b981", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Communication Style
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>TONE PREFERENCE</label>
+                        <select
+                          value={personaForm.tone_preference || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, tone_preference: e.target.value })}
+                          style={inputStyle}
                         >
-                          {content}
-                        </button>
-                      );
-                    })}
+                          <option value="">Select tone...</option>
+                          {TONE_OPTIONS.map((t) => (
+                            <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>HUMOR STYLE</label>
+                        <select
+                          value={personaForm.humor_style || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, humor_style: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select humor...</option>
+                          {HUMOR_OPTIONS.map((h) => (
+                            <option key={h} value={h}>{h.charAt(0).toUpperCase() + h.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>ATTENTION SPAN</label>
+                        <select
+                          value={personaForm.attention_span || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, attention_span: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select...</option>
+                          {ATTENTION_SPAN_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>WHAT BUILDS TRUST</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {TRUST_BUILDERS_OPTIONS.map((tb) => {
+                          const selected = (personaForm.trust_builders || []).includes(tb);
+                          return (
+                            <button
+                              key={tb}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.trust_builders || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  trust_builders: selected ? current.filter((t) => t !== tb) : [...current, tb],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#10b981" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(16, 185, 129, 0.15)" : "transparent",
+                                color: selected ? "#34d399" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {tb}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        PHRASES THEY USE (one per line)
+                      </label>
+                      <textarea
+                        value={(personaForm.phrases_they_use || []).join("\n")}
+                        onChange={(e) => setPersonaForm({ ...personaForm, phrases_they_use: e.target.value.split("\n").filter(Boolean) })}
+                        placeholder="I'm so tired&#10;There's never enough time&#10;I've tried everything"
+                        rows={2}
+                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        PHRASES TO AVOID (one per line)
+                      </label>
+                      <textarea
+                        value={(personaForm.phrases_to_avoid || []).join("\n")}
+                        onChange={(e) => setPersonaForm({ ...personaForm, phrases_to_avoid: e.target.value.split("\n").filter(Boolean) })}
+                        placeholder="synergy&#10;optimize&#10;leverage"
+                        rows={2}
+                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Platforms */}
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                    PLATFORMS
-                  </label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {PLATFORM_OPTIONS.map((platform) => {
-                      const selected = (personaForm.platforms || []).includes(platform);
-                      return (
-                        <button
-                          key={platform}
-                          type="button"
-                          onClick={() => {
-                            const current = personaForm.platforms || [];
-                            setPersonaForm({
-                              ...personaForm,
-                              platforms: selected
-                                ? current.filter((p) => p !== platform)
-                                : [...current, platform],
-                            });
-                          }}
-                          style={{
-                            padding: "4px 10px",
-                            fontSize: "11px",
-                            border: `1px solid ${selected ? colors.accent : colors.border}`,
-                            borderRadius: "4px",
-                            backgroundColor: selected ? colors.accent : "transparent",
-                            color: selected ? "#fff" : colors.text,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {platform}
-                        </button>
-                      );
-                    })}
+                {/* ===== PAIN POINTS & MOTIVATIONS ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: "#f59e0b", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Pain Points & Motivations
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        PRIMARY PAIN POINTS (one per line)
+                      </label>
+                      <textarea
+                        value={(personaForm.primary_pain_points || []).join("\n")}
+                        onChange={(e) => setPersonaForm({ ...personaForm, primary_pain_points: e.target.value.split("\n").filter(Boolean) })}
+                        placeholder="Never enough time in the day&#10;Constant mental load&#10;Can't turn off mom brain at night"
+                        rows={3}
+                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>EMOTIONAL TRIGGERS</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {EMOTIONAL_TRIGGERS_OPTIONS.map((trigger) => {
+                          const selected = (personaForm.emotional_triggers || []).includes(trigger);
+                          return (
+                            <button
+                              key={trigger}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.emotional_triggers || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  emotional_triggers: selected ? current.filter((t) => t !== trigger) : [...current, trigger],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#f59e0b" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(245, 158, 11, 0.15)" : "transparent",
+                                color: selected ? "#fbbf24" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {trigger}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        BUYING OBJECTIONS (one per line)
+                      </label>
+                      <textarea
+                        value={(personaForm.buying_objections || []).join("\n")}
+                        onChange={(e) => setPersonaForm({ ...personaForm, buying_objections: e.target.value.split("\n").filter(Boolean) })}
+                        placeholder="It's too expensive&#10;I've been burned before&#10;Does this actually work?"
+                        rows={2}
+                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>PURCHASE MOTIVATORS</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {PURCHASE_MOTIVATORS_OPTIONS.map((mot) => {
+                          const selected = (personaForm.purchase_motivators || []).includes(mot);
+                          return (
+                            <button
+                              key={mot}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.purchase_motivators || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  purchase_motivators: selected ? current.filter((m) => m !== mot) : [...current, mot],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#10b981" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(16, 185, 129, 0.15)" : "transparent",
+                                color: selected ? "#34d399" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {mot}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ===== CONTENT PREFERENCES ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: "#06b6d4", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Content Preferences
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>PLATFORMS</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {PLATFORM_OPTIONS.map((platform) => {
+                          const selected = (personaForm.platforms || []).includes(platform);
+                          return (
+                            <button
+                              key={platform}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.platforms || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  platforms: selected ? current.filter((p) => p !== platform) : [...current, platform],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? colors.accent : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? colors.accent : "transparent",
+                                color: selected ? "#fff" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {platform}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>CONTENT TYPES THEY ENGAGE WITH</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {CONTENT_OPTIONS.map((content) => {
+                          const selected = (personaForm.content_types_preferred || []).includes(content);
+                          return (
+                            <button
+                              key={content}
+                              type="button"
+                              onClick={() => {
+                                const current = personaForm.content_types_preferred || [];
+                                setPersonaForm({
+                                  ...personaForm,
+                                  content_types_preferred: selected ? current.filter((c) => c !== content) : [...current, content],
+                                });
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "11px",
+                                border: `1px solid ${selected ? "#06b6d4" : colors.border}`,
+                                borderRadius: "4px",
+                                backgroundColor: selected ? "rgba(6, 182, 212, 0.15)" : "transparent",
+                                color: selected ? "#22d3ee" : colors.text,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {content}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>BEST POSTING TIMES</label>
+                      <input
+                        value={personaForm.best_posting_times || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, best_posting_times: e.target.value })}
+                        placeholder="e.g., Early morning (6-8am), Late evening after kids sleep"
+                        style={inputStyle}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

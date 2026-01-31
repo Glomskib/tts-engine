@@ -152,8 +152,8 @@ export default function AudiencePage() {
       if (data.ok) {
         setPersonas(data.data || []);
       } else {
-        console.error("[Audience] Failed to fetch personas:", data.error);
-        setMessage({ type: "error", text: data.error || "Failed to fetch personas" });
+        console.error("[Audience] Failed to fetch personas:", data.message || data.error);
+        setMessage({ type: "error", text: data.message || data.error || "Failed to fetch personas" });
       }
     } catch (err) {
       console.error("[Audience] Failed to fetch personas:", err);
@@ -278,7 +278,7 @@ export default function AudiencePage() {
       }
 
       if (!data.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to save" });
+        setMessage({ type: "error", text: data.message || data.error || "Failed to save" });
         return;
       }
 
@@ -372,7 +372,7 @@ export default function AudiencePage() {
       console.log("[Audience] Save pain point response:", data);
 
       if (!data.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to save" });
+        setMessage({ type: "error", text: data.message || data.error || "Failed to save" });
         return;
       }
 

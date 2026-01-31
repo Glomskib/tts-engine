@@ -87,8 +87,8 @@ export default function ApiErrorPanel({
     <div
       className={`rounded border p-4 ${className}`}
       style={{
-        backgroundColor: '#FEF2F2',
-        borderColor: '#FECACA',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderColor: 'rgba(239, 68, 68, 0.2)',
       }}
     >
       {/* Header with dismiss button */}
@@ -98,8 +98,8 @@ export default function ApiErrorPanel({
           <span
             className="inline-block px-2 py-0.5 text-xs font-medium rounded mb-2"
             style={{
-              backgroundColor: '#FEE2E2',
-              color: '#991B1B',
+              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+              color: '#f87171',
             }}
           >
             {errorLabel}
@@ -108,7 +108,7 @@ export default function ApiErrorPanel({
           {/* Main message */}
           <p
             className="text-sm font-medium"
-            style={{ color: '#991B1B' }}
+            style={{ color: '#fca5a5' }}
           >
             {error.message}
           </p>
@@ -117,7 +117,7 @@ export default function ApiErrorPanel({
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="text-zinc-500 hover:text-zinc-300 p-1"
             aria-label="Dismiss error"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,14 +129,14 @@ export default function ApiErrorPanel({
 
       {/* Correlation ID row */}
       <div className="mt-3 flex items-center gap-2">
-        <span className="text-xs" style={{ color: '#6B7280' }}>
+        <span className="text-xs" style={{ color: '#71717a' }}>
           ID:
         </span>
         <code
           className="text-xs px-1.5 py-0.5 rounded font-mono"
           style={{
-            backgroundColor: '#FEE2E2',
-            color: '#7F1D1D',
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            color: '#fca5a5',
           }}
         >
           {error.correlation_id}
@@ -145,9 +145,9 @@ export default function ApiErrorPanel({
           onClick={handleCopyCorrelationId}
           className="text-xs px-2 py-0.5 rounded border transition-colors"
           style={{
-            backgroundColor: copied ? '#D1FAE5' : '#FFFFFF',
-            borderColor: copied ? '#10B981' : '#D1D5DB',
-            color: copied ? '#065F46' : '#374151',
+            backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            borderColor: copied ? '#10B981' : 'rgba(255, 255, 255, 0.1)',
+            color: copied ? '#34d399' : '#a1a1aa',
           }}
         >
           {copied ? 'Copied' : 'Copy'}
@@ -157,7 +157,7 @@ export default function ApiErrorPanel({
       {/* HTTP status (subtle) */}
       {error.httpStatus > 0 && (
         <div className="mt-1">
-          <span className="text-xs" style={{ color: '#9CA3AF' }}>
+          <span className="text-xs" style={{ color: '#52525b' }}>
             HTTP {error.httpStatus}
           </span>
         </div>
@@ -165,11 +165,11 @@ export default function ApiErrorPanel({
 
       {/* Debug details accordion */}
       {debugMode && error.details && Object.keys(error.details).length > 0 && (
-        <div className="mt-3 border-t pt-3" style={{ borderColor: '#FECACA' }}>
+        <div className="mt-3 border-t pt-3" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
             className="flex items-center gap-1 text-xs"
-            style={{ color: '#6B7280' }}
+            style={{ color: '#71717a' }}
           >
             <svg
               className={`w-3 h-3 transition-transform ${detailsOpen ? 'rotate-90' : ''}`}
@@ -186,8 +186,8 @@ export default function ApiErrorPanel({
             <pre
               className="mt-2 p-2 rounded text-xs overflow-auto max-h-40"
               style={{
-                backgroundColor: '#FEE2E2',
-                color: '#7F1D1D',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                color: '#fca5a5',
               }}
             >
               {JSON.stringify(error.details, null, 2)}
@@ -223,14 +223,14 @@ export function ApiErrorInline({
 
   return (
     <div className={`flex items-center gap-2 text-sm ${className}`}>
-      <span style={{ color: '#DC2626' }}>{error.message}</span>
+      <span style={{ color: '#f87171' }}>{error.message}</span>
       <button
         onClick={handleCopy}
         className="text-xs px-1.5 py-0.5 rounded border"
         style={{
-          backgroundColor: copied ? '#D1FAE5' : '#F3F4F6',
-          borderColor: '#D1D5DB',
-          color: copied ? '#065F46' : '#6B7280',
+          backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+          borderColor: copied ? '#10B981' : 'rgba(255, 255, 255, 0.1)',
+          color: copied ? '#34d399' : '#71717a',
         }}
         title={`Copy ID: ${error.correlation_id}`}
       >

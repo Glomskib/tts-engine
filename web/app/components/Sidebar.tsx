@@ -107,6 +107,7 @@ export default function Sidebar({ role, unreadNotifications = 0, isOpen, onClose
           { label: 'Skit Generator', href: '/admin/skit-generator' },
           { label: 'Templates', href: '/admin/templates' },
           { label: 'Saved Skits', href: '/admin/skit-library' },
+          { label: 'Collections', href: '/admin/collections' },
           { label: 'Winners Bank', href: '/admin/winners' },
         ],
       });

@@ -116,6 +116,7 @@ export default function Sidebar({ role, unreadNotifications = 0, isOpen, onClose
       sections.push({
         title: 'Insights',
         items: [
+          { label: 'Usage Analytics', href: '/admin/usage' },
           { label: 'Performance', href: '/admin/analytics' },
           { label: 'Activity Log', href: '/admin/events' },
         ],

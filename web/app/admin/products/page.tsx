@@ -295,11 +295,11 @@ export default function ProductsPage() {
       {/* Filters */}
       <div className="flex gap-3 flex-wrap items-center">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-600">Brand:</label>
+          <label className="text-sm font-medium text-zinc-400">Brand:</label>
           <select
             value={brandFilter}
             onChange={(e) => setBrandFilter(e.target.value)}
-            className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+            className="px-3 py-1.5 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <option value="">All Brands</option>
             {uniqueBrands.map(b => (
@@ -309,11 +309,11 @@ export default function ProductsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-600">Category:</label>
+          <label className="text-sm font-medium text-zinc-400">Category:</label>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+            className="px-3 py-1.5 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <option value="">All Categories</option>
             {uniqueCategories.map(c => (
@@ -331,7 +331,7 @@ export default function ProductsPage() {
           </button>
         )}
 
-        <div className="ml-auto text-sm text-slate-500">
+        <div className="ml-auto text-sm text-zinc-400">
           {filteredProducts.length} of {productStats.length} products
         </div>
       </div>
@@ -344,7 +344,7 @@ export default function ProductsPage() {
 
       <AdminCard noPadding>
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading product statistics...</div>
+          <div className="p-8 text-center text-zinc-400">Loading product statistics...</div>
         ) : filteredProducts.length === 0 ? (
           <EmptyState
             title={productStats.length === 0 ? "No products yet" : "No matches"}
@@ -357,27 +357,27 @@ export default function ProductsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Product</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Brand</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Category</th>
-                  <th className="px-4 py-3 text-center font-medium text-slate-600">This Month</th>
-                  <th className="px-4 py-3 text-center font-medium text-slate-600">In Queue</th>
-                  <th className="px-4 py-3 text-center font-medium text-slate-600">Posted</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Target Accounts</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
+                <tr className="bg-zinc-800/50 border-b border-white/10">
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Product</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Brand</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Category</th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400">This Month</th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400">In Queue</th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400">Posted</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Target Accounts</th>
+                  <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.map((product) => {
                   const duplicateWarning = getDuplicateWarning(product);
                   return (
-                    <tr key={product.id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <tr key={product.id} className="border-b border-white/5 hover:bg-zinc-800/50">
                       <td className="px-4 py-3">
                         <div>
-                          <span className="font-medium text-slate-800">{product.name}</span>
+                          <span className="font-medium text-zinc-100">{product.name}</span>
                           {product.product_display_name && (
-                            <div className="text-xs text-slate-500 mt-0.5">
+                            <div className="text-xs text-zinc-400 mt-0.5">
                               Display: {product.product_display_name}
                             </div>
                           )}
@@ -389,21 +389,21 @@ export default function ProductsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-medium">
+                        <span className="px-2 py-0.5 bg-zinc-700/50 text-zinc-300 rounded text-xs font-medium">
                           {product.brand}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-3 text-zinc-400">
                         {product.category}
                       </td>
-                      <td className="px-4 py-3 text-center text-slate-700">
+                      <td className="px-4 py-3 text-center text-zinc-300">
                         {product.videos_this_month}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           product.in_queue > 0
                             ? 'bg-amber-100 text-amber-700'
-                            : 'bg-slate-100 text-slate-500'
+                            : 'bg-zinc-700/50 text-zinc-400'
                         }`}>
                           {product.in_queue}
                         </span>
@@ -412,7 +412,7 @@ export default function ProductsPage() {
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           product.posted > 0
                             ? 'bg-green-100 text-green-700'
-                            : 'bg-slate-100 text-slate-500'
+                            : 'bg-zinc-700/50 text-zinc-400'
                         }`}>
                           {product.posted}
                         </span>
@@ -421,18 +421,18 @@ export default function ProductsPage() {
                         {product.target_accounts.length > 0 ? (
                           <div className="flex gap-1 flex-wrap">
                             {product.target_accounts.slice(0, 3).map((account, idx) => (
-                              <span key={idx} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs text-slate-600">
+                              <span key={idx} className="px-1.5 py-0.5 bg-zinc-700/50 rounded text-xs text-zinc-400">
                                 {account}
                               </span>
                             ))}
                             {product.target_accounts.length > 3 && (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-zinc-500">
                                 +{product.target_accounts.length - 3}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-xs">None</span>
+                          <span className="text-zinc-500 text-xs">None</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -440,7 +440,7 @@ export default function ProductsPage() {
                           {isAdmin && (
                             <button
                               onClick={() => handleEdit(product)}
-                              className="text-xs text-slate-600 hover:text-slate-800 hover:underline"
+                              className="text-xs text-zinc-400 hover:text-zinc-100 hover:underline"
                             >
                               Edit
                             </button>
@@ -462,7 +462,7 @@ export default function ProductsPage() {
         )}
       </AdminCard>
 
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-zinc-400">
         Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
       </div>
 
@@ -476,13 +476,13 @@ export default function ProductsPage() {
           />
 
           {/* Drawer Panel */}
-          <div className="relative w-full max-w-md bg-white shadow-xl flex flex-col">
+          <div className="relative w-full max-w-md bg-zinc-900 shadow-xl flex flex-col border-l border-white/10">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-800">Edit Product</h2>
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-100">Edit Product</h2>
               <button
                 onClick={handleCloseDrawer}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-zinc-400 hover:text-zinc-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -508,7 +508,7 @@ export default function ProductsPage() {
                       className={`p-3 rounded-md text-sm ${
                         warning.severity === 'warn'
                           ? 'bg-amber-50 border border-amber-200 text-amber-800'
-                          : 'bg-slate-50 border border-slate-200 text-slate-700'
+                          : 'bg-zinc-800/50 border border-white/10 text-zinc-300'
                       }`}
                     >
                       <div className="font-medium text-xs uppercase tracking-wide mb-1">
@@ -518,7 +518,7 @@ export default function ProductsPage() {
                       {warning.cta && (
                         <Link
                           href={warning.cta.href || '#'}
-                          className="text-xs text-slate-500 hover:underline mt-1 inline-block"
+                          className="text-xs text-zinc-400 hover:underline mt-1 inline-block"
                         >
                           {warning.cta.label}
                         </Link>
@@ -530,22 +530,22 @@ export default function ProductsPage() {
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Product Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editForm.name || ''}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* Product Display Name */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Display Name
-                  <span className="text-slate-400 font-normal ml-1">(TikTok-safe, max 30 chars)</span>
+                  <span className="text-zinc-500 font-normal ml-1">(TikTok-safe, max 30 chars)</span>
                 </label>
                 <input
                   type="text"
@@ -553,48 +553,48 @@ export default function ProductsPage() {
                   onChange={(e) => setEditForm({ ...editForm, product_display_name: e.target.value })}
                   maxLength={30}
                   placeholder="Short name for TikTok"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-zinc-400 mt-1">
                   {(editForm.product_display_name || '').length}/30 characters
                 </p>
               </div>
 
               {/* Brand */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Brand <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editForm.brand || ''}
                   onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Category <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editForm.category || ''}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* Category Risk */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Category Risk
                 </label>
                 <select
                   value={editForm.category_risk || ''}
                   onChange={(e) => setEditForm({ ...editForm, category_risk: (e.target.value as 'low' | 'medium' | 'high') || null })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 >
                   <option value="">Not set</option>
                   <option value="low">Low</option>
@@ -605,7 +605,7 @@ export default function ProductsPage() {
 
               {/* Primary Link */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Primary Link
                 </label>
                 <input
@@ -613,13 +613,13 @@ export default function ProductsPage() {
                   value={editForm.primary_link || ''}
                   onChange={(e) => setEditForm({ ...editForm, primary_link: e.target.value })}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* TikTok Showcase URL */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   TikTok Showcase URL
                 </label>
                 <input
@@ -627,13 +627,13 @@ export default function ProductsPage() {
                   value={editForm.tiktok_showcase_url || ''}
                   onChange={(e) => setEditForm({ ...editForm, tiktok_showcase_url: e.target.value })}
                   placeholder="https://www.tiktok.com/..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* Slug */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Slug
                 </label>
                 <input
@@ -641,13 +641,13 @@ export default function ProductsPage() {
                   value={editForm.slug || ''}
                   onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
                   placeholder="product-slug"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Notes
                 </label>
                 <textarea
@@ -655,15 +655,15 @@ export default function ProductsPage() {
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                   rows={4}
                   placeholder="Product-specific notes, talking points, compliance warnings..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
 
               {/* Audit Trail Link */}
-              <div className="pt-2 border-t border-slate-100">
+              <div className="pt-2 border-t border-white/5">
                 <Link
                   href={`/admin/audit-log?entity_type=product&entity_id=${editingProduct.id}`}
-                  className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+                  className="text-xs text-zinc-400 hover:text-zinc-300 hover:underline"
                 >
                   View audit trail
                 </Link>
@@ -671,7 +671,7 @@ export default function ProductsPage() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
               <AdminButton variant="secondary" onClick={handleCloseDrawer}>
                 Cancel
               </AdminButton>

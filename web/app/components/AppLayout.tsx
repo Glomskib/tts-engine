@@ -2,6 +2,7 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import Sidebar from './Sidebar';
+import OnboardingModal, { useOnboarding } from '@/components/OnboardingModal';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -18,6 +19,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const { shouldShow: showOnboarding, markComplete: completeOnboarding } = useOnboarding();
 
   // Handle responsive behavior
   useEffect(() => {
@@ -107,6 +109,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       >
         {children}
       </main>
+
+      {/* Onboarding modal for new users */}
+      {showOnboarding && (
+        <OnboardingModal onComplete={completeOnboarding} />
+      )}
     </div>
   );
 }

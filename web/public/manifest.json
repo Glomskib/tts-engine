@@ -1,0 +1,43 @@
+{
+  "name": "FlashFlow AI",
+  "short_name": "FlashFlow",
+  "description": "AI-powered script generation for viral content",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/FFAI.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/FFAI.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Generate Script",
+      "short_name": "Generate",
+      "description": "Create a new AI script",
+      "url": "/admin/skit-generator",
+      "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Scripts",
+      "short_name": "Library",
+      "description": "View saved scripts",
+      "url": "/admin/skit-library",
+      "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
+    }
+  ]
+}

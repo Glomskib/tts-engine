@@ -102,9 +102,11 @@ export default function Sidebar({ role, unreadNotifications = 0, isOpen, onClose
         items: [
           { label: 'Brands', href: '/admin/brands' },
           { label: 'Products', href: '/admin/products' },
+          { label: 'Audience', href: '/admin/audience' },
           { label: 'Script Library', href: '/admin/scripts' },
           { label: 'Skit Generator', href: '/admin/skit-generator' },
-          { label: 'Winning Examples', href: '/admin/winners' },
+          { label: 'Saved Skits', href: '/admin/skit-library' },
+          { label: 'Winners Bank', href: '/admin/winners' },
         ],
       });
 

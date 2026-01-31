@@ -438,7 +438,7 @@ export default function AudiencePage() {
         setExtractResult(data.data.extraction);
         setMessage({ type: "success", text: `Extracted ${data.data.extraction.pain_points?.length || 0} pain points from ~${data.data.extraction.review_count_detected || 0} reviews` });
       } else {
-        setMessage({ type: "error", text: data.error || "Extraction failed" });
+        setMessage({ type: "error", text: data.message || data.error || "Extraction failed" });
       }
     } catch (err) {
       console.error("[Audience] Extract error:", err);

@@ -144,10 +144,19 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[${correlationId}] Anthropic API error:`, errorText);
+      console.error(`[${correlationId}] Anthropic API error:`, response.status, errorText);
+      let errorMessage = `AI API error: ${response.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        }
+      } catch {
+        // Use default error message
+      }
       return NextResponse.json({
         ok: false,
-        error: `AI API error: ${response.status}`,
+        message: errorMessage,
         correlation_id: correlationId,
       }, { status: 500 });
     }
@@ -202,7 +211,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
       correlation_id: correlationId,
     });
   } catch (error) {
-    console.error(`[${correlationId}] Extract reviews error:`, error);
-    return createApiErrorResponse("INTERNAL", "Extraction failed", 500, correlationId);
+    const err = error as Error;
+    console.error(`[${correlationId}] Extract reviews error:`, err.message, err.stack);
+    return createApiErrorResponse(
+      "INTERNAL",
+      `Extraction failed: ${err.message || "Unknown error"}`,
+      500,
+      correlationId
+    );
   }
 }

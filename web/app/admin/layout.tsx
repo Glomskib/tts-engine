@@ -149,11 +149,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <nav className="flex-1 overflow-y-auto py-4">
       {navSections.map((section, idx) => (
-        <div key={idx} className="mb-6">
-          <h3 className={`px-4 mb-2 font-semibold text-zinc-500 uppercase tracking-wider ${isMobile ? 'text-sm' : 'text-xs'}`}>
+        <div key={idx} className="mb-8">
+          {/* Section headers - bigger on mobile */}
+          <h3 className={`px-4 mb-3 font-semibold text-zinc-500 uppercase tracking-wider ${isMobile ? 'text-sm' : 'text-xs'}`}>
             {section.title}
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {section.items.map((item) => {
               const active = isNavItemActive(pathname, item.href);
               const Icon = item.icon;
@@ -163,18 +164,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   href={item.href}
                   onClick={onItemClick}
                   className={`
-                    flex items-center gap-3 mx-2 rounded-xl transition-colors
-                    ${isMobile ? 'px-4 py-4 text-lg' : 'px-3 py-2.5 text-sm'}
+                    flex items-center gap-4 mx-2 rounded-xl transition-colors
+                    ${isMobile
+                      ? 'px-4 py-4 text-[17px] min-h-[52px]'  /* 52px touch target, 17px text */
+                      : 'px-3 py-2.5 text-sm'}
                     ${active
                       ? 'bg-teal-500/20 text-teal-400'
                       : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
                     }
                   `}
                 >
-                  <Icon className={`flex-shrink-0 ${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                  <Icon className={`flex-shrink-0 ${isMobile ? 'w-7 h-7' : 'w-5 h-5'}`} />
                   <span className="font-medium">{item.name}</span>
                   {item.href === '/admin/notifications' && unreadCount > 0 && (
-                    <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
+                    <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
                       {unreadCount}
                     </span>
                   )}
@@ -191,14 +194,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           href="/admin/notifications"
           onClick={onItemClick}
           className={`
-            flex items-center gap-3 px-4 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors
-            ${isMobile ? 'py-4 text-lg' : 'py-2.5 text-sm'}
+            flex items-center gap-4 px-4 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors
+            ${isMobile ? 'py-4 text-[17px] min-h-[52px]' : 'py-2.5 text-sm'}
           `}
         >
-          <Bell className={`flex-shrink-0 ${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
+          <Bell className={`flex-shrink-0 ${isMobile ? 'w-7 h-7' : 'w-5 h-5'}`} />
           <span className="font-medium">Notifications</span>
           {unreadCount > 0 && (
-            <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
+            <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
               {unreadCount}
             </span>
           )}
@@ -215,28 +218,28 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           ============================================================ */}
       {isMobile && (
         <>
-          {/* Mobile Header */}
+          {/* Mobile Header - Larger touch targets */}
           <header className="sticky top-0 z-40 bg-zinc-950 border-b border-zinc-800">
-            <div className="flex items-center justify-between px-4 h-16">
-              {/* Menu button */}
+            <div className="flex items-center justify-between px-4 h-[60px]">
+              {/* Menu button - 48px minimum touch target */}
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-3 -ml-2 text-white hover:bg-zinc-800 rounded-xl"
+                className="p-3 -ml-2 text-white hover:bg-zinc-800 rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
                 aria-label="Open menu"
               >
-                <Menu className="w-7 h-7" />
+                <Menu className="w-8 h-8" />
               </button>
 
               {/* Logo */}
               <Link href="/admin" className="flex items-center gap-2">
-                <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg" />
-                <span className="font-bold text-lg">{BRAND.name}</span>
+                <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
+                <span className="font-bold text-xl">{BRAND.name}</span>
               </Link>
 
-              {/* User avatar */}
+              {/* User avatar - larger tap target */}
               <button
                 onClick={() => setUserMenuOpen(true)}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg"
+                className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-xl"
               >
                 {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
               </button>
@@ -252,41 +255,41 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 onClick={() => setSidebarOpen(false)}
               />
 
-              {/* Sidebar Panel */}
-              <aside className="absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-zinc-950 border-r border-zinc-800 flex flex-col">
+              {/* Sidebar Panel - Wider on mobile for easier reading */}
+              <aside className="absolute inset-y-0 left-0 w-[320px] max-w-[90vw] bg-zinc-950 border-r border-zinc-800 flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                <div className="flex items-center justify-between p-5 border-b border-zinc-800">
                   <div className="flex items-center gap-3">
-                    <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
-                    <span className="font-bold text-xl">{BRAND.name}</span>
+                    <Image src={BRAND.logo} alt={BRAND.name} width={40} height={40} className="rounded-lg" />
+                    <span className="font-bold text-2xl">{BRAND.name}</span>
                   </div>
                   <button
                     onClick={() => setSidebarOpen(false)}
-                    className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl"
+                    className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-7 h-7" />
                   </button>
                 </div>
 
                 {/* Navigation */}
                 <SidebarContent onItemClick={() => setSidebarOpen(false)} />
 
-                {/* User info */}
-                <div className="p-4 border-t border-zinc-800">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-xl">
+                {/* User info - Larger for mobile */}
+                <div className="p-5 border-t border-zinc-800">
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
                       {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-base font-medium text-white truncate">{auth.userEmail}</p>
-                      <p className="text-sm text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                      <p className="text-[17px] font-medium text-white truncate">{auth.userEmail}</p>
+                      <p className="text-base text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
                     </div>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-lg text-red-400 hover:bg-zinc-800 rounded-xl transition-colors"
+                    className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
                   >
-                    <LogOut className="w-6 h-6" />
+                    <LogOut className="w-7 h-7" />
                     Logout
                   </button>
                 </div>
@@ -294,45 +297,45 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* Mobile User Menu */}
+          {/* Mobile User Menu - Larger touch targets */}
           {userMenuOpen && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/80" onClick={() => setUserMenuOpen(false)} />
-              <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl p-6 pb-10">
-                <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
+              <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl p-6 pb-12 safe-bottom">
+                <div className="w-14 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
 
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-800">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
                     {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div>
-                    <p className="text-lg font-medium text-white">{auth.userEmail}</p>
-                    <p className="text-base text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                    <p className="text-xl font-medium text-white">{auth.userEmail}</p>
+                    <p className="text-[17px] text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Link
                     href="/admin/settings"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-4 px-4 py-4 text-lg text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors"
+                    className="flex items-center gap-4 px-5 py-5 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
                   >
-                    <User className="w-6 h-6" />
+                    <User className="w-7 h-7" />
                     Account Settings
                   </Link>
                   <Link
                     href="/upgrade"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-4 px-4 py-4 text-lg text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors"
+                    className="flex items-center gap-4 px-5 py-5 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
                   >
-                    <Zap className="w-6 h-6" />
+                    <Zap className="w-7 h-7" />
                     Upgrade Plan
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-4 w-full px-4 py-4 text-lg text-red-400 hover:bg-zinc-800 rounded-xl transition-colors"
+                    className="flex items-center gap-4 w-full px-5 py-5 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
                   >
-                    <LogOut className="w-6 h-6" />
+                    <LogOut className="w-7 h-7" />
                     Logout
                   </button>
                 </div>
@@ -340,9 +343,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* Mobile Main Content - FULL WIDTH */}
+          {/* Mobile Main Content - FULL WIDTH with more padding */}
           <main className="min-h-screen">
-            <div className="p-4">
+            <div className="p-5">
               {children}
             </div>
           </main>

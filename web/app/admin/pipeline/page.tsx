@@ -10,6 +10,9 @@ import VideoDrawer from './components/VideoDrawer';
 import CreateVideoDrawer from './components/CreateVideoDrawer';
 import AppLayout from '@/app/components/AppLayout';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { VideoQueueMobile } from '@/components/VideoQueueMobile';
+import { VideoDetailSheet } from '@/components/VideoDetailSheet';
+import { Filter } from 'lucide-react';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
 // import type { BoardFilters } from './types';
@@ -462,6 +465,10 @@ export default function AdminPipelinePage() {
   // Drawer state - which video is open in the details drawer
   const [drawerVideo, setDrawerVideo] = useState<QueueVideo | null>(null);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+
+  // Mobile detail sheet state
+  const [mobileDetailVideo, setMobileDetailVideo] = useState<QueueVideo | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -1787,7 +1794,30 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
-      {/* Quiet, Scannable Table */}
+      {/* Mobile: Card Layout */}
+      <div className="lg:hidden pb-24">
+        <VideoQueueMobile
+          videos={getIntentFilteredVideos().map(v => ({
+            id: v.id,
+            title: v.video_code || v.id.slice(0, 8),
+            thumbnail: undefined,
+            brand: v.brand_name || v.product_name || undefined,
+            workflow: v.recording_status || v.status || 'Unknown',
+            assignedTo: v.claimed_by || undefined,
+            updatedAt: v.last_status_changed_at || v.created_at,
+          }))}
+          onVideoClick={(video) => {
+            const fullVideo = getIntentFilteredVideos().find(v => v.id === video.id);
+            if (fullVideo) {
+              setMobileDetailVideo(fullVideo);
+              setMobileDetailOpen(true);
+            }
+          }}
+        />
+      </div>
+
+      {/* Desktop: Quiet, Scannable Table */}
+      <div className="hidden lg:block">
       {getIntentFilteredVideos().length > 0 ? (
         <table style={tableStyle}>
           <thead>
@@ -1943,7 +1973,31 @@ export default function AdminPipelinePage() {
           {queueLoading ? 'Loading...' : 'No videos match this filter'}
         </div>
       )}
+      </div>
 
+      {/* Mobile Video Detail Sheet */}
+      <VideoDetailSheet
+        video={mobileDetailVideo ? {
+          id: mobileDetailVideo.id,
+          title: mobileDetailVideo.video_code || mobileDetailVideo.id.slice(0, 8),
+          brand: mobileDetailVideo.brand_name || mobileDetailVideo.product_name,
+          workflow: mobileDetailVideo.recording_status || mobileDetailVideo.status || 'Unknown',
+          assignedTo: mobileDetailVideo.claimed_by || undefined,
+          script: mobileDetailVideo.script_locked_text || undefined,
+        } : null}
+        isOpen={mobileDetailOpen}
+        onClose={() => {
+          setMobileDetailOpen(false);
+          setMobileDetailVideo(null);
+        }}
+        onApprove={mobileDetailVideo?.can_move_next ? async () => {
+          if (mobileDetailVideo) {
+            await handlePrimaryActionClick(mobileDetailVideo);
+            setMobileDetailOpen(false);
+            setMobileDetailVideo(null);
+          }
+        } : undefined}
+      />
 
       {/* Attach Script Modal */}
       {attachModalVideoId && (

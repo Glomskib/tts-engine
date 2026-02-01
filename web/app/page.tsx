@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BRAND } from '@/lib/brand';
+import { VideoShowcase } from '@/components/VideoShowcase';
+import { VideoServiceContact } from '@/components/VideoServiceContact';
 
 // ============================================================================
 // FLASHFLOW AI — LANDING PAGE WITH PRICING
@@ -12,6 +14,7 @@ import { BRAND } from '@/lib/brand';
 export default function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -46,6 +49,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <Link href="#features" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Features</Link>
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Pricing</Link>
+            <Link href="#video-services" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Video Services</Link>
             <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Sign In</Link>
             <Link href="/signup" className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors">
               Start Free
@@ -356,21 +360,77 @@ export default function LandingPage() {
 
           {/* Enterprise CTA */}
           <div className="mt-12 p-8 rounded-2xl bg-zinc-900/50 border border-white/5 text-center">
-            <h3 className="text-xl font-semibold mb-2">Video Production Services</h3>
+            <h3 className="text-xl font-semibold mb-2">Need More?</h3>
             <p className="text-zinc-400 mb-6 max-w-2xl mx-auto">
-              Need end-to-end video production? Our managed service handles filming, editing, 
-              performance tracking, and optimization. Custom retainer packages available.
+              Enterprise plans with custom limits, dedicated support, and white-label options available.
             </p>
-            <Link
-              href="/contact"
+            <button
+              onClick={() => setContactOpen(true)}
               className="inline-flex items-center px-6 py-3 rounded-lg border border-white/10 text-zinc-300 font-medium hover:bg-white/5 hover:border-white/20 transition-all"
             >
               Contact Sales
               <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
-            </Link>
+            </button>
           </div>
+        </div>
+      </section>
+
+      {/* Video Production Services Section */}
+      <section id="video-services" className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-violet-950/20 via-zinc-900/50 to-transparent">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs text-violet-400 mb-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+              Done-For-You Service
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+              We handle the production.
+            </h2>
+            <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
+              Don&apos;t have time to create videos yourself? Our team handles filming, editing,
+              and optimization — you just approve and post.
+            </p>
+          </div>
+
+          {/* Service Features */}
+          <div className="grid sm:grid-cols-3 gap-6 mb-16">
+            <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
+              <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Full Production</h3>
+              <p className="text-sm text-zinc-500">Filming, editing, graphics, captions — the complete package.</p>
+            </div>
+            <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
+              <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Performance Tracking</h3>
+              <p className="text-sm text-zinc-500">Analytics dashboard to see what&apos;s working and optimize.</p>
+            </div>
+            <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
+              <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Consistent Output</h3>
+              <p className="text-sm text-zinc-500">10-50+ videos per month, on brand, on schedule.</p>
+            </div>
+          </div>
+
+          {/* Video Showcase */}
+          <VideoShowcase
+            limit={6}
+            showTitle={true}
+            onContactClick={() => setContactOpen(true)}
+          />
         </div>
       </section>
 
@@ -486,7 +546,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-6 text-sm text-zinc-500">
               <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>
-              <Link href="/contact" className="hover:text-zinc-300 transition-colors">Contact</Link>
+              <button onClick={() => setContactOpen(true)} className="hover:text-zinc-300 transition-colors">Contact</button>
             </div>
           </div>
           <p className="text-center text-sm text-zinc-600 mt-8">
@@ -494,6 +554,12 @@ export default function LandingPage() {
           </p>
         </div>
       </footer>
+
+      {/* Contact Modal */}
+      <VideoServiceContact
+        isOpen={contactOpen}
+        onClose={() => setContactOpen(false)}
+      />
     </div>
   );
 }

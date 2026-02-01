@@ -1,6 +1,6 @@
 # FlashFlow AI - Deployment & Setup Checklist
 
-Generated: January 31, 2026
+Generated: February 1, 2026 (Updated)
 
 This checklist contains all manual tasks required to fully deploy and configure the application.
 
@@ -86,6 +86,12 @@ Run the migration scripts or verify these key tables exist:
 - [ ] `audit_log` - System audit log
 - [ ] `notifications` - User notifications
 - [ ] `subscription_plans` - Available plans
+
+**Video Editing Service (NEW - Migration 057):**
+- [ ] `showcase_videos` - Public video portfolio
+- [ ] `video_editing_clients` - Editing service clients
+- [ ] `video_editing_requests` - Video production requests
+- [ ] `video_service_inquiries` - Contact form submissions
 
 ### Row Level Security (RLS)
 

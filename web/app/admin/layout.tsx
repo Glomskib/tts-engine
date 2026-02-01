@@ -9,6 +9,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { NAV_SECTIONS, getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { ToastProvider } from '@/contexts/ToastContext';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -212,6 +213,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   );
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-zinc-950 text-white">
 
       {/* ============================================================
@@ -440,5 +442,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
     </div>
+    </ToastProvider>
   );
 }

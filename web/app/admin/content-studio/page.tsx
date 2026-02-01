@@ -34,6 +34,8 @@ import {
   Users,
   Settings,
   Zap,
+  Target,
+  MessageSquare,
   Image as ImageIcon,
 } from 'lucide-react';
 
@@ -80,6 +82,17 @@ const FUNNEL_STAGE_COLORS: Record<string, { bg: string; text: string; border: st
   consideration: { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
   conversion: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981', border: 'rgba(16, 185, 129, 0.3)' },
 };
+
+// Main content category tabs
+const MAIN_TABS = [
+  { id: 'all', label: 'All Types', icon: Sparkles, description: 'View all content types', contentTypes: [] as string[] },
+  { id: 'skit', label: 'Skit / Comedy', icon: Theater, description: 'Dialogue-based comedy content', contentTypes: ['skit', 'tof'] },
+  { id: 'ugc', label: 'UGC / Testimonial', icon: User, description: 'Authentic user-generated style', contentTypes: ['testimonial', 'mof'] },
+  { id: 'hook', label: 'Hook / Teaser', icon: Zap, description: 'Quick attention-grabbing content', contentTypes: ['tof'] },
+  { id: 'educational', label: 'Educational', icon: GraduationCap, description: 'Value-first teaching content', contentTypes: ['educational'] },
+  { id: 'story', label: 'Story / Narrative', icon: BookOpen, description: 'Emotional storytelling', contentTypes: ['story'] },
+  { id: 'direct', label: 'Direct Response', icon: Target, description: 'Conversion-focused content', contentTypes: ['bof'] },
+];
 
 // --- Types ---
 
@@ -195,6 +208,7 @@ const SKIT_STATUS_OPTIONS: { value: SkitStatus; label: string }[] = [
 const SETTINGS_STORAGE_KEY = 'content-studio-v2-settings';
 
 interface SavedSettings {
+  mainTabId: string;
   contentTypeId: string;
   subtypeId: string;
   presentationStyleId: string;
@@ -247,6 +261,9 @@ export default function ContentStudioPage() {
   const [audiencePersonas, setAudiencePersonas] = useState<AudiencePersona[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
+  // Main Tab (top-level category filter)
+  const [selectedMainTabId, setSelectedMainTabId] = useState<string>('all');
+
   // STEP 1: Content Type
   const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>('tof');
 
@@ -298,6 +315,17 @@ export default function ContentStudioPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // --- Computed Values ---
+
+  const selectedMainTab = useMemo(() => {
+    return MAIN_TABS.find(t => t.id === selectedMainTabId);
+  }, [selectedMainTabId]);
+
+  const filteredContentTypes = useMemo(() => {
+    if (selectedMainTabId === 'all' || !selectedMainTab?.contentTypes.length) {
+      return CONTENT_TYPES;
+    }
+    return CONTENT_TYPES.filter(ct => selectedMainTab.contentTypes.includes(ct.id));
+  }, [selectedMainTabId, selectedMainTab]);
 
   const selectedContentType = useMemo(() => {
     return CONTENT_TYPES.find(ct => ct.id === selectedContentTypeId);
@@ -385,6 +413,7 @@ export default function ContentStudioPage() {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (saved) {
         const settings: SavedSettings = JSON.parse(saved);
+        if (settings.mainTabId) setSelectedMainTabId(settings.mainTabId);
         if (settings.contentTypeId) setSelectedContentTypeId(settings.contentTypeId);
         if (settings.subtypeId) setSelectedSubtypeId(settings.subtypeId);
         if (settings.presentationStyleId) setSelectedPresentationStyleId(settings.presentationStyleId);
@@ -402,6 +431,7 @@ export default function ContentStudioPage() {
   // Save settings on change
   useEffect(() => {
     const settings: SavedSettings = {
+      mainTabId: selectedMainTabId,
       contentTypeId: selectedContentTypeId,
       subtypeId: selectedSubtypeId,
       presentationStyleId: selectedPresentationStyleId,
@@ -412,7 +442,7 @@ export default function ContentStudioPage() {
       showAdvanced,
     };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  }, [selectedContentTypeId, selectedSubtypeId, selectedPresentationStyleId, selectedLengthId, selectedHumorId, riskTier, variationCount, showAdvanced]);
+  }, [selectedMainTabId, selectedContentTypeId, selectedSubtypeId, selectedPresentationStyleId, selectedLengthId, selectedHumorId, riskTier, variationCount, showAdvanced]);
 
   // URL param handling
   useEffect(() => {
@@ -428,6 +458,13 @@ export default function ContentStudioPage() {
       setSelectedSubtypeId(selectedContentType.subtypes[0].id);
     }
   }, [selectedContentTypeId]);
+
+  // When main tab changes, select the first content type in that category
+  useEffect(() => {
+    if (filteredContentTypes.length > 0 && !filteredContentTypes.find(ct => ct.id === selectedContentTypeId)) {
+      setSelectedContentTypeId(filteredContentTypes[0].id);
+    }
+  }, [selectedMainTabId, filteredContentTypes]);
 
   // --- Handlers ---
 
@@ -699,6 +736,50 @@ export default function ContentStudioPage() {
         </div>
       </div>
 
+      {/* Main Category Tabs */}
+      <div style={{
+        marginBottom: '24px',
+        display: 'flex',
+        gap: '8px',
+        flexWrap: 'wrap',
+        padding: '4px',
+        backgroundColor: colors.card,
+        border: `1px solid ${colors.border}`,
+        borderRadius: '12px',
+      }}>
+        {MAIN_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isSelected = selectedMainTabId === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedMainTabId(tab.id)}
+              title={tab.description}
+              style={{
+                flex: '1 1 auto',
+                minWidth: '120px',
+                padding: '12px 16px',
+                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                border: 'none',
+                borderRadius: '8px',
+                color: isSelected ? 'white' : colors.textSecondary,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                fontSize: '13px',
+                fontWeight: isSelected ? 600 : 500,
+              }}
+            >
+              <Icon size={16} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Main Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Left Column: Configuration */}
@@ -720,9 +801,14 @@ export default function ContentStudioPage() {
                 <div style={sectionTitleStyle}>
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>1</span>
                   Content Type
+                  {selectedMainTabId !== 'all' && (
+                    <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary, marginLeft: '8px' }}>
+                      ({filteredContentTypes.length} matching)
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                  {CONTENT_TYPES.map((type) => {
+                  {filteredContentTypes.map((type) => {
                     const Icon = CONTENT_TYPE_ICONS[type.icon];
                     const isSelected = selectedContentTypeId === type.id;
                     const stageColor = FUNNEL_STAGE_COLORS[type.funnelStage];

@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
-import Sidebar from './Sidebar';
+import { useCredits } from '@/hooks/useCredits';
+import { hasVideoProductionAccess } from '@/lib/brand';
+import { SIDEBAR_WIDTH, SIDEBAR_STORAGE_KEY, MOBILE_BREAKPOINT } from '@/lib/navigation';
+import { AppSidebar } from '@/components/AppSidebar';
+import { AppHeader } from '@/components/AppHeader';
 import OnboardingModal, { useOnboarding } from '@/components/OnboardingModal';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
@@ -10,11 +14,19 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
-const SIDEBAR_STORAGE_KEY = 'applayout-sidebar-open';
-const MOBILE_BREAKPOINT = 768;
+interface AuthState {
+  role: UserRole;
+  userEmail: string | null;
+  isAdmin: boolean;
+}
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const [role, setRole] = useState<UserRole>(null);
+  const { subscription } = useCredits();
+  const [auth, setAuth] = useState<AuthState>({
+    role: null,
+    userEmail: null,
+    isAdmin: false,
+  });
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -52,7 +64,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
           const data = await res.json();
-          setRole(data.role || null);
+          setAuth({
+            role: data.role || null,
+            userEmail: data.user?.email || null,
+            isAdmin: data.isAdmin || false,
+          });
         }
       } catch (err) {
         console.error('Failed to fetch role:', err);
@@ -82,32 +98,52 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => clearInterval(interval);
   }, []);
 
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const closeSidebar = () => setSidebarOpen(false);
+
+  // Determine if user has agency access
+  const isAgencyUser = hasVideoProductionAccess(subscription?.planId, auth.isAdmin);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-zinc-500">
-        Loading...
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
+          Loading...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        role={role}
+    <div className="flex min-h-screen bg-[#09090b]">
+      <AppSidebar
+        isAdmin={auth.isAdmin}
+        isAgencyUser={isAgencyUser}
         unreadNotifications={unreadCount}
         isOpen={sidebarOpen}
         onClose={closeSidebar}
         isMobile={isMobile}
       />
+
+      {/* Main content */}
       <main
-        className="flex-1 bg-[#09090b] min-h-screen transition-all duration-300"
+        className="flex-1 transition-all duration-300"
         style={{
-          marginLeft: isMobile ? 0 : (sidebarOpen ? '260px' : 0),
+          marginLeft: isMobile ? 0 : (sidebarOpen ? SIDEBAR_WIDTH : 0),
         }}
       >
-        {children}
+        <AppHeader
+          userEmail={auth.userEmail}
+          planName={subscription?.planName}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={toggleSidebar}
+        />
+
+        {/* Page content */}
+        <div className="p-4 md:p-6">
+          {children}
+        </div>
       </main>
 
       {/* Onboarding modal for new users */}

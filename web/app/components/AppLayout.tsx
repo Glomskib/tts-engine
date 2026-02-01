@@ -112,7 +112,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-zinc-950">
       <AppSidebar
         isAdmin={auth.isAdmin}
         planId={subscription?.planId}
@@ -122,13 +122,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         isMobile={isMobile}
       />
 
-      {/* Main content */}
-      <main
-        className="flex-1 transition-all duration-300"
-        style={{
-          marginLeft: isMobile ? 0 : (sidebarOpen ? SIDEBAR_WIDTH : 0),
-        }}
-      >
+      {/* Main content - offset by sidebar width on desktop */}
+      <div className="lg:ml-72 min-h-screen flex flex-col">
         <AppHeader
           userEmail={auth.userEmail}
           planName={subscription?.planName}
@@ -136,11 +131,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           onToggleSidebar={toggleSidebar}
         />
 
-        {/* Page content */}
-        <div className="p-4 md:p-6">
+        {/* Page content with proper padding */}
+        <main className="flex-1 p-4 lg:p-6">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* Onboarding modal for new users */}
       {showOnboarding && (

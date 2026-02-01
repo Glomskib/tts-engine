@@ -48,28 +48,28 @@ export function AppHeader({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 h-16 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
-      {/* Left: Menu toggle + Logo (when sidebar closed) */}
+    <header className="sticky top-0 z-30 flex items-center justify-between px-4 lg:px-6 h-14 lg:h-16 bg-zinc-950/95 backdrop-blur-xl border-b border-white/10">
+      {/* Left: Menu toggle (mobile only) + Logo */}
       <div className="flex items-center gap-3">
+        {/* Hamburger menu - mobile only */}
         <button
           onClick={onToggleSidebar}
-          className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-          aria-label="Toggle sidebar"
+          className="p-2 -ml-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors lg:hidden"
+          aria-label="Toggle menu"
         >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          <Menu size={24} />
         </button>
-        {!sidebarOpen && (
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src={BRAND.logo}
-              alt={BRAND.name}
-              width={28}
-              height={28}
-              className="rounded-lg"
-            />
-            <span className="hidden sm:inline font-semibold text-zinc-100">{BRAND.name}</span>
-          </Link>
-        )}
+        {/* Logo - mobile only (desktop shows in sidebar) */}
+        <Link href="/" className="flex items-center gap-2 lg:hidden">
+          <Image
+            src={BRAND.logo}
+            alt={BRAND.name}
+            width={28}
+            height={28}
+            className="rounded-lg"
+          />
+          <span className="font-semibold text-zinc-100 text-sm">{BRAND.name}</span>
+        </Link>
       </div>
 
       {/* Right: Credits + User menu */}

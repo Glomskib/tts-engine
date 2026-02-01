@@ -350,20 +350,25 @@ export default function ContentStudioPage() {
       setLoadingData(true);
       try {
         const [productsRes, personasRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/audience-personas'),
+          fetch('/api/products', { credentials: 'include' }),
+          fetch('/api/audience/personas', { credentials: 'include' }),
         ]);
 
         if (productsRes.ok) {
           const data = await productsRes.json();
-          setProducts(data.products || []);
-          const uniqueBrands = [...new Set((data.products || []).map((p: Product) => p.brand).filter(Boolean))] as string[];
+          const productsList = data.data || [];
+          setProducts(productsList);
+          const uniqueBrands = [...new Set(productsList.map((p: Product) => p.brand).filter(Boolean))] as string[];
           setBrands(uniqueBrands.sort());
+        } else {
+          console.error('Failed to fetch products:', productsRes.status);
         }
 
         if (personasRes.ok) {
           const data = await personasRes.json();
-          setAudiencePersonas(data.personas || []);
+          setAudiencePersonas(data.data || []);
+        } else {
+          console.error('Failed to fetch personas:', personasRes.status);
         }
       } catch (err) {
         console.error('Failed to load data:', err);
@@ -816,31 +821,57 @@ export default function ContentStudioPage() {
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>3</span>
                   Product
                 </div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                  <select
-                    value={selectedBrand}
-                    onChange={(e) => {
-                      setSelectedBrand(e.target.value);
-                      setSelectedProductId('');
-                    }}
-                    style={{ ...inputStyle, flex: 1 }}
-                  >
-                    <option value="">All Brands</option>
-                    {brands.map(b => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                    style={{ ...inputStyle, flex: 2 }}
-                  >
-                    <option value="">Select Product...</option>
-                    {filteredProducts.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {products.length > 0 ? (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    <select
+                      value={selectedBrand}
+                      onChange={(e) => {
+                        setSelectedBrand(e.target.value);
+                        setSelectedProductId('');
+                      }}
+                      style={{ ...inputStyle, flex: 1 }}
+                    >
+                      <option value="">All Brands</option>
+                      {brands.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      style={{ ...inputStyle, flex: 2 }}
+                    >
+                      <option value="">Select Product...</option>
+                      {filteredProducts.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '16px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    border: `1px dashed ${colors.border}`,
+                    borderRadius: '10px',
+                    marginBottom: '10px',
+                    textAlign: 'center',
+                  }}>
+                    <Package size={24} style={{ margin: '0 auto 8px', opacity: 0.5, color: colors.textSecondary }} />
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: colors.textSecondary }}>
+                      No products yet
+                    </p>
+                    <Link
+                      href="/admin/products"
+                      style={{
+                        color: '#3b82f6',
+                        fontSize: '13px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Create your first product →
+                    </Link>
+                  </div>
+                )}
                 <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
                   Or enter manually:
                 </div>
@@ -870,19 +901,47 @@ export default function ContentStudioPage() {
                   Target Audience
                   <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional)</span>
                 </div>
-                <select
-                  value={selectedPersonaId}
-                  onChange={(e) => {
-                    setSelectedPersonaId(e.target.value);
-                    setSelectedPainPoints([]);
-                  }}
-                  style={inputStyle}
-                >
-                  <option value="">No specific persona</option>
-                  {audiencePersonas.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                {audiencePersonas.length > 0 ? (
+                  <select
+                    value={selectedPersonaId}
+                    onChange={(e) => {
+                      setSelectedPersonaId(e.target.value);
+                      setSelectedPainPoints([]);
+                    }}
+                    style={inputStyle}
+                  >
+                    <option value="">No specific persona</option>
+                    {audiencePersonas.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{
+                    padding: '16px',
+                    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                    border: `1px dashed ${colors.border}`,
+                    borderRadius: '10px',
+                    textAlign: 'center',
+                  }}>
+                    <Users size={24} style={{ margin: '0 auto 8px', opacity: 0.5, color: colors.textSecondary }} />
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: colors.textSecondary }}>
+                      No audience personas yet
+                    </p>
+                    <Link
+                      href="/admin/audience"
+                      style={{
+                        color: '#8b5cf6',
+                        fontSize: '13px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Create your first persona →
+                    </Link>
+                    <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: colors.textSecondary }}>
+                      Personas help AI write content that resonates with your audience
+                    </p>
+                  </div>
+                )}
 
                 {/* Persona Preview */}
                 {selectedPersona && (

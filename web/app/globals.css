@@ -383,23 +383,32 @@ html {
   h4, h5, h6 { font-size: 17px !important; }
 
   /* Form elements - MUST be 16px+ to prevent iOS zoom */
-  input, select, textarea, button {
+  input, select, textarea {
     font-size: 17px !important;
     min-height: 52px !important;
-  }
-
-  input, select, textarea {
     padding: 14px 16px !important;
     border-radius: 12px !important;
   }
 
+  /* Form buttons (not nav buttons) */
+  form button,
+  [type="submit"],
+  [type="button"]:not(nav button) {
+    font-size: 17px !important;
+    min-height: 52px !important;
+  }
+
   /* Buttons and interactive elements - 48px+ touch target */
-  button, [role="button"], a {
+  /* Exclude bottom nav items which have their own sizing */
+  button:not([class*="flex-col"]),
+  [role="button"]:not([class*="flex-col"]) {
     min-height: 48px;
   }
 
-  /* Navigation links get larger tap targets */
-  nav a, [role="navigation"] a {
+  /* Sidebar navigation links get larger tap targets */
+  /* Exclude bottom nav (which uses flex-col layout) */
+  aside nav a,
+  [role="navigation"]:not(.fixed) a {
     min-height: 52px !important;
     display: flex !important;
     align-items: center !important;
@@ -494,14 +503,24 @@ html {
   h2 { font-size: 20px !important; }
   h3 { font-size: 18px !important; }
 
-  input, select, textarea, button {
+  input, select, textarea {
+    min-height: 48px !important;
+    padding: 12px 14px !important;
+    font-size: 16px !important;
+  }
+
+  /* Form buttons only */
+  form button,
+  [type="submit"] {
     min-height: 48px !important;
     padding: 12px 14px !important;
     font-size: 16px !important;
   }
 
   /* Slightly smaller nav items for very small screens */
-  nav a, [role="navigation"] a {
+  /* Exclude fixed bottom nav */
+  aside nav a,
+  [role="navigation"]:not(.fixed) a {
     min-height: 48px !important;
     padding: 12px 14px !important;
   }

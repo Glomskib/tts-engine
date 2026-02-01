@@ -1,91 +1,87 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
-import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
-import { saveAs } from 'file-saver';
 import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
+import {
+  Megaphone,
+  Search,
+  ShoppingCart,
+  Star,
+  Theater,
+  GraduationCap,
+  BookOpen,
+  User,
+  Bot,
+  Mic,
+  Type,
+  Smartphone,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Smile,
+  Sparkles,
+  Check,
+  Copy,
+  Loader2,
+  Package,
+  Users,
+  Settings,
+  Zap,
+  Image as ImageIcon,
+} from 'lucide-react';
+
+// Import from content-types.ts
+import {
+  CONTENT_TYPES,
+  PRESENTATION_STYLES,
+  TARGET_LENGTHS,
+  HUMOR_LEVELS,
+  getContentType,
+  getGenerationCreditCost,
+  type ContentType as ContentTypeData,
+  type ContentSubtype,
+  type PresentationStyle,
+  type TargetLength,
+  type HumorLevel,
+} from '@/lib/content-types';
+
+// Icon mapping for content types
+const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  Megaphone,
+  Search,
+  ShoppingCart,
+  Star,
+  Theater,
+  GraduationCap,
+  BookOpen,
+};
+
+// Icon mapping for presentation styles
+const PRESENTATION_STYLE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  User,
+  Theater,
+  Bot,
+  Mic,
+  Type,
+  Smartphone,
+  Layers,
+};
+
+// Funnel stage colors
+const FUNNEL_STAGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  awareness: { bg: 'rgba(59, 130, 246, 0.1)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' },
+  consideration: { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
+  conversion: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981', border: 'rgba(16, 185, 129, 0.3)' },
+};
 
 // --- Types ---
-
-type ContentType = 'skit' | 'script' | 'hook';
-
-interface ContentTypeOption {
-  value: ContentType;
-  label: string;
-  icon: string;
-  description: string;
-}
-
-const CONTENT_TYPE_OPTIONS: ContentTypeOption[] = [
-  { value: 'skit', label: 'Skit / Dialogue', icon: '🎬', description: 'Multi-character comedy scenes with dialogue' },
-  { value: 'script', label: 'Script / Copy', icon: '📝', description: 'Single voice, direct-to-camera content' },
-  { value: 'hook', label: 'Hooks Only', icon: '🎯', description: 'Generate multiple hook variations' },
-];
-
-// Script format options
-type ScriptFormat = 'story' | 'problem_solution' | 'listicle' | 'testimonial' | 'educational' | 'trend_react';
-
-const SCRIPT_FORMAT_OPTIONS: { value: ScriptFormat; label: string; description: string }[] = [
-  { value: 'story', label: 'Story/Narrative', description: '"I used to struggle with..." personal journey' },
-  { value: 'problem_solution', label: 'Problem → Solution', description: '"Tired of X? Here\'s why Y works..."' },
-  { value: 'listicle', label: 'Listicle', description: '"3 reasons why..." or "5 things you didn\'t know"' },
-  { value: 'testimonial', label: 'Testimonial', description: 'Authentic review/reaction style' },
-  { value: 'educational', label: 'Educational', description: 'How-to, explainer, tips format' },
-  { value: 'trend_react', label: 'Trend Reaction', description: 'React to trend with product tie-in' },
-];
-
-// Hook type options
-type HookType = 'question' | 'bold_statement' | 'controversy' | 'relatable' | 'curiosity_gap' | 'shock';
-
-const HOOK_TYPE_OPTIONS: { value: HookType; label: string; description: string; example: string }[] = [
-  { value: 'question', label: 'Question', description: 'Opens with engaging question', example: 'Ever wonder why...?' },
-  { value: 'bold_statement', label: 'Bold Statement', description: 'Confident claim that demands attention', example: 'This changed everything' },
-  { value: 'controversy', label: 'Controversy', description: 'Challenges common belief', example: 'Unpopular opinion: ...' },
-  { value: 'relatable', label: 'Relatable', description: 'Shared experience moment', example: 'POV: you just...' },
-  { value: 'curiosity_gap', label: 'Curiosity Gap', description: 'Teases without revealing', example: 'I can\'t believe this worked' },
-  { value: 'shock', label: 'Shock/Surprise', description: 'Unexpected opener', example: 'Wait... what if I told you...' },
-];
-
-// --- Helper Functions ---
-
-function truncateText(text: string, maxLength: number): string {
-  if (!text || text.length <= maxLength) return text || '';
-  return text.substring(0, maxLength - 3) + '...';
-}
-
-function getActionableErrorMessage(error: ApiClientError): { message: string; action?: string } {
-  const code = error.error_code;
-  const msg = error.message;
-
-  switch (code) {
-    case 'VALIDATION_ERROR':
-      return { message: msg || 'Please check your inputs', action: 'Review the highlighted fields and try again.' };
-    case 'UNAUTHORIZED':
-      return { message: 'Your session has expired', action: 'Please refresh the page and sign in again.' };
-    case 'RATE_LIMITED':
-      return { message: 'Too many requests', action: 'Please wait a moment before trying again.' };
-    case 'AI_ERROR':
-      return { message: msg || 'AI generation failed', action: 'Try adjusting your settings or regenerate.' };
-    case 'PRODUCT_NOT_FOUND':
-      return { message: 'Product not found', action: 'Select a different product or enter details manually.' };
-    default:
-      return { message: msg || 'Something went wrong', action: 'Please try again. If the problem persists, contact support.' };
-  }
-}
-
-function estimateReadingTime(text: string, wpm: number = 150): number {
-  if (!text) return 0;
-  const words = text.split(/\s+/).filter(w => w.length > 0).length;
-  return Math.ceil((words / wpm) * 60);
-}
 
 interface AuthUser {
   id: string;
@@ -97,6 +93,7 @@ interface Product {
   name: string;
   brand: string;
   category: string;
+  description?: string;
 }
 
 interface AudiencePersona {
@@ -132,49 +129,6 @@ interface AudiencePersona {
   times_used?: number;
 }
 
-interface PainPoint {
-  id: string;
-  pain_point: string;
-  category?: string;
-  intensity?: string;
-}
-
-interface SkitPreset {
-  id: string;
-  name: string;
-  description: string;
-  energy_category: 'neutral' | 'high_energy' | 'deadpan' | 'chaotic' | 'wholesome';
-}
-
-type ActorType = 'human' | 'ai_avatar' | 'voiceover' | 'mixed';
-
-const ACTOR_TYPE_OPTIONS: { value: ActorType; label: string; description: string }[] = [
-  { value: 'human', label: 'Human Actor', description: 'On-camera performer with physical comedy' },
-  { value: 'ai_avatar', label: 'AI Avatar', description: 'AI-generated character, visual gags & text-heavy' },
-  { value: 'voiceover', label: 'Voiceover Only', description: 'Narration over B-roll, no on-camera talent' },
-  { value: 'mixed', label: 'Mixed (Human + AI)', description: 'Combination of human and AI elements' },
-];
-
-type TargetDuration = 'quick' | 'standard' | 'extended' | 'long';
-
-const DURATION_OPTIONS: { value: TargetDuration; label: string; description: string }[] = [
-  { value: 'quick', label: 'Quick (15-20s)', description: '3-4 scenes, ultra-tight pacing' },
-  { value: 'standard', label: 'Standard (30-45s)', description: '5-6 scenes, classic TikTok rhythm' },
-  { value: 'extended', label: 'Extended (45-60s)', description: '7-8 scenes, room for development' },
-  { value: 'long', label: 'Long Form (60-90s)', description: '9-12 scenes, full narrative arc' },
-];
-
-type ContentFormat = 'skit_dialogue' | 'scene_montage' | 'pov_story' | 'product_demo_parody' | 'reaction_commentary' | 'day_in_life';
-
-const CONTENT_FORMAT_OPTIONS: { value: ContentFormat; label: string; description: string }[] = [
-  { value: 'skit_dialogue', label: 'Skit/Dialogue', description: 'Person-to-person comedy scenes with dialogue' },
-  { value: 'scene_montage', label: 'Scene Montage', description: 'Visual scenes with voiceover narration' },
-  { value: 'pov_story', label: 'POV Story', description: 'First-person, natural slice-of-life feel' },
-  { value: 'product_demo_parody', label: 'Product Demo Parody', description: 'Infomercial style with intentional comedy' },
-  { value: 'reaction_commentary', label: 'Reaction/Commentary', description: 'Reacting to something with product tie-in' },
-  { value: 'day_in_life', label: 'Day in the Life', description: 'Following a routine, product naturally integrated' },
-];
-
 interface SkitData {
   hook_line: string;
   beats: Array<{
@@ -189,22 +143,6 @@ interface SkitData {
   overlays: string[];
 }
 
-interface ScriptData {
-  hook: string;
-  body: string[];
-  cta: string;
-  talking_points?: string[];
-  visual_suggestions?: string[];
-}
-
-interface HookData {
-  hooks: Array<{
-    text: string;
-    type: HookType;
-    strength_score?: number;
-  }>;
-}
-
 interface AIScore {
   hook_strength: number;
   humor_level: number;
@@ -212,7 +150,6 @@ interface AIScore {
   virality_potential: number;
   clarity: number;
   production_feasibility: number;
-  audience_language: number;
   overall_score: number;
   strengths: string[];
   improvements: string[];
@@ -227,42 +164,24 @@ interface SkitVariation {
 }
 
 interface GenerationResult {
-  // Content type
-  content_type: ContentType;
-  // Skit data (for skit type)
   variations?: SkitVariation[];
   variation_count?: number;
   skit?: SkitData;
-  // Script data (for script type)
-  script?: ScriptData;
-  // Hook data (for hook type)
-  hooks?: HookData;
-  // Common
   risk_tier_applied: 'SAFE' | 'BALANCED' | 'SPICY';
   ai_score?: AIScore | null;
   audience_metadata?: {
     persona_name?: string;
     pain_points_addressed?: string[];
   };
+  prompt_metadata?: {
+    contentType: string;
+    presentationStyle: string;
+    funnelStage: string;
+  };
 }
 
-type Persona = 'NONE' | 'DR_PICKLE' | 'CASH_KING' | 'ABSURD_BUDDY' | 'DEADPAN_OFFICE' | 'INFOMERCIAL_CHAOS';
 type RiskTier = 'SAFE' | 'BALANCED' | 'SPICY';
 type SkitStatus = 'draft' | 'approved' | 'produced' | 'posted' | 'archived';
-
-interface SavedSkit {
-  id: string;
-  title: string;
-  status: SkitStatus;
-  product_name: string | null;
-  product_brand: string | null;
-  user_rating: number | null;
-  created_at: string;
-  updated_at: string;
-  skit_data?: SkitData;
-  generation_config?: Record<string, unknown>;
-  ai_score?: AIScore | null;
-}
 
 const SKIT_STATUS_OPTIONS: { value: SkitStatus; label: string }[] = [
   { value: 'draft', label: 'Draft' },
@@ -273,28 +192,39 @@ const SKIT_STATUS_OPTIONS: { value: SkitStatus; label: string }[] = [
 ];
 
 // localStorage keys
-const SETTINGS_STORAGE_KEY = 'content-studio-settings';
-const RECENT_PRODUCTS_KEY = 'content-studio-recent-products';
-
-interface RecentProduct {
-  id: string;
-  name: string;
-  brand: string;
-  usedAt: number;
-}
+const SETTINGS_STORAGE_KEY = 'content-studio-v2-settings';
 
 interface SavedSettings {
-  contentType: ContentType;
-  actorType: ActorType;
-  targetDuration: TargetDuration;
-  contentFormat: ContentFormat;
-  scriptFormat: ScriptFormat;
+  contentTypeId: string;
+  subtypeId: string;
+  presentationStyleId: string;
+  targetLengthId: string;
+  humorLevelId: string;
   riskTier: RiskTier;
-  chaosLevel: number;
-  intensity: number;
   variationCount: number;
-  hookCount: number;
   showAdvanced: boolean;
+}
+
+// --- Helper Functions ---
+
+function getActionableErrorMessage(error: ApiClientError): { message: string; action?: string } {
+  const code = error.error_code;
+  const msg = error.message;
+
+  switch (code) {
+    case 'VALIDATION_ERROR':
+      return { message: msg || 'Please check your inputs', action: 'Review the highlighted fields and try again.' };
+    case 'UNAUTHORIZED':
+      return { message: 'Your session has expired', action: 'Please refresh the page and sign in again.' };
+    case 'RATE_LIMITED':
+      return { message: 'Too many requests', action: 'Please wait a moment before trying again.' };
+    case 'AI_ERROR':
+      return { message: msg || 'AI generation failed', action: 'Try adjusting your settings or regenerate.' };
+    case 'PRODUCT_NOT_FOUND':
+      return { message: 'Product not found', action: 'Select a different product or enter details manually.' };
+    default:
+      return { message: msg || 'Something went wrong', action: 'Please try again. If the problem persists, contact support.' };
+  }
 }
 
 export default function ContentStudioPage() {
@@ -311,80 +241,84 @@ export default function ContentStudioPage() {
   const { credits, hasCredits, refetch: refetchCredits } = useCredits();
   const noCreditsModal = useNoCreditsModal();
 
-  // Content type state
-  const [contentType, setContentType] = useState<ContentType>('skit');
-
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
-  const [presets, setPresets] = useState<SkitPreset[]>([]);
+  const [audiencePersonas, setAudiencePersonas] = useState<AudiencePersona[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Audience Intelligence state
-  const [audiencePersonas, setAudiencePersonas] = useState<AudiencePersona[]>([]);
-  const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
-  const [selectedPainPointId, setSelectedPainPointId] = useState<string>('');
-  const [selectedPersonaPainPoints, setSelectedPersonaPainPoints] = useState<string[]>([]);
-  const [personaPreviewExpanded, setPersonaPreviewExpanded] = useState(true);
-  const [useAudienceLanguage, setUseAudienceLanguage] = useState(true);
+  // STEP 1: Content Type
+  const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>('tof');
 
-  // Form state
+  // STEP 2: Subtype
+  const [selectedSubtypeId, setSelectedSubtypeId] = useState<string>('');
+
+  // STEP 3: Product
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [manualProductName, setManualProductName] = useState<string>('');
   const [manualBrandName, setManualBrandName] = useState<string>('');
-  const [actorType, setActorType] = useState<ActorType>('human');
-  const [selectedPreset, setSelectedPreset] = useState<string>('NONE');
+  const [productDescription, setProductDescription] = useState<string>('');
+
+  // STEP 4: Target Audience
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
+  const [selectedPainPoints, setSelectedPainPoints] = useState<string[]>([]);
+  const [personaExpanded, setPersonaExpanded] = useState(true);
+
+  // STEP 5: Presentation Style
+  const [selectedPresentationStyleId, setSelectedPresentationStyleId] = useState<string>('talking_head');
+
+  // STEP 6: Length & Tone
+  const [selectedLengthId, setSelectedLengthId] = useState<string>('short');
+  const [selectedHumorId, setSelectedHumorId] = useState<string>('light');
   const [riskTier, setRiskTier] = useState<RiskTier>('BALANCED');
-  const [persona, setPersona] = useState<Persona>('NONE');
-  const [intensity, setIntensity] = useState<number>(50);
-  const [chaosLevel, setChaosLevel] = useState<number>(50);
-  const [creativeDirection, setCreativeDirection] = useState<string>('');
-  const [targetDuration, setTargetDuration] = useState<TargetDuration>('standard');
-  const [contentFormat, setContentFormat] = useState<ContentFormat>('skit_dialogue');
-  const [productContext, setProductContext] = useState<string>('');
+
+  // STEP 7: Advanced Options
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [referenceScript, setReferenceScript] = useState<string>('');
+  const [specificHooks, setSpecificHooks] = useState<string>('');
+  const [thingsToAvoid, setThingsToAvoid] = useState<string>('');
+  const [ctaPreference, setCtaPreference] = useState<string>('');
   const [variationCount, setVariationCount] = useState<number>(3);
-
-  // Script-specific state
-  const [scriptFormat, setScriptFormat] = useState<ScriptFormat>('story');
-  const [scriptVoice, setScriptVoice] = useState<'first_person' | 'narrator' | 'expert'>('first_person');
-
-  // Hook-specific state
-  const [selectedHookTypes, setSelectedHookTypes] = useState<HookType[]>(['question', 'bold_statement', 'relatable']);
-  const [hookCount, setHookCount] = useState<number>(10);
 
   // Result state
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [error, setError] = useState<ApiClientError | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  // Variation state (for skits)
   const [selectedVariationIndex, setSelectedVariationIndex] = useState(0);
 
-  // AI Score state
-  const [aiScore, setAiScore] = useState<AIScore | null>(null);
-  const [scoringInProgress, setScoringInProgress] = useState(false);
-
-  // Library state
+  // Save modal state
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [saveStatus, setSaveStatus] = useState<SkitStatus>('draft');
   const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
-  const [loadModalOpen, setLoadModalOpen] = useState(false);
-  const [savedSkits, setSavedSkits] = useState<SavedSkit[]>([]);
-  const [loadingSkits, setLoadingSkits] = useState(false);
 
-  // UX state
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Local editing state
-  const [localSkit, setLocalSkit] = useState<SkitData | null>(null);
-  const [isModified, setIsModified] = useState(false);
+  // --- Computed Values ---
+
+  const selectedContentType = useMemo(() => {
+    return CONTENT_TYPES.find(ct => ct.id === selectedContentTypeId);
+  }, [selectedContentTypeId]);
+
+  const selectedPresentationStyle = useMemo(() => {
+    return PRESENTATION_STYLES.find(ps => ps.id === selectedPresentationStyleId);
+  }, [selectedPresentationStyleId]);
+
+  const selectedPersona = useMemo(() => {
+    return audiencePersonas.find(p => p.id === selectedPersonaId) || null;
+  }, [audiencePersonas, selectedPersonaId]);
+
+  const filteredProducts = useMemo(() => {
+    if (!selectedBrand) return products;
+    return products.filter(p => p.brand?.trim() === selectedBrand.trim());
+  }, [products, selectedBrand]);
+
+  const creditCost = useMemo(() => {
+    return getGenerationCreditCost(selectedContentTypeId, selectedLengthId);
+  }, [selectedContentTypeId, selectedLengthId]);
 
   // --- Effects ---
 
@@ -415,9 +349,8 @@ export default function ContentStudioPage() {
     const loadData = async () => {
       setLoadingData(true);
       try {
-        const [productsRes, presetsRes, personasRes] = await Promise.all([
+        const [productsRes, personasRes] = await Promise.all([
           fetch('/api/products'),
-          fetch('/api/ai/skit-presets'),
           fetch('/api/audience-personas'),
         ]);
 
@@ -426,11 +359,6 @@ export default function ContentStudioPage() {
           setProducts(data.products || []);
           const uniqueBrands = [...new Set((data.products || []).map((p: Product) => p.brand).filter(Boolean))] as string[];
           setBrands(uniqueBrands.sort());
-        }
-
-        if (presetsRes.ok) {
-          const data = await presetsRes.json();
-          setPresets(data.presets || []);
         }
 
         if (personasRes.ok) {
@@ -452,22 +380,14 @@ export default function ContentStudioPage() {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (saved) {
         const settings: SavedSettings = JSON.parse(saved);
-        if (settings.contentType) setContentType(settings.contentType);
-        if (settings.actorType) setActorType(settings.actorType);
-        if (settings.targetDuration) setTargetDuration(settings.targetDuration);
-        if (settings.contentFormat) setContentFormat(settings.contentFormat);
-        if (settings.scriptFormat) setScriptFormat(settings.scriptFormat);
+        if (settings.contentTypeId) setSelectedContentTypeId(settings.contentTypeId);
+        if (settings.subtypeId) setSelectedSubtypeId(settings.subtypeId);
+        if (settings.presentationStyleId) setSelectedPresentationStyleId(settings.presentationStyleId);
+        if (settings.targetLengthId) setSelectedLengthId(settings.targetLengthId);
+        if (settings.humorLevelId) setSelectedHumorId(settings.humorLevelId);
         if (settings.riskTier) setRiskTier(settings.riskTier);
-        if (typeof settings.chaosLevel === 'number') setChaosLevel(settings.chaosLevel);
-        if (typeof settings.intensity === 'number') setIntensity(settings.intensity);
         if (typeof settings.variationCount === 'number') setVariationCount(settings.variationCount);
-        if (typeof settings.hookCount === 'number') setHookCount(settings.hookCount);
         if (typeof settings.showAdvanced === 'boolean') setShowAdvanced(settings.showAdvanced);
-      }
-
-      const recentStr = localStorage.getItem(RECENT_PRODUCTS_KEY);
-      if (recentStr) {
-        setRecentProducts(JSON.parse(recentStr));
       }
     } catch {
       // Ignore parse errors
@@ -477,20 +397,17 @@ export default function ContentStudioPage() {
   // Save settings on change
   useEffect(() => {
     const settings: SavedSettings = {
-      contentType,
-      actorType,
-      targetDuration,
-      contentFormat,
-      scriptFormat,
+      contentTypeId: selectedContentTypeId,
+      subtypeId: selectedSubtypeId,
+      presentationStyleId: selectedPresentationStyleId,
+      targetLengthId: selectedLengthId,
+      humorLevelId: selectedHumorId,
       riskTier,
-      chaosLevel,
-      intensity,
       variationCount,
-      hookCount,
       showAdvanced,
     };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  }, [contentType, actorType, targetDuration, contentFormat, scriptFormat, riskTier, chaosLevel, intensity, variationCount, hookCount, showAdvanced]);
+  }, [selectedContentTypeId, selectedSubtypeId, selectedPresentationStyleId, selectedLengthId, selectedHumorId, riskTier, variationCount, showAdvanced]);
 
   // URL param handling
   useEffect(() => {
@@ -500,16 +417,12 @@ export default function ContentStudioPage() {
     }
   }, [searchParams]);
 
-  // Filter products by brand
-  const filteredProducts = useMemo(() => {
-    if (!selectedBrand) return products;
-    return products.filter(p => p.brand?.trim() === selectedBrand.trim());
-  }, [products, selectedBrand]);
-
-  // Get selected persona
-  const selectedPersona = useMemo(() => {
-    return audiencePersonas.find(p => p.id === selectedPersonaId) || null;
-  }, [audiencePersonas, selectedPersonaId]);
+  // Reset subtype when content type changes
+  useEffect(() => {
+    if (selectedContentType?.subtypes?.[0]) {
+      setSelectedSubtypeId(selectedContentType.subtypes[0].id);
+    }
+  }, [selectedContentTypeId]);
 
   // --- Handlers ---
 
@@ -545,48 +458,41 @@ export default function ContentStudioPage() {
     setResult(null);
     setSelectedVariationIndex(0);
 
+    // Build payload with all new parameters
     const payload: Record<string, unknown> = {
-      content_type: contentType,
-      risk_tier: riskTier,
-      persona: persona,
-      intensity: intensity,
-      chaos_level: chaosLevel,
-      creative_direction: creativeDirection.trim() || undefined,
-      actor_type: actorType,
-      target_duration: targetDuration,
-      product_context: productContext.trim() || undefined,
+      // Content type info
+      content_type: selectedContentTypeId,
+      content_subtype: selectedSubtypeId,
+
+      // Product info
+      product_id: selectedProductId || undefined,
+      product_name: selectedProductId ? undefined : manualProductName.trim(),
+      brand_name: selectedProductId ? undefined : manualBrandName.trim() || undefined,
+      product_context: productDescription.trim() || undefined,
+
+      // Audience info
       audience_persona_id: selectedPersonaId || undefined,
-      pain_point_focus: selectedPersonaPainPoints.length > 0 ? selectedPersonaPainPoints : undefined,
-      use_audience_language: useAudienceLanguage,
+      pain_point_focus: selectedPainPoints.length > 0 ? selectedPainPoints : undefined,
+      use_audience_language: true,
+
+      // Presentation
+      presentation_style: selectedPresentationStyleId,
+      target_length: selectedLengthId,
+      humor_level: selectedHumorId,
+      risk_tier: riskTier,
+
+      // Variations
+      variation_count: variationCount,
+
+      // Advanced options
+      reference_script: referenceScript.trim() || undefined,
+      specific_hooks: specificHooks.trim() ? specificHooks.split('\n').filter(h => h.trim()) : undefined,
+      things_to_avoid: thingsToAvoid.trim() ? thingsToAvoid.split('\n').filter(t => t.trim()) : undefined,
+      cta_preference: ctaPreference.trim() || undefined,
     };
 
-    // Content-type specific options
-    if (contentType === 'skit') {
-      payload.content_format = contentFormat;
-      payload.variation_count = variationCount;
-      if (selectedPreset && selectedPreset !== 'NONE') {
-        payload.preset_id = selectedPreset;
-      }
-    } else if (contentType === 'script') {
-      payload.script_format = scriptFormat;
-      payload.script_voice = scriptVoice;
-    } else if (contentType === 'hook') {
-      payload.hook_types = selectedHookTypes;
-      payload.hook_count = hookCount;
-    }
-
-    // Product
-    if (selectedProductId) {
-      payload.product_id = selectedProductId;
-    } else {
-      payload.product_name = manualProductName.trim();
-      if (manualBrandName.trim()) {
-        payload.brand_name = manualBrandName.trim();
-      }
-    }
-
     try {
-      const response = await postJson<GenerationResult>('/api/ai/generate-content', payload);
+      const response = await postJson<GenerationResult>('/api/ai/generate-skit', payload);
 
       if (isApiError(response)) {
         if (response.httpStatus === 402) {
@@ -597,18 +503,6 @@ export default function ContentStudioPage() {
         setError(response);
       } else {
         setResult(response.data);
-        // Update recent products
-        if (selectedProductId) {
-          const product = products.find(p => p.id === selectedProductId);
-          if (product) {
-            const updated = [
-              { id: product.id, name: product.name, brand: product.brand, usedAt: Date.now() },
-              ...recentProducts.filter(rp => rp.id !== product.id),
-            ].slice(0, 5);
-            setRecentProducts(updated);
-            localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify(updated));
-          }
-        }
       }
     } catch (err) {
       setError({
@@ -627,7 +521,7 @@ export default function ContentStudioPage() {
     const productName = selectedProductId
       ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
       : manualProductName || 'Manual Entry';
-    setSaveTitle(`${productName} - ${new Date().toLocaleDateString()}`);
+    setSaveTitle(`${productName} - ${selectedContentType?.name || 'Content'} - ${new Date().toLocaleDateString()}`);
     setSaveModalOpen(true);
   };
 
@@ -636,24 +530,23 @@ export default function ContentStudioPage() {
 
     setSavingToLibrary(true);
     try {
+      const currentSkit = result.variations?.[selectedVariationIndex]?.skit || result.skit;
       const response = await postJson('/api/saved-skits', {
         title: saveTitle.trim(),
         status: saveStatus,
         product_id: selectedProductId || null,
         product_name: selectedProductId ? products.find(p => p.id === selectedProductId)?.name : manualProductName,
         product_brand: selectedProductId ? products.find(p => p.id === selectedProductId)?.brand : manualBrandName,
-        skit_data: contentType === 'skit' ? (result.variations?.[selectedVariationIndex]?.skit || result.skit) : result,
+        skit_data: currentSkit,
         generation_config: {
-          content_type: contentType,
+          content_type: selectedContentTypeId,
+          content_subtype: selectedSubtypeId,
+          presentation_style: selectedPresentationStyleId,
+          target_length: selectedLengthId,
+          humor_level: selectedHumorId,
           risk_tier: riskTier,
-          actor_type: actorType,
-          target_duration: targetDuration,
-          content_format: contentFormat,
-          script_format: scriptFormat,
-          intensity,
-          chaos_level: chaosLevel,
         },
-        ai_score: aiScore,
+        ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score,
       });
 
       if (!isApiError(response)) {
@@ -668,33 +561,49 @@ export default function ContentStudioPage() {
     }
   };
 
-  // --- Render helpers ---
+  // --- Styles ---
+
+  const sectionStyle: React.CSSProperties = {
+    marginBottom: '28px',
+  };
+
+  const sectionTitleStyle: React.CSSProperties = {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  };
+
+  const cardStyle = (selected: boolean): React.CSSProperties => ({
+    padding: '16px',
+    backgroundColor: selected ? 'rgba(59, 130, 246, 0.1)' : colors.bg,
+    border: `1px solid ${selected ? '#3b82f6' : colors.border}`,
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    textAlign: 'left' as const,
+  });
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px 12px',
     backgroundColor: colors.bg,
     border: `1px solid ${colors.border}`,
-    borderRadius: '6px',
+    borderRadius: '8px',
     color: colors.text,
     fontSize: '14px',
   };
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    marginBottom: '6px',
-    fontSize: '12px',
-    fontWeight: 500,
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  };
-
   const buttonStyle: React.CSSProperties = {
-    padding: '12px 24px',
+    padding: '14px 28px',
     backgroundColor: '#3b82f6',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '10px',
     color: 'white',
     fontSize: '15px',
     fontWeight: 600,
@@ -703,13 +612,13 @@ export default function ContentStudioPage() {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
-    minHeight: '48px',
   };
 
   // --- Loading state ---
   if (authLoading) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
+        <Loader2 className="animate-spin" style={{ margin: '0 auto 12px' }} size={24} />
         Loading...
       </div>
     );
@@ -725,9 +634,10 @@ export default function ContentStudioPage() {
 
   // Get current skit for display
   const currentSkit = result?.variations?.[selectedVariationIndex]?.skit || result?.skit || null;
+  const currentAiScore = result?.variations?.[selectedVariationIndex]?.ai_score || result?.ai_score || null;
 
   return (
-    <div ref={containerRef} style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div ref={containerRef} style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* No Credits Modal */}
       <NoCreditsModal isOpen={noCreditsModal.isOpen} onClose={noCreditsModal.close} />
 
@@ -735,11 +645,12 @@ export default function ContentStudioPage() {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
           <div>
-            <h1 style={{ margin: 0, color: colors.text, fontSize: '28px', fontWeight: 700 }}>
+            <h1 style={{ margin: 0, color: colors.text, fontSize: '28px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Sparkles size={28} style={{ color: '#3b82f6' }} />
               Content Studio
             </h1>
-            <p style={{ margin: '4px 0 0 0', color: colors.textSecondary, fontSize: '14px' }}>
-              Generate scripts, skits, and hooks for your products
+            <p style={{ margin: '6px 0 0 0', color: colors.textSecondary, fontSize: '14px' }}>
+              Generate viral short-form video scripts with AI-powered context
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -749,107 +660,163 @@ export default function ContentStudioPage() {
                 padding: '10px 16px',
                 backgroundColor: colors.card,
                 border: `1px solid ${colors.border}`,
-                borderRadius: '6px',
+                borderRadius: '8px',
                 color: colors.text,
                 textDecoration: 'none',
                 fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
+              <BookOpen size={16} />
               View Library
+            </Link>
+            <Link
+              href="/admin/b-roll"
+              style={{
+                padding: '10px 16px',
+                backgroundColor: colors.card,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
+                color: colors.text,
+                textDecoration: 'none',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <ImageIcon size={16} />
+              B-Roll Generator
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Content Type Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: '4px',
-        padding: '4px',
-        backgroundColor: colors.card,
-        borderRadius: '12px',
-        marginBottom: '24px',
-        border: `1px solid ${colors.border}`,
-      }}>
-        {CONTENT_TYPE_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            onClick={() => {
-              setContentType(option.value);
-              setResult(null);
-              setError(null);
-            }}
-            style={{
-              flex: 1,
-              padding: '14px 20px',
-              backgroundColor: contentType === option.value ? 'white' : 'transparent',
-              border: 'none',
-              borderRadius: '8px',
-              color: contentType === option.value ? '#18181b' : colors.textSecondary,
-              fontSize: '14px',
-              fontWeight: contentType === option.value ? 600 : 500,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'all 0.2s ease',
-              boxShadow: contentType === option.value ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}
-          >
-            <span style={{ fontSize: '18px' }}>{option.icon}</span>
-            <span>{option.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Content type description */}
-      <div style={{
-        padding: '12px 16px',
-        backgroundColor: colors.card,
-        borderRadius: '8px',
-        marginBottom: '24px',
-        border: `1px solid ${colors.border}`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-      }}>
-        <span style={{ fontSize: '24px' }}>
-          {CONTENT_TYPE_OPTIONS.find(o => o.value === contentType)?.icon}
-        </span>
-        <div>
-          <div style={{ fontWeight: 600, color: colors.text }}>
-            {CONTENT_TYPE_OPTIONS.find(o => o.value === contentType)?.label}
-          </div>
-          <div style={{ fontSize: '13px', color: colors.textSecondary }}>
-            {CONTENT_TYPE_OPTIONS.find(o => o.value === contentType)?.description}
-          </div>
-        </div>
-      </div>
-
       {/* Main Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1fr) minmax(500px, 1.5fr)', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Left Column: Configuration */}
         <div style={{
           backgroundColor: colors.card,
           border: `1px solid ${colors.border}`,
-          borderRadius: '12px',
+          borderRadius: '16px',
           padding: '24px',
         }}>
-          <h2 style={{ margin: '0 0 20px 0', fontSize: '16px', color: colors.text, fontWeight: 600 }}>
-            Configuration
-          </h2>
-
           {loadingData ? (
             <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
+              <Loader2 className="animate-spin" style={{ margin: '0 auto 12px' }} size={24} />
               Loading options...
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Product Selection */}
-              <div>
-                <label style={labelStyle}>Product</label>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <>
+              {/* STEP 1: Content Type */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>1</span>
+                  Content Type
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  {CONTENT_TYPES.map((type) => {
+                    const Icon = CONTENT_TYPE_ICONS[type.icon];
+                    const isSelected = selectedContentTypeId === type.id;
+                    const stageColor = FUNNEL_STAGE_COLORS[type.funnelStage];
+
+                    return (
+                      <button
+                        key={type.id}
+                        onClick={() => setSelectedContentTypeId(type.id)}
+                        style={{
+                          ...cardStyle(isSelected),
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                        }}
+                      >
+                        <div style={{
+                          padding: '8px',
+                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                          borderRadius: '8px',
+                          flexShrink: 0,
+                          color: isSelected ? '#3b82f6' : colors.textSecondary,
+                        }}>
+                          {Icon && <Icon size={20} />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                            <span style={{ fontWeight: 600, color: colors.text, fontSize: '13px' }}>{type.name}</span>
+                            {isSelected && <Check size={14} style={{ color: '#3b82f6' }} />}
+                          </div>
+                          <p style={{ margin: 0, fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                            {type.description}
+                          </p>
+                          <span style={{
+                            display: 'inline-block',
+                            marginTop: '6px',
+                            padding: '2px 8px',
+                            backgroundColor: stageColor.bg,
+                            color: stageColor.text,
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                          }}>
+                            {type.funnelStage}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* STEP 2: Subtype */}
+              {selectedContentType && (
+                <div style={sectionStyle}>
+                  <div style={sectionTitleStyle}>
+                    <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>2</span>
+                    Content Format
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedContentType.subtypes.map((sub) => {
+                      const isSelected = selectedSubtypeId === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => setSelectedSubtypeId(sub.id)}
+                          title={sub.description}
+                          style={{
+                            padding: '8px 14px',
+                            backgroundColor: isSelected ? '#3b82f6' : colors.bg,
+                            border: `1px solid ${isSelected ? '#3b82f6' : colors.border}`,
+                            borderRadius: '8px',
+                            color: isSelected ? 'white' : colors.text,
+                            fontSize: '13px',
+                            fontWeight: isSelected ? 600 : 400,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {sub.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedSubtypeId && (
+                    <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                      {selectedContentType.subtypes.find(s => s.id === selectedSubtypeId)?.description}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 3: Product */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>3</span>
+                  Product
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                   <select
                     value={selectedBrand}
                     onChange={(e) => {
@@ -874,28 +841,40 @@ export default function ContentStudioPage() {
                     ))}
                   </select>
                 </div>
-                <div style={{ fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
                   Or enter manually:
                 </div>
-                <input
-                  value={manualProductName}
-                  onChange={(e) => {
-                    setManualProductName(e.target.value);
-                    if (e.target.value) setSelectedProductId('');
-                  }}
-                  placeholder="Product name"
-                  style={inputStyle}
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    value={manualProductName}
+                    onChange={(e) => {
+                      setManualProductName(e.target.value);
+                      if (e.target.value) setSelectedProductId('');
+                    }}
+                    placeholder="Product name"
+                    style={{ ...inputStyle, flex: 2 }}
+                  />
+                  <input
+                    value={manualBrandName}
+                    onChange={(e) => setManualBrandName(e.target.value)}
+                    placeholder="Brand"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                </div>
               </div>
 
-              {/* Persona Selection */}
-              <div>
-                <label style={labelStyle}>Target Persona (Optional)</label>
+              {/* STEP 4: Target Audience */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4</span>
+                  Target Audience
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional)</span>
+                </div>
                 <select
                   value={selectedPersonaId}
                   onChange={(e) => {
                     setSelectedPersonaId(e.target.value);
-                    setSelectedPersonaPainPoints([]);
+                    setSelectedPainPoints([]);
                   }}
                   style={inputStyle}
                 >
@@ -904,236 +883,305 @@ export default function ContentStudioPage() {
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+
+                {/* Persona Preview */}
+                {selectedPersona && (
+                  <div style={{ marginTop: '12px' }}>
+                    <PersonaPreviewCard
+                      persona={selectedPersona}
+                      selectedPainPoints={selectedPainPoints}
+                      onPainPointsChange={setSelectedPainPoints}
+                      expanded={personaExpanded}
+                      onToggleExpand={() => setPersonaExpanded(!personaExpanded)}
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Persona Preview Card */}
-              {selectedPersona && (
-                <PersonaPreviewCard
-                  persona={selectedPersona}
-                  selectedPainPoints={selectedPersonaPainPoints}
-                  onPainPointsChange={setSelectedPersonaPainPoints}
-                  expanded={personaPreviewExpanded}
-                  onToggleExpand={() => setPersonaPreviewExpanded(!personaPreviewExpanded)}
-                />
-              )}
+              {/* STEP 5: Presentation Style */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>5</span>
+                  Presentation Style
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  {PRESENTATION_STYLES.map((style) => {
+                    const Icon = PRESENTATION_STYLE_ICONS[style.icon];
+                    const isSelected = selectedPresentationStyleId === style.id;
 
-              {/* Content-Type Specific Options */}
-              {contentType === 'skit' && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Content Format</label>
-                    <select
-                      value={contentFormat}
-                      onChange={(e) => setContentFormat(e.target.value as ContentFormat)}
-                      style={inputStyle}
-                    >
-                      {CONTENT_FORMAT_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <div style={{ marginTop: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                      {CONTENT_FORMAT_OPTIONS.find(o => o.value === contentFormat)?.description}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Duration</label>
-                    <select
-                      value={targetDuration}
-                      onChange={(e) => setTargetDuration(e.target.value as TargetDuration)}
-                      style={inputStyle}
-                    >
-                      {DURATION_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Variations</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {[1, 2, 3, 4, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setVariationCount(n)}
-                          style={{
-                            flex: 1,
-                            padding: '10px',
-                            backgroundColor: variationCount === n ? '#3b82f6' : colors.bg,
-                            border: `1px solid ${variationCount === n ? '#3b82f6' : colors.border}`,
-                            borderRadius: '6px',
-                            color: variationCount === n ? 'white' : colors.text,
-                            cursor: 'pointer',
-                            fontWeight: variationCount === n ? 600 : 400,
-                          }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {contentType === 'script' && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Script Format</label>
-                    <select
-                      value={scriptFormat}
-                      onChange={(e) => setScriptFormat(e.target.value as ScriptFormat)}
-                      style={inputStyle}
-                    >
-                      {SCRIPT_FORMAT_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <div style={{ marginTop: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                      {SCRIPT_FORMAT_OPTIONS.find(o => o.value === scriptFormat)?.description}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Voice Style</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {[
-                        { value: 'first_person', label: 'First Person', desc: '"I discovered..."' },
-                        { value: 'narrator', label: 'Narrator', desc: 'Third-person view' },
-                        { value: 'expert', label: 'Expert', desc: 'Authority figure' },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setScriptVoice(opt.value as typeof scriptVoice)}
-                          style={{
-                            flex: 1,
-                            padding: '10px',
-                            backgroundColor: scriptVoice === opt.value ? '#3b82f6' : colors.bg,
-                            border: `1px solid ${scriptVoice === opt.value ? '#3b82f6' : colors.border}`,
-                            borderRadius: '6px',
-                            color: scriptVoice === opt.value ? 'white' : colors.text,
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Duration</label>
-                    <select
-                      value={targetDuration}
-                      onChange={(e) => setTargetDuration(e.target.value as TargetDuration)}
-                      style={inputStyle}
-                    >
-                      {DURATION_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {contentType === 'hook' && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Hook Types to Generate</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {HOOK_TYPE_OPTIONS.map(opt => {
-                        const selected = selectedHookTypes.includes(opt.value);
-                        return (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              if (selected) {
-                                setSelectedHookTypes(selectedHookTypes.filter(h => h !== opt.value));
-                              } else {
-                                setSelectedHookTypes([...selectedHookTypes, opt.value]);
-                              }
-                            }}
-                            title={opt.example}
-                            style={{
-                              padding: '8px 12px',
-                              backgroundColor: selected ? '#3b82f6' : colors.bg,
-                              border: `1px solid ${selected ? '#3b82f6' : colors.border}`,
-                              borderRadius: '6px',
-                              color: selected ? 'white' : colors.text,
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Number of Hooks</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {[5, 10, 15, 20].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setHookCount(n)}
-                          style={{
-                            flex: 1,
-                            padding: '10px',
-                            backgroundColor: hookCount === n ? '#3b82f6' : colors.bg,
-                            border: `1px solid ${hookCount === n ? '#3b82f6' : colors.border}`,
-                            borderRadius: '6px',
-                            color: hookCount === n ? 'white' : colors.text,
-                            cursor: 'pointer',
-                            fontWeight: hookCount === n ? 600 : 400,
-                          }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Risk Tier - for skit and script */}
-              {contentType !== 'hook' && (
-                <div>
-                  <label style={labelStyle}>Tone / Risk Level</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {(['SAFE', 'BALANCED', 'SPICY'] as RiskTier[]).map(tier => (
+                    return (
                       <button
-                        key={tier}
-                        onClick={() => setRiskTier(tier)}
+                        key={style.id}
+                        onClick={() => setSelectedPresentationStyleId(style.id)}
                         style={{
-                          flex: 1,
-                          padding: '10px',
-                          backgroundColor: riskTier === tier ? (tier === 'SAFE' ? '#10b981' : tier === 'BALANCED' ? '#f59e0b' : '#ef4444') : colors.bg,
-                          border: `1px solid ${riskTier === tier ? 'transparent' : colors.border}`,
-                          borderRadius: '6px',
-                          color: riskTier === tier ? 'white' : colors.text,
-                          cursor: 'pointer',
-                          fontWeight: riskTier === tier ? 600 : 400,
+                          ...cardStyle(isSelected),
+                          padding: '12px',
                         }}
                       >
-                        {tier}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', color: isSelected ? '#3b82f6' : colors.textSecondary }}>
+                          {Icon && <Icon size={18} />}
+                          <span style={{ fontWeight: 600, color: colors.text, fontSize: '13px' }}>{style.name}</span>
+                          {isSelected && <Check size={14} style={{ color: '#3b82f6', marginLeft: 'auto' }} />}
+                        </div>
+                        <p style={{ margin: 0, fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                          {style.description}
+                        </p>
+                        {style.brollHeavy && (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginTop: '8px',
+                            padding: '2px 8px',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            color: '#8b5cf6',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 500,
+                          }}>
+                            <ImageIcon size={10} /> B-Roll Heavy
+                          </span>
+                        )}
                       </button>
-                    ))}
+                    );
+                  })}
+                </div>
+                {selectedPresentationStyle && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '12px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                    borderRadius: '8px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <Sparkles size={12} style={{ color: '#f59e0b' }} />
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#f59e0b' }}>Pro Tip</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
+                      {selectedPresentationStyle.tips}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* STEP 6: Length & Tone */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>6</span>
+                  Length & Tone
+                </div>
+
+                {/* Target Length */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>
+                    <Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                    Target Length
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {TARGET_LENGTHS.map((length) => {
+                      const isSelected = selectedLengthId === length.id;
+                      return (
+                        <button
+                          key={length.id}
+                          onClick={() => setSelectedLengthId(length.id)}
+                          style={{
+                            padding: '10px 8px',
+                            backgroundColor: isSelected ? '#3b82f6' : colors.bg,
+                            border: `1px solid ${isSelected ? '#3b82f6' : colors.border}`,
+                            borderRadius: '8px',
+                            color: isSelected ? 'white' : colors.text,
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div style={{ fontSize: '12px', fontWeight: 600 }}>{length.name}</div>
+                          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{length.sceneCount}</div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              )}
 
-              {/* Creative Direction */}
-              <div>
-                <label style={labelStyle}>Creative Direction (Optional)</label>
-                <textarea
-                  value={creativeDirection}
-                  onChange={(e) => setCreativeDirection(e.target.value)}
-                  placeholder="Any specific angle, style, or direction..."
-                  rows={2}
-                  style={{ ...inputStyle, resize: 'vertical' }}
-                />
+                {/* Humor Level */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>
+                    <Smile size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                    Humor Level
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {HUMOR_LEVELS.map((humor) => {
+                      const isSelected = selectedHumorId === humor.id;
+                      return (
+                        <button
+                          key={humor.id}
+                          onClick={() => setSelectedHumorId(humor.id)}
+                          title={humor.description}
+                          style={{
+                            padding: '10px 8px',
+                            backgroundColor: isSelected ? '#8b5cf6' : colors.bg,
+                            border: `1px solid ${isSelected ? '#8b5cf6' : colors.border}`,
+                            borderRadius: '8px',
+                            color: isSelected ? 'white' : colors.text,
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            fontSize: '12px',
+                            fontWeight: isSelected ? 600 : 400,
+                          }}
+                        >
+                          {humor.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Risk Tier */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>
+                    Tone / Risk Level
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {(['SAFE', 'BALANCED', 'SPICY'] as RiskTier[]).map(tier => {
+                      const isSelected = riskTier === tier;
+                      const tierColors: Record<RiskTier, string> = {
+                        SAFE: '#10b981',
+                        BALANCED: '#f59e0b',
+                        SPICY: '#ef4444',
+                      };
+                      return (
+                        <button
+                          key={tier}
+                          onClick={() => setRiskTier(tier)}
+                          style={{
+                            flex: 1,
+                            padding: '10px',
+                            backgroundColor: isSelected ? tierColors[tier] : colors.bg,
+                            border: `1px solid ${isSelected ? tierColors[tier] : colors.border}`,
+                            borderRadius: '8px',
+                            color: isSelected ? 'white' : colors.text,
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: isSelected ? 600 : 400,
+                          }}
+                        >
+                          {tier}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* STEP 7: Advanced Options */}
+              <div style={sectionStyle}>
+                <button
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'none',
+                    border: 'none',
+                    color: colors.textSecondary,
+                    cursor: 'pointer',
+                    padding: '8px 0',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    width: '100%',
+                  }}
+                >
+                  <Settings size={14} />
+                  Advanced Options
+                  {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+
+                {showAdvanced && (
+                  <div style={{ paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Variations */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>
+                        Number of Variations
+                      </label>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setVariationCount(n)}
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: variationCount === n ? '#3b82f6' : colors.bg,
+                              border: `1px solid ${variationCount === n ? '#3b82f6' : colors.border}`,
+                              borderRadius: '6px',
+                              color: variationCount === n ? 'white' : colors.text,
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: variationCount === n ? 600 : 400,
+                            }}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Reference Script */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>
+                        Reference Script (inspiration)
+                      </label>
+                      <textarea
+                        value={referenceScript}
+                        onChange={(e) => setReferenceScript(e.target.value)}
+                        placeholder="Paste a script you want to use as inspiration..."
+                        rows={3}
+                        style={{ ...inputStyle, resize: 'vertical' }}
+                      />
+                    </div>
+
+                    {/* Specific Hooks */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>
+                        Specific Hooks to Try (one per line)
+                      </label>
+                      <textarea
+                        value={specificHooks}
+                        onChange={(e) => setSpecificHooks(e.target.value)}
+                        placeholder={"POV: You finally found the solution\nNobody talks about this but..."}
+                        rows={2}
+                        style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }}
+                      />
+                    </div>
+
+                    {/* Things to Avoid */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>
+                        Things to Avoid (one per line)
+                      </label>
+                      <textarea
+                        value={thingsToAvoid}
+                        onChange={(e) => setThingsToAvoid(e.target.value)}
+                        placeholder={"Don't mention competitors\nAvoid technical jargon"}
+                        rows={2}
+                        style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }}
+                      />
+                    </div>
+
+                    {/* CTA Preference */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>
+                        CTA Preference
+                      </label>
+                      <input
+                        value={ctaPreference}
+                        onChange={(e) => setCtaPreference(e.target.value)}
+                        placeholder="e.g., Link in bio, Shop now, Comment below..."
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Generate Button */}
@@ -1142,25 +1190,25 @@ export default function ContentStudioPage() {
                 disabled={generating || (!selectedProductId && !manualProductName.trim())}
                 style={{
                   ...buttonStyle,
+                  width: '100%',
                   opacity: generating || (!selectedProductId && !manualProductName.trim()) ? 0.5 : 1,
                   cursor: generating ? 'wait' : 'pointer',
-                  width: '100%',
-                  marginTop: '8px',
+                  background: generating ? colors.border : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                 }}
               >
                 {generating ? (
                   <>
-                    <span style={{ animation: 'spin 1s linear infinite' }}>⚡</span>
+                    <Loader2 className="animate-spin" size={18} />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <span>⚡</span>
-                    Generate {contentType === 'skit' ? 'Skit' : contentType === 'script' ? 'Script' : 'Hooks'}
+                    <Zap size={18} />
+                    Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})
                   </>
                 )}
               </button>
-            </div>
+            </>
           )}
         </div>
 
@@ -1168,31 +1216,33 @@ export default function ContentStudioPage() {
         <div style={{
           backgroundColor: colors.card,
           border: `1px solid ${colors.border}`,
-          borderRadius: '12px',
+          borderRadius: '16px',
           padding: '24px',
-          minHeight: '500px',
+          minHeight: '600px',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', color: colors.text, fontWeight: 600 }}>
-              Results
+              Generated Scripts
             </h2>
             {result && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={openSaveModal}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#7c3aed',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: 'white',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  💾 Save to Library
-                </button>
-              </div>
+              <button
+                onClick={openSaveModal}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#8b5cf6',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <BookOpen size={14} />
+                Save to Library
+              </button>
             )}
           </div>
 
@@ -1201,7 +1251,7 @@ export default function ContentStudioPage() {
               padding: '16px',
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '8px',
+              borderRadius: '10px',
               marginBottom: '16px',
             }}>
               <div style={{ fontWeight: 600, color: '#ef4444', marginBottom: '4px' }}>
@@ -1219,19 +1269,16 @@ export default function ContentStudioPage() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '400px',
+              height: '450px',
               color: colors.textSecondary,
               textAlign: 'center',
             }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>
-                {CONTENT_TYPE_OPTIONS.find(o => o.value === contentType)?.icon}
-              </div>
+              <Sparkles size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
               <div style={{ fontSize: '16px', fontWeight: 500, marginBottom: '8px' }}>
                 Ready to generate
               </div>
               <div style={{ fontSize: '14px', maxWidth: '300px' }}>
-                Select a product and configure your options, then click Generate to create{' '}
-                {contentType === 'skit' ? 'comedy skits' : contentType === 'script' ? 'marketing scripts' : 'hook variations'}.
+                Configure your content options and click Generate to create viral video scripts.
               </div>
             </div>
           )}
@@ -1242,23 +1289,21 @@ export default function ContentStudioPage() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '400px',
+              height: '450px',
               color: colors.textSecondary,
             }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px', animation: 'pulse 1.5s infinite' }}>
-                ⚡
-              </div>
+              <Loader2 className="animate-spin" size={48} style={{ marginBottom: '16px', color: '#3b82f6' }} />
               <div style={{ fontSize: '16px', fontWeight: 500 }}>
-                Generating {contentType === 'skit' ? 'skits' : contentType === 'script' ? 'script' : 'hooks'}...
+                Generating scripts...
               </div>
               <div style={{ fontSize: '14px', marginTop: '8px' }}>
-                This may take a few moments
+                Creating {variationCount} variation{variationCount > 1 ? 's' : ''} for you
               </div>
             </div>
           )}
 
-          {/* Skit Results */}
-          {result && contentType === 'skit' && currentSkit && (
+          {/* Results Display */}
+          {result && currentSkit && (
             <div>
               {/* Variation Tabs */}
               {result.variations && result.variations.length > 1 && (
@@ -1271,16 +1316,16 @@ export default function ContentStudioPage() {
                         padding: '8px 16px',
                         backgroundColor: selectedVariationIndex === idx ? '#3b82f6' : colors.bg,
                         border: `1px solid ${selectedVariationIndex === idx ? '#3b82f6' : colors.border}`,
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         color: selectedVariationIndex === idx ? 'white' : colors.text,
                         cursor: 'pointer',
                         fontSize: '13px',
                       }}
                     >
-                      Variation {idx + 1}
+                      V{idx + 1}
                       {v.ai_score && (
                         <span style={{ marginLeft: '8px', opacity: 0.8 }}>
-                          ({v.ai_score.overall_score}/100)
+                          ({v.ai_score.overall_score}/10)
                         </span>
                       )}
                     </button>
@@ -1293,11 +1338,11 @@ export default function ContentStudioPage() {
                 padding: '16px',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 marginBottom: '16px',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6', marginBottom: '6px', textTransform: 'uppercase' }}>
                       🎣 Hook
                     </div>
@@ -1311,7 +1356,7 @@ export default function ContentStudioPage() {
                       padding: '6px 12px',
                       backgroundColor: copiedField === 'hook' ? '#10b981' : colors.bg,
                       border: `1px solid ${colors.border}`,
-                      borderRadius: '4px',
+                      borderRadius: '6px',
                       color: copiedField === 'hook' ? 'white' : colors.textSecondary,
                       cursor: 'pointer',
                       fontSize: '12px',
@@ -1325,64 +1370,66 @@ export default function ContentStudioPage() {
               {/* Beats */}
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '12px', textTransform: 'uppercase' }}>
-                  📽️ Scenes
+                  📽️ Scenes ({currentSkit.beats.length})
                 </div>
-                {currentSkit.beats.map((beat, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: '12px 16px',
-                      backgroundColor: colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '8px',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                      <div style={{
-                        backgroundColor: '#3b82f6',
-                        color: 'white',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        flexShrink: 0,
-                      }}>
-                        {beat.t}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '14px', color: colors.text, marginBottom: beat.dialogue ? '8px' : 0 }}>
-                          {beat.action}
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {currentSkit.beats.map((beat, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '12px 16px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '10px',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                        <div style={{
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        }}>
+                          {beat.t}
                         </div>
-                        {beat.dialogue && (
-                          <div style={{
-                            fontSize: '14px',
-                            color: colors.text,
-                            fontStyle: 'italic',
-                            padding: '8px 12px',
-                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                            borderRadius: '6px',
-                            borderLeft: '3px solid #8b5cf6',
-                          }}>
-                            &ldquo;{beat.dialogue}&rdquo;
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', color: colors.text, marginBottom: beat.dialogue ? '8px' : 0 }}>
+                            {beat.action}
                           </div>
-                        )}
-                        {beat.on_screen_text && (
-                          <div style={{
-                            marginTop: '8px',
-                            fontSize: '12px',
-                            color: '#f59e0b',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                          }}>
-                            <span>📝</span> {beat.on_screen_text}
-                          </div>
-                        )}
+                          {beat.dialogue && (
+                            <div style={{
+                              fontSize: '14px',
+                              color: colors.text,
+                              fontStyle: 'italic',
+                              padding: '8px 12px',
+                              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                              borderRadius: '8px',
+                              borderLeft: '3px solid #8b5cf6',
+                            }}>
+                              &ldquo;{beat.dialogue}&rdquo;
+                            </div>
+                          )}
+                          {beat.on_screen_text && (
+                            <div style={{
+                              marginTop: '8px',
+                              fontSize: '12px',
+                              color: '#f59e0b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}>
+                              <Type size={12} /> {beat.on_screen_text}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
               {/* CTA */}
@@ -1390,12 +1437,13 @@ export default function ContentStudioPage() {
                 padding: '16px',
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '8px',
+                borderRadius: '10px',
+                marginBottom: '16px',
               }}>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '6px', textTransform: 'uppercase' }}>
                   🎯 Call to Action
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 500, color: colors.text, marginBottom: '8px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 500, color: colors.text, marginBottom: '4px' }}>
                   {currentSkit.cta_line}
                 </div>
                 {currentSkit.cta_overlay && (
@@ -1405,13 +1453,54 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
+              {/* B-Roll Suggestions */}
+              {currentSkit.b_roll && currentSkit.b_roll.length > 0 && (
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                  border: '1px solid rgba(139, 92, 246, 0.2)',
+                  borderRadius: '10px',
+                  marginBottom: '16px',
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6', marginBottom: '8px', textTransform: 'uppercase' }}>
+                    <ImageIcon size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                    B-Roll Suggestions
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '16px', color: colors.textSecondary, fontSize: '13px' }}>
+                    {currentSkit.b_roll.slice(0, 5).map((br, idx) => (
+                      <li key={idx} style={{ marginBottom: '4px' }}>{br}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* AI Score */}
+              {currentAiScore && (
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '10px',
+                  marginBottom: '16px',
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>
+                    AI Score: {currentAiScore.overall_score}/10
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '11px' }}>
+                    <div>Hook: {currentAiScore.hook_strength}/10</div>
+                    <div>Humor: {currentAiScore.humor_level}/10</div>
+                    <div>Virality: {currentAiScore.virality_potential}/10</div>
+                  </div>
+                </div>
+              )}
+
               {/* Copy Full Script Button */}
               <button
                 onClick={() => {
                   const fullScript = [
                     `HOOK: ${currentSkit.hook_line}`,
                     '',
-                    ...currentSkit.beats.map((b, i) => {
+                    ...currentSkit.beats.map((b) => {
                       let beatText = `[${b.t}] ${b.action}`;
                       if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
                       if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
@@ -1425,177 +1514,31 @@ export default function ContentStudioPage() {
                 }}
                 style={{
                   width: '100%',
-                  marginTop: '16px',
-                  padding: '12px',
+                  padding: '14px',
                   backgroundColor: copiedField === 'full' ? '#10b981' : colors.bg,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '8px',
+                  border: `1px solid ${copiedField === 'full' ? '#10b981' : colors.border}`,
+                  borderRadius: '10px',
                   color: copiedField === 'full' ? 'white' : colors.text,
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
                 }}
               >
-                {copiedField === 'full' ? '✓ Copied Full Script!' : '📋 Copy Full Script'}
-              </button>
-            </div>
-          )}
-
-          {/* Script Results */}
-          {result && contentType === 'script' && result.script && (
-            <div>
-              <div style={{
-                padding: '16px',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '8px',
-                marginBottom: '16px',
-              }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6', marginBottom: '6px', textTransform: 'uppercase' }}>
-                  🎣 Hook
-                </div>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: colors.text }}>
-                  {result.script.hook}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '12px', textTransform: 'uppercase' }}>
-                  📝 Script Body
-                </div>
-                {result.script.body.map((paragraph, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: '12px 16px',
-                      backgroundColor: colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '8px',
-                      marginBottom: '8px',
-                      fontSize: '14px',
-                      color: colors.text,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {paragraph}
-                  </div>
-                ))}
-              </div>
-
-              <div style={{
-                padding: '16px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '8px',
-              }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '6px', textTransform: 'uppercase' }}>
-                  🎯 Call to Action
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: 500, color: colors.text }}>
-                  {result.script.cta}
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  const fullScript = [
-                    result.script!.hook,
-                    '',
-                    ...result.script!.body,
-                    '',
-                    result.script!.cta,
-                  ].join('\n\n');
-                  copyToClipboard(fullScript, 'full');
-                }}
-                style={{
-                  width: '100%',
-                  marginTop: '16px',
-                  padding: '12px',
-                  backgroundColor: copiedField === 'full' ? '#10b981' : colors.bg,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '8px',
-                  color: copiedField === 'full' ? 'white' : colors.text,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }}
-              >
-                {copiedField === 'full' ? '✓ Copied!' : '📋 Copy Full Script'}
-              </button>
-            </div>
-          )}
-
-          {/* Hook Results */}
-          {result && contentType === 'hook' && result.hooks && (
-            <div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '16px' }}>
-                  Generated {result.hooks.hooks.length} hook variations. Click to copy.
-                </div>
-                {result.hooks.hooks.map((hook, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => copyToClipboard(hook.text, `hook-${idx}`)}
-                    style={{
-                      width: '100%',
-                      padding: '16px',
-                      backgroundColor: copiedField === `hook-${idx}` ? 'rgba(16, 185, 129, 0.1)' : colors.bg,
-                      border: `1px solid ${copiedField === `hook-${idx}` ? '#10b981' : colors.border}`,
-                      borderRadius: '8px',
-                      marginBottom: '8px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '15px', color: colors.text, marginBottom: '6px', lineHeight: 1.4 }}>
-                          {hook.text}
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={{
-                            fontSize: '11px',
-                            padding: '2px 8px',
-                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                            color: '#8b5cf6',
-                            borderRadius: '4px',
-                          }}>
-                            {HOOK_TYPE_OPTIONS.find(h => h.value === hook.type)?.label || hook.type}
-                          </span>
-                          {hook.strength_score && (
-                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>
-                              Score: {hook.strength_score}/10
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '12px', color: copiedField === `hook-${idx}` ? '#10b981' : colors.textSecondary }}>
-                        {copiedField === `hook-${idx}` ? '✓ Copied' : 'Click to copy'}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => {
-                  const allHooks = result.hooks!.hooks.map((h, i) => `${i + 1}. ${h.text}`).join('\n');
-                  copyToClipboard(allHooks, 'all-hooks');
-                }}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: copiedField === 'all-hooks' ? '#10b981' : colors.bg,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '8px',
-                  color: copiedField === 'all-hooks' ? 'white' : colors.text,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }}
-              >
-                {copiedField === 'all-hooks' ? '✓ All Hooks Copied!' : '📋 Copy All Hooks'}
+                {copiedField === 'full' ? (
+                  <>
+                    <Check size={16} />
+                    Copied Full Script!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} />
+                    Copy Full Script
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -1615,7 +1558,7 @@ export default function ContentStudioPage() {
         }}>
           <div style={{
             backgroundColor: colors.card,
-            borderRadius: '12px',
+            borderRadius: '16px',
             padding: '24px',
             width: '100%',
             maxWidth: '400px',
@@ -1623,7 +1566,7 @@ export default function ContentStudioPage() {
           }}>
             <h3 style={{ margin: '0 0 16px 0', color: colors.text }}>Save to Library</h3>
             <div style={{ marginBottom: '16px' }}>
-              <label style={labelStyle}>Title</label>
+              <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>Title</label>
               <input
                 value={saveTitle}
                 onChange={(e) => setSaveTitle(e.target.value)}
@@ -1631,7 +1574,7 @@ export default function ContentStudioPage() {
               />
             </div>
             <div style={{ marginBottom: '24px' }}>
-              <label style={labelStyle}>Status</label>
+              <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>Status</label>
               <select
                 value={saveStatus}
                 onChange={(e) => setSaveStatus(e.target.value as SkitStatus)}
@@ -1650,7 +1593,7 @@ export default function ContentStudioPage() {
                   padding: '12px',
                   backgroundColor: colors.bg,
                   border: `1px solid ${colors.border}`,
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   color: colors.text,
                   cursor: 'pointer',
                 }}
@@ -1663,9 +1606,9 @@ export default function ContentStudioPage() {
                 style={{
                   flex: 1,
                   padding: '12px',
-                  backgroundColor: '#7c3aed',
+                  backgroundColor: '#8b5cf6',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   color: 'white',
                   cursor: 'pointer',
                   opacity: savingToLibrary || !saveTitle.trim() ? 0.5 : 1,
@@ -1687,12 +1630,16 @@ export default function ContentStudioPage() {
           backgroundColor: '#10b981',
           color: 'white',
           padding: '12px 24px',
-          borderRadius: '8px',
+          borderRadius: '10px',
           fontWeight: 500,
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
         }}>
-          ✓ Saved to Library
+          <Check size={16} />
+          Saved to Library
         </div>
       )}
 
@@ -1701,12 +1648,11 @@ export default function ContentStudioPage() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+        .animate-spin {
+          animation: spin 1s linear infinite;
         }
-        @media (max-width: 900px) {
-          div[style*="grid-template-columns"] {
+        @media (max-width: 1000px) {
+          div[style*="grid-template-columns: 1fr 1fr"] {
             grid-template-columns: 1fr !important;
           }
         }

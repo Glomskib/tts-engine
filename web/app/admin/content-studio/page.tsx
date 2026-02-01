@@ -500,12 +500,50 @@ export default function ContentStudioPage() {
     setResult(null);
     setSelectedVariationIndex(0);
 
-    // Build payload with all new parameters
-    const payload: Record<string, unknown> = {
-      // Content type info
-      content_type: selectedContentTypeId,
-      content_subtype: selectedSubtypeId,
+    // Map frontend fields to API schema
+    // presentation_style → actor_type
+    const actorTypeMap: Record<string, string> = {
+      'talking_head': 'human',
+      'human_actor': 'human',
+      'ai_avatar': 'ai_avatar',
+      'voiceover': 'voiceover',
+      'text_overlay': 'voiceover',
+      'ugc_style': 'human',
+      'mixed': 'mixed',
+    };
 
+    // target_length → target_duration
+    const durationMap: Record<string, string> = {
+      'micro': 'quick',
+      'short': 'quick',
+      'medium': 'standard',
+      'long': 'extended',
+    };
+
+    // humor_level → intensity (0-100)
+    const intensityMap: Record<string, number> = {
+      'none': 10,
+      'light': 30,
+      'moderate': 50,
+      'heavy': 80,
+    };
+
+    // content_type + content_subtype → content_format
+    const getContentFormat = (): string => {
+      // Map based on content type and subtype
+      if (selectedContentTypeId === 'skit') return 'skit_dialogue';
+      if (selectedSubtypeId === 'day_in_life' || selectedSubtypeId === 'day_in_life_story') return 'day_in_life';
+      if (selectedSubtypeId === 'product_demo' || selectedSubtypeId === 'how_it_works') return 'product_demo_parody';
+      if (selectedSubtypeId === 'relatable' || selectedSubtypeId === 'relatable_situation') return 'pov_story';
+      if (selectedContentTypeId === 'testimonial') return 'reaction_commentary';
+      if (selectedContentTypeId === 'story') return 'pov_story';
+      // Default based on presentation style
+      if (selectedPresentationStyleId === 'voiceover' || selectedPresentationStyleId === 'text_overlay') return 'scene_montage';
+      return 'skit_dialogue';
+    };
+
+    // Build payload with correct API field names
+    const payload: Record<string, unknown> = {
       // Product info
       product_id: selectedProductId || undefined,
       product_name: selectedProductId ? undefined : manualProductName.trim(),
@@ -517,20 +555,27 @@ export default function ContentStudioPage() {
       pain_point_focus: selectedPainPoints.length > 0 ? selectedPainPoints : undefined,
       use_audience_language: true,
 
-      // Presentation
-      presentation_style: selectedPresentationStyleId,
-      target_length: selectedLengthId,
-      humor_level: selectedHumorId,
+      // Content format and presentation (mapped to API schema)
+      content_format: getContentFormat(),
+      actor_type: actorTypeMap[selectedPresentationStyleId] || 'human',
+      target_duration: durationMap[selectedLengthId] || 'standard',
+      intensity: intensityMap[selectedHumorId] || 50,
+      chaos_level: intensityMap[selectedHumorId] || 50,
+
+      // Required fields
       risk_tier: riskTier,
+      persona: 'NONE', // Default persona - user can customize later
 
       // Variations
       variation_count: variationCount,
 
-      // Advanced options
-      reference_script: referenceScript.trim() || undefined,
-      specific_hooks: specificHooks.trim() ? specificHooks.split('\n').filter(h => h.trim()) : undefined,
-      things_to_avoid: thingsToAvoid.trim() ? thingsToAvoid.split('\n').filter(t => t.trim()) : undefined,
-      cta_preference: ctaPreference.trim() || undefined,
+      // Creative direction from advanced options
+      creative_direction: [
+        referenceScript.trim() ? `Reference style: ${referenceScript.trim()}` : '',
+        specificHooks.trim() ? `Include hooks: ${specificHooks.trim()}` : '',
+        thingsToAvoid.trim() ? `Avoid: ${thingsToAvoid.trim()}` : '',
+        ctaPreference.trim() ? `CTA style: ${ctaPreference.trim()}` : '',
+      ].filter(Boolean).join('. ') || undefined,
     };
 
     try {

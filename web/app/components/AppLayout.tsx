@@ -132,7 +132,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         />
 
         {/* Page content with proper padding */}
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6">
           {children}
         </main>
       </div>

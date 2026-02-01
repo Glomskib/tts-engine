@@ -288,7 +288,7 @@ export default function AssignmentsPage() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }} className="pb-24 lg:pb-6">
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>Assignment Dashboard</h1>

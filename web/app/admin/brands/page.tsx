@@ -159,7 +159,7 @@ export default function BrandsPage() {
   const isAdmin = authUser.role === 'admin';
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6 overflow-hidden">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Brands</h1>
         <button

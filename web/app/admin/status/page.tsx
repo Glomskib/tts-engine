@@ -146,7 +146,7 @@ export default function AdminStatusPage() {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }} className="pb-24 lg:pb-6">
       {/* Incident Mode Banner */}
       <IncidentBanner />
 

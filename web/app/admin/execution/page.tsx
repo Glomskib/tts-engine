@@ -115,7 +115,7 @@ export default function ExecutionDashboardPage() {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }} className="pb-24 lg:pb-6">
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Execution Dashboard</h1>

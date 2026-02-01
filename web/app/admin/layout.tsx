@@ -300,11 +300,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <div className="w-14 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
 
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-800">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
                     {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <div>
-                    <p className="text-xl font-medium text-white">{auth.userEmail}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl font-medium text-white truncate">{auth.userEmail}</p>
                     <p className="text-[17px] text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
                   </div>
                 </div>
@@ -339,8 +339,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           )}
 
           {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
-          <main className="pt-14 pb-20 min-h-screen overflow-x-hidden">
-            <div className="p-4 max-w-full overflow-hidden">
+          <main className="pt-16 pb-24 min-h-screen overflow-x-hidden">
+            <div className="px-4 max-w-full overflow-hidden">
               {children}
             </div>
           </main>

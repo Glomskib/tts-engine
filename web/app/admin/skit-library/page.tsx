@@ -715,7 +715,7 @@ export default function SkitLibraryPage() {
   };
 
   return (
-    <div style={containerStyle}>
+    <div style={containerStyle} className="pb-24 lg:pb-6">
       {/* Breadcrumb Navigation */}
       <nav style={{ marginBottom: "12px", fontSize: "13px" }}>
         <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: "none" }}>

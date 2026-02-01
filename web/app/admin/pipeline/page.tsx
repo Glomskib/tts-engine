@@ -14,6 +14,7 @@ import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
 import { FilterSheet } from '@/components/FilterSheet';
 import { Filter } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
 // import type { BoardFilters } from './types';
@@ -379,6 +380,7 @@ export default function AdminPipelinePage() {
   const hydrated = useHydrated();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
+  const { showSuccess, showError } = useToast();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [queueSummary, setQueueSummary] = useState<QueueSummary | null>(null);
   const [claimedVideos, setClaimedVideos] = useState<ClaimedVideo[]>([]);
@@ -1051,22 +1053,21 @@ export default function AdminPipelinePage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setAttachMessage('Script attached successfully!');
+        showSuccess('Script attached successfully');
         // Refresh queue to show updated blocker status
         fetchQueueVideos();
-        // Close modal after short delay
-        setTimeout(() => {
-          closeAttachModal();
-        }, 1500);
+        closeAttachModal();
       } else if (data.code === 'SCRIPT_ALREADY_LOCKED') {
         setAttachMessage('This video already has a locked script. Check "Overwrite existing" to replace it.');
       } else if (data.code === 'SCRIPT_NOT_APPROVED') {
         setAttachMessage(`Script is not approved (status: ${data.details?.status || 'unknown'}). Check "Force attach" to attach anyway.`);
       } else {
         setAttachMessage(`Error: ${data.error || 'Failed to attach script'}`);
+        showError(data.error || 'Failed to attach script');
       }
     } catch (err) {
       setAttachMessage('Error: Failed to attach script');
+      showError('Failed to attach script');
     } finally {
       setAttaching(false);
     }
@@ -1076,6 +1077,17 @@ export default function AdminPipelinePage() {
   const executeTransition = async (videoId: string, targetStatus: string) => {
     setExecutingVideoId(videoId);
     setExecutionError(null);
+
+    // Get friendly status names for toast
+    const statusLabels: Record<string, string> = {
+      'RECORDED': 'marked as recorded',
+      'EDITED': 'marked as edited',
+      'READY_TO_POST': 'approved for posting',
+      'POSTED': 'marked as posted',
+      'REJECTED': 'rejected',
+    };
+    const statusLabel = statusLabels[targetStatus] || 'updated';
+
     try {
       // Auth is handled server-side via session
       const res = await fetch(`/api/videos/${videoId}/execution`, {
@@ -1085,12 +1097,17 @@ export default function AdminPipelinePage() {
       });
       const data = await res.json();
       if (data.ok) {
+        showSuccess(`Video ${statusLabel}`);
         fetchQueueVideos();
+        // Close mobile detail sheet if open
+        setMobileDetailOpen(false);
       } else {
         setExecutionError({ videoId, message: data.error || 'Failed to update status' });
+        showError(data.error || 'Failed to update status');
       }
     } catch (err) {
       setExecutionError({ videoId, message: 'Network error' });
+      showError('Network error - please try again');
     } finally {
       setExecutingVideoId(null);
     }
@@ -1132,16 +1149,16 @@ export default function AdminPipelinePage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setPostMessage('Marked as posted!');
+        showSuccess('Video marked as posted');
         fetchQueueVideos();
-        setTimeout(() => {
-          closePostModal();
-        }, 1500);
+        closePostModal();
       } else {
         setPostMessage(`Error: ${data.error || 'Failed to mark as posted'}`);
+        showError(data.error || 'Failed to mark as posted');
       }
     } catch (err) {
       setPostMessage('Error: Network error');
+      showError('Network error - please try again');
     } finally {
       setPosting(false);
     }
@@ -1462,8 +1479,8 @@ export default function AdminPipelinePage() {
       <IncidentBanner />
 
       {/* Clean Header */}
-      <div style={{
-        display: 'flex',
+      {/* Desktop Header - Hidden on mobile */}
+      <div className="hidden lg:flex" style={{
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '24px',
@@ -1608,15 +1625,14 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
-      {/* Queue Health Card (admin only) */}
+      {/* Queue Health Card (admin only) - Desktop only */}
       {isAdminMode && queueHealth && (
-        <div style={{
+        <div className="hidden lg:flex" style={{
           marginBottom: '16px',
           padding: '12px 16px',
           backgroundColor: colors.surface,
           border: `1px solid ${colors.border}`,
           borderRadius: '8px',
-          display: 'flex',
           alignItems: 'center',
           gap: '24px',
           flexWrap: 'wrap',
@@ -1667,10 +1683,9 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
-      {/* Compact Filter Bar */}
-      <div style={{
+      {/* Compact Filter Bar - Desktop only */}
+      <div className="hidden lg:flex" style={{
         marginBottom: '16px',
-        display: 'flex',
         alignItems: 'center',
         gap: '12px',
         flexWrap: 'wrap',
@@ -1733,15 +1748,14 @@ export default function AdminPipelinePage() {
         </span>
       </div>
 
-      {/* Bulk Action Bar - appears when items selected */}
+      {/* Bulk Action Bar - Desktop only, appears when items selected */}
       {selectedVideoIds.size > 0 && isAdminMode && (
-        <div style={{
+        <div className="hidden lg:flex" style={{
           marginBottom: '12px',
           padding: '10px 16px',
           backgroundColor: colors.surface,
           border: `1px solid ${colors.border}`,
           borderRadius: '8px',
-          display: 'flex',
           alignItems: 'center',
           gap: '12px',
         }}>
@@ -2057,8 +2071,9 @@ export default function AdminPipelinePage() {
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
+            backgroundColor: colors.card,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '12px',
             padding: '24px',
             maxWidth: '500px',
             width: '90%',
@@ -2066,7 +2081,7 @@ export default function AdminPipelinePage() {
             overflow: 'auto',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: '#004085' }}>Attach Script</h2>
+              <h2 style={{ margin: 0, color: colors.text }}>Attach Script</h2>
               <button
                 onClick={closeAttachModal}
                 style={{
@@ -2074,15 +2089,15 @@ export default function AdminPipelinePage() {
                   border: 'none',
                   fontSize: '24px',
                   cursor: 'pointer',
-                  color: '#666',
+                  color: colors.textMuted,
                 }}
               >
                 ×
               </button>
             </div>
 
-            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
-              Video: <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>{attachModalVideoId.slice(0, 8)}...</code>
+            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
+              Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{attachModalVideoId.slice(0, 8)}...</code>
             </p>
 
             {scriptsLoading ? (
@@ -2202,14 +2217,15 @@ export default function AdminPipelinePage() {
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
+            backgroundColor: colors.card,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '12px',
             padding: '24px',
             maxWidth: '450px',
             width: '90%',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: '#1971c2' }}>Mark as Posted</h2>
+              <h2 style={{ margin: 0, color: colors.text }}>Mark as Posted</h2>
               <button
                 onClick={closePostModal}
                 style={{
@@ -2217,15 +2233,15 @@ export default function AdminPipelinePage() {
                   border: 'none',
                   fontSize: '24px',
                   cursor: 'pointer',
-                  color: '#666',
+                  color: colors.textMuted,
                 }}
               >
                 ×
               </button>
             </div>
 
-            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
-              Video: <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>{postModalVideoId.slice(0, 8)}...</code>
+            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
+              Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{postModalVideoId.slice(0, 8)}...</code>
             </p>
 
             <div style={{ marginBottom: '15px' }}>
@@ -2323,14 +2339,15 @@ export default function AdminPipelinePage() {
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
+            backgroundColor: colors.card,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '12px',
             padding: '24px',
             maxWidth: '450px',
             width: '90%',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: '#6f42c1' }}>Handoff Video</h2>
+              <h2 style={{ margin: 0, color: colors.text }}>Handoff Video</h2>
               <button
                 onClick={closeHandoffModal}
                 style={{
@@ -2338,15 +2355,15 @@ export default function AdminPipelinePage() {
                   border: 'none',
                   fontSize: '24px',
                   cursor: 'pointer',
-                  color: '#666',
+                  color: colors.textMuted,
                 }}
               >
                 ×
               </button>
             </div>
 
-            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
-              Video: <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>{handoffModalVideoId.slice(0, 8)}...</code>
+            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
+              Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{handoffModalVideoId.slice(0, 8)}...</code>
               {handoffModalVideo?.claim_role && (
                 <span style={{
                   marginLeft: '10px',

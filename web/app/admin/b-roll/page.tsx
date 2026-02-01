@@ -105,7 +105,7 @@ export default function BRollGeneratorPage() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto pb-24 lg:pb-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-zinc-100 mb-2">B-Roll Generator</h1>

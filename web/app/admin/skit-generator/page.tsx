@@ -1604,7 +1604,7 @@ export default function SkitGeneratorPage() {
   }
 
   return (
-    <div ref={containerRef} style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div ref={containerRef} style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }} className="pb-24 lg:pb-6">
       {/* Celebration Toast */}
       {showCelebration && (
         <div

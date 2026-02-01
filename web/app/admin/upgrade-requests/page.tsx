@@ -136,7 +136,7 @@ export default function AdminUpgradeRequestsPage() {
   const resolvedRequests = requests.filter(r => r.status !== 'pending');
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>Upgrade Requests</h1>

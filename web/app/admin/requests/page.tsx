@@ -350,7 +350,7 @@ export default function AdminRequestsPage() {
   }
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }} className="pb-24 lg:pb-6">
 
       <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '20px 0' }}>
         Client Requests

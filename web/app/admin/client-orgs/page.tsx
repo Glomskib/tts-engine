@@ -901,7 +901,7 @@ export default function AdminClientOrgsPage() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
 
       <h1 style={{ margin: '0 0 20px 0' }}>Client Organizations</h1>
 

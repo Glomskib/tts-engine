@@ -168,7 +168,7 @@ export default function AdminBillingPage() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
 
       {/* Header */}
       <div style={{

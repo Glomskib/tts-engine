@@ -177,7 +177,7 @@ export default function AdminAnalyticsPage() {
   ) || { recorded: 0, edited: 0, ready_to_post: 0, posted: 0 };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>Analytics Dashboard</h1>

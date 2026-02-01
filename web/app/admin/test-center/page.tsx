@@ -277,7 +277,7 @@ export default function TestCenterPage() {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
       {/* Breadcrumb */}
       <nav style={{ marginBottom: '12px', fontSize: '13px' }}>
         <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: 'none' }}>

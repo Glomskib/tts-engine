@@ -1,7 +1,7 @@
 // app/api/ai/generate-image/route.ts - AI B-Roll image generation
 import { NextResponse, NextRequest } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { auditLogAsync } from "@/lib/audit";
 import { z } from "zod";
 import {
@@ -16,6 +16,7 @@ import {
   generateCorrelationId,
   createApiErrorResponse,
 } from "@/lib/api-errors";
+import { requireCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,9 +45,6 @@ export async function POST(request: NextRequest) {
         correlationId
       );
     }
-
-    // Get Supabase client for database operations
-    const supabase = await createServerSupabaseClient();
 
     // Parse request body
     let rawBody: unknown;
@@ -78,41 +76,29 @@ export async function POST(request: NextRequest) {
     // Check credits (unless admin)
     const creditCost = getImageCreditCost(input.model, input.num_outputs);
 
+    // Credit check (admins bypass)
+    const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+    if (creditError) {
+      return NextResponse.json({
+        ok: false,
+        error: creditError.error,
+        creditsRemaining: creditError.remaining,
+        upgrade: true,
+        correlation_id: correlationId,
+      }, { status: creditError.status });
+    }
+
+    // Deduct credits for the image generation (admins bypass)
+    let creditsRemaining: number | undefined;
     if (!authContext.isAdmin) {
-      // Get user's current credits
-      const { data: creditsData, error: creditsError } = await supabase
-        .from("user_credits")
-        .select("credits")
-        .eq("user_id", authContext.user.id)
-        .single();
-
-      if (creditsError && creditsError.code !== "PGRST116") {
-        console.error("Credits check error:", creditsError);
-        return createApiErrorResponse(
-          "DB_ERROR",
-          "Failed to check credits",
-          500,
-          correlationId
-        );
-      }
-
-      const currentCredits = creditsData?.credits || 0;
-
-      if (currentCredits < creditCost) {
-        return createApiErrorResponse(
-          "INSUFFICIENT_CREDITS",
-          `Insufficient credits. Need ${creditCost}, have ${currentCredits}`,
-          402,
-          correlationId,
-          { required: creditCost, available: currentCredits }
-        );
-      }
-
-      // Deduct credits
-      const { error: deductError } = await supabase
-        .from("user_credits")
-        .update({ credits: currentCredits - creditCost })
-        .eq("user_id", authContext.user.id);
+      // For multiple credits, we need to deduct multiple times or add credits with negative amount
+      // Using the add_credits function with negative amount for multi-credit operations
+      const { data: deductResult, error: deductError } = await supabaseAdmin.rpc("add_credits", {
+        p_user_id: authContext.user.id,
+        p_amount: -creditCost,
+        p_type: "generation",
+        p_description: `Image generation (${input.model}, ${input.num_outputs} images)`,
+      });
 
       if (deductError) {
         console.error("Credit deduction error:", deductError);
@@ -123,6 +109,26 @@ export async function POST(request: NextRequest) {
           correlationId
         );
       }
+
+      const result = deductResult?.[0];
+      if (result && result.credits_remaining < 0) {
+        // Rollback: credits went negative, add them back
+        await supabaseAdmin.rpc("add_credits", {
+          p_user_id: authContext.user.id,
+          p_amount: creditCost,
+          p_type: "refund",
+          p_description: "Insufficient credits refund",
+        });
+        return createApiErrorResponse(
+          "INSUFFICIENT_CREDITS",
+          `Insufficient credits. Need ${creditCost}, have ${result.credits_remaining + creditCost}`,
+          402,
+          correlationId,
+          { required: creditCost, available: result.credits_remaining + creditCost }
+        );
+      }
+
+      creditsRemaining = result?.credits_remaining;
     }
 
     // Generate images
@@ -141,18 +147,12 @@ export async function POST(request: NextRequest) {
 
       // Refund credits on failure (if not admin)
       if (!authContext.isAdmin) {
-        const { data: refundData } = await supabase
-          .from("user_credits")
-          .select("credits")
-          .eq("user_id", authContext.user.id)
-          .single();
-
-        if (refundData) {
-          await supabase
-            .from("user_credits")
-            .update({ credits: refundData.credits + creditCost })
-            .eq("user_id", authContext.user.id);
-        }
+        await supabaseAdmin.rpc("add_credits", {
+          p_user_id: authContext.user.id,
+          p_amount: creditCost,
+          p_type: "refund",
+          p_description: "Image generation failed - credits refunded",
+        });
       }
 
       return createApiErrorResponse(
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
 
     // Try to store, but don't fail if table doesn't exist
     try {
-      await supabase
+      await supabaseAdmin
         .from("generated_images")
         .insert(imagesToStore);
     } catch (storeError) {
@@ -220,6 +220,7 @@ export async function POST(request: NextRequest) {
         dimensions: aspectInfo ? { width: aspectInfo.width, height: aspectInfo.height } : null,
         credit_cost: creditCost,
       },
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
       correlation_id: correlationId,
     });
 

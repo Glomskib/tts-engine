@@ -2,6 +2,7 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { z } from "zod";
+import { requireCredits, useCredit } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
@@ -181,6 +182,18 @@ export async function POST(request: Request) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
+  // Credit check (admins bypass)
+  const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+  if (creditError) {
+    return NextResponse.json({
+      ok: false,
+      error: creditError.error,
+      creditsRemaining: creditError.remaining,
+      upgrade: true,
+      correlation_id: correlationId,
+    }, { status: creditError.status });
+  }
+
   // Parse and validate input
   let input: ImproveSectionInput;
   try {
@@ -203,6 +216,13 @@ export async function POST(request: Request) {
       return createApiErrorResponse("AI_ERROR", "Failed to improve section", 500, correlationId);
     }
 
+    // Deduct credit after successful improvement (admins bypass)
+    let creditsRemaining: number | undefined;
+    if (!authContext.isAdmin) {
+      const deductResult = await useCredit(authContext.user.id, false, 1, "Section improvement");
+      creditsRemaining = deductResult.remaining;
+    }
+
     const response = NextResponse.json({
       ok: true,
       data: {
@@ -210,6 +230,7 @@ export async function POST(request: Request) {
         original: input.current_content,
         improved,
       },
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
       correlation_id: correlationId,
     });
     response.headers.set("x-correlation-id", correlationId);

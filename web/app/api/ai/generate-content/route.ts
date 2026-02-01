@@ -11,6 +11,7 @@ import {
 } from "@/lib/ai/skitPostProcess";
 import { z } from "zod";
 import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
+import { requireCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 
@@ -244,26 +245,19 @@ export async function POST(request: Request) {
 
     const input = parsed.data;
 
-    // Check credits
-    const { data: creditsData } = await supabaseAdmin
-      .from("credits")
-      .select("balance")
-      .eq("user_id", authContext.user.id)
-      .single();
+    // Credit check (admins bypass)
+    const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+    if (creditError) {
+      return NextResponse.json({
+        ok: false,
+        error: creditError.error,
+        creditsRemaining: creditError.remaining,
+        upgrade: true,
+        correlation_id: correlationId,
+      }, { status: creditError.status });
+    }
 
     const creditCost = input.content_type === "hook" ? 1 : input.content_type === "script" ? 2 : 3;
-    if (!creditsData || creditsData.balance < creditCost) {
-      // Check admin bypass
-      const isAdmin = authContext.isAdmin;
-      if (!isAdmin) {
-        return createApiErrorResponse(
-          "INSUFFICIENT_CREDITS",
-          "Insufficient credits",
-          402,
-          correlationId
-        );
-      }
-    }
 
     // Fetch product if ID provided
     let product: Product | null = null;
@@ -323,12 +317,16 @@ export async function POST(request: Request) {
       result = await generateHooks(input, productContext, audienceContext, product);
     }
 
-    // Deduct credits
-    if (creditsData && creditsData.balance >= creditCost) {
-      await supabaseAdmin
-        .from("credits")
-        .update({ balance: creditsData.balance - creditCost })
-        .eq("user_id", authContext.user.id);
+    // Deduct credits (admins bypass)
+    let creditsRemaining: number | undefined;
+    if (!authContext.isAdmin) {
+      const { data: deductResult } = await supabaseAdmin.rpc("add_credits", {
+        p_user_id: authContext.user.id,
+        p_amount: -creditCost,
+        p_type: "generation",
+        p_description: `${input.content_type} generation`,
+      });
+      creditsRemaining = deductResult?.[0]?.credits_remaining;
     }
 
     // Audit log
@@ -353,6 +351,7 @@ export async function POST(request: Request) {
         persona_name: audiencePersona.name,
         pain_points_addressed: input.pain_point_focus || [],
       } : undefined,
+      ...(creditsRemaining !== undefined ? { creditsRemaining } : {}),
     });
 
   } catch (err) {

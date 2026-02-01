@@ -52,7 +52,8 @@ export type ApiErrorCode =
   | 'AI_PARSE'
   | 'AI_UNKNOWN'
   | 'INTERNAL'
-  | 'CONFIG_ERROR';
+  | 'CONFIG_ERROR'
+  | 'INSUFFICIENT_CREDITS';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

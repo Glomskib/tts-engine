@@ -328,7 +328,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     sections.push({
       title: 'Content Creation',
       items: [
-        { label: 'Script Generator', href: '/admin/skit-generator', icon: <Icons.Sparkles /> },
+        { label: 'Content Studio', href: '/admin/content-studio', icon: <Icons.Sparkles /> },
         { label: 'Script Library', href: '/admin/skit-library', icon: <Icons.FileText /> },
         { label: 'Templates', href: '/admin/templates', icon: <Icons.Layout /> },
         { label: 'Winners Bank', href: '/admin/winners', icon: <Icons.Trophy /> },

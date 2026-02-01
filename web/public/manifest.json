@@ -1,11 +1,11 @@
 {
   "name": "FlashFlow AI",
   "short_name": "FlashFlow",
-  "description": "AI-powered script generation for viral content",
-  "start_url": "/",
+  "description": "AI-powered video production pipeline",
+  "start_url": "/admin/pipeline",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#8b5cf6",
+  "theme_color": "#14b8a6",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
@@ -22,21 +22,28 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": ["business", "productivity"],
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Generate Script",
-      "short_name": "Generate",
-      "description": "Create a new AI script",
-      "url": "/admin/skit-generator",
+      "name": "Video Queue",
+      "short_name": "Queue",
+      "description": "View video production queue",
+      "url": "/admin/pipeline",
       "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
     },
     {
-      "name": "My Scripts",
-      "short_name": "Library",
-      "description": "View saved scripts",
-      "url": "/admin/skit-library",
+      "name": "Content Studio",
+      "short_name": "Studio",
+      "description": "Create new content",
+      "url": "/admin/content-studio",
+      "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Winners Bank",
+      "short_name": "Winners",
+      "description": "View winning content",
+      "url": "/admin/winners",
       "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
     }
   ]

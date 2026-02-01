@@ -1,16 +1,22 @@
 // FlashFlow AI Service Worker
-const CACHE_NAME = 'flashflow-v1';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'flashflow-v2';
+const OFFLINE_URL = '/offline';
+
+// Core assets to cache immediately
+const PRECACHE_ASSETS = [
   '/',
+  '/admin/pipeline',
+  '/admin/content-studio',
+  '/offline',
   '/FFAI.png',
   '/manifest.json',
 ];
 
-// Install event - cache static assets
+// Install event - cache core assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return cache.addAll(PRECACHE_ASSETS);
     })
   );
   self.skipWaiting();
@@ -63,15 +69,22 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
 
-          // For navigation requests, return cached home page
+          // For navigation requests, show offline page
           if (event.request.mode === 'navigate') {
-            return caches.match('/');
+            return caches.match(OFFLINE_URL);
           }
 
           return new Response('Offline', { status: 503 });
         });
       })
   );
+});
+
+// Listen for skip waiting message (for app updates)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Handle push notifications
@@ -85,7 +98,7 @@ self.addEventListener('push', (event) => {
     badge: '/FFAI.png',
     vibrate: [100, 50, 100],
     data: {
-      url: data.url || '/',
+      url: data.url || '/admin/pipeline',
     },
   };
 

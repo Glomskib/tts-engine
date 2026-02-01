@@ -12,6 +12,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
+import { InstallBanner } from '@/components/PWAProvider';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -356,6 +357,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Development Test Checklist */}
           <MobileTestChecklist />
+
+          {/* PWA Install Banner */}
+          <InstallBanner />
         </>
       )}
 

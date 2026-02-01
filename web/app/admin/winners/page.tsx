@@ -535,7 +535,7 @@ export default function WinnersPage() {
 
   return (
     <AppLayout>
-      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
+      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }} className="max-w-full overflow-hidden pb-24 lg:pb-6">
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>
@@ -549,12 +549,10 @@ export default function WinnersPage() {
         </div>
 
         {/* Stats Row */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "12px",
-          marginBottom: "20px",
-        }}>
+        <div
+          style={{ gap: "12px", marginBottom: "20px" }}
+          className="grid grid-cols-2 lg:grid-cols-4"
+        >
           <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "14px" }}>
             <div style={{ fontSize: "22px", fontWeight: 600, color: colors.text }}>{stats.total}</div>
             <div style={{ fontSize: "11px", color: colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Total</div>

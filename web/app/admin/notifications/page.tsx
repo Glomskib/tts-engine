@@ -193,7 +193,7 @@ export default function NotificationsPage() {
   const readNotifications = notifications.filter(n => n.is_read);
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }} className="max-w-full overflow-hidden pb-24 lg:pb-6">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>

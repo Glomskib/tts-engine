@@ -208,10 +208,10 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
     console.log(`[${correlationId}] Analysis completed successfully`);
 
-    // Deduct credit after successful analysis (admins bypass)
+    // Deduct credits after successful analysis (admins bypass)
     let creditsRemaining: number | undefined;
     if (!authContext.isAdmin) {
-      const deductResult = await useCredit(authContext.user.id, false, 1, "Winner analysis");
+      const deductResult = await useCredit(authContext.user.id, false, 2, "Winner analysis");
       creditsRemaining = deductResult.remaining;
     }
 

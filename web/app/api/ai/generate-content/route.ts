@@ -257,7 +257,8 @@ export async function POST(request: Request) {
       }, { status: creditError.status });
     }
 
-    const creditCost = input.content_type === "hook" ? 1 : input.content_type === "script" ? 2 : 3;
+    // Credit costs: hook=1, script=3, skit=3
+    const creditCost = input.content_type === "hook" ? 1 : 3;
 
     // Fetch product if ID provided
     let product: Product | null = null;

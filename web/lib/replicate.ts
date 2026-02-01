@@ -84,7 +84,7 @@ export const IMAGE_MODELS = {
     id: 'black-forest-labs/flux-schnell',
     name: 'Flux Schnell',
     description: 'Fast, high-quality image generation',
-    creditCost: 1,
+    creditCost: 2,
   },
   'flux-dev': {
     id: 'black-forest-labs/flux-dev',
@@ -96,7 +96,7 @@ export const IMAGE_MODELS = {
     id: 'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b',
     name: 'Stable Diffusion XL',
     description: 'Classic SDXL with fine control',
-    creditCost: 1,
+    creditCost: 2,
   },
 } as const;
 

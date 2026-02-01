@@ -96,10 +96,48 @@ export async function POST(request: Request) {
 
 async function handleCheckoutCompleted(correlationId: string, session: Stripe.Checkout.Session) {
   const userId = session.metadata?.user_id;
-  const planId = session.metadata?.plan_id;
+  const sessionType = session.metadata?.type;
 
-  if (!userId || !planId) {
-    console.error(`[${correlationId}] Missing metadata in checkout session`);
+  if (!userId) {
+    console.error(`[${correlationId}] Missing user_id in checkout session`);
+    return;
+  }
+
+  // Handle credit pack purchases
+  if (sessionType === "credit_purchase") {
+    const packageId = session.metadata?.package_id;
+    const credits = parseInt(session.metadata?.credits || "0");
+
+    console.log(`[${correlationId}] Credit purchase completed for user ${userId}: ${credits} credits`);
+
+    // Add credits to user
+    const { error: creditError } = await supabaseAdmin.rpc("add_purchased_credits", {
+      p_user_id: userId,
+      p_amount: credits,
+      p_description: `Credit pack purchase: ${packageId}`,
+    });
+
+    if (creditError) {
+      console.error(`[${correlationId}] Failed to add credits:`, creditError);
+    }
+
+    // Update purchase record
+    await supabaseAdmin
+      .from("credit_purchases")
+      .update({
+        status: "completed",
+        stripe_payment_intent_id: session.payment_intent as string,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("stripe_checkout_session_id", session.id);
+
+    return;
+  }
+
+  // Handle subscription checkout
+  const planId = session.metadata?.plan_id;
+  if (!planId) {
+    console.error(`[${correlationId}] Missing plan_id in checkout session`);
     return;
   }
 

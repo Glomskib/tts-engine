@@ -13,8 +13,11 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
 import { FilterSheet } from '@/components/FilterSheet';
-import { Filter } from 'lucide-react';
+import { Filter, Film } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonVideoList } from '@/components/ui/Skeleton';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
 // import type { BoardFilters } from './types';
@@ -1832,24 +1835,43 @@ export default function AdminPipelinePage() {
 
       {/* Mobile: Card Layout */}
       <div className="lg:hidden pb-24">
-        <VideoQueueMobile
-          videos={getIntentFilteredVideos().map(v => ({
-            id: v.id,
-            title: v.video_code || v.id.slice(0, 8),
-            thumbnail: undefined,
-            brand: v.brand_name || v.product_name || undefined,
-            workflow: v.recording_status || v.status || 'Unknown',
-            assignedTo: v.claimed_by || undefined,
-            updatedAt: v.last_status_changed_at || v.created_at,
-          }))}
-          onVideoClick={(video) => {
-            const fullVideo = getIntentFilteredVideos().find(v => v.id === video.id);
-            if (fullVideo) {
-              setMobileDetailVideo(fullVideo);
-              setMobileDetailOpen(true);
+        {queueLoading && queueVideos.length === 0 ? (
+          <SkeletonVideoList count={5} />
+        ) : getIntentFilteredVideos().length === 0 ? (
+          <EmptyState
+            icon={Film}
+            title="No videos in queue"
+            description={activeRecordingTab !== 'ALL'
+              ? `No videos with status "${activeRecordingTab.replace(/_/g, ' ').toLowerCase()}". Try changing your filter.`
+              : "Videos will appear here as they enter the workflow."
             }
-          }}
-        />
+            action={{
+              label: 'Create Video',
+              onClick: () => setShowCreateDrawer(true)
+            }}
+          />
+        ) : (
+          <PullToRefresh onRefresh={fetchQueueVideos} className="min-h-[calc(100vh-200px)]">
+            <VideoQueueMobile
+              videos={getIntentFilteredVideos().map(v => ({
+                id: v.id,
+                title: v.video_code || v.id.slice(0, 8),
+                thumbnail: undefined,
+                brand: v.brand_name || v.product_name || undefined,
+                workflow: v.recording_status || v.status || 'Unknown',
+                assignedTo: v.claimed_by || undefined,
+                updatedAt: v.last_status_changed_at || v.created_at,
+              }))}
+              onVideoClick={(video) => {
+                const fullVideo = getIntentFilteredVideos().find(v => v.id === video.id);
+                if (fullVideo) {
+                  setMobileDetailVideo(fullVideo);
+                  setMobileDetailOpen(true);
+                }
+              }}
+            />
+          </PullToRefresh>
+        )}
       </div>
 
       {/* Desktop: Quiet, Scannable Table */}

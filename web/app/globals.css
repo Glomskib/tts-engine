@@ -216,3 +216,70 @@ a:hover {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ============================================================================
+   MOBILE OPTIMIZATION
+   ============================================================================ */
+
+@media (max-width: 1023px) {
+  /* Larger base font for readability */
+  html {
+    font-size: 16px;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Larger touch targets */
+  input, select, textarea, button {
+    min-height: 44px;
+  }
+
+  /* Hide horizontal scrollbars but allow scrolling */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Safe area for bottom sheet modals */
+.safe-bottom {
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+/* Prevent content jump when overlay appears */
+body {
+  overflow-x: hidden;
+}
+
+/* Mobile-friendly form inputs */
+.mobile-input {
+  @apply w-full h-12 px-4 text-base bg-zinc-800 border border-white/10 rounded-xl text-white placeholder:text-zinc-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none;
+}
+
+.mobile-select {
+  @apply w-full h-12 px-4 text-base bg-zinc-800 border border-white/10 rounded-xl text-white appearance-none cursor-pointer;
+}
+
+.mobile-textarea {
+  @apply w-full min-h-[120px] p-4 text-base bg-zinc-800 border border-white/10 rounded-xl text-white placeholder:text-zinc-500 resize-none;
+}
+
+.mobile-button {
+  @apply h-12 px-6 text-base font-medium rounded-xl transition-colors;
+}
+
+.mobile-button-primary {
+  @apply mobile-button bg-teal-500 hover:bg-teal-600 text-white;
+}
+
+.mobile-button-secondary {
+  @apply mobile-button bg-zinc-800 hover:bg-zinc-700 text-white;
+}

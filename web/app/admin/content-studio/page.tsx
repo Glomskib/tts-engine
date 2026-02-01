@@ -633,12 +633,13 @@ export default function ContentStudioPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '10px 12px',
-    backgroundColor: colors.bg,
-    border: `1px solid ${colors.border}`,
-    borderRadius: '8px',
-    color: colors.text,
-    fontSize: '14px',
+    padding: '12px 16px',
+    backgroundColor: '#18181b',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '16px',
+    minHeight: '48px',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -679,116 +680,71 @@ export default function ContentStudioPage() {
   const currentAiScore = result?.variations?.[selectedVariationIndex]?.ai_score || result?.ai_score || null;
 
   return (
-    <div ref={containerRef} style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div ref={containerRef} className="max-w-[1400px] mx-auto">
       {/* No Credits Modal */}
       <NoCreditsModal isOpen={noCreditsModal.isOpen} onClose={noCreditsModal.close} />
 
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 style={{ margin: 0, color: colors.text, fontSize: '28px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Sparkles size={28} style={{ color: '#3b82f6' }} />
+            <h1 className="text-2xl lg:text-3xl font-bold text-white flex items-center gap-3">
+              <Sparkles className="w-7 h-7 text-blue-500" />
               Content Studio
             </h1>
-            <p style={{ margin: '6px 0 0 0', color: colors.textSecondary, fontSize: '14px' }}>
-              Generate viral short-form video scripts with AI-powered context
+            <p className="mt-1 text-base text-zinc-400">
+              Generate viral short-form video scripts
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          {/* Action buttons - horizontal scroll on mobile */}
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
             <Link
               href="/admin/skit-library"
-              style={{
-                padding: '10px 16px',
-                backgroundColor: colors.card,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8px',
-                color: colors.text,
-                textDecoration: 'none',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
+              className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
             >
               <BookOpen size={16} />
-              View Library
+              Library
             </Link>
             <Link
               href="/admin/b-roll"
-              style={{
-                padding: '10px 16px',
-                backgroundColor: colors.card,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8px',
-                color: colors.text,
-                textDecoration: 'none',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
+              className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
             >
               <ImageIcon size={16} />
-              B-Roll Generator
+              B-Roll
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Main Category Tabs */}
-      <div style={{
-        marginBottom: '24px',
-        display: 'flex',
-        gap: '8px',
-        flexWrap: 'wrap',
-        padding: '4px',
-        backgroundColor: colors.card,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '12px',
-      }}>
-        {MAIN_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isSelected = selectedMainTabId === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedMainTabId(tab.id)}
-              title={tab.description}
-              style={{
-                flex: '1 1 auto',
-                minWidth: '120px',
-                padding: '12px 16px',
-                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-                border: 'none',
-                borderRadius: '8px',
-                color: isSelected ? 'white' : colors.textSecondary,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontSize: '13px',
-                fontWeight: isSelected ? 600 : 500,
-              }}
-            >
-              <Icon size={16} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* Main Category Tabs - horizontal scroll on mobile */}
+      <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {MAIN_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = selectedMainTabId === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedMainTabId(tab.id)}
+                title={tab.description}
+                className={`flex-shrink-0 px-4 py-3 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-colors ${
+                  isSelected
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                }`}
+              >
+                <Icon size={16} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Main Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      {/* Main Grid - stacks on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Configuration */}
-        <div style={{
-          backgroundColor: colors.card,
-          border: `1px solid ${colors.border}`,
-          borderRadius: '16px',
-          padding: '24px',
-        }}>
+        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6">
           {loadingData ? (
             <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
               <Loader2 className="animate-spin" style={{ margin: '0 auto 12px' }} size={24} />
@@ -1329,42 +1285,38 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
-              {/* Generate Button */}
-              <button
-                onClick={handleGenerate}
-                disabled={generating || (!selectedProductId && !manualProductName.trim())}
-                style={{
-                  ...buttonStyle,
-                  width: '100%',
-                  opacity: generating || (!selectedProductId && !manualProductName.trim()) ? 0.5 : 1,
-                  cursor: generating ? 'wait' : 'pointer',
-                  background: generating ? colors.border : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                }}
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="animate-spin" size={18} />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Zap size={18} />
-                    Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})
-                  </>
-                )}
-              </button>
+              {/* Generate Button - Sticky on mobile */}
+              <div className="sticky bottom-4 lg:static lg:bottom-auto mt-6">
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || (!selectedProductId && !manualProductName.trim())}
+                  className={`w-full h-14 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
+                    generating
+                      ? 'bg-zinc-700 cursor-wait'
+                      : generating || (!selectedProductId && !manualProductName.trim())
+                      ? 'bg-zinc-700 opacity-50'
+                      : 'bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 shadow-blue-500/20'
+                  }`}
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={20} />
+                      Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})
+                    </>
+                  )}
+                </button>
+              </div>
             </>
           )}
         </div>
 
         {/* Right Column: Results */}
-        <div style={{
-          backgroundColor: colors.card,
-          border: `1px solid ${colors.border}`,
-          borderRadius: '16px',
-          padding: '24px',
-          minHeight: '600px',
-        }}>
+        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6 min-h-[400px] lg:min-h-[600px]">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', color: colors.text, fontWeight: 600 }}>
               Generated Scripts
@@ -1796,10 +1748,12 @@ export default function ContentStudioPage() {
         .animate-spin {
           animation: spin 1s linear infinite;
         }
-        @media (max-width: 1000px) {
-          div[style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-          }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>

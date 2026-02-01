@@ -6,9 +6,10 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 
 interface CreditsBadgeProps {
   showPlan?: boolean;
+  compact?: boolean;
 }
 
-export function CreditsBadge({ showPlan = false }: CreditsBadgeProps) {
+export function CreditsBadge({ showPlan = false, compact = false }: CreditsBadgeProps) {
   const { credits, subscription, isLoading, isFreeUser } = useCredits();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
@@ -75,6 +76,42 @@ export function CreditsBadge({ showPlan = false }: CreditsBadgeProps) {
   };
 
   const badgeColors = getBadgeColors();
+
+  // Compact version for mobile
+  if (compact) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          border: `1px solid ${badgeColors.borderColor}`,
+          backgroundColor: badgeColors.backgroundColor,
+          color: badgeColors.color,
+        }}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
+        </svg>
+        <span style={{ fontSize: '12px', fontWeight: 500 }}>
+          {isUnlimited ? '∞' : remaining}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

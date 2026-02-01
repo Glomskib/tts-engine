@@ -1,133 +1,160 @@
 // lib/navigation.ts - Single source of truth for app navigation
-// All layouts and sidebars should import from here
-
-import { ReactNode } from 'react';
+import {
+  Sparkles,
+  Image,
+  FileText,
+  LayoutTemplate,
+  Trophy,
+  Users,
+  Package,
+  Building,
+  Video,
+  Calendar,
+  BarChart,
+  Activity,
+  Settings,
+  CreditCard,
+  Bell,
+  Server,
+  Shield,
+  Menu,
+  X,
+  User,
+  LogOut,
+  ChevronDown,
+  type LucideIcon,
+} from 'lucide-react';
 
 export interface NavItem {
-  label: string;
+  name: string;
   href: string;
-  iconName: IconName;
+  icon: LucideIcon;
 }
 
 export interface NavSection {
   title: string;
   items: NavItem[];
-  showFor?: ('creator' | 'agency' | 'admin')[];
+  showFor?: ('free' | 'starter' | 'pro' | 'agency' | 'admin')[];
 }
 
-// Icon names that map to the Icons object
-export type IconName =
-  | 'Zap'
-  | 'Sparkles'
-  | 'FileText'
-  | 'Layout'
-  | 'Trophy'
-  | 'Users'
-  | 'Package'
-  | 'Building'
-  | 'Video'
-  | 'Calendar'
-  | 'BarChart'
-  | 'Activity'
-  | 'Settings'
-  | 'CreditCard'
-  | 'Server'
-  | 'Shield'
-  | 'Bell'
-  | 'Menu'
-  | 'Close'
-  | 'User'
-  | 'LogOut'
-  | 'ChevronDown'
-  | 'Image';
-
 // Navigation structure - the single source of truth
-export function getNavSections(options: {
-  isAgencyUser: boolean;
+export const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'CONTENT CREATION',
+    items: [
+      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
+      { name: 'B-Roll Generator', href: '/admin/b-roll', icon: Image },
+      { name: 'Script Library', href: '/admin/skit-library', icon: FileText },
+      { name: 'Templates', href: '/admin/templates', icon: LayoutTemplate },
+      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
+    ],
+  },
+  {
+    title: 'AUDIENCE',
+    items: [
+      { name: 'Personas', href: '/admin/audience', icon: Users },
+    ],
+  },
+  {
+    title: 'PRODUCTS',
+    items: [
+      { name: 'Products', href: '/admin/products', icon: Package },
+      { name: 'Brands', href: '/admin/brands', icon: Building },
+    ],
+  },
+  {
+    title: 'VIDEO PRODUCTION',
+    showFor: ['agency', 'admin'],
+    items: [
+      { name: 'Video Pipeline', href: '/admin/pipeline', icon: Video },
+      { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
+      { name: 'Performance', href: '/admin/analytics', icon: BarChart },
+      { name: 'Activity Log', href: '/admin/activity', icon: Activity },
+    ],
+  },
+  {
+    title: 'SETTINGS',
+    items: [
+      { name: 'Account', href: '/admin/settings', icon: Settings },
+      { name: 'Billing', href: '/upgrade', icon: CreditCard },
+    ],
+  },
+  {
+    title: 'ADMIN',
+    showFor: ['admin'],
+    items: [
+      { name: 'System Health', href: '/admin/ops', icon: Server },
+      { name: 'Team Members', href: '/admin/users', icon: Users },
+      { name: 'System Settings', href: '/admin/status', icon: Shield },
+    ],
+  },
+];
+
+// Filter sections based on user type
+export function getFilteredNavSections(options: {
+  planId?: string | null;
   isAdmin: boolean;
 }): NavSection[] {
-  const { isAgencyUser, isAdmin } = options;
-  const sections: NavSection[] = [];
+  const { planId, isAdmin } = options;
 
-  // Content Creation - always visible
-  sections.push({
-    title: 'Content Creation',
-    items: [
-      { label: 'Content Studio', href: '/admin/content-studio', iconName: 'Sparkles' },
-      { label: 'B-Roll Generator', href: '/admin/b-roll', iconName: 'Image' },
-      { label: 'Script Library', href: '/admin/skit-library', iconName: 'FileText' },
-      { label: 'Templates', href: '/admin/templates', iconName: 'Layout' },
-      { label: 'Winners Bank', href: '/admin/winners', iconName: 'Trophy' },
-    ],
-  });
-
-  // Audience - always visible
-  sections.push({
-    title: 'Audience',
-    items: [
-      { label: 'Personas', href: '/admin/audience', iconName: 'Users' },
-    ],
-  });
-
-  // Products - always visible
-  sections.push({
-    title: 'Products',
-    items: [
-      { label: 'Products', href: '/admin/products', iconName: 'Package' },
-      { label: 'Brands', href: '/admin/brands', iconName: 'Building' },
-    ],
-  });
-
-  // Video Production - only for agency/admin users
-  if (isAgencyUser) {
-    sections.push({
-      title: 'Video Production',
-      showFor: ['agency', 'admin'],
-      items: [
-        { label: 'Video Pipeline', href: '/admin/pipeline', iconName: 'Video' },
-        { label: 'Calendar', href: '/admin/calendar', iconName: 'Calendar' },
-        { label: 'Performance', href: '/admin/analytics', iconName: 'BarChart' },
-        { label: 'Activity', href: '/admin/activity', iconName: 'Activity' },
-      ],
-    });
-  }
-
-  // Settings - always visible
-  sections.push({
-    title: 'Settings',
-    items: [
-      { label: 'Account', href: '/admin/settings', iconName: 'Settings' },
-      { label: 'Billing', href: '/upgrade', iconName: 'CreditCard' },
-    ],
-  });
-
-  // Admin Tools - only for admins
+  // Determine user tier
+  let userTier: 'free' | 'starter' | 'pro' | 'agency' | 'admin' = 'free';
   if (isAdmin) {
-    sections.push({
-      title: 'Admin Tools',
-      showFor: ['admin'],
-      items: [
-        { label: 'System Health', href: '/admin/ops', iconName: 'Server' },
-        { label: 'Team Members', href: '/admin/users', iconName: 'Users' },
-        { label: 'System Settings', href: '/admin/status', iconName: 'Shield' },
-      ],
-    });
+    userTier = 'admin';
+  } else if (planId) {
+    if (planId.includes('agency')) userTier = 'agency';
+    else if (planId.includes('pro')) userTier = 'pro';
+    else if (planId.includes('starter')) userTier = 'starter';
   }
 
-  return sections;
+  return NAV_SECTIONS.filter((section) => {
+    if (!section.showFor) return true;
+    if (userTier === 'admin') return true; // Admin sees everything
+    return section.showFor.includes(userTier);
+  });
 }
 
 // Helper to check if a nav item is active
 export function isNavItemActive(pathname: string, href: string): boolean {
-  // Special case for skit-generator - exact match only
   if (href === '/admin/skit-generator') {
     return pathname === '/admin/skit-generator';
   }
-  // Default: exact match or starts with href/
   return pathname === href || pathname.startsWith(href + '/');
 }
 
+// Export icons for use in components
+export const Icons = {
+  Menu,
+  Close: X,
+  User,
+  LogOut,
+  ChevronDown,
+  Bell,
+  Sparkles,
+  Image,
+  FileText,
+  LayoutTemplate,
+  Trophy,
+  Users,
+  Package,
+  Building,
+  Video,
+  Calendar,
+  BarChart,
+  Activity,
+  Settings,
+  CreditCard,
+  Server,
+  Shield,
+};
+
 // Constants
-export const SIDEBAR_WIDTH = 256; // 16rem = 256px
+export const SIDEBAR_WIDTH = 256;
 export const MOBILE_BREAKPOINT = 768;
 export const SIDEBAR_STORAGE_KEY = 'ffai-sidebar-open';
+
+// Brand config
+export const BRAND = {
+  name: 'FlashFlow AI',
+  logo: '/FFAI.png',
+};

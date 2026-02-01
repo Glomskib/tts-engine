@@ -15,9 +15,71 @@ export function getReplicateClient(): Replicate {
   return replicateClient;
 }
 
-// Image generation models available
+// Image style presets
+export interface ImageStyle {
+  value: string;
+  label: string;
+  description: string;
+  modifier: string;
+}
+
+export const IMAGE_STYLES: ImageStyle[] = [
+  {
+    value: 'lifestyle',
+    label: 'Lifestyle',
+    description: 'Natural, authentic social media style',
+    modifier: 'lifestyle photography, natural lighting, authentic, warm tones, social media aesthetic, 4K',
+  },
+  {
+    value: 'cinematic',
+    label: 'Cinematic',
+    description: 'Dramatic, film-like quality',
+    modifier: 'cinematic lighting, film grain, dramatic shadows, 4K, professional photography',
+  },
+  {
+    value: 'product',
+    label: 'Product Shot',
+    description: 'Clean, professional product focus',
+    modifier: 'product photography, clean background, studio lighting, commercial quality, 4K',
+  },
+  {
+    value: 'aesthetic',
+    label: 'Aesthetic',
+    description: 'Soft, dreamy, Instagram-worthy',
+    modifier: 'aesthetic, soft lighting, muted colors, instagram style, dreamy, 4K',
+  },
+  {
+    value: 'bold',
+    label: 'Bold & Vibrant',
+    description: 'Eye-catching, high energy',
+    modifier: 'bold colors, high contrast, eye-catching, vibrant, energetic, 4K',
+  },
+  {
+    value: 'minimal',
+    label: 'Minimal',
+    description: 'Clean, simple, modern',
+    modifier: 'minimalist, clean, simple composition, negative space, modern, 4K',
+  },
+];
+
+// Aspect ratios for different platforms
+export interface AspectRatio {
+  value: string;
+  label: string;
+  width: number;
+  height: number;
+  platforms: string[];
+}
+
+export const ASPECT_RATIOS: AspectRatio[] = [
+  { value: '9:16', label: '9:16 (TikTok/Reels)', width: 768, height: 1365, platforms: ['TikTok', 'Reels', 'Shorts'] },
+  { value: '1:1', label: '1:1 (Square)', width: 1024, height: 1024, platforms: ['Instagram', 'Facebook'] },
+  { value: '16:9', label: '16:9 (YouTube)', width: 1365, height: 768, platforms: ['YouTube', 'Twitter'] },
+  { value: '4:5', label: '4:5 (Instagram)', width: 1024, height: 1280, platforms: ['Instagram Feed'] },
+];
+
+// Image generation models
 export const IMAGE_MODELS = {
-  // Flux models - high quality, fast
   'flux-schnell': {
     id: 'black-forest-labs/flux-schnell',
     name: 'Flux Schnell',
@@ -30,7 +92,6 @@ export const IMAGE_MODELS = {
     description: 'Higher quality, slower generation',
     creditCost: 2,
   },
-  // SDXL for more control
   'sdxl': {
     id: 'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b',
     name: 'Stable Diffusion XL',
@@ -41,68 +102,13 @@ export const IMAGE_MODELS = {
 
 export type ImageModelKey = keyof typeof IMAGE_MODELS;
 
-// Style presets for B-roll
-export const STYLE_PRESETS = {
-  'cinematic': {
-    label: 'Cinematic',
-    description: 'Film-like quality with dramatic lighting',
-    suffix: ', cinematic lighting, film grain, dramatic composition, 4k, high quality',
-  },
-  'product': {
-    label: 'Product Shot',
-    description: 'Clean product photography style',
-    suffix: ', product photography, clean white background, studio lighting, professional, 4k',
-  },
-  'lifestyle': {
-    label: 'Lifestyle',
-    description: 'Natural, authentic feel',
-    suffix: ', lifestyle photography, natural lighting, authentic, warm tones, 4k',
-  },
-  'social-media': {
-    label: 'Social Media',
-    description: 'Eye-catching for social platforms',
-    suffix: ', vibrant colors, eye-catching, instagram aesthetic, high contrast, 4k',
-  },
-  'minimalist': {
-    label: 'Minimalist',
-    description: 'Clean, simple compositions',
-    suffix: ', minimalist, clean composition, lots of white space, modern, 4k',
-  },
-  'dramatic': {
-    label: 'Dramatic',
-    description: 'Bold, attention-grabbing',
-    suffix: ', dramatic lighting, bold colors, high contrast, cinematic, 4k',
-  },
-} as const;
-
-export type StylePresetKey = keyof typeof STYLE_PRESETS;
-
-// Aspect ratios for different platforms
-export const ASPECT_RATIOS = {
-  '1:1': { width: 1024, height: 1024, label: 'Square (1:1)', platforms: ['Instagram', 'Facebook'] },
-  '9:16': { width: 768, height: 1365, label: 'Portrait (9:16)', platforms: ['TikTok', 'Reels', 'Shorts'] },
-  '16:9': { width: 1365, height: 768, label: 'Landscape (16:9)', platforms: ['YouTube', 'Twitter'] },
-  '4:5': { width: 1024, height: 1280, label: 'Portrait (4:5)', platforms: ['Instagram Feed'] },
-} as const;
-
-export type AspectRatioKey = keyof typeof ASPECT_RATIOS;
-
 export interface GenerateImageParams {
   prompt: string;
   model?: ImageModelKey;
-  style?: StylePresetKey;
-  aspectRatio?: AspectRatioKey;
+  style?: string;
+  aspectRatio?: string;
   negativePrompt?: string;
   numOutputs?: number;
-}
-
-export interface GeneratedImage {
-  url: string;
-  prompt: string;
-  model: string;
-  style: string | null;
-  aspectRatio: string;
-  createdAt: Date;
 }
 
 // Generate images using Replicate
@@ -118,12 +124,13 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
 
   const replicate = getReplicateClient();
   const modelConfig = IMAGE_MODELS[model];
-  const dimensions = ASPECT_RATIOS[aspectRatio];
+  const dimensions = ASPECT_RATIOS.find(ar => ar.value === aspectRatio) || ASPECT_RATIOS[1];
+  const styleConfig = style ? IMAGE_STYLES.find(s => s.value === style) : null;
 
-  // Build the full prompt with style suffix
+  // Build the full prompt with style modifier
   let fullPrompt = prompt;
-  if (style && STYLE_PRESETS[style]) {
-    fullPrompt += STYLE_PRESETS[style].suffix;
+  if (styleConfig) {
+    fullPrompt += `, ${styleConfig.modifier}`;
   }
 
   // Different input formats for different models
@@ -133,7 +140,7 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     input = {
       prompt: fullPrompt,
       num_outputs: Math.min(numOutputs, 4),
-      aspect_ratio: aspectRatio.replace(':', ':'),
+      aspect_ratio: aspectRatio,
       output_format: 'webp',
       output_quality: 90,
     };
@@ -167,7 +174,17 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
 }
 
 // Helper to get credit cost for a generation
-export function getGenerationCreditCost(model: ImageModelKey, numOutputs: number): number {
+export function getImageCreditCost(model: ImageModelKey, numOutputs: number): number {
   const baseCredits = IMAGE_MODELS[model].creditCost;
   return baseCredits * numOutputs;
+}
+
+// Get style by value
+export function getImageStyle(value: string): ImageStyle | undefined {
+  return IMAGE_STYLES.find(s => s.value === value);
+}
+
+// Get aspect ratio by value
+export function getAspectRatio(value: string): AspectRatio | undefined {
+  return ASPECT_RATIOS.find(ar => ar.value === value);
 }

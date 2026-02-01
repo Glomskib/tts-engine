@@ -6,13 +6,11 @@ import { auditLogAsync } from "@/lib/audit";
 import { z } from "zod";
 import {
   generateImages,
-  getGenerationCreditCost,
+  getImageCreditCost,
   IMAGE_MODELS,
-  STYLE_PRESETS,
+  IMAGE_STYLES,
   ASPECT_RATIOS,
   type ImageModelKey,
-  type StylePresetKey,
-  type AspectRatioKey,
 } from "@/lib/replicate";
 import {
   generateCorrelationId,
@@ -20,19 +18,17 @@ import {
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // Image generation can take time
+export const maxDuration = 60;
 
 // Input validation schema
 const GenerateImageInputSchema = z.object({
   prompt: z.string().min(3).max(1000),
   model: z.enum(['flux-schnell', 'flux-dev', 'sdxl'] as const).default('flux-schnell'),
-  style: z.enum(['cinematic', 'product', 'lifestyle', 'social-media', 'minimalist', 'dramatic'] as const).optional(),
-  aspect_ratio: z.enum(['1:1', '9:16', '16:9', '4:5'] as const).default('1:1'),
+  style: z.string().optional(),
+  aspect_ratio: z.string().default('1:1'),
   negative_prompt: z.string().max(500).optional(),
   num_outputs: z.number().int().min(1).max(4).default(1),
 });
-
-type GenerateImageInput = z.infer<typeof GenerateImageInputSchema>;
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
@@ -80,7 +76,7 @@ export async function POST(request: NextRequest) {
     const input = parsed.data;
 
     // Check credits (unless admin)
-    const creditCost = getGenerationCreditCost(input.model, input.num_outputs);
+    const creditCost = getImageCreditCost(input.model, input.num_outputs);
 
     if (!authContext.isAdmin) {
       // Get user's current credits
@@ -135,8 +131,8 @@ export async function POST(request: NextRequest) {
       imageUrls = await generateImages({
         prompt: input.prompt,
         model: input.model as ImageModelKey,
-        style: input.style as StylePresetKey | undefined,
-        aspectRatio: input.aspect_ratio as AspectRatioKey,
+        style: input.style,
+        aspectRatio: input.aspect_ratio,
         negativePrompt: input.negative_prompt,
         numOutputs: input.num_outputs,
       });
@@ -186,7 +182,6 @@ export async function POST(request: NextRequest) {
         .from("generated_images")
         .insert(imagesToStore);
     } catch (storeError) {
-      // Table may not exist yet - that's okay
       console.warn("Could not store generated images:", storeError);
     }
 
@@ -208,6 +203,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Get style and aspect ratio info for response
+    const styleInfo = input.style ? IMAGE_STYLES.find(s => s.value === input.style) : null;
+    const aspectInfo = ASPECT_RATIOS.find(ar => ar.value === input.aspect_ratio);
+
     // Return successful response
     const response = NextResponse.json({
       ok: true,
@@ -216,9 +215,9 @@ export async function POST(request: NextRequest) {
         model: input.model,
         model_name: IMAGE_MODELS[input.model as ImageModelKey].name,
         style: input.style,
-        style_name: input.style ? STYLE_PRESETS[input.style as StylePresetKey].label : null,
+        style_name: styleInfo?.label || null,
         aspect_ratio: input.aspect_ratio,
-        dimensions: ASPECT_RATIOS[input.aspect_ratio as AspectRatioKey],
+        dimensions: aspectInfo ? { width: aspectInfo.width, height: aspectInfo.height } : null,
         credit_cost: creditCost,
       },
       correlation_id: correlationId,
@@ -248,13 +247,13 @@ export async function GET() {
       description: model.description,
       credit_cost: model.creditCost,
     })),
-    styles: Object.entries(STYLE_PRESETS).map(([key, style]) => ({
-      id: key,
+    styles: IMAGE_STYLES.map((style) => ({
+      id: style.value,
       name: style.label,
       description: style.description,
     })),
-    aspect_ratios: Object.entries(ASPECT_RATIOS).map(([key, ratio]) => ({
-      id: key,
+    aspect_ratios: ASPECT_RATIOS.map((ratio) => ({
+      id: ratio.value,
       label: ratio.label,
       width: ratio.width,
       height: ratio.height,

@@ -4,9 +4,9 @@ import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { BRAND } from '@/lib/brand';
+import { Menu, X, User, LogOut, ChevronDown, Zap } from 'lucide-react';
+import { BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
-import { NavIcon } from '@/components/icons/NavIcons';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AppHeaderProps {
@@ -56,7 +56,7 @@ export function AppHeader({
           className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
           aria-label="Toggle sidebar"
         >
-          {sidebarOpen ? <NavIcon name="Close" /> : <NavIcon name="Menu" />}
+          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         {!sidebarOpen && (
           <Link href="/" className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export function AppHeader({
             <span className="hidden md:inline text-sm max-w-[150px] truncate">
               {userEmail || 'User'}
             </span>
-            <NavIcon name="ChevronDown" />
+            <ChevronDown size={16} />
           </button>
 
           {/* Dropdown */}
@@ -105,7 +105,7 @@ export function AppHeader({
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
                 >
-                  <NavIcon name="User" />
+                  <User size={16} />
                   Account Settings
                 </Link>
                 <Link
@@ -113,7 +113,7 @@ export function AppHeader({
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
                 >
-                  <NavIcon name="Zap" />
+                  <Zap size={16} />
                   Upgrade Plan
                 </Link>
               </div>
@@ -123,7 +123,7 @@ export function AppHeader({
                   onClick={handleLogout}
                   className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
                 >
-                  <NavIcon name="LogOut" />
+                  <LogOut size={16} />
                   Logout
                 </button>
               </div>

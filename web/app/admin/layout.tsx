@@ -3,7 +3,6 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCredits } from '@/hooks/useCredits';
-import { hasVideoProductionAccess } from '@/lib/brand';
 import { SIDEBAR_WIDTH, SIDEBAR_STORAGE_KEY, MOBILE_BREAKPOINT } from '@/lib/navigation';
 import { AppSidebar } from '@/components/AppSidebar';
 import { AppHeader } from '@/components/AppHeader';
@@ -113,9 +112,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const closeSidebar = () => setSidebarOpen(false);
 
-  // Determine if user has agency access
-  const isAgencyUser = hasVideoProductionAccess(subscription?.planId, auth.isAdmin);
-
   if (auth.loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-zinc-500">
@@ -135,7 +131,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-[#09090b]">
       <AppSidebar
         isAdmin={auth.isAdmin}
-        isAgencyUser={isAgencyUser}
+        planId={subscription?.planId}
         unreadNotifications={unreadCount}
         isOpen={sidebarOpen}
         onClose={closeSidebar}

@@ -3,13 +3,17 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { BRAND } from '@/lib/brand';
-import { getNavSections, isNavItemActive, SIDEBAR_WIDTH } from '@/lib/navigation';
-import { NavIcon } from '@/components/icons/NavIcons';
+import { X, Bell } from 'lucide-react';
+import {
+  getFilteredNavSections,
+  isNavItemActive,
+  SIDEBAR_WIDTH,
+  BRAND,
+} from '@/lib/navigation';
 
 interface AppSidebarProps {
   isAdmin: boolean;
-  isAgencyUser: boolean;
+  planId?: string | null;
   unreadNotifications?: number;
   isOpen: boolean;
   onClose: () => void;
@@ -18,14 +22,14 @@ interface AppSidebarProps {
 
 export function AppSidebar({
   isAdmin,
-  isAgencyUser,
+  planId,
   unreadNotifications = 0,
   isOpen,
   onClose,
   isMobile,
 }: AppSidebarProps) {
   const pathname = usePathname();
-  const navSections = getNavSections({ isAgencyUser, isAdmin });
+  const navSections = getFilteredNavSections({ planId, isAdmin });
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -71,7 +75,7 @@ export function AppSidebar({
               onClick={onClose}
               className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
             >
-              <NavIcon name="Close" />
+              <X size={20} />
             </button>
           )}
         </div>
@@ -85,6 +89,7 @@ export function AppSidebar({
               </div>
               {section.items.map((item) => {
                 const active = isNavItemActive(pathname, item.href);
+                const IconComponent = item.icon;
                 return (
                   <Link
                     key={item.href}
@@ -96,10 +101,11 @@ export function AppSidebar({
                         : 'text-zinc-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <span className={active ? 'text-blue-400' : ''}>
-                      <NavIcon name={item.iconName} />
-                    </span>
-                    <span className="text-sm font-medium">{item.label}</span>
+                    <IconComponent
+                      size={18}
+                      className={active ? 'text-blue-400' : ''}
+                    />
+                    <span className="text-sm font-medium">{item.name}</span>
                   </Link>
                 );
               })}
@@ -114,7 +120,7 @@ export function AppSidebar({
             onClick={handleLinkClick}
             className="flex items-center gap-3 px-3 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
           >
-            <NavIcon name="Bell" />
+            <Bell size={18} />
             <span className="text-sm">Notifications</span>
             {unreadNotifications > 0 && (
               <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">

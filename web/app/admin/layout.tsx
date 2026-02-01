@@ -10,6 +10,7 @@ import { NAV_SECTIONS, getFilteredNavSections, isNavItemActive, BRAND } from '@/
 import { CreditsBadge } from '@/components/CreditsBadge';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -214,6 +215,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <ToastProvider>
+    <OfflineIndicator />
     <div className="min-h-screen bg-zinc-950 text-white">
 
       {/* ============================================================

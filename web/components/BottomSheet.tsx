@@ -93,6 +93,9 @@ export function BottomSheet({
       {/* Sheet */}
       <div
         ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sheet-title"
         style={{
           transform: `translateY(${dragY}px)`,
           transition: isDragging ? 'none' : 'transform 0.2s ease-out',
@@ -111,16 +114,18 @@ export function BottomSheet({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          aria-hidden="true"
         >
           <div className="w-10 h-1.5 rounded-full bg-zinc-600" />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 border-b border-zinc-800">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <h2 id="sheet-title" className="text-lg font-semibold text-white">{title}</h2>
           {showCloseButton && (
             <button
               onClick={onClose}
+              aria-label="Close"
               className="p-2 -mr-2 rounded-lg hover:bg-zinc-800 active:bg-zinc-700 min-h-12 min-w-12 flex items-center justify-center"
             >
               <X className="w-5 h-5 text-zinc-400" />

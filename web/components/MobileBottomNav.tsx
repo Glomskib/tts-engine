@@ -27,11 +27,15 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
   const pathname = usePathname();
 
   return (
-    <nav className="
-      fixed bottom-0 left-0 right-0 z-50 lg:hidden
-      bg-zinc-950 border-t border-zinc-800
-      pb-[env(safe-area-inset-bottom)]
-    ">
+    <nav
+      role="navigation"
+      aria-label="Main navigation"
+      className="
+        fixed bottom-0 left-0 right-0 z-50 lg:hidden
+        bg-zinc-950 border-t border-zinc-800
+        pb-[env(safe-area-inset-bottom)]
+      "
+    >
       <div className="flex items-center justify-around h-16">
         {NAV_ITEMS.map((item) => {
           const isActive = item.href !== '#more' && pathname.startsWith(item.href);
@@ -42,9 +46,10 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
               <button
                 key={item.label}
                 onClick={onMoreClick}
+                aria-label="Open menu"
                 className="flex flex-col items-center justify-center w-16 h-14 gap-1"
               >
-                <Icon className="w-6 h-6 text-zinc-400" />
+                <Icon className="w-6 h-6 text-zinc-400" aria-hidden="true" />
                 <span className="text-[11px] text-zinc-400">{item.label}</span>
               </button>
             );
@@ -54,12 +59,16 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className="relative flex flex-col items-center justify-center w-16 h-14 gap-1"
             >
               <div className="relative">
-                <Icon className={`w-6 h-6 ${isActive ? 'text-teal-400' : 'text-zinc-400'}`} />
+                <Icon className={`w-6 h-6 ${isActive ? 'text-teal-400' : 'text-zinc-400'}`} aria-hidden="true" />
                 {item.href === '/admin/notifications' && unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+                  <span
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+                    aria-label={`${unreadCount} unread notifications`}
+                  >
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}

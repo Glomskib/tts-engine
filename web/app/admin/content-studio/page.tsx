@@ -680,7 +680,7 @@ export default function ContentStudioPage() {
   const currentAiScore = result?.variations?.[selectedVariationIndex]?.ai_score || result?.ai_score || null;
 
   return (
-    <div ref={containerRef} className="max-w-[1400px] mx-auto">
+    <div ref={containerRef} className="max-w-full lg:max-w-[1400px] mx-auto overflow-hidden">
       {/* No Credits Modal */}
       <NoCreditsModal isOpen={noCreditsModal.isOpen} onClose={noCreditsModal.close} />
 

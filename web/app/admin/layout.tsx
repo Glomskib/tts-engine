@@ -219,21 +219,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           ============================================================ */}
       {isMobile && (
         <>
-          {/* Mobile Header - Simplified, just context */}
+          {/* Mobile Header - Simplified with proper overflow handling */}
           <header className="
             fixed top-0 left-0 right-0 h-14 z-40
             bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800
-            flex items-center justify-between px-4
+            flex items-center justify-between px-3 gap-2 overflow-hidden
           ">
-            <Link href="/admin" className="flex items-center gap-2">
-              <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg" />
-              <span className="font-semibold text-lg">{BRAND.name}</span>
+            <Link href="/admin" className="flex items-center gap-2 flex-shrink-0 min-w-0">
+              <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg flex-shrink-0" />
+              <span className="font-semibold text-base truncate">{BRAND.name}</span>
             </Link>
 
             {/* User avatar - tap to open menu */}
             <button
               onClick={() => setUserMenuOpen(true)}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg"
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
             >
               {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
             </button>
@@ -337,8 +337,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           )}
 
           {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
-          <main className="pt-14 pb-20 min-h-screen">
-            <div className="p-4">
+          <main className="pt-14 pb-20 min-h-screen overflow-x-hidden">
+            <div className="p-4 max-w-full overflow-hidden">
               {children}
             </div>
           </main>

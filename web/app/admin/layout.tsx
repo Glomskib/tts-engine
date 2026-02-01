@@ -412,6 +412,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
+
+      {/* MOBILE DEBUG - Shows on mobile to verify styles are loading */}
+      <div className="fixed bottom-4 right-4 z-[100] lg:hidden bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+        MOBILE
+      </div>
     </div>
   );
 }

@@ -60,8 +60,8 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
       {/* Work Group */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <span style={groupLabelStyle}>Work</span>
-        <Link href="/admin/workbench" style={linkStyle('/admin/workbench')}>
-          Workbench
+        <Link href="/admin/content-studio" style={linkStyle('/admin/content-studio')}>
+          Content Studio
         </Link>
         <span style={separatorStyle}>|</span>
         <Link href="/admin/pipeline" style={linkStyle('/admin/pipeline')}>

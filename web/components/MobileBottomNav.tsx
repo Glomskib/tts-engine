@@ -11,9 +11,9 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/admin/video-pipeline', icon: LayoutGrid, label: 'Queue' },
+  { href: '/admin/pipeline', icon: LayoutGrid, label: 'Queue' },
   { href: '/admin/content-studio', icon: Film, label: 'Studio' },
-  { href: '/admin/winners-bank', icon: Users, label: 'Winners' },
+  { href: '/admin/winners', icon: Users, label: 'Winners' },
   { href: '/admin/notifications', icon: Bell, label: 'Activity' },
   { href: '#more', icon: Menu, label: 'More', isDrawerTrigger: true },
 ];

@@ -12,6 +12,7 @@ import AppLayout from '@/app/components/AppLayout';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
+import { FilterSheet } from '@/components/FilterSheet';
 import { Filter } from 'lucide-react';
 // Board view components available but simplified approach used instead
 // import BoardView from './components/BoardView';
@@ -469,6 +470,10 @@ export default function AdminPipelinePage() {
   // Mobile detail sheet state
   const [mobileDetailVideo, setMobileDetailVideo] = useState<QueueVideo | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+
+  // Mobile filter sheet state
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [mobileFilters, setMobileFilters] = useState<{ status?: string; brand?: string; assignedTo?: string }>({});
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -1794,6 +1799,23 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
+      {/* Mobile: Header with Filter */}
+      <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-zinc-800 -mx-4 mb-4">
+        <h1 className="text-lg font-semibold text-white">Work Queue</h1>
+        <button
+          onClick={() => setFilterSheetOpen(true)}
+          className="flex items-center gap-2 px-3 h-10 rounded-lg bg-zinc-800 text-sm text-zinc-300"
+        >
+          <Filter className="w-4 h-4" />
+          Filter
+          {Object.keys(mobileFilters).filter(k => mobileFilters[k as keyof typeof mobileFilters]).length > 0 && (
+            <span className="w-5 h-5 rounded-full bg-teal-500 text-xs flex items-center justify-center text-white">
+              {Object.keys(mobileFilters).filter(k => mobileFilters[k as keyof typeof mobileFilters]).length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Mobile: Card Layout */}
       <div className="lg:hidden pb-24">
         <VideoQueueMobile
@@ -1997,6 +2019,27 @@ export default function AdminPipelinePage() {
             setMobileDetailVideo(null);
           }
         } : undefined}
+      />
+
+      {/* Mobile Filter Sheet */}
+      <FilterSheet
+        isOpen={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        filters={mobileFilters}
+        setFilters={setMobileFilters}
+        onApply={(newFilters) => {
+          setMobileFilters(newFilters);
+          // Map mobile filters to existing filter system if needed
+          if (newFilters.status) {
+            const statusMap: Record<string, FilterIntent> = {
+              'Needs Review': 'needs_action',
+              'Ready to Record': 'all',
+              'Approved': 'all',
+              'Rejected': 'all',
+            };
+            setFilterIntent(statusMap[newFilters.status] || 'all');
+          }
+        }}
       />
 
       {/* Attach Script Modal */}

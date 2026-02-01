@@ -11,6 +11,7 @@ import { CreditsBadge } from '@/components/CreditsBadge';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
+import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -352,6 +353,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             onMoreClick={() => setSidebarOpen(true)}
             unreadCount={unreadCount}
           />
+
+          {/* Development Test Checklist */}
+          <MobileTestChecklist />
         </>
       )}
 

@@ -122,3 +122,77 @@ export function SkeletonStats({ count = 4, className = '' }: { count?: number; c
     </div>
   );
 }
+
+// Video card skeleton for pipeline/queue views
+export function SkeletonVideoCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`p-4 rounded-xl border border-white/10 bg-zinc-900/50 ${className}`}>
+      {/* Status badge */}
+      <div className="flex items-center justify-between mb-3">
+        <Skeleton height={24} width={80} className="rounded" />
+        <Skeleton height={20} width={60} />
+      </div>
+      {/* Title/Code */}
+      <Skeleton height={18} width="70%" className="mb-2" />
+      {/* Metadata */}
+      <Skeleton height={14} width="50%" className="mb-3" />
+      {/* Action buttons */}
+      <div className="flex gap-2 pt-3 border-t border-white/5">
+        <Skeleton height={40} width="48%" className="rounded-lg" />
+        <Skeleton height={40} width="48%" className="rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+// List of video cards skeleton
+export function SkeletonVideoList({ count = 5, className = '' }: { count?: number; className?: string }) {
+  return (
+    <div className={`space-y-3 ${className}`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonVideoCard key={i} />
+      ))}
+    </div>
+  );
+}
+
+// Notification card skeleton
+export function SkeletonNotification({ className = '' }: { className?: string }) {
+  return (
+    <div className={`p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl ${className}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <Skeleton height={24} width={80} className="rounded" />
+        <Skeleton height={16} width="60%" className="flex-1" />
+        <Skeleton height={12} width={60} />
+      </div>
+    </div>
+  );
+}
+
+// Winner card skeleton
+export function SkeletonWinnerCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`p-4 rounded-xl border border-white/10 bg-zinc-900/50 ${className}`}>
+      {/* Status + Quality */}
+      <div className="flex items-center justify-between mb-3">
+        <Skeleton height={24} width={70} className="rounded" />
+        <Skeleton height={18} width={60} />
+      </div>
+      {/* Creator handle */}
+      <Skeleton height={14} width="30%" className="mb-2" />
+      {/* Hook preview */}
+      <Skeleton height={16} width="90%" className="mb-1" />
+      <Skeleton height={16} width="70%" className="mb-3" />
+      {/* Category + Date */}
+      <div className="flex items-center justify-between mb-3">
+        <Skeleton height={12} width={80} />
+        <Skeleton height={12} width={60} />
+      </div>
+      {/* Actions */}
+      <div className="flex gap-2 pt-3 border-t border-white/5">
+        <Skeleton height={44} width="48%" className="rounded-lg" />
+        <Skeleton height={44} width="48%" className="rounded-lg" />
+      </div>
+    </div>
+  );
+}

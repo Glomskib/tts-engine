@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 
 interface Video {
@@ -17,8 +19,8 @@ interface VideoDetailSheetProps {
   video: Video | null;
   isOpen: boolean;
   onClose: () => void;
-  onApprove?: (video: Video) => void;
-  onReject?: (video: Video) => void;
+  onApprove?: (video: Video) => Promise<void> | void;
+  onReject?: (video: Video) => Promise<void> | void;
 }
 
 export function VideoDetailSheet({
@@ -28,7 +30,32 @@ export function VideoDetailSheet({
   onApprove,
   onReject,
 }: VideoDetailSheetProps) {
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+
   if (!video) return null;
+
+  const handleApprove = async () => {
+    if (!onApprove || isApproving || isRejecting) return;
+    setIsApproving(true);
+    try {
+      await onApprove(video);
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!onReject || isApproving || isRejecting) return;
+    setIsRejecting(true);
+    try {
+      await onReject(video);
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const isLoading = isApproving || isRejecting;
 
   return (
     <BottomSheet
@@ -40,26 +67,46 @@ export function VideoDetailSheet({
         <div className="flex gap-3">
           {onReject && (
             <button
-              onClick={() => onReject(video)}
-              className="
+              onClick={handleReject}
+              disabled={isLoading}
+              className={`
                 flex-1 h-14 rounded-xl font-semibold text-base
                 border-2 border-red-500/50 text-red-400
-                active:bg-red-500/20
-              "
+                active:bg-red-500/20 transition-opacity
+                flex items-center justify-center gap-2
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
             >
-              Reject
+              {isRejecting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                'Reject'
+              )}
             </button>
           )}
           {onApprove && (
             <button
-              onClick={() => onApprove(video)}
-              className="
+              onClick={handleApprove}
+              disabled={isLoading}
+              className={`
                 flex-1 h-14 rounded-xl font-semibold text-base
                 bg-teal-600 text-white
-                active:bg-teal-700
-              "
+                active:bg-teal-700 transition-opacity
+                flex items-center justify-center gap-2
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
             >
-              Approve
+              {isApproving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                'Approve'
+              )}
             </button>
           )}
         </div>

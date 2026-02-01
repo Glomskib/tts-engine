@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Trophy } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import AppLayout from "@/app/components/AppLayout";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SkeletonWinnerCard } from "@/components/ui/Skeleton";
 
 // --- Types ---
 
@@ -533,11 +537,16 @@ export default function WinnersPage() {
     );
   }
 
+  const handleRefresh = async () => {
+    await fetchWinners();
+  };
+
   return (
     <AppLayout>
+      <PullToRefresh onRefresh={handleRefresh} className="min-h-screen">
       <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }} className="max-w-full overflow-hidden pb-24 lg:pb-6">
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+        {/* Header - Hidden on mobile since admin layout provides header */}
+        <div className="hidden lg:flex" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>
             <h1 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
               Winners Bank
@@ -547,6 +556,8 @@ export default function WinnersPage() {
             </p>
           </div>
         </div>
+        {/* Mobile page title */}
+        <h1 className="lg:hidden text-lg font-semibold text-zinc-100 mb-4">Winners Bank</h1>
 
         {/* Stats Row */}
         <div
@@ -631,26 +642,104 @@ export default function WinnersPage() {
           </span>
         </div>
 
-        {/* Winners Table */}
+        {/* Winners Table/Cards */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: "48px", color: colors.textMuted }}>Loading...</div>
+          <>
+            {/* Mobile skeleton */}
+            <div className="lg:hidden space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonWinnerCard key={i} />
+              ))}
+            </div>
+            {/* Desktop skeleton */}
+            <div className="hidden lg:block" style={{ textAlign: "center", padding: "48px", color: colors.textMuted }}>Loading...</div>
+          </>
         ) : filteredWinners.length === 0 ? (
-          <div style={{
-            backgroundColor: colors.surface,
-            border: `1px solid ${colors.border}`,
-            borderRadius: "8px",
-            padding: "48px",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "8px" }}>
-              {winners.length === 0 ? "No winners yet" : "No matching winners"}
-            </div>
-            <div style={{ fontSize: "12px", color: colors.textMuted }}>
-              {winners.length === 0 ? "Add your first TikTok URL above to get started." : "Try adjusting your filters."}
-            </div>
-          </div>
+          <EmptyState
+            icon={Trophy}
+            title={winners.length === 0 ? "No winners yet" : "No matching winners"}
+            description={winners.length === 0
+              ? "Add your first TikTok URL above to start building your winners bank."
+              : "Try adjusting your filters to find what you're looking for."
+            }
+          />
         ) : (
-          <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "10px", overflow: "hidden" }}>
+          <>
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-3">
+              {filteredWinners.map((winner) => {
+                const badgeStyle = getStatusBadgeStyle(winner.status);
+                const hookPreview = getHookPreview(winner);
+                const qualityScore = getQualityScore(winner);
+
+                return (
+                  <div
+                    key={winner.id}
+                    onClick={() => openEditModal(winner)}
+                    className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 cursor-pointer active:bg-zinc-800 transition-colors card-press"
+                  >
+                    {/* Top row: Status + Quality */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className="px-2.5 py-1 rounded text-xs font-medium"
+                        style={{ backgroundColor: badgeStyle.bg, color: badgeStyle.text }}
+                      >
+                        {getStatusLabel(winner.status)}
+                      </span>
+                      {qualityScore != null ? (
+                        <span className={`text-sm font-semibold ${
+                          qualityScore >= 10 ? 'text-emerald-400' : qualityScore >= 5 ? 'text-amber-400' : 'text-zinc-500'
+                        }`}>
+                          {qualityScore}% quality
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {/* Creator handle */}
+                    {winner.creator_handle && (
+                      <p className="text-sm text-teal-400 mb-2">@{winner.creator_handle}</p>
+                    )}
+
+                    {/* Hook preview */}
+                    {hookPreview ? (
+                      <p className="text-sm text-zinc-200 mb-3 line-clamp-2">
+                        &ldquo;{hookPreview.slice(0, 80)}{hookPreview.length > 80 ? "..." : ""}&rdquo;
+                      </p>
+                    ) : (
+                      <p className="text-sm text-zinc-500 italic mb-3">Tap to add transcript</p>
+                    )}
+
+                    {/* Bottom row: Category + Date */}
+                    <div className="flex items-center justify-between text-xs text-zinc-500">
+                      <span className="capitalize">{winner.category || "Uncategorized"}</span>
+                      <span>{formatDate(winner.created_at)}</span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-800">
+                      <a
+                        href={winner.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 h-11 rounded-lg bg-zinc-800 text-zinc-200 text-sm font-medium flex items-center justify-center hover:bg-zinc-700 transition-colors btn-press"
+                      >
+                        View TikTok
+                      </a>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditModal(winner); }}
+                        className="flex-1 h-11 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors btn-press"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden lg:block" style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "10px", overflow: "hidden" }}>
             <table style={tableStyle}>
               <thead>
                 <tr>
@@ -767,7 +856,8 @@ export default function WinnersPage() {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {/* Edit Modal */}
@@ -1033,6 +1123,7 @@ export default function WinnersPage() {
           </div>
         )}
       </div>
+      </PullToRefresh>
     </AppLayout>
   );
 }

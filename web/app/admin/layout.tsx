@@ -4,18 +4,15 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Menu, X, ChevronDown, User, LogOut, Zap } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LogOut, Zap, Bell } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
-import { BRAND, getFilteredNavSections, isNavItemActive } from '@/lib/navigation';
+import { NAV_SECTIONS, getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-
-type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
 interface AuthState {
   loading: boolean;
   authenticated: boolean;
-  role: UserRole;
   userId: string | null;
   userEmail: string | null;
   isAdmin: boolean;
@@ -25,26 +22,43 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { subscription } = useCredits();
+
   const [auth, setAuth] = useState<AuthState>({
     loading: true,
     authenticated: false,
-    role: null,
     userId: null,
     userEmail: null,
     isAdmin: false,
   });
-  const [unreadCount, setUnreadCount] = useState(0);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Detect screen size with JavaScript
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    // Check immediately
+    checkMobile();
+
+    // Add resize listener
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Close sidebar on route change
   useEffect(() => {
     setSidebarOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
-    if (sidebarOpen) {
+    if (sidebarOpen && isMobile) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -52,7 +66,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sidebarOpen]);
+  }, [sidebarOpen, isMobile]);
 
   // Auth check
   useEffect(() => {
@@ -65,25 +79,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             setAuth({
               loading: false,
               authenticated: true,
-              role: data.role || null,
               userId: data.user.id,
               userEmail: data.user.email || null,
               isAdmin: data.isAdmin || false,
             });
           } else {
-            setAuth({ loading: false, authenticated: false, role: null, userId: null, userEmail: null, isAdmin: false });
+            setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false });
             router.replace('/login');
           }
         } else {
-          setAuth({ loading: false, authenticated: false, role: null, userId: null, userEmail: null, isAdmin: false });
+          setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false });
           router.replace('/login');
         }
       } catch {
-        setAuth({ loading: false, authenticated: false, role: null, userId: null, userEmail: null, isAdmin: false });
+        setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false });
       }
     };
     fetchAuth();
-  }, [pathname, router]);
+  }, [router]);
 
   // Fetch notifications
   useEffect(() => {
@@ -114,11 +127,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   };
 
+  // Loading state
   if (auth.loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-zinc-500">
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-zinc-400">
+        <div className="flex items-center gap-3 text-lg">
+          <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
           Loading...
         </div>
       </div>
@@ -131,291 +145,301 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const navSections = getFilteredNavSections({ planId: subscription?.planId, isAdmin: auth.isAdmin });
 
-  return (
-    <div className="min-h-screen bg-zinc-950">
-      {/* ============================================================
-          MOBILE HEADER - Only visible on mobile (< lg)
-          ============================================================ */}
-      <header className="sticky top-0 z-40 bg-zinc-950 border-b border-white/10 lg:hidden">
-        <div className="flex items-center justify-between px-4 h-14">
-          {/* Left: Menu + Logo */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              aria-label="Open menu"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <Link href="/admin" className="flex items-center gap-2">
-              <Image src={BRAND.logo} alt={BRAND.name} width={28} height={28} className="rounded-lg" />
-              <span className="font-semibold text-white text-sm">{BRAND.name}</span>
-            </Link>
-          </div>
-
-          {/* Right: Credits + User */}
-          <div className="flex items-center gap-2">
-            <CreditsBadge compact />
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-medium"
-            >
-              {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-            </button>
+  // Sidebar content (shared between mobile and desktop)
+  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+    <nav className="flex-1 overflow-y-auto py-4">
+      {navSections.map((section, idx) => (
+        <div key={idx} className="mb-6">
+          <h3 className={`px-4 mb-2 font-semibold text-zinc-500 uppercase tracking-wider ${isMobile ? 'text-sm' : 'text-xs'}`}>
+            {section.title}
+          </h3>
+          <div className="space-y-1">
+            {section.items.map((item) => {
+              const active = isNavItemActive(pathname, item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onItemClick}
+                  className={`
+                    flex items-center gap-3 mx-2 rounded-xl transition-colors
+                    ${isMobile ? 'px-4 py-4 text-lg' : 'px-3 py-2.5 text-sm'}
+                    ${active
+                      ? 'bg-teal-500/20 text-teal-400'
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                    }
+                  `}
+                >
+                  <Icon className={`flex-shrink-0 ${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                  <span className="font-medium">{item.name}</span>
+                  {item.href === '/admin/notifications' && unreadCount > 0 && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
-      </header>
+      ))}
+
+      {/* Notifications link */}
+      <div className="px-2 mt-4 pt-4 border-t border-zinc-800">
+        <Link
+          href="/admin/notifications"
+          onClick={onItemClick}
+          className={`
+            flex items-center gap-3 px-4 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors
+            ${isMobile ? 'py-4 text-lg' : 'py-2.5 text-sm'}
+          `}
+        >
+          <Bell className={`flex-shrink-0 ${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
+          <span className="font-medium">Notifications</span>
+          {unreadCount > 0 && (
+            <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
+              {unreadCount}
+            </span>
+          )}
+        </Link>
+      </div>
+    </nav>
+  );
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
 
       {/* ============================================================
-          MOBILE SIDEBAR OVERLAY - Only visible when open on mobile
+          MOBILE LAYOUT - Only rendered when isMobile is true
           ============================================================ */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-
-          {/* Sidebar panel */}
-          <aside className="absolute inset-y-0 left-0 w-72 bg-zinc-950 border-r border-white/10 shadow-2xl flex flex-col">
-            {/* Header with close button */}
-            <div className="flex items-center justify-between p-4 border-b border-white/10">
-              <Link href="/admin" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
-                <Image src={BRAND.logo} alt={BRAND.name} width={28} height={28} className="rounded-lg" />
-                <span className="font-semibold text-white">{BRAND.name}</span>
-              </Link>
+      {isMobile && (
+        <>
+          {/* Mobile Header */}
+          <header className="sticky top-0 z-40 bg-zinc-950 border-b border-zinc-800">
+            <div className="flex items-center justify-between px-4 h-16">
+              {/* Menu button */}
               <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                onClick={() => setSidebarOpen(true)}
+                className="p-3 -ml-2 text-white hover:bg-zinc-800 rounded-xl"
+                aria-label="Open menu"
               >
-                <X className="w-5 h-5" />
+                <Menu className="w-7 h-7" />
               </button>
+
+              {/* Logo */}
+              <Link href="/admin" className="flex items-center gap-2">
+                <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg" />
+                <span className="font-bold text-lg">{BRAND.name}</span>
+              </Link>
+
+              {/* User avatar */}
+              <button
+                onClick={() => setUserMenuOpen(true)}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg"
+              >
+                {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+              </button>
+            </div>
+          </header>
+
+          {/* Mobile Sidebar Overlay */}
+          {sidebarOpen && (
+            <div className="fixed inset-0 z-50">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/80"
+                onClick={() => setSidebarOpen(false)}
+              />
+
+              {/* Sidebar Panel */}
+              <aside className="absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-zinc-950 border-r border-zinc-800 flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
+                    <span className="font-bold text-xl">{BRAND.name}</span>
+                  </div>
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Navigation */}
+                <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+
+                {/* User info */}
+                <div className="p-4 border-t border-zinc-800">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-xl">
+                      {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-medium text-white truncate">{auth.userEmail}</p>
+                      <p className="text-sm text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-lg text-red-400 hover:bg-zinc-800 rounded-xl transition-colors"
+                  >
+                    <LogOut className="w-6 h-6" />
+                    Logout
+                  </button>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {/* Mobile User Menu */}
+          {userMenuOpen && (
+            <div className="fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/80" onClick={() => setUserMenuOpen(false)} />
+              <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl p-6 pb-10">
+                <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
+
+                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-800">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
+                    {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium text-white">{auth.userEmail}</p>
+                    <p className="text-base text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Link
+                    href="/admin/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-4 px-4 py-4 text-lg text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors"
+                  >
+                    <User className="w-6 h-6" />
+                    Account Settings
+                  </Link>
+                  <Link
+                    href="/upgrade"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-4 px-4 py-4 text-lg text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors"
+                  >
+                    <Zap className="w-6 h-6" />
+                    Upgrade Plan
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-4 w-full px-4 py-4 text-lg text-red-400 hover:bg-zinc-800 rounded-xl transition-colors"
+                  >
+                    <LogOut className="w-6 h-6" />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Main Content - FULL WIDTH */}
+          <main className="min-h-screen">
+            <div className="p-4">
+              {children}
+            </div>
+          </main>
+        </>
+      )}
+
+      {/* ============================================================
+          DESKTOP LAYOUT - Only rendered when isMobile is false
+          ============================================================ */}
+      {!isMobile && (
+        <>
+          {/* Desktop Sidebar - Fixed */}
+          <aside className="fixed inset-y-0 left-0 w-72 bg-zinc-950 border-r border-zinc-800 flex flex-col z-40">
+            {/* Logo */}
+            <div className="flex items-center gap-3 px-4 py-5 border-b border-zinc-800">
+              <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
+              <span className="font-bold text-xl">{BRAND.name}</span>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-4">
-              {navSections.map((section, idx) => (
-                <div key={idx} className="mb-6">
-                  <div className="px-4 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                    {section.title}
-                  </div>
-                  {section.items.map((item) => {
-                    const active = isNavItemActive(pathname, item.href);
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-colors ${
-                          active
-                            ? 'bg-teal-500/20 text-teal-400'
-                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5 flex-shrink-0" />
-                        <span className="text-sm font-medium">{item.name}</span>
-                        {item.href === '/admin/notifications' && unreadCount > 0 && (
-                          <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
-                            {unreadCount}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              ))}
-            </nav>
-
-            {/* User info at bottom */}
-            <div className="p-4 border-t border-white/10">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium">
-                  {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white truncate">{auth.userEmail}</div>
-                  <div className="text-xs text-zinc-500">{subscription?.planName || 'Free'} Plan</div>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </button>
-            </div>
+            <SidebarContent />
           </aside>
-        </div>
-      )}
 
-      {/* ============================================================
-          DESKTOP SIDEBAR - Hidden on mobile, fixed on desktop
-          ============================================================ */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-72 lg:flex-col bg-zinc-950 border-r border-white/10">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
-          <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg" />
-          <span className="font-semibold text-white">{BRAND.name}</span>
-        </div>
+          {/* Desktop Header */}
+          <header className="fixed top-0 left-72 right-0 z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
+            <div className="flex items-center justify-end px-6 h-16">
+              <div className="flex items-center gap-4">
+                <CreditsBadge />
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4">
-          {navSections.map((section, idx) => (
-            <div key={idx} className="mb-6">
-              <div className="px-4 mb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                {section.title}
-              </div>
-              {section.items.map((item) => {
-                const active = isNavItemActive(pathname, item.href);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg transition-colors ${
-                      active
-                        ? 'bg-teal-500/20 text-teal-400'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                    }`}
+                {/* User menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span className="text-sm font-medium">{item.name}</span>
-                    {item.href === '/admin/notifications' && unreadCount > 0 && (
-                      <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-      </aside>
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
+                      {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <span className="text-sm max-w-[150px] truncate">{auth.userEmail}</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
 
-      {/* ============================================================
-          DESKTOP HEADER - Only visible on desktop
-          ============================================================ */}
-      <header className="hidden lg:flex lg:ml-72 sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-xl border-b border-white/10">
-        <div className="flex items-center justify-end w-full px-6 h-16">
-          <div className="flex items-center gap-4">
-            <CreditsBadge />
-
-            {/* User menu */}
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-medium">
-                  {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+                  {userMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                      <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl py-2 z-50">
+                        <div className="px-4 py-2 border-b border-zinc-800">
+                          <p className="text-sm font-medium text-white truncate">{auth.userEmail}</p>
+                          <p className="text-xs text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                        </div>
+                        <div className="py-1">
+                          <Link
+                            href="/admin/settings"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                          >
+                            <User className="w-4 h-4" />
+                            Account Settings
+                          </Link>
+                          <Link
+                            href="/upgrade"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                          >
+                            <Zap className="w-4 h-4" />
+                            Upgrade Plan
+                          </Link>
+                        </div>
+                        <div className="border-t border-zinc-800 pt-1">
+                          <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-zinc-800 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <span className="text-sm max-w-[150px] truncate">{auth.userEmail || 'User'}</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-
-              {userMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-white/10 rounded-xl shadow-xl py-2 z-50">
-                    <div className="px-4 py-2 border-b border-white/10">
-                      <div className="text-sm font-medium text-zinc-100 truncate">{auth.userEmail}</div>
-                      <div className="text-xs text-zinc-500">{subscription?.planName || 'Free'} Plan</div>
-                    </div>
-                    <div className="py-1">
-                      <Link
-                        href="/admin/settings"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
-                      >
-                        <User className="w-4 h-4" />
-                        Account Settings
-                      </Link>
-                      <Link
-                        href="/upgrade"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
-                      >
-                        <Zap className="w-4 h-4" />
-                        Upgrade Plan
-                      </Link>
-                    </div>
-                    <div className="border-t border-white/10 pt-1">
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ============================================================
-          MAIN CONTENT - Full width on mobile, offset on desktop
-          ============================================================ */}
-      <main className="lg:ml-72 min-h-screen">
-        <div className="p-4 lg:p-6">
-          {children}
-        </div>
-      </main>
-
-      {/* Mobile user menu modal */}
-      {userMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setUserMenuOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 rounded-t-2xl p-4 pb-8 safe-bottom">
-            <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-lg font-medium">
-                {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-              </div>
-              <div>
-                <div className="text-base font-medium text-white">{auth.userEmail}</div>
-                <div className="text-sm text-zinc-500">{subscription?.planName || 'Free'} Plan</div>
               </div>
             </div>
-            <div className="space-y-1">
-              <Link
-                href="/admin/settings"
-                onClick={() => setUserMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-base text-zinc-300 hover:bg-white/5 rounded-xl transition-colors"
-              >
-                <User className="w-5 h-5" />
-                Account Settings
-              </Link>
-              <Link
-                href="/upgrade"
-                onClick={() => setUserMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-base text-zinc-300 hover:bg-white/5 rounded-xl transition-colors"
-              >
-                <Zap className="w-5 h-5" />
-                Upgrade Plan
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-3 text-base text-red-400 hover:bg-white/5 rounded-xl transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                Logout
-              </button>
+          </header>
+
+          {/* Desktop Main Content - Offset by sidebar */}
+          <main className="ml-72 pt-16 min-h-screen">
+            <div className="p-6">
+              {children}
             </div>
-          </div>
-        </div>
+          </main>
+        </>
       )}
 
-      {/* MOBILE DEBUG - Shows on mobile to verify styles are loading */}
-      <div className="fixed bottom-4 right-4 z-[100] lg:hidden bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-        MOBILE
+      {/* Debug indicator - REMOVE AFTER TESTING */}
+      <div className="fixed bottom-4 right-4 z-[100] bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+        {isMobile ? 'MOBILE' : 'DESKTOP'}
       </div>
     </div>
   );

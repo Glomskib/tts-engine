@@ -7,6 +7,12 @@
    ============================================================================ */
 
 :root {
+  /* Safe area handling for iOS */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+
   /* Core surfaces */
   --bg: #F6F7F9;
   --surface: #FFFFFF;
@@ -201,6 +207,25 @@ a:hover {
   animation: slide-in-up 0.2s ease-out;
 }
 
+/* Bottom sheet animations */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
 /* Shimmer animation for skeleton loading */
 @keyframes shimmer {
   0% {
@@ -252,6 +277,31 @@ a:hover {
 /* Safe area for bottom sheet modals */
 .safe-bottom {
   padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars on mobile but keep functionality */
+@media (max-width: 1024px) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Active states for touch feedback */
+@media (hover: none) {
+  .touch-feedback:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
 }
 
 /* Prevent content jump when overlay appears */

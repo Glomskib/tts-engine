@@ -4,10 +4,11 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Menu, X, ChevronDown, User, LogOut, Zap, Bell } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Bell } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { NAV_SECTIONS, getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -218,32 +219,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           ============================================================ */}
       {isMobile && (
         <>
-          {/* Mobile Header - Larger touch targets */}
-          <header className="sticky top-0 z-40 bg-zinc-950 border-b border-zinc-800">
-            <div className="flex items-center justify-between px-4 h-[60px]">
-              {/* Menu button - 48px minimum touch target */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-3 -ml-2 text-white hover:bg-zinc-800 rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
-                aria-label="Open menu"
-              >
-                <Menu className="w-8 h-8" />
-              </button>
+          {/* Mobile Header - Simplified, just context */}
+          <header className="
+            fixed top-0 left-0 right-0 h-14 z-40
+            bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800
+            flex items-center justify-between px-4
+          ">
+            <Link href="/admin" className="flex items-center gap-2">
+              <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg" />
+              <span className="font-semibold text-lg">{BRAND.name}</span>
+            </Link>
 
-              {/* Logo */}
-              <Link href="/admin" className="flex items-center gap-2">
-                <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
-                <span className="font-bold text-xl">{BRAND.name}</span>
-              </Link>
-
-              {/* User avatar - larger tap target */}
-              <button
-                onClick={() => setUserMenuOpen(true)}
-                className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-xl"
-              >
-                {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-              </button>
-            </div>
+            {/* User avatar - tap to open menu */}
+            <button
+              onClick={() => setUserMenuOpen(true)}
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg"
+            >
+              {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+            </button>
           </header>
 
           {/* Mobile Sidebar Overlay */}
@@ -343,12 +336,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* Mobile Main Content - FULL WIDTH with more padding */}
-          <main className="min-h-screen">
-            <div className="p-5">
+          {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
+          <main className="pt-14 pb-20 min-h-screen">
+            <div className="p-4">
               {children}
             </div>
           </main>
+
+          {/* Mobile Bottom Navigation */}
+          <MobileBottomNav
+            onMoreClick={() => setSidebarOpen(true)}
+            unreadCount={unreadCount}
+          />
         </>
       )}
 
@@ -440,10 +439,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </>
       )}
 
-      {/* Debug indicator - REMOVE AFTER TESTING */}
-      <div className="fixed bottom-4 right-4 z-[100] bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-        {isMobile ? 'MOBILE' : 'DESKTOP'}
-      </div>
     </div>
   );
 }

@@ -148,7 +148,7 @@ export default function AudiencePage() {
   // Messages
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Auth check
+  // Auth check - all authenticated users can access personas
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -158,14 +158,8 @@ export default function AudiencePage() {
           router.push("/login?redirect=/admin/audience");
           return;
         }
-        const roleRes = await fetch("/api/auth/me");
-        const roleData = await roleRes.json();
-        if (roleData.role !== "admin") {
-          setIsAdmin(false);
-          setAuthLoading(false);
-          return;
-        }
-        setIsAdmin(true);
+        // All authenticated users can access personas
+        setIsAdmin(true); // Grant access to all authenticated users
       } catch {
         router.push("/login");
       } finally {

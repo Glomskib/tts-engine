@@ -81,16 +81,16 @@ export const ASPECT_RATIOS: AspectRatio[] = [
 ];
 
 // Image generation models
-// Note: Flux models need version suffix for Replicate API
+// Note: Use model names without version suffix, or with full deployment hash
 export const IMAGE_MODELS = {
   'flux-schnell': {
-    id: 'black-forest-labs/flux-schnell:1',
+    id: 'black-forest-labs/flux-schnell',
     name: 'Flux Schnell',
     description: 'Fast, high-quality image generation',
     creditCost: 2,
   },
   'flux-dev': {
-    id: 'black-forest-labs/flux-dev:1',
+    id: 'black-forest-labs/flux-dev',
     name: 'Flux Dev',
     description: 'Higher quality, slower generation',
     creditCost: 2,

@@ -176,7 +176,7 @@ export default function WinnersPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Auth check
+  // Auth check - all authenticated users can access their own winners
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -188,19 +188,15 @@ export default function WinnersPage() {
           return;
         }
 
+        // Get role info (optional, for display purposes)
         const roleRes = await fetch("/api/auth/me");
         const roleData = await roleRes.json();
 
-        if (roleData.role !== "admin") {
-          setAuthUser(null);
-          setAuthLoading(false);
-          return;
-        }
-
+        // All authenticated users can access Winners Bank (their own data)
         setAuthUser({
           id: user.id,
           email: user.email || null,
-          role: roleData.role,
+          role: roleData.role || "user",
         });
       } catch (err) {
         console.error("Auth error:", err);

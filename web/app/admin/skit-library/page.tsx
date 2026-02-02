@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { useDebounce } from "@/hooks/useDebounce";
+import { VideoCreationSheet } from "@/components/VideoCreationSheet";
 
 // --- Types ---
 
@@ -154,6 +155,16 @@ export default function SkitLibraryPage() {
 
   // Send to Video
   const [sendingToVideoId, setSendingToVideoId] = useState<string | null>(null);
+
+  // Video Creation Sheet
+  const [videoSheetOpen, setVideoSheetOpen] = useState(false);
+  const [videoSheetScript, setVideoSheetScript] = useState<{
+    id: string;
+    title: string;
+    content: string;
+    hook?: string;
+    cta?: string;
+  } | null>(null);
 
   // Winners
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
@@ -448,7 +459,39 @@ export default function SkitLibraryPage() {
     }
   };
 
-  // Send skit to video queue
+  // Open video creation sheet for a skit
+  const handleOpenVideoSheet = (skitId: string) => {
+    const skit = skits.find(s => s.id === skitId);
+    if (!skit || skit.video_id) return;
+
+    // Build content from skit data
+    const skitData = skit.skit_data;
+    let content = "";
+    if (skitData) {
+      content = `HOOK: ${skitData.hook_line}\n\n`;
+      content += skitData.beats.map((beat, i) =>
+        `${i + 1}. [${beat.t}] ${beat.action}${beat.dialogue ? `\n   "${beat.dialogue}"` : ""}`
+      ).join("\n\n");
+      content += `\n\nCTA: ${skitData.cta_line}`;
+    }
+
+    setVideoSheetScript({
+      id: skit.id,
+      title: skit.title || `${skit.product_name || "Untitled"} Script`,
+      content: content || "Script content not available",
+      hook: skitData?.hook_line,
+      cta: skitData?.cta_line,
+    });
+    setVideoSheetOpen(true);
+  };
+
+  // Handle video creation success
+  const handleVideoCreationSuccess = () => {
+    // Refresh the list to show updated status
+    fetchSkits();
+  };
+
+  // Send skit to video queue (legacy quick create)
   const handleSendToVideo = async (skitId: string) => {
     const skit = skits.find(s => s.id === skitId);
     if (!skit || skit.video_id) return;
@@ -1418,19 +1461,19 @@ export default function SkitLibraryPage() {
                           </Link>
                         ) : (
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleSendToVideo(skit.id); }}
-                            disabled={sendingToVideoId === skit.id || !skit.product_name}
+                            onClick={(e) => { e.stopPropagation(); handleOpenVideoSheet(skit.id); }}
+                            disabled={!skit.product_name}
                             title={!skit.product_name ? "Skit must have a product to create a video" : "Create video from this skit"}
                             style={{
                               ...secondaryButtonStyle,
-                              backgroundColor: sendingToVideoId === skit.id ? colors.surface2 : "#059669",
-                              borderColor: sendingToVideoId === skit.id ? colors.border : "#059669",
-                              color: sendingToVideoId === skit.id ? colors.textMuted : "white",
-                              opacity: (!skit.product_name || sendingToVideoId === skit.id) ? 0.6 : 1,
-                              cursor: (!skit.product_name || sendingToVideoId === skit.id) ? "not-allowed" : "pointer",
+                              backgroundColor: "#059669",
+                              borderColor: "#059669",
+                              color: "white",
+                              opacity: !skit.product_name ? 0.6 : 1,
+                              cursor: !skit.product_name ? "not-allowed" : "pointer",
                             }}
                           >
-                            {sendingToVideoId === skit.id ? "Creating..." : "Create Video"}
+                            Create Video
                           </button>
                         )}
 
@@ -1751,6 +1794,14 @@ export default function SkitLibraryPage() {
           </div>
         </div>
       )}
+
+      {/* Video Creation Sheet */}
+      <VideoCreationSheet
+        isOpen={videoSheetOpen}
+        onClose={() => setVideoSheetOpen(false)}
+        script={videoSheetScript}
+        onSuccess={handleVideoCreationSuccess}
+      />
     </div>
   );
 }

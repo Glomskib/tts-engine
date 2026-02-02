@@ -116,6 +116,7 @@ export default function AdminAnalyticsPage() {
   const [contentData, setContentData] = useState<ContentAnalytics | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'pipeline' | 'content'>('content');
+  const [contentExporting, setContentExporting] = useState<string | null>(null);
 
   // Fetch authenticated user and check admin status
   useEffect(() => {
@@ -213,6 +214,45 @@ export default function AdminAnalyticsPage() {
       alert('Export error');
     } finally {
       setExporting(null);
+    }
+  };
+
+  // Export content analytics CSV
+  const exportContentCsv = async (type: 'scripts' | 'videos' | 'credits' | 'content-types' | 'all-scripts' | 'video-requests') => {
+    setContentExporting(type);
+    try {
+      let url: string;
+      let filename: string;
+
+      if (type === 'all-scripts') {
+        url = `/api/admin/export/scripts?days=${windowDays}`;
+        filename = `scripts_export_${windowDays}d.csv`;
+      } else if (type === 'video-requests') {
+        url = `/api/admin/export/video-requests?days=${windowDays}`;
+        filename = `video_requests_${windowDays}d.csv`;
+      } else {
+        url = `/api/admin/export/content-analytics?days=${windowDays}&type=${type}`;
+        filename = `content_${type}_${windowDays}d.csv`;
+      }
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(a);
+      } else {
+        alert('Export failed');
+      }
+    } catch (err) {
+      alert('Export error');
+    } finally {
+      setContentExporting(null);
     }
   };
 
@@ -419,6 +459,114 @@ export default function AdminAnalyticsPage() {
               </div>
               <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#862e9c' }}>
                 {contentData.summary.total_ai_calls}
+              </div>
+            </div>
+          </div>
+
+          {/* Export Buttons Row */}
+          <div style={{
+            marginBottom: '20px',
+            padding: '16px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #dee2e6',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '14px', fontWeight: '500', color: '#495057' }}>
+                Export Data
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => exportContentCsv('scripts')}
+                  disabled={contentExporting === 'scripts'}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: contentExporting === 'scripts' ? '#adb5bd' : '#1971c2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: contentExporting === 'scripts' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {contentExporting === 'scripts' ? 'Exporting...' : 'Scripts by Day'}
+                </button>
+                <button
+                  onClick={() => exportContentCsv('videos')}
+                  disabled={contentExporting === 'videos'}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: contentExporting === 'videos' ? '#adb5bd' : '#2b8a3e',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: contentExporting === 'videos' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {contentExporting === 'videos' ? 'Exporting...' : 'Videos by Day'}
+                </button>
+                <button
+                  onClick={() => exportContentCsv('credits')}
+                  disabled={contentExporting === 'credits'}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: contentExporting === 'credits' ? '#adb5bd' : '#e67700',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: contentExporting === 'credits' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {contentExporting === 'credits' ? 'Exporting...' : 'Credit Usage'}
+                </button>
+                <button
+                  onClick={() => exportContentCsv('content-types')}
+                  disabled={contentExporting === 'content-types'}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: contentExporting === 'content-types' ? '#adb5bd' : '#862e9c',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: contentExporting === 'content-types' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {contentExporting === 'content-types' ? 'Exporting...' : 'Content Types'}
+                </button>
+                <span style={{ borderLeft: '1px solid #dee2e6', margin: '0 4px' }} />
+                <button
+                  onClick={() => exportContentCsv('all-scripts')}
+                  disabled={contentExporting === 'all-scripts'}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: contentExporting === 'all-scripts' ? '#adb5bd' : '#495057',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: contentExporting === 'all-scripts' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {contentExporting === 'all-scripts' ? 'Exporting...' : 'All Scripts (Full)'}
+                </button>
+                <button
+                  onClick={() => exportContentCsv('video-requests')}
+                  disabled={contentExporting === 'video-requests'}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: contentExporting === 'video-requests' ? '#adb5bd' : '#495057',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: contentExporting === 'video-requests' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {contentExporting === 'video-requests' ? 'Exporting...' : 'Video Requests'}
+                </button>
               </div>
             </div>
           </div>

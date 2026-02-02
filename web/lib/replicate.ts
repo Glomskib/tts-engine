@@ -201,21 +201,39 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     throw runError;
   }
 
-  // Handle different output formats
+  // Handle different output formats from Replicate
+  // Can be: string[], FileOutput[], string, or FileOutput
+  const extractUrl = (item: unknown): string | null => {
+    if (typeof item === 'string') return item;
+    if (item && typeof item === 'object') {
+      const obj = item as Record<string, unknown>;
+      // FileOutput format: { url: string } or { href: string }
+      if (typeof obj.url === 'string') return obj.url;
+      if (typeof obj.href === 'string') return obj.href;
+      // ReadableStream case - get the URL from toString
+      if (obj.toString && typeof obj.toString === 'function') {
+        const str = obj.toString();
+        if (str.startsWith('http')) return str;
+      }
+    }
+    return null;
+  };
+
   if (Array.isArray(output)) {
-    const urls = output.map(item => {
-      if (typeof item === 'string') return item;
-      if (item && typeof item === 'object' && 'url' in item) return (item as { url: string }).url;
-      return String(item);
-    });
+    const urls = output.map(extractUrl).filter((url): url is string => url !== null);
+    if (urls.length === 0) {
+      console.error('[Replicate] Could not extract any URLs from array output:', JSON.stringify(output).substring(0, 500));
+      throw new Error('Failed to extract image URLs from Replicate response');
+    }
     return urls;
   }
 
-  if (typeof output === 'string') {
-    return [output];
+  const singleUrl = extractUrl(output);
+  if (singleUrl) {
+    return [singleUrl];
   }
 
-  console.error('[Replicate] Unexpected output format:', typeof output, output);
+  console.error('[Replicate] Unexpected output format:', typeof output, JSON.stringify(output).substring(0, 500));
   throw new Error('Unexpected output format from Replicate');
 }
 
@@ -233,4 +251,111 @@ export function getImageStyle(value: string): ImageStyle | undefined {
 // Get aspect ratio by value
 export function getAspectRatio(value: string): AspectRatio | undefined {
   return ASPECT_RATIOS.find(ar => ar.value === value);
+}
+
+// Image-to-image generation using SDXL
+export interface GenerateImageFromImageParams {
+  prompt: string;
+  sourceImageUrl: string;
+  strength?: number;
+  style?: string;
+  aspectRatio?: string;
+  negativePrompt?: string;
+}
+
+export async function generateImageFromImage(params: GenerateImageFromImageParams): Promise<string[]> {
+  const {
+    prompt,
+    sourceImageUrl,
+    strength = 0.7,
+    style,
+    negativePrompt,
+  } = params;
+
+  console.log('[Replicate] generateImageFromImage called with:', {
+    prompt: prompt.substring(0, 50),
+    sourceImageUrl: sourceImageUrl.substring(0, 50),
+    strength
+  });
+
+  const replicate = getReplicateClient();
+
+  // Get style modifier
+  const styleConfig = style ? IMAGE_STYLES.find(s => s.value === style) : null;
+  let fullPrompt = prompt;
+  if (styleConfig) {
+    fullPrompt += `, ${styleConfig.modifier}`;
+  }
+
+  // Use SDXL for img2img - it has good image input support
+  const input = {
+    prompt: fullPrompt,
+    image: sourceImageUrl,
+    prompt_strength: strength,
+    num_outputs: 1,
+    refine: "expert_ensemble_refiner",
+    scheduler: "K_EULER",
+    guidance_scale: 7.5,
+    num_inference_steps: 25,
+    negative_prompt: negativePrompt || 'blurry, low quality, distorted, ugly, bad anatomy',
+  };
+
+  let output: unknown;
+  try {
+    console.log('[Replicate] Calling SDXL img2img with:');
+    console.log('[Replicate]   Input:', JSON.stringify({ ...input, image: '[source image url]' }, null, 2));
+
+    output = await replicate.run(
+      "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+      { input }
+    );
+
+    console.log('[Replicate] img2img API call successful');
+  } catch (runError) {
+    console.error('[Replicate] img2img API call failed!');
+    console.error('[Replicate] Error:', runError);
+
+    if (runError instanceof Error) {
+      if (runError.message.includes('Invalid token') || runError.message.includes('401')) {
+        throw new Error('Replicate API authentication failed. Please check your REPLICATE_API_TOKEN.');
+      }
+      if (runError.message.includes('rate limit') || runError.message.includes('429')) {
+        throw new Error('Replicate rate limit exceeded. Please try again later.');
+      }
+      throw new Error(`Replicate error: ${runError.message}`);
+    }
+    throw runError;
+  }
+
+  // Extract URL from response
+  const extractUrl = (item: unknown): string | null => {
+    if (typeof item === 'string') return item;
+    if (item && typeof item === 'object') {
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.url === 'string') return obj.url;
+      if (typeof obj.href === 'string') return obj.href;
+      if (obj.toString && typeof obj.toString === 'function') {
+        const str = obj.toString();
+        if (str.startsWith('http')) return str;
+      }
+    }
+    return null;
+  };
+
+  if (Array.isArray(output)) {
+    const urls = output.map(extractUrl).filter((url): url is string => url !== null);
+    if (urls.length === 0) {
+      console.error('[Replicate] Could not extract any URLs from img2img output');
+      throw new Error('Failed to extract image URL from response');
+    }
+    return urls;
+  }
+
+  const singleUrl = extractUrl(output);
+  if (singleUrl) {
+    return [singleUrl];
+  }
+
+  console.error('[Replicate] Unexpected img2img output format:', typeof output);
+  throw new Error('Unexpected output format from Replicate');
 }

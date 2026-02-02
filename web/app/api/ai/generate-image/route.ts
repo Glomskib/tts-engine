@@ -6,6 +6,7 @@ import { auditLogAsync } from "@/lib/audit";
 import { z } from "zod";
 import {
   generateImages,
+  generateImageFromImage,
   getImageCreditCost,
   IMAGE_MODELS,
   IMAGE_STYLES,
@@ -29,6 +30,9 @@ const GenerateImageInputSchema = z.object({
   aspect_ratio: z.string().default('1:1'),
   negative_prompt: z.string().max(500).optional(),
   num_outputs: z.number().int().min(1).max(4).default(1),
+  // Image-to-image parameters
+  source_image: z.string().url().optional(),
+  strength: z.number().min(0.1).max(1.0).default(0.7),
 });
 
 export async function POST(request: NextRequest) {
@@ -176,20 +180,37 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate images
-    console.log(`[Generate Image] Starting generation for user ${authContext.user.id}`);
+    const isImg2Img = !!input.source_image;
+    console.log(`[Generate Image] Starting ${isImg2Img ? 'img2img' : 'text2img'} generation for user ${authContext.user.id}`);
     console.log(`[Generate Image] Prompt: ${input.prompt.substring(0, 100)}...`);
     console.log(`[Generate Image] Model: ${input.model}, Style: ${input.style}, Aspect: ${input.aspect_ratio}`);
+    if (isImg2Img) {
+      console.log(`[Generate Image] Source image: ${input.source_image?.substring(0, 50)}...`);
+      console.log(`[Generate Image] Strength: ${input.strength}`);
+    }
 
     let imageUrls: string[];
     try {
-      imageUrls = await generateImages({
-        prompt: input.prompt,
-        model: input.model as ImageModelKey,
-        style: input.style,
-        aspectRatio: input.aspect_ratio,
-        negativePrompt: input.negative_prompt,
-        numOutputs: input.num_outputs,
-      });
+      if (isImg2Img) {
+        // Image-to-image generation (uses SDXL)
+        imageUrls = await generateImageFromImage({
+          prompt: input.prompt,
+          sourceImageUrl: input.source_image!,
+          strength: input.strength,
+          style: input.style,
+          negativePrompt: input.negative_prompt,
+        });
+      } else {
+        // Text-to-image generation
+        imageUrls = await generateImages({
+          prompt: input.prompt,
+          model: input.model as ImageModelKey,
+          style: input.style,
+          aspectRatio: input.aspect_ratio,
+          negativePrompt: input.negative_prompt,
+          numOutputs: input.num_outputs,
+        });
+      }
       console.log(`[Generate Image] Successfully generated ${imageUrls.length} images`);
     } catch (genError) {
       console.error("[Generate Image] Generation failed:", genError);

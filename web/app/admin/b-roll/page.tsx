@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
   Download, Copy, Loader2, Sparkles, Check, Bookmark,
-  Trash2, FolderOpen, Image as ImageIcon, Upload, X, Heart
+  Trash2, FolderOpen, Image as ImageIcon, Upload, X, Heart, ImagePlus
 } from 'lucide-react';
 import { IMAGE_STYLES, ASPECT_RATIOS } from '@/lib/replicate';
 import { useToast } from '@/contexts/ToastContext';
@@ -69,6 +69,14 @@ export default function BRollGeneratorPage() {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('generate');
 
+  // Mode state (text-to-image vs image-to-image)
+  const [mode, setMode] = useState<'text-to-image' | 'image-to-image'>('text-to-image');
+  const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [strength, setStrength] = useState(0.7);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Form state
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState<ModelId>('flux-schnell');
@@ -99,9 +107,9 @@ export default function BRollGeneratorPage() {
   const [referencesCount, setReferencesCount] = useState(0);
   const [referencesLimit, setReferencesLimit] = useState(5);
 
-  // Calculate credit cost
+  // Calculate credit cost (img2img uses SDXL = 3 credits, always 1 output)
   const selectedModel = MODELS.find(m => m.id === model) || MODELS[0];
-  const creditCost = selectedModel.credits * numOutputs;
+  const creditCost = mode === 'image-to-image' ? 3 : selectedModel.credits * numOutputs;
 
   // Load library images
   const loadLibrary = useCallback(async () => {
@@ -158,19 +166,53 @@ export default function BRollGeneratorPage() {
       return;
     }
 
+    // For img2img, require a source image
+    if (mode === 'image-to-image' && !sourceFile) {
+      setError('Please upload a source image');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      let uploadedImageUrl: string | null = null;
+
+      // If img2img mode, upload source image first
+      if (mode === 'image-to-image' && sourceFile) {
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', sourceFile);
+
+        const uploadRes = await fetch('/api/upload/image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+        setUploading(false);
+
+        if (!uploadRes.ok) {
+          setError(uploadData.message || 'Failed to upload source image');
+          setLoading(false);
+          return;
+        }
+
+        uploadedImageUrl = uploadData.url;
+      }
+
+      // Generate image
       const res = await fetch('/api/ai/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          model,
+          model: mode === 'image-to-image' ? 'sdxl' : model,
           style,
           aspect_ratio: aspectRatio,
-          num_outputs: numOutputs,
+          num_outputs: mode === 'image-to-image' ? 1 : numOutputs,
+          source_image: uploadedImageUrl,
+          strength: mode === 'image-to-image' ? strength : undefined,
         }),
       });
 
@@ -199,6 +241,7 @@ export default function BRollGeneratorPage() {
       console.error('Generation error:', err);
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -381,15 +424,128 @@ export default function BRollGeneratorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left column - Form */}
           <div className="space-y-6">
+            {/* Mode Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode('text-to-image')}
+                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                  mode === 'text-to-image'
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                Text to Image
+              </button>
+              <button
+                onClick={() => setMode('image-to-image')}
+                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                  mode === 'image-to-image'
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                <ImagePlus className="w-4 h-4" />
+                Image to Image
+              </button>
+            </div>
+
+            {/* Image-to-Image Source Upload */}
+            {mode === 'image-to-image' && (
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-zinc-300">Source Image</label>
+
+                {!sourceImage ? (
+                  <div
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files[0];
+                      if (file && file.type.startsWith('image/')) {
+                        setSourceFile(file);
+                        setSourceImage(URL.createObjectURL(file));
+                      }
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-zinc-700 rounded-xl p-8 text-center cursor-pointer hover:border-teal-500 transition-colors"
+                  >
+                    <Upload className="w-10 h-10 mx-auto mb-3 text-zinc-500" />
+                    <p className="text-zinc-300 font-medium">Drop an image here</p>
+                    <p className="text-zinc-500 text-sm mt-1">or click to browse</p>
+                    <p className="text-xs text-zinc-600 mt-2">PNG, JPG, WebP up to 10MB</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSourceFile(file);
+                          setSourceImage(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative rounded-xl overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sourceImage} alt="Source" className="w-full max-h-64 object-contain bg-zinc-800" />
+                    <button
+                      onClick={() => {
+                        setSourceImage(null);
+                        setSourceFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="absolute top-2 right-2 p-2 bg-black/70 rounded-full hover:bg-black transition-colors"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Transformation Strength Slider */}
+                <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700">
+                  <div className="flex justify-between mb-3">
+                    <label className="text-sm font-medium text-zinc-300">Transformation Strength</label>
+                    <span className="text-sm font-medium text-teal-400">{(strength * 100).toFixed(0)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.05"
+                    value={strength}
+                    onChange={(e) => setStrength(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                  />
+                  <div className="flex justify-between text-xs text-zinc-500 mt-2">
+                    <span>Subtle (keep original)</span>
+                    <span>Dramatic (full transform)</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-3">
+                    {strength < 0.4
+                      ? "Low: Keeps composition, adjusts style and lighting"
+                      : strength < 0.7
+                        ? "Medium: Significant changes while preserving essence"
+                        : "High: Major transformation, creative interpretation"}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Prompt */}
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Describe your image
+                {mode === 'image-to-image' ? 'Describe the transformation' : 'Describe your image'}
               </label>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g., Close-up of hands holding a skincare product, soft lighting, minimal background"
+                placeholder={mode === 'image-to-image'
+                  ? "e.g., Transform into a professional product photo, soft studio lighting, clean white background"
+                  : "e.g., Close-up of hands holding a skincare product, soft lighting, minimal background"
+                }
                 className="w-full h-28 px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-teal-500 resize-none"
               />
               {/* Suggestions */}
@@ -455,60 +611,82 @@ export default function BRollGeneratorPage() {
               </div>
             </div>
 
-            {/* Model Selection */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Model
-              </label>
-              <div className="space-y-2">
-                {MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setModel(m.id)}
-                    className={`w-full p-4 rounded-xl border text-left transition-all ${
-                      model === m.id
-                        ? 'border-teal-500 bg-teal-500/10'
-                        : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-zinc-100">{m.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${m.badgeColor}`}>
-                          {m.badge}
+            {/* Model Selection (only for text-to-image) */}
+            {mode === 'text-to-image' && (
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Model
+                </label>
+                <div className="space-y-2">
+                  {MODELS.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setModel(m.id)}
+                      className={`w-full p-4 rounded-xl border text-left transition-all ${
+                        model === m.id
+                          ? 'border-teal-500 bg-teal-500/10'
+                          : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-zinc-100">{m.name}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${m.badgeColor}`}>
+                            {m.badge}
+                          </span>
+                        </div>
+                        <span className="text-sm text-zinc-400">
+                          {m.credits} credit{m.credits > 1 ? 's' : ''}/img
                         </span>
                       </div>
-                      <span className="text-sm text-zinc-400">
-                        {m.credits} credit{m.credits > 1 ? 's' : ''}/img
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-500">{m.description}</p>
-                  </button>
-                ))}
+                      <p className="text-xs text-zinc-500">{m.description}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Number of Images */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Number of Images
-              </label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setNumOutputs(n)}
-                    className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
-                      numOutputs === n
-                        ? 'bg-teal-500 text-white'
-                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
+            {/* Number of Images (only for text-to-image) */}
+            {mode === 'text-to-image' && (
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Number of Images
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setNumOutputs(n)}
+                      className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
+                        numOutputs === n
+                          ? 'bg-teal-500 text-white'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Model info for img2img */}
+            {mode === 'image-to-image' && (
+              <div className="p-4 bg-zinc-800/50 border border-zinc-700 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-300">Model: SDXL</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full border bg-blue-500/20 text-blue-400 border-blue-500/30">
+                      Best for img2img
+                    </span>
+                  </div>
+                  <span className="text-sm text-zinc-400">3 credits</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-2">
+                  SDXL provides the best results for image-to-image transformations with fine control over the output.
+                </p>
+              </div>
+            )}
 
             {/* Error */}
             {error && (
@@ -520,9 +698,9 @@ export default function BRollGeneratorPage() {
             {/* Generate Button */}
             <button
               onClick={handleGenerate}
-              disabled={loading || !prompt.trim()}
+              disabled={loading || !prompt.trim() || (mode === 'image-to-image' && !sourceFile)}
               className={`w-full py-4 rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-3 ${
-                loading || !prompt.trim()
+                loading || !prompt.trim() || (mode === 'image-to-image' && !sourceFile)
                   ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
                   : 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700'
               }`}
@@ -530,12 +708,12 @@ export default function BRollGeneratorPage() {
               {loading ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
-                  Generating...
+                  {uploading ? 'Uploading...' : 'Generating...'}
                 </>
               ) : (
                 <>
-                  <Sparkles size={20} />
-                  Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})
+                  {mode === 'image-to-image' ? <ImagePlus size={20} /> : <Sparkles size={20} />}
+                  {mode === 'image-to-image' ? 'Transform' : 'Generate'} ({creditCost} credit{creditCost !== 1 ? 's' : ''})
                 </>
               )}
             </button>

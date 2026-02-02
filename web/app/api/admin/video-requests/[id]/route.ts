@@ -6,6 +6,11 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import {
+  sendVideoReadyForReviewEmail,
+  sendVideoCompletedEmail,
+  sendRevisionRequestedEmail,
+} from '@/lib/client-email-notifications';
 
 /**
  * GET: Get specific video request with all details
@@ -105,6 +110,17 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: 'No updates provided' }, { status: 400 });
   }
 
+  // Get current request for comparison and notification data
+  const { data: currentRequest } = await supabaseAdmin
+    .from('video_requests')
+    .select(`
+      *,
+      user:user_id(email),
+      editor:assigned_editor_id(email)
+    `)
+    .eq('id', id)
+    .single();
+
   const { data, error } = await supabaseAdmin
     .from('video_requests')
     .update(updates)
@@ -115,6 +131,55 @@ export async function PATCH(
   if (error) {
     console.error('Failed to update video request:', error);
     return NextResponse.json({ ok: false, error: 'Failed to update request' }, { status: 500 });
+  }
+
+  // Send notifications based on status changes
+  const newStatus = updates.status as string | undefined;
+  const clientEmail = currentRequest?.user?.email;
+  const editorEmail = currentRequest?.editor?.email;
+
+  if (newStatus && clientEmail) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const reviewUrl = `${appUrl}/client/my-videos/${id}`;
+
+    try {
+      if (newStatus === 'review' && data.edited_drive_link) {
+        // Video submitted for review - notify client
+        await sendVideoReadyForReviewEmail({
+          recipientEmail: clientEmail,
+          requestId: id,
+          requestTitle: currentRequest?.title || 'Your video',
+          editedDriveLink: data.edited_drive_link,
+          reviewUrl,
+        });
+      } else if (newStatus === 'completed' && data.edited_drive_link) {
+        // Video approved and completed - notify client
+        await sendVideoCompletedEmail({
+          recipientEmail: clientEmail,
+          requestId: id,
+          requestTitle: currentRequest?.title || 'Your video',
+          editedDriveLink: data.edited_drive_link,
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send client notification:', emailError);
+      // Don't fail the request if email fails
+    }
+  }
+
+  // Notify editor of revision request
+  if (newStatus === 'revision' && editorEmail && body.revision_notes) {
+    try {
+      await sendRevisionRequestedEmail({
+        recipientEmail: editorEmail,
+        requestId: id,
+        requestTitle: currentRequest?.title || 'Video request',
+        revisionNotes: body.revision_notes,
+        revisionNumber: (currentRequest?.revision_count || 0) + 1,
+      });
+    } catch (emailError) {
+      console.error('Failed to send editor notification:', emailError);
+    }
   }
 
   return NextResponse.json({ ok: true, data });

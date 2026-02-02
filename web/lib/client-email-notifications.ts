@@ -44,6 +44,29 @@ export interface RequestConvertedEmailParams {
   portalUrl?: string;
 }
 
+export interface VideoReadyForReviewEmailParams {
+  recipientEmail: string;
+  requestId: string;
+  requestTitle: string;
+  editedDriveLink: string;
+  reviewUrl?: string;
+}
+
+export interface VideoCompletedEmailParams {
+  recipientEmail: string;
+  requestId: string;
+  requestTitle: string;
+  editedDriveLink: string;
+}
+
+export interface RevisionRequestedEmailParams {
+  recipientEmail: string;
+  requestId: string;
+  requestTitle: string;
+  revisionNotes: string;
+  revisionNumber: number;
+}
+
 export interface ClientEmailResult {
   sent: boolean;
   skipped: boolean;
@@ -254,6 +277,189 @@ This is an automated notification from ${params.orgName}.
   return { subject, html, text };
 }
 
+/**
+ * Generate video ready for review email content.
+ */
+function generateVideoReadyForReviewEmailContent(params: VideoReadyForReviewEmailParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = `Your video is ready for review: ${params.requestTitle}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: #f0f9ff; border-radius: 8px; padding: 24px; margin-bottom: 24px; border-left: 4px solid #3b82f6;">
+    <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1a1a1a;">Video Ready for Review</h1>
+    <p style="margin: 0; color: #3b82f6; font-weight: 600;">Your edited video is complete and awaiting your approval.</p>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+      <tr>
+        <td style="padding: 8px 0; color: #666; width: 120px;">Project</td>
+        <td style="padding: 8px 0; font-weight: 500;">${params.requestTitle}</td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
+    Please review the edited video and either approve it or request revisions.
+  </p>
+
+  <div style="text-align: center; margin-bottom: 24px;">
+    <a href="${params.editedDriveLink}" style="display: inline-block; padding: 14px 28px; background: #3b82f6; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; margin-right: 12px;">
+      View Edited Video
+    </a>
+    ${params.reviewUrl ? `
+    <a href="${params.reviewUrl}" style="display: inline-block; padding: 14px 28px; background: #10b981; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+      Review & Approve
+    </a>
+    ` : ""}
+  </div>
+
+  <div style="font-size: 12px; color: #888; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+    <p>This is an automated notification. Please review your video within 48 hours.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const text = `Your video is ready for review
+
+Project: ${params.requestTitle}
+
+Your edited video is complete and awaiting your approval. Please review the video and either approve it or request revisions.
+
+View Edited Video: ${params.editedDriveLink}
+${params.reviewUrl ? `\nReview & Approve: ${params.reviewUrl}` : ""}
+
+Please review your video within 48 hours.
+  `.trim();
+
+  return { subject, html, text };
+}
+
+/**
+ * Generate video completed email content.
+ */
+function generateVideoCompletedEmailContent(params: VideoCompletedEmailParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = `Video complete: ${params.requestTitle}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: #f0fdf4; border-radius: 8px; padding: 24px; margin-bottom: 24px; border-left: 4px solid #10b981;">
+    <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1a1a1a;">Video Complete</h1>
+    <p style="margin: 0; color: #10b981; font-weight: 600;">Your video has been approved and is ready for use.</p>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+      <tr>
+        <td style="padding: 8px 0; color: #666; width: 120px;">Project</td>
+        <td style="padding: 8px 0; font-weight: 500;">${params.requestTitle}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="text-align: center; margin-bottom: 24px;">
+    <a href="${params.editedDriveLink}" style="display: inline-block; padding: 14px 28px; background: #10b981; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+      Download Your Video
+    </a>
+  </div>
+
+  <div style="font-size: 12px; color: #888; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+    <p>Thank you for using our video editing service!</p>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const text = `Video Complete: ${params.requestTitle}
+
+Your video has been approved and is ready for use.
+
+Download Your Video: ${params.editedDriveLink}
+
+Thank you for using our video editing service!
+  `.trim();
+
+  return { subject, html, text };
+}
+
+/**
+ * Generate revision requested email content.
+ */
+function generateRevisionRequestedEmailContent(params: RevisionRequestedEmailParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = `Revision requested: ${params.requestTitle}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: #fff7ed; border-radius: 8px; padding: 24px; margin-bottom: 24px; border-left: 4px solid #f97316;">
+    <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1a1a1a;">Revision Requested</h1>
+    <p style="margin: 0; color: #f97316; font-weight: 600;">Revision #${params.revisionNumber}</p>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+      <tr>
+        <td style="padding: 8px 0; color: #666; width: 120px;">Project</td>
+        <td style="padding: 8px 0; font-weight: 500;">${params.requestTitle}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="background: #f8f9fa; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+    <div style="font-size: 13px; color: #666; margin-bottom: 8px; font-weight: 500;">Revision Notes:</div>
+    <div style="color: #333; white-space: pre-wrap;">${params.revisionNotes}</div>
+  </div>
+
+  <div style="font-size: 12px; color: #888; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+    <p>Please address the requested changes and resubmit for review.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const text = `Revision Requested: ${params.requestTitle}
+
+Revision #${params.revisionNumber}
+
+Revision Notes:
+${params.revisionNotes}
+
+Please address the requested changes and resubmit for review.
+  `.trim();
+
+  return { subject, html, text };
+}
+
 // ============================================================================
 // Notification Functions
 // ============================================================================
@@ -357,6 +563,88 @@ export async function sendRequestConvertedEmail(params: RequestConvertedEmailPar
       request_id: params.requestId,
       video_id: params.videoId,
       org_name: params.orgName,
+    },
+  });
+
+  return {
+    sent: result.status === "sent",
+    skipped: wasEmailSkipped(result),
+    status: result.status,
+    message: result.message,
+  };
+}
+
+/**
+ * Send video ready for review email to client.
+ * Notifies client when their edited video is ready for approval.
+ */
+export async function sendVideoReadyForReviewEmail(params: VideoReadyForReviewEmailParams): Promise<ClientEmailResult> {
+  const content = generateVideoReadyForReviewEmailContent(params);
+
+  const result = await sendEmailWithAudit(supabaseAdmin, {
+    to: params.recipientEmail,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    templateKey: "video_ready_for_review",
+    context: {
+      request_id: params.requestId,
+      title: params.requestTitle,
+    },
+  });
+
+  return {
+    sent: result.status === "sent",
+    skipped: wasEmailSkipped(result),
+    status: result.status,
+    message: result.message,
+  };
+}
+
+/**
+ * Send video completed email to client.
+ * Notifies client when their video has been approved and is complete.
+ */
+export async function sendVideoCompletedEmail(params: VideoCompletedEmailParams): Promise<ClientEmailResult> {
+  const content = generateVideoCompletedEmailContent(params);
+
+  const result = await sendEmailWithAudit(supabaseAdmin, {
+    to: params.recipientEmail,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    templateKey: "video_completed",
+    context: {
+      request_id: params.requestId,
+      title: params.requestTitle,
+    },
+  });
+
+  return {
+    sent: result.status === "sent",
+    skipped: wasEmailSkipped(result),
+    status: result.status,
+    message: result.message,
+  };
+}
+
+/**
+ * Send revision requested email to editor.
+ * Notifies editor when client requests changes to their video.
+ */
+export async function sendRevisionRequestedEmail(params: RevisionRequestedEmailParams): Promise<ClientEmailResult> {
+  const content = generateRevisionRequestedEmailContent(params);
+
+  const result = await sendEmailWithAudit(supabaseAdmin, {
+    to: params.recipientEmail,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    templateKey: "video_revision_requested",
+    context: {
+      request_id: params.requestId,
+      title: params.requestTitle,
+      revision_number: params.revisionNumber,
     },
   });
 

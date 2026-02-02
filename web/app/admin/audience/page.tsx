@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import AppLayout from "@/app/components/AppLayout";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import {
   TONE_OPTIONS,
@@ -671,26 +670,21 @@ export default function AudiencePage() {
   // Loading
   if (authLoading) {
     return (
-      <AppLayout>
-        <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}>Loading...</div>
-      </AppLayout>
+      <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}>Loading...</div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <AppLayout>
-        <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ color: "#ef4444", fontSize: "18px" }}>Access Denied</div>
-          <div style={{ color: colors.textMuted, marginTop: "8px" }}>Admin access required.</div>
-        </div>
-      </AppLayout>
+      <div style={{ padding: "40px", textAlign: "center" }}>
+        <div style={{ color: "#ef4444", fontSize: "18px" }}>Access Denied</div>
+        <div style={{ color: colors.textMuted, marginTop: "8px" }}>Admin access required.</div>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto", paddingBottom: "6rem" }}>
         {/* Header */}
         <div style={{ marginBottom: "24px" }}>
           <h1 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, margin: 0 }}>
@@ -1848,7 +1842,6 @@ export default function AudiencePage() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AppLayout from '../../components/AppLayout';
 import { useCredits } from '@/hooks/useCredits';
 
 interface UsageStats {
@@ -125,8 +124,7 @@ export default function UsagePage() {
   const maxDailyCount = stats?.dailyUsage.reduce((max, d) => Math.max(max, d.count), 0) || 1;
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -279,7 +277,6 @@ export default function UsagePage() {
             </div>
           </>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

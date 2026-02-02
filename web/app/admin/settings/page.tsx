@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import AppLayout from '../../components/AppLayout';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
@@ -122,20 +121,17 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 w-32 bg-zinc-800 rounded"></div>
-            <div className="h-48 bg-zinc-800/50 rounded-xl"></div>
-          </div>
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 w-32 bg-zinc-800 rounded"></div>
+          <div className="h-48 bg-zinc-800/50 rounded-xl"></div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto pb-24 lg:pb-8">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto pb-24 lg:pb-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
@@ -409,7 +405,6 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

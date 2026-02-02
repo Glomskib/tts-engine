@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AppLayout from '../../components/AppLayout';
 import {
   Activity, RefreshCw, CheckCircle, AlertTriangle, XCircle,
   Clock, Server, Database, Cpu, Wifi
@@ -100,25 +99,22 @@ export default function SystemHealthPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 w-48 bg-zinc-800 rounded" />
-            <div className="h-32 bg-zinc-800/50 rounded-xl" />
-            <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-24 bg-zinc-800/50 rounded-xl" />
-              ))}
-            </div>
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 w-48 bg-zinc-800 rounded" />
+          <div className="h-32 bg-zinc-800/50 rounded-xl" />
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-24 bg-zinc-800/50 rounded-xl" />
+            ))}
           </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto pb-24 lg:pb-8">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -229,7 +225,6 @@ export default function SystemHealthPage() {
             </div>
           </>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

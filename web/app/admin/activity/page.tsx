@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import AppLayout from '../../components/AppLayout';
 
 interface ActivityItem {
   id: string;
@@ -217,8 +216,7 @@ export default function ActivityPage() {
   const groupedActivities = groupByDate(activities);
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white mb-2">Activity</h1>
@@ -394,7 +392,6 @@ export default function ActivityPage() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

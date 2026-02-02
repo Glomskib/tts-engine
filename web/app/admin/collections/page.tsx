@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import AppLayout from '../../components/AppLayout';
 
 interface Collection {
   id: string;
@@ -88,8 +87,7 @@ export default function CollectionsPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -260,7 +258,6 @@ export default function CollectionsPage() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

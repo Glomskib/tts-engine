@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import AppLayout from '../../components/AppLayout';
 import { DEFAULT_TEMPLATES, TEMPLATE_CATEGORIES, ContentTemplate } from '@/lib/templates';
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -48,8 +47,7 @@ export default function TemplatesPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white mb-2">Content Templates</h1>
@@ -198,7 +196,6 @@ export default function TemplatesPage() {
             <p className="text-sm mt-1">Your custom templates will appear here</p>
           </div>
         </div>
-      </div>
-    </AppLayout>
+    </div>
   );
 }

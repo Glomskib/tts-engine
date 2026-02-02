@@ -122,7 +122,7 @@ export default function BRollGeneratorPage() {
         setLibraryCount(data.data.count);
         setLibraryLimit(data.data.limit);
         // Mark saved URLs
-        const urls = new Set(data.data.images.map((img: LibraryImage) => img.url));
+        const urls = new Set<string>(data.data.images.map((img: LibraryImage) => img.url));
         setSavedImages(urls);
       }
     } catch (err) {

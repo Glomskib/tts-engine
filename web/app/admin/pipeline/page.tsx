@@ -8,7 +8,6 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import IncidentBanner from '../components/IncidentBanner';
 import VideoDrawer from './components/VideoDrawer';
 import CreateVideoDrawer from './components/CreateVideoDrawer';
-import AppLayout from '@/app/components/AppLayout';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';

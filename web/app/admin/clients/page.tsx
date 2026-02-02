@@ -7,7 +7,6 @@ import {
   ChevronRight, TrendingUp, Clock, X, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
-import AppLayout from '../../components/AppLayout';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -117,8 +116,7 @@ export default function ClientsPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
+    <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -359,7 +357,6 @@ export default function ClientsPage() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

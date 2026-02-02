@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import AppLayout from '../../components/AppLayout';
 
 interface ScheduledPost {
   id: string;
@@ -241,8 +240,7 @@ export default function CalendarPage() {
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -476,7 +474,6 @@ export default function CalendarPage() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

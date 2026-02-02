@@ -9,7 +9,6 @@ import {
   Download, BarChart3, Timer, CheckCircle2, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
-import AppLayout from '../../../components/AppLayout';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface Client {
@@ -295,27 +294,22 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+      </div>
     );
   }
 
   if (!client) {
     return (
-      <AppLayout>
-        <div className="px-4 py-6 text-center">
-          <p className="text-zinc-400">Client not found</p>
-        </div>
-      </AppLayout>
+      <div className="px-4 py-6 text-center">
+        <p className="text-zinc-400">Client not found</p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-5xl mx-auto">
+    <div className="px-4 py-6 pb-24 lg:pb-8 max-w-5xl mx-auto">
         {/* Back button */}
         <Link
           href="/admin/clients"
@@ -885,7 +879,6 @@ export default function ClientDetailPage() {
           variant="danger"
           isLoading={deleting}
         />
-      </div>
-    </AppLayout>
+    </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import AppLayout from '../components/AppLayout';
 import { useCredits } from '@/hooks/useCredits';
 
 interface DashboardStats {
@@ -134,8 +133,7 @@ export default function AdminDashboard() {
   const creditsDisplay = isUnlimited ? 'Unlimited' : (credits?.remaining ?? '—');
 
   return (
-    <AppLayout>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-2">
@@ -330,7 +328,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

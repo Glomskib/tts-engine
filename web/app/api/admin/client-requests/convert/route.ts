@@ -111,12 +111,39 @@ export async function POST(request: Request) {
       driveUrl = clientRequest.ugc_links[0];
     }
 
+    // Calculate SLA deadline based on priority
+    const priority = clientRequest.priority || 'standard';
+    const slaHours = priority === 'rush' ? 24 : priority === 'priority' ? 48 : 72;
+    const slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000).toISOString();
+
     const insertPayload: Record<string, unknown> = {
       account_id: org_id, // Use org_id as account_id for client requests
       variant_id: variantId,
       google_drive_url: driveUrl,
       status: CONVERT_INITIAL_STATUS, // Default pipeline status
     };
+
+    // Set denormalized linking fields for fast queries (from migration 071)
+    if (existingColumns.has("org_id")) {
+      insertPayload.org_id = clientRequest.org_id;
+    }
+    if (existingColumns.has("project_id") && clientRequest.project_id) {
+      insertPayload.project_id = clientRequest.project_id;
+    }
+    if (existingColumns.has("request_id")) {
+      insertPayload.request_id = clientRequest.request_id;
+    }
+    if (existingColumns.has("client_user_id") && clientRequest.requested_by_user_id) {
+      insertPayload.client_user_id = clientRequest.requested_by_user_id;
+    }
+
+    // Set SLA tracking fields
+    if (existingColumns.has("sla_deadline")) {
+      insertPayload.sla_deadline = slaDeadline;
+    }
+    if (existingColumns.has("sla_priority")) {
+      insertPayload.sla_priority = priority;
+    }
 
     // Set recording_status to NOT_RECORDED if column exists
     if (existingColumns.has("recording_status")) {

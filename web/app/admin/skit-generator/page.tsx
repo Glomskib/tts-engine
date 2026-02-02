@@ -12,6 +12,24 @@ import { saveAs } from 'file-saver';
 import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
+import { PersonaSelector } from '@/components/PersonaSelector';
+import {
+  CONTENT_EDGE_OPTIONS,
+  UNPREDICTABILITY_OPTIONS,
+  HUMOR_LEVEL_OPTIONS,
+  PACING_OPTIONS,
+  HOOK_STRENGTH_OPTIONS,
+  AUTHENTICITY_OPTIONS,
+  PRESENTATION_STYLES,
+  unpredictabilityToChaos,
+  humorLevelToIntensity,
+  chaosToUnpredictability,
+  intensityToHumorLevel,
+  type ContentEdge,
+  type Pacing,
+  type HookStrength,
+  type Authenticity,
+} from '@/lib/creative-controls';
 
 // --- Helper Functions ---
 
@@ -318,11 +336,16 @@ interface SavedSettings {
   actorType: ActorType;
   targetDuration: TargetDuration;
   contentFormat: ContentFormat;
-  riskTier: RiskTier;
-  chaosLevel: number;
-  intensity: number;
+  contentEdge: ContentEdge;
+  unpredictability: number;
+  humorLevel: number;
   variationCount: number;
   showAdvanced: boolean;
+  pacing?: Pacing;
+  hookStrength?: HookStrength;
+  authenticity?: Authenticity;
+  characterPersona?: string;
+  presentationStyle?: string;
   lastProductId?: string;
   lastProductName?: string;
   lastBrandName?: string;
@@ -366,15 +389,22 @@ export default function SkitGeneratorPage() {
   const [actorType, setActorType] = useState<ActorType>('human');
   const [selectedPreset, setSelectedPreset] = useState<string>('NONE');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [riskTier, setRiskTier] = useState<RiskTier>('SAFE');
+  const [contentEdge, setContentEdge] = useState<ContentEdge>('SAFE');
   const [persona, setPersona] = useState<Persona>('NONE');
-  const [intensity, setIntensity] = useState<number>(50);
-  const [chaosLevel, setChaosLevel] = useState<number>(50);
+  const [humorLevel, setHumorLevel] = useState<number>(3);
+  const [unpredictability, setUnpredictability] = useState<number>(3);
   const [creativeDirection, setCreativeDirection] = useState<string>('');
   const [targetDuration, setTargetDuration] = useState<TargetDuration>('standard');
   const [contentFormat, setContentFormat] = useState<ContentFormat>('skit_dialogue');
   const [productContext, setProductContext] = useState<string>('');
   const [variationCount, setVariationCount] = useState<number>(3);
+  // New creative controls
+  const [characterPersona, setCharacterPersona] = useState<string>('');
+  const [presentationStyle, setPresentationStyle] = useState<string>('');
+  const [pacing, setPacing] = useState<Pacing>('moderate');
+  const [hookStrength, setHookStrength] = useState<HookStrength>('standard');
+  const [authenticity, setAuthenticity] = useState<Authenticity>('balanced');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // Result state
   const [generating, setGenerating] = useState(false);
@@ -730,11 +760,16 @@ export default function SkitGeneratorPage() {
         if (settings.actorType) setActorType(settings.actorType);
         if (settings.targetDuration) setTargetDuration(settings.targetDuration);
         if (settings.contentFormat) setContentFormat(settings.contentFormat);
-        if (settings.riskTier) setRiskTier(settings.riskTier);
-        if (typeof settings.chaosLevel === 'number') setChaosLevel(settings.chaosLevel);
-        if (typeof settings.intensity === 'number') setIntensity(settings.intensity);
+        if (settings.contentEdge) setContentEdge(settings.contentEdge);
+        if (typeof settings.unpredictability === 'number') setUnpredictability(settings.unpredictability);
+        if (typeof settings.humorLevel === 'number') setHumorLevel(settings.humorLevel);
         if (typeof settings.variationCount === 'number') setVariationCount(settings.variationCount);
         if (typeof settings.showAdvanced === 'boolean') setShowAdvanced(settings.showAdvanced);
+        if (settings.pacing) setPacing(settings.pacing);
+        if (settings.hookStrength) setHookStrength(settings.hookStrength);
+        if (settings.authenticity) setAuthenticity(settings.authenticity);
+        if (settings.characterPersona) setCharacterPersona(settings.characterPersona);
+        if (settings.presentationStyle) setPresentationStyle(settings.presentationStyle);
         // Don't auto-select last product on load if URL has product_id
         // The URL param takes precedence
       }
@@ -752,11 +787,16 @@ export default function SkitGeneratorPage() {
         actorType,
         targetDuration,
         contentFormat,
-        riskTier,
-        chaosLevel,
-        intensity,
+        contentEdge,
+        unpredictability,
+        humorLevel,
         variationCount,
         showAdvanced,
+        pacing,
+        hookStrength,
+        authenticity,
+        characterPersona: characterPersona || undefined,
+        presentationStyle: presentationStyle || undefined,
         lastProductId: selectedProductId || undefined,
         lastProductName: product?.name || manualProductName || undefined,
         lastBrandName: product?.brand || manualBrandName || undefined,
@@ -765,7 +805,7 @@ export default function SkitGeneratorPage() {
     } catch {
       // Ignore localStorage errors
     }
-  }, [actorType, targetDuration, contentFormat, riskTier, chaosLevel, intensity, variationCount, showAdvanced, selectedProductId, manualProductName, manualBrandName, products]);
+  }, [actorType, targetDuration, contentFormat, contentEdge, unpredictability, humorLevel, variationCount, showAdvanced, pacing, hookStrength, authenticity, characterPersona, presentationStyle, selectedProductId, manualProductName, manualBrandName, products]);
 
   // Load recent products from localStorage
   useEffect(() => {
@@ -1079,16 +1119,23 @@ export default function SkitGeneratorPage() {
     setIsRateLimited(false);
 
     const payload: Record<string, unknown> = retryWithPayload || {
-      risk_tier: riskTier,
+      // Map new creative controls to API format
+      risk_tier: contentEdge,
       persona: persona,
-      intensity: intensity,
-      chaos_level: chaosLevel,
+      intensity: humorLevelToIntensity(humorLevel),
+      chaos_level: unpredictabilityToChaos(unpredictability),
       creative_direction: creativeDirection.trim() || undefined,
       actor_type: actorType,
       target_duration: targetDuration,
       content_format: contentFormat,
       product_context: productContext.trim() || undefined,
       variation_count: variationCount,
+      // New creative controls
+      character_persona: characterPersona || undefined,
+      presentation_style: presentationStyle || undefined,
+      pacing: pacing,
+      hook_strength: hookStrength,
+      authenticity: authenticity,
       // Audience Intelligence
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_id: selectedPainPointId || undefined,
@@ -1248,7 +1295,7 @@ export default function SkitGeneratorPage() {
       instruction: instruction.trim(),
       product_name: product?.name || manualProductName || 'Product',
       product_brand: product?.brand || manualBrandName || undefined,
-      risk_tier: riskTier,
+      risk_tier: contentEdge,
     };
 
     const response = await postJson<SkitResult>('/api/ai/refine-skit', payload);
@@ -1300,15 +1347,20 @@ export default function SkitGeneratorPage() {
       product_name: product?.name || manualProductName || undefined,
       product_brand: product?.brand || manualBrandName || undefined,
       generation_config: {
-        risk_tier: riskTier,
+        risk_tier: contentEdge,
         persona,
-        chaos_level: chaosLevel,
-        intensity,
+        chaos_level: unpredictabilityToChaos(unpredictability),
+        intensity: humorLevelToIntensity(humorLevel),
         actor_type: actorType,
         target_duration: targetDuration,
         preset_id: selectedPreset !== 'NONE' ? selectedPreset : undefined,
         template_id: selectedTemplate || undefined,
         creative_direction: creativeDirection || undefined,
+        character_persona: characterPersona || undefined,
+        presentation_style: presentationStyle || undefined,
+        pacing,
+        hook_strength: hookStrength,
+        authenticity,
       },
     };
 
@@ -1411,10 +1463,10 @@ export default function SkitGeneratorPage() {
       user_rating: userRating > 0 ? userRating : undefined,
       ai_score: aiScore || undefined,
       generation_config: {
-        risk_tier: riskTier,
+        risk_tier: contentEdge,
         persona,
-        chaos_level: chaosLevel,
-        intensity,
+        chaos_level: unpredictabilityToChaos(unpredictability),
+        intensity: humorLevelToIntensity(humorLevel),
         actor_type: actorType,
         target_duration: targetDuration,
         content_format: contentFormat,
@@ -1424,6 +1476,11 @@ export default function SkitGeneratorPage() {
         variation_count: variationCount,
         selected_variation_index: selectedVariationIndex,
         is_modified: isModified,
+        character_persona: characterPersona || undefined,
+        presentation_style: presentationStyle || undefined,
+        pacing,
+        hook_strength: hookStrength,
+        authenticity,
       },
     };
 
@@ -1553,16 +1610,23 @@ export default function SkitGeneratorPage() {
       // Restore generation config if available
       if (skit.generation_config) {
         const config = skit.generation_config;
-        if (config.risk_tier) setRiskTier(config.risk_tier as RiskTier);
+        if (config.risk_tier) setContentEdge(config.risk_tier as ContentEdge);
         if (config.persona) setPersona(config.persona as Persona);
-        if (typeof config.chaos_level === 'number') setChaosLevel(config.chaos_level);
-        if (typeof config.intensity === 'number') setIntensity(config.intensity);
+        // Convert old 0-100 scale to new 1-5 scale
+        if (typeof config.chaos_level === 'number') setUnpredictability(chaosToUnpredictability(config.chaos_level));
+        if (typeof config.intensity === 'number') setHumorLevel(intensityToHumorLevel(config.intensity));
         if (config.actor_type) setActorType(config.actor_type as ActorType);
         if (config.target_duration) setTargetDuration(config.target_duration as TargetDuration);
         if (config.content_format) setContentFormat(config.content_format as ContentFormat);
         if (config.preset_id) setSelectedPreset(config.preset_id as string);
         if (config.template_id) setSelectedTemplate(config.template_id as string);
         if (config.creative_direction) setCreativeDirection(config.creative_direction as string);
+        // Load new creative controls if available
+        if (config.character_persona) setCharacterPersona(config.character_persona as string);
+        if (config.presentation_style) setPresentationStyle(config.presentation_style as string);
+        if (config.pacing) setPacing(config.pacing as Pacing);
+        if (config.hook_strength) setHookStrength(config.hook_strength as HookStrength);
+        if (config.authenticity) setAuthenticity(config.authenticity as Authenticity);
       }
 
       // Set rating if available
@@ -2297,7 +2361,7 @@ export default function SkitGeneratorPage() {
                     ▶
                   </span>
                   Advanced Options
-                  {(creativeDirection || chaosLevel !== 50 || intensity !== 50 || riskTier !== 'SAFE') && (
+                  {(creativeDirection || unpredictability !== 3 || humorLevel !== 3 || contentEdge !== 'SAFE') && (
                     <span style={{
                       marginLeft: 'auto',
                       padding: '2px 8px',
@@ -2343,99 +2407,131 @@ export default function SkitGeneratorPage() {
                     </div>
                   </div>
 
-                  {/* Intensity & Risk */}
+                  {/* Creative Controls */}
                   <div>
                     <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary, fontWeight: 500 }}>
-                      Intensity & Chaos
+                      Creative Controls
                     </h3>
 
-                    {/* Risk Tier */}
-                    <div style={{ marginBottom: '12px' }}>
-                      <label
-                        style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
-                        title="Controls content safety level. SAFE = family-friendly, BALANCED = mild edge, SPICY = pushing boundaries"
-                      >
-                        Risk Tier <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
-                      </label>
-                      <select
-                        value={riskTier}
-                        onChange={(e) => setRiskTier(e.target.value as RiskTier)}
-                        title="Controls content safety level"
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          backgroundColor: colors.bg,
-                          border: `1px solid ${colors.border}`,
-                          borderRadius: '4px',
-                          color: colors.text,
-                          fontSize: '14px',
-                        }}
-                      >
-                        <option value="SAFE" title="Family-friendly, mild humor">Safe (Light Humor)</option>
-                        <option value="BALANCED" title="Sharper jokes, slight edge">Balanced (Sharper)</option>
-                        <option value="SPICY" title="Bold parody, pushing boundaries">Spicy (Bold Parody)</option>
-                      </select>
-                    </div>
-
-                    {/* Chaos Level Slider */}
+                    {/* Content Edge */}
                     <div style={{ marginBottom: '16px' }}>
                       <label
-                        style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
-                        title="0 = grounded/relatable scenarios, 50 = playfully absurd, 100 = unhinged fever dream"
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="How boundary-pushing the content is"
                       >
-                        Chaos Level: {chaosLevel} <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                        Content Edge <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                       </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={chaosLevel}
-                        onChange={(e) => setChaosLevel(Number(e.target.value))}
-                        title={`Chaos: ${chaosLevel}% - ${chaosLevel <= 20 ? 'Grounded' : chaosLevel <= 50 ? 'Playful' : chaosLevel <= 80 ? 'Absurd' : 'Fever Dream'}`}
-                        style={{ width: '100%' }}
-                  />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary }}>
-                    <span>Grounded</span>
-                    <span>Fever Dream</span>
-                  </div>
-                  <div style={{
-                    fontSize: '11px',
-                    color: colors.textSecondary,
-                    marginTop: '6px',
-                    padding: '6px 8px',
-                    backgroundColor: colors.bg,
-                    borderRadius: '4px',
-                  }}>
-                    {chaosLevel <= 20 && "Realistic, relatable scenarios"}
-                    {chaosLevel > 20 && chaosLevel <= 40 && "Slightly exaggerated, one weird element"}
-                    {chaosLevel > 40 && chaosLevel <= 60 && "Absurd premises, unexpected turns"}
-                    {chaosLevel > 60 && chaosLevel <= 80 && "Unhinged energy, logic optional"}
-                    {chaosLevel > 80 && "Full surrealist mode, reality is a suggestion"}
-                  </div>
-                </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {CONTENT_EDGE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setContentEdge(option.value)}
+                            title={option.description}
+                            style={{
+                              flex: '1 1 auto',
+                              minWidth: '100px',
+                              padding: '8px 12px',
+                              backgroundColor: contentEdge === option.value ? '#7c3aed' : colors.bg,
+                              border: `1px solid ${contentEdge === option.value ? '#7c3aed' : colors.border}`,
+                              borderRadius: '6px',
+                              color: contentEdge === option.value ? 'white' : colors.text,
+                              fontSize: '13px',
+                              fontWeight: contentEdge === option.value ? 600 : 400,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                        {CONTENT_EDGE_OPTIONS.find(o => o.value === contentEdge)?.desc}
+                      </div>
+                    </div>
 
-                {/* Comedy Intensity Slider */}
-                <div>
-                  <label
-                    style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: colors.textSecondary }}
-                    title="Higher = more jokes per beat, faster pacing, more punchlines. Affects generation budget."
-                  >
-                    Comedy Intensity: {intensity} <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={intensity}
-                    onChange={(e) => setIntensity(Number(e.target.value))}
-                    title={`Intensity: ${intensity}% - ${intensity <= 30 ? 'Subtle, conversational' : intensity <= 60 ? 'Balanced comedy' : 'Rapid-fire jokes'}`}
-                    style={{ width: '100%' }}
-                  />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary }}>
-                    <span>Subtle</span>
-                    <span>Maximum</span>
-                  </div>
-                </div>
+                    {/* Unpredictability */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="How random or surprising the content is"
+                      >
+                        Unpredictability <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {UNPREDICTABILITY_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setUnpredictability(option.value)}
+                            title={option.description}
+                            style={{
+                              flex: 1,
+                              padding: '8px 4px',
+                              backgroundColor: unpredictability === option.value ? '#7c3aed' : colors.bg,
+                              border: `1px solid ${unpredictability === option.value ? '#7c3aed' : colors.border}`,
+                              borderRadius: '6px',
+                              color: unpredictability === option.value ? 'white' : colors.text,
+                              fontSize: '11px',
+                              fontWeight: unpredictability === option.value ? 600 : 400,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {option.value}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary, marginTop: '4px' }}>
+                        <span>Structured</span>
+                        <span>Wild Card</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                        {UNPREDICTABILITY_OPTIONS.find(o => o.value === unpredictability)?.description}
+                      </div>
+                    </div>
+
+                    {/* Humor Level */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="How funny or comedic the content is"
+                      >
+                        Humor Level <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {HUMOR_LEVEL_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setHumorLevel(option.value)}
+                            title={option.description}
+                            style={{
+                              flex: 1,
+                              padding: '8px 4px',
+                              backgroundColor: humorLevel === option.value ? '#7c3aed' : colors.bg,
+                              border: `1px solid ${humorLevel === option.value ? '#7c3aed' : colors.border}`,
+                              borderRadius: '6px',
+                              color: humorLevel === option.value ? 'white' : colors.text,
+                              fontSize: '11px',
+                              fontWeight: humorLevel === option.value ? 600 : 400,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {option.value}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary, marginTop: '4px' }}>
+                        <span>Serious</span>
+                        <span>Full Comedy</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                        {HUMOR_LEVEL_OPTIONS.find(o => o.value === humorLevel)?.description}
+                      </div>
+                    </div>
 
                     {/* Number of Variations */}
                     <div style={{ marginTop: '16px' }}>
@@ -2466,6 +2562,194 @@ export default function SkitGeneratorPage() {
                       }}>
                         More variations = more creative options to choose from
                       </div>
+                    </div>
+
+                    {/* Character Persona */}
+                    <div style={{ marginTop: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="Select a character archetype to shape the script's voice and personality"
+                      >
+                        Character Persona <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <PersonaSelector
+                        value={characterPersona}
+                        onChange={setCharacterPersona}
+                      />
+                    </div>
+
+                    {/* Presentation Style */}
+                    <div style={{ marginTop: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="Choose how the content is presented to the audience"
+                      >
+                        Presentation Style <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <select
+                        value={presentationStyle}
+                        onChange={(e) => setPresentationStyle(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '4px',
+                          color: colors.text,
+                          fontSize: '14px',
+                        }}
+                      >
+                        <option value="">-- Auto (Let AI decide) --</option>
+                        {PRESENTATION_STYLES.map((style) => (
+                          <option key={style.value} value={style.value} title={style.desc}>
+                            {style.label}
+                          </option>
+                        ))}
+                      </select>
+                      {presentationStyle && (
+                        <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                          {PRESENTATION_STYLES.find(s => s.value === presentationStyle)?.desc}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Advanced Creative Controls */}
+                    <div style={{ marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setAdvancedOpen(!advancedOpen)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          width: '100%',
+                          padding: '8px 12px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '6px',
+                          color: colors.textSecondary,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ transform: advancedOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', fontSize: '10px' }}>
+                          ▶
+                        </span>
+                        Fine-Tune Controls
+                        {(pacing !== 'moderate' || hookStrength !== 'standard' || authenticity !== 'balanced') && (
+                          <span style={{
+                            marginLeft: 'auto',
+                            padding: '2px 8px',
+                            backgroundColor: '#7c3aed',
+                            color: 'white',
+                            borderRadius: '10px',
+                            fontSize: '10px',
+                          }}>
+                            Customized
+                          </span>
+                        )}
+                      </button>
+
+                      {advancedOpen && (
+                        <div style={{
+                          marginTop: '12px',
+                          padding: '12px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '6px',
+                        }}>
+                          {/* Pacing */}
+                          <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}>
+                              Pacing
+                            </label>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {PACING_OPTIONS.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => setPacing(option.value)}
+                                  title={option.description}
+                                  style={{
+                                    flex: '1 1 auto',
+                                    minWidth: '80px',
+                                    padding: '6px 10px',
+                                    backgroundColor: pacing === option.value ? '#7c3aed' : colors.card,
+                                    border: `1px solid ${pacing === option.value ? '#7c3aed' : colors.border}`,
+                                    borderRadius: '4px',
+                                    color: pacing === option.value ? 'white' : colors.text,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Hook Strength */}
+                          <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}>
+                              Hook Strength
+                            </label>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {HOOK_STRENGTH_OPTIONS.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => setHookStrength(option.value)}
+                                  title={option.description}
+                                  style={{
+                                    flex: '1 1 auto',
+                                    minWidth: '80px',
+                                    padding: '6px 10px',
+                                    backgroundColor: hookStrength === option.value ? '#7c3aed' : colors.card,
+                                    border: `1px solid ${hookStrength === option.value ? '#7c3aed' : colors.border}`,
+                                    borderRadius: '4px',
+                                    color: hookStrength === option.value ? 'white' : colors.text,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Authenticity */}
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}>
+                              Authenticity Feel
+                            </label>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {AUTHENTICITY_OPTIONS.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => setAuthenticity(option.value)}
+                                  title={option.description}
+                                  style={{
+                                    flex: '1 1 auto',
+                                    minWidth: '80px',
+                                    padding: '6px 10px',
+                                    backgroundColor: authenticity === option.value ? '#7c3aed' : colors.card,
+                                    border: `1px solid ${authenticity === option.value ? '#7c3aed' : colors.border}`,
+                                    borderRadius: '4px',
+                                    color: authenticity === option.value ? 'white' : colors.text,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -3015,7 +3299,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   backgroundColor: colors.bg,
                   color: colors.textSecondary,
                 }}>
-                  Intensity: {result.intensity_applied ?? intensity}
+                  Humor: {HUMOR_LEVEL_OPTIONS.find(o => o.value === (result.intensity_applied ? intensityToHumorLevel(result.intensity_applied) : humorLevel))?.label || `Level ${humorLevel}`}
                 </span>
                 {result.preset_name && result.preset_id !== 'NONE' && (
                   <span style={{

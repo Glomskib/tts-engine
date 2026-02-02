@@ -8,26 +8,9 @@ import { cookies } from 'next/headers';
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL is required. " +
-      "Add it to your .env.local file or Vercel environment variables."
-    );
-  }
-
-  if (!supabaseAnonKey) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY is required. " +
-      "Add it to your .env.local file or Vercel environment variables."
-    );
-  }
-
   return createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
@@ -39,8 +22,7 @@ export async function createServerSupabaseClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // In Server Components, cookies cannot be set
-            // This is expected when called from a Server Component
+            // Called from Server Component - ignore
           }
         },
       },

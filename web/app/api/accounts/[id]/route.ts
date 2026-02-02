@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -8,11 +10,37 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
 
   if (!id || typeof id !== "string") {
     return NextResponse.json(
-      { ok: false, error: "Account ID is required" },
+      { ok: false, error: "Account ID is required", correlation_id: correlationId },
       { status: 400 }
+    );
+  }
+
+  // Verify ownership first (admins can update any)
+  let ownershipQuery = supabaseAdmin
+    .from("accounts")
+    .select("id")
+    .eq("id", id);
+
+  if (!authContext.isAdmin) {
+    ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
+  }
+
+  const { data: existing, error: existError } = await ownershipQuery.single();
+
+  if (existError || !existing) {
+    return NextResponse.json(
+      { ok: false, error: "Account not found", correlation_id: correlationId },
+      { status: 404 }
     );
   }
 
@@ -21,7 +49,7 @@ export async function PATCH(
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { ok: false, error: "Invalid JSON" },
+      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -31,14 +59,14 @@ export async function PATCH(
   // Validate fields if provided
   if (name !== undefined && (typeof name !== "string" || name.trim() === "")) {
     return NextResponse.json(
-      { ok: false, error: "name must be a non-empty string" },
+      { ok: false, error: "name must be a non-empty string", correlation_id: correlationId },
       { status: 400 }
     );
   }
 
   if (platform !== undefined && typeof platform !== "string") {
     return NextResponse.json(
-      { ok: false, error: "platform must be a string" },
+      { ok: false, error: "platform must be a string", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -60,7 +88,7 @@ export async function PATCH(
     // If no valid fields to update
     if (Object.keys(updatePayload).length === 1) { // Only updated_at
       return NextResponse.json(
-        { ok: false, error: "No valid fields provided for update" },
+        { ok: false, error: "No valid fields provided for update", correlation_id: correlationId },
         { status: 400 }
       );
     }
@@ -78,23 +106,23 @@ export async function PATCH(
 
       if (error.code === "PGRST116") {
         return NextResponse.json(
-          { ok: false, error: "Account not found" },
+          { ok: false, error: "Account not found", correlation_id: correlationId },
           { status: 404 }
         );
       }
 
       return NextResponse.json(
-        { ok: false, error: error.message },
+        { ok: false, error: error.message, correlation_id: correlationId },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, data });
+    return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 
   } catch (err) {
     console.error("PATCH /api/accounts/[id] error:", err);
     return NextResponse.json(
-      { ok: false, error: "Internal server error" },
+      { ok: false, error: "Internal server error", correlation_id: correlationId },
       { status: 500 }
     );
   }

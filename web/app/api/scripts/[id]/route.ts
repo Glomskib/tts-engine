@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,13 @@ export async function GET(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
@@ -20,11 +28,17 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  const { data, error } = await supabaseAdmin
+  // Build query - filter by user_id (admins can see all)
+  let query = supabaseAdmin
     .from("scripts")
     .select("*")
-    .eq("id", id)
-    .single();
+    .eq("id", id);
+
+  if (!authContext.isAdmin) {
+    query = query.eq("user_id", authContext.user.id);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
     if (error.code === "PGRST116") {
@@ -42,10 +56,34 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
     const err = apiError("INVALID_UUID", "Invalid script ID format", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Verify ownership first (admins can update any)
+  let ownershipQuery = supabaseAdmin
+    .from("scripts")
+    .select("id")
+    .eq("id", id);
+
+  if (!authContext.isAdmin) {
+    ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
+  }
+
+  const { data: existing, error: existError } = await ownershipQuery.single();
+
+  if (existError || !existing) {
+    const err = apiError("NOT_FOUND", "Script not found", 404);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 

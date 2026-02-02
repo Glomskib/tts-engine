@@ -42,40 +42,46 @@ export async function GET(request: Request) {
     }
 
     if (data?.user) {
-      // Check if user has a subscription, if not create default
-      const { data: existingSub } = await supabase
-        .from('user_subscriptions')
-        .select('id')
-        .eq('user_id', data.user.id)
-        .single();
-
-      if (!existingSub) {
-        console.log('Creating default subscription for new user:', data.user.email);
-
-        // Create default subscription for new users
-        const { error: subError } = await supabase.from('user_subscriptions').insert({
-          user_id: data.user.id,
-          plan_id: 'free',
-          subscription_type: 'saas',
-          status: 'active',
-        });
+      // Try to ensure user has subscription and credits (non-fatal errors)
+      try {
+        // Use upsert to handle race conditions with the database trigger
+        const { error: subError } = await supabase
+          .from('user_subscriptions')
+          .upsert({
+            user_id: data.user.id,
+            plan_id: 'free',
+            subscription_type: 'saas',
+            status: 'active',
+          }, {
+            onConflict: 'user_id'
+          });
 
         if (subError) {
-          console.error('Failed to create subscription:', subError);
+          console.error('Subscription upsert error (non-fatal):', subError);
         }
 
-        // Create default credits
-        const { error: credError } = await supabase.from('user_credits').insert({
-          user_id: data.user.id,
-          credits_remaining: 5, // Free plan credits
-          credits_used_this_period: 0,
-          period_start: new Date().toISOString(),
-          period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        });
+        // Also ensure credits exist
+        const { error: creditError } = await supabase
+          .from('user_credits')
+          .upsert({
+            user_id: data.user.id,
+            credits_remaining: 5,
+            free_credits_total: 5,
+            free_credits_used: 0,
+            credits_used_this_period: 0,
+            lifetime_credits_used: 0,
+            period_start: new Date().toISOString(),
+            period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          }, {
+            onConflict: 'user_id'
+          });
 
-        if (credError) {
-          console.error('Failed to create credits:', credError);
+        if (creditError) {
+          console.error('Credit upsert error (non-fatal):', creditError);
         }
+      } catch (e) {
+        // Log but don't fail - user is authenticated
+        console.error('Error initializing user data (non-fatal):', e);
       }
 
       // Successfully authenticated - redirect to destination

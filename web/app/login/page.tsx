@@ -12,12 +12,13 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/admin/skit-generator';
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
+  const urlError = searchParams.get('error');
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(urlError ? decodeURIComponent(urlError) : null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);

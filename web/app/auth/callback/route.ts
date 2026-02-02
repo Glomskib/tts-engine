@@ -7,52 +7,84 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get('code');
-  const redirect = requestUrl.searchParams.get('redirect') || '/admin/content-studio';
-  const origin = requestUrl.origin;
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get('code');
+  const next = searchParams.get('redirect') ?? '/admin/content-studio';
+  const error = searchParams.get('error');
+  const errorDescription = searchParams.get('error_description');
+
+  // Log for debugging
+  console.log('Auth callback received:', { code: !!code, error, errorDescription });
+
+  // Handle OAuth errors
+  if (error) {
+    console.error('OAuth error:', error, errorDescription);
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(errorDescription || error)}`
+    );
+  }
 
   if (code) {
     const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (error) {
-      console.error('Auth callback error:', error);
-      return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+    console.log('Exchange result:', {
+      user: data?.user?.email,
+      session: !!data?.session,
+      error: exchangeError?.message
+    });
+
+    if (exchangeError) {
+      console.error('Code exchange error:', exchangeError);
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent(exchangeError.message)}`
+      );
     }
 
-    // Get user to check their role/subscription
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
+    if (data?.user) {
       // Check if user has a subscription, if not create default
       const { data: existingSub } = await supabase
         .from('user_subscriptions')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', data.user.id)
         .single();
 
       if (!existingSub) {
+        console.log('Creating default subscription for new user:', data.user.email);
+
         // Create default subscription for new users
-        await supabase.from('user_subscriptions').insert({
-          user_id: user.id,
+        const { error: subError } = await supabase.from('user_subscriptions').insert({
+          user_id: data.user.id,
           plan_id: 'free',
           subscription_type: 'saas',
           status: 'active',
         });
 
+        if (subError) {
+          console.error('Failed to create subscription:', subError);
+        }
+
         // Create default credits
-        await supabase.from('user_credits').insert({
-          user_id: user.id,
+        const { error: credError } = await supabase.from('user_credits').insert({
+          user_id: data.user.id,
           credits_remaining: 5, // Free plan credits
           credits_used_this_period: 0,
           period_start: new Date().toISOString(),
           period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         });
+
+        if (credError) {
+          console.error('Failed to create credits:', credError);
+        }
       }
+
+      // Successfully authenticated - redirect to destination
+      console.log('Auth successful, redirecting to:', next);
+      return NextResponse.redirect(`${origin}${next}`);
     }
   }
 
-  // Redirect to the intended destination
-  return NextResponse.redirect(`${origin}${redirect}`);
+  // No code received
+  console.error('Auth callback: No code received');
+  return NextResponse.redirect(`${origin}/login?error=no_code`);
 }

@@ -125,8 +125,18 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     numOutputs = 1,
   } = params;
 
+  console.log('[Replicate] generateImages called with:', { model, style, aspectRatio, numOutputs });
+
   const replicate = getReplicateClient();
   const modelConfig = IMAGE_MODELS[model];
+
+  if (!modelConfig) {
+    console.error('[Replicate] Invalid model key:', model);
+    throw new Error(`Invalid model: ${model}. Valid models: ${Object.keys(IMAGE_MODELS).join(', ')}`);
+  }
+
+  console.log('[Replicate] Model config:', { key: model, id: modelConfig.id, name: modelConfig.name });
+
   const dimensions = ASPECT_RATIOS.find(ar => ar.value === aspectRatio) || ASPECT_RATIOS[1];
   const styleConfig = style ? IMAGE_STYLES.find(s => s.value === style) : null;
 
@@ -160,10 +170,22 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
 
   let output: unknown;
   try {
+    console.log('[Replicate] Calling replicate.run with:');
+    console.log('[Replicate]   Model ID:', modelConfig.id);
+    console.log('[Replicate]   Input:', JSON.stringify(input, null, 2));
+
     output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
+
+    console.log('[Replicate] API call successful');
+    console.log('[Replicate] Output type:', typeof output, Array.isArray(output) ? `(array of ${(output as unknown[]).length})` : '');
   } catch (runError) {
-    console.error('[Replicate] API call failed:', runError);
+    console.error('[Replicate] API call failed!');
+    console.error('[Replicate] Model ID was:', modelConfig.id);
+    console.error('[Replicate] Error:', runError);
+
     if (runError instanceof Error) {
+      console.error('[Replicate] Error message:', runError.message);
+
       // Check for common error types
       if (runError.message.includes('Invalid token') || runError.message.includes('401')) {
         throw new Error('Replicate API authentication failed. Please check your REPLICATE_API_TOKEN.');
@@ -171,8 +193,8 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
       if (runError.message.includes('rate limit') || runError.message.includes('429')) {
         throw new Error('Replicate rate limit exceeded. Please try again later.');
       }
-      if (runError.message.includes('model') || runError.message.includes('not found')) {
-        throw new Error(`Replicate model not found: ${modelConfig.id}`);
+      if (runError.message.includes('model') || runError.message.includes('not found') || runError.message.includes('version')) {
+        throw new Error(`Replicate model not found: ${modelConfig.id}. Original error: ${runError.message}`);
       }
       throw new Error(`Replicate error: ${runError.message}`);
     }

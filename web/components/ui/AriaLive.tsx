@@ -133,7 +133,7 @@ export function LiveRegion({
  */
 export function ScreenReaderOnly({ children, as: Component = 'span' }: {
   children: ReactNode;
-  as?: keyof JSX.IntrinsicElements;
+  as?: keyof React.JSX.IntrinsicElements;
 }) {
   return (
     <Component className="sr-only">

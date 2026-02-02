@@ -144,7 +144,7 @@ export function safeValidate<T>(schema: z.ZodSchema<T>, data: unknown):
   }
 
   const errors: Record<string, string> = {};
-  result.error.errors.forEach((err) => {
+  result.error.issues.forEach((err) => {
     const path = err.path.join('.');
     if (!errors[path]) {
       errors[path] = err.message;
@@ -157,7 +157,7 @@ export function safeValidate<T>(schema: z.ZodSchema<T>, data: unknown):
 /**
  * Get first error message from Zod validation result
  */
-export function getFirstError(result: z.SafeParseReturnType<unknown, unknown>): string | null {
+export function getFirstError(result: { success: boolean; error?: { issues: Array<{ message: string }> } }): string | null {
   if (result.success) return null;
-  return result.error.errors[0]?.message || 'Validation failed';
+  return result.error?.issues[0]?.message || 'Validation failed';
 }

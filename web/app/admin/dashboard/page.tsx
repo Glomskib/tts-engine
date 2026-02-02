@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 
 interface DashboardStats {
   scriptsGenerated: number;
@@ -137,6 +138,9 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist className="mb-2" />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -61,7 +61,7 @@ export function useForm<T extends Record<string, unknown>>(
       const result = schema.safeParse(values);
       if (result.success) return null;
 
-      const fieldError = result.error.errors.find(
+      const fieldError = result.error.issues.find(
         (err) => err.path[0] === field
       );
       return fieldError?.message || null;
@@ -79,7 +79,7 @@ export function useForm<T extends Record<string, unknown>>(
     }
 
     const newErrors: Partial<Record<keyof T, string>> = {};
-    result.error.errors.forEach((err) => {
+    result.error.issues.forEach((err) => {
       const field = err.path[0] as keyof T;
       if (!newErrors[field]) {
         newErrors[field] = err.message;

@@ -12,7 +12,7 @@ export { Button, IconButton } from './Button';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 
 // Toast notifications
-export { Toast, useToast } from './Toast';
+export { ToastProvider, useToast } from './Toast';
 
 // Loading states
 export {

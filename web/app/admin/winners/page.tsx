@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trophy } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import AppLayout from "@/app/components/AppLayout";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -512,24 +511,20 @@ export default function WinnersPage() {
   // Loading
   if (authLoading) {
     return (
-      <AppLayout>
-        <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}>
-          Loading...
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center py-20 text-zinc-500">
+        Loading...
+      </div>
     );
   }
 
   // Not authenticated
   if (!authUser) {
     return (
-      <AppLayout>
-        <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ color: "#ef4444", fontSize: "18px", marginBottom: "8px" }}>Sign In Required</div>
-          <div style={{ color: colors.textMuted }}>Please sign in to access your Winners Bank.</div>
-          <Link href="/login" style={{ color: colors.accent, marginTop: "16px", display: "inline-block" }}>Sign In</Link>
-        </div>
-      </AppLayout>
+      <div className="text-center py-20">
+        <div className="text-red-500 text-lg mb-2">Sign In Required</div>
+        <div className="text-zinc-500">Please sign in to access your Winners Bank.</div>
+        <Link href="/login" className="text-teal-400 hover:text-teal-300 mt-4 inline-block">Sign In</Link>
+      </div>
     );
   }
 
@@ -538,9 +533,8 @@ export default function WinnersPage() {
   };
 
   return (
-    <AppLayout>
-      <PullToRefresh onRefresh={handleRefresh} className="min-h-screen">
-      <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }} className="max-w-full overflow-hidden pb-24 lg:pb-6">
+    <PullToRefresh onRefresh={handleRefresh} className="min-h-screen">
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }} className="max-w-full overflow-hidden pb-24 lg:pb-6">
         {/* Header - Hidden on mobile since admin layout provides header */}
         <div className="hidden lg:flex" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>
@@ -1119,7 +1113,6 @@ export default function WinnersPage() {
           </div>
         )}
       </div>
-      </PullToRefresh>
-    </AppLayout>
+    </PullToRefresh>
   );
 }

@@ -105,6 +105,7 @@ export default function UpgradePage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'saas' | 'video'>('saas');
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const { credits, subscription: creditsSubscription, isLoading: creditsLoading, refetch } = useCredits();
   const { planId, subscriptionType, loading: subLoading } = useSubscription();
 
@@ -131,28 +132,48 @@ export default function UpgradePage() {
     fetchAuthUser();
   }, [router]);
 
-  const handleSubscribe = async (planId: PlanName) => {
-    if (planId === 'free') return;
+  const handleSubscribe = async (selectedPlanId: PlanName) => {
+    if (selectedPlanId === 'free') return;
 
-    setCheckoutLoading(planId);
+    setCheckoutLoading(selectedPlanId);
+    setCheckoutError(null);
+
     try {
+      console.log('Subscribing to:', selectedPlanId);
+
       const res = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId: selectedPlanId }),
       });
 
       const data = await res.json();
+      console.log('Checkout response:', data);
 
-      if (data.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Failed to start checkout');
+      if (!res.ok) {
+        throw new Error(data.error || 'Checkout failed');
       }
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      if (!data.url) {
+        throw new Error('No checkout URL received');
+      }
+
+      // Validate URL before redirecting
+      try {
+        new URL(data.url);
+      } catch {
+        throw new Error(`Invalid checkout URL received`);
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
     } catch (err) {
       console.error('Checkout error:', err);
-      alert('Failed to start checkout. Please try again.');
-    } finally {
+      setCheckoutError(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.');
       setCheckoutLoading(null);
     }
   };
@@ -215,6 +236,25 @@ export default function UpgradePage() {
             </div>
           </div>
         </div>
+
+        {/* Checkout Error Display */}
+        {checkoutError && (
+          <div className="mb-6 p-4 rounded-xl border border-red-500/50 bg-red-500/10">
+            <div className="flex items-start gap-3">
+              <X className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-400 font-medium">Checkout Failed</p>
+                <p className="text-red-300/80 text-sm mt-1">{checkoutError}</p>
+                <button
+                  onClick={() => setCheckoutError(null)}
+                  className="text-xs text-red-400 hover:text-red-300 mt-2 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Switcher */}
         <div className="flex justify-center mb-10">

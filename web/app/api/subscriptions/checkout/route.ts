@@ -16,13 +16,36 @@ import {
   type PlanName
 } from '@/lib/subscriptions';
 
+// Validate Stripe key at startup
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('STRIPE_SECRET_KEY is not set!');
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+
+// Get base URL with fallback
+function getBaseUrl(): string {
+  // Try multiple environment variable names
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    || process.env.NEXT_PUBLIC_BASE_URL
+    || process.env.VERCEL_URL
+    || 'https://tts-engine.vercel.app';
+
+  // Ensure URL has protocol
+  if (baseUrl.startsWith('http')) {
+    return baseUrl;
+  }
+  return `https://${baseUrl}`;
+}
 
 export async function POST(request: Request) {
   try {
+    console.log('Checkout request received');
+
     // Auth check
     const authContext = await getApiAuthContext();
     if (!authContext.user) {
+      console.error('No authenticated user');
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -33,6 +56,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { planId } = body as { planId: PlanName };
 
+    console.log('Plan requested:', planId);
+
     // Validate plan
     if (!planId || planId === 'free' || !PLAN_DETAILS[planId]) {
       return NextResponse.json({ ok: false, error: 'Invalid plan ID' }, { status: 400 });
@@ -40,6 +65,8 @@ export async function POST(request: Request) {
 
     const plan = PLAN_DETAILS[planId];
     const stripePriceId = STRIPE_PRICE_IDS[planId as keyof typeof STRIPE_PRICE_IDS];
+
+    console.log('Price ID lookup:', { planId, stripePriceId });
 
     if (!stripePriceId) {
       console.error(`No Stripe price ID configured for plan: ${planId}`);
@@ -65,6 +92,7 @@ export async function POST(request: Request) {
 
     if (existingSub?.stripe_customer_id) {
       stripeCustomerId = existingSub.stripe_customer_id;
+      console.log('Existing customer:', stripeCustomerId);
     } else {
       // Create new Stripe customer
       const customer = await stripe.customers.create({
@@ -74,20 +102,55 @@ export async function POST(request: Request) {
         },
       });
       stripeCustomerId = customer.id;
+      console.log('Created new customer:', stripeCustomerId);
+
+      // Save customer ID to database
+      await supabaseAdmin
+        .from('user_subscriptions')
+        .upsert({
+          user_id: userId,
+          stripe_customer_id: stripeCustomerId,
+          subscription_type: 'saas',
+          plan_id: 'free',
+          status: 'active',
+        }, {
+          onConflict: 'user_id'
+        });
     }
 
     // Determine subscription type
     const subscriptionType = plan.type;
 
+    // Build URLs with proper base
+    const baseUrl = getBaseUrl();
+    console.log('Base URL:', baseUrl);
+
     // Determine success URL based on plan type
     const successUrl = isVideo
-      ? `${process.env.NEXT_PUBLIC_BASE_URL}/onboarding/video-client?session_id={CHECKOUT_SESSION_ID}&plan=${planId}`
-      : `${process.env.NEXT_PUBLIC_BASE_URL}/admin/content-studio?upgraded=true&plan=${planId}`;
+      ? `${baseUrl}/onboarding/video-client?session_id={CHECKOUT_SESSION_ID}&plan=${planId}`
+      : `${baseUrl}/admin/content-studio?upgraded=true&plan=${planId}`;
+
+    const cancelUrl = `${baseUrl}/upgrade?canceled=true`;
+
+    console.log('URLs:', { baseUrl, successUrl, cancelUrl });
+
+    // Validate URLs before passing to Stripe
+    try {
+      new URL(successUrl);
+      new URL(cancelUrl);
+    } catch (urlError) {
+      console.error('Invalid URL constructed:', { successUrl, cancelUrl });
+      return NextResponse.json({
+        ok: false,
+        error: 'Configuration error: Invalid redirect URL',
+      }, { status: 500 });
+    }
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
+      payment_method_types: ['card'],
       line_items: [
         {
           price: stripePriceId,
@@ -95,7 +158,7 @@ export async function POST(request: Request) {
         },
       ],
       success_url: successUrl,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade?canceled=true`,
+      cancel_url: cancelUrl,
       metadata: {
         user_id: userId,
         plan_id: planId,
@@ -116,6 +179,16 @@ export async function POST(request: Request) {
       allow_promotion_codes: true,
     });
 
+    console.log('Checkout session created:', session.id, session.url);
+
+    if (!session.url) {
+      console.error('No checkout URL returned from Stripe');
+      return NextResponse.json({
+        ok: false,
+        error: 'Failed to create checkout URL',
+      }, { status: 500 });
+    }
+
     return NextResponse.json({
       ok: true,
       url: session.url,
@@ -133,7 +206,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: false,
-      error: 'Failed to create checkout session',
+      error: error instanceof Error ? error.message : 'Failed to create checkout session',
     }, { status: 500 });
   }
 }

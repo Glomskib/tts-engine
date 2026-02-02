@@ -8,11 +8,13 @@ import {
   getFilteredNavSections,
   isNavItemActive,
   BRAND,
+  type SubscriptionType,
 } from '@/lib/navigation';
 
 interface AppSidebarProps {
   isAdmin: boolean;
   planId?: string | null;
+  subscriptionType?: SubscriptionType;
   unreadNotifications?: number;
   isOpen: boolean;
   onClose: () => void;
@@ -22,13 +24,14 @@ interface AppSidebarProps {
 export function AppSidebar({
   isAdmin,
   planId,
+  subscriptionType = 'saas',
   unreadNotifications = 0,
   isOpen,
   onClose,
   isMobile,
 }: AppSidebarProps) {
   const pathname = usePathname();
-  const navSections = getFilteredNavSections({ planId, isAdmin });
+  const navSections = getFilteredNavSections({ planId, isAdmin, subscriptionType });
 
   const handleLinkClick = () => {
     if (isMobile) {

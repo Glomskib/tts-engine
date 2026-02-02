@@ -5,72 +5,79 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
+import { useSubscription } from '@/hooks/useFeatureAccess';
+import { Check, X, Sparkles, Video, Zap } from 'lucide-react';
+import { PRICING, PLAN_DETAILS, type PlanName, type SaaSPlan, type VideoPlan } from '@/lib/subscriptions';
 
 interface AuthUser {
   id: string;
   email: string | null;
 }
 
+// SaaS Plans from centralized pricing
+const SAAS_PLANS = Object.values(PRICING.saas);
+
+// Video Editing Plans from centralized pricing
+const VIDEO_PLANS = Object.values(PRICING.video);
+
+// SaaS Features
+const SAAS_FEATURES = [
+  { name: 'AI Credits/month', free: '5', starter: '75', creator: '300', business: '1,000' },
+  { name: 'Skit Generator', free: true, starter: true, creator: true, business: true },
+  { name: 'Character Presets', free: 'Basic', starter: 'All', creator: 'All', business: 'All' },
+  { name: 'Save Scripts', free: '3', starter: 'Unlimited', creator: 'Unlimited', business: 'Unlimited' },
+  { name: 'Product Catalog', free: false, starter: '5 products', creator: 'Unlimited', business: 'Unlimited' },
+  { name: 'Audience Intelligence', free: false, starter: false, creator: true, business: true },
+  { name: 'Winners Bank', free: false, starter: false, creator: true, business: true },
+  { name: 'B-Roll Generator', free: false, starter: false, creator: true, business: true },
+  { name: 'Team Members', free: '1', starter: '1', creator: '1', business: '5' },
+  { name: 'Support', free: 'Community', starter: 'Email', creator: 'Priority', business: 'Dedicated' },
+];
+
+// Video Features - Updated with final pricing
+const VIDEO_FEATURES = [
+  { name: 'Videos/month', starter: '45', growth: '120', scale: '350', agency: '1,000' },
+  { name: 'Per-Video Cost', starter: '$1.98', growth: '$1.66', scale: '$1.43', agency: '$1.15' },
+  { name: 'AI Credits', starter: '300', growth: '1,000', scale: 'Unlimited', agency: 'Unlimited' },
+  { name: 'Full AI Suite', starter: true, growth: true, scale: true, agency: true },
+  { name: 'Turnaround', starter: '24-48 hours', growth: '24 hours', scale: 'Same day', agency: 'Priority' },
+  { name: 'Revisions', starter: 'Unlimited', growth: 'Unlimited', scale: 'Unlimited', agency: 'Unlimited' },
+  { name: 'Team Members', starter: '5', growth: '10', scale: '10', agency: '25' },
+  { name: 'Dedicated Editor', starter: false, growth: true, scale: true, agency: true },
+];
+
 // FAQ data
 const faqs = [
   {
-    question: 'What counts as one credit?',
-    answer: 'Each AI-powered action uses 1 credit: generating a skit, refining a skit, extracting pain points from reviews, or analyzing competitor videos. Free features like viewing, editing saved scripts, and AI scoring don\'t use credits.'
+    question: 'What counts as one AI credit?',
+    answer: 'Credits are used for AI-powered actions: Script generation (3 credits), Script refinement (1 credit), Winner analysis (2 credits), B-Roll generation (2 credits per image).'
   },
   {
     question: 'Do unused credits roll over?',
     answer: 'Credits reset at the start of each billing cycle. We recommend using all your credits each month to get the most value from your plan.'
   },
   {
+    question: 'What\'s included in the video editing plans?',
+    answer: 'Video editing plans include professional video editing by our team, plus full access to all AI tools. Simply upload your footage, and we\'ll deliver polished, ready-to-post videos.'
+  },
+  {
     question: 'Can I upgrade or downgrade anytime?',
-    answer: 'Yes! You can change your plan at any time. When upgrading, you\'ll get immediate access to the new features. When downgrading, changes take effect at your next billing date.'
+    answer: 'Yes! You can change your plan at any time. When upgrading, you\'ll get immediate access. When downgrading, changes take effect at your next billing date.'
   },
   {
     question: 'What payment methods do you accept?',
     answer: 'We accept all major credit cards (Visa, Mastercard, American Express) through our secure payment processor Stripe.'
   },
-  {
-    question: 'Is there a free trial?',
-    answer: 'Every new account starts with 5 free credits to try out the platform. This lets you test the Skit Generator before committing to a paid plan.'
-  },
-  {
-    question: 'What if I need more credits?',
-    answer: 'If you consistently run out of credits, consider upgrading to a higher tier. For enterprise needs, contact our sales team for a custom plan.'
-  },
 ];
 
-// Feature comparison data
-const features = [
-  { name: 'Skit Generator', free: true, starter: true, pro: true, team: true },
-  { name: 'AI Script Scoring', free: true, starter: true, pro: true, team: true },
-  { name: 'Save Scripts', free: '3', starter: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
-  { name: 'Product Catalog', free: '1', starter: '10', pro: '50', team: 'Unlimited' },
-  { name: 'Audience Personas', free: false, starter: false, pro: true, team: true },
-  { name: 'Pain Point Extraction', free: false, starter: false, pro: true, team: true },
-  { name: 'Winners Bank', free: false, starter: false, pro: true, team: true },
-  { name: 'Custom Presets', free: false, starter: false, pro: true, team: true },
-  { name: 'API Access', free: false, starter: false, pro: true, team: true },
-  { name: 'Team Members', free: '1', starter: '1', pro: '3', team: '10' },
-  { name: 'Shared Workspaces', free: false, starter: false, pro: false, team: true },
-  { name: 'Usage Analytics', free: false, starter: false, pro: false, team: true },
-  { name: 'Support', free: 'Community', starter: 'Email', pro: 'Priority', team: 'Dedicated' },
-];
-
-// Helper function to render feature values
 function renderFeatureValue(value: boolean | string) {
-  if (value === true) {
-    return <span className="text-emerald-500">✓</span>;
-  }
-  if (value === false) {
-    return <span className="text-zinc-600">—</span>;
-  }
+  if (value === true) return <Check className="w-5 h-5 text-emerald-500 mx-auto" />;
+  if (value === false) return <X className="w-5 h-5 text-zinc-600 mx-auto" />;
   return <span className="text-zinc-300 text-sm">{value}</span>;
 }
 
-// FAQ Item component with expand/collapse
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
-
   return (
     <div className="border border-white/10 rounded-lg overflow-hidden">
       <button
@@ -80,17 +87,13 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         <span className="text-sm font-medium text-zinc-200">{question}</span>
         <svg
           className={`w-5 h-5 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {isOpen && (
-        <div className="px-5 pb-4 text-sm text-zinc-400 leading-relaxed">
-          {answer}
-        </div>
+        <div className="px-5 pb-4 text-sm text-zinc-400 leading-relaxed">{answer}</div>
       )}
     </div>
   );
@@ -100,14 +103,11 @@ export default function UpgradePage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const { credits, subscription, isLoading: creditsLoading, refetch } = useCredits();
+  const [activeTab, setActiveTab] = useState<'saas' | 'video'>('saas');
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const { credits, subscription: creditsSubscription, isLoading: creditsLoading, refetch } = useCredits();
+  const { planId, subscriptionType, loading: subLoading } = useSubscription();
 
-  // Self-service upgrade request state
-  const [requestMessage, setRequestMessage] = useState('');
-  const [requestSubmitting, setRequestSubmitting] = useState(false);
-  const [requestStatus, setRequestStatus] = useState<'idle' | 'requested' | 'already_requested' | 'error'>('idle');
-
-  // Fetch authenticated user
   useEffect(() => {
     const fetchAuthUser = async () => {
       try {
@@ -119,10 +119,7 @@ export default function UpgradePage() {
           return;
         }
 
-        setAuthUser({
-          id: user.id,
-          email: user.email || null,
-        });
+        setAuthUser({ id: user.id, email: user.email || null });
       } catch (err) {
         console.error('Auth error:', err);
         router.push('/login?redirect=/upgrade');
@@ -134,40 +131,33 @@ export default function UpgradePage() {
     fetchAuthUser();
   }, [router]);
 
-  const submitUpgradeRequest = async () => {
-    setRequestSubmitting(true);
-    setRequestStatus('idle');
+  const handleSubscribe = async (planId: PlanName) => {
+    if (planId === 'free') return;
 
+    setCheckoutLoading(planId);
     try {
-      const res = await fetch('/api/auth/upgrade-request', {
+      const res = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: requestMessage.trim() || null }),
+        body: JSON.stringify({ planId }),
       });
 
       const data = await res.json();
 
-      if (data.ok) {
-        if (data.status === 'already_requested') {
-          setRequestStatus('already_requested');
-        } else if (data.status === 'already_pro') {
-          refetch();
-        } else {
-          setRequestStatus('requested');
-          setRequestMessage('');
-        }
+      if (data.ok && data.url) {
+        window.location.href = data.url;
       } else {
-        setRequestStatus('error');
+        alert(data.error || 'Failed to start checkout');
       }
     } catch (err) {
-      console.error('Request error:', err);
-      setRequestStatus('error');
+      console.error('Checkout error:', err);
+      alert('Failed to start checkout. Please try again.');
     } finally {
-      setRequestSubmitting(false);
+      setCheckoutLoading(null);
     }
   };
 
-  if (authLoading || creditsLoading) {
+  if (authLoading || creditsLoading || subLoading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
         <div className="text-zinc-500">Loading...</div>
@@ -184,36 +174,41 @@ export default function UpgradePage() {
   }
 
   const isUnlimited = credits?.remaining === -1 || (credits as { isUnlimited?: boolean })?.isUnlimited;
-  const isPro = subscription?.planId === 'pro' || subscription?.planId === 'team' || subscription?.planId === 'admin';
-  const currentPlan = subscription?.planName || 'Free';
+  const currentPlan = planId || 'free';
   const creditsRemaining = isUnlimited ? 'Unlimited' : (credits?.remaining ?? 5);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 py-10 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Back Link */}
         <div className="mb-6">
           <Link
-            href="/admin/skit-generator"
+            href="/admin/content-studio"
             className="text-sm text-zinc-400 hover:text-white transition-colors"
           >
-            ← Back to Skit Generator
+            ← Back to Content Studio
           </Link>
+        </div>
+
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold mb-3">Choose Your Plan</h1>
+          <p className="text-zinc-400 max-w-xl mx-auto">
+            Scale your content creation with AI-powered tools or let our team handle video editing for you.
+          </p>
         </div>
 
         {/* Current Plan Banner */}
         <div className={`mb-8 p-6 rounded-xl border ${
-          isUnlimited
-            ? 'bg-emerald-500/10 border-emerald-500/30'
-            : 'bg-zinc-900/50 border-white/10'
+          isUnlimited ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-zinc-900/50 border-white/10'
         }`}>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="text-sm text-zinc-400 mb-1">Current Plan</div>
-              <div className="text-2xl font-bold">{currentPlan}</div>
+              <div className="text-2xl font-bold">{PLAN_DETAILS[currentPlan as PlanName]?.name || 'Free'}</div>
             </div>
             <div className="text-right">
-              <div className="text-sm text-zinc-400 mb-1">Credits</div>
+              <div className="text-sm text-zinc-400 mb-1">Credits Remaining</div>
               <div className={`text-2xl font-bold ${isUnlimited ? 'text-emerald-400' : ''}`}>
                 {creditsRemaining}
               </div>
@@ -221,217 +216,231 @@ export default function UpgradePage() {
           </div>
         </div>
 
-        {/* Pricing Tiers */}
-        <h2 className="text-xl font-semibold mb-6">Choose Your Plan</h2>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {/* Free Tier */}
-          <div className={`p-6 rounded-xl border ${
-            currentPlan === 'Free' ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 bg-zinc-900/30'
-          }`}>
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Free</h3>
-              <div className="text-3xl font-bold mt-2">$0</div>
-              <div className="text-sm text-zinc-500">forever</div>
-            </div>
-            <div className="text-sm text-blue-400 mb-4">5 generations total</div>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Skit Generator
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Basic character presets
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Save up to 3 skits
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-zinc-600 mt-0.5">✗</span>
-                <span className="text-zinc-600">Audience Intelligence</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-zinc-600 mt-0.5">✗</span>
-                <span className="text-zinc-600">Winners Bank</span>
-              </li>
-            </ul>
-            {currentPlan === 'Free' && (
-              <div className="text-center text-sm text-zinc-500 py-2">Current Plan</div>
-            )}
-          </div>
-
-          {/* Starter Tier */}
-          <div className={`p-6 rounded-xl border ${
-            subscription?.planId === 'starter' ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 bg-zinc-900/30'
-          }`}>
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Starter</h3>
-              <div className="text-3xl font-bold mt-2">$29</div>
-              <div className="text-sm text-zinc-500">/month</div>
-            </div>
-            <div className="text-sm text-blue-400 mb-4">100 generations/mo</div>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Everything in Free
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                All character presets
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Unlimited saved skits
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Product catalog (10)
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Email support
-              </li>
-            </ul>
+        {/* Tab Switcher */}
+        <div className="flex justify-center mb-10">
+          <div className="inline-flex bg-zinc-900/50 p-1 rounded-xl border border-white/10">
             <button
-              onClick={() => window.open('/contact?plan=starter', '_blank')}
-              className="w-full py-2.5 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-colors"
+              onClick={() => setActiveTab('saas')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                activeTab === 'saas'
+                  ? 'bg-white text-zinc-900'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
             >
-              Contact Sales
+              <Sparkles className="w-4 h-4" />
+              AI Tools
+            </button>
+            <button
+              onClick={() => setActiveTab('video')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                activeTab === 'video'
+                  ? 'bg-white text-zinc-900'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Video className="w-4 h-4" />
+              Video Editing
             </button>
           </div>
-
-          {/* Pro Tier */}
-          <div className={`p-6 rounded-xl border-2 ${
-            isPro && subscription?.planId === 'pro'
-              ? 'border-emerald-500/50 bg-emerald-500/5'
-              : 'border-blue-500/50 bg-blue-500/5'
-          } relative`}>
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white">
-              Most Popular
-            </div>
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Pro</h3>
-              <div className="text-3xl font-bold mt-2">$79</div>
-              <div className="text-sm text-zinc-500">/month</div>
-            </div>
-            <div className="text-sm text-blue-400 mb-4">500 generations/mo</div>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Everything in Starter
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Audience Intelligence
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Winners Bank
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Custom presets
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Priority support
-              </li>
-            </ul>
-            {isPro ? (
-              <div className="text-center text-sm text-emerald-400 py-2 font-medium">✓ Active</div>
-            ) : (
-              <button
-                onClick={() => window.open('/contact?plan=pro', '_blank')}
-                className="w-full py-2.5 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-colors"
-              >
-                Upgrade to Pro
-              </button>
-            )}
-          </div>
-
-          {/* Team Tier */}
-          <div className={`p-6 rounded-xl border ${
-            subscription?.planId === 'team' ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/10 bg-zinc-900/30'
-          }`}>
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Team</h3>
-              <div className="text-3xl font-bold mt-2">$199</div>
-              <div className="text-sm text-zinc-500">/month</div>
-            </div>
-            <div className="text-sm text-blue-400 mb-4">2,000 generations/mo</div>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Everything in Pro
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Up to 10 team members
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Shared workspaces
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Usage analytics
-              </li>
-              <li className="flex items-start gap-2 text-sm text-zinc-400">
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                Dedicated support
-              </li>
-            </ul>
-            {subscription?.planId === 'team' ? (
-              <div className="text-center text-sm text-emerald-400 py-2 font-medium">✓ Active</div>
-            ) : (
-              <button
-                onClick={() => window.open('/contact?plan=team', '_blank')}
-                className="w-full py-2.5 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-colors"
-              >
-                Contact Sales
-              </button>
-            )}
-          </div>
         </div>
 
-        {/* Feature Comparison Table */}
-        <div className="mb-10">
-          <h2 className="text-xl font-semibold mb-6">Compare Features</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
-                  <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Free</th>
-                  <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Starter</th>
-                  <th className="text-center py-4 px-4 text-sm font-medium text-blue-400">Pro</th>
-                  <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Team</th>
-                </tr>
-              </thead>
-              <tbody>
-                {features.map((feature, index) => (
-                  <tr key={feature.name} className={index % 2 === 0 ? 'bg-zinc-900/30' : ''}>
-                    <td className="py-3 px-4 text-sm text-zinc-300">{feature.name}</td>
-                    <td className="py-3 px-4 text-center">
-                      {renderFeatureValue(feature.free)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {renderFeatureValue(feature.starter)}
-                    </td>
-                    <td className="py-3 px-4 text-center bg-blue-500/5">
-                      {renderFeatureValue(feature.pro)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {renderFeatureValue(feature.team)}
-                    </td>
+        {/* SaaS Plans */}
+        {activeTab === 'saas' && (
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+              {SAAS_PLANS.map((plan) => {
+                const isCurrentPlan = currentPlan === plan.id;
+                const isPopular = 'popular' in plan && plan.popular;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`p-6 rounded-xl border-2 relative ${
+                      isPopular
+                        ? 'border-blue-500/50 bg-blue-500/5'
+                        : isCurrentPlan
+                        ? 'border-emerald-500/50 bg-emerald-500/5'
+                        : 'border-white/10 bg-zinc-900/30'
+                    }`}
+                  >
+                    {isPopular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white">
+                        Most Popular
+                      </div>
+                    )}
+
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">{plan.name}</h3>
+                      <div className="text-3xl font-bold mt-2">
+                        ${plan.price}<span className="text-sm font-normal text-zinc-500">{plan.id === 'free' ? '' : '/mo'}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-blue-400 mb-4">{plan.credits} credits{plan.id === 'free' ? ' (one-time)' : '/month'}</div>
+
+                    {isCurrentPlan ? (
+                      <div className="text-center text-sm text-emerald-400 py-2.5 font-medium border border-emerald-500/30 rounded-lg bg-emerald-500/10">
+                        Current Plan
+                      </div>
+                    ) : plan.id === 'free' ? (
+                      <div className="text-center text-sm text-zinc-500 py-2.5">Free Forever</div>
+                    ) : (
+                      <button
+                        onClick={() => handleSubscribe(plan.id as PlanName)}
+                        disabled={checkoutLoading === plan.id}
+                        className={`w-full py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                          isPopular
+                            ? 'bg-white text-zinc-900 hover:bg-zinc-100'
+                            : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {checkoutLoading === plan.id ? 'Loading...' : 'Subscribe'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* SaaS Feature Comparison */}
+            <div className="overflow-x-auto mb-10">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Free</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Starter</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-blue-400">Creator</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Business</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {SAAS_FEATURES.map((feature, index) => (
+                    <tr key={feature.name} className={index % 2 === 0 ? 'bg-zinc-900/30' : ''}>
+                      <td className="py-3 px-4 text-sm text-zinc-300">{feature.name}</td>
+                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.free)}</td>
+                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.starter)}</td>
+                      <td className="py-3 px-4 text-center bg-blue-500/5">{renderFeatureValue(feature.creator)}</td>
+                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.business)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* Video Editing Plans */}
+        {activeTab === 'video' && (
+          <>
+            {/* Video Editing Header */}
+            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-2xl p-8 mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/30 flex items-center justify-center">
+                  <Video className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Hire Our Video Editor Team</h2>
+                  <p className="text-zinc-400">We edit. You post. It's that simple.</p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                {VIDEO_PLANS.map((plan) => {
+                  const isCurrentPlan = currentPlan === plan.id;
+                  const isPopular = 'popular' in plan && plan.popular;
+
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`relative bg-zinc-900/80 backdrop-blur border rounded-xl p-5 ${
+                        isPopular
+                          ? 'border-purple-500 ring-1 ring-purple-500/50'
+                          : isCurrentPlan
+                          ? 'border-emerald-500'
+                          : 'border-zinc-700'
+                      }`}
+                    >
+                      {isPopular && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-500 text-white text-xs font-medium rounded-full">
+                          Most Popular
+                        </div>
+                      )}
+
+                      <h3 className="font-semibold text-white">{plan.name}</h3>
+                      <p className="text-3xl font-bold text-white mt-2">{plan.videos}</p>
+                      <p className="text-zinc-400 text-sm">videos/month</p>
+                      <p className="text-xs text-zinc-500 mt-1">{plan.tagline}</p>
+
+                      <div className="my-4 pt-4 border-t border-zinc-700">
+                        <p className="text-2xl font-bold text-white">${plan.price}</p>
+                        <p className="text-zinc-500 text-sm">/month</p>
+                        <p className="text-purple-400 text-xs mt-1">{plan.perVideo}/video</p>
+                      </div>
+
+                      <p className="text-xs text-teal-400 mb-4">
+                        ✓ {plan.aiIncluded} included FREE
+                      </p>
+
+                      {isCurrentPlan ? (
+                        <div className="w-full text-center text-sm text-emerald-400 py-2.5 font-medium border border-emerald-500/30 rounded-lg bg-emerald-500/10">
+                          Current Plan
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleSubscribe(plan.id as PlanName)}
+                          disabled={checkoutLoading === plan.id}
+                          className={`w-full py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                            isPopular
+                              ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                              : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+                          }`}
+                        >
+                          {checkoutLoading === plan.id ? 'Loading...' : 'Get Started'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 text-center">
+                <p className="text-zinc-400 text-sm">
+                  All packages include professional editing, unlimited revisions, and 24-48hr turnaround.
+                </p>
+                <p className="text-zinc-500 text-xs mt-2">
+                  After payment, we'll schedule an onboarding call to understand your brand and style.
+                </p>
+              </div>
+            </div>
+
+            {/* Video Feature Comparison */}
+            <div className="overflow-x-auto mb-10">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Starter</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-purple-400">Growth</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Scale</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Agency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {VIDEO_FEATURES.map((feature, index) => (
+                    <tr key={feature.name} className={index % 2 === 0 ? 'bg-zinc-900/30' : ''}>
+                      <td className="py-3 px-4 text-sm text-zinc-300">{feature.name}</td>
+                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.starter)}</td>
+                      <td className="py-3 px-4 text-center bg-purple-500/5">{renderFeatureValue(feature.growth)}</td>
+                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.scale)}</td>
+                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.agency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         {/* FAQ Section */}
         <div className="mb-10">
@@ -443,67 +452,26 @@ export default function UpgradePage() {
           </div>
         </div>
 
-        {/* Request Upgrade (for non-pro users) */}
-        {!isPro && !isUnlimited && (
-          <div className="p-6 bg-zinc-900/50 rounded-xl border border-white/10">
-            <h3 className="text-base font-semibold mb-4">Request Upgrade</h3>
-            <p className="text-sm text-zinc-400 mb-4">
-              Send a request to our team and we'll get back to you within 24 hours.
-            </p>
+        {/* Contact Sales */}
+        <div className="text-center p-6 bg-zinc-900/50 rounded-xl border border-white/10">
+          <h3 className="text-lg font-semibold mb-2">Need a custom plan?</h3>
+          <p className="text-zinc-400 text-sm mb-4">
+            Contact our sales team for enterprise pricing and custom solutions.
+          </p>
+          <Link
+            href="/contact?plan=enterprise"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors"
+          >
+            Contact Sales
+          </Link>
+        </div>
 
-            {/* Status messages */}
-            {requestStatus === 'requested' && (
-              <div className="mb-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">
-                Your upgrade request has been submitted. We'll review it shortly.
-              </div>
-            )}
-
-            {requestStatus === 'already_requested' && (
-              <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 text-sm">
-                You have already requested an upgrade. Please wait for admin review.
-              </div>
-            )}
-
-            {requestStatus === 'error' && (
-              <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                Failed to submit request. Please try again.
-              </div>
-            )}
-
-            {requestStatus !== 'requested' && (
-              <>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">
-                    Message <span className="text-zinc-600">(optional)</span>
-                  </label>
-                  <textarea
-                    value={requestMessage}
-                    onChange={(e) => setRequestMessage(e.target.value)}
-                    placeholder="Tell us about your use case..."
-                    maxLength={500}
-                    className="w-full px-3 py-2 bg-zinc-800 border border-white/10 rounded-md text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={3}
-                  />
-                </div>
-
-                <button
-                  onClick={submitUpgradeRequest}
-                  disabled={requestSubmitting}
-                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {requestSubmitting ? 'Submitting...' : 'Request Upgrade'}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* User Info */}
+        {/* Debug Info */}
         <div className="mt-6 p-4 bg-zinc-900/30 rounded-lg border border-white/5">
           <div className="text-xs text-zinc-600 space-y-1">
-            <div>User ID: {authUser.id}</div>
-            <div>Email: {authUser.email || 'Not set'}</div>
-            <div>Plan: {subscription?.planId || 'free'}</div>
+            <div>User: {authUser.email || authUser.id}</div>
+            <div>Plan: {currentPlan}</div>
+            <div>Type: {subscriptionType || 'saas'}</div>
           </div>
         </div>
       </div>

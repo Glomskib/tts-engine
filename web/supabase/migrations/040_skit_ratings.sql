@@ -31,30 +31,34 @@ CREATE TABLE IF NOT EXISTS skit_ratings (
 );
 
 -- Indexes for common queries
-CREATE INDEX idx_skit_ratings_user_id ON skit_ratings(user_id);
-CREATE INDEX idx_skit_ratings_rating ON skit_ratings(rating);
-CREATE INDEX idx_skit_ratings_created_at ON skit_ratings(created_at DESC);
-CREATE INDEX idx_skit_ratings_product_id ON skit_ratings(product_id);
+CREATE INDEX IF NOT EXISTS idx_skit_ratings_user_id ON skit_ratings(user_id);
+CREATE INDEX IF NOT EXISTS idx_skit_ratings_rating ON skit_ratings(rating);
+CREATE INDEX IF NOT EXISTS idx_skit_ratings_created_at ON skit_ratings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_skit_ratings_product_id ON skit_ratings(product_id);
 
 -- RLS Policies
 ALTER TABLE skit_ratings ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own ratings
+DROP POLICY IF EXISTS "Users can view own ratings" ON skit_ratings;
 CREATE POLICY "Users can view own ratings"
   ON skit_ratings FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Users can insert their own ratings
+DROP POLICY IF EXISTS "Users can insert own ratings" ON skit_ratings;
 CREATE POLICY "Users can insert own ratings"
   ON skit_ratings FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own ratings
+DROP POLICY IF EXISTS "Users can update own ratings" ON skit_ratings;
 CREATE POLICY "Users can update own ratings"
   ON skit_ratings FOR UPDATE
   USING (auth.uid() = user_id);
 
 -- Users can delete their own ratings
+DROP POLICY IF EXISTS "Users can delete own ratings" ON skit_ratings;
 CREATE POLICY "Users can delete own ratings"
   ON skit_ratings FOR DELETE
   USING (auth.uid() = user_id);
@@ -68,6 +72,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_skit_ratings_updated_at ON skit_ratings;
 CREATE TRIGGER trigger_skit_ratings_updated_at
   BEFORE UPDATE ON skit_ratings
   FOR EACH ROW

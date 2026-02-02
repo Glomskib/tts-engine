@@ -295,15 +295,15 @@ export default function LandingPage() {
             <PricingCard
               name="Starter"
               description="For individual creators"
-              price={billingPeriod === 'monthly' ? 29 : 23}
+              price={billingPeriod === 'monthly' ? 9 : 7}
               period={billingPeriod === 'monthly' ? '/month' : '/month, billed yearly'}
-              credits="100 generations/mo"
+              credits="75 credits/mo"
               features={[
                 'Everything in Free',
                 'All character presets',
-                '100 AI generations/month',
+                '75 AI credits/month',
                 'Unlimited saved skits',
-                'Product catalog (10 products)',
+                'Product catalog (5 products)',
                 'Export to all formats',
                 'Email support',
               ]}
@@ -312,48 +312,45 @@ export default function LandingPage() {
               highlight={false}
             />
 
-            {/* Pro - Highlighted */}
+            {/* Creator - Highlighted */}
             <PricingCard
-              name="Pro"
+              name="Creator"
               description="For power users"
-              price={billingPeriod === 'monthly' ? 79 : 63}
+              price={billingPeriod === 'monthly' ? 29 : 23}
               period={billingPeriod === 'monthly' ? '/month' : '/month, billed yearly'}
-              credits="500 generations/mo"
+              credits="300 credits/mo"
               features={[
                 'Everything in Starter',
-                '500 AI generations/month',
+                '300 AI credits/month',
                 'Product catalog (unlimited)',
-                'Custom character presets',
-                'Audience personas',
-                'Winners pattern library',
+                'Audience Intelligence',
+                'Winners Bank',
+                'B-Roll Generator',
                 'Priority support',
-                'API access',
               ]}
               cta="Start Trial"
-              ctaLink="/signup?plan=pro"
+              ctaLink="/signup?plan=creator"
               highlight={true}
               badge="Most Popular"
             />
 
-            {/* Team */}
+            {/* Business */}
             <PricingCard
-              name="Team"
-              description="For agencies & brands"
-              price={billingPeriod === 'monthly' ? 199 : 159}
+              name="Business"
+              description="For teams & agencies"
+              price={billingPeriod === 'monthly' ? 59 : 47}
               period={billingPeriod === 'monthly' ? '/month' : '/month, billed yearly'}
-              credits="2,000 generations/mo"
+              credits="1,000 credits/mo"
               features={[
-                'Everything in Pro',
-                '2,000 AI generations/month',
-                'Up to 10 team members',
+                'Everything in Creator',
+                '1,000 AI credits/month',
+                'Up to 5 team members',
                 'Shared workspaces',
-                'Brand guidelines enforcement',
                 'Usage analytics',
                 'Dedicated support',
-                'Custom integrations',
               ]}
               cta="Start Trial"
-              ctaLink="/signup?plan=team"
+              ctaLink="/signup?plan=business"
               highlight={false}
             />
           </div>

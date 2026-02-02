@@ -1,31 +1,83 @@
 'use client';
 
 import { useCredits } from '@/hooks/useCredits';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import Link from 'next/link';
 import { ReactNode, useState } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { Lock, Sparkles } from 'lucide-react';
 
 interface FeatureGateProps {
   children: ReactNode;
   fallback?: ReactNode;
-  requiredPlan?: 'starter' | 'pro' | 'team';
+  requiredPlan?: 'starter' | 'pro' | 'team' | 'creator' | 'business';
   requireCredits?: boolean;
+  /** Feature key for granular feature gating */
+  featureKey?: string;
+  /** Show disabled/blurred version instead of fallback */
+  showDisabled?: boolean;
+  /** Custom class name */
+  className?: string;
 }
 
-const PLAN_HIERARCHY = ['free', 'starter', 'pro', 'team'];
+const PLAN_HIERARCHY = ['free', 'starter', 'creator', 'pro', 'business', 'team'];
+
+// Feature names for display
+const FEATURE_NAMES: Record<string, string> = {
+  skit_generator: 'Skit Generator',
+  basic_presets: 'Basic Presets',
+  all_presets: 'All Character Presets',
+  save_skits: 'Save Skits',
+  product_catalog: 'Product Catalog',
+  audience_intelligence: 'Audience Intelligence',
+  winners_bank: 'Winners Bank',
+  b_roll_generator: 'B-Roll Generator',
+  team_members: 'Team Members',
+  video_portal: 'Video Portal',
+};
 
 /**
- * Gate features based on subscription plan or credit availability
+ * Gate features based on subscription plan, feature key, or credit availability
  */
 export function FeatureGate({
   children,
   fallback,
   requiredPlan,
   requireCredits = false,
+  featureKey,
+  showDisabled = false,
+  className,
 }: FeatureGateProps) {
-  const { subscription, hasCredits, isLoading } = useCredits();
+  const { subscription, hasCredits, isLoading: creditsLoading } = useCredits();
+  const featureAccess = useFeatureAccess(featureKey || '');
 
-  if (isLoading) {
+  // Use feature key check if provided
+  if (featureKey) {
+    if (featureAccess.loading) {
+      return <>{fallback || <FeatureGateSkeleton />}</>;
+    }
+
+    if (!featureAccess.allowed) {
+      if (showDisabled) {
+        return (
+          <div className={`relative ${className || ''}`}>
+            <div className="opacity-50 pointer-events-none blur-[1px]">
+              {children}
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+              <FeatureLockedPrompt featureKey={featureKey} compact />
+            </div>
+          </div>
+        );
+      }
+      return <>{fallback || <FeatureLockedPrompt featureKey={featureKey} />}</>;
+    }
+
+    return <>{children}</>;
+  }
+
+  // Legacy plan-based gating
+  if (creditsLoading) {
     return <>{fallback || <FeatureGateSkeleton />}</>;
   }
 
@@ -43,6 +95,76 @@ export function FeatureGate({
   }
 
   return <>{children}</>;
+}
+
+/**
+ * Feature locked prompt with upgrade CTA
+ */
+function FeatureLockedPrompt({ featureKey, compact }: { featureKey: string; compact?: boolean }) {
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
+  const featureName = FEATURE_NAMES[featureKey] || featureKey;
+
+  if (compact) {
+    return (
+      <Link
+        href="/upgrade"
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg text-white text-sm font-medium transition-all"
+      >
+        <Lock className="w-4 h-4" />
+        Upgrade to unlock
+      </Link>
+    );
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '32px',
+      backgroundColor: colors.surface,
+      borderRadius: '12px',
+      border: `1px solid ${colors.border}`,
+    }}>
+      <div style={{
+        width: '48px',
+        height: '48px',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '16px',
+      }}>
+        <Lock size={24} color="#a855f7" />
+      </div>
+      <h3 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, marginBottom: '8px' }}>
+        {featureName} is locked
+      </h3>
+      <p style={{ fontSize: '14px', color: colors.textMuted, textAlign: 'center', marginBottom: '16px', maxWidth: '320px' }}>
+        Upgrade your plan to unlock {featureName.toLowerCase()} and other premium features.
+      </p>
+      <Link
+        href="/upgrade"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '12px 24px',
+          background: 'linear-gradient(135deg, #9333ea, #3b82f6)',
+          borderRadius: '8px',
+          color: '#fff',
+          fontWeight: 500,
+          textDecoration: 'none',
+        }}
+      >
+        <Sparkles size={16} />
+        View Upgrade Options
+      </Link>
+    </div>
+  );
 }
 
 function FeatureGateSkeleton() {
@@ -271,9 +393,9 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
               }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: colors.textMuted, marginBottom: '4px' }}>Starter</div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: colors.text }}>
-                  $29<span style={{ fontSize: '13px', fontWeight: 400, color: colors.textMuted }}>/mo</span>
+                  $9<span style={{ fontSize: '13px', fontWeight: 400, color: colors.textMuted }}>/mo</span>
                 </div>
-                <div style={{ fontSize: '12px', color: colors.accent, marginTop: '4px' }}>100 generations</div>
+                <div style={{ fontSize: '12px', color: colors.accent, marginTop: '4px' }}>75 credits</div>
               </div>
               <div style={{
                 padding: '16px',
@@ -281,11 +403,11 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
                 backgroundColor: colors.surface,
                 border: '1px solid rgba(59, 130, 246, 0.3)',
               }}>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: '#3b82f6', marginBottom: '4px' }}>Pro</div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#3b82f6', marginBottom: '4px' }}>Creator</div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: colors.text }}>
-                  $79<span style={{ fontSize: '13px', fontWeight: 400, color: colors.textMuted }}>/mo</span>
+                  $29<span style={{ fontSize: '13px', fontWeight: 400, color: colors.textMuted }}>/mo</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '4px' }}>500 generations</div>
+                <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '4px' }}>300 credits</div>
               </div>
             </div>
           )}

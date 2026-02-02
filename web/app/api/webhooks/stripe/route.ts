@@ -16,13 +16,18 @@ function getStripe(): Stripe {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
-// Plan credit allocations
-const PLAN_CREDITS: Record<string, number> = {
-  starter: 100,
-  pro: 500,
-  team: 2000,
-  free: 0,
-};
+import {
+  PLAN_DETAILS,
+  CREDIT_ALLOCATIONS,
+  VIDEO_QUOTAS,
+  isVideoPlan,
+  type PlanName,
+  type SubscriptionType
+} from "@/lib/subscriptions";
+
+// Legacy aliases for backwards compatibility
+const PLAN_CREDITS = CREDIT_ALLOCATIONS;
+const PLAN_VIDEOS = VIDEO_QUOTAS;
 
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
@@ -135,23 +140,34 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
   }
 
   // Handle subscription checkout
-  const planId = session.metadata?.plan_id;
+  const planId = session.metadata?.plan_id as PlanName | undefined;
+  const subscriptionType = (session.metadata?.subscription_type || 'saas') as SubscriptionType;
+
   if (!planId) {
     console.error(`[${correlationId}] Missing plan_id in checkout session`);
     return;
   }
 
-  console.log(`[${correlationId}] Checkout completed for user ${userId}, plan ${planId}`);
+  console.log(`[${correlationId}] Checkout completed for user ${userId}, plan ${planId}, type ${subscriptionType}`);
+
+  // Get plan details
+  const plan = PLAN_DETAILS[planId];
+  const isVideoClient = subscriptionType === 'video_editing';
+  const videosPerMonth = isVideoClient ? (plan?.videos || PLAN_VIDEOS[planId] || 0) : 0;
+  const credits = plan?.credits || PLAN_CREDITS[planId] || 0;
 
   // Update or create subscription record
   const { error } = await supabaseAdmin.from("user_subscriptions").upsert(
     {
       user_id: userId,
       plan_id: planId,
+      subscription_type: subscriptionType,
       status: "active",
       stripe_customer_id: session.customer as string,
       stripe_subscription_id: session.subscription as string,
-      billing_period: session.metadata?.billing_period || "monthly",
+      videos_per_month: videosPerMonth,
+      videos_remaining: videosPerMonth,
+      videos_used_this_month: 0,
       updated_at: new Date().toISOString(),
     },
     {
@@ -162,10 +178,29 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
   if (error) {
     console.error(`[${correlationId}] Failed to update subscription:`, error);
   }
+
+  // Initialize credits for the user
+  const { error: creditError } = await supabaseAdmin.from("user_credits").upsert(
+    {
+      user_id: userId,
+      credits_remaining: credits,
+      credits_used_this_period: 0,
+      period_start: new Date().toISOString(),
+      period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id",
+    }
+  );
+
+  if (creditError) {
+    console.error(`[${correlationId}] Failed to initialize credits:`, creditError);
+  }
 }
 
 async function handleSubscriptionChange(correlationId: string, subscription: Stripe.Subscription) {
-  const userId = subscription.metadata?.user_id;
+  let userId = subscription.metadata?.user_id;
 
   if (!userId) {
     // Try to find user by customer ID
@@ -179,12 +214,19 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
       console.error(`[${correlationId}] Cannot find user for subscription ${subscription.id}`);
       return;
     }
+    userId = existingSub.user_id;
   }
 
-  const planId = subscription.metadata?.plan_id || "starter";
+  const planId = (subscription.metadata?.plan_id || "starter") as PlanName;
+  const subscriptionType = (subscription.metadata?.subscription_type || 'saas') as SubscriptionType;
   const status = subscription.status === "active" ? "active" : subscription.status;
 
-  console.log(`[${correlationId}] Subscription ${subscription.status} for plan ${planId}`);
+  console.log(`[${correlationId}] Subscription ${subscription.status} for plan ${planId}, type ${subscriptionType}`);
+
+  // Get plan details
+  const plan = PLAN_DETAILS[planId];
+  const isVideoClient = subscriptionType === 'video_editing';
+  const videosPerMonth = isVideoClient ? (plan?.videos || PLAN_VIDEOS[planId] || 0) : 0;
 
   // Get period from subscription items if available
   const periodStart = (subscription as { current_period_start?: number }).current_period_start;
@@ -192,8 +234,10 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
 
   const updateData: Record<string, unknown> = {
     plan_id: planId,
+    subscription_type: subscriptionType,
     status: status,
     stripe_subscription_id: subscription.id,
+    videos_per_month: videosPerMonth,
     updated_at: new Date().toISOString(),
   };
 
@@ -245,7 +289,7 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
   // Get subscription to find user
   const { data: subscription } = await supabaseAdmin
     .from("user_subscriptions")
-    .select("user_id, plan_id")
+    .select("user_id, plan_id, subscription_type, videos_per_month")
     .eq("stripe_subscription_id", subscriptionId)
     .single();
 
@@ -254,9 +298,12 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
     return;
   }
 
-  const creditsToAdd = PLAN_CREDITS[subscription.plan_id] || 0;
+  const planId = subscription.plan_id as PlanName;
+  const plan = PLAN_DETAILS[planId];
+  const creditsToAdd = plan?.credits || PLAN_CREDITS[planId] || 0;
+  const isVideoClient = subscription.subscription_type === 'video_editing';
 
-  console.log(`[${correlationId}] Invoice paid, adding ${creditsToAdd} credits for user ${subscription.user_id}`);
+  console.log(`[${correlationId}] Invoice paid for user ${subscription.user_id}, plan ${planId}, credits ${creditsToAdd}`);
 
   // Reset credits for the new billing period
   const { error } = await supabaseAdmin.from("user_credits").upsert(
@@ -277,12 +324,32 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
     console.error(`[${correlationId}] Failed to reset credits:`, error);
   }
 
+  // Reset video quota for video editing clients
+  if (isVideoClient) {
+    const videosPerMonth = subscription.videos_per_month || PLAN_VIDEOS[planId] || 0;
+
+    console.log(`[${correlationId}] Resetting video quota to ${videosPerMonth} for user ${subscription.user_id}`);
+
+    const { error: videoError } = await supabaseAdmin
+      .from("user_subscriptions")
+      .update({
+        videos_remaining: videosPerMonth,
+        videos_used_this_month: 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", subscription.user_id);
+
+    if (videoError) {
+      console.error(`[${correlationId}] Failed to reset video quota:`, videoError);
+    }
+  }
+
   // Log transaction
   await supabaseAdmin.from("credit_transactions").insert({
     user_id: subscription.user_id,
     amount: creditsToAdd,
     type: "credit",
-    description: `Monthly credits - ${subscription.plan_id} plan`,
+    description: `Monthly credits - ${planId} plan`,
   });
 }
 

@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import AppLayout from '../../components/AppLayout';
 import { EmptyState } from '@/components/EmptyState';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Client {
   id: string;
@@ -28,6 +29,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const { showSuccess, showError } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -89,9 +91,13 @@ export default function ClientsPage() {
           notes: '',
         });
         fetchClients();
+        showSuccess('Client added successfully');
+      } else {
+        showError('Failed to add client');
       }
     } catch (error) {
       console.error('Failed to add client:', error);
+      showError('Failed to add client');
     } finally {
       setSaving(false);
     }

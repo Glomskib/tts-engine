@@ -102,35 +102,43 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
       try {
         const searchResults: SearchResult[] = [];
 
-        // Search scripts
-        const skitsRes = await fetch(`/api/skits?search=${encodeURIComponent(query)}&limit=5`);
-        if (skitsRes.ok) {
-          const skitsData = await skitsRes.json();
-          (skitsData.data || []).forEach((skit: { id: string; title: string; product_name?: string }) => {
+        // Use unified search API
+        const searchRes = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=10`);
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          (searchData.results || []).forEach((item: { type: string; id: string; title: string; subtitle?: string; url: string }) => {
+            const iconMap: Record<string, React.ReactNode> = {
+              video: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
+              script: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+              client: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+            };
             searchResults.push({
-              id: `skit-${skit.id}`,
-              type: 'script',
-              title: skit.title,
-              subtitle: skit.product_name || 'Script',
-              icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
-              href: '/admin/skit-library',
+              id: `${item.type}-${item.id}`,
+              type: item.type as SearchResult['type'],
+              title: item.title,
+              subtitle: item.subtitle,
+              icon: iconMap[item.type] || iconMap.script,
+              href: item.url,
             });
           });
         }
 
-        // Search personas
-        const personasRes = await fetch(`/api/audience/personas?search=${encodeURIComponent(query)}&limit=3`);
-        if (personasRes.ok) {
-          const personasData = await personasRes.json();
-          (personasData.data || []).forEach((persona: { id: string; name: string; description?: string }) => {
-            searchResults.push({
-              id: `persona-${persona.id}`,
-              type: 'persona',
-              title: persona.name,
-              subtitle: persona.description?.slice(0, 50) || 'Persona',
-              icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
-              href: '/admin/audience',
-            });
+        // Also search legacy endpoints for backwards compatibility
+        const skitsRes = await fetch(`/api/skits?search=${encodeURIComponent(query)}&limit=5`);
+        if (skitsRes.ok) {
+          const skitsData = await skitsRes.json();
+          (skitsData.data || []).forEach((skit: { id: string; title: string; product_name?: string }) => {
+            // Avoid duplicates
+            if (!searchResults.find(r => r.id === `script-${skit.id}`)) {
+              searchResults.push({
+                id: `skit-${skit.id}`,
+                type: 'script',
+                title: skit.title,
+                subtitle: skit.product_name || 'Script',
+                icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+                href: '/admin/skit-library',
+              });
+            }
           });
         }
 

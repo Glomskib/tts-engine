@@ -4,8 +4,11 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Download, Copy, Loader2, Sparkles, Check } from 'lucide-react';
 import { IMAGE_STYLES, ASPECT_RATIOS, IMAGE_MODELS } from '@/lib/replicate';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function BRollGeneratorPage() {
+  const { showSuccess, showError } = useToast();
+
   // Form state
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState<'flux-schnell' | 'flux-dev' | 'sdxl'>('flux-schnell');
@@ -65,8 +68,10 @@ export default function BRollGeneratorPage() {
       if (data.images.length > 0) {
         setSelectedImage(data.images[0]);
       }
+      showSuccess(`Generated ${data.images.length} image${data.images.length > 1 ? 's' : ''} successfully`);
     } catch (err) {
       setError('Network error. Please try again.');
+      showError('Network error. Please try again.');
       console.error('Generation error:', err);
     } finally {
       setLoading(false);
@@ -86,8 +91,10 @@ export default function BRollGeneratorPage() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
+      showSuccess('Image downloaded');
     } catch (err) {
       console.error('Download error:', err);
+      showError('Failed to download image');
     }
   };
 
@@ -95,6 +102,7 @@ export default function BRollGeneratorPage() {
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
     setCopied(true);
+    showSuccess('URL copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
   };
 

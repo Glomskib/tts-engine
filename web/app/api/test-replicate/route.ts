@@ -63,8 +63,9 @@ export async function GET() {
     console.log('Testing Replicate connection...');
 
     // Use a quick, low-cost test generation
+    // Note: Flux models require version suffix (:1) for Replicate API
     const output = await replicate.run(
-      'black-forest-labs/flux-schnell',
+      'black-forest-labs/flux-schnell:1',
       {
         input: {
           prompt: 'A small blue dot, simple, minimal',

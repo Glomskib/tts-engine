@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, ChevronDown, User, LogOut, Zap, Bell } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Bell, Keyboard } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { NAV_SECTIONS, getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
@@ -13,6 +13,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { InstallBanner } from '@/components/PWAProvider';
+import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -236,13 +237,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <span className="font-semibold text-base truncate">{BRAND.name}</span>
             </Link>
 
-            {/* User avatar - tap to open menu */}
-            <button
-              onClick={() => setUserMenuOpen(true)}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-            >
-              {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-            </button>
+            {/* Right side: Credits + User avatar */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <CreditsBadge compact />
+              {/* User avatar - tap to open menu */}
+              <button
+                onClick={() => setUserMenuOpen(true)}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+              >
+                {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
+              </button>
+            </div>
           </header>
 
           {/* Mobile Sidebar Overlay */}
@@ -452,6 +457,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
     </div>
+    <KeyboardShortcutsModal />
     </ToastProvider>
   );
 }

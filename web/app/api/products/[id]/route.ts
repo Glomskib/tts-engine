@@ -27,7 +27,7 @@ const UpdateProductSchema = z.object({
 
 /**
  * GET /api/products/[id]
- * Fetch a single product by ID
+ * Fetch a single product by ID (must be owned by user or user is admin)
  */
 export async function GET(
   request: Request,
@@ -36,15 +36,27 @@ export async function GET(
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { id } = await params;
 
+  // Auth check
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   if (!id || id.trim() === "") {
     return createApiErrorResponse("BAD_REQUEST", "Product ID is required", 400, correlationId);
   }
 
-  const { data, error } = await supabaseAdmin
+  // Build query - admins can see all, users can only see their own
+  let query = supabaseAdmin
     .from("products")
     .select("*")
-    .eq("id", id.trim())
-    .single();
+    .eq("id", id.trim());
+
+  if (!authContext.isAdmin) {
+    query = query.eq("user_id", authContext.user.id);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
     console.error("GET /api/products/[id] error:", error);

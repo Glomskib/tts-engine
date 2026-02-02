@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,12 @@ async function fetchOEmbedData(url: string): Promise<OEmbedResponse | null> {
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -117,14 +124,15 @@ export async function POST(request: Request) {
     status = "needs_file"; // Only URL, needs file or transcript
   }
 
-  const submitter = submitted_by || "anonymous";
+  const submitter = submitted_by || authContext.user.email || "anonymous";
 
   try {
-    // Check if URL already exists
+    // Check if URL already exists for this user
     const { data: existing } = await supabaseAdmin
       .from("reference_videos")
       .select("id, status")
       .eq("url", cleanUrl)
+      .eq("user_id", authContext.user.id)  // Check within user's own winners
       .single();
 
     if (existing) {
@@ -146,7 +154,7 @@ export async function POST(request: Request) {
       oembedData = await fetchOEmbedData(cleanUrl);
     }
 
-    // Create reference_video record
+    // Create reference_video record with user_id
     const { data: refVideo, error: insertError } = await supabaseAdmin
       .from("reference_videos")
       .insert({
@@ -158,6 +166,7 @@ export async function POST(request: Request) {
         title: title || oembedData?.title || null,
         creator_handle: creator_handle || oembedData?.author_name || null,
         thumbnail_url: thumbnail_url || oembedData?.thumbnail_url || null,
+        user_id: authContext.user.id,  // Set user_id on insert
       })
       .select()
       .single();

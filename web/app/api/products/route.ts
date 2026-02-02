@@ -1,31 +1,50 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   const { data, error } = await supabaseAdmin
     .from("products")
     .select("*")
+    .eq("user_id", authContext.user.id)  // Filter by user_id
     .order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message, correlation_id: correlationId },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }
 
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { ok: false, error: "Invalid JSON" },
+      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -34,21 +53,21 @@ export async function POST(request: Request) {
 
   if (typeof name !== "string" || name.trim() === "") {
     return NextResponse.json(
-      { ok: false, error: "name is required and must be a non-empty string" },
+      { ok: false, error: "name is required and must be a non-empty string", correlation_id: correlationId },
       { status: 400 }
     );
   }
 
   if (typeof brand !== "string" || brand.trim() === "") {
     return NextResponse.json(
-      { ok: false, error: "brand is required and must be a non-empty string" },
+      { ok: false, error: "brand is required and must be a non-empty string", correlation_id: correlationId },
       { status: 400 }
     );
   }
 
   if (typeof category !== "string" || category.trim() === "") {
     return NextResponse.json(
-      { ok: false, error: "category is required and must be a non-empty string" },
+      { ok: false, error: "category is required and must be a non-empty string", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -57,6 +76,7 @@ export async function POST(request: Request) {
     name: name.trim(),
     brand: brand.trim(),
     category: category.trim(),
+    user_id: authContext.user.id,  // Set user_id on insert
   };
   if (category_risk !== undefined) insertPayload.category_risk = category_risk;
   if (notes !== undefined) insertPayload.notes = notes;
@@ -77,10 +97,10 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message, correlation_id: correlationId },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }

@@ -2,11 +2,20 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
   const { searchParams } = new URL(request.url);
   const conceptId = searchParams.get("concept_id");
   const productId = searchParams.get("product_id");
@@ -16,6 +25,7 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from("scripts")
     .select("*")
+    .eq("user_id", authContext.user.id)  // Filter by user_id
     .order("created_at", { ascending: false });
 
   if (conceptId) {
@@ -47,6 +57,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -74,6 +91,7 @@ export async function POST(request: Request) {
   const insertPayload: Record<string, unknown> = {
     version: 1,
     status: typeof scriptStatus === "string" ? scriptStatus : "DRAFT",
+    user_id: authContext.user.id,  // Set user_id on insert
   };
 
   // concept_id is optional now (can create scripts without concept)
@@ -139,25 +157,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }
-
-/*
-PowerShell Test Plan:
-
-# 1. Get existing concept_id from concepts table
-$conceptResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/concepts" -Method GET
-$conceptId = $conceptResponse.data[0].id
-
-# 2. Create script manually via POST /api/scripts
-$scriptBody = "{`"concept_id`": `"$conceptId`", `"on_screen_text`": [`"Hook text here`", `"Product benefits`"], `"caption`": `"Try this viral supplement hack! #supplements #health`", `"hashtags`": [`"#supplements`", `"#health`", `"#viral`"], `"cta`": `"Link in bio to get yours!`"}"
-$scriptResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/scripts" -Method POST -ContentType "application/json" -Body $scriptBody
-$scriptResponse
-
-# 3. Generate script via POST /api/scripts/generate
-$generateBody = "{`"concept_id`": `"$conceptId`", `"hook_text`": `"Try this viral supplement hack`", `"style_preset`": `"educational`", `"category_risk`": `"supplements`"}"
-$generateResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/scripts/generate" -Method POST -ContentType "application/json" -Body $generateBody
-$generateResponse
-
-# 4. Fetch scripts via GET /api/scripts?concept_id=...
-$getScriptsResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/scripts?concept_id=$conceptId" -Method GET
-$getScriptsResponse
-*/

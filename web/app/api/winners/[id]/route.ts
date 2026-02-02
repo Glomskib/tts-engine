@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -16,16 +17,29 @@ export async function GET(
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   try {
-    const { data, error } = await supabaseAdmin
+    // Build query - filter by user_id to ensure ownership
+    let query = supabaseAdmin
       .from("reference_videos")
       .select(`
         *,
         reference_assets (*),
         reference_extracts (*)
       `)
-      .eq("id", id)
-      .single();
+      .eq("id", id);
+
+    // Only allow access to own records (admins can see all)
+    if (!authContext.isAdmin) {
+      query = query.eq("user_id", authContext.user.id);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return NextResponse.json(
@@ -61,6 +75,12 @@ export async function PATCH(
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -74,6 +94,25 @@ export async function PATCH(
   const updates = body as Record<string, unknown>;
 
   try {
+    // Verify ownership first (admins can update any)
+    let ownershipQuery = supabaseAdmin
+      .from("reference_videos")
+      .select("id")
+      .eq("id", id);
+
+    if (!authContext.isAdmin) {
+      ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
+    }
+
+    const { data: existing, error: existError } = await ownershipQuery.single();
+
+    if (existError || !existing) {
+      return NextResponse.json(
+        { ok: false, error: "Reference video not found", correlation_id: correlationId },
+        { status: 404 }
+      );
+    }
+
     // Build update payload
     const allowedFields = ["notes", "category", "status", "views", "likes", "comments", "shares", "ai_analysis", "transcript_text"];
     const updatePayload: Record<string, unknown> = {};
@@ -179,7 +218,32 @@ export async function DELETE(
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
   try {
+    // Verify ownership first (admins can delete any)
+    let ownershipQuery = supabaseAdmin
+      .from("reference_videos")
+      .select("id")
+      .eq("id", id);
+
+    if (!authContext.isAdmin) {
+      ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
+    }
+
+    const { data: existing, error: existError } = await ownershipQuery.single();
+
+    if (existError || !existing) {
+      return NextResponse.json(
+        { ok: false, error: "Reference video not found", correlation_id: correlationId },
+        { status: 404 }
+      );
+    }
+
     const { error } = await supabaseAdmin
       .from("reference_videos")
       .delete()

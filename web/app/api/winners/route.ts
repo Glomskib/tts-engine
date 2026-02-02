@@ -1,13 +1,14 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
 /**
  * GET /api/winners
  *
- * List all reference videos (Winners Bank entries)
+ * List all reference videos (Winners Bank entries) for the authenticated user
  * Query params:
  * - status: filter by status
  * - category: filter by category
@@ -15,8 +16,14 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
-  const { searchParams } = new URL(request.url);
 
+  // Auth check - user must be logged in
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
+  const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const category = searchParams.get("category");
   const limitParam = searchParams.get("limit");
@@ -33,6 +40,7 @@ export async function GET(request: Request) {
           quality_score
         )
       `)
+      .eq("user_id", authContext.user.id)  // Filter by user_id
       .order("created_at", { ascending: false })
       .limit(limit);
 

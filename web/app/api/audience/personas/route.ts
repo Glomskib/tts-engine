@@ -78,9 +78,12 @@ export async function GET(request: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
   try {
+    // Query personas - include system personas AND user's own personas
     let query = supabaseAdmin
       .from("audience_personas")
       .select("*")
+      .or(`is_system.eq.true,user_id.eq.${authContext.user.id},created_by.eq.${authContext.user.id}`)
+      .order("is_system", { ascending: false }) // System personas first
       .order("times_used", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(limit);

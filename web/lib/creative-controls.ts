@@ -5,9 +5,9 @@
 
 // Content Edge (formerly Risk Tier)
 export const CONTENT_EDGE_OPTIONS = [
-  { value: 'SAFE', label: 'Safe & Steady', description: 'Family-friendly, brand-safe content' },
-  { value: 'BALANCED', label: 'Slightly Edgy', description: 'Light humor, mild takes' },
-  { value: 'SPICY', label: 'Bold Takes', description: 'Stronger opinions, edgier humor' },
+  { value: 'SAFE', label: 'Safe & Steady', description: 'Family-friendly, brand-safe content', desc: 'Family-friendly, brand-safe' },
+  { value: 'BALANCED', label: 'Slightly Edgy', description: 'Light humor, mild takes', desc: 'Light humor, mild takes' },
+  { value: 'SPICY', label: 'Bold Takes', description: 'Stronger opinions, edgier humor', desc: 'Stronger opinions, edgier' },
 ] as const;
 
 export type ContentEdge = typeof CONTENT_EDGE_OPTIONS[number]['value'];
@@ -117,3 +117,51 @@ export function humorLevelToIntensity(humorLevel: number): number {
   };
   return mapping[humorLevel] || 50;
 }
+
+// Unified CREATIVE_CONTROLS object for easy UI consumption
+export const CREATIVE_CONTROLS = {
+  contentEdge: {
+    label: 'Content Edge',
+    description: 'How boundary-pushing the content is',
+    options: CONTENT_EDGE_OPTIONS,
+  },
+  unpredictability: {
+    label: 'Unpredictability',
+    description: 'How random or surprising the content is',
+    options: UNPREDICTABILITY_OPTIONS,
+  },
+  humorLevel: {
+    label: 'Humor Level',
+    description: 'How funny or comedic the content is',
+    options: HUMOR_LEVEL_OPTIONS,
+  },
+  pacing: {
+    label: 'Pacing',
+    description: 'How fast the content moves',
+    options: PACING_OPTIONS,
+  },
+  hookStrength: {
+    label: 'Hook Strength',
+    description: 'How attention-grabbing the opening is',
+    options: HOOK_STRENGTH_OPTIONS,
+  },
+  authenticity: {
+    label: 'Authenticity Feel',
+    description: 'How polished vs raw the content feels',
+    options: AUTHENTICITY_OPTIONS,
+  },
+} as const;
+
+// Presentation styles with human-friendly names
+export const PRESENTATION_STYLES = [
+  { value: 'direct_pitch', label: 'Straight Sell', desc: 'Direct product pitch' },
+  { value: 'storytelling', label: 'Story Time', desc: 'Narrative-driven content' },
+  { value: 'problem_solution', label: 'Problem → Solution', desc: 'Classic pain point format' },
+  { value: 'demonstration', label: 'Show Don\'t Tell', desc: 'Product in action' },
+  { value: 'testimonial', label: 'Real Talk', desc: 'Testimonial/review style' },
+  { value: 'comparison', label: 'Side by Side', desc: 'Comparison format' },
+  { value: 'tutorial', label: 'How To', desc: 'Educational/tutorial' },
+  { value: 'unboxing', label: 'First Look', desc: 'Unboxing/reveal' },
+  { value: 'day_in_life', label: 'Day in My Life', desc: 'Lifestyle integration' },
+  { value: 'trending', label: 'Trend Jacking', desc: 'Uses current trends' },
+] as const;

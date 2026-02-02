@@ -8,8 +8,11 @@ export function getReplicateClient(): Replicate {
   if (!replicateClient) {
     const apiKey = process.env.REPLICATE_API_TOKEN;
     if (!apiKey) {
-      throw new Error('REPLICATE_API_TOKEN environment variable is not set');
+      console.error('[Replicate] REPLICATE_API_TOKEN is not set!');
+      console.error('[Replicate] Add this environment variable to your .env.local or Vercel dashboard');
+      throw new Error('REPLICATE_API_TOKEN environment variable is not set. Please configure this in your environment variables.');
     }
+    console.log('[Replicate] Initializing client with token prefix:', apiKey.substring(0, 5) + '...');
     replicateClient = new Replicate({ auth: apiKey });
   }
   return replicateClient;
@@ -155,21 +158,49 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     };
   }
 
-  const output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
+  console.log('[Replicate] Calling model:', modelConfig.id);
+  console.log('[Replicate] Input:', JSON.stringify(input, null, 2));
+
+  let output: unknown;
+  try {
+    output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
+    console.log('[Replicate] Raw output type:', typeof output);
+    console.log('[Replicate] Raw output:', JSON.stringify(output, null, 2).substring(0, 500));
+  } catch (runError) {
+    console.error('[Replicate] API call failed:', runError);
+    if (runError instanceof Error) {
+      // Check for common error types
+      if (runError.message.includes('Invalid token') || runError.message.includes('401')) {
+        throw new Error('Replicate API authentication failed. Please check your REPLICATE_API_TOKEN.');
+      }
+      if (runError.message.includes('rate limit') || runError.message.includes('429')) {
+        throw new Error('Replicate rate limit exceeded. Please try again later.');
+      }
+      if (runError.message.includes('model') || runError.message.includes('not found')) {
+        throw new Error(`Replicate model not found: ${modelConfig.id}`);
+      }
+      throw new Error(`Replicate error: ${runError.message}`);
+    }
+    throw runError;
+  }
 
   // Handle different output formats
   if (Array.isArray(output)) {
-    return output.map(item => {
+    const urls = output.map(item => {
       if (typeof item === 'string') return item;
       if (item && typeof item === 'object' && 'url' in item) return (item as { url: string }).url;
       return String(item);
     });
+    console.log('[Replicate] Extracted URLs:', urls);
+    return urls;
   }
 
   if (typeof output === 'string') {
+    console.log('[Replicate] Single URL output:', output);
     return [output];
   }
 
+  console.error('[Replicate] Unexpected output format:', typeof output, output);
   throw new Error('Unexpected output format from Replicate');
 }
 

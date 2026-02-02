@@ -498,9 +498,9 @@ export default function ClientDetailPage() {
           onConfirm={handleDelete}
           title="Delete Client"
           message={`Are you sure you want to delete ${client.company_name}? This action cannot be undone.`}
-          confirmLabel="Delete"
+          confirmText="Delete"
           variant="danger"
-          loading={deleting}
+          isLoading={deleting}
         />
       </div>
     </AppLayout>

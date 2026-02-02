@@ -169,9 +169,9 @@ export function BulkActions({
         }}
         title="Delete Selected Items"
         message={`Are you sure you want to delete ${selectedIds.length} items? This action cannot be undone.`}
-        confirmLabel="Delete"
+        confirmText="Delete"
         variant="danger"
-        loading={loading === 'delete'}
+        isLoading={loading === 'delete'}
       />
     </>
   );

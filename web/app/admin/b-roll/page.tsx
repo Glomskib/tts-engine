@@ -49,10 +49,14 @@ export default function BRollGeneratorPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        console.error('Image generation error response:', data);
         if (data.error_code === 'INSUFFICIENT_CREDITS') {
           setError(`Not enough credits. Need ${data.details?.required}, have ${data.details?.available}.`);
+        } else if (data.error_code === 'AI_ERROR' && data.details?.details) {
+          // Show detailed error message for AI errors
+          setError(`${data.message}: ${data.details.details}`);
         } else {
-          setError(data.message || 'Failed to generate images');
+          setError(data.message || data.error || 'Failed to generate images. Please try again.');
         }
         return;
       }

@@ -132,6 +132,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate images
+    console.log(`[Generate Image] Starting generation for user ${authContext.user.id}`);
+    console.log(`[Generate Image] Prompt: ${input.prompt.substring(0, 100)}...`);
+    console.log(`[Generate Image] Model: ${input.model}, Style: ${input.style}, Aspect: ${input.aspect_ratio}`);
+
     let imageUrls: string[];
     try {
       imageUrls = await generateImages({
@@ -142,11 +146,13 @@ export async function POST(request: NextRequest) {
         negativePrompt: input.negative_prompt,
         numOutputs: input.num_outputs,
       });
+      console.log(`[Generate Image] Successfully generated ${imageUrls.length} images`);
     } catch (genError) {
-      console.error("Image generation error:", genError);
+      console.error("[Generate Image] Generation failed:", genError);
 
       // Refund credits on failure (if not admin)
       if (!authContext.isAdmin) {
+        console.log("[Generate Image] Refunding credits due to failure");
         await supabaseAdmin.rpc("add_credits", {
           p_user_id: authContext.user.id,
           p_amount: creditCost,
@@ -155,12 +161,27 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Provide a user-friendly error message
+      let errorMessage = "Failed to generate images";
+      let errorDetails = genError instanceof Error ? genError.message : "Unknown error";
+
+      if (errorDetails.includes('REPLICATE_API_TOKEN')) {
+        errorMessage = "Image generation service not configured";
+        errorDetails = "The Replicate API token is not set up. Please contact support.";
+      } else if (errorDetails.includes('authentication') || errorDetails.includes('401')) {
+        errorMessage = "Image generation service authentication failed";
+        errorDetails = "Invalid API credentials. Please contact support.";
+      } else if (errorDetails.includes('rate limit') || errorDetails.includes('429')) {
+        errorMessage = "Service temporarily busy";
+        errorDetails = "Too many requests. Please wait a moment and try again.";
+      }
+
       return createApiErrorResponse(
         "AI_ERROR",
-        "Failed to generate images",
+        errorMessage,
         500,
         correlationId,
-        { message: genError instanceof Error ? genError.message : "Unknown error" }
+        { details: errorDetails }
       );
     }
 

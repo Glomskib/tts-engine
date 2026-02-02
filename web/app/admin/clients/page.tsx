@@ -192,8 +192,10 @@ export default function ClientsPage() {
             icon={Users}
             title="No clients yet"
             description="Add your first client to start managing their content"
-            actionLabel="Add Client"
-            onAction={() => setShowAddModal(true)}
+            secondaryAction={{
+              label: "Add Client",
+              onClick: () => setShowAddModal(true)
+            }}
           />
         ) : (
           <div className="space-y-3">

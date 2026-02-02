@@ -31,8 +31,65 @@ export interface CreditDisplayInfo {
 }
 
 /**
+ * Ensure user has credit records. Creates them if missing.
+ * Returns the user's current credits.
+ */
+export async function ensureUserCredits(userId: string): Promise<{ credits_remaining: number } | null> {
+  // Check if user has credit records
+  let { data: userCredits } = await supabaseAdmin
+    .from("user_credits")
+    .select("credits_remaining")
+    .eq("user_id", userId)
+    .single();
+
+  // If no credits row exists, create default records
+  if (!userCredits) {
+    console.log(`[Credits] Creating missing credit records for user ${userId}`);
+
+    // Create subscription record (free plan)
+    await supabaseAdmin
+      .from("user_subscriptions")
+      .upsert({
+        user_id: userId,
+        plan_id: "free",
+        status: "active",
+      }, { onConflict: "user_id" });
+
+    // Create credits record with 5 free credits
+    const { data: newCredits } = await supabaseAdmin
+      .from("user_credits")
+      .upsert({
+        user_id: userId,
+        credits_remaining: 5,
+        free_credits_total: 5,
+        free_credits_used: 0,
+        credits_used_this_period: 0,
+        lifetime_credits_used: 0,
+      }, { onConflict: "user_id" })
+      .select("credits_remaining")
+      .single();
+
+    userCredits = newCredits;
+
+    // Log the initial credit grant
+    await supabaseAdmin
+      .from("credit_transactions")
+      .insert({
+        user_id: userId,
+        type: "bonus",
+        amount: 5,
+        balance_after: 5,
+        description: "Welcome bonus - 5 free generations (auto-initialized)",
+      });
+  }
+
+  return userCredits;
+}
+
+/**
  * Check if a user has credits available for an operation.
  * Admins always have unlimited credits.
+ * Automatically initializes credits if missing.
  */
 export async function checkCredits(
   userId: string,
@@ -50,22 +107,18 @@ export async function checkCredits(
   }
 
   try {
-    // Fetch user's credits and subscription
-    const { data: credits, error: creditsError } = await supabaseAdmin
-      .from("user_credits")
-      .select("credits_remaining")
-      .eq("user_id", userId)
-      .single();
+    // Ensure user has credit records (creates if missing)
+    const credits = await ensureUserCredits(userId);
 
-    if (creditsError && creditsError.code !== "PGRST116") {
-      console.error("Credit check error:", creditsError);
+    if (!credits) {
+      console.error("Failed to initialize credits for user:", userId);
       return {
         hasCredits: false,
         remaining: 0,
         isAdmin: false,
         isUnlimited: false,
         plan: "free",
-        error: "Failed to check credits",
+        error: "Failed to initialize credits",
       };
     }
 
@@ -77,7 +130,7 @@ export async function checkCredits(
       .single();
 
     const planId = subscription?.plan_id || "free";
-    const remaining = credits?.credits_remaining ?? 5; // Default 5 for new users
+    const remaining = credits.credits_remaining ?? 5;
 
     // Check if plan has unlimited credits (pro/team/admin plans)
     const isUnlimited = ["admin", "pro", "team"].includes(planId) && remaining >= 999;

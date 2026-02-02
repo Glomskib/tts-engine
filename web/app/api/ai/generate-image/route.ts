@@ -76,23 +76,70 @@ export async function POST(request: NextRequest) {
     // Check credits (unless admin)
     const creditCost = getImageCreditCost(input.model, input.num_outputs);
 
-    // Credit check (admins bypass)
-    const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
-    if (creditError) {
-      return NextResponse.json({
-        ok: false,
-        error: creditError.error,
-        creditsRemaining: creditError.remaining,
-        upgrade: true,
-        correlation_id: correlationId,
-      }, { status: creditError.status });
-    }
-
     // Deduct credits for the image generation (admins bypass)
     let creditsRemaining: number | undefined;
     if (!authContext.isAdmin) {
-      // For multiple credits, we need to deduct multiple times or add credits with negative amount
-      // Using the add_credits function with negative amount for multi-credit operations
+      // Ensure user has credit records (creates them if missing)
+      let { data: userCredits } = await supabaseAdmin
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq("user_id", authContext.user.id)
+        .single();
+
+      // If no credits row exists, create default records for the user
+      if (!userCredits) {
+        console.log(`[Generate Image] Creating missing credit records for user ${authContext.user.id}`);
+
+        // Create subscription record (free plan)
+        await supabaseAdmin
+          .from("user_subscriptions")
+          .upsert({
+            user_id: authContext.user.id,
+            plan_id: "free",
+            status: "active",
+          }, { onConflict: "user_id" });
+
+        // Create credits record with 5 free credits
+        const { data: newCredits } = await supabaseAdmin
+          .from("user_credits")
+          .upsert({
+            user_id: authContext.user.id,
+            credits_remaining: 5,
+            free_credits_total: 5,
+            free_credits_used: 0,
+            credits_used_this_period: 0,
+            lifetime_credits_used: 0,
+          }, { onConflict: "user_id" })
+          .select("credits_remaining")
+          .single();
+
+        userCredits = newCredits;
+
+        // Log the initial credit grant
+        await supabaseAdmin
+          .from("credit_transactions")
+          .insert({
+            user_id: authContext.user.id,
+            type: "bonus",
+            amount: 5,
+            balance_after: 5,
+            description: "Welcome bonus - 5 free generations (auto-initialized)",
+          });
+      }
+
+      // Check if user has enough credits
+      const currentCredits = userCredits?.credits_remaining ?? 0;
+      if (currentCredits < creditCost) {
+        return createApiErrorResponse(
+          "INSUFFICIENT_CREDITS",
+          `Insufficient credits. Need ${creditCost}, have ${currentCredits}`,
+          402,
+          correlationId,
+          { required: creditCost, available: currentCredits, upgrade: true }
+        );
+      }
+
+      // Deduct credits using add_credits RPC with negative amount
       const { data: deductResult, error: deductError } = await supabaseAdmin.rpc("add_credits", {
         p_user_id: authContext.user.id,
         p_amount: -creditCost,
@@ -102,33 +149,31 @@ export async function POST(request: NextRequest) {
 
       if (deductError) {
         console.error("Credit deduction error:", deductError);
-        return createApiErrorResponse(
-          "DB_ERROR",
-          "Failed to deduct credits",
-          500,
-          correlationId
-        );
-      }
+        // Fallback: try direct update if RPC fails
+        const { data: fallbackUpdate, error: fallbackError } = await supabaseAdmin
+          .from("user_credits")
+          .update({
+            credits_remaining: currentCredits - creditCost,
+            credits_used_this_period: supabaseAdmin.rpc ? undefined : 0, // Can't increment easily
+          })
+          .eq("user_id", authContext.user.id)
+          .select("credits_remaining")
+          .single();
 
-      const result = deductResult?.[0];
-      if (result && result.credits_remaining < 0) {
-        // Rollback: credits went negative, add them back
-        await supabaseAdmin.rpc("add_credits", {
-          p_user_id: authContext.user.id,
-          p_amount: creditCost,
-          p_type: "refund",
-          p_description: "Insufficient credits refund",
-        });
-        return createApiErrorResponse(
-          "INSUFFICIENT_CREDITS",
-          `Insufficient credits. Need ${creditCost}, have ${result.credits_remaining + creditCost}`,
-          402,
-          correlationId,
-          { required: creditCost, available: result.credits_remaining + creditCost }
-        );
+        if (fallbackError) {
+          console.error("Fallback credit deduction also failed:", fallbackError);
+          return createApiErrorResponse(
+            "DB_ERROR",
+            "Failed to deduct credits",
+            500,
+            correlationId
+          );
+        }
+        creditsRemaining = fallbackUpdate?.credits_remaining;
+      } else {
+        const result = deductResult?.[0];
+        creditsRemaining = result?.credits_remaining;
       }
-
-      creditsRemaining = result?.credits_remaining;
     }
 
     // Generate images

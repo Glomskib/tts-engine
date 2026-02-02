@@ -59,6 +59,12 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiClientError | null>(null);
 
+  // Add product drawer state
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
+  const [addForm, setAddForm] = useState<Partial<Product>>({});
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
   const [warningsLoading, setWarningsLoading] = useState(false);
@@ -211,6 +217,58 @@ export default function ProductsPage() {
     setSaveError(null);
   };
 
+  // Open add drawer
+  const handleAddOpen = () => {
+    setAddForm({ name: '', brand: '', category: '' });
+    setAddError(null);
+    setAddDrawerOpen(true);
+  };
+
+  // Close add drawer
+  const handleAddClose = () => {
+    setAddDrawerOpen(false);
+    setAddForm({});
+    setAddError(null);
+  };
+
+  // Save new product
+  const handleAddSave = async () => {
+    if (!addForm.name?.trim() || !addForm.brand?.trim() || !addForm.category?.trim()) {
+      setAddError('Name, Brand, and Category are required');
+      return;
+    }
+
+    setAddSaving(true);
+    setAddError(null);
+
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addForm.name.trim(),
+          brand: addForm.brand.trim(),
+          category: addForm.category.trim(),
+          category_risk: addForm.category_risk || null,
+          notes: addForm.notes?.trim() || null,
+        }),
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Failed to create product');
+      }
+
+      // Refresh product list
+      await fetchProductStats();
+      handleAddClose();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to create product');
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
   // Save product changes
   const handleSave = async () => {
     if (!editingProduct) return;
@@ -287,9 +345,14 @@ export default function ProductsPage() {
       subtitle="Manage product catalog and view statistics"
       isAdmin={isAdmin}
       headerActions={
-        <AdminButton variant="secondary" onClick={fetchProductStats}>
-          Refresh
-        </AdminButton>
+        <div className="flex gap-2">
+          <AdminButton variant="secondary" onClick={fetchProductStats}>
+            Refresh
+          </AdminButton>
+          <AdminButton onClick={handleAddOpen}>
+            + Add Product
+          </AdminButton>
+        </div>
       }
     >
       {/* Filters */}
@@ -677,6 +740,125 @@ export default function ProductsPage() {
               </AdminButton>
               <AdminButton onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : 'Save Changes'}
+              </AdminButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Product Drawer */}
+      {addDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={handleAddClose}
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-md bg-zinc-900 shadow-xl flex flex-col border-l border-white/10">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-100">Add Product</h2>
+              <button
+                onClick={handleAddClose}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {addError && (
+                <div className="p-3 rounded-md text-sm bg-red-900/50 border border-red-500/50 text-red-200">
+                  {addError}
+                </div>
+              )}
+
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={addForm.name || ''}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  placeholder="e.g., Vitamin D3 Gummies"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              {/* Brand */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Brand <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={addForm.brand || ''}
+                  onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })}
+                  placeholder="e.g., NatureWell"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={addForm.category || ''}
+                  onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
+                  placeholder="e.g., Supplements"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              {/* Category Risk */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Category Risk
+                </label>
+                <select
+                  value={addForm.category_risk || ''}
+                  onChange={(e) => setAddForm({ ...addForm, category_risk: (e.target.value as 'low' | 'medium' | 'high') || undefined })}
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="">Not set</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={addForm.notes || ''}
+                  onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Product-specific notes, talking points..."
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+              <AdminButton variant="secondary" onClick={handleAddClose}>
+                Cancel
+              </AdminButton>
+              <AdminButton onClick={handleAddSave} disabled={addSaving}>
+                {addSaving ? 'Creating...' : 'Create Product'}
               </AdminButton>
             </div>
           </div>

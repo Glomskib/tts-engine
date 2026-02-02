@@ -26,6 +26,7 @@ import {
   Play,
   HelpCircle,
   Wallet,
+  Clapperboard,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -131,6 +132,14 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'CLIENT SERVICES',
+    showFor: ['admin'],
+    items: [
+      { name: 'Video Editing Queue', href: '/admin/video-editing', icon: Clapperboard },
+      { name: 'Client Management', href: '/admin/clients', icon: Building },
+    ],
+  },
+  {
     title: 'ADMIN',
     showFor: ['admin'],
     items: [
@@ -230,6 +239,7 @@ export const Icons = {
   Play,
   HelpCircle,
   Wallet,
+  Clapperboard,
 };
 
 // Constants

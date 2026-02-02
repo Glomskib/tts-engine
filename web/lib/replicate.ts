@@ -12,7 +12,6 @@ export function getReplicateClient(): Replicate {
       console.error('[Replicate] Add this environment variable to your .env.local or Vercel dashboard');
       throw new Error('REPLICATE_API_TOKEN environment variable is not set. Please configure this in your environment variables.');
     }
-    console.log('[Replicate] Initializing client with token prefix:', apiKey.substring(0, 5) + '...');
     replicateClient = new Replicate({ auth: apiKey });
   }
   return replicateClient;
@@ -159,14 +158,9 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     };
   }
 
-  console.log('[Replicate] Calling model:', modelConfig.id);
-  console.log('[Replicate] Input:', JSON.stringify(input, null, 2));
-
   let output: unknown;
   try {
     output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
-    console.log('[Replicate] Raw output type:', typeof output);
-    console.log('[Replicate] Raw output:', JSON.stringify(output, null, 2).substring(0, 500));
   } catch (runError) {
     console.error('[Replicate] API call failed:', runError);
     if (runError instanceof Error) {
@@ -192,12 +186,10 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
       if (item && typeof item === 'object' && 'url' in item) return (item as { url: string }).url;
       return String(item);
     });
-    console.log('[Replicate] Extracted URLs:', urls);
     return urls;
   }
 
   if (typeof output === 'string') {
-    console.log('[Replicate] Single URL output:', output);
     return [output];
   }
 

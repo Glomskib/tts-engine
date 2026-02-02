@@ -1119,7 +1119,7 @@ export default function SkitGeneratorPage() {
     setIsRateLimited(false);
 
     const payload: Record<string, unknown> = retryWithPayload || {
-      // Map new creative controls to API format
+      // Map creative controls to API format
       risk_tier: contentEdge,
       persona: persona,
       intensity: humorLevelToIntensity(humorLevel),
@@ -1130,12 +1130,8 @@ export default function SkitGeneratorPage() {
       content_format: contentFormat,
       product_context: productContext.trim() || undefined,
       variation_count: variationCount,
-      // New creative controls
-      character_persona: characterPersona || undefined,
-      presentation_style: presentationStyle || undefined,
-      pacing: pacing,
-      hook_strength: hookStrength,
-      authenticity: authenticity,
+      // Note: character_persona, presentation_style, pacing, hook_strength, authenticity
+      // are collected in UI but not yet supported by API - can be added to creative_direction
       // Audience Intelligence
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_id: selectedPainPointId || undefined,

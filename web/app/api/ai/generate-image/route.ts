@@ -154,7 +154,6 @@ export async function POST(request: NextRequest) {
           .from("user_credits")
           .update({
             credits_remaining: currentCredits - creditCost,
-            credits_used_this_period: supabaseAdmin.rpc ? undefined : 0, // Can't increment easily
           })
           .eq("user_id", authContext.user.id)
           .select("credits_remaining")

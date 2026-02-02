@@ -524,13 +524,13 @@ export default function WinnersPage() {
     );
   }
 
-  // Forbidden
+  // Not authenticated
   if (!authUser) {
     return (
       <AppLayout>
         <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ color: "#ef4444", fontSize: "18px", marginBottom: "8px" }}>Access Denied</div>
-          <div style={{ color: colors.textMuted }}>Admin access required.</div>
+          <div style={{ color: "#ef4444", fontSize: "18px", marginBottom: "8px" }}>Sign In Required</div>
+          <div style={{ color: colors.textMuted }}>Please sign in to access your Winners Bank.</div>
           <Link href="/login" style={{ color: colors.accent, marginTop: "16px", display: "inline-block" }}>Sign In</Link>
         </div>
       </AppLayout>
@@ -552,7 +552,7 @@ export default function WinnersPage() {
               Winners Bank
             </h1>
             <p style={{ fontSize: "13px", color: colors.textMuted, marginTop: "4px" }}>
-              Import winning TikToks to train AI on what works
+              Save and analyze your top-performing videos to learn what works
             </p>
           </div>
         </div>

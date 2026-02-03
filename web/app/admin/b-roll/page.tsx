@@ -66,6 +66,9 @@ interface ReferenceImage {
 export default function BRollGeneratorPage() {
   const { showSuccess, showError } = useToast();
 
+  // Mounted state to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
+
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('generate');
 
@@ -158,6 +161,11 @@ export default function BRollGeneratorPage() {
       loadReferences();
     }
   }, [activeTab, loadLibrary, loadReferences]);
+
+  // Set mounted on client to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Generate images
   const handleGenerate = async () => {
@@ -383,6 +391,28 @@ export default function BRollGeneratorPage() {
     { id: 'library' as TabType, label: 'Library', icon: FolderOpen, count: libraryCount },
     { id: 'references' as TabType, label: 'References', icon: ImageIcon, count: referencesCount },
   ];
+
+  // Show loading skeleton until client is hydrated
+  if (!mounted) {
+    return (
+      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
+        <div className="animate-pulse">
+          <div className="h-8 w-48 bg-zinc-800 rounded mb-2" />
+          <div className="h-4 w-96 bg-zinc-800 rounded mb-6" />
+          <div className="h-12 w-80 bg-zinc-800 rounded-xl mb-6" />
+          <div className="h-16 w-full bg-zinc-800 rounded-xl mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="h-32 bg-zinc-800 rounded-xl" />
+              <div className="h-24 bg-zinc-800 rounded-xl" />
+              <div className="h-24 bg-zinc-800 rounded-xl" />
+            </div>
+            <div className="h-96 bg-zinc-800 rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">

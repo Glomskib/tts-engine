@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   X,
   Trophy,
@@ -18,6 +19,7 @@ import {
   RefreshCw,
   Loader2,
   Link2,
+  Wand2,
 } from 'lucide-react';
 import type { Winner } from '@/lib/winners';
 
@@ -29,10 +31,41 @@ interface WinnerDetailModalProps {
 }
 
 export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerDetailModalProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'patterns'>('overview');
   const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   if (!isOpen) return null;
+
+  // Generate a similar script based on this winner
+  const handleGenerateSimilar = () => {
+    const params = new URLSearchParams();
+
+    // Pass winner ID for context
+    params.set('winner_id', winner.id);
+
+    // Pass hook type if available
+    if (winner.hook_type) {
+      params.set('hook_type', winner.hook_type);
+    }
+
+    // Pass content format if available
+    if (winner.content_format) {
+      params.set('content_format', winner.content_format);
+    }
+
+    // Pass product info if available
+    if (winner.product_name) {
+      params.set('product_name', winner.product_name);
+    }
+    if (winner.product_category) {
+      params.set('product_category', winner.product_category);
+    }
+
+    // Navigate to generator with params
+    router.push(`/admin/skit-generator?${params.toString()}`);
+    onClose();
+  };
 
   const isOurScript = winner.source_type === 'our_script';
   const analysis = winner.ai_analysis;
@@ -459,7 +492,16 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Generate Similar Script button */}
+            <button
+              onClick={handleGenerateSimilar}
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Wand2 className="w-4 h-4" />
+              Generate Similar
+            </button>
+
             {analysis && (
               <button
                 onClick={handleReanalyze}

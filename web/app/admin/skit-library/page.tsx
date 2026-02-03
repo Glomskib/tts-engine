@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
+import { Trophy } from "lucide-react";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VideoCreationSheet } from "@/components/VideoCreationSheet";
+import { MarkAsWinnerModal } from "@/components/MarkAsWinnerModal";
+import { Toast } from "@/components/Toast";
 
 // --- Types ---
 
@@ -167,13 +170,11 @@ export default function SkitLibraryPage() {
   } | null>(null);
 
   // Winners
-  const [winnerModalOpen, setWinnerModalOpen] = useState(false);
-  const [winnerSkitId, setWinnerSkitId] = useState<string | null>(null);
-  const [winnerViewCount, setWinnerViewCount] = useState("");
-  const [winnerEngagement, setWinnerEngagement] = useState("");
-  const [winnerVideoUrl, setWinnerVideoUrl] = useState("");
-  const [savingWinner, setSavingWinner] = useState(false);
+  const [winnerModalSkit, setWinnerModalSkit] = useState<SavedSkit | null>(null);
   const [showWinnersOnly, setShowWinnersOnly] = useState(false);
+
+  // Toast notifications
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -524,71 +525,39 @@ export default function SkitLibraryPage() {
     }
   };
 
-  // Open winner modal
+  // Open winner modal - uses new MarkAsWinnerModal component
   const openWinnerModal = (skitId: string) => {
     const skit = skits.find(s => s.id === skitId);
-    setWinnerSkitId(skitId);
-    setWinnerViewCount(skit?.performance_metrics?.view_count?.toString() || "");
-    setWinnerEngagement(skit?.performance_metrics?.engagement_rate?.toString() || "");
-    setWinnerVideoUrl(skit?.posted_video_url || "");
-    setWinnerModalOpen(true);
-  };
-
-  // Save winner status
-  const handleSaveWinner = async () => {
-    if (!winnerSkitId) return;
-
-    setSavingWinner(true);
-    try {
-      const metrics: PerformanceMetrics = {};
-      if (winnerViewCount) metrics.view_count = parseInt(winnerViewCount, 10);
-      if (winnerEngagement) metrics.engagement_rate = parseFloat(winnerEngagement);
-
-      const res = await fetch(`/api/skits/${winnerSkitId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          is_winner: true,
-          performance_metrics: Object.keys(metrics).length > 0 ? metrics : null,
-          posted_video_url: winnerVideoUrl || null,
-          marked_winner_at: new Date().toISOString(),
-        }),
-      });
-      const data = await res.json();
-
-      if (data.ok) {
-        // Update the skit in the list
-        setSkits(prev => prev.map(s =>
-          s.id === winnerSkitId ? {
-            ...s,
-            is_winner: true,
-            performance_metrics: Object.keys(metrics).length > 0 ? metrics : null,
-            posted_video_url: winnerVideoUrl || null,
-          } : s
-        ));
-        // Update expanded skit if it's this one
-        if (expandedSkit && expandedSkit.id === winnerSkitId) {
-          setExpandedSkit({
-            ...expandedSkit,
-            is_winner: true,
-            performance_metrics: Object.keys(metrics).length > 0 ? metrics : null,
-            posted_video_url: winnerVideoUrl || null,
-          });
-        }
-        setWinnerModalOpen(false);
-      } else {
-        setError(data.error || "Failed to mark as winner");
-      }
-    } catch {
-      setError("Failed to save winner status");
-    } finally {
-      setSavingWinner(false);
+    if (skit) {
+      setWinnerModalSkit(skit);
     }
   };
 
-  // Remove winner status
+  // Called when MarkAsWinnerModal successfully adds to winners_bank
+  const handleWinnerSuccess = () => {
+    if (!winnerModalSkit) return;
+
+    // Update local state to show winner badge
+    setSkits(prev => prev.map(s =>
+      s.id === winnerModalSkit.id ? { ...s, is_winner: true } : s
+    ));
+    if (expandedSkit && expandedSkit.id === winnerModalSkit.id) {
+      setExpandedSkit({ ...expandedSkit, is_winner: true });
+    }
+
+    // Show success toast
+    setToast({
+      message: "Added to Winners Bank! AI is analyzing...",
+      type: "success",
+    });
+
+    setWinnerModalSkit(null);
+  };
+
+  // Remove winner status (removes from winners_bank would need separate API call)
   const handleRemoveWinner = async (skitId: string) => {
     try {
+      // Mark as not winner in skits table
       const res = await fetch(`/api/skits/${skitId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -608,6 +577,7 @@ export default function SkitLibraryPage() {
         if (expandedSkit && expandedSkit.id === skitId) {
           setExpandedSkit({ ...expandedSkit, is_winner: false, performance_metrics: null, posted_video_url: null });
         }
+        setToast({ message: "Removed from winners", type: "info" });
       }
     } catch {
       setError("Failed to remove winner status");
@@ -1214,7 +1184,7 @@ export default function SkitLibraryPage() {
                       Video
                     </Link>
                   )}
-                  {/* Winner Badge */}
+                  {/* Winner Badge with Performance Metrics */}
                   {skit.is_winner && (
                     <span
                       title={skit.performance_metrics?.view_count ? `${skit.performance_metrics.view_count.toLocaleString()} views` : "Top performer"}
@@ -1230,8 +1200,17 @@ export default function SkitLibraryPage() {
                         gap: "4px",
                       }}
                     >
-                      <span style={{ fontSize: "11px" }}>&#9733;</span>
+                      <Trophy size={12} />
                       Winner
+                      {skit.performance_metrics?.view_count && (
+                        <span style={{ fontWeight: 400, opacity: 0.8, marginLeft: "4px" }}>
+                          ({skit.performance_metrics.view_count >= 1000000
+                            ? `${(skit.performance_metrics.view_count / 1000000).toFixed(1)}M`
+                            : skit.performance_metrics.view_count >= 1000
+                            ? `${(skit.performance_metrics.view_count / 1000).toFixed(1)}K`
+                            : skit.performance_metrics.view_count} views)
+                        </span>
+                      )}
                     </span>
                   )}
                   <span style={{ ...getStatusStyle(skit.status, isDark), padding: "4px 10px", borderRadius: "4px", fontSize: "12px", fontWeight: 500, textTransform: "capitalize" }}>
@@ -1486,18 +1465,24 @@ export default function SkitLibraryPage() {
                               backgroundColor: isDark ? "#854d0e" : "#fef3c7",
                               borderColor: isDark ? "#a16207" : "#fcd34d",
                               color: isDark ? "#fcd34d" : "#b45309",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
                             }}
                           >
-                            &#9733; Winner
+                            <Trophy size={14} /> Winner
                           </button>
                         ) : (
                           <button
                             onClick={(e) => { e.stopPropagation(); openWinnerModal(skit.id); }}
                             style={{
                               ...secondaryButtonStyle,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
                             }}
                           >
-                            Mark Winner
+                            <Trophy size={14} /> Mark Winner
                           </button>
                         )}
 
@@ -1672,127 +1657,17 @@ export default function SkitLibraryPage() {
         </div>
       )}
 
-      {/* Winner Modal */}
-      {winnerModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setWinnerModalOpen(false)}
-          onKeyDown={(e) => e.key === "Escape" && setWinnerModalOpen(false)}
-        >
-          <div
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: "12px",
-              padding: "24px",
-              width: "400px",
-              maxWidth: "90vw",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: "0 0 16px 0", color: colors.text, fontSize: "18px" }}>
-              Mark as Winner
-            </h3>
-            <p style={{ fontSize: "13px", color: colors.textMuted, marginBottom: "16px" }}>
-              Add performance metrics for this winning skit (optional).
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: colors.textMuted, display: "block", marginBottom: "4px" }}>
-                  View Count
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g., 150000"
-                  value={winnerViewCount}
-                  onChange={(e) => setWinnerViewCount(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: colors.textMuted, display: "block", marginBottom: "4px" }}>
-                  Engagement Rate (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  placeholder="e.g., 8.5"
-                  value={winnerEngagement}
-                  onChange={(e) => setWinnerEngagement(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: colors.textMuted, display: "block", marginBottom: "4px" }}>
-                  Posted Video URL (optional)
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://tiktok.com/@account/video/..."
-                  value={winnerVideoUrl}
-                  onChange={(e) => setWinnerVideoUrl(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "20px" }}>
-              <button
-                onClick={() => setWinnerModalOpen(false)}
-                style={{
-                  padding: "10px 16px",
-                  backgroundColor: "transparent",
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: "6px",
-                  color: colors.text,
-                  fontSize: "14px",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveWinner}
-                disabled={savingWinner}
-                style={{
-                  padding: "10px 20px",
-                  backgroundColor: savingWinner ? colors.surface2 : "#f59e0b",
-                  border: "none",
-                  borderRadius: "6px",
-                  color: "white",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: savingWinner ? "not-allowed" : "pointer",
-                }}
-              >
-                {savingWinner ? "Saving..." : "Mark as Winner"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Mark as Winner Modal - uses new comprehensive modal */}
+      {winnerModalSkit && (
+        <MarkAsWinnerModal
+          isOpen={!!winnerModalSkit}
+          onClose={() => setWinnerModalSkit(null)}
+          onSuccess={handleWinnerSuccess}
+          scriptId={winnerModalSkit.id}
+          scriptTitle={winnerModalSkit.title}
+          hookText={winnerModalSkit.skit_data?.hook_line}
+          productName={winnerModalSkit.product_name || undefined}
+        />
       )}
 
       {/* Video Creation Sheet */}
@@ -1802,6 +1677,15 @@ export default function SkitLibraryPage() {
         script={videoSheetScript}
         onSuccess={handleVideoCreationSuccess}
       />
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

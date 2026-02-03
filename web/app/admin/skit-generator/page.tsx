@@ -16,6 +16,7 @@ import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 import { PersonaSelector } from '@/components/PersonaSelector';
 import { CreatorPersonaSelector } from '@/components/CreatorPersonaSelector';
+import { WinnersIntelligencePanel } from '@/components/WinnersIntelligencePanel';
 import {
   CONTENT_EDGE_OPTIONS,
   UNPREDICTABILITY_OPTIONS,
@@ -1863,6 +1864,9 @@ export default function SkitGeneratorPage() {
           </button>
         </div>
       )}
+
+      {/* Winners Intelligence Panel - shows insights from winners bank */}
+      <WinnersIntelligencePanel className="mb-6" />
 
       {/* Main content - responsive grid */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>

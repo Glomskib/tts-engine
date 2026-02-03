@@ -53,6 +53,8 @@ export default function CalendarPage() {
     platform: 'tiktok',
   });
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [platformFilter, setPlatformFilter] = useState<string>('all_platforms');
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -88,6 +90,24 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  // Escape key closes modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showModal) closeModal();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showModal]);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
 
   const calendarDays = useMemo((): CalendarDay[] => {
     const days: CalendarDay[] = [];
@@ -213,9 +233,14 @@ export default function CalendarPage() {
       if (res.ok) {
         closeModal();
         fetchPosts();
+        showToast(selectedPost ? 'Post updated' : 'Post scheduled', 'success');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || 'Failed to save post', 'error');
       }
     } catch (err) {
       console.error('Failed to save:', err);
+      showToast('Failed to save post', 'error');
     } finally {
       setSaving(false);
     }
@@ -231,13 +256,37 @@ export default function CalendarPage() {
       if (res.ok) {
         closeModal();
         fetchPosts();
+        showToast('Post deleted', 'success');
+      } else {
+        showToast('Failed to delete post', 'error');
       }
     } catch (err) {
       console.error('Failed to delete:', err);
+      showToast('Failed to delete post', 'error');
     }
   };
 
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Filter posts by platform
+  const filteredPosts = useMemo(() => {
+    if (platformFilter === 'all_platforms') return posts;
+    return posts.filter(p => p.platform === platformFilter);
+  }, [posts, platformFilter]);
+
+  // Rebuild calendar days with filtered posts
+  const displayDays = useMemo((): CalendarDay[] => {
+    if (platformFilter === 'all_platforms') return calendarDays;
+    return calendarDays.map(day => ({
+      ...day,
+      posts: day.posts.filter(p => p.platform === platformFilter),
+    }));
+  }, [calendarDays, platformFilter]);
+
+  const totalPostsThisMonth = filteredPosts.filter(p => {
+    const d = new Date(p.scheduled_for);
+    return d.getMonth() === month && d.getFullYear() === year;
+  }).length;
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
@@ -258,8 +307,17 @@ export default function CalendarPage() {
           </button>
         </div>
 
+        {/* Toast notification */}
+        {toast && (
+          <div className={`fixed top-4 right-4 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
+            toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+          }`}>
+            {toast.message}
+          </div>
+        )}
+
         {/* Calendar Navigation */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigateMonth(-1)}
@@ -278,16 +336,49 @@ export default function CalendarPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
+            <span className="text-sm text-zinc-500 ml-2">{totalPostsThisMonth} post{totalPostsThisMonth !== 1 ? 's' : ''}</span>
           </div>
-          <button
-            onClick={goToToday}
-            className="px-4 py-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 rounded-lg text-sm transition-colors"
-          >
-            Today
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Platform filter */}
+            <select
+              value={platformFilter}
+              onChange={e => setPlatformFilter(e.target.value)}
+              className="px-3 py-2 bg-zinc-800 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value="all_platforms">All Platforms</option>
+              {PLATFORMS.filter(p => p.value !== 'all').map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={goToToday}
+              className="px-4 py-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 rounded-lg text-sm transition-colors"
+            >
+              Today
+            </button>
+          </div>
         </div>
 
         {/* Calendar Grid */}
+        {loading ? (
+          <div className="border border-white/10 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-7 bg-zinc-900">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="px-2 py-3 text-center text-sm font-medium text-zinc-500 border-b border-white/10">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div key={i} className="min-h-[100px] p-2 border-b border-r border-white/5 bg-zinc-900 animate-pulse">
+                  <div className="h-4 w-6 bg-zinc-800 rounded mb-2" />
+                  {i % 5 === 0 && <div className="h-5 w-full bg-zinc-800 rounded mb-1" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
         <div className="border border-white/10 rounded-xl overflow-hidden">
           {/* Days of week header */}
           <div className="grid grid-cols-7 bg-zinc-900">
@@ -300,7 +391,7 @@ export default function CalendarPage() {
 
           {/* Calendar days */}
           <div className="grid grid-cols-7">
-            {calendarDays.map((day, idx) => (
+            {displayDays.map((day, idx) => (
               <div
                 key={idx}
                 onClick={() => openModal(day.date)}
@@ -350,6 +441,7 @@ export default function CalendarPage() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-6 mt-4">

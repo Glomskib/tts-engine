@@ -86,7 +86,8 @@ const GenerateSkitInputSchema = z.object({
   template_id: z.string().max(50).optional(),
   intensity: z.number().min(0).max(100).optional(),
   preset_id: z.string().max(50).optional(),
-  chaos_level: z.number().min(0).max(100).optional(),
+  chaos_level: z.number().min(0).max(100).optional(), // Deprecated, use plot_style
+  plot_style: z.number().min(0).max(100).optional(),
   creative_direction: z.string().max(500).optional(),
   actor_type: ActorTypeSchema.optional(),
   target_duration: TargetDurationSchema.optional(),
@@ -656,39 +657,39 @@ CREATIVE PRINCIPLES - MAKE CONTENT THAT SLAPS:
    - CTA (final 5s): Quick, not preachy
 `;
 
-// --- Chaos Level Guidelines ---
+// --- Plot Style Guidelines ---
 
-function buildChaosGuidelines(chaosLevel: number): string {
-  if (chaosLevel <= 20) {
+function buildPlotStyleGuidelines(plotStyle: number): string {
+  if (plotStyle <= 20) {
     return `
-CHAOS LEVEL: GROUNDED (${chaosLevel}/100)
+PLOT STYLE: GROUNDED (${plotStyle}/100)
 - Keep the premise realistic and relatable
 - Humor comes from observation and truth
 - "This is literally my life" energy
 - Situations people actually encounter
 - Subtle escalation, nothing too wild
 `;
-  } else if (chaosLevel <= 40) {
+  } else if (plotStyle <= 40) {
     return `
-CHAOS LEVEL: PLAYFUL (${chaosLevel}/100)
+PLOT STYLE: PLAYFUL (${plotStyle}/100)
 - Slightly exaggerated scenarios
 - One unexpected element per beat is fine
 - Light absurdity that still tracks logically
 - "This could happen on a weird day"
 - Room for quirky character choices
 `;
-  } else if (chaosLevel <= 60) {
+  } else if (plotStyle <= 60) {
     return `
-CHAOS LEVEL: PLAYFULLY ABSURD (${chaosLevel}/100)
+PLOT STYLE: ABSURDIST (${plotStyle}/100)
 - Embrace weird premises and strange logic
 - Non-sequiturs that somehow make sense
 - Characters can have bizarre reactions
 - "Wait, what?" followed by "okay I'm with it"
 - Breaking expectations is encouraged
 `;
-  } else if (chaosLevel <= 80) {
+  } else if (plotStyle <= 80) {
     return `
-CHAOS LEVEL: UNHINGED (${chaosLevel}/100)
+PLOT STYLE: UNHINGED (${plotStyle}/100)
 - Wild premises, surreal situations
 - Logic is optional, vibes are mandatory
 - Rapid escalation into absurdity
@@ -697,7 +698,7 @@ CHAOS LEVEL: UNHINGED (${chaosLevel}/100)
 `;
   } else {
     return `
-CHAOS LEVEL: FEVER DREAM (${chaosLevel}/100)
+PLOT STYLE: FEVER DREAM (${plotStyle}/100)
 - Full surrealist energy
 - Reality is a suggestion
 - Stream of consciousness escalation
@@ -1440,7 +1441,7 @@ export async function POST(request: Request) {
       template,
       preset,
       intensity: requestedIntensity,
-      chaosLevel: input.chaos_level ?? 50,
+      plotStyle: input.chaos_level ?? input.plot_style ?? 50,
       creativeDirection: input.creative_direction || "",
       actorType: input.actor_type ?? "human",
       targetDuration: input.target_duration ?? "standard",
@@ -1618,7 +1619,7 @@ interface PromptParams {
   template: SkitTemplate | null;
   preset: SkitPreset | null;
   intensity: number;
-  chaosLevel: number;
+  plotStyle: number;
   creativeDirection: string;
   actorType: ActorType;
   targetDuration: TargetDuration;
@@ -1640,14 +1641,14 @@ interface PromptParams {
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
   const templateSection = template ? buildTemplatePromptSection(template) : "";
   const presetSection = preset ? buildPresetPromptSection(preset) : "";
   const intensityGuideline = buildIntensityGuidelines(intensity);
-  const chaosGuideline = buildChaosGuidelines(chaosLevel);
+  const plotStyleGuideline = buildPlotStyleGuidelines(plotStyle);
   const actorGuideline = buildActorTypeGuidelines(actorType);
   const durationGuideline = buildDurationGuidelines(targetDuration);
   const contentFormatGuideline = buildContentFormatGuidelines(contentFormat);
@@ -1686,7 +1687,7 @@ ${actorGuideline}
 
 ${durationGuideline}
 
-${chaosGuideline}
+${plotStyleGuideline}
 ${pacingGuideline}
 ${hookStrengthGuideline}
 ${authenticityGuideline}

@@ -2532,13 +2532,13 @@ export default function SkitGeneratorPage() {
                       </div>
                     </div>
 
-                    {/* Chaos Level */}
+                    {/* Plot Style */}
                     <div style={{ marginBottom: '16px' }}>
                       <label
                         style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
-                        title="How random or surprising the content is"
+                        title="How grounded vs surreal the scenario is"
                       >
-                        Chaos Level <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                        Plot Style <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                       </label>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {UNPREDICTABILITY_OPTIONS.map((option) => (
@@ -2565,8 +2565,8 @@ export default function SkitGeneratorPage() {
                         ))}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary, marginTop: '4px' }}>
-                        <span>Structured</span>
-                        <span>Wild Card</span>
+                        <span>Grounded</span>
+                        <span>Fever Dream</span>
                       </div>
                       <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
                         {UNPREDICTABILITY_OPTIONS.find(o => o.value === unpredictability)?.description}

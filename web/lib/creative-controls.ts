@@ -12,14 +12,17 @@ export const CONTENT_EDGE_OPTIONS = [
 
 export type ContentEdge = typeof CONTENT_EDGE_OPTIONS[number]['value'];
 
-// Chaos Level (controls how unpredictable/random the content is) - 1-5 scale
-export const UNPREDICTABILITY_OPTIONS = [
-  { value: 1, label: 'Structured', description: 'Follows a clear, predictable format' },
-  { value: 2, label: 'Mostly Structured', description: 'Some surprises, mostly predictable' },
-  { value: 3, label: 'Balanced', description: 'Mix of expected and unexpected' },
-  { value: 4, label: 'Chaotic', description: 'Frequent surprises and pivots' },
-  { value: 5, label: 'Wild Card', description: 'Completely unpredictable, chaotic energy' },
+// Plot Style (controls how unpredictable/random the content structure is) - 1-5 scale
+export const PLOT_STYLE_OPTIONS = [
+  { value: 1, label: 'Grounded', description: 'Realistic, relatable scenarios people actually encounter' },
+  { value: 2, label: 'Playful', description: 'Slightly exaggerated, light absurdity that still tracks' },
+  { value: 3, label: 'Absurdist', description: 'Embrace weird premises and strange logic' },
+  { value: 4, label: 'Unhinged', description: 'Wild premises, surreal situations, vibes over logic' },
+  { value: 5, label: 'Fever Dream', description: 'Full surrealist energy, reality is a suggestion' },
 ] as const;
+
+// Keep old name for backward compatibility
+export const UNPREDICTABILITY_OPTIONS = PLOT_STYLE_OPTIONS;
 
 // Comedy Intensity (how funny/comedic the content is) - 1-5 scale
 export const HUMOR_LEVEL_OPTIONS = [
@@ -66,18 +69,21 @@ export function getContentEdgeLabel(value: string): string {
   return option?.label || value;
 }
 
-export function getUnpredictabilityLabel(value: number): string {
-  const option = UNPREDICTABILITY_OPTIONS.find(o => o.value === value);
+export function getPlotStyleLabel(value: number): string {
+  const option = PLOT_STYLE_OPTIONS.find(o => o.value === value);
   return option?.label || `Level ${value}`;
 }
+
+// Keep old name for backward compatibility
+export const getUnpredictabilityLabel = getPlotStyleLabel;
 
 export function getHumorLevelLabel(value: number): string {
   const option = HUMOR_LEVEL_OPTIONS.find(o => o.value === value);
   return option?.label || `Level ${value}`;
 }
 
-// Convert old chaos level (0-100) to new scale (1-5)
-export function chaosToUnpredictability(chaosLevel: number): number {
+// Convert old chaos level (0-100) to new plot style scale (1-5)
+export function chaosToPlotStyle(chaosLevel: number): number {
   if (chaosLevel <= 20) return 1;
   if (chaosLevel <= 40) return 2;
   if (chaosLevel <= 60) return 3;
@@ -85,8 +91,11 @@ export function chaosToUnpredictability(chaosLevel: number): number {
   return 5;
 }
 
-// Convert new unpredictability (1-5) back to chaos level for API compatibility
-export function unpredictabilityToChaos(unpredictability: number): number {
+// Keep old name for backward compatibility
+export const chaosToUnpredictability = chaosToPlotStyle;
+
+// Convert plot style (1-5) back to chaos level for API compatibility
+export function plotStyleToChaos(plotStyle: number): number {
   const mapping: Record<number, number> = {
     1: 10,
     2: 30,
@@ -94,8 +103,11 @@ export function unpredictabilityToChaos(unpredictability: number): number {
     4: 70,
     5: 90,
   };
-  return mapping[unpredictability] || 50;
+  return mapping[plotStyle] || 50;
 }
+
+// Keep old name for backward compatibility
+export const unpredictabilityToChaos = plotStyleToChaos;
 
 // Convert old intensity (0-100) to humor level (1-5)
 export function intensityToHumorLevel(intensity: number): number {
@@ -125,10 +137,10 @@ export const CREATIVE_CONTROLS = {
     description: 'How boundary-pushing the content is',
     options: CONTENT_EDGE_OPTIONS,
   },
-  unpredictability: {
-    label: 'Chaos Level',
-    description: 'How random or surprising the content is',
-    options: UNPREDICTABILITY_OPTIONS,
+  plotStyle: {
+    label: 'Plot Style',
+    description: 'How grounded vs surreal the scenario is',
+    options: PLOT_STYLE_OPTIONS,
   },
   humorLevel: {
     label: 'Comedy Intensity',

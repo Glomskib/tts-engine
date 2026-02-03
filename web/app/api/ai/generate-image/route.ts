@@ -22,6 +22,8 @@ import { requireCredits } from "@/lib/credits";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const DEBUG = process.env.DEBUG_AI === "true";
+
 // Valid aspect ratios for Flux models
 const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:5', '5:4', '3:2', '2:3', '4:3', '3:4'];
 
@@ -102,15 +104,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log what we're about to send
-    console.log('[Generate Image] Request validated:', {
-      prompt: cleanPrompt.substring(0, 50) + '...',
-      model: input.model,
-      aspectRatio: normalizedAspectRatio,
-      style: input.style,
-      numOutputs: input.num_outputs,
-      freeRegen: input.free_regen,
-    });
+    // Debug logging
+    if (DEBUG) {
+      console.log('[Generate Image] Request validated:', {
+        prompt: cleanPrompt.substring(0, 50) + '...',
+        model: input.model,
+        aspectRatio: normalizedAspectRatio,
+        style: input.style,
+        numOutputs: input.num_outputs,
+      });
+    }
 
     // Check credits (unless admin or free regen)
     const creditCost = getImageCreditCost(input.model, input.num_outputs);
@@ -128,7 +131,6 @@ export async function POST(request: NextRequest) {
 
       // If no credits row exists, create default records for the user
       if (!userCredits) {
-        console.log(`[Generate Image] Creating missing credit records for user ${authContext.user.id}`);
 
         // Create subscription record (free plan)
         await supabaseAdmin
@@ -217,16 +219,6 @@ export async function POST(request: NextRequest) {
 
     // Generate images
     const isImg2Img = !!input.source_image;
-    console.log(`[Generate Image] Starting ${isImg2Img ? 'img2img' : 'text2img'} generation for user ${authContext.user.id}`);
-    console.log(`[Generate Image] Prompt: ${cleanPrompt.substring(0, 100)}...`);
-    console.log(`[Generate Image] Model: ${input.model}, Style: ${input.style}, Aspect: ${normalizedAspectRatio}`);
-    if (isImg2Img) {
-      console.log(`[Generate Image] Source image: ${input.source_image?.substring(0, 50)}...`);
-      console.log(`[Generate Image] Strength: ${input.strength}`);
-    }
-    if (skipCreditDeduction) {
-      console.log(`[Generate Image] Free regeneration - skipping credit deduction`);
-    }
 
     let imageUrls: string[];
     try {
@@ -250,13 +242,11 @@ export async function POST(request: NextRequest) {
           numOutputs: input.num_outputs,
         });
       }
-      console.log(`[Generate Image] Successfully generated ${imageUrls.length} images`);
     } catch (genError) {
       console.error("[Generate Image] Generation failed:", genError);
 
       // Refund credits on failure (if not admin and not free regen)
       if (!authContext.isAdmin && !skipCreditDeduction) {
-        console.log("[Generate Image] Refunding credits due to failure");
         await supabaseAdmin.rpc("add_credits", {
           p_user_id: authContext.user.id,
           p_amount: creditCost,

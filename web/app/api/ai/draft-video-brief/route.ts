@@ -1539,31 +1539,24 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
   try {
     // Fetch recent hooks for no-repeat logic
     const recentHooks = await getRecentHooksForProduct(product_id.trim());
-    console.log(`[${correlationId}] Found ${recentHooks.length} recent hooks to avoid`);
 
     // Fetch banned hooks from user feedback
     const bannedHooks = await getBannedHooksForBrand(brand, product_id.trim());
-    console.log(`[${correlationId}] Found ${bannedHooks.length} banned hooks to avoid`);
 
     // Fetch proven hooks for inspiration
     const provenHooks = await getProvenHooksForBrand(brand, product_id.trim());
-    console.log(`[${correlationId}] Found ${provenHooks.length} proven hooks for inspiration`);
 
     // Fetch Winners Bank context for style reference
     const winnersBank = await getWinnersBankContext(category, 5);
-    console.log(`[${correlationId}] Found ${winnersBank.length} Winners Bank extracts for context`);
 
     // Fetch rejected hooks (hard exclude)
     const rejectedHooks = await getRejectedHooksForProduct(brand, product_id.trim());
-    console.log(`[${correlationId}] Found ${rejectedHooks.length} rejected hooks to exclude`);
 
     // Fetch underperforming hooks (soft penalize)
     const weakHooks = await getWeakHooksForProduct(brand, product_id.trim());
-    console.log(`[${correlationId}] Found ${weakHooks.length} weak hooks to avoid`);
 
     // Get weak patterns summary for strategic adaptation
     const weakPatternsSummary = await getWeakPatternsSummary(brand, product_id.trim());
-    console.log(`[${correlationId}] Weak patterns: ${weakPatternsSummary.map(p => `${p.reason_code}:${p.count}`).join(", ") || "none"}`);
 
     // Build the enhanced prompt
     const prompt = buildEnhancedPrompt({
@@ -1793,9 +1786,6 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
     };
     const totalDriverHooks = Object.values(driverCounts).reduce((a, b) => a + b, 0);
 
-    // Log distribution for debugging
-    console.log(`[${correlationId}] Emotional driver distribution: shock=${driverCounts.shock}, fear=${driverCounts.fear}, curiosity=${driverCounts.curiosity}, insecurity=${driverCounts.insecurity}, fomo=${driverCounts.fomo}, total=${totalDriverHooks}, edge_push=${hasEdgePush}`);
-
     // Find best hook by AI-assigned score
     const hookScores = aiResult.hook_scores || {};
 
@@ -1864,12 +1854,6 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
     // Extract ranked options
     const rankedSpokenHooks = diverseSpoken.map((s) => s.option);
     const rankedTextHooks = diverseText.map((s) => s.option);
-
-    // Count unique families for logging
-    const spokenFamilies = new Set(diverseSpoken.map((s) => s.familyKey));
-    const textFamilies = new Set(diverseText.map((s) => s.familyKey));
-
-    console.log(`[${correlationId}] Hook scoring: top spoken="${rankedSpokenHooks[0]?.slice(0, 50)}" (${diverseSpoken[0]?.score}), families=${spokenFamilies.size}/${diverseSpoken.length}`);
 
     // Best hook = top-ranked by our scoring (not AI's self-score)
     let bestHook = rankedSpokenHooks[0] || "";

@@ -1108,15 +1108,12 @@ export async function POST(request: Request) {
         }, { status: 402 });
       }
     }
-  } else {
-    console.log(`[${correlationId}] Admin user ${authContext.user.email} - bypassing credit check`);
   }
 
   // Parse and validate input
   let input: GenerateSkitInput;
   try {
     const body = await request.json();
-    console.log(`[${correlationId}] Request body:`, JSON.stringify(body, null, 2));
     input = GenerateSkitInputSchema.parse(body);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -1179,8 +1176,10 @@ export async function POST(request: Request) {
         },
       };
 
-      // Log to console for terminal visibility
-      console.log(`[${correlationId}] Product lookup debug:`, JSON.stringify(productLookupDebug, null, 2));
+      // Log to console for terminal visibility (debug mode only)
+      if (debugMode) {
+        console.log(`[${correlationId}] Product lookup debug:`, JSON.stringify(productLookupDebug, null, 2));
+      }
 
       // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
@@ -1196,8 +1195,6 @@ export async function POST(request: Request) {
         error_message: productError?.message || null,
         row_returned: dbProduct ? { id: dbProduct.id, name: dbProduct.name } : null,
       };
-
-      console.log(`[${correlationId}] Product lookup result:`, JSON.stringify(productLookupDebug.query_result, null, 2));
 
       // Distinguish error types:
       // - PGRST116: query succeeded but returned 0 rows (not found)
@@ -1356,18 +1353,12 @@ export async function POST(request: Request) {
 
       if (!winnerError && winnerData) {
         winnerVariation = winnerData;
-        console.log(`[${correlationId}] Generating variation of winner: ${winnerData.id}`);
-      } else {
-        console.warn(`[${correlationId}] Winner not found or not accessible: ${input.winner_id}`);
       }
     }
 
     // Fetch user's winners for pattern analysis (now uses winners_bank)
     if (input.use_winners_intelligence && !winnerVariation) {
       winnersIntelligence = await fetchWinnersIntelligence(authContext.user.id);
-      if (winnersIntelligence) {
-        console.log(`[${correlationId}] Winners intelligence: ${winnersIntelligence.totalCount} winners analyzed`);
-      }
     }
 
     // Build the prompt

@@ -29,7 +29,6 @@ export async function POST(request: Request) {
   // Auth check
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    console.log(`[${correlationId}] Unauthorized request to analyze-winner`);
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
@@ -72,7 +71,6 @@ export async function POST(request: Request) {
   } catch (err) {
     if (err instanceof z.ZodError) {
       const issues = err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
-      console.log(`[${correlationId}] Validation error:`, issues);
       return NextResponse.json({
         ok: false,
         error: `Validation error: ${issues}`,
@@ -205,8 +203,6 @@ Return ONLY valid JSON, no markdown or explanation.`;
         correlation_id: correlationId,
       }, { status: 500 });
     }
-
-    console.log(`[${correlationId}] Analysis completed successfully`);
 
     // Deduct credits after successful analysis (admins bypass)
     let creditsRemaining: number | undefined;

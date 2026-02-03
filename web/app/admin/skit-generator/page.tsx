@@ -440,6 +440,7 @@ export default function SkitGeneratorPage() {
   const [loadingSkits, setLoadingSkits] = useState(false);
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryStatusFilter, setLibraryStatusFilter] = useState<string>('');
+  const [libraryProductFilter, setLibraryProductFilter] = useState<string>('');
 
   // AI Score state
   const [aiScore, setAiScore] = useState<AIScore | null>(null);
@@ -1571,6 +1572,9 @@ export default function SkitGeneratorPage() {
     if (librarySearch.trim()) {
       url += `&search=${encodeURIComponent(librarySearch.trim())}`;
     }
+    if (libraryProductFilter) {
+      url += `&product_id=${libraryProductFilter}`;
+    }
 
     try {
       const res = await fetch(url);
@@ -1594,6 +1598,7 @@ export default function SkitGeneratorPage() {
     setLoadModalOpen(true);
     setLibrarySearch('');
     setLibraryStatusFilter('');
+    setLibraryProductFilter('');
     fetchSavedSkits();
   };
 
@@ -5695,6 +5700,27 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 <option value="">All Statuses</option>
                 {SKIT_STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <select
+                value={libraryProductFilter}
+                onChange={(e) => {
+                  setLibraryProductFilter(e.target.value);
+                  setTimeout(fetchSavedSkits, 0);
+                }}
+                style={{
+                  padding: '8px',
+                  backgroundColor: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.text,
+                  fontSize: '14px',
+                  maxWidth: '150px',
+                }}
+              >
+                <option value="">All Products</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
               <button

@@ -59,7 +59,7 @@ export default function PerformancePage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch posted videos');
     } finally {
       setLoading(false);
@@ -117,7 +117,7 @@ export default function PerformancePage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to save metrics');
     }
   };
@@ -141,7 +141,7 @@ export default function PerformancePage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to evaluate winners');
     } finally {
       setEvaluating(false);

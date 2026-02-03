@@ -62,7 +62,7 @@ export default function UploaderPortalPage() {
       }
 
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch videos');
     } finally {
       setLoading(false);
@@ -95,7 +95,7 @@ export default function UploaderPortalPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to mark video as posted');
     }
   };
@@ -117,7 +117,7 @@ export default function UploaderPortalPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to mark video as ready to upload');
     }
   };

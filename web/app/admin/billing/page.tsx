@@ -118,7 +118,7 @@ export default function AdminBillingPage() {
       } else {
         setError(result.error || 'Failed to load billing data');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -152,7 +152,7 @@ export default function AdminBillingPage() {
       } else {
         alert('Export failed');
       }
-    } catch (err) {
+    } catch {
       alert('Export error');
     } finally {
       setExporting(false);

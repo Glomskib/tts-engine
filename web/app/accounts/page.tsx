@@ -28,7 +28,7 @@ export default function AccountsPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch accounts');
     } finally {
       setLoading(false);
@@ -56,7 +56,7 @@ export default function AccountsPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to create account');
     } finally {
       setCreating(false);

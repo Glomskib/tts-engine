@@ -159,7 +159,7 @@ export default function AssignmentsPage() {
       } else {
         setError(data.error || 'Failed to load assignments');
       }
-    } catch (err) {
+    } catch {
       setError('Network error loading assignments');
     }
   }, [roleFilter, stateFilter, sortBy]);
@@ -211,7 +211,7 @@ export default function AssignmentsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to extend' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setExtending(false);
@@ -250,7 +250,7 @@ export default function AssignmentsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to reassign' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setReassigning(false);
@@ -273,7 +273,7 @@ export default function AssignmentsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to sweep' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     }
   };

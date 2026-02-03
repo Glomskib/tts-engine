@@ -188,7 +188,7 @@ export default function AdminAnalyticsPage() {
       if (!pipelineResult.ok && !contentResult.ok) {
         setError('Failed to load analytics');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -243,7 +243,7 @@ export default function AdminAnalyticsPage() {
       } else {
         alert('Export failed');
       }
-    } catch (err) {
+    } catch {
       alert('Export error');
     } finally {
       setExporting(null);
@@ -282,7 +282,7 @@ export default function AdminAnalyticsPage() {
       } else {
         alert('Export failed');
       }
-    } catch (err) {
+    } catch {
       alert('Export error');
     } finally {
       setContentExporting(null);

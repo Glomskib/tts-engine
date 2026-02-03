@@ -1984,8 +1984,8 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
         hook_family_debug: {
           spoken: diverseSpoken.map((s) => ({ option: s.option, family: s.familyKey, score: s.score })),
           on_screen: diverseText.map((s) => ({ option: s.option, family: s.familyKey, score: s.score })),
-          spoken_family_count: spokenFamilies.size,
-          text_family_count: textFamilies.size,
+          spoken_family_count: new Set(diverseSpoken.map((s) => s.familyKey)).size,
+          text_family_count: new Set(diverseText.map((s) => s.familyKey)).size,
         },
       };
     }

@@ -23,48 +23,48 @@ export type PersonaCategoryId = typeof PERSONA_CATEGORIES[number]['id'];
 // Map persona names to categories for quick lookup
 export const PERSONA_CATEGORY_MAP: Record<string, PersonaCategoryId> = {
   // Lifestyle
-  'Sarah': 'lifestyle',
-  'Jessica': 'lifestyle',
-  'Nina Thompson': 'lifestyle',
-  'Luna Park': 'lifestyle',
+  'Trend-Aware Lifestyle Creator': 'lifestyle',
+  'Gen-Z Trendsetter': 'lifestyle',
+  'Overwhelmed Supermom': 'lifestyle',
+  'Mindful Wellness Seeker': 'lifestyle',
 
   // Tech
-  'Mike': 'tech',
-  'Alex Chen': 'tech',
-  'Derek Chang': 'tech',
+  'Skeptical Veteran Reviewer': 'tech',
+  'Spec-Comparing Researcher': 'tech',
+  'Tech-Hyped Early Adopter': 'tech',
 
   // Beauty
-  'Priya Sharma': 'beauty',
-  'Aisha Johnson': 'beauty',
+  'Ingredient-Obsessed Researcher': 'beauty',
+  'Trend-Forward Fashionista': 'beauty',
 
   // Business
-  'Carlos Rodriguez': 'business',
+  'ROI-Focused Entrepreneur': 'business',
 
   // Fitness
-  'James Wilson': 'fitness',
+  'Transformation Chaser': 'fitness',
 
   // Comedy
-  'Tyler': 'comedy',
-  'Marcus': 'comedy',
-  'David': 'comedy',
+  'Chaotic Comedy King': 'comedy',
+  'High-Energy Hype Machine': 'comedy',
+  'Relatable Dad Jokester': 'comedy',
 
   // Food
-  'Chris Foster': 'food',
+  'Culinary Enthusiast': 'food',
 
   // Travel
-  'Sam Rivera': 'travel',
+  'Adventure-Seeking Explorer': 'travel',
 
   // DIY
-  'Tom Bradley': 'diy',
+  'DIY Problem Solver': 'diy',
 
   // Budget
-  'Zoe Martinez': 'budget',
+  'Budget-Conscious Deal Hunter': 'budget',
 
   // Luxury
-  'Emma': 'luxury',
+  'Aspirational Taste-Maker': 'luxury',
 
   // Educational
-  'Lisa': 'educational',
+  'Trusted Expert Advisor': 'educational',
 };
 
 export function getCategoryById(id: string) {

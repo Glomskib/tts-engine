@@ -18,10 +18,10 @@ export interface Persona {
 }
 
 export const PERSONAS: Persona[] = [
-  // Original 8 personas
+  // Original 8 personas (renamed to descriptive archetypes)
   {
     id: 'sarah',
-    name: 'Sarah',
+    name: 'Trend-Aware Lifestyle Creator',
     age: 28,
     description: 'Energetic lifestyle content creator',
     fullDescription: 'Young professional who loves trying new products and sharing authentic experiences. High energy, relatable, trend-aware.',
@@ -33,7 +33,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'mike',
-    name: 'Mike',
+    name: 'Skeptical Veteran Reviewer',
     age: 35,
     description: 'Skeptical product reviewer',
     fullDescription: 'No-nonsense reviewer who cuts through the hype. Direct, honest, values quality over trends.',
@@ -45,7 +45,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'jessica',
-    name: 'Jessica',
+    name: 'Gen-Z Trendsetter',
     age: 24,
     description: 'Gen-Z trend expert',
     fullDescription: 'Always on top of the latest trends. Uses current slang, references pop culture, speaks to younger audiences.',
@@ -57,7 +57,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'david',
-    name: 'David',
+    name: 'Relatable Dad Jokester',
     age: 42,
     description: 'Dad humor specialist',
     fullDescription: 'Relatable parent figure. Uses dad jokes, everyday situations, appeals to family audiences.',
@@ -70,7 +70,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'emma',
-    name: 'Emma',
+    name: 'Aspirational Taste-Maker',
     age: 31,
     description: 'Luxury lifestyle curator',
     fullDescription: 'Sophisticated taste-maker. Focuses on premium quality, aesthetics, and elevated experiences.',
@@ -82,7 +82,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'marcus',
-    name: 'Marcus',
+    name: 'High-Energy Hype Machine',
     age: 29,
     description: 'High-energy hype creator',
     fullDescription: 'Gets people excited! Fast-paced delivery, uses urgency, great for limited offers and launches.',
@@ -95,7 +95,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'lisa',
-    name: 'Lisa',
+    name: 'Trusted Expert Advisor',
     age: 38,
     description: 'Trusted expert advisor',
     fullDescription: 'Knowledgeable and trustworthy. Explains benefits clearly, builds credibility, great for complex products.',
@@ -107,7 +107,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'tyler',
-    name: 'Tyler',
+    name: 'Chaotic Comedy King',
     age: 22,
     description: 'Chaotic comedy creator',
     fullDescription: 'Unpredictable and hilarious. Uses absurd humor, unexpected twists, very shareable content.',
@@ -119,10 +119,10 @@ export const PERSONAS: Persona[] = [
     platforms: ['tiktok', 'youtube'],
   },
 
-  // New 12 personas
+  // New 12 personas (renamed to descriptive archetypes)
   {
     id: 'alex-chen',
-    name: 'Alex Chen',
+    name: 'Spec-Comparing Researcher',
     age: 32,
     description: 'Tech reviewer who does deep-dive comparisons',
     fullDescription: 'Loves specs, benchmarks, and finding the best value. Appeals to informed buyers who research before purchasing.',
@@ -135,7 +135,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'priya-sharma',
-    name: 'Priya Sharma',
+    name: 'Ingredient-Obsessed Researcher',
     age: 27,
     description: 'Beauty and skincare guru focused on ingredients',
     fullDescription: 'Breaks down products scientifically while keeping it accessible. Big on before/afters and honest reviews.',
@@ -148,7 +148,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'carlos-rodriguez',
-    name: 'Carlos Rodriguez',
+    name: 'ROI-Focused Entrepreneur',
     age: 44,
     description: 'Business coach and entrepreneur mentor',
     fullDescription: 'Focuses on ROI, scaling, and practical business advice. No fluff, just results that matter.',
@@ -161,7 +161,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'zoe-martinez',
-    name: 'Zoe Martinez',
+    name: 'Budget-Conscious Deal Hunter',
     age: 21,
     description: 'College student and budget queen',
     fullDescription: 'Finds affordable alternatives to expensive products. Masters the "dupe" content format.',
@@ -174,7 +174,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'james-wilson',
-    name: 'James Wilson',
+    name: 'Transformation Chaser',
     age: 37,
     description: 'Fitness coach specializing in transformations',
     fullDescription: 'Before/after focused, motivational, practical workout and nutrition tips. Knows what actually works.',
@@ -187,7 +187,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'nina-thompson',
-    name: 'Nina Thompson',
+    name: 'Overwhelmed Supermom',
     age: 35,
     description: 'Working mom balancing kids and self-care',
     fullDescription: 'Time-saving hacks, practical solutions, keeping it real about the chaos of modern parenting.',
@@ -200,7 +200,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'derek-chang',
-    name: 'Derek Chang',
+    name: 'Tech-Hyped Early Adopter',
     age: 29,
     description: 'Gaming and tech streamer',
     fullDescription: 'Enthusiastic about new releases, builds community, speaks the language of gamers.',
@@ -213,7 +213,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'aisha-johnson',
-    name: 'Aisha Johnson',
+    name: 'Trend-Forward Fashionista',
     age: 26,
     description: 'Fashion and style influencer',
     fullDescription: 'Trend forecasting, outfit inspiration, making high fashion accessible to everyone.',
@@ -226,7 +226,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'tom-bradley',
-    name: 'Tom Bradley',
+    name: 'DIY Problem Solver',
     age: 51,
     description: 'DIY expert and home improvement guru',
     fullDescription: 'Step-by-step tutorials, tool recommendations, "you can do this yourself" encouraging energy.',
@@ -239,7 +239,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'luna-park',
-    name: 'Luna Park',
+    name: 'Mindful Wellness Seeker',
     age: 31,
     description: 'Wellness advocate for mental health and mindfulness',
     fullDescription: 'Calm, grounding presence. Focuses on mental health, mindfulness, and holistic living.',
@@ -252,7 +252,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'chris-foster',
-    name: 'Chris Foster',
+    name: 'Culinary Enthusiast',
     age: 36,
     description: 'Food critic and home chef',
     fullDescription: 'Restaurant reviews, recipe recreations, understanding and explaining flavor profiles.',
@@ -265,7 +265,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'sam-rivera',
-    name: 'Sam Rivera',
+    name: 'Adventure-Seeking Explorer',
     age: 29,
     description: 'Travel content creator and adventure seeker',
     fullDescription: 'Hidden gems finder, practical travel tips and hacks. Makes you want to book a flight.',

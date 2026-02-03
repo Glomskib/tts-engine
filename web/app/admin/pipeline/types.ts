@@ -68,6 +68,10 @@ export interface AvailableScript {
 // Status badge colors
 export function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
   switch (status) {
+    case 'NEEDS_SCRIPT':
+      return { bg: '#fff4e6', border: '#ffa94d', badge: '#e8590c' };
+    case 'GENERATING_SCRIPT':
+      return { bg: '#e8d5f5', border: '#b197fc', badge: '#7950f2' };
     case 'NOT_RECORDED':
       return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
     case 'RECORDED':
@@ -109,8 +113,19 @@ export interface PrimaryAction {
 }
 
 export function getPrimaryAction(video: QueueVideo): PrimaryAction {
-  // If no locked script: primary = Add Script
-  if (!video.script_locked_text) {
+  // If generating script: show waiting state
+  if (video.recording_status === 'GENERATING_SCRIPT') {
+    return {
+      type: 'add_script',
+      label: 'Generating Script...',
+      shortLabel: 'Generating',
+      color: '#7950f2',
+      icon: '',
+    };
+  }
+
+  // If needs script or no locked script: primary = Add Script
+  if (video.recording_status === 'NEEDS_SCRIPT' || !video.script_locked_text) {
     return {
       type: 'add_script',
       label: 'Add Script',
@@ -193,9 +208,10 @@ export interface ReadinessIndicators {
 }
 
 export function getReadinessIndicators(video: QueueVideo): ReadinessIndicators {
+  const preRecordingStates = ['NEEDS_SCRIPT', 'GENERATING_SCRIPT', 'NOT_RECORDED'];
   return {
     hasScript: !!video.script_locked_text,
-    hasRaw: video.recording_status !== 'NOT_RECORDED' && video.recording_status !== null,
+    hasRaw: !preRecordingStates.includes(video.recording_status || '') && video.recording_status !== null,
     hasFinal: !!video.final_video_url || video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED',
   };
 }

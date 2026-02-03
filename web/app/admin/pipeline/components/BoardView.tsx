@@ -6,6 +6,8 @@ import VideoDrawer from './VideoDrawer';
 import type { QueueVideo, BoardFilters } from '../types';
 
 const RECORDING_STATUS_COLUMNS = [
+  { key: 'NEEDS_SCRIPT', label: 'Needs Script', color: '#e8590c' },
+  { key: 'GENERATING_SCRIPT', label: 'Generating', color: '#7950f2' },
   { key: 'NOT_RECORDED', label: 'Not Recorded', color: '#6c757d' },
   { key: 'RECORDED', label: 'Recorded', color: '#228be6' },
   { key: 'EDITED', label: 'Edited', color: '#fab005' },

@@ -253,20 +253,45 @@ export default function BRollGeneratorPage() {
     }
   };
 
-  // Download image
+  // Download image as PNG (convert from WebP if needed)
   const handleDownload = async (url: string) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
+      // Create an image element to load the source
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = url;
+      });
+
+      // Create canvas and draw the image
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get canvas context');
+      ctx.drawImage(img, 0, 0);
+
+      // Convert to PNG blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to convert to PNG'));
+        }, 'image/png');
+      });
+
+      // Download
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = `b-roll-${Date.now()}.webp`;
+      a.download = `b-roll-${Date.now()}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
-      showSuccess('Image downloaded');
+      showSuccess('Image downloaded as PNG');
     } catch (err) {
       console.error('Download error:', err);
       showError('Failed to download image');

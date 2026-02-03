@@ -22,17 +22,22 @@ import { requireCredits } from "@/lib/credits";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// Valid aspect ratios for Flux models
+const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:5', '5:4', '3:2', '2:3', '4:3', '3:4'];
+
 // Input validation schema
 const GenerateImageInputSchema = z.object({
   prompt: z.string().min(3).max(1000),
   model: z.enum(['flux-schnell', 'flux-dev', 'sdxl'] as const).default('flux-schnell'),
   style: z.string().optional(),
-  aspect_ratio: z.string().default('1:1'),
+  aspect_ratio: z.string().default('9:16'),
   negative_prompt: z.string().max(500).optional(),
   num_outputs: z.number().int().min(1).max(4).default(1),
   // Image-to-image parameters
   source_image: z.string().url().optional(),
   strength: z.number().min(0.1).max(1.0).default(0.7),
+  // Free regeneration flag
+  free_regen: z.boolean().optional().default(false),
 });
 
 export async function POST(request: NextRequest) {
@@ -77,12 +82,43 @@ export async function POST(request: NextRequest) {
 
     const input = parsed.data;
 
-    // Check credits (unless admin)
-    const creditCost = getImageCreditCost(input.model, input.num_outputs);
+    // Validate and normalize aspect ratio for Flux models
+    let normalizedAspectRatio = input.aspect_ratio;
+    if (input.model === 'flux-schnell' || input.model === 'flux-dev') {
+      if (!VALID_ASPECT_RATIOS.includes(normalizedAspectRatio)) {
+        console.warn(`[Generate Image] Invalid aspect ratio "${normalizedAspectRatio}" for Flux, defaulting to 9:16`);
+        normalizedAspectRatio = '9:16';
+      }
+    }
 
-    // Deduct credits for the image generation (admins bypass)
+    // Validate prompt is not empty after trimming
+    const cleanPrompt = input.prompt.trim();
+    if (cleanPrompt.length < 3) {
+      return createApiErrorResponse(
+        "VALIDATION_ERROR",
+        "Prompt must be at least 3 characters after trimming whitespace",
+        400,
+        correlationId
+      );
+    }
+
+    // Log what we're about to send
+    console.log('[Generate Image] Request validated:', {
+      prompt: cleanPrompt.substring(0, 50) + '...',
+      model: input.model,
+      aspectRatio: normalizedAspectRatio,
+      style: input.style,
+      numOutputs: input.num_outputs,
+      freeRegen: input.free_regen,
+    });
+
+    // Check credits (unless admin or free regen)
+    const creditCost = getImageCreditCost(input.model, input.num_outputs);
+    const skipCreditDeduction = input.free_regen === true;
+
+    // Deduct credits for the image generation (admins and free regens bypass)
     let creditsRemaining: number | undefined;
-    if (!authContext.isAdmin) {
+    if (!authContext.isAdmin && !skipCreditDeduction) {
       // Ensure user has credit records (creates them if missing)
       let { data: userCredits } = await supabaseAdmin
         .from("user_credits")
@@ -182,11 +218,14 @@ export async function POST(request: NextRequest) {
     // Generate images
     const isImg2Img = !!input.source_image;
     console.log(`[Generate Image] Starting ${isImg2Img ? 'img2img' : 'text2img'} generation for user ${authContext.user.id}`);
-    console.log(`[Generate Image] Prompt: ${input.prompt.substring(0, 100)}...`);
-    console.log(`[Generate Image] Model: ${input.model}, Style: ${input.style}, Aspect: ${input.aspect_ratio}`);
+    console.log(`[Generate Image] Prompt: ${cleanPrompt.substring(0, 100)}...`);
+    console.log(`[Generate Image] Model: ${input.model}, Style: ${input.style}, Aspect: ${normalizedAspectRatio}`);
     if (isImg2Img) {
       console.log(`[Generate Image] Source image: ${input.source_image?.substring(0, 50)}...`);
       console.log(`[Generate Image] Strength: ${input.strength}`);
+    }
+    if (skipCreditDeduction) {
+      console.log(`[Generate Image] Free regeneration - skipping credit deduction`);
     }
 
     let imageUrls: string[];
@@ -194,7 +233,7 @@ export async function POST(request: NextRequest) {
       if (isImg2Img) {
         // Image-to-image generation (uses SDXL)
         imageUrls = await generateImageFromImage({
-          prompt: input.prompt,
+          prompt: cleanPrompt,
           sourceImageUrl: input.source_image!,
           strength: input.strength,
           style: input.style,
@@ -203,10 +242,10 @@ export async function POST(request: NextRequest) {
       } else {
         // Text-to-image generation
         imageUrls = await generateImages({
-          prompt: input.prompt,
+          prompt: cleanPrompt,
           model: input.model as ImageModelKey,
           style: input.style,
-          aspectRatio: input.aspect_ratio,
+          aspectRatio: normalizedAspectRatio,
           negativePrompt: input.negative_prompt,
           numOutputs: input.num_outputs,
         });
@@ -215,8 +254,8 @@ export async function POST(request: NextRequest) {
     } catch (genError) {
       console.error("[Generate Image] Generation failed:", genError);
 
-      // Refund credits on failure (if not admin)
-      if (!authContext.isAdmin) {
+      // Refund credits on failure (if not admin and not free regen)
+      if (!authContext.isAdmin && !skipCreditDeduction) {
         console.log("[Generate Image] Refunding credits due to failure");
         await supabaseAdmin.rpc("add_credits", {
           p_user_id: authContext.user.id,
@@ -254,10 +293,10 @@ export async function POST(request: NextRequest) {
     const imagesToStore = imageUrls.map((url) => ({
       user_id: authContext.user!.id,
       image_url: url,
-      prompt: input.prompt,
+      prompt: cleanPrompt,
       model: input.model,
       style: input.style || null,
-      aspect_ratio: input.aspect_ratio,
+      aspect_ratio: normalizedAspectRatio,
       correlation_id: correlationId,
       created_at: new Date().toISOString(),
     }));

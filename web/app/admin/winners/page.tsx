@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trophy } from "lucide-react";
+import { Trophy, Wand2 } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -714,14 +714,26 @@ export default function WinnersPage() {
                         onClick={(e) => e.stopPropagation()}
                         className="flex-1 h-11 rounded-lg bg-zinc-800 text-zinc-200 text-sm font-medium flex items-center justify-center hover:bg-zinc-700 transition-colors btn-press"
                       >
-                        View TikTok
+                        View
                       </a>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(winner); }}
-                        className="flex-1 h-11 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors btn-press"
+                        className="flex-1 h-11 rounded-lg bg-zinc-800 text-zinc-200 text-sm font-medium flex items-center justify-center hover:bg-zinc-700 transition-colors btn-press"
                       >
                         Edit
                       </button>
+                      {winner.status === "ready" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/admin/skit-generator?winner_id=${winner.id}`);
+                          }}
+                          className="flex-1 h-11 rounded-lg bg-teal-600 text-white text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-teal-700 transition-colors btn-press"
+                        >
+                          <Wand2 className="w-4 h-4" />
+                          Similar
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -825,21 +837,48 @@ export default function WinnersPage() {
                         </span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(winner.id); }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: colors.textMuted,
-                            cursor: "pointer",
-                            fontSize: "12px",
-                            padding: "4px 8px",
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = colors.textMuted; }}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                          {winner.status === "ready" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/admin/skit-generator?winner_id=${winner.id}`);
+                              }}
+                              style={{
+                                background: colors.accent,
+                                border: "none",
+                                color: "#fff",
+                                cursor: "pointer",
+                                fontSize: "11px",
+                                fontWeight: 500,
+                                padding: "5px 10px",
+                                borderRadius: "4px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                              }}
+                              title="Generate a similar script based on this winner"
+                            >
+                              <Wand2 style={{ width: "12px", height: "12px" }} />
+                              Generate Similar
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(winner.id); }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: colors.textMuted,
+                              cursor: "pointer",
+                              fontSize: "12px",
+                              padding: "4px 8px",
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = colors.textMuted; }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

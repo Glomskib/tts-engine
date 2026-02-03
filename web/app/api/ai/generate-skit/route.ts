@@ -103,6 +103,9 @@ const GenerateSkitInputSchema = z.object({
   pain_point_id: z.string().uuid().optional(),
   pain_point_focus: z.array(z.string()).optional(), // Selected pain points from persona
   use_audience_language: z.boolean().optional().default(true),
+  // Winners Bank Intelligence
+  winner_id: z.string().uuid().optional(), // Generate variation of this winning script
+  use_winners_intelligence: z.boolean().optional().default(true), // Learn from user's winners
 }).strict().refine(
   (data) => data.product_id || data.product_name,
   { message: "Either product_id or product_name is required" }
@@ -447,6 +450,123 @@ Match their energy, tone, and communication style exactly.
 `;
 
   return context;
+}
+
+// --- Winners Bank Intelligence ---
+
+interface WinnerScript {
+  id: string;
+  content: string;
+  persona?: string;
+  content_type?: string;
+  hook_line?: string;
+  ai_score?: number;
+  created_at: string;
+}
+
+interface WinnerAnalysis {
+  successfulHooks: string[];
+  preferredPersonas: string[];
+  workingContentTypes: string[];
+  sampleCount: number;
+  avgScore: number | null;
+}
+
+function analyzeWinners(winners: WinnerScript[]): WinnerAnalysis | null {
+  if (!winners || winners.length === 0) return null;
+
+  // Extract hooks from winners (first line of content)
+  const hooks = winners
+    .map(w => w.hook_line || w.content?.split('\n')[0])
+    .filter(Boolean) as string[];
+
+  // Get unique personas used
+  const personas = [...new Set(winners.map(w => w.persona).filter(Boolean))] as string[];
+
+  // Get content types that worked
+  const contentTypes = [...new Set(winners.map(w => w.content_type).filter(Boolean))] as string[];
+
+  // Calculate average score
+  const scores = winners.map(w => w.ai_score).filter((s): s is number => typeof s === 'number');
+  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+
+  return {
+    successfulHooks: hooks.slice(0, 5),
+    preferredPersonas: personas,
+    workingContentTypes: contentTypes,
+    sampleCount: winners.length,
+    avgScore,
+  };
+}
+
+function buildWinnersContext(winnerAnalysis: WinnerAnalysis | null): string {
+  if (!winnerAnalysis || winnerAnalysis.sampleCount === 0) return "";
+
+  let context = `
+=== WINNERS BANK INTELLIGENCE ===
+Learning from ${winnerAnalysis.sampleCount} of your best-performing scripts:
+
+`;
+
+  if (winnerAnalysis.successfulHooks.length > 0) {
+    context += `WINNING HOOK PATTERNS (hooks that worked for you):
+${winnerAnalysis.successfulHooks.slice(0, 3).map((h, i) => `${i + 1}. "${h}"`).join('\n')}
+
+Study these hooks. Notice the pattern interrupt, the curiosity gap, or the relatability factor.
+Create a NEW hook that follows similar principles but feels fresh.
+
+`;
+  }
+
+  if (winnerAnalysis.preferredPersonas.length > 0) {
+    context += `PERSONAS THAT RESONATE: ${winnerAnalysis.preferredPersonas.join(', ')}
+Your audience seems to respond well to these voices/styles.
+
+`;
+  }
+
+  if (winnerAnalysis.workingContentTypes.length > 0) {
+    context += `CONTENT FORMATS THAT WORK: ${winnerAnalysis.workingContentTypes.join(', ')}
+Consider using similar structures while keeping content fresh.
+
+`;
+  }
+
+  if (winnerAnalysis.avgScore) {
+    context += `Your winners average a ${winnerAnalysis.avgScore.toFixed(1)}/10 score. Aim to match or exceed this quality.
+
+`;
+  }
+
+  context += `IMPORTANT: Learn from these patterns. Don't copy directly - create something new that follows the same engagement principles that made your previous content successful.
+===
+
+`;
+
+  return context;
+}
+
+function buildWinnerVariationPrompt(winner: WinnerScript): string {
+  return `
+=== GENERATE VARIATION OF WINNING SCRIPT ===
+You're creating a fresh variation of this PROVEN winner. Keep what works, make it new.
+
+ORIGINAL WINNING SCRIPT:
+"${winner.content}"
+
+${winner.hook_line ? `ORIGINAL HOOK: "${winner.hook_line}"` : ''}
+
+CREATE A VARIATION THAT:
+1. Uses a SIMILAR hook style - same energy, different words
+2. Maintains the same tone, pacing, and comedic rhythm
+3. Addresses a DIFFERENT angle, benefit, or scenario
+4. Feels FRESH - not a copy, but a sibling of the original
+5. Could appeal to the same audience but won't bore someone who saw the original
+
+Think of this like a "Season 2" of a successful series - same DNA, new stories.
+===
+
+`;
 }
 
 // --- Intensity Guidelines ---
@@ -1267,6 +1387,44 @@ export async function POST(request: Request) {
       }
     }
 
+    // Fetch Winners Bank Intelligence
+    let winnerAnalysis: WinnerAnalysis | null = null;
+    let winnerVariation: WinnerScript | null = null;
+
+    // If generating variation of specific winner
+    if (input.winner_id) {
+      const { data: winnerData, error: winnerError } = await supabaseAdmin
+        .from("scripts")
+        .select("id, content, persona, content_type, hook_line, ai_score, created_at")
+        .eq("id", input.winner_id)
+        .eq("user_id", authContext.user.id)
+        .eq("is_winner", true)
+        .single();
+
+      if (!winnerError && winnerData) {
+        winnerVariation = winnerData as WinnerScript;
+        console.log(`[${correlationId}] Generating variation of winner: ${winnerData.id}`);
+      } else {
+        console.warn(`[${correlationId}] Winner not found or not accessible: ${input.winner_id}`);
+      }
+    }
+
+    // Fetch user's winners for pattern analysis (if enabled and not doing specific variation)
+    if (input.use_winners_intelligence && !winnerVariation) {
+      const { data: winners, error: winnersError } = await supabaseAdmin
+        .from("scripts")
+        .select("id, content, persona, content_type, hook_line, ai_score, created_at")
+        .eq("user_id", authContext.user.id)
+        .eq("is_winner", true)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (!winnersError && winners && winners.length > 0) {
+        winnerAnalysis = analyzeWinners(winners as WinnerScript[]);
+        console.log(`[${correlationId}] Winners analysis: ${winnerAnalysis?.sampleCount} winners analyzed`);
+      }
+    }
+
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
     const ctaOverlay = input.cta_overlay || "Link in bio!";
@@ -1296,6 +1454,8 @@ export async function POST(request: Request) {
       painPoint,
       painPointFocus: input.pain_point_focus || [],
       useAudienceLanguage: input.use_audience_language ?? true,
+      winnerAnalysis,
+      winnerVariation,
     });
 
     // Determine variation count (default 3)
@@ -1474,10 +1634,13 @@ interface PromptParams {
   painPoint: PainPointData | null;
   painPointFocus: string[];  // Specific pain points selected by user
   useAudienceLanguage: boolean;
+  // Winners Bank Intelligence
+  winnerAnalysis: WinnerAnalysis | null;
+  winnerVariation: WinnerScript | null; // If generating variation of specific winner
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
@@ -1493,6 +1656,8 @@ function buildSkitPrompt(params: PromptParams): string {
   const authenticityGuideline = buildAuthenticityGuidelines(authenticity);
   const presentationStyleGuideline = buildPresentationStyleGuidelines(presentationStyle);
   const audienceContext = buildAudienceContext(audiencePersona, painPoint, painPointFocus, useAudienceLanguage);
+  const winnersContext = buildWinnersContext(winnerAnalysis);
+  const winnerVariationSection = winnerVariation ? buildWinnerVariationPrompt(winnerVariation) : "";
   const creativeDirectionSection = creativeDirection
     ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the skit)\n`
     : "";
@@ -1512,6 +1677,8 @@ PRODUCT INFO:
 ${productContextSection}
 CTA OVERLAY TO USE: "${ctaOverlay}"
 ${creativeDirectionSection}
+${winnerVariationSection}
+${winnersContext}
 ${audienceContext}
 ${contentFormatGuideline}
 

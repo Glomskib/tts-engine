@@ -9,6 +9,7 @@ import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
+import { Trophy } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
@@ -482,6 +483,10 @@ export default function SkitGeneratorPage() {
   const [generationHistory, setGenerationHistory] = useState<GenerationHistoryItem[]>([]);
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
 
+  // Winners Bank Intelligence state
+  const [winnerId, setWinnerId] = useState<string | null>(null);
+  const [winnerInfo, setWinnerInfo] = useState<{ hook_line?: string; content_type?: string } | null>(null);
+
   // Helper to get current skit data based on selected variation
   const getCurrentSkit = useCallback((): SkitData | null => {
     // If we have local modifications, use those
@@ -743,11 +748,31 @@ export default function SkitGeneratorPage() {
     setAiScore(null);
   };
 
-  // Check for product_id from URL
+  // Check for product_id and winner_id from URL
   useEffect(() => {
     const productId = searchParams.get('product_id');
     if (productId) {
       setSelectedProductId(productId);
+    }
+
+    // Winner ID for "Generate Similar" feature
+    const urlWinnerId = searchParams.get('winner_id');
+    if (urlWinnerId) {
+      setWinnerId(urlWinnerId);
+      // Fetch winner info for display
+      fetch(`/api/winners/${urlWinnerId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok && data.data) {
+            setWinnerInfo({
+              hook_line: data.data.ai_analysis?.hook_line || data.data.reference_extracts?.[0]?.spoken_hook,
+              content_type: data.data.ai_analysis?.content_format,
+            });
+          }
+        })
+        .catch(() => {
+          // Ignore fetch errors
+        });
     }
   }, [searchParams]);
 
@@ -1140,6 +1165,9 @@ export default function SkitGeneratorPage() {
       pain_point_id: selectedPainPointId || undefined,
       pain_point_focus: selectedPersonaPainPoints.length > 0 ? selectedPersonaPainPoints : undefined,
       use_audience_language: useAudienceLanguage,
+      // Winners Bank Intelligence
+      winner_id: winnerId || undefined,
+      use_winners_intelligence: true,
     };
 
     if (!retryWithPayload) {
@@ -1776,6 +1804,54 @@ export default function SkitGeneratorPage() {
           </Link>
         </div>
       </div>
+
+      {/* Winner Variation Banner */}
+      {winnerId && (
+        <div style={{
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Trophy style={{ color: '#10b981', width: '18px', height: '18px' }} />
+            <div>
+              <div style={{ color: '#10b981', fontWeight: 600, fontSize: '13px' }}>
+                Generating Variation of Winner
+              </div>
+              {winnerInfo?.hook_line && (
+                <div style={{ color: colors.textMuted, fontSize: '12px', marginTop: '2px' }}>
+                  Original hook: &ldquo;{winnerInfo.hook_line.slice(0, 60)}{winnerInfo.hook_line.length > 60 ? '...' : ''}&rdquo;
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setWinnerId(null);
+              setWinnerInfo(null);
+              router.replace('/admin/skit-generator');
+            }}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: 'transparent',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '4px',
+              color: '#10b981',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Main content - responsive grid */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>

@@ -750,13 +750,6 @@ export default function ContentStudioPage() {
               <BookOpen size={16} />
               Library
             </Link>
-            <Link
-              href="/admin/b-roll"
-              className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
-            >
-              <ImageIcon size={16} />
-              B-Roll
-            </Link>
           </div>
         </div>
       </div>

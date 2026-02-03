@@ -330,7 +330,7 @@ export default function SettingsPage() {
                         const res = await fetch('/api/credits/purchase', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ packageId: pack.id }),
+                          body: JSON.stringify({ package_id: pack.id }),
                         });
                         const data = await res.json();
                         if (data.url) window.location.href = data.url;

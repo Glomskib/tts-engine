@@ -31,7 +31,7 @@ const FEATURE_NAMES: Record<string, string> = {
   product_catalog: 'Product Catalog',
   audience_intelligence: 'Audience Intelligence',
   winners_bank: 'Winners Bank',
-  b_roll_generator: 'B-Roll Generator',
+  pain_point_analysis: 'Pain Point Analysis',
   team_members: 'Team Members',
   video_portal: 'Video Portal',
 };

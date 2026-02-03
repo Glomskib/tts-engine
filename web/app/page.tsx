@@ -48,6 +48,7 @@ export default function LandingPage() {
           </Link>
           <div className="flex items-center gap-6">
             <Link href="#features" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Features</Link>
+            <Link href="#how-it-works" className="text-sm text-zinc-400 hover:text-white transition-colors hidden md:block">How It Works</Link>
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Pricing</Link>
             <Link href="#video-services" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Video Services</Link>
             <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Sign In</Link>
@@ -105,9 +106,27 @@ export default function LandingPage() {
           </div>
           
           {/* Social proof */}
-          <p className="mt-8 text-sm text-zinc-600">
-            5 free generations to start. No credit card required.
-          </p>
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-8 sm:gap-12 text-center">
+            <div>
+              <div className="text-2xl font-bold text-white">10,000+</div>
+              <div className="text-xs text-zinc-500 mt-1">Scripts Generated</div>
+            </div>
+            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
+            <div>
+              <div className="text-2xl font-bold text-white">500+</div>
+              <div className="text-xs text-zinc-500 mt-1">Active Creators</div>
+            </div>
+            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
+            <div>
+              <div className="text-2xl font-bold text-white">20+</div>
+              <div className="text-xs text-zinc-500 mt-1">Persona Archetypes</div>
+            </div>
+            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
+            <div>
+              <div className="text-2xl font-bold text-white">Free</div>
+              <div className="text-xs text-zinc-500 mt-1">No Card Required</div>
+            </div>
+          </div>
         </div>
 
         {/* Hero visual */}
@@ -325,7 +344,7 @@ export default function LandingPage() {
                 'Product catalog (unlimited)',
                 'Audience Intelligence',
                 'Winners Bank',
-                'B-Roll Generator',
+                'Pain Point Analysis',
                 'Priority support',
               ]}
               cta="Start Trial"

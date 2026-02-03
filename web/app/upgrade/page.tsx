@@ -29,7 +29,7 @@ const SAAS_FEATURES = [
   { name: 'Product Catalog', free: false, starter: '5 products', creator: 'Unlimited', business: 'Unlimited' },
   { name: 'Audience Intelligence', free: false, starter: false, creator: true, business: true },
   { name: 'Winners Bank', free: false, starter: false, creator: true, business: true },
-  { name: 'B-Roll Generator', free: false, starter: false, creator: true, business: true },
+  { name: 'Pain Point Analysis', free: false, starter: false, creator: true, business: true },
   { name: 'Team Members', free: '1', starter: '1', creator: '1', business: '5' },
   { name: 'Support', free: 'Community', starter: 'Email', creator: 'Priority', business: 'Dedicated' },
 ];
@@ -50,7 +50,7 @@ const VIDEO_FEATURES = [
 const faqs = [
   {
     question: 'What counts as one AI credit?',
-    answer: 'Credits are used for AI-powered actions: Script generation (3 credits), Script refinement (1 credit), Winner analysis (2 credits), B-Roll generation (2 credits per image).'
+    answer: 'Credits are used for AI-powered actions: Script generation (3 credits), Script refinement (1 credit), Winner analysis (2 credits), Pain point analysis (1 credit).'
   },
   {
     question: 'Do unused credits roll over?',

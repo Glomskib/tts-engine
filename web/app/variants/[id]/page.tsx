@@ -162,7 +162,7 @@ export default function VariantPage() {
     }
   };
 
-  const updateScalingForm = (field: keyof ScalingForm, value: any) => {
+  const updateScalingForm = (field: keyof ScalingForm, value: ScalingForm[keyof ScalingForm]) => {
     setScalingForm(prev => ({ ...prev, [field]: value }));
   };
 

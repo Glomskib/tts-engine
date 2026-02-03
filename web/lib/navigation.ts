@@ -59,7 +59,6 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
-      { name: 'B-Roll Generator', href: '/admin/b-roll', icon: Image, featureKey: 'b_roll_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
       { name: 'Templates', href: '/admin/templates', icon: LayoutTemplate },
       { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, featureKey: 'winners_bank' },
@@ -109,7 +108,6 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'video_editing',
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
-      { name: 'B-Roll Generator', href: '/admin/b-roll', icon: Image },
       { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
     ],
   },

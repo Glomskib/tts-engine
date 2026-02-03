@@ -2488,13 +2488,13 @@ export default function SkitGeneratorPage() {
                       Creative Controls
                     </h3>
 
-                    {/* Content Edge */}
+                    {/* Boldness Level */}
                     <div style={{ marginBottom: '16px' }}>
                       <label
                         style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
                         title="How boundary-pushing the content is"
                       >
-                        Content Edge <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                        Boldness Level <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                       </label>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {CONTENT_EDGE_OPTIONS.map((option) => (
@@ -2526,13 +2526,13 @@ export default function SkitGeneratorPage() {
                       </div>
                     </div>
 
-                    {/* Unpredictability */}
+                    {/* Chaos Level */}
                     <div style={{ marginBottom: '16px' }}>
                       <label
                         style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
                         title="How random or surprising the content is"
                       >
-                        Unpredictability <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                        Chaos Level <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                       </label>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {UNPREDICTABILITY_OPTIONS.map((option) => (
@@ -2567,13 +2567,13 @@ export default function SkitGeneratorPage() {
                       </div>
                     </div>
 
-                    {/* Humor Level */}
+                    {/* Comedy Intensity */}
                     <div style={{ marginBottom: '16px' }}>
                       <label
                         style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
                         title="How funny or comedic the content is"
                       >
-                        Humor Level <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                        Comedy Intensity <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
                       </label>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {HUMOR_LEVEL_OPTIONS.map((option) => (

@@ -3,25 +3,25 @@
  * Human-friendly names and descriptions for all creative levers
  */
 
-// Content Edge (formerly Risk Tier)
+// Boldness Level (formerly Content Edge / Risk Tier)
 export const CONTENT_EDGE_OPTIONS = [
   { value: 'SAFE', label: 'Safe & Steady', description: 'Family-friendly, brand-safe content', desc: 'Family-friendly, brand-safe' },
-  { value: 'BALANCED', label: 'Slightly Edgy', description: 'Light humor, mild takes', desc: 'Light humor, mild takes' },
+  { value: 'BALANCED', label: 'Slightly Bold', description: 'Light humor, mild takes', desc: 'Light humor, mild takes' },
   { value: 'SPICY', label: 'Bold Takes', description: 'Stronger opinions, edgier humor', desc: 'Stronger opinions, edgier' },
 ] as const;
 
 export type ContentEdge = typeof CONTENT_EDGE_OPTIONS[number]['value'];
 
-// Unpredictability (formerly Chaos Level) - Now 1-5 scale
+// Chaos Level (controls how unpredictable/random the content is) - 1-5 scale
 export const UNPREDICTABILITY_OPTIONS = [
   { value: 1, label: 'Structured', description: 'Follows a clear, predictable format' },
   { value: 2, label: 'Mostly Structured', description: 'Some surprises, mostly predictable' },
   { value: 3, label: 'Balanced', description: 'Mix of expected and unexpected' },
-  { value: 4, label: 'Spontaneous', description: 'Frequent surprises and pivots' },
+  { value: 4, label: 'Chaotic', description: 'Frequent surprises and pivots' },
   { value: 5, label: 'Wild Card', description: 'Completely unpredictable, chaotic energy' },
 ] as const;
 
-// Humor Level (formerly Comedy/Intensity)
+// Comedy Intensity (how funny/comedic the content is) - 1-5 scale
 export const HUMOR_LEVEL_OPTIONS = [
   { value: 1, label: 'Serious', description: 'No humor, straight information' },
   { value: 2, label: 'Light Touch', description: 'Occasional smile moments' },
@@ -121,17 +121,17 @@ export function humorLevelToIntensity(humorLevel: number): number {
 // Unified CREATIVE_CONTROLS object for easy UI consumption
 export const CREATIVE_CONTROLS = {
   contentEdge: {
-    label: 'Content Edge',
+    label: 'Boldness Level',
     description: 'How boundary-pushing the content is',
     options: CONTENT_EDGE_OPTIONS,
   },
   unpredictability: {
-    label: 'Unpredictability',
+    label: 'Chaos Level',
     description: 'How random or surprising the content is',
     options: UNPREDICTABILITY_OPTIONS,
   },
   humorLevel: {
-    label: 'Humor Level',
+    label: 'Comedy Intensity',
     description: 'How funny or comedic the content is',
     options: HUMOR_LEVEL_OPTIONS,
   },

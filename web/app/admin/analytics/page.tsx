@@ -7,7 +7,14 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { EmptyState } from '../components/AdminPageLayout';
 import SimpleBarChart from './components/SimpleBarChart';
-import { FileText, Video, Coins, ArrowRight, TrendingUp } from 'lucide-react';
+import { FileText, Video, Coins, ArrowRight, TrendingUp, Trophy, Eye, Percent, Target } from 'lucide-react';
+import type { WinnersAnalytics, AnalyticsPeriod } from '@/lib/analytics/types';
+import { StatCard } from '@/components/analytics/StatCard';
+import { TopPerformersCard } from '@/components/analytics/TopPerformersCard';
+import { VideoLengthChart } from '@/components/analytics/VideoLengthChart';
+import { TrendsChart } from '@/components/analytics/TrendsChart';
+import { RecommendationCard } from '@/components/analytics/RecommendationCard';
+import { WinnersEmptyState } from '@/components/analytics/WinnersEmptyState';
 
 interface StageStats {
   stage: string;
@@ -115,8 +122,10 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [contentData, setContentData] = useState<ContentAnalytics | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'content'>('content');
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'content' | 'winners'>('content');
   const [contentExporting, setContentExporting] = useState<string | null>(null);
+  const [winnersData, setWinnersData] = useState<WinnersAnalytics | null>(null);
+  const [winnersLoading, setWinnersLoading] = useState(false);
 
   // Fetch authenticated user and check admin status
   useEffect(() => {
@@ -185,6 +194,30 @@ export default function AdminAnalyticsPage() {
       setLoading(false);
     }
   };
+
+  // Fetch winners analytics
+  const fetchWinnersData = async (period: string) => {
+    setWinnersLoading(true);
+    try {
+      const res = await fetch(`/api/analytics/winners?period=${period}`);
+      const result = await res.json();
+      if (result.ok) {
+        setWinnersData(result.analytics);
+      }
+    } catch (err) {
+      console.error('Failed to fetch winners analytics:', err);
+    } finally {
+      setWinnersLoading(false);
+    }
+  };
+
+  // Fetch winners data when tab changes or window changes
+  useEffect(() => {
+    if (isAdmin && activeTab === 'winners') {
+      const period = windowDays === 7 ? '7d' : windowDays === 14 ? '30d' : '30d';
+      fetchWinnersData(period);
+    }
+  }, [isAdmin, activeTab, windowDays]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -327,6 +360,26 @@ export default function AdminAnalyticsPage() {
         >
           <Video size={16} />
           Pipeline Analytics
+        </button>
+        <button
+          onClick={() => setActiveTab('winners')}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: 'transparent',
+            color: activeTab === 'winners' ? '#f59e0b' : '#6c757d',
+            border: 'none',
+            borderBottom: activeTab === 'winners' ? '2px solid #f59e0b' : '2px solid transparent',
+            marginBottom: '-2px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: activeTab === 'winners' ? 'bold' : 'normal',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <Trophy size={16} />
+          Winners Insights
         </button>
       </div>
 
@@ -809,6 +862,141 @@ export default function AdminAnalyticsPage() {
               </div>
             </div>
           </div>
+        </>
+      )}
+
+      {/* Winners Insights Tab */}
+      {activeTab === 'winners' && (
+        <>
+          {winnersLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+              Loading winners analytics...
+            </div>
+          ) : !winnersData || winnersData.overview.totalWinners === 0 ? (
+            <WinnersEmptyState hasScripts={(contentData?.summary.total_scripts || 0) > 0} />
+          ) : (
+            <div className="space-y-6">
+              {/* Overview Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                  label="Total Winners"
+                  value={winnersData.overview.totalWinners}
+                  subtext={`${winnersData.overview.winnersThisPeriod} this period`}
+                  icon={Trophy}
+                  iconColor="text-amber-400"
+                />
+                <StatCard
+                  label="Win Rate"
+                  value={`${winnersData.overview.winRate}%`}
+                  subtext={`of ${winnersData.overview.totalScriptsGenerated} scripts`}
+                  icon={Target}
+                  iconColor="text-teal-400"
+                />
+                <StatCard
+                  label="Avg Views"
+                  value={winnersData.overview.avgWinnerViews.toLocaleString()}
+                  subtext={`${winnersData.overview.totalViews.toLocaleString()} total`}
+                  icon={Eye}
+                  iconColor="text-blue-400"
+                />
+                <StatCard
+                  label="Avg Engagement"
+                  value={`${winnersData.overview.avgWinnerEngagement}%`}
+                  subtext="across all winners"
+                  icon={Percent}
+                  iconColor="text-purple-400"
+                />
+              </div>
+
+              {/* Trends Chart */}
+              <TrendsChart data={winnersData.trends.scriptsOverTime} />
+
+              {/* Top Performers Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <TopPerformersCard
+                  title="Top Hook Types"
+                  items={winnersData.topPerformers.hookTypes.slice(0, 5).map((h, i) => ({
+                    rank: i + 1,
+                    label: h.label,
+                    count: h.count,
+                    metric: `${h.avgEngagement.toFixed(1)}% engagement`,
+                  }))}
+                  emptyMessage="No hook type data yet"
+                />
+                <TopPerformersCard
+                  title="Top Content Formats"
+                  items={winnersData.topPerformers.contentFormats.slice(0, 5).map((f, i) => ({
+                    rank: i + 1,
+                    label: f.label,
+                    count: f.count,
+                    metric: `${f.avgEngagement.toFixed(1)}% engagement`,
+                  }))}
+                  emptyMessage="No content format data yet"
+                />
+              </div>
+
+              {/* Video Length & Recommendations Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <VideoLengthChart
+                  shortest={winnersData.topPerformers.videoLengths.shortest}
+                  longest={winnersData.topPerformers.videoLengths.longest}
+                  avgWinning={winnersData.topPerformers.videoLengths.avgWinning}
+                  sweetSpot={winnersData.topPerformers.videoLengths.sweetSpot}
+                />
+                <RecommendationCard recommendations={winnersData.recommendations} />
+              </div>
+
+              {/* Patterns Section */}
+              {(winnersData.patterns.winning.length > 0 || winnersData.patterns.underperforming.length > 0) && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                  <h3 className="text-sm font-medium text-zinc-400 mb-4">Identified Patterns</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {winnersData.patterns.winning.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium text-emerald-400 mb-2 uppercase tracking-wide">
+                          Winning Patterns
+                        </h4>
+                        <ul className="space-y-1">
+                          {winnersData.patterns.winning.map((pattern, i) => (
+                            <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
+                              <span className="text-emerald-400 mt-1">+</span>
+                              {pattern}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {winnersData.patterns.underperforming.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium text-red-400 mb-2 uppercase tracking-wide">
+                          Patterns to Avoid
+                        </h4>
+                        <ul className="space-y-1">
+                          {winnersData.patterns.underperforming.map((pattern, i) => (
+                            <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
+                              <span className="text-red-400 mt-1">-</span>
+                              {pattern}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Link to Winners Bank */}
+              <div className="text-center pt-4">
+                <Link
+                  href="/admin/winners-bank"
+                  className="inline-flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors"
+                >
+                  View all winners in Winners Bank
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+          )}
         </>
       )}
 

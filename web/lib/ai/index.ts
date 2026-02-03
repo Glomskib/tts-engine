@@ -1,3 +1,4 @@
+export * from './brandContext';
 export * from './creatorPersonas';
 export * from './hookFamily';
 export * from './scoreHookOption';

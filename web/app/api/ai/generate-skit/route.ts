@@ -41,6 +41,10 @@ import {
   type Winner,
   type WinnersIntelligence,
 } from "@/lib/winners";
+import {
+  fetchBrandContext,
+  buildBrandContextPrompt,
+} from "@/lib/ai/brandContext";
 
 export const runtime = "nodejs";
 
@@ -1141,7 +1145,7 @@ export async function POST(request: Request) {
 
   try {
     // Fetch product info if product_id provided, otherwise use fallback product_name
-    let product: { id: string | null; name: string; brand: string | null; category: string | null; notes: string | null } | null = null;
+    let product: { id: string | null; name: string; brand: string | null; brand_id: string | null; category: string | null; notes: string | null } | null = null;
 
     // Debug info collected during product lookup
     let productLookupDebug: Record<string, unknown> | null = null;
@@ -1170,7 +1174,7 @@ export async function POST(request: Request) {
         sample_product_ids: sampleProductIds,
         query_attempted: {
           table: "products",
-          select: "id, name, brand, category, notes",
+          select: "id, name, brand, brand_id, category, notes",
           filter: { column: "id", operator: "eq", value: productIdTrimmed },
           method: "single",
         },
@@ -1184,7 +1188,7 @@ export async function POST(request: Request) {
       // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand, category, notes")
+        .select("id, name, brand, brand_id, category, notes")
         .eq("id", productIdTrimmed)
         .single();
 
@@ -1251,9 +1255,17 @@ export async function POST(request: Request) {
         id: null,
         name: input.product_name || "the product",
         brand: input.brand_name || null,
+        brand_id: null,
         category: null,
         notes: null,
       };
+    }
+
+    // Fetch brand context if product has a brand_id
+    let brandContextPrompt = '';
+    if (product?.brand_id) {
+      const brandContext = await fetchBrandContext(product.brand_id);
+      brandContextPrompt = buildBrandContextPrompt(brandContext);
     }
 
     // Look up preset if provided
@@ -1399,6 +1411,7 @@ export async function POST(request: Request) {
       useAudienceLanguage: input.use_audience_language ?? true,
       winnersIntelligence,
       winnerVariation,
+      brandContextPrompt,
     });
 
     // Determine variation count (default 3)
@@ -1582,10 +1595,12 @@ interface PromptParams {
   // Winners Bank Intelligence
   winnersIntelligence: WinnersIntelligence | null;
   winnerVariation: Winner | null; // If generating variation of specific winner
+  // Brand Context
+  brandContextPrompt: string;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt } = params;
 
   // Use new creator persona system if available, otherwise fall back to legacy personas
   const personaGuideline = creatorPersona
@@ -1629,6 +1644,7 @@ ${creativeDirectionSection}
 ${winnerVariationSection}
 ${winnersContext}
 ${audienceContext}
+${brandContextPrompt}
 ${contentFormatGuideline}
 
 ${actorGuideline}

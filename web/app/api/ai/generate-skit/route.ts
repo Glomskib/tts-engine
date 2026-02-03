@@ -28,6 +28,11 @@ import {
 } from "@/lib/ai/skitBudget";
 import { z } from "zod";
 import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
+import {
+  getPersonaById,
+  buildPersonaPromptSection,
+  type CreatorPersona,
+} from "@/lib/ai/creatorPersonas";
 
 export const runtime = "nodejs";
 
@@ -83,6 +88,7 @@ const GenerateSkitInputSchema = z.object({
   cta_overlay: z.string().max(50).optional(),
   risk_tier: RiskTierSchema,
   persona: PersonaSchema,
+  creator_persona_id: z.string().max(50).optional(), // New detailed creator persona system
   template_id: z.string().max(50).optional(),
   intensity: z.number().min(0).max(100).optional(),
   preset_id: z.string().max(50).optional(),
@@ -1430,6 +1436,11 @@ export async function POST(request: Request) {
     const productName = input.product_display_name || product.name || "the product";
     const ctaOverlay = input.cta_overlay || "Link in bio!";
 
+    // Look up creator persona if specified
+    const creatorPersona = input.creator_persona_id
+      ? getPersonaById(input.creator_persona_id)
+      : null;
+
     const prompt = buildSkitPrompt({
       productName,
       brandName: product.brand || "",
@@ -1438,6 +1449,7 @@ export async function POST(request: Request) {
       ctaOverlay,
       riskTier: input.risk_tier,
       persona: input.persona,
+      creatorPersona: creatorPersona || null,
       template,
       preset,
       intensity: requestedIntensity,
@@ -1616,6 +1628,7 @@ interface PromptParams {
   ctaOverlay: string;
   riskTier: RiskTier;
   persona: Persona;
+  creatorPersona: CreatorPersona | null;
   template: SkitTemplate | null;
   preset: SkitPreset | null;
   intensity: number;
@@ -1641,9 +1654,12 @@ interface PromptParams {
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
 
-  const personaGuideline = PERSONA_GUIDELINES[persona];
+  // Use new creator persona system if available, otherwise fall back to legacy personas
+  const personaGuideline = creatorPersona
+    ? buildPersonaPromptSection(creatorPersona)
+    : PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
   const templateSection = template ? buildTemplatePromptSection(template) : "";
   const presetSection = preset ? buildPresetPromptSection(preset) : "";

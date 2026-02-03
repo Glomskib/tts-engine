@@ -240,6 +240,38 @@ export default function SettingsPage() {
                     {creditsLoading ? '-' : isUnlimited ? 'Unlimited' : credits?.remaining ?? 0}
                   </span>
                 </div>
+                {subscription?.periodEnd && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    <span className="text-sm text-zinc-400 sm:w-32">Renews on</span>
+                    <span className="text-zinc-200">{formatDate(subscription.periodEnd)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap gap-3">
+                <Link
+                  href="/upgrade"
+                  className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium"
+                >
+                  {isUnlimited ? 'Change Plan' : 'Upgrade Plan'}
+                </Link>
+                {subscription?.stripeCustomerId && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/subscriptions/portal', { method: 'POST' });
+                        const data = await res.json();
+                        if (data.url) window.location.href = data.url;
+                      } catch (err) {
+                        showError('Failed to open billing portal');
+                      }
+                    }}
+                    className="px-4 py-2 bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 border border-white/10 text-sm font-medium"
+                  >
+                    Manage Billing
+                  </button>
+                )}
               </div>
             </div>
 
@@ -254,6 +286,79 @@ export default function SettingsPage() {
                   <p className="text-sm text-zinc-400">Lifetime Credits Used</p>
                   <p className="text-2xl font-bold text-white">{credits?.lifetimeUsed || 0}</p>
                 </div>
+              </div>
+
+              {/* Credit Usage Bar */}
+              {!isUnlimited && credits && (
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm text-zinc-400 mb-2">
+                    <span>Credits remaining</span>
+                    <span>{credits.remaining} / {(credits.remaining || 0) + (credits.usedThisPeriod || 0)}</span>
+                  </div>
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full"
+                      style={{
+                        width: `${Math.min(100, ((credits.remaining || 0) / ((credits.remaining || 0) + (credits.usedThisPeriod || 0))) * 100)}%`
+                      }}
+                    />
+                  </div>
+                  {credits.remaining !== undefined && credits.remaining <= 5 && (
+                    <p className="text-amber-400 text-sm mt-2">
+                      Running low on credits! <Link href="/upgrade" className="underline">Upgrade now</Link>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Buy Credits */}
+            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+              <h2 className="text-lg font-semibold text-white mb-4">Need More Credits?</h2>
+              <p className="text-zinc-400 text-sm mb-4">Purchase additional credits without changing your plan.</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  { id: 'starter_pack', name: 'Starter', credits: 50, price: '$4.99' },
+                  { id: 'standard_pack', name: 'Standard', credits: 150, price: '$11.99', popular: true },
+                  { id: 'pro_pack', name: 'Pro', credits: 500, price: '$29.99' },
+                  { id: 'enterprise_pack', name: 'Enterprise', credits: 2000, price: '$99.99' },
+                ].map(pack => (
+                  <button
+                    key={pack.id}
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/credits/purchase', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ packageId: pack.id }),
+                        });
+                        const data = await res.json();
+                        if (data.url) window.location.href = data.url;
+                        else showError(data.error || 'Failed to start checkout');
+                      } catch (err) {
+                        showError('Failed to start checkout');
+                      }
+                    }}
+                    className={`p-4 rounded-lg border text-left transition-colors ${
+                      pack.popular
+                        ? 'border-violet-500/50 bg-violet-500/10 hover:bg-violet-500/20'
+                        : 'border-white/10 hover:border-white/20 hover:bg-zinc-800/50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-white">{pack.name}</div>
+                        <div className="text-sm text-zinc-400">{pack.credits} credits</div>
+                      </div>
+                      <div className="text-lg font-bold text-white">{pack.price}</div>
+                    </div>
+                    {pack.popular && (
+                      <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded">
+                        Most Popular
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

@@ -20,6 +20,8 @@ interface Subscription {
   creditsPerMonth: number;
   billingPeriod: string | null;
   currentPeriodEnd: string | null;
+  periodEnd: string | null;
+  stripeCustomerId: string | null;
 }
 
 interface UseCreditsReturn {

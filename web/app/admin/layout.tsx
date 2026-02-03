@@ -14,6 +14,7 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { InstallBanner } from '@/components/PWAProvider';
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal';
+import { LowCreditBanner } from '@/components/LowCreditBanner';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -350,6 +351,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
           <main className="pt-16 pb-24 min-h-screen overflow-x-hidden">
             <div className="px-4 max-w-full overflow-hidden">
+              <LowCreditBanner className="mb-4" />
               {children}
             </div>
           </main>
@@ -450,6 +452,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Desktop Main Content - Offset by sidebar */}
           <main className="ml-72 pt-16 min-h-screen">
             <div className="p-6">
+              <LowCreditBanner className="mb-6" />
               {children}
             </div>
           </main>

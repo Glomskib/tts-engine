@@ -87,6 +87,8 @@ export async function GET(request: Request) {
       creditsPerMonth: 0,
       billingPeriod: null,
       currentPeriodEnd: null,
+      periodEnd: null,
+      stripeCustomerId: null,
     };
 
     // Format response
@@ -94,7 +96,7 @@ export async function GET(request: Request) {
       ? {
           remaining: credits.credits_remaining ?? 5,
           usedThisPeriod: credits.credits_used_this_period ?? 0,
-          lifetimeUsed: credits.credits_used_lifetime ?? 0,
+          lifetimeUsed: credits.lifetime_credits_used ?? 0,
           freeCreditsTotal: credits.free_credits_total ?? 5,
           freeCreditsUsed: credits.free_credits_used ?? 0,
           periodStart: credits.period_start,
@@ -110,6 +112,8 @@ export async function GET(request: Request) {
           creditsPerMonth: subscription.plan.credits_per_month,
           billingPeriod: subscription.billing_period,
           currentPeriodEnd: subscription.current_period_end,
+          periodEnd: subscription.current_period_end,
+          stripeCustomerId: subscription.stripe_customer_id || null,
         }
       : defaultSubscription;
 

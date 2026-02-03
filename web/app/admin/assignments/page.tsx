@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import NotificationBadge from '../components/NotificationBadge';
 import { EmptyState } from '../components/AdminPageLayout';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';

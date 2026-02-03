@@ -19,7 +19,6 @@ import {
   PURCHASE_MOTIVATORS_OPTIONS,
   CONTENT_OPTIONS,
   PLATFORM_OPTIONS,
-  type SelectOption,
 } from "@/lib/persona-options";
 
 // --- Types ---

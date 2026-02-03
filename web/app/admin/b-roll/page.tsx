@@ -104,9 +104,9 @@ export default function BRollGeneratorPage() {
   const [selectedLibraryImage, setSelectedLibraryImage] = useState<LibraryImage | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // References state
-  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
-  const [referencesLoading, setReferencesLoading] = useState(false);
+  // References state (WIP - data loaded but UI pending)
+  const [_referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  const [_referencesLoading, setReferencesLoading] = useState(false);
   const [referencesCount, setReferencesCount] = useState(0);
   const [referencesLimit, setReferencesLimit] = useState(5);
 

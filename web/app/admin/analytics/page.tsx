@@ -8,7 +8,7 @@ import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { EmptyState } from '../components/AdminPageLayout';
 import SimpleBarChart from './components/SimpleBarChart';
 import { FileText, Video, Coins, ArrowRight, TrendingUp, Trophy, Eye, Percent, Target } from 'lucide-react';
-import type { WinnersAnalytics, AnalyticsPeriod } from '@/lib/analytics/types';
+import type { WinnersAnalytics } from '@/lib/analytics/types';
 import { StatCard } from '@/components/analytics/StatCard';
 import { TopPerformersCard } from '@/components/analytics/TopPerformersCard';
 import { VideoLengthChart } from '@/components/analytics/VideoLengthChart';

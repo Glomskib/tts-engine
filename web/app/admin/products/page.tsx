@@ -7,6 +7,13 @@ import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../componen
 import { patchJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '../components/ApiErrorPanel';
 
+interface PainPoint {
+  point: string;
+  category: 'emotional' | 'practical' | 'social' | 'financial';
+  intensity: 'mild' | 'moderate' | 'severe';
+  hook_angle: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -20,6 +27,7 @@ interface Product {
   tiktok_showcase_url?: string | null;
   slug?: string | null;
   category_risk?: 'low' | 'medium' | 'high' | null;
+  pain_points?: PainPoint[] | null;
   created_at?: string;
 }
 
@@ -33,7 +41,6 @@ interface ProductStats extends Product {
   in_queue: number;
   posted: number;
   target_accounts: string[];
-  brand_id?: string | null;
 }
 
 interface AuthUser {
@@ -76,6 +83,10 @@ export default function ProductsPage() {
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
   const [warningsLoading, setWarningsLoading] = useState(false);
+
+  // Pain points generation state
+  const [generatingPainPoints, setGeneratingPainPoints] = useState(false);
+  const [painPointsError, setPainPointsError] = useState<string | null>(null);
 
   // Bulk selection state
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
@@ -216,9 +227,11 @@ export default function ProductsPage() {
       tiktok_showcase_url: product.tiktok_showcase_url || '',
       slug: product.slug || '',
       category_risk: product.category_risk || null,
+      pain_points: product.pain_points || [],
     });
     setSaveError(null);
     setOpsWarnings([]);
+    setPainPointsError(null);
     setEditDrawerOpen(true);
 
     // Fetch ops warnings
@@ -381,6 +394,58 @@ export default function ProductsPage() {
     } else {
       setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
     }
+  };
+
+  // Generate pain points handler
+  const handleGeneratePainPoints = async () => {
+    if (!editingProduct) return;
+
+    setGeneratingPainPoints(true);
+    setPainPointsError(null);
+
+    try {
+      const res = await fetch('/api/products/generate-pain-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: editingProduct.id,
+          save_to_product: true,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Failed to generate pain points');
+      }
+
+      // Update the edit form with the new pain points
+      setEditForm(prev => ({
+        ...prev,
+        pain_points: data.data.pain_points,
+      }));
+
+      // Update local state to reflect saved pain points
+      setProductStats(prev =>
+        prev.map(p =>
+          p.id === editingProduct.id
+            ? { ...p, pain_points: data.data.pain_points }
+            : p
+        )
+      );
+    } catch (err) {
+      setPainPointsError(err instanceof Error ? err.message : 'Failed to generate pain points');
+    } finally {
+      setGeneratingPainPoints(false);
+    }
+  };
+
+  // Remove a pain point
+  const handleRemovePainPoint = (index: number) => {
+    setEditForm(prev => ({
+      ...prev,
+      pain_points: prev.pain_points?.filter((_, i) => i !== index) || [],
+    }));
   };
 
   // Detect potential duplicates
@@ -878,6 +943,86 @@ export default function ProductsPage() {
                   placeholder="Product-specific notes, talking points, compliance warnings..."
                   className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
+              </div>
+
+              {/* Pain Points Section */}
+              <div className="pt-4 border-t border-white/10">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-zinc-300">
+                    Pain Points
+                    <span className="text-zinc-500 font-normal ml-1">(for AI script generation)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePainPoints}
+                    disabled={generatingPainPoints}
+                    className="px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 disabled:bg-zinc-700 disabled:text-zinc-400 text-white rounded-md transition-colors"
+                  >
+                    {generatingPainPoints ? 'Generating...' : 'Auto-Generate'}
+                  </button>
+                </div>
+
+                {painPointsError && (
+                  <div className="mb-3 p-2 text-xs bg-red-900/50 border border-red-500/50 text-red-200 rounded">
+                    {painPointsError}
+                  </div>
+                )}
+
+                {editForm.pain_points && editForm.pain_points.length > 0 ? (
+                  <div className="space-y-2">
+                    {editForm.pain_points.map((pp, index) => (
+                      <div
+                        key={index}
+                        className="p-3 bg-zinc-800/50 border border-white/5 rounded-md"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-zinc-200">{pp.point}</p>
+                            <div className="flex gap-2 mt-1.5">
+                              <span className={`px-1.5 py-0.5 text-xs rounded ${
+                                pp.category === 'emotional' ? 'bg-pink-900/50 text-pink-300' :
+                                pp.category === 'practical' ? 'bg-blue-900/50 text-blue-300' :
+                                pp.category === 'social' ? 'bg-purple-900/50 text-purple-300' :
+                                'bg-green-900/50 text-green-300'
+                              }`}>
+                                {pp.category}
+                              </span>
+                              <span className={`px-1.5 py-0.5 text-xs rounded ${
+                                pp.intensity === 'severe' ? 'bg-red-900/50 text-red-300' :
+                                pp.intensity === 'moderate' ? 'bg-amber-900/50 text-amber-300' :
+                                'bg-zinc-700 text-zinc-300'
+                              }`}>
+                                {pp.intensity}
+                              </span>
+                            </div>
+                            {pp.hook_angle && (
+                              <p className="text-xs text-zinc-400 mt-1.5 italic">
+                                Hook: &quot;{pp.hook_angle}&quot;
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePainPoint(index)}
+                            className="text-zinc-500 hover:text-red-400 p-1"
+                            title="Remove pain point"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center border border-dashed border-white/10 rounded-md">
+                    <p className="text-sm text-zinc-500">No pain points yet</p>
+                    <p className="text-xs text-zinc-600 mt-1">
+                      Click &quot;Auto-Generate&quot; to create pain points using AI
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Audit Trail Link */}

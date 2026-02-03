@@ -45,6 +45,8 @@ import {
   fetchBrandContext,
   buildBrandContextPrompt,
 } from "@/lib/ai/brandContext";
+import { buildPainPointsPrompt, type ProductContext } from "@/lib/ai/productContext";
+import type { PainPoint } from "@/lib/ai/painPointGenerator";
 
 export const runtime = "nodejs";
 
@@ -1145,7 +1147,7 @@ export async function POST(request: Request) {
 
   try {
     // Fetch product info if product_id provided, otherwise use fallback product_name
-    let product: { id: string | null; name: string; brand: string | null; brand_id: string | null; category: string | null; notes: string | null } | null = null;
+    let product: { id: string | null; name: string; brand: string | null; brand_id: string | null; category: string | null; notes: string | null; pain_points: PainPoint[] | null } | null = null;
 
     // Debug info collected during product lookup
     let productLookupDebug: Record<string, unknown> | null = null;
@@ -1188,7 +1190,7 @@ export async function POST(request: Request) {
       // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand, brand_id, category, notes")
+        .select("id, name, brand, brand_id, category, notes, pain_points")
         .eq("id", productIdTrimmed)
         .single();
 
@@ -1258,6 +1260,7 @@ export async function POST(request: Request) {
         brand_id: null,
         category: null,
         notes: null,
+        pain_points: null,
       };
     }
 
@@ -1267,6 +1270,9 @@ export async function POST(request: Request) {
       const brandContext = await fetchBrandContext(product.brand_id);
       brandContextPrompt = buildBrandContextPrompt(brandContext);
     }
+
+    // Build pain points prompt section if product has pain points
+    const painPointsPrompt = buildPainPointsPrompt(product?.pain_points);
 
     // Look up preset if provided
     let preset: SkitPreset | null = null;
@@ -1412,6 +1418,7 @@ export async function POST(request: Request) {
       winnersIntelligence,
       winnerVariation,
       brandContextPrompt,
+      painPointsPrompt,
     });
 
     // Determine variation count (default 3)
@@ -1597,10 +1604,12 @@ interface PromptParams {
   winnerVariation: Winner | null; // If generating variation of specific winner
   // Brand Context
   brandContextPrompt: string;
+  // Product Pain Points
+  painPointsPrompt: string;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt } = params;
 
   // Use new creator persona system if available, otherwise fall back to legacy personas
   const personaGuideline = creatorPersona
@@ -1645,6 +1654,7 @@ ${winnerVariationSection}
 ${winnersContext}
 ${audienceContext}
 ${brandContextPrompt}
+${painPointsPrompt}
 ${contentFormatGuideline}
 
 ${actorGuideline}

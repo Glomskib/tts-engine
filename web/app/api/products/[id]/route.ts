@@ -7,6 +7,14 @@ import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
+// Pain point schema
+const PainPointSchema = z.object({
+  point: z.string().min(1).max(500),
+  category: z.enum(["emotional", "practical", "social", "financial"]),
+  intensity: z.enum(["mild", "moderate", "severe"]),
+  hook_angle: z.string().max(200),
+});
+
 // Validation schema for product updates - use strict() to reject unknown fields
 const UpdateProductSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -25,6 +33,7 @@ const UpdateProductSchema = z.object({
   primary_link: z.string().url().max(500).optional().nullable(),
   tiktok_showcase_url: z.string().url().max(500).optional().nullable(),
   slug: z.string().max(100).optional().nullable(),
+  pain_points: z.array(PainPointSchema).optional().nullable(),
 }).strict(); // Reject unknown fields
 
 /**

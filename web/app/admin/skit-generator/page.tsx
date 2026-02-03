@@ -15,6 +15,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 import { PersonaSelector } from '@/components/PersonaSelector';
+import { CreatorPersonaSelector } from '@/components/CreatorPersonaSelector';
 import {
   CONTENT_EDGE_OPTIONS,
   UNPREDICTABILITY_OPTIONS,
@@ -402,6 +403,7 @@ export default function SkitGeneratorPage() {
   const [variationCount, setVariationCount] = useState<number>(3);
   // New creative controls
   const [characterPersona, setCharacterPersona] = useState<string>('');
+  const [creatorPersonaId, setCreatorPersonaId] = useState<string | null>(null);
   const [presentationStyle, setPresentationStyle] = useState<string>('');
   const [pacing, setPacing] = useState<Pacing>('moderate');
   const [hookStrength, setHookStrength] = useState<HookStrength>('standard');
@@ -1162,6 +1164,7 @@ export default function SkitGeneratorPage() {
       hook_strength: hookStrength || undefined,
       authenticity: authenticity || undefined,
       presentation_style: presentationStyle || undefined,
+      creator_persona_id: creatorPersonaId || undefined,
       // Audience Intelligence
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_id: selectedPainPointId || undefined,
@@ -2657,6 +2660,25 @@ export default function SkitGeneratorPage() {
                         value={characterPersona}
                         onChange={setCharacterPersona}
                       />
+                    </div>
+
+                    {/* Creator Persona (New Detailed Personas) */}
+                    <div style={{ marginTop: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="Select a detailed TikTok Shop creator persona with specific patterns and style"
+                      >
+                        Creator Persona <span style={{ cursor: 'help', opacity: 0.6, marginLeft: '4px' }}>NEW</span>
+                      </label>
+                      <CreatorPersonaSelector
+                        value={creatorPersonaId}
+                        onChange={setCreatorPersonaId}
+                      />
+                      {creatorPersonaId && (
+                        <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                          Overrides character persona with detailed creator style
+                        </div>
+                      )}
                     </div>
 
                     {/* Presentation Style */}

@@ -12,19 +12,23 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  // Auth check
-  const authContext = await getApiAuthContext();
-  if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  try {
+    // Auth check
+    const authContext = await getApiAuthContext();
+    if (!authContext.user) {
+      return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+    }
+
+    const presets = getAllSkitPresets();
+
+    const response = NextResponse.json({
+      ok: true,
+      correlation_id: correlationId,
+      data: presets,
+    });
+    response.headers.set("x-correlation-id", correlationId);
+    return response;
+  } catch {
+    return createApiErrorResponse("INTERNAL", "Failed to fetch presets", 500, correlationId);
   }
-
-  const presets = getAllSkitPresets();
-
-  const response = NextResponse.json({
-    ok: true,
-    correlation_id: correlationId,
-    data: presets,
-  });
-  response.headers.set("x-correlation-id", correlationId);
-  return response;
 }

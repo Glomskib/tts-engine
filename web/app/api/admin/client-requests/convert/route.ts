@@ -111,9 +111,9 @@ export async function POST(request: Request) {
       driveUrl = clientRequest.ugc_links[0];
     }
 
-    // Calculate SLA deadline based on priority
-    const priority = clientRequest.priority || 'standard';
-    const slaHours = priority === 'rush' ? 24 : priority === 'priority' ? 48 : 72;
+    // Calculate SLA deadline based on priority (HIGH=24h, NORMAL=48h, LOW=72h)
+    const priority = clientRequest.priority || 'NORMAL';
+    const slaHours = priority === 'HIGH' ? 24 : priority === 'NORMAL' ? 48 : 72;
     const slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000).toISOString();
 
     const insertPayload: Record<string, unknown> = {

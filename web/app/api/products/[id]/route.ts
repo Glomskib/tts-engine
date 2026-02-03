@@ -17,9 +17,11 @@ const UpdateProductSchema = z.object({
     .optional()
     .nullable(),
   brand: z.string().min(1).max(255).optional(),
+  brand_id: z.string().uuid().optional().nullable(),
   category: z.string().min(1).max(100).optional(),
   category_risk: z.enum(["low", "medium", "high"]).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  description: z.string().max(2000).optional().nullable(),
   primary_link: z.string().url().max(500).optional().nullable(),
   tiktok_showcase_url: z.string().url().max(500).optional().nullable(),
   slug: z.string().max(100).optional().nullable(),

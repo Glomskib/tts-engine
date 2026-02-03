@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, brand, category, category_risk, notes } = body as Record<string, unknown>;
+  const { name, brand, category, category_risk, notes, brand_id, description, link } = body as Record<string, unknown>;
 
   if (typeof name !== "string" || name.trim() === "") {
     return NextResponse.json(
@@ -80,6 +80,9 @@ export async function POST(request: Request) {
   };
   if (category_risk !== undefined) insertPayload.category_risk = category_risk;
   if (notes !== undefined) insertPayload.notes = notes;
+  if (brand_id !== undefined) insertPayload.brand_id = brand_id;
+  if (description !== undefined) insertPayload.description = description;
+  if (link !== undefined) insertPayload.primary_link = link;
 
   const { data, error } = await supabaseAdmin
     .from("products")

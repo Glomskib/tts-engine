@@ -105,6 +105,7 @@ const GenerateSkitInputSchema = z.object({
   hook_strength: HookStrengthSchema.optional(),
   authenticity: AuthenticitySchema.optional(),
   presentation_style: PresentationStyleSchema.optional(),
+  dialogue_density: z.number().min(1).max(5).optional(), // 1=minimal dialogue, 5=dialogue heavy
   // Audience Intelligence
   audience_persona_id: z.string().uuid().optional(),
   pain_point_id: z.string().uuid().optional(),
@@ -763,6 +764,63 @@ ACTOR TYPE: MIXED (HUMAN + AI/VOICEOVER)
 `;
     default:
       return "";
+  }
+}
+
+// --- Dialogue Density Guidelines ---
+
+function buildDialogueDensityGuidelines(density: number | null): string {
+  if (!density) return '';
+
+  switch (density) {
+    case 1:
+      return `
+DIALOGUE DENSITY: MINIMAL (1/5) - "Show Don't Tell"
+- Almost entirely visual storytelling
+- Maybe 1-2 short spoken lines total
+- Heavy reliance on on-screen text and visuals
+- Actions and expressions tell the story
+- Music/sound effects carry the emotion
+- Think: silent film energy with modern text overlays
+`;
+    case 2:
+      return `
+DIALOGUE DENSITY: LIGHT (2/5) - "Visual First"
+- Primarily visual with strategic dialogue
+- Key punchlines get spoken, everything else is visual
+- On-screen text for setup, dialogue for payoff
+- 3-4 spoken lines maximum
+- Let the visuals do most of the heavy lifting
+`;
+    case 3:
+      return `
+DIALOGUE DENSITY: BALANCED (3/5) - "Best of Both"
+- Equal mix of dialogue and visual storytelling
+- Dialogue drives key beats
+- Actions/expressions punctuate between lines
+- On-screen text enhances but doesn't replace dialogue
+- Natural back-and-forth if multiple characters
+`;
+    case 4:
+      return `
+DIALOGUE DENSITY: DIALOGUE-DRIVEN (4/5) - "Talk It Out"
+- Dialogue is the primary vehicle
+- Most beats have spoken lines
+- Narration and commentary carry the story
+- Visual elements support the speech
+- Good for storytelling and explanation-heavy content
+`;
+    case 5:
+      return `
+DIALOGUE DENSITY: DIALOGUE HEAVY (5/5) - "All Talk"
+- Rapid-fire dialogue throughout
+- Minimal pauses - words fill every beat
+- Could work as audio-only if needed
+- Think: rant style, stream of consciousness
+- Energy comes from the speaker, not the visuals
+`;
+    default:
+      return '';
   }
 }
 
@@ -1463,6 +1521,7 @@ export async function POST(request: Request) {
       hookStrength: input.hook_strength ?? null,
       authenticity: input.authenticity ?? null,
       presentationStyle: input.presentation_style ?? null,
+      dialogueDensity: input.dialogue_density ?? null,
       audiencePersona,
       painPoint,
       painPointFocus: input.pain_point_focus || [],
@@ -1643,6 +1702,7 @@ interface PromptParams {
   hookStrength: string | null;
   authenticity: string | null;
   presentationStyle: string | null;
+  dialogueDensity: number | null;
   // Audience Intelligence
   audiencePersona: AudiencePersona | null;
   painPoint: PainPointData | null;
@@ -1654,7 +1714,7 @@ interface PromptParams {
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnerAnalysis, winnerVariation } = params;
 
   // Use new creator persona system if available, otherwise fall back to legacy personas
   const personaGuideline = creatorPersona
@@ -1672,6 +1732,7 @@ function buildSkitPrompt(params: PromptParams): string {
   const hookStrengthGuideline = buildHookStrengthGuidelines(hookStrength);
   const authenticityGuideline = buildAuthenticityGuidelines(authenticity);
   const presentationStyleGuideline = buildPresentationStyleGuidelines(presentationStyle);
+  const dialogueDensityGuideline = buildDialogueDensityGuidelines(dialogueDensity);
   const audienceContext = buildAudienceContext(audiencePersona, painPoint, painPointFocus, useAudienceLanguage);
   const winnersContext = buildWinnersContext(winnerAnalysis);
   const winnerVariationSection = winnerVariation ? buildWinnerVariationPrompt(winnerVariation) : "";
@@ -1708,6 +1769,7 @@ ${pacingGuideline}
 ${hookStrengthGuideline}
 ${authenticityGuideline}
 ${presentationStyleGuideline}
+${dialogueDensityGuideline}
 
 ${tierGuideline}
 

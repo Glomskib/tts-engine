@@ -404,6 +404,7 @@ export default function SkitGeneratorPage() {
   // New creative controls
   const [characterPersona, setCharacterPersona] = useState<string>('');
   const [creatorPersonaId, setCreatorPersonaId] = useState<string | null>(null);
+  const [dialogueDensity, setDialogueDensity] = useState<number>(3); // 1-5 scale, 3 is balanced
   const [presentationStyle, setPresentationStyle] = useState<string>('');
   const [pacing, setPacing] = useState<Pacing>('moderate');
   const [hookStrength, setHookStrength] = useState<HookStrength>('standard');
@@ -1165,6 +1166,7 @@ export default function SkitGeneratorPage() {
       authenticity: authenticity || undefined,
       presentation_style: presentationStyle || undefined,
       creator_persona_id: creatorPersonaId || undefined,
+      dialogue_density: dialogueDensity,
       // Audience Intelligence
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_id: selectedPainPointId || undefined,
@@ -2614,6 +2616,59 @@ export default function SkitGeneratorPage() {
                       </div>
                       <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
                         {HUMOR_LEVEL_OPTIONS.find(o => o.value === humorLevel)?.description}
+                      </div>
+                    </div>
+
+                    {/* Dialogue Density */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <label
+                        style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: colors.textSecondary }}
+                        title="How much dialogue vs visual storytelling"
+                      >
+                        Dialogue Density <span style={{ cursor: 'help', opacity: 0.6 }}>ⓘ</span>
+                      </label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {[
+                          { value: 1, label: '1', desc: 'Minimal - Visual first' },
+                          { value: 2, label: '2', desc: 'Light - Strategic dialogue' },
+                          { value: 3, label: '3', desc: 'Balanced - Mix of both' },
+                          { value: 4, label: '4', desc: 'Heavy - Dialogue-driven' },
+                          { value: 5, label: '5', desc: 'All Talk - Rapid-fire' },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setDialogueDensity(option.value)}
+                            title={option.desc}
+                            style={{
+                              flex: 1,
+                              padding: '8px 4px',
+                              backgroundColor: dialogueDensity === option.value ? '#7c3aed' : colors.bg,
+                              border: `1px solid ${dialogueDensity === option.value ? '#7c3aed' : colors.border}`,
+                              borderRadius: '6px',
+                              color: dialogueDensity === option.value ? 'white' : colors.text,
+                              fontSize: '11px',
+                              fontWeight: dialogueDensity === option.value ? 600 : 400,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textSecondary, marginTop: '4px' }}>
+                        <span>Visual</span>
+                        <span>All Talk</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px' }}>
+                        {[
+                          'Minimal dialogue, heavy visuals and text overlays',
+                          'Light dialogue, visual-first storytelling',
+                          'Balanced mix of dialogue and action',
+                          'Dialogue-driven with visual support',
+                          'Rapid-fire dialogue throughout',
+                        ][dialogueDensity - 1]}
                       </div>
                     </div>
 

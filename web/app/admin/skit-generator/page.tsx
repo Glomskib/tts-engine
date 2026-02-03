@@ -10,6 +10,7 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
 import { Trophy } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
@@ -4785,6 +4786,143 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   }}
                 >
                   Download .docx
+                </button>
+
+                {/* Download PDF */}
+                <button
+                  onClick={() => {
+                    const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
+                    const productName = product?.name || manualProductName || 'Product';
+                    const productBrand = product?.brand || manualBrandName || '';
+                    const title = `${productBrand ? productBrand + ' ' : ''}${productName} Skit`;
+
+                    const pdf = new jsPDF();
+                    let yPos = 20;
+                    const leftMargin = 20;
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const maxWidth = pageWidth - 2 * leftMargin;
+
+                    // Title
+                    pdf.setFontSize(18);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text(title, leftMargin, yPos);
+                    yPos += 15;
+
+                    // Hook
+                    pdf.setFontSize(14);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text('HOOK', leftMargin, yPos);
+                    yPos += 8;
+                    pdf.setFontSize(11);
+                    pdf.setFont('helvetica', 'italic');
+                    const hookLines = pdf.splitTextToSize(`"${currentSkit.hook_line}"`, maxWidth);
+                    pdf.text(hookLines, leftMargin, yPos);
+                    yPos += hookLines.length * 6 + 10;
+
+                    // Scenes
+                    pdf.setFontSize(14);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text('SCENES', leftMargin, yPos);
+                    yPos += 8;
+
+                    currentSkit.beats.forEach((beat, idx) => {
+                      // Check for page break
+                      if (yPos > 270) {
+                        pdf.addPage();
+                        yPos = 20;
+                      }
+
+                      pdf.setFontSize(12);
+                      pdf.setFont('helvetica', 'bold');
+                      pdf.text(`Scene ${idx + 1} [${beat.t}]`, leftMargin, yPos);
+                      yPos += 6;
+
+                      pdf.setFontSize(10);
+                      pdf.setFont('helvetica', 'normal');
+                      const actionLines = pdf.splitTextToSize(`Action: ${beat.action}`, maxWidth);
+                      pdf.text(actionLines, leftMargin, yPos);
+                      yPos += actionLines.length * 5;
+
+                      if (beat.dialogue) {
+                        pdf.setFont('helvetica', 'italic');
+                        const dialogueLines = pdf.splitTextToSize(`Dialogue: "${beat.dialogue}"`, maxWidth);
+                        pdf.text(dialogueLines, leftMargin, yPos);
+                        yPos += dialogueLines.length * 5;
+                        pdf.setFont('helvetica', 'normal');
+                      }
+
+                      if (beat.on_screen_text) {
+                        const textLines = pdf.splitTextToSize(`On-screen: ${beat.on_screen_text}`, maxWidth);
+                        pdf.text(textLines, leftMargin, yPos);
+                        yPos += textLines.length * 5;
+                      }
+                      yPos += 5;
+                    });
+
+                    // CTA
+                    if (yPos > 260) { pdf.addPage(); yPos = 20; }
+                    pdf.setFontSize(14);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text('CALL TO ACTION', leftMargin, yPos);
+                    yPos += 8;
+                    pdf.setFontSize(10);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.text(`Spoken: ${currentSkit.cta_line}`, leftMargin, yPos);
+                    yPos += 6;
+                    pdf.text(`Overlay: ${currentSkit.cta_overlay}`, leftMargin, yPos);
+                    yPos += 12;
+
+                    // B-Roll
+                    if (currentSkit.b_roll.length > 0) {
+                      if (yPos > 250) { pdf.addPage(); yPos = 20; }
+                      pdf.setFontSize(14);
+                      pdf.setFont('helvetica', 'bold');
+                      pdf.text('B-ROLL SUGGESTIONS', leftMargin, yPos);
+                      yPos += 8;
+                      pdf.setFontSize(10);
+                      pdf.setFont('helvetica', 'normal');
+                      currentSkit.b_roll.forEach((item, idx) => {
+                        if (yPos > 280) { pdf.addPage(); yPos = 20; }
+                        pdf.text(`${idx + 1}. ${item}`, leftMargin, yPos);
+                        yPos += 5;
+                      });
+                      yPos += 5;
+                    }
+
+                    // AI Score
+                    if (aiScore) {
+                      if (yPos > 250) { pdf.addPage(); yPos = 20; }
+                      pdf.setFontSize(14);
+                      pdf.setFont('helvetica', 'bold');
+                      pdf.text('AI SCORE', leftMargin, yPos);
+                      yPos += 8;
+                      pdf.setFontSize(12);
+                      pdf.text(`Overall: ${aiScore.overall_score.toFixed(1)}/10`, leftMargin, yPos);
+                      yPos += 6;
+                      pdf.setFontSize(10);
+                      pdf.setFont('helvetica', 'normal');
+                      pdf.text(`Hook: ${aiScore.hook_strength}/10 | Humor: ${aiScore.humor_level}/10 | Product: ${aiScore.product_integration}/10`, leftMargin, yPos);
+                    }
+
+                    // Footer
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(150);
+                    pdf.text(`Generated: ${new Date().toLocaleString()}`, leftMargin, 290);
+
+                    pdf.save(`skit-${Date.now()}.pdf`);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: '#dc2626',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    color: 'white',
+                    fontWeight: 500,
+                  }}
+                >
+                  Download PDF
                 </button>
               </div>
 

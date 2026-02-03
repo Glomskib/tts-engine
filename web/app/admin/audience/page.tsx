@@ -142,6 +142,7 @@ export default function AudiencePage() {
   } | null>(null);
   const [addingPainPointIndex, setAddingPainPointIndex] = useState<number | null>(null);
   const [addingAllPainPoints, setAddingAllPainPoints] = useState(false);
+  const [showAdvancedExtract, setShowAdvancedExtract] = useState(false);
 
   // Messages
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -817,11 +818,31 @@ export default function AudiencePage() {
               </div>
             </div>
 
-            {/* Extract from Text Panel */}
+            {/* Advanced: Extract from Text Panel */}
             <div style={{ ...cardStyle, marginBottom: "16px" }}>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: colors.text, marginBottom: "10px" }}>
-                Extract Pain Points from Product Reviews
-              </div>
+              <button
+                onClick={() => setShowAdvancedExtract(!showAdvancedExtract)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <div style={{ fontSize: "13px", fontWeight: 600, color: colors.textMuted }}>
+                  Advanced: Extract from Product Reviews
+                </div>
+                <span style={{ fontSize: "12px", color: colors.textMuted }}>
+                  {showAdvancedExtract ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {showAdvancedExtract && (
+              <div style={{ marginTop: "12px" }}>
 
               {/* Source URL Input */}
               <div style={{ marginBottom: "10px" }}>
@@ -1024,6 +1045,8 @@ export default function AudiencePage() {
                   )}
                 </div>
               )}
+              </div>
+              )}
             </div>
 
             {/* Pain Points List */}
@@ -1123,14 +1146,17 @@ export default function AudiencePage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <div>
                       <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                        PERSONA NAME *
+                        PERSONA ARCHETYPE *
                       </label>
                       <input
                         value={personaForm.name || ""}
                         onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
-                        placeholder="e.g., Stressed Mom, Skeptical Buyer"
+                        placeholder="e.g., Budget-Conscious Deal Hunter, Transformation Chaser"
                         style={inputStyle}
                       />
+                      <div style={{ fontSize: "10px", color: colors.textMuted, marginTop: "4px" }}>
+                        Descriptive name that captures their mindset, not a human name
+                      </div>
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>

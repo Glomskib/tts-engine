@@ -57,6 +57,23 @@ const ContentFormatSchema = z.enum([
   "day_in_life",
 ]);
 
+// Additional creative control schemas
+const PacingSchema = z.enum(["slow", "moderate", "fast", "rapid"]);
+const HookStrengthSchema = z.enum(["soft", "standard", "strong", "extreme"]);
+const AuthenticitySchema = z.enum(["polished", "balanced", "casual", "raw"]);
+const PresentationStyleSchema = z.enum([
+  "direct_pitch",
+  "storytelling",
+  "problem_solution",
+  "demonstration",
+  "testimonial",
+  "comparison",
+  "tutorial",
+  "unboxing",
+  "day_in_life",
+  "trending",
+]);
+
 const GenerateSkitInputSchema = z.object({
   video_id: z.string().uuid().optional(),
   product_id: z.string().uuid().optional(),
@@ -76,6 +93,11 @@ const GenerateSkitInputSchema = z.object({
   content_format: ContentFormatSchema.optional(),
   product_context: z.string().max(2000).optional(),
   variation_count: z.number().int().min(1).max(5).optional(),
+  // Additional creative controls
+  pacing: PacingSchema.optional(),
+  hook_strength: HookStrengthSchema.optional(),
+  authenticity: AuthenticitySchema.optional(),
+  presentation_style: PresentationStyleSchema.optional(),
   // Audience Intelligence
   audience_persona_id: z.string().uuid().optional(),
   pain_point_id: z.string().uuid().optional(),
@@ -738,6 +760,207 @@ CONTENT FORMAT: DAY IN THE LIFE
   }
 }
 
+// --- Additional Creative Control Guidelines ---
+
+function buildPacingGuidelines(pacing: string | null): string {
+  if (!pacing) return "";
+  switch (pacing) {
+    case "slow":
+      return `
+PACING: SLOW BUILD
+- Take time to develop the premise
+- Build tension gradually
+- Longer beats, more breathing room
+- Viewer gets immersed in the story
+`;
+    case "moderate":
+      return `
+PACING: CONVERSATIONAL
+- Natural talking pace
+- Standard beat lengths
+- Balanced rhythm of fast and slow moments
+- Feels like a real conversation
+`;
+    case "fast":
+      return `
+PACING: QUICK CUTS
+- Fast, punchy delivery
+- Short beats, quick transitions
+- High energy throughout
+- Keep the viewer engaged with speed
+`;
+    case "rapid":
+      return `
+PACING: RAPID FIRE
+- Maximum speed, constant motion
+- Ultra-short beats (1-2 seconds each)
+- No pauses, immediate cuts
+- Overwhelming energy, ADHD-friendly
+`;
+    default:
+      return "";
+  }
+}
+
+function buildHookStrengthGuidelines(hookStrength: string | null): string {
+  if (!hookStrength) return "";
+  switch (hookStrength) {
+    case "soft":
+      return `
+HOOK STYLE: SOFT OPEN
+- Ease the viewer in gently
+- Start with something relatable or curious
+- Build interest gradually
+- Less jarring, more inviting
+`;
+    case "standard":
+      return `
+HOOK STYLE: STANDARD HOOK
+- Clear value proposition upfront
+- Obvious reason to keep watching
+- "Here's what you'll get" energy
+- Reliable, proven format
+`;
+    case "strong":
+      return `
+HOOK STYLE: STRONG HOOK
+- Immediate attention grab
+- Start with the most interesting part
+- Create instant curiosity or conflict
+- "Wait, what?" in the first second
+`;
+    case "extreme":
+      return `
+HOOK STYLE: PATTERN INTERRUPT
+- Shocking or unexpected opening
+- Break all expectations
+- Start mid-action or with something bizarre
+- Maximum scroll-stopping power
+- Examples: Start with the punchline, open on chaos, jarring visual
+`;
+    default:
+      return "";
+  }
+}
+
+function buildAuthenticityGuidelines(authenticity: string | null): string {
+  if (!authenticity) return "";
+  switch (authenticity) {
+    case "polished":
+      return `
+AUTHENTICITY: POLISHED
+- Professional, scripted feel
+- Clear enunciation, rehearsed delivery
+- High production value vibe
+- Brand-safe, corporate-friendly
+`;
+    case "balanced":
+      return `
+AUTHENTICITY: BALANCED
+- Professional but natural
+- Slight imperfections are OK
+- Feels prepared but not robotic
+- Trustworthy and competent
+`;
+    case "casual":
+      return `
+AUTHENTICITY: CASUAL
+- Feels like talking to a friend
+- Natural speech patterns, some "ums"
+- Relaxed, approachable energy
+- Like a genuine recommendation
+`;
+    case "raw":
+      return `
+AUTHENTICITY: RAW/UGC
+- Completely unfiltered
+- Looks homemade, feels real
+- Stream of consciousness allowed
+- Maximum authenticity, minimum polish
+- This should feel like a real person discovered something, not an ad
+`;
+    default:
+      return "";
+  }
+}
+
+function buildPresentationStyleGuidelines(style: string | null): string {
+  if (!style) return "";
+  const styles: Record<string, string> = {
+    direct_pitch: `
+PRESENTATION: STRAIGHT SELL
+- Direct product pitch approach
+- Clear benefits, direct CTA
+- No beating around the bush
+- "This product does X, here's why you need it"
+`,
+    storytelling: `
+PRESENTATION: STORY TIME
+- Narrative-driven content
+- Beginning, middle, end structure
+- Character goes through transformation
+- Product is part of the story arc
+`,
+    problem_solution: `
+PRESENTATION: PROBLEM → SOLUTION
+- Classic pain point format
+- Establish the problem dramatically
+- Show the struggle
+- Product saves the day
+`,
+    demonstration: `
+PRESENTATION: SHOW DON'T TELL
+- Product in action
+- Visual proof of benefits
+- Less talking, more showing
+- Let the product speak for itself
+`,
+    testimonial: `
+PRESENTATION: REAL TALK
+- Testimonial/review style
+- Personal experience focus
+- "Here's what happened when I tried it"
+- Authentic recommendation energy
+`,
+    comparison: `
+PRESENTATION: SIDE BY SIDE
+- Comparison format
+- Before/after or us/them
+- Clear contrast between options
+- Product is obviously the winner
+`,
+    tutorial: `
+PRESENTATION: HOW TO
+- Educational/tutorial format
+- Step-by-step guidance
+- Teach something valuable
+- Product is the tool for success
+`,
+    unboxing: `
+PRESENTATION: FIRST LOOK
+- Unboxing/reveal style
+- Build anticipation
+- Discovery and reaction moments
+- First impressions focus
+`,
+    day_in_life: `
+PRESENTATION: DAY IN MY LIFE
+- Lifestyle integration format
+- Product woven into daily routine
+- Natural, organic placement
+- Aspirational but relatable
+`,
+    trending: `
+PRESENTATION: TREND JACKING
+- Uses current TikTok trends
+- Format/sound/meme reference
+- Familiar structure with product twist
+- Leverage existing virality
+`,
+  };
+  return styles[style] || "";
+}
+
 // --- Skit Structure Template ---
 
 const SKIT_STRUCTURE_TEMPLATE = `
@@ -1065,6 +1288,10 @@ export async function POST(request: Request) {
       targetDuration: input.target_duration ?? "standard",
       contentFormat: input.content_format ?? "skit_dialogue",
       productContext: input.product_context || "",
+      pacing: input.pacing ?? null,
+      hookStrength: input.hook_strength ?? null,
+      authenticity: input.authenticity ?? null,
+      presentationStyle: input.presentation_style ?? null,
       audiencePersona,
       painPoint,
       painPointFocus: input.pain_point_focus || [],
@@ -1237,6 +1464,11 @@ interface PromptParams {
   targetDuration: TargetDuration;
   contentFormat: ContentFormat;
   productContext: string;
+  // Additional creative controls
+  pacing: string | null;
+  hookStrength: string | null;
+  authenticity: string | null;
+  presentationStyle: string | null;
   // Audience Intelligence
   audiencePersona: AudiencePersona | null;
   painPoint: PainPointData | null;
@@ -1245,7 +1477,7 @@ interface PromptParams {
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, audiencePersona, painPoint, painPointFocus, useAudienceLanguage } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, template, preset, intensity, chaosLevel, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, audiencePersona, painPoint, painPointFocus, useAudienceLanguage } = params;
 
   const personaGuideline = PERSONA_GUIDELINES[persona];
   const tierGuideline = TIER_GUIDELINES[riskTier];
@@ -1256,6 +1488,10 @@ function buildSkitPrompt(params: PromptParams): string {
   const actorGuideline = buildActorTypeGuidelines(actorType);
   const durationGuideline = buildDurationGuidelines(targetDuration);
   const contentFormatGuideline = buildContentFormatGuidelines(contentFormat);
+  const pacingGuideline = buildPacingGuidelines(pacing);
+  const hookStrengthGuideline = buildHookStrengthGuidelines(hookStrength);
+  const authenticityGuideline = buildAuthenticityGuidelines(authenticity);
+  const presentationStyleGuideline = buildPresentationStyleGuidelines(presentationStyle);
   const audienceContext = buildAudienceContext(audiencePersona, painPoint, painPointFocus, useAudienceLanguage);
   const creativeDirectionSection = creativeDirection
     ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the skit)\n`
@@ -1284,6 +1520,10 @@ ${actorGuideline}
 ${durationGuideline}
 
 ${chaosGuideline}
+${pacingGuideline}
+${hookStrengthGuideline}
+${authenticityGuideline}
+${presentationStyleGuideline}
 
 ${tierGuideline}
 

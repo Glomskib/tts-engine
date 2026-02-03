@@ -1130,8 +1130,11 @@ export default function SkitGeneratorPage() {
       content_format: contentFormat,
       product_context: productContext.trim() || undefined,
       variation_count: variationCount,
-      // Note: character_persona, presentation_style, pacing, hook_strength, authenticity
-      // are collected in UI but not yet supported by API - can be added to creative_direction
+      // Additional creative controls
+      pacing: pacing || undefined,
+      hook_strength: hookStrength || undefined,
+      authenticity: authenticity || undefined,
+      presentation_style: presentationStyle || undefined,
       // Audience Intelligence
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_id: selectedPainPointId || undefined,

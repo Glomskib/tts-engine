@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Play, ExternalLink, Heart, Eye } from 'lucide-react';
+import { SHOWCASE_VIDEOS, type ShowcaseVideo as ConfigVideo } from '@/lib/showcase-videos';
 
 interface ShowcaseVideo {
   id: string;
@@ -18,6 +19,15 @@ interface ShowcaseVideo {
   is_featured: boolean;
 }
 
+interface OEmbedData {
+  title: string;
+  author_name: string;
+  author_url: string;
+  thumbnail_url: string;
+  thumbnail_width: number;
+  thumbnail_height: number;
+}
+
 interface VideoShowcaseProps {
   limit?: number;
   showTitle?: boolean;
@@ -26,19 +36,25 @@ interface VideoShowcaseProps {
 
 export function VideoShowcase({ limit = 6, showTitle = true, onContactClick }: VideoShowcaseProps) {
   const [videos, setVideos] = useState<ShowcaseVideo[]>([]);
+  const [oembedData, setOembedData] = useState<Record<string, OEmbedData>>({});
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<ShowcaseVideo | null>(null);
+  const [useConfigFallback, setUseConfigFallback] = useState(false);
 
   useEffect(() => {
     const fetchVideos = async () => {
       try {
         const res = await fetch(`/api/showcase/videos?limit=${limit}&featured=true`);
         const data = await res.json();
-        if (data.ok) {
+        if (data.ok && data.videos && data.videos.length > 0) {
           setVideos(data.videos);
+        } else {
+          // Fall back to config file videos
+          setUseConfigFallback(true);
         }
       } catch (err) {
         console.error('Failed to fetch showcase videos:', err);
+        setUseConfigFallback(true);
       } finally {
         setLoading(false);
       }
@@ -47,21 +63,38 @@ export function VideoShowcase({ limit = 6, showTitle = true, onContactClick }: V
     fetchVideos();
   }, [limit]);
 
+  // Fetch oEmbed data for config videos
+  useEffect(() => {
+    if (!useConfigFallback) return;
+
+    const fetchOembedData = async () => {
+      const results: Record<string, OEmbedData> = {};
+
+      await Promise.all(
+        SHOWCASE_VIDEOS.slice(0, limit).map(async (video) => {
+          try {
+            const res = await fetch(`/api/tiktok/oembed?url=${encodeURIComponent(video.tiktokUrl)}`);
+            if (res.ok) {
+              const data = await res.json();
+              results[video.id] = data;
+            }
+          } catch (e) {
+            console.error('Failed to fetch oEmbed for', video.id);
+          }
+        })
+      );
+
+      setOembedData(results);
+    };
+
+    fetchOembedData();
+  }, [useConfigFallback, limit]);
+
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
   };
-
-  // Show placeholder cards if no videos yet
-  const placeholderVideos = [
-    { title: 'Product Demo', category: 'product', views: 125000, likes: 8500 },
-    { title: 'UGC Testimonial', category: 'ugc', views: 89000, likes: 6200 },
-    { title: 'Educational Explainer', category: 'educational', views: 156000, likes: 12000 },
-    { title: 'Brand Story', category: 'testimonial', views: 234000, likes: 18500 },
-    { title: 'Quick Tutorial', category: 'educational', views: 67000, likes: 4300 },
-    { title: 'Social Proof', category: 'ugc', views: 98000, likes: 7100 },
-  ];
 
   return (
     <div>
@@ -83,6 +116,74 @@ export function VideoShowcase({ limit = 6, showTitle = true, onContactClick }: V
             <div key={i} className="aspect-[9/16] rounded-xl bg-zinc-800/50 animate-pulse" />
           ))}
         </div>
+      ) : useConfigFallback ? (
+        /* TikTok oEmbed showcase from config */
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {SHOWCASE_VIDEOS.slice(0, limit).map((video) => {
+            const oembed = oembedData[video.id];
+
+            return (
+              <a
+                key={video.id}
+                href={video.tiktokUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative bg-zinc-900 rounded-2xl overflow-hidden hover:ring-2 hover:ring-teal-500 transition-all duration-300 hover:scale-[1.02]"
+              >
+                {/* Thumbnail */}
+                <div className="aspect-[9/16] bg-zinc-800 relative overflow-hidden">
+                  {oembed?.thumbnail_url ? (
+                    <img
+                      src={oembed.thumbnail_url}
+                      alt={video.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
+                      <div className="w-8 h-8 border-2 border-zinc-600 border-t-teal-400 rounded-full animate-spin" />
+                    </div>
+                  )}
+
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                      <Play className="w-10 h-10 text-white fill-white ml-1" />
+                    </div>
+                  </div>
+
+                  {/* TikTok logo badge */}
+                  <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full p-2">
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                    </svg>
+                  </div>
+
+                  {/* Category badge */}
+                  <div className="absolute bottom-3 left-3">
+                    <span className="px-3 py-1 bg-teal-500/90 backdrop-blur-sm text-white text-xs font-medium rounded-full">
+                      {video.category}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-white group-hover:text-teal-400 transition-colors">
+                        {video.title}
+                      </h3>
+                      {oembed?.author_name && (
+                        <p className="text-sm text-zinc-500 mt-1">@{oembed.author_name}</p>
+                      )}
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-zinc-500 group-hover:text-teal-400 transition-colors" />
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
       ) : videos.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {videos.map((video) => (
@@ -94,55 +195,33 @@ export function VideoShowcase({ limit = 6, showTitle = true, onContactClick }: V
             />
           ))}
         </div>
-      ) : (
-        /* Placeholder showcase when no videos in DB */
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {placeholderVideos.slice(0, limit).map((placeholder, i) => (
-            <div
-              key={i}
-              className="group relative aspect-[9/16] rounded-xl bg-gradient-to-b from-zinc-800 to-zinc-900 border border-white/5 overflow-hidden"
-            >
-              {/* Placeholder content */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-3">
-                  <Play className="w-5 h-5 text-white/60" />
-                </div>
-                <p className="text-sm font-medium text-zinc-300">{placeholder.title}</p>
-                <p className="text-xs text-zinc-500 capitalize mt-1">{placeholder.category}</p>
-              </div>
+      ) : null}
 
-              {/* Stats overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-                <div className="flex items-center gap-3 text-xs text-zinc-400">
-                  <span className="flex items-center gap-1">
-                    <Eye size={12} />
-                    {formatNumber(placeholder.views)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Heart size={12} />
-                    {formatNumber(placeholder.likes)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* CTA */}
-      {onContactClick && (
-        <div className="mt-10 text-center">
+      {/* View all on TikTok CTA */}
+      <div className="text-center mt-10">
+        <a
+          href="https://www.tiktok.com/@flashflowai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full font-medium transition-colors mr-4"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+          </svg>
+          View all on TikTok
+        </a>
+        {onContactClick && (
           <button
             onClick={onContactClick}
-            className="inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all shadow-lg"
+            className="inline-flex items-center px-8 py-3 rounded-full bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all shadow-lg"
           >
             Get Videos Like These
             <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Video Modal */}
       {activeVideo && (

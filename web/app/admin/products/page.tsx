@@ -11,8 +11,10 @@ interface Product {
   id: string;
   name: string;
   brand: string;
+  brand_id?: string | null;
   category: string;
   product_display_name?: string | null;
+  description?: string | null;
   notes?: string | null;
   primary_link?: string | null;
   tiktok_showcase_url?: string | null;
@@ -21,11 +23,17 @@ interface Product {
   created_at?: string;
 }
 
+interface BrandEntity {
+  id: string;
+  name: string;
+}
+
 interface ProductStats extends Product {
   videos_this_month: number;
   in_queue: number;
   posted: number;
   target_accounts: string[];
+  brand_id?: string | null;
 }
 
 interface AuthUser {
@@ -68,6 +76,14 @@ export default function ProductsPage() {
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
   const [warningsLoading, setWarningsLoading] = useState(false);
+
+  // Bulk selection state
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Brand entities for linking
+  const [brandEntities, setBrandEntities] = useState<BrandEntity[]>([]);
+  const [brandEntityFilter, setBrandEntityFilter] = useState<string>('');
 
   // Fetch auth user
   useEffect(() => {
@@ -173,6 +189,15 @@ export default function ProductsPage() {
   useEffect(() => {
     if (!authLoading && authUser) {
       fetchProductStats();
+      // Fetch brand entities for linking
+      fetch('/api/brands')
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok && data.data) {
+            setBrandEntities(data.data);
+          }
+        })
+        .catch(err => console.error('Failed to fetch brands:', err));
     }
   }, [authLoading, authUser, fetchProductStats]);
 
@@ -182,8 +207,10 @@ export default function ProductsPage() {
     setEditForm({
       name: product.name,
       brand: product.brand,
+      brand_id: product.brand_id || null,
       category: product.category,
       product_display_name: product.product_display_name || '',
+      description: product.description || '',
       notes: product.notes || '',
       primary_link: product.primary_link || '',
       tiktok_showcase_url: product.tiktok_showcase_url || '',
@@ -296,6 +323,61 @@ export default function ProductsPage() {
     handleCloseDrawer();
   };
 
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Delete ${selectedProducts.size} product(s)? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setBulkDeleting(true);
+    try {
+      const res = await fetch('/api/products/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedProducts) }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        setSelectedProducts(new Set());
+        fetchProductStats();
+      } else {
+        setError(data.message || 'Failed to delete products');
+      }
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+      setError('Bulk delete failed');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Toggle single product selection
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  // Toggle all products selection
+  const toggleAllSelection = () => {
+    if (selectedProducts.size === filteredProducts.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+    }
+  };
+
   // Detect potential duplicates
   const getDuplicateWarning = (product: ProductStats): string | null => {
     const normalizedName = product.name.toLowerCase().trim();
@@ -336,6 +418,13 @@ export default function ProductsPage() {
   const filteredProducts = productStats.filter(p => {
     if (brandFilter && p.brand !== brandFilter) return false;
     if (categoryFilter && p.category !== categoryFilter) return false;
+    if (brandEntityFilter) {
+      if (brandEntityFilter === 'unlinked') {
+        if (p.brand_id) return false;
+      } else {
+        if (p.brand_id !== brandEntityFilter) return false;
+      }
+    }
     return true;
   });
 
@@ -346,6 +435,15 @@ export default function ProductsPage() {
       isAdmin={isAdmin}
       headerActions={
         <div className="flex gap-2">
+          {selectedProducts.size > 0 && isAdmin && (
+            <AdminButton
+              variant="danger"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete (${selectedProducts.size})`}
+            </AdminButton>
+          )}
           <AdminButton variant="secondary" onClick={fetchProductStats}>
             Refresh
           </AdminButton>
@@ -385,9 +483,26 @@ export default function ProductsPage() {
           </select>
         </div>
 
-        {(brandFilter || categoryFilter) && (
+        {brandEntities.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-zinc-400">Brand Entity:</label>
+            <select
+              value={brandEntityFilter}
+              onChange={(e) => setBrandEntityFilter(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value="">All</option>
+              <option value="unlinked">Unlinked</option>
+              {brandEntities.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {(brandFilter || categoryFilter || brandEntityFilter) && (
           <button
-            onClick={() => { setBrandFilter(''); setCategoryFilter(''); }}
+            onClick={() => { setBrandFilter(''); setCategoryFilter(''); setBrandEntityFilter(''); }}
             className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:underline"
           >
             Clear Filters
@@ -421,6 +536,16 @@ export default function ProductsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-zinc-800/50 border-b border-white/10">
+                  {isAdmin && (
+                    <th className="px-4 py-3 text-center w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
+                        onChange={toggleAllSelection}
+                        className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Product</th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Brand</th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Category</th>
@@ -436,6 +561,16 @@ export default function ProductsPage() {
                   const duplicateWarning = getDuplicateWarning(product);
                   return (
                     <tr key={product.id} className="border-b border-white/5 hover:bg-zinc-800/50">
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.has(product.id)}
+                            onChange={() => toggleProductSelection(product.id)}
+                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div>
                           <span className="font-medium text-zinc-100">{product.name}</span>
@@ -665,6 +800,28 @@ export default function ProductsPage() {
                   <option value="high">High</option>
                 </select>
               </div>
+
+              {/* Brand Entity (for linking) */}
+              {brandEntities.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300 mb-1">
+                    Link to Brand Entity
+                  </label>
+                  <select
+                    value={editForm.brand_id || ''}
+                    onChange={(e) => setEditForm({ ...editForm, brand_id: e.target.value || null })}
+                    className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">No brand entity</option>
+                    {brandEntities.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Link to a brand for quota tracking and organization
+                  </p>
+                </div>
+              )}
 
               {/* Primary Link */}
               <div>

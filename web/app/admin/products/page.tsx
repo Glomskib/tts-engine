@@ -246,7 +246,7 @@ export default function ProductsPage() {
 
   // Open add drawer
   const handleAddOpen = () => {
-    setAddForm({ name: '', brand: '', category: '' });
+    setAddForm({ name: '', brand: '', brand_id: null, category: '' });
     setAddError(null);
     setAddDrawerOpen(true);
   };
@@ -260,10 +260,14 @@ export default function ProductsPage() {
 
   // Save new product
   const handleAddSave = async () => {
-    if (!addForm.name?.trim() || !addForm.brand?.trim() || !addForm.category?.trim()) {
+    if (!addForm.name?.trim() || !addForm.brand_id || !addForm.category?.trim()) {
       setAddError('Name, Brand, and Category are required');
       return;
     }
+
+    // Get brand name from selected brand entity
+    const selectedBrand = brandEntities.find(b => b.id === addForm.brand_id);
+    const brandName = selectedBrand?.name || '';
 
     setAddSaving(true);
     setAddError(null);
@@ -274,7 +278,8 @@ export default function ProductsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: addForm.name.trim(),
-          brand: addForm.brand.trim(),
+          brand: brandName, // Keep for backwards compat
+          brand_id: addForm.brand_id,
           category: addForm.category.trim(),
           category_risk: addForm.category_risk || null,
           notes: addForm.notes?.trim() || null,
@@ -763,12 +768,29 @@ export default function ProductsPage() {
                 <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Brand <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={editForm.brand || ''}
-                  onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
+                <select
+                  value={editForm.brand_id || ''}
+                  onChange={(e) => {
+                    const brandId = e.target.value || null;
+                    const selectedBrand = brandEntities.find(b => b.id === brandId);
+                    setEditForm({
+                      ...editForm,
+                      brand_id: brandId,
+                      brand: selectedBrand?.name || editForm.brand
+                    });
+                  }}
                   className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
+                >
+                  <option value="">Select a brand...</option>
+                  {brandEntities.map(brand => (
+                    <option key={brand.id} value={brand.id}>{brand.name}</option>
+                  ))}
+                </select>
+                {!editForm.brand_id && editForm.brand && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    Legacy brand: &quot;{editForm.brand}&quot; - select a brand entity to link
+                  </p>
+                )}
               </div>
 
               {/* Category */}
@@ -801,27 +823,6 @@ export default function ProductsPage() {
                 </select>
               </div>
 
-              {/* Brand Entity (for linking) */}
-              {brandEntities.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-1">
-                    Link to Brand Entity
-                  </label>
-                  <select
-                    value={editForm.brand_id || ''}
-                    onChange={(e) => setEditForm({ ...editForm, brand_id: e.target.value || null })}
-                    className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  >
-                    <option value="">No brand entity</option>
-                    {brandEntities.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Link to a brand for quota tracking and organization
-                  </p>
-                </div>
-              )}
 
               {/* Primary Link */}
               <div>
@@ -954,13 +955,24 @@ export default function ProductsPage() {
                 <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Brand <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={addForm.brand || ''}
-                  onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })}
-                  placeholder="e.g., NatureWell"
+                <select
+                  value={addForm.brand_id || ''}
+                  onChange={(e) => setAddForm({ ...addForm, brand_id: e.target.value || null })}
                   className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
+                >
+                  <option value="">Select a brand...</option>
+                  {brandEntities.map(brand => (
+                    <option key={brand.id} value={brand.id}>{brand.name}</option>
+                  ))}
+                </select>
+                {brandEntities.length === 0 && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    No brands yet.{' '}
+                    <Link href="/admin/brands" className="text-teal-400 hover:text-teal-300">
+                      Create one first
+                    </Link>
+                  </p>
+                )}
               </div>
 
               {/* Category */}

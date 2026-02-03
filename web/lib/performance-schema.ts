@@ -1,5 +1,9 @@
 import { supabaseAdmin } from './supabaseAdmin';
 
+interface SchemaColumnRow {
+  column_name: string;
+}
+
 // Cache for schema columns to avoid repeated queries
 let videoMetricsColumnsCache: Set<string> | null = null;
 let videosPerformanceColumnsCache: Set<string> | null = null;
@@ -24,7 +28,7 @@ export async function getVideoMetricsColumns(): Promise<Set<string>> {
       return videoMetricsColumnsCache;
     }
 
-    const columns = new Set(data?.map((row: any) => row.column_name) || []);
+    const columns = new Set(data?.map((row: SchemaColumnRow) => row.column_name) || []);
     videoMetricsColumnsCache = columns;
     return columns;
   } catch (error) {
@@ -53,7 +57,7 @@ export async function getVideosPerformanceColumns(): Promise<Set<string>> {
       return videosPerformanceColumnsCache;
     }
 
-    const columns = new Set(data?.map((row: any) => row.column_name) || []);
+    const columns = new Set(data?.map((row: SchemaColumnRow) => row.column_name) || []);
     videosPerformanceColumnsCache = columns;
     return columns;
   } catch (error) {
@@ -81,7 +85,7 @@ export async function getVariantsWinnerColumns(): Promise<Set<string>> {
       return variantsWinnerColumnsCache;
     }
 
-    const columns = new Set(data?.map((row: any) => row.column_name) || []);
+    const columns = new Set(data?.map((row: SchemaColumnRow) => row.column_name) || []);
     variantsWinnerColumnsCache = columns;
     return columns;
   } catch (error) {

@@ -6,6 +6,42 @@ import { safeColumnInsert, generateCorrelationId } from '@/lib/safe-schema';
 
 export const runtime = "nodejs";
 
+// Minimal types for scaling function parameters
+interface WinnerVariantInput {
+  status: string;
+  score?: number | null;
+}
+
+interface WinnerVariantFull extends WinnerVariantInput {
+  id: string;
+  concept_id: string | null;
+  hook_id: string | null;
+  script_id: string | null;
+}
+
+interface ConceptInput {
+  concept_title?: string | null;
+}
+
+interface ScriptInput {
+  caption?: string | null;
+  hashtags?: string | null;
+}
+
+interface HookInput {
+  hook_text?: string | null;
+}
+
+interface ChildVariantRecord {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface VideoRecord {
+  id: string;
+  [key: string]: unknown;
+}
+
 interface ScalingPlan {
   winner_summary: string;
   do_not_change: string[];
@@ -30,10 +66,10 @@ interface ScalingPlan {
 }
 
 async function generateScalingPlan(
-  winnerVariant: any,
-  concept: any,
-  script: any,
-  hook: any,
+  winnerVariant: WinnerVariantInput,
+  concept: ConceptInput | null,
+  script: ScriptInput | null,
+  hook: HookInput | null,
   changeTypes: ChangeType[],
   countPerType: number
 ): Promise<ScalingPlan> {
@@ -170,13 +206,13 @@ function generateFallbackPlan(changeTypes: ChangeType[], countPerType: number): 
 async function executeScalingBackground(
   correlationId: string,
   iterationGroupId: string,
-  winnerVariant: any,
+  winnerVariant: WinnerVariantFull,
   scalingPlan: ScalingPlan,
   changeTypes: ChangeType[],
   countPerType: number,
   accountIds?: string[],
   googleDriveUrl?: string
-): Promise<{ childVariants: any[], createdVideos: any[] }> {
+): Promise<{ childVariants: ChildVariantRecord[], createdVideos: VideoRecord[] }> {
   try {
     console.log(`[${correlationId}] Starting background scaling execution`);
     
@@ -384,7 +420,7 @@ export async function POST(request: NextRequest) {
     // Fetch winner variant with required fields for child creation
     const { data: winnerVariant, error: winnerError } = await supabaseAdmin
       .from('variants')
-      .select('id, concept_id, hook_id, script_id')
+      .select('id, concept_id, hook_id, script_id, status, score')
       .eq('id', winnerVariantIdValue.trim())
       .maybeSingle();
 

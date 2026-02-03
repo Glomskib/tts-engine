@@ -3,6 +3,17 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+interface GeneratedScriptContent {
+  spoken_hook?: string;
+  body?: string[];
+  on_screen_text?: string[];
+  caption?: string;
+  hashtags?: string[];
+  cta?: string;
+  editor_notes?: string[];
+  script_v1?: string;
+}
+
 // Safe JSON parser with repair logic
 function safeParseJSON(content: string): { success: boolean; data: any; strategy: string } {
   // First attempt: direct parse
@@ -172,7 +183,7 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
   "editor_notes": ["Note about pacing", "Note about visuals"]
 }`;
 
-    let generatedScript: any = {};
+    let generatedScript: GeneratedScriptContent = {};
 
     if (anthropicKey) {
       // Use Anthropic Claude

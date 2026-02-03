@@ -4,6 +4,14 @@ import { getVariantsScalingColumns, getIterationGroupsColumns } from '@/lib/scal
 
 export const runtime = "nodejs";
 
+// Generic record type for Supabase query results
+type DatabaseRecord = Record<string, unknown>;
+
+// Video record with required fields for grouping
+interface VideoRecord extends DatabaseRecord {
+  variant_id: string;
+}
+
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
@@ -64,9 +72,9 @@ export async function GET(request: NextRequest) {
 
     let rootVariant = targetVariant;
     let parentVariant = null;
-    let childVariants: any[] = [];
-    let iterationGroups: any[] = [];
-    let associatedVideos: any[] = [];
+    let childVariants: DatabaseRecord[] = [];
+    let iterationGroups: DatabaseRecord[] = [];
+    let associatedVideos: VideoRecord[] = [];
 
     // Find parent variant if this is a child - remove schema check and use explicit select
     if (targetVariant.parent_variant_id) {
@@ -169,7 +177,7 @@ export async function GET(request: NextRequest) {
       }
       acc[video.variant_id].push(video);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, VideoRecord[]>);
 
     // Build lineage structure
     const lineage = {

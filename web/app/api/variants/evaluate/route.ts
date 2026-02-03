@@ -5,6 +5,24 @@ import { VARIANT_STATUSES } from '@/lib/schema-migration';
 
 export const runtime = "nodejs";
 
+interface MetricsAccumulator {
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  orders: number;
+  revenue: number;
+}
+
+interface VideoMetric {
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  orders?: number;
+  revenue?: number;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -105,7 +123,7 @@ export async function POST(request: NextRequest) {
     for (const variant of variantsData || []) {
       for (const video of variant.videos) {
         // Calculate total metrics for this video in the date range
-        const totalMetrics = video.video_metrics.reduce((acc: any, metric: any) => ({
+        const totalMetrics = video.video_metrics.reduce((acc: MetricsAccumulator, metric: VideoMetric) => ({
           views: acc.views + (metric.views || 0),
           likes: acc.likes + (metric.likes || 0),
           comments: acc.comments + (metric.comments || 0),

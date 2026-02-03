@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+// Type for created variants with associated data
+interface CreatedVariant extends Record<string, unknown> {
+  hook?: Record<string, unknown>;
+  script?: Record<string, unknown>;
+}
+
 /**
  * Get the base URL for internal API calls.
  * Uses NEXT_PUBLIC_APP_URL if set, otherwise derives from request headers.
@@ -71,7 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const createdVariants: any[] = [];
+    const createdVariants: CreatedVariant[] = [];
     const baseUrl = getBaseUrl(request);
 
     if (changeType === "hook") {

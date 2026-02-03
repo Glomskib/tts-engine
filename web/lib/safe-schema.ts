@@ -1,5 +1,9 @@
 import { supabaseAdmin } from './supabaseAdmin';
 
+interface SchemaColumnRow {
+  column_name: string;
+}
+
 // Cache for table schemas to avoid repeated queries
 const schemaCache = new Map<string, Set<string>>();
 
@@ -20,7 +24,7 @@ export async function getTableColumns(tableName: string, forceRefresh = false): 
       return new Set();
     }
 
-    const columns = new Set(data?.map((row: any) => row.column_name) || []);
+    const columns = new Set(data?.map((row: SchemaColumnRow) => row.column_name) || []);
     schemaCache.set(tableName, columns);
     return columns;
   } catch (error) {

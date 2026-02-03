@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
     remotePatterns: [
+      // Replicate AI image generation
       {
         protocol: 'https',
         hostname: 'replicate.delivery',
@@ -41,6 +42,23 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'pbxt.replicate.delivery',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'replicate.com',
+        pathname: '/**',
+      },
+      // Supabase storage (for uploaded images)
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/storage/**',
+      },
+      // Common CDNs that might host generated images
+      {
+        protocol: 'https',
+        hostname: '*.cloudflare.com',
         pathname: '/**',
       },
     ],

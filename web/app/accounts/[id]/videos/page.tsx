@@ -126,6 +126,7 @@ export default function UploaderPortalPage() {
     if (accountId) {
       fetchVideos();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
   if (loading) return <div>Loading videos...</div>;

@@ -157,6 +157,7 @@ export default function PerformancePage() {
     if (accountId) {
       fetchPostedVideos();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
   if (loading) return <div>Loading performance data...</div>;

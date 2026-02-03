@@ -1,272 +1,194 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { z } from 'zod';
+import {
+  fetchWinnerById,
+  updateWinner,
+  deleteWinner,
+  type UpdateWinnerInput,
+} from '@/lib/winners';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
+
+// Schema for updating a winner
+const UpdateWinnerSchema = z.object({
+  // Video details
+  tiktok_url: z.string().url().optional(),
+  video_title: z.string().max(255).optional(),
+  thumbnail_url: z.string().url().optional(),
+  posted_at: z.string().optional(),
+
+  // Creator info
+  creator_handle: z.string().max(100).optional(),
+  creator_niche: z.string().max(100).optional(),
+
+  // Metrics
+  views: z.number().int().min(0).optional(),
+  likes: z.number().int().min(0).optional(),
+  comments: z.number().int().min(0).optional(),
+  shares: z.number().int().min(0).optional(),
+  saves: z.number().int().min(0).optional(),
+
+  // Retention
+  avg_watch_time_seconds: z.number().min(0).optional(),
+  avg_watch_time_percent: z.number().min(0).max(100).optional(),
+  retention_3s: z.number().min(0).max(100).optional(),
+  retention_half: z.number().min(0).max(100).optional(),
+  retention_full: z.number().min(0).max(100).optional(),
+
+  // Content
+  product_name: z.string().max(255).optional(),
+  product_category: z.string().max(100).optional(),
+  hook_text: z.string().optional(),
+  hook_type: z.string().max(50).optional(),
+  content_format: z.string().max(50).optional(),
+  video_length_seconds: z.number().int().min(0).optional(),
+
+  // User insights
+  user_notes: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+
+  // Status
+  is_active: z.boolean().optional(),
+});
 
 /**
  * GET /api/winners/[id]
- *
- * Get a single reference video with its assets and extracts.
+ * Get a single winner by ID
  */
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  // Auth check - user must be logged in
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
 
-  try {
-    // Build query - filter by user_id to ensure ownership
-    let query = supabaseAdmin
-      .from("reference_videos")
-      .select(`
-        *,
-        reference_assets (*),
-        reference_extracts (*)
-      `)
-      .eq("id", id);
+  const { winner, error } = await fetchWinnerById(id, authContext.user.id);
 
-    // Only allow access to own records (admins can see all)
-    if (!authContext.isAdmin) {
-      query = query.eq("user_id", authContext.user.id);
-    }
-
-    const { data, error } = await query.single();
-
-    if (error || !data) {
-      return NextResponse.json(
-        { ok: false, error: "Reference video not found", correlation_id: correlationId },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      data,
-      correlation_id: correlationId,
-    });
-
-  } catch (error) {
-    console.error(`[${correlationId}] Get winner error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Internal error", correlation_id: correlationId },
-      { status: 500 }
+  if (error || !winner) {
+    const response = NextResponse.json(
+      { ok: false, error: error || 'Winner not found', correlation_id: correlationId },
+      { status: 404 }
     );
+    response.headers.set('x-correlation-id', correlationId);
+    return response;
   }
+
+  const response = NextResponse.json({
+    ok: true,
+    winner,
+    correlation_id: correlationId,
+  });
+  response.headers.set('x-correlation-id', correlationId);
+  return response;
 }
 
 /**
  * PATCH /api/winners/[id]
- *
- * Update a reference video. Can also add transcript and trigger extraction.
+ * Update a winner
  */
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  // Auth check - user must be logged in
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
-      { status: 400 }
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON body', 400, correlationId);
+  }
+
+  const parsed = UpdateWinnerSchema.safeParse(body);
+  if (!parsed.success) {
+    return createApiErrorResponse(
+      'VALIDATION_ERROR',
+      'Invalid input',
+      400,
+      correlationId,
+      { issues: parsed.error.issues }
     );
   }
 
-  const updates = body as Record<string, unknown>;
-
-  try {
-    // Verify ownership first (admins can update any)
-    let ownershipQuery = supabaseAdmin
-      .from("reference_videos")
-      .select("id")
-      .eq("id", id);
-
-    if (!authContext.isAdmin) {
-      ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
+  // Filter out undefined values to only update what was provided
+  const input: UpdateWinnerInput = {};
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) {
+      (input as Record<string, unknown>)[key] = value;
     }
-
-    const { data: existing, error: existError } = await ownershipQuery.single();
-
-    if (existError || !existing) {
-      return NextResponse.json(
-        { ok: false, error: "Reference video not found", correlation_id: correlationId },
-        { status: 404 }
-      );
-    }
-
-    // Build update payload
-    const allowedFields = ["notes", "category", "status", "views", "likes", "comments", "shares", "ai_analysis", "transcript_text"];
-    const updatePayload: Record<string, unknown> = {};
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined) {
-        updatePayload[field] = updates[field];
-      }
-    }
-
-    // Check if adding/updating a transcript
-    const transcript = typeof updates.transcript_text === "string" ? updates.transcript_text.trim() : null;
-    let triggerExtraction = false;
-
-    if (transcript) {
-      // Save transcript to reference_assets as well
-      await supabaseAdmin
-        .from("reference_assets")
-        .upsert({
-          reference_video_id: id,
-          asset_type: "transcript",
-          transcript_text: transcript,
-        }, {
-          onConflict: "reference_video_id,asset_type"
-        });
-
-      // Set status to processing if no AI analysis provided (triggers extraction)
-      if (!updates.ai_analysis) {
-        updatePayload.status = "processing";
-        triggerExtraction = true;
-      } else {
-        // If AI analysis provided, mark as ready
-        updatePayload.status = "ready";
-      }
-    }
-
-    if (Object.keys(updatePayload).length === 0) {
-      return NextResponse.json(
-        { ok: false, error: "No valid fields to update", correlation_id: correlationId },
-        { status: 400 }
-      );
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("reference_videos")
-      .update(updatePayload)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { ok: false, error: error.message, correlation_id: correlationId },
-        { status: 500 }
-      );
-    }
-
-    // Trigger extraction async if we have a new transcript without analysis
-    if (triggerExtraction && transcript) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
-
-      fetch(`${baseUrl}/api/winners/extract`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-correlation-id": correlationId,
-        },
-        body: JSON.stringify({
-          reference_video_id: id,
-          transcript_text: transcript,
-        }),
-      }).catch(err => {
-        console.error(`[${correlationId}] Extraction trigger failed:`, err);
-      });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      data,
-      message: triggerExtraction ? "Saved, extraction started" : "Saved",
-      correlation_id: correlationId,
-    });
-
-  } catch (error) {
-    console.error(`[${correlationId}] Update winner error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Internal error", correlation_id: correlationId },
-      { status: 500 }
-    );
   }
+
+  if (Object.keys(input).length === 0) {
+    return createApiErrorResponse('BAD_REQUEST', 'No valid fields to update', 400, correlationId);
+  }
+
+  const { winner, error } = await updateWinner(id, authContext.user.id, input);
+
+  if (error) {
+    console.error(`[${correlationId}] Failed to update winner:`, error);
+
+    // Check if it's a not found error
+    if (error.includes('No rows')) {
+      return createApiErrorResponse('NOT_FOUND', 'Winner not found', 404, correlationId);
+    }
+
+    return createApiErrorResponse('DB_ERROR', 'Failed to update winner', 500, correlationId);
+  }
+
+  const response = NextResponse.json({
+    ok: true,
+    winner,
+    correlation_id: correlationId,
+  });
+  response.headers.set('x-correlation-id', correlationId);
+  return response;
 }
 
 /**
  * DELETE /api/winners/[id]
- *
- * Delete a reference video (cascades to assets and extracts).
+ * Soft-delete a winner (sets is_active = false)
  */
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  // Auth check - user must be logged in
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
 
-  try {
-    // Verify ownership first (admins can delete any)
-    let ownershipQuery = supabaseAdmin
-      .from("reference_videos")
-      .select("id")
-      .eq("id", id);
+  const { success, error } = await deleteWinner(id, authContext.user.id);
 
-    if (!authContext.isAdmin) {
-      ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
-    }
-
-    const { data: existing, error: existError } = await ownershipQuery.single();
-
-    if (existError || !existing) {
-      return NextResponse.json(
-        { ok: false, error: "Reference video not found", correlation_id: correlationId },
-        { status: 404 }
-      );
-    }
-
-    const { error } = await supabaseAdmin
-      .from("reference_videos")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      return NextResponse.json(
-        { ok: false, error: error.message, correlation_id: correlationId },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      deleted: id,
-      correlation_id: correlationId,
-    });
-
-  } catch (error) {
-    console.error(`[${correlationId}] Delete winner error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Internal error", correlation_id: correlationId },
-      { status: 500 }
-    );
+  if (error) {
+    console.error(`[${correlationId}] Failed to delete winner:`, error);
+    return createApiErrorResponse('DB_ERROR', 'Failed to delete winner', 500, correlationId);
   }
+
+  if (!success) {
+    return createApiErrorResponse('NOT_FOUND', 'Winner not found', 404, correlationId);
+  }
+
+  const response = NextResponse.json({
+    ok: true,
+    deleted: id,
+    correlation_id: correlationId,
+  });
+  response.headers.set('x-correlation-id', correlationId);
+  return response;
 }

@@ -62,7 +62,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'B-Roll Generator', href: '/admin/b-roll', icon: Image, featureKey: 'b_roll_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
       { name: 'Templates', href: '/admin/templates', icon: LayoutTemplate },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
+      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, featureKey: 'winners_bank' },
     ],
   },
   {
@@ -110,7 +110,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
       { name: 'B-Roll Generator', href: '/admin/b-roll', icon: Image },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
+      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
     ],
   },
   {

@@ -177,6 +177,7 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
 
     console.log('[Replicate] API call successful');
+    console.log('Replicate raw output:', JSON.stringify(output));
     console.log('[Replicate] Output type:', typeof output, Array.isArray(output) ? `(array of ${(output as unknown[]).length})` : '');
   } catch (runError) {
     console.error('[Replicate] API call failed!');
@@ -311,6 +312,7 @@ export async function generateImageFromImage(params: GenerateImageFromImageParam
     );
 
     console.log('[Replicate] img2img API call successful');
+    console.log('Replicate raw output:', JSON.stringify(output));
   } catch (runError) {
     console.error('[Replicate] img2img API call failed!');
     console.error('[Replicate] Error:', runError);

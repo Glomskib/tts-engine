@@ -385,32 +385,32 @@ export default function BRollGeneratorPage() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto pb-24 lg:pb-6">
+    <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-zinc-100 mb-2">B-Roll Generator</h1>
-        <p className="text-zinc-400">
+        <h1 className="text-2xl font-bold text-white">B-Roll Generator</h1>
+        <p className="text-zinc-400 mt-1">
           Generate AI images for your video content. Perfect for B-roll, thumbnails, and visual assets.
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-zinc-800 pb-4">
+      {/* Tab Navigation */}
+      <div className="flex gap-1 mb-6 bg-zinc-900 p-1 rounded-xl w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
               activeTab === tab.id
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                ? 'bg-teal-600 text-white'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
             }`}
           >
             <tab.icon size={18} />
             {tab.label}
             {tab.count !== undefined && (
               <span className={`text-xs px-1.5 py-0.5 rounded ${
-                activeTab === tab.id ? 'bg-blue-500/30' : 'bg-zinc-700'
+                activeTab === tab.id ? 'bg-teal-500/30' : 'bg-zinc-700'
               }`}>
                 {tab.count}
               </span>
@@ -421,34 +421,40 @@ export default function BRollGeneratorPage() {
 
       {/* Generate Tab */}
       {activeTab === 'generate' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left column - Form */}
-          <div className="space-y-6">
-            {/* Mode Toggle */}
+        <div className="space-y-6">
+          {/* Mode Toggle - Prominent at the top */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <label className="text-sm font-medium text-zinc-400 mb-3 block">Generation Mode</label>
             <div className="flex gap-2">
               <button
                 onClick={() => setMode('text-to-image')}
                 className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
                   mode === 'text-to-image'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-500/20'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
                 }`}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-5 h-5" />
                 Text to Image
               </button>
               <button
                 onClick={() => setMode('image-to-image')}
                 className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
                   mode === 'image-to-image'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-500/20'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
                 }`}
               >
-                <ImagePlus className="w-4 h-4" />
+                <ImagePlus className="w-5 h-5" />
                 Image to Image
               </button>
             </div>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left column - Form */}
+          <div className="space-y-6">
 
             {/* Image-to-Image Source Upload */}
             {mode === 'image-to-image' && (
@@ -814,6 +820,7 @@ export default function BRollGeneratorPage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
 

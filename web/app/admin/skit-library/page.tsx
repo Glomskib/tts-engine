@@ -334,12 +334,35 @@ export default function SkitLibraryPage() {
           )
         );
 
-        // When approved, prompt user to create a video in the pipeline
+        // When approved, auto-create video in pipeline
         if (newStatus === "approved") {
           const skit = skits.find(s => s.id === skitId);
           if (skit && !skit.video_id) {
-            handleOpenVideoSheet(skitId);
-            setToast({ message: "Script approved! Create a video to add it to the pipeline.", type: "success" });
+            try {
+              const videoRes = await fetch('/api/videos/create-from-script', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  script_id: skitId,
+                  title: skit.title,
+                  product_name: skit.product_name,
+                  product_brand: skit.product_brand,
+                  hook_line: skit.skit_data?.hook_line,
+                }),
+              });
+              const videoData = await videoRes.json();
+              if (videoData.ok) {
+                // Update local state with video_id
+                setSkits(prev => prev.map(s =>
+                  s.id === skitId ? { ...s, video_id: videoData.data.id } : s
+                ));
+                setToast({ message: "Script approved and added to pipeline!", type: "success" });
+              } else {
+                setToast({ message: "Script approved but failed to add to pipeline", type: "error" });
+              }
+            } catch {
+              setToast({ message: "Script approved but failed to add to pipeline", type: "error" });
+            }
           }
         }
       } else {

@@ -99,7 +99,7 @@ interface AvailableScript {
 }
 
 // Stage tabs with user-friendly labels
-type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
+type RecordingStatusTab = 'ALL' | 'NEEDS_CONTENT' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
 // VA Mode types
@@ -148,6 +148,19 @@ interface PrimaryAction {
 function getPrimaryAction(video: QueueVideo): PrimaryAction {
   const hasLockedScript = !!video.script_locked_text;
   const recordingStatus = video.recording_status || 'NOT_RECORDED';
+
+  // Priority 0: Needs content (approved from script library, needs assets gathered)
+  if (recordingStatus === 'NEEDS_CONTENT') {
+    return {
+      key: 'add_script',
+      label: 'Gather Content',
+      icon: '',
+      color: '#D97706', // Amber
+      requiredRole: 'recorder',
+      disabled: false,
+      actionType: 'modal',
+    };
+  }
 
   // Priority 1: Need script - using accent color
   if (!hasLockedScript) {
@@ -1231,7 +1244,7 @@ export default function AdminPipelinePage() {
       case 'needs_action':
         // Videos in actionable states, prioritize unclaimed
         videos = videos.filter(v =>
-          ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST'].includes(v.recording_status || '')
+          ['NEEDS_CONTENT', 'NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST'].includes(v.recording_status || '')
         ).sort((a, b) => {
           // Unclaimed first
           if (!a.claimed_by && b.claimed_by) return -1;
@@ -1786,6 +1799,7 @@ export default function AdminPipelinePage() {
                       {(() => {
                         const status = video.recording_status || 'NOT_RECORDED';
                         switch (status) {
+                          case 'NEEDS_CONTENT': return 'Needs Content';
                           case 'NEEDS_SCRIPT': return 'Needs Script';
                           case 'GENERATING_SCRIPT': return 'Writing Script';
                           case 'NOT_RECORDED': return 'Ready to Record';

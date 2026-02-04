@@ -3637,7 +3637,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     backgroundColor: colors.bg,
                     borderRadius: '4px',
                     fontSize: '14px',
-                    color: colors.text,
+                    color: '#ffffff',
                     fontStyle: 'italic',
                   }}>
                     {currentSkit.hook_line}

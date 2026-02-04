@@ -1462,7 +1462,7 @@ export default function ContentStudioPage() {
                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6', marginBottom: '6px', textTransform: 'uppercase' }}>
                       🎣 Hook
                     </div>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: colors.text }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff' }}>
                       {currentSkit.hook_line}
                     </div>
                   </div>

@@ -37,6 +37,7 @@ import {
   Target,
   Image as ImageIcon,
   Bookmark,
+  Pencil,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -308,6 +309,11 @@ export default function ContentStudioPage() {
   const [saveStatus, setSaveStatus] = useState<SkitStatus>('draft');
   const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
+
+  // CTA editing state
+  const [editingCTA, setEditingCTA] = useState(false);
+  const [editedCTALine, setEditedCTALine] = useState('');
+  const [editedCTAOverlay, setEditedCTAOverlay] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -654,7 +660,7 @@ export default function ContentStudioPage() {
     setSavingToLibrary(true);
     try {
       const currentSkit = result.variations?.[selectedVariationIndex]?.skit || result.skit;
-      const response = await postJson('/api/saved-skits', {
+      const response = await postJson('/api/skits', {
         title: saveTitle.trim(),
         status: saveStatus,
         product_id: selectedProductId || null,
@@ -1617,21 +1623,73 @@ export default function ContentStudioPage() {
               {/* CTA */}
               <div style={{
                 padding: '16px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
                 borderRadius: '10px',
                 marginBottom: '16px',
               }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '6px', textTransform: 'uppercase' }}>
-                  🎯 Call to Action
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: 500, color: colors.text, marginBottom: '4px' }}>
-                  {currentSkit.cta_line}
-                </div>
-                {currentSkit.cta_overlay && (
-                  <div style={{ fontSize: '13px', color: colors.textSecondary }}>
-                    Overlay: {currentSkit.cta_overlay}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#ef4444', textTransform: 'uppercase' }}>
+                    🎯 Call to Action
                   </div>
+                  {!editingCTA && (
+                    <button type="button" onClick={() => { setEditedCTALine(currentSkit.cta_line); setEditedCTAOverlay(currentSkit.cta_overlay || ''); setEditingCTA(true); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '2px' }}
+                      aria-label="Edit CTA"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                </div>
+                {editingCTA ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <textarea
+                      value={editedCTALine}
+                      onChange={(e) => setEditedCTALine(e.target.value)}
+                      rows={2}
+                      style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', resize: 'vertical' }}
+                      placeholder="CTA spoken line"
+                    />
+                    <input
+                      value={editedCTAOverlay}
+                      onChange={(e) => setEditedCTAOverlay(e.target.value)}
+                      style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px' }}
+                      placeholder="CTA overlay text (max 40 chars)"
+                      maxLength={40}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button type="button" onClick={() => {
+                        if (result) {
+                          const variation = result.variations?.[selectedVariationIndex];
+                          if (variation) {
+                            variation.skit.cta_line = editedCTALine;
+                            variation.skit.cta_overlay = editedCTAOverlay;
+                          } else if (result.skit) {
+                            result.skit.cta_line = editedCTALine;
+                            result.skit.cta_overlay = editedCTAOverlay;
+                          }
+                          setResult({ ...result });
+                        }
+                        setEditingCTA(false);
+                      }}
+                        style={{ padding: '6px 16px', backgroundColor: '#14b8a6', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                      >Save</button>
+                      <button type="button" onClick={() => setEditingCTA(false)}
+                        style={{ padding: '6px 16px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.text, cursor: 'pointer', fontSize: '13px' }}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: '15px', fontWeight: 500, color: '#ffffff', marginBottom: '4px' }}>
+                      {currentSkit.cta_line}
+                    </div>
+                    {currentSkit.cta_overlay && (
+                      <div style={{ fontSize: '13px', color: '#fca5a5' }}>
+                        Overlay: {currentSkit.cta_overlay}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

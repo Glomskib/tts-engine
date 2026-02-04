@@ -36,6 +36,7 @@ import {
   Zap,
   Target,
   Image as ImageIcon,
+  Bookmark,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -297,6 +298,10 @@ export default function ContentStudioPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [selectedVariationIndex, setSelectedVariationIndex] = useState(0);
 
+  // Save hook state
+  const [savingHook, setSavingHook] = useState(false);
+  const [hookSaved, setHookSaved] = useState(false);
+
   // Save modal state
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
@@ -467,6 +472,41 @@ export default function ContentStudioPage() {
       setTimeout(() => setCopiedField(null), 2000);
     } catch {
       // Clipboard API not available
+    }
+  };
+
+  const handleSaveHook = async (hookText: string) => {
+    setSavingHook(true);
+    try {
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name
+        : manualProductName.trim() || undefined;
+      const brandName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.brand
+        : manualBrandName.trim() || undefined;
+
+      const res = await fetch('/api/saved-hooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hook_text: hookText,
+          source: 'generated',
+          content_type: selectedContentTypeId,
+          content_format: selectedSubtypeId || undefined,
+          product_id: selectedProductId || undefined,
+          product_name: productName,
+          brand_name: brandName,
+        }),
+      });
+
+      if (res.ok) {
+        setHookSaved(true);
+        setTimeout(() => setHookSaved(false), 2000);
+      }
+    } catch {
+      // Save failed silently
+    } finally {
+      setSavingHook(false);
     }
   };
 
@@ -1466,20 +1506,46 @@ export default function ContentStudioPage() {
                       {currentSkit.hook_line}
                     </div>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: copiedField === 'hook' ? '#10b981' : colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '6px',
-                      color: copiedField === 'hook' ? 'white' : colors.textSecondary,
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {copiedField === 'hook' ? '✓ Copied' : 'Copy'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => handleSaveHook(currentSkit.hook_line)}
+                      disabled={savingHook}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: hookSaved ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)',
+                        border: '1px solid rgba(20, 184, 166, 0.3)',
+                        borderRadius: '6px',
+                        color: hookSaved ? '#14b8a6' : '#5eead4',
+                        cursor: savingHook ? 'not-allowed' : 'pointer',
+                        fontSize: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {hookSaved ? (
+                        <><Check size={14} /> Saved!</>
+                      ) : savingHook ? (
+                        <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                      ) : (
+                        <><Bookmark size={14} /> Save Hook</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: copiedField === 'hook' ? '#10b981' : colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '6px',
+                        color: copiedField === 'hook' ? 'white' : colors.textSecondary,
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {copiedField === 'hook' ? '✓ Copied' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

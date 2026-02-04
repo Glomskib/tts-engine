@@ -13,6 +13,9 @@ import {
   RefreshCw,
   Loader2,
   Sparkles,
+  Bookmark,
+  Copy,
+  Trash2,
 } from 'lucide-react';
 import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
@@ -23,6 +26,19 @@ import { AddExternalWinnerModal } from '@/components/AddExternalWinnerModal';
 
 type SourceFilter = 'all' | 'generated' | 'external';
 type SortOption = 'performance_score' | 'views' | 'engagement' | 'recent';
+type ActiveView = 'winners' | 'hooks';
+
+interface SavedHook {
+  id: string;
+  hook_text: string;
+  source: string;
+  content_type: string | null;
+  content_format: string | null;
+  product_name: string | null;
+  brand_name: string | null;
+  notes: string | null;
+  created_at: string;
+}
 
 export default function WinnersBankPage() {
   const hydrated = useHydrated();
@@ -35,6 +51,14 @@ export default function WinnersBankPage() {
   const [sortBy, setSortBy] = useState<SortOption>('performance_score');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+
+  // View toggle
+  const [activeView, setActiveView] = useState<ActiveView>('winners');
+
+  // Saved hooks state
+  const [savedHooks, setSavedHooks] = useState<SavedHook[]>([]);
+  const [loadingHooks, setLoadingHooks] = useState(false);
+  const [copiedHookId, setCopiedHookId] = useState<string | null>(null);
 
   // Modals
   const [selectedWinner, setSelectedWinner] = useState<Winner | null>(null);
@@ -108,6 +132,46 @@ export default function WinnersBankPage() {
       }
     } catch (err) {
       console.error('Failed to delete winner:', err);
+    }
+  };
+
+  const fetchSavedHooks = useCallback(async () => {
+    setLoadingHooks(true);
+    try {
+      const res = await fetch('/api/saved-hooks?limit=100');
+      const data = await res.json();
+      setSavedHooks(data.hooks || []);
+    } catch {
+      // Failed silently
+    } finally {
+      setLoadingHooks(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeView === 'hooks') {
+      fetchSavedHooks();
+    }
+  }, [activeView, fetchSavedHooks]);
+
+  const handleDeleteHook = async (id: string) => {
+    try {
+      const res = await fetch(`/api/saved-hooks/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSavedHooks(prev => prev.filter(h => h.id !== id));
+      }
+    } catch {
+      // Failed silently
+    }
+  };
+
+  const copyHookText = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedHookId(id);
+      setTimeout(() => setCopiedHookId(null), 2000);
+    } catch {
+      // Clipboard not available
     }
   };
 
@@ -211,6 +275,93 @@ export default function WinnersBankPage() {
           />
         </div>
 
+        {/* View Toggle */}
+        <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+          <button
+            onClick={() => setActiveView('winners')}
+            className={`px-5 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+              activeView === 'winners' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-300'
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            Winning Scripts
+          </button>
+          <button
+            onClick={() => setActiveView('hooks')}
+            className={`px-5 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+              activeView === 'hooks' ? 'bg-teal-600 text-white' : 'text-zinc-400 hover:text-zinc-300'
+            }`}
+          >
+            <Bookmark className="w-4 h-4" />
+            Winning Hooks
+          </button>
+        </div>
+
+        {/* Hooks View */}
+        {activeView === 'hooks' && (
+          <div className="space-y-4">
+            {loadingHooks ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 text-zinc-500 animate-spin" />
+              </div>
+            ) : savedHooks.length === 0 ? (
+              <div className="text-center py-20">
+                <Bookmark className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
+                <h2 className="text-xl font-semibold text-zinc-300 mb-2">No Saved Hooks Yet</h2>
+                <p className="text-zinc-500 max-w-md mx-auto">
+                  Save hooks from generated scripts in the Content Studio to build your collection.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {savedHooks.map((hook) => (
+                  <div key={hook.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors">
+                    <p className="text-white text-lg font-medium mb-3">
+                      &ldquo;{hook.hook_text}&rdquo;
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-sm text-zinc-400">
+                        {hook.product_name && (
+                          <span className="px-2 py-0.5 bg-zinc-800 rounded text-zinc-300">{hook.product_name}</span>
+                        )}
+                        {hook.content_type && (
+                          <span className="px-2 py-0.5 bg-zinc-800 rounded">{hook.content_type}</span>
+                        )}
+                        {hook.brand_name && (
+                          <span>{hook.brand_name}</span>
+                        )}
+                        <span>{new Date(hook.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => copyHookText(hook.id, hook.hook_text)}
+                          className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          {copiedHookId === hook.id ? 'Copied!' : 'Copy'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Delete this hook?')) {
+                              handleDeleteHook(hook.id);
+                            }
+                          }}
+                          className="px-3 py-1.5 text-sm text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Winners View */}
+        {activeView === 'winners' && <>
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
           {/* Source Filter Tabs */}
@@ -348,6 +499,7 @@ export default function WinnersBankPage() {
             ))}
           </div>
         )}
+        </>}
       </div>
 
       {/* Winner Detail Modal */}

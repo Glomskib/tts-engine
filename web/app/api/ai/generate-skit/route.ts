@@ -45,7 +45,12 @@ import {
   buildBrandContextPrompt,
 } from "@/lib/ai/brandContext";
 import { buildPainPointsPrompt } from "@/lib/ai/productContext";
-import { getOutputFormatConfig } from "@/lib/ai/outputFormats";
+import {
+  getOutputFormatConfig,
+  HUMAN_VOICE_INSTRUCTIONS,
+  CTA_INSTRUCTIONS,
+  BROLL_INSTRUCTIONS,
+} from "@/lib/ai/outputFormats";
 import type { PainPoint } from "@/lib/ai/painPointGenerator";
 
 export const runtime = "nodejs";
@@ -1599,6 +1604,8 @@ ${formatConfig.characterConstraints}
 
 ${formatConfig.creativePrinciples}
 
+${HUMAN_VOICE_INSTRUCTIONS}
+
 PRODUCT INFO:
 - Product Name: ${productName}
 - Brand: ${brandName || "N/A"}
@@ -1638,7 +1645,11 @@ ${templateSection}
 
 ${COMPLIANCE_REMINDER}
 
+${CTA_INSTRUCTIONS}
+
 ${formatConfig.structureTemplate}
+
+${BROLL_INSTRUCTIONS}
 
 Generate a creative, compliant script now. Output ONLY valid JSON, no explanation.`;
 }

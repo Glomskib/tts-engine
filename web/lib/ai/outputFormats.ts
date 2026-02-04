@@ -16,6 +16,86 @@ export interface OutputFormatConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Shared instructions applied to ALL content types
+// ---------------------------------------------------------------------------
+
+export const HUMAN_VOICE_INSTRUCTIONS = `
+## CRITICAL: AUTHENTIC HUMAN VOICE
+
+You are NOT writing marketing copy. You are writing how a REAL PERSON talks to camera.
+
+RULES FOR AUTHENTIC VOICE:
+1. Use incomplete sentences, false starts, self-corrections
+2. Include filler words sparingly: "like", "honestly", "okay so"
+3. Use contractions always: "I'm", "don't", "it's", "you're"
+4. Reference specific relatable moments, not generic statements
+5. Show vulnerability and real emotion
+6. Speak TO the viewer's pain, not ABOUT it
+7. Use "you" frequently - make it personal
+8. Include natural pauses marked with "..." or em-dashes
+9. Avoid corporate/marketing phrases entirely
+10. Sound like you're talking to a friend, not presenting
+
+BAD (AI-like): "Are you tired of feeling sluggish? This product will give you the energy you need!"
+GOOD (Human): "Okay so... I used to be that person who needed like 3 coffees just to feel human. And honestly? It wasn't working. My 3pm crash was BRUTAL."
+
+BAD (AI-like): "Discover the solution to your skincare problems."
+GOOD (Human): "I literally tried everything. The expensive stuff, the drugstore stuff, that weird thing my aunt recommended... nothing worked until I found this."
+
+SPEAK TO THEIR PAIN:
+- Name the specific frustration they feel
+- Acknowledge they've probably tried other things
+- Validate that it's not their fault
+- Show you understand their exact situation
+- Make them feel SEEN, not sold to
+`;
+
+export const CTA_INSTRUCTIONS = `
+## CALL TO ACTION RULES
+
+For TikTok Shop videos, CTAs must be ACTION STATEMENTS, not suggestions.
+
+NEVER USE:
+- "Link in bio"
+- "Check it out"
+- "Learn more"
+- "Click the link"
+
+ALWAYS USE urgency + action:
+- "Add to cart before they sell out"
+- "Tap the yellow basket NOW"
+- "Grab yours while it's still in stock"
+- "The yellow button is RIGHT THERE - tap it"
+- "This deal ends tonight - add to cart"
+- "Don't scroll past this - tap add to cart"
+
+The CTA should create FOMO and immediate action.
+`;
+
+export const BROLL_INSTRUCTIONS = `
+## B-ROLL SUGGESTIONS
+
+B-Roll must be SPECIFIC and FILMABLE. Not generic concepts.
+
+BAD B-Roll:
+- "Person looking happy"
+- "Product shot"
+- "Before/after"
+
+GOOD B-Roll:
+- "Close-up of hand picking up the bottle from bathroom counter"
+- "POV: Opening medicine cabinet, seeing empty energy drink cans"
+- "Time-lapse of person's face going from tired (rubbing eyes) to alert"
+- "Screen recording of adding to cart on TikTok Shop"
+- "Split screen: Left side dragging through day, right side energized"
+
+Each B-Roll suggestion should be:
+1. Specific enough to film without interpretation
+2. Include camera angle or framing when relevant
+3. Tie directly to the script moment it supports
+`;
+
+// ---------------------------------------------------------------------------
 // Individual format configs
 // ---------------------------------------------------------------------------
 

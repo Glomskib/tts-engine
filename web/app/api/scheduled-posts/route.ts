@@ -13,44 +13,50 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const startDate = searchParams.get('start_date');
-  const endDate = searchParams.get('end_date');
-  const status = searchParams.get('status');
-  const platform = searchParams.get('platform');
+  try {
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('start_date');
+    const endDate = searchParams.get('end_date');
+    const status = searchParams.get('status');
+    const platform = searchParams.get('platform');
 
-  let query = supabase
-    .from('scheduled_posts')
-    .select(`
-      *,
-      skit:saved_skits(id, title, product_name, product_brand)
-    `)
-    .order('scheduled_for', { ascending: true });
+    let query = supabase
+      .from('scheduled_posts')
+      .select(`
+        *,
+        skit:saved_skits(id, title, product_name, product_brand)
+      `)
+      .order('scheduled_for', { ascending: true });
 
-  if (startDate) {
-    query = query.gte('scheduled_for', startDate);
+    if (startDate) {
+      query = query.gte('scheduled_for', startDate);
+    }
+
+    if (endDate) {
+      query = query.lte('scheduled_for', endDate);
+    }
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    if (platform) {
+      query = query.eq('platform', platform);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      // Table may not exist yet — return empty array so calendar still loads
+      console.error('Failed to fetch scheduled posts:', error);
+      return NextResponse.json({ data: [] });
+    }
+
+    return NextResponse.json({ data: data || [] });
+  } catch (err) {
+    console.error('Scheduled posts error:', err);
+    return NextResponse.json({ data: [] });
   }
-
-  if (endDate) {
-    query = query.lte('scheduled_for', endDate);
-  }
-
-  if (status) {
-    query = query.eq('status', status);
-  }
-
-  if (platform) {
-    query = query.eq('platform', platform);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Failed to fetch scheduled posts:', error);
-    return NextResponse.json({ error: 'Failed to fetch scheduled posts' }, { status: 500 });
-  }
-
-  return NextResponse.json({ data });
 }
 
 export async function POST(request: NextRequest) {

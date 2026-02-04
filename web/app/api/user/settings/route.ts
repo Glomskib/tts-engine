@@ -21,6 +21,11 @@ const DEFAULT_SETTINGS = {
     reduce_motion: false,
     high_contrast: false,
   },
+  posting: {
+    videos_per_day: 1,
+    posting_time_1: '09:00',
+    posting_time_2: '18:00',
+  },
 };
 
 function getSupabaseClient() {

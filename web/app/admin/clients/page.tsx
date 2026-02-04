@@ -120,7 +120,7 @@ export default function ClientsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white">Client Management</h1>
-            <p className="text-zinc-400">Manage your agency's clients</p>
+            <p className="text-zinc-400">Manage your agency&apos;s clients</p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}

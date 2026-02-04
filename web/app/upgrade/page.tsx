@@ -378,7 +378,7 @@ export default function UpgradePage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-white">Hire Our Video Editor Team</h2>
-                  <p className="text-zinc-400">We edit. You post. It's that simple.</p>
+                  <p className="text-zinc-400">We edit. You post. It&apos;s that simple.</p>
                 </div>
               </div>
 
@@ -446,7 +446,7 @@ export default function UpgradePage() {
                   All packages include professional editing, unlimited revisions, and 24-48hr turnaround.
                 </p>
                 <p className="text-zinc-500 text-xs mt-2">
-                  After payment, we'll schedule an onboarding call to understand your brand and style.
+                  After payment, we&apos;ll schedule an onboarding call to understand your brand and style.
                 </p>
               </div>
             </div>

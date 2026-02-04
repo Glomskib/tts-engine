@@ -27,7 +27,7 @@ export function MarkAsWinnerModal({
   scriptId,
   scriptTitle,
   hookText,
-  productName,
+  productName: _productName,
 }: MarkAsWinnerModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

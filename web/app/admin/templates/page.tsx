@@ -111,7 +111,7 @@ export default function TemplatesPage() {
               {/* Example Hook */}
               <div className="mb-4 p-3 rounded-lg bg-zinc-800/50 border border-white/5">
                 <div className="text-xs text-zinc-500 mb-1">Example hook:</div>
-                <div className="text-sm text-zinc-300 italic">"{template.example_hook}"</div>
+                <div className="text-sm text-zinc-300 italic">&quot;{template.example_hook}&quot;</div>
               </div>
 
               {/* Meta Info */}

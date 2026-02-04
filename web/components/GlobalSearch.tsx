@@ -241,7 +241,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
 
           {!loading && displayResults.length === 0 && query && (
             <div className="p-8 text-center text-zinc-500">
-              No results found for "{query}"
+              No results found for &quot;{query}&quot;
             </div>
           )}
 

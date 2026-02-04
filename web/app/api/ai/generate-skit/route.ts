@@ -524,46 +524,6 @@ COMEDY INTENSITY: MAXIMUM (${intensity}/100)
   }
 }
 
-// --- Creative Principles (Core Philosophy) ---
-
-const CREATIVE_PRINCIPLES = `
-CREATIVE PRINCIPLES - MAKE CONTENT THAT SLAPS:
-
-1. HOOKS MUST STOP THE SCROLL (<1 second)
-   - Use pattern interrupts: unexpected visuals, provocative statements, or jarring cuts
-   - Open mid-action, mid-sentence, or with something visually bizarre
-   - Examples: "I finally did it..." (mystery), "NOBODY talks about this..." (forbidden knowledge), starting with the punchline
-
-2. CHAOS IS GOOD
-   - Absurdist humor, unexpected turns, and breaking the 4th wall all work
-   - Let the energy escalate—don't plateau
-   - Embrace non-sequiturs that somehow land
-   - The algorithm rewards "wait what?" moments
-
-3. RELATABILITY WINS
-   - "POV: you at 3am" style content makes people feel SEEN
-   - Tap into universal frustrations, guilty pleasures, and "why is this so true" moments
-   - Specific scenarios beat vague premises
-
-4. PRODUCT SHOULD FEEL ORGANIC, NEVER SALESY
-   - The best ads don't feel like ads
-   - Product is the solution to a comedic problem, not the focus
-   - Viewer should be entertained first, sold second
-   - If you removed the product, it should still be a funny video
-
-5. SPECIFICITY BEATS GENERIC
-   - "Your aunt who sells MLM products" is funnier than "someone annoying"
-   - "That one coworker who microwaves fish" > "an annoying person"
-   - Precise references create "omg that's literally me" moments
-
-6. STRUCTURE: 5-8 BEATS, 30-60 SECONDS
-   - Hook (0-3s): Pattern interrupt
-   - Setup (3-15s): Establish the comedic premise
-   - Escalation (15-40s): Build tension/absurdity
-   - Product moment (organic, not forced)
-   - CTA (final 5s): Quick, not preachy
-`;
-
 // --- Plot Style Guidelines ---
 
 function buildPlotStyleGuidelines(plotStyle: number): string {
@@ -1045,42 +1005,6 @@ PRESENTATION: TREND JACKING
   };
   return styles[style] || "";
 }
-
-// --- Skit Structure Template ---
-
-const SKIT_STRUCTURE_TEMPLATE = `
-OUTPUT FORMAT (JSON only, no markdown):
-{
-  "hook_line": "Opening line that grabs attention (max 150 chars)",
-  "beats": [
-    {
-      "t": "0:00-0:03",
-      "action": "What happens visually",
-      "dialogue": "What is said (optional)",
-      "on_screen_text": "Text overlay (optional, max 50 chars)"
-    }
-  ],
-  "b_roll": ["Suggested B-roll shot 1", "Shot 2"],
-  "overlays": ["Text overlay suggestion 1", "Text overlay 2"],
-  "cta_line": "Call to action spoken line",
-  "cta_overlay": "CTA text overlay (max 40 chars)"
-}
-
-TIMING GUIDELINES:
-- Total skit: 30-60 seconds (5-8 beats typically)
-- Hook: First 1-3 seconds (MUST stop the scroll)
-- Setup: 3-15 seconds (establish the comedic premise)
-- Escalation: 15-45 seconds (build tension, let it get weird)
-- Product moment: Organic, feels like part of the bit
-- CTA: Final 3-5 seconds (quick, not preachy)
-
-BEAT QUALITY CHECKLIST:
-- Does the hook create a "wait what?" moment?
-- Is there at least one unexpected turn?
-- Would this be funny WITHOUT the product?
-- Are the specifics... specific? (not "someone" but "your coworker named Brad")
-- Does it escalate or does it plateau?
-`;
 
 // --- Main API Handler ---
 

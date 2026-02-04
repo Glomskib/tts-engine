@@ -169,7 +169,7 @@ function safeParseJSON(content: string): ParseResult {
   try {
     const parsed = JSON.parse(content);
     return { success: true, data: parsed, strategy: "direct" };
-  } catch (error) {
+  } catch {
     // Direct JSON parse failed, trying next strategy
   }
 
@@ -180,7 +180,7 @@ function safeParseJSON(content: string): ParseResult {
       const parsed = JSON.parse(jsonBlockMatch[1].trim());
       return { success: true, data: parsed, strategy: "json_code_block" };
     }
-  } catch (error) {
+  } catch {
     // JSON code block extraction failed, trying next strategy
   }
 
@@ -195,7 +195,7 @@ function safeParseJSON(content: string): ParseResult {
         return { success: true, data: parsed, strategy: "generic_code_block" };
       }
     }
-  } catch (error) {
+  } catch {
     // Generic code block extraction failed, trying next strategy
   }
 
@@ -233,7 +233,7 @@ function safeParseJSON(content: string): ParseResult {
       const parsed = JSON.parse(jsonSubstring);
       return { success: true, data: parsed, strategy: "brace_extract_repaired" };
     }
-  } catch (error) {
+  } catch {
     // Brace extraction failed, trying next strategy
   }
 
@@ -255,7 +255,7 @@ function safeParseJSON(content: string): ParseResult {
       const parsed = JSON.parse(jsonSubstring);
       return { success: true, data: parsed, strategy: "trailing_comma_fix" };
     }
-  } catch (error) {
+  } catch {
     // Trailing comma fix failed, trying next strategy
   }
 
@@ -288,7 +288,7 @@ function safeParseJSON(content: string): ParseResult {
         return { success: true, data: parsed, strategy: "balanced_braces" };
       }
     }
-  } catch (error) {
+  } catch {
     // Balanced brace extraction failed
   }
 

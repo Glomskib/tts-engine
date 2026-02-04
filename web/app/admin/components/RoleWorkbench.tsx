@@ -648,7 +648,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
               </div>
               <h2 className="text-xl font-semibold text-zinc-100 mb-2">No work available</h2>
               <p className="text-zinc-400 mb-6">
-                You're all caught up. Check back soon or dispatch the next item.
+                You&apos;re all caught up. Check back soon or dispatch the next item.
               </p>
               <button
                 onClick={loadWork}

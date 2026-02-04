@@ -349,7 +349,7 @@ export default function PerformancePage() {
                       onClick={() => openMetricForm(video.id)}
                       style={{ padding: '5px 10px', fontSize: '12px' }}
                     >
-                      Add Today's Metrics
+                      Add Today&apos;s Metrics
                     </button>
                   )}
                 </td>

@@ -3724,7 +3724,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       fontSize: '13px',
                     }}>
                       <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }}>📝</div>
-                      No scenes yet. Click "+ Add Scene" to create the first one.
+                      No scenes yet. Click &quot;+ Add Scene&quot; to create the first one.
                     </div>
                   )}
                   {(currentSkit.beats || []).map((beat, i) => (

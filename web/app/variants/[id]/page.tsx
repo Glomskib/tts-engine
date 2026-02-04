@@ -448,8 +448,8 @@ export default function VariantPage() {
                 <div><strong>B-Roll:</strong> {scalingResult.scaling_plan.editor_brief.b_roll?.join(', ')}</div>
                 <div><strong>Style:</strong> {scalingResult.scaling_plan.editor_brief.on_screen_style}</div>
                 <div><strong>Pacing:</strong> {scalingResult.scaling_plan.editor_brief.pacing}</div>
-                <div><strong>Do's:</strong> {scalingResult.scaling_plan.editor_brief.dos?.join(', ')}</div>
-                <div><strong>Don'ts:</strong> {scalingResult.scaling_plan.editor_brief.donts?.join(', ')}</div>
+                <div><strong>Do&apos;s:</strong> {scalingResult.scaling_plan.editor_brief.dos?.join(', ')}</div>
+                <div><strong>Don&apos;ts:</strong> {scalingResult.scaling_plan.editor_brief.donts?.join(', ')}</div>
               </div>
             )}
           </div>

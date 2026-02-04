@@ -211,7 +211,7 @@ export interface CreateWinnerInput {
 /**
  * Input for updating a winner
  */
-export interface UpdateWinnerInput extends Partial<CreateWinnerInput> {}
+export type UpdateWinnerInput = Partial<CreateWinnerInput>;
 
 /**
  * Hook type options for UI

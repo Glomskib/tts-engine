@@ -16,7 +16,7 @@ function safeParseJSON(content: string): { success: boolean; data: unknown; stra
   try {
     const parsed = JSON.parse(content);
     return { success: true, data: parsed, strategy: "direct" };
-  } catch (error) {
+  } catch {
     // Direct JSON parse failed, trying repair
   }
 

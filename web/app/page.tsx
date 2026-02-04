@@ -199,7 +199,7 @@ export default function LandingPage() {
             A system, not a chatbot.
           </h2>
           <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-12">
-            FlashFlow AI isn't another prompt box. It's a structured creative engine with guardrails, 
+            FlashFlow AI isn&apos;t another prompt box. It&apos;s a structured creative engine with guardrails,
             templates, and throttles — designed for continuous output, not one-off generations.
           </p>
           
@@ -531,7 +531,7 @@ export default function LandingPage() {
           </h2>
           <p className="text-xl text-zinc-400 mb-10">
             Start with 5 free generations. No credit card required. 
-            Upgrade when you're ready to scale.
+            Upgrade when you&apos;re ready to scale.
           </p>
           <Link 
             href="/signup"

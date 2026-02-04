@@ -70,31 +70,33 @@ export function AddExternalWinnerModal({
     try {
       const payload: Record<string, unknown> = {
         source_type: 'external',
-        hook_text: hookText.trim(),
-        user_notes: userNotes.trim(),
+        hook: hookText.trim(),
+        notes: userNotes.trim(),
       };
 
       // Add optional fields if provided
-      if (tiktokUrl) payload.tiktok_url = tiktokUrl;
-      if (videoTitle) payload.video_title = videoTitle;
-      if (creatorHandle) payload.creator_handle = creatorHandle.replace('@', '');
-      if (creatorNiche) payload.creator_niche = creatorNiche;
+      if (tiktokUrl) payload.video_url = tiktokUrl;
       if (hookType) payload.hook_type = hookType;
 
-      if (views) payload.views = parseInt(views, 10);
-      if (likes) payload.likes = parseInt(likes, 10);
-      if (comments) payload.comments = parseInt(comments, 10);
-      if (shares) payload.shares = parseInt(shares, 10);
-      if (saves) payload.saves = parseInt(saves, 10);
+      if (views) payload.view_count = parseInt(views, 10);
+      if (likes) payload.like_count = parseInt(likes, 10);
+      if (comments) payload.comment_count = parseInt(comments, 10);
+      if (shares) payload.share_count = parseInt(shares, 10);
+      if (saves) payload.save_count = parseInt(saves, 10);
 
-      if (avgWatchTimePercent) payload.avg_watch_time_percent = parseFloat(avgWatchTimePercent);
       if (retention3s) payload.retention_3s = parseFloat(retention3s);
-      if (videoLengthSeconds) payload.video_length_seconds = parseInt(videoLengthSeconds, 10);
 
       if (contentFormat) payload.content_format = contentFormat;
-      if (productName) payload.product_name = productName;
       if (productCategory) payload.product_category = productCategory;
-      if (tagsInput) payload.tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+
+      // Include extra context in notes if provided
+      const extraNotes: string[] = [userNotes.trim()];
+      if (videoTitle) extraNotes.push(`Video: ${videoTitle}`);
+      if (creatorHandle) extraNotes.push(`Creator: @${creatorHandle.replace('@', '')}`);
+      if (creatorNiche) extraNotes.push(`Niche: ${creatorNiche}`);
+      if (productName) extraNotes.push(`Product: ${productName}`);
+      if (tagsInput) extraNotes.push(`Tags: ${tagsInput}`);
+      payload.notes = extraNotes.join('\n');
 
       const response = await fetch('/api/winners', {
         method: 'POST',

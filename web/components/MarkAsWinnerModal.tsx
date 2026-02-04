@@ -64,32 +64,28 @@ export function MarkAsWinnerModal({
 
     try {
       const payload: Record<string, unknown> = {
-        source_type: 'our_script',
+        source_type: 'generated',
         script_id: scriptId,
-        hook_text: hookText,
-        product_name: productName,
+        hook: hookText,
       };
 
       // Add optional fields if provided
-      if (tiktokUrl) payload.tiktok_url = tiktokUrl;
-      if (views) payload.views = parseInt(views, 10);
-      if (likes) payload.likes = parseInt(likes, 10);
-      if (comments) payload.comments = parseInt(comments, 10);
-      if (shares) payload.shares = parseInt(shares, 10);
-      if (saves) payload.saves = parseInt(saves, 10);
+      if (tiktokUrl) payload.video_url = tiktokUrl;
+      if (views) payload.view_count = parseInt(views, 10);
+      if (likes) payload.like_count = parseInt(likes, 10);
+      if (comments) payload.comment_count = parseInt(comments, 10);
+      if (shares) payload.share_count = parseInt(shares, 10);
+      if (saves) payload.save_count = parseInt(saves, 10);
 
-      if (avgWatchTimeSeconds) payload.avg_watch_time_seconds = parseFloat(avgWatchTimeSeconds);
-      if (avgWatchTimePercent) payload.avg_watch_time_percent = parseFloat(avgWatchTimePercent);
+      if (avgWatchTimeSeconds) payload.avg_watch_time = parseFloat(avgWatchTimeSeconds);
       if (retention3s) payload.retention_3s = parseFloat(retention3s);
-      if (retentionHalf) payload.retention_half = parseFloat(retentionHalf);
-      if (retentionFull) payload.retention_full = parseFloat(retentionFull);
+      if (retentionHalf) payload.retention_5s = parseFloat(retentionHalf);
+      if (retentionFull) payload.retention_10s = parseFloat(retentionFull);
 
       if (hookType) payload.hook_type = hookType;
       if (contentFormat) payload.content_format = contentFormat;
       if (productCategory) payload.product_category = productCategory;
-      if (videoLengthSeconds) payload.video_length_seconds = parseInt(videoLengthSeconds, 10);
-      if (userNotes) payload.user_notes = userNotes;
-      if (tagsInput) payload.tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+      if (userNotes) payload.notes = userNotes;
 
       const response = await fetch('/api/winners', {
         method: 'POST',

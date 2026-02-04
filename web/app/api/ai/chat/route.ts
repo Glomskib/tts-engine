@@ -4,6 +4,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 interface ChatContext {
   brand?: string;

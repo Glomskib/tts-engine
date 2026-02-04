@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireCredits, useCredit } from "@/lib/credits";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // --- Input Validation Schema ---
 

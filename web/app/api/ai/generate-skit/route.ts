@@ -49,6 +49,7 @@ import { getOutputFormatConfig } from "@/lib/ai/outputFormats";
 import type { PainPoint } from "@/lib/ai/painPointGenerator";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 // --- Input Validation Schema (Zod Strict) ---
 
@@ -1488,9 +1489,28 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error(`[${correlationId}] Skit generation error:`, error);
+
+    // Refund credit on AI failure (non-admins only)
+    if (!authContext.isAdmin) {
+      try {
+        await supabaseAdmin.rpc("add_credits", {
+          p_user_id: authContext.user.id,
+          p_amount: 1,
+          p_description: "Refund: generation failed",
+          p_type: "refund",
+        });
+      } catch (refundErr) {
+        console.error(`[${correlationId}] Credit refund failed:`, refundErr);
+      }
+    }
+
+    const message = error instanceof Error && error.name === "AbortError"
+      ? "Generation timed out. Please try again."
+      : error instanceof Error ? error.message : "Skit generation failed";
+
     return createApiErrorResponse(
       "AI_ERROR",
-      error instanceof Error ? error.message : "Skit generation failed",
+      message,
       500,
       correlationId
     );
@@ -1654,24 +1674,33 @@ Make this skit DISTINCTLY DIFFERENT from other variations - don't just change wo
 
   const prompt = basePrompt + variationInstruction;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -1815,24 +1844,37 @@ async function scoreSkitInternal(skit: Skit, productName: string, productBrand: 
 
   const prompt = buildScoringPrompt(skit, productName, productBrand);
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
+  const scoreController = new AbortController();
+  const scoreTimeout = setTimeout(() => scoreController.abort(), 30000); // 30s timeout for scoring
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+      signal: scoreController.signal,
+    });
+  } catch (err) {
+    clearTimeout(scoreTimeout);
+    console.error(`[${correlationId}] Scoring timeout or network error:`, err);
+    return null;
+  } finally {
+    clearTimeout(scoreTimeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

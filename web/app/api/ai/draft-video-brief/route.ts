@@ -7,6 +7,7 @@ import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult 
 import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // Hook families for diverse generation
 const HOOK_FAMILIES = [

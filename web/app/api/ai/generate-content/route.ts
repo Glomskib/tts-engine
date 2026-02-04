@@ -8,6 +8,7 @@ import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
 import { requireCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // --- Input Validation Schema ---
 

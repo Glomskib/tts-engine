@@ -4,6 +4,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { z } from "zod";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // --- Input Validation Schema ---
 

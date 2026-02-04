@@ -18,7 +18,7 @@ export default function NotificationBadge({ style }: NotificationBadgeProps) {
       if (data.ok) {
         setUnreadCount(data.meta?.unread_count || 0);
       }
-    } catch (err) {
+    } catch {
       // Silent fail - badge is non-critical
     } finally {
       setLoading(false);

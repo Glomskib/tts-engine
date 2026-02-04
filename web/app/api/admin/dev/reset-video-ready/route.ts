@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Update video
-    const { data: updated, error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("videos")
       .update({
         status: "ready_to_post",

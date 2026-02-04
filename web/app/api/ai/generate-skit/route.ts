@@ -24,7 +24,6 @@ import {
 import {
   applySkitBudgetClamp,
   isDebugMode,
-  type BudgetDiagnostics,
 } from "@/lib/ai/skitBudget";
 import { z } from "zod";
 import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
@@ -45,7 +44,7 @@ import {
   fetchBrandContext,
   buildBrandContextPrompt,
 } from "@/lib/ai/brandContext";
-import { buildPainPointsPrompt, type ProductContext } from "@/lib/ai/productContext";
+import { buildPainPointsPrompt } from "@/lib/ai/productContext";
 import type { PainPoint } from "@/lib/ai/painPointGenerator";
 
 export const runtime = "nodejs";
@@ -1684,73 +1683,6 @@ ${COMPLIANCE_REMINDER}
 ${SKIT_STRUCTURE_TEMPLATE}
 
 Generate a creative, compliant skit now. Output ONLY valid JSON, no explanation.`;
-}
-
-// --- Anthropic API Call ---
-
-async function callAnthropicForSkit(prompt: string, correlationId: string): Promise<Skit | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error(`[${correlationId}] ANTHROPIC_API_KEY not configured`);
-    throw new Error("AI service not configured");
-  }
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[${correlationId}] Anthropic API error: ${response.status} - ${errorText}`);
-    throw new Error(`AI service error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.content?.[0]?.text;
-
-  if (!content) {
-    console.error(`[${correlationId}] No content from Anthropic`);
-    return null;
-  }
-
-  // Parse JSON from response
-  try {
-    // Try to extract JSON from response (may have markdown)
-    let jsonStr = content;
-
-    // Remove markdown code blocks if present
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1];
-    }
-
-    const parsed = JSON.parse(jsonStr.trim());
-
-    if (!validateSkitStructure(parsed)) {
-      console.error(`[${correlationId}] Invalid skit structure from AI`);
-      return null;
-    }
-
-    return parsed as Skit;
-  } catch (parseErr) {
-    console.error(`[${correlationId}] Failed to parse skit JSON:`, parseErr);
-    return null;
-  }
 }
 
 // --- Variation Generation ---

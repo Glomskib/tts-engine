@@ -100,7 +100,7 @@ export async function applyHookPostedCounts(
 
       // Try to insert hook_usage_events for idempotency
       // ON CONFLICT DO NOTHING prevents duplicate increments
-      const { data: inserted, error: insertError } = await supabaseAdmin
+      const { error: insertError } = await supabaseAdmin
         .from("hook_usage_events")
         .insert({
           hook_id: provenHook.id,

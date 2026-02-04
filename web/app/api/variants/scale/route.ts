@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { getVariantsScalingColumns, getIterationGroupsColumns, VALID_CHANGE_TYPES, ChangeType } from '@/lib/scaling-schema';
-import { getVideosPerformanceColumns } from '@/lib/performance-schema';
-import { safeColumnInsert, generateCorrelationId } from '@/lib/safe-schema';
+import { getIterationGroupsColumns, VALID_CHANGE_TYPES, ChangeType } from '@/lib/scaling-schema';
+import { generateCorrelationId } from '@/lib/safe-schema';
 
 export const runtime = "nodejs";
 

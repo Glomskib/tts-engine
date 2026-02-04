@@ -79,7 +79,7 @@ export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [userActivity, setUserActivity] = useState<UserActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [, setError] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Filters
@@ -104,9 +104,9 @@ export default function AssignmentsPage() {
     const fetchAuthUser = async () => {
       try {
         const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        if (error || !user) {
+        if (authError || !user) {
           router.push('/login?redirect=/admin/assignments');
           return;
         }

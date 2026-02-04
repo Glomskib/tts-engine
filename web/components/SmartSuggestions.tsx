@@ -97,7 +97,6 @@ export default function SmartSuggestions({
   context,
   productName,
   personaId,
-  currentHook,
   onApplySuggestion,
   className = '',
 }: SmartSuggestionsProps) {

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import IncidentBanner from '../components/IncidentBanner';
 import VideoDrawer from './components/VideoDrawer';
@@ -101,20 +99,7 @@ interface AvailableScript {
 }
 
 // Stage tabs with user-friendly labels
-const STAGE_TABS = [
-  { key: 'ALL', label: 'All' },
-  { key: 'NEEDS_SCRIPT', label: 'Needs Script' },
-  { key: 'GENERATING_SCRIPT', label: 'Generating' },
-  { key: 'NOT_RECORDED', label: 'Record' },
-  { key: 'RECORDED', label: 'Edit' },
-  { key: 'EDITED', label: 'Approve' },
-  { key: 'READY_TO_POST', label: 'Post' },
-  { key: 'POSTED', label: 'Posted' },
-  { key: 'REJECTED', label: 'Issues' },
-] as const;
-const RECORDING_STATUS_TABS = STAGE_TABS.map(t => t.key);
-const DEPARTMENT_TABS = ['all', 'recording', 'editing', 'posting'] as const;
-const CLAIM_ROLE_TABS = ['all', 'recorder', 'editor', 'uploader'] as const;
+type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
 // VA Mode types
@@ -134,10 +119,7 @@ const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
 
 // localStorage keys
 const VA_MODE_KEY = 'pipeline_va_mode';
-const VIEW_MODE_KEY = 'pipeline_view_mode';
 const SIMPLE_MODE_KEY = 'pipeline_simple_mode';
-
-type ViewMode = 'table' | 'board';
 
 // Auth user info type
 interface AuthUser {
@@ -146,83 +128,6 @@ interface AuthUser {
   role: 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 }
 
-// Status badge color helper - muted ops console style
-function getStatusBadgeColor(status: string | null): { bg: string; border: string; badge: string } {
-  // Using muted, professional tones for stage badges
-  switch (status) {
-    case 'NEEDS_SCRIPT':
-      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
-    case 'GENERATING_SCRIPT':
-      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
-    case 'NOT_RECORDED':
-      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
-    case 'RECORDED':
-      return { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.2)', badge: '#3B82F6' };
-    case 'EDITED':
-      return { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.2)', badge: '#F59E0B' };
-    case 'READY_TO_POST':
-      return { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', badge: '#10B981' };
-    case 'POSTED':
-      return { bg: 'rgba(15, 118, 110, 0.1)', border: 'rgba(15, 118, 110, 0.2)', badge: '#0F766E' };
-    case 'REJECTED':
-      return { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', badge: '#EF4444' };
-    default:
-      return { bg: 'rgba(107, 114, 128, 0.1)', border: 'rgba(107, 114, 128, 0.2)', badge: '#6B7280' };
-  }
-}
-
-// SLA badge colors - subtle semantic colors
-function getSlaColor(status: SlaStatus): { bg: string; text: string; border: string } {
-  switch (status) {
-    case 'overdue':
-      return { bg: 'rgba(239, 68, 68, 0.1)', text: '#EF4444', border: 'rgba(239, 68, 68, 0.2)' };
-    case 'due_soon':
-      return { bg: 'rgba(245, 158, 11, 0.1)', text: '#F59E0B', border: 'rgba(245, 158, 11, 0.2)' };
-    case 'on_track':
-      return { bg: 'rgba(16, 185, 129, 0.1)', text: '#10B981', border: 'rgba(16, 185, 129, 0.2)' };
-    default:
-      return { bg: 'rgba(107, 114, 128, 0.1)', text: '#6B7280', border: 'rgba(107, 114, 128, 0.2)' };
-  }
-}
-
-// ============================================================================
-// 7-STEP PIPELINE MODEL
-// Idea/Script → Record → Edit → Approve → Post → Monitor → Remake
-// ============================================================================
-const PIPELINE_STEPS = [
-  { key: 'script', label: 'Script' },
-  { key: 'record', label: 'Record' },
-  { key: 'edit', label: 'Edit' },
-  { key: 'approve', label: 'Approve' },
-  { key: 'post', label: 'Post' },
-  { key: 'monitor', label: 'Monitor' },
-  { key: 'remake', label: 'Remake' },
-] as const;
-
-// Get current step index (0-6) for a video
-function getCurrentStep(video: QueueVideo): number {
-  const hasScript = !!video.script_locked_text;
-  const status = video.recording_status || 'NOT_RECORDED';
-
-  // Script-related statuses are always step 0 (Script step)
-  if (status === 'NEEDS_SCRIPT' || status === 'GENERATING_SCRIPT') return 0;
-  if (!hasScript) return 0; // Script step
-  if (status === 'NOT_RECORDED') return 1; // Record step
-  if (status === 'RECORDED') return 2; // Edit step
-  if (status === 'EDITED') return 3; // Approve step
-  if (status === 'READY_TO_POST') return 4; // Post step
-  if (status === 'POSTED') return 5; // Monitor step
-  if (status === 'REJECTED') return 6; // Remake step
-  return 0;
-}
-
-// Role-based instruction banners
-const ROLE_INSTRUCTIONS: Record<string, string> = {
-  recorder: 'Click the blue button to mark recording done.',
-  editor: 'Edit the video, then click Edit Done.',
-  uploader: 'Post the video and paste the link.',
-  admin: 'Monitor flow and resolve blockers.',
-};
 
 // ============================================================================
 // PRIMARY ACTION LOGIC - Single source of truth for "what should VA do next"
@@ -354,16 +259,6 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
   };
 }
 
-// Get compact next action badge text (icon + 1-3 words)
-function getNextActionBadge(video: QueueVideo): { icon: string; text: string; color: string } {
-  const action = getPrimaryAction(video);
-  return {
-    icon: action.icon,
-    text: action.label,
-    color: action.color,
-  };
-}
-
 // Filter videos by role (for role-based views)
 function filterVideosByRole(videos: QueueVideo[], role: 'recorder' | 'editor' | 'uploader' | 'admin'): QueueVideo[] {
   if (role === 'admin') return videos;
@@ -374,36 +269,27 @@ function filterVideosByRole(videos: QueueVideo[], role: 'recorder' | 'editor' | 
   });
 }
 
-// Admin identifier - in a real app this would come from auth
-const ADMIN_IDENTIFIER = 'admin';
-
 // Main pipeline page component
 export default function AdminPipelinePage() {
-  const hydrated = useHydrated();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const { showSuccess, showError } = useToast();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
-  const [queueSummary, setQueueSummary] = useState<QueueSummary | null>(null);
-  const [claimedVideos, setClaimedVideos] = useState<ClaimedVideo[]>([]);
-  const [recentEvents, setRecentEvents] = useState<VideoEvent[]>([]);
+  const [, setQueueSummary] = useState<QueueSummary | null>(null);
+  const [, setClaimedVideos] = useState<ClaimedVideo[]>([]);
+  const [, setRecentEvents] = useState<VideoEvent[]>([]);
   const [queueVideos, setQueueVideos] = useState<QueueVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [queueLoading, setQueueLoading] = useState(false);
   const [error, setError] = useState('');
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [, setLastRefresh] = useState<Date | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
   const [reclaimMessage, setReclaimMessage] = useState<string | null>(null);
-  const [videoIdFilter, setVideoIdFilter] = useState('');
-  const [claimedByFilter, setClaimedByFilter] = useState('');
-  const [eventTypeFilter, setEventTypeFilter] = useState('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
   // Recording status tab state
-  const [activeRecordingTab, setActiveRecordingTab] = useState<typeof RECORDING_STATUS_TABS[number]>('ALL');
-  const [claimedFilter, setClaimedFilter] = useState<'any' | 'unclaimed' | 'claimed'>('any');
+  const [activeRecordingTab] = useState<RecordingStatusTab>('ALL');
+  const [claimedFilter] = useState<'any' | 'unclaimed' | 'claimed'>('any');
 
   // Auth state
   const router = useRouter();
@@ -411,8 +297,8 @@ export default function AdminPipelinePage() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Role-based filtering state
-  const [activeRoleTab, setActiveRoleTab] = useState<typeof CLAIM_ROLE_TABS[number]>('all');
-  const [myWorkOnly, setMyWorkOnly] = useState(false);
+  const [activeRoleTab] = useState<'all' | 'recorder' | 'editor' | 'uploader'>('all');
+  const [myWorkOnly] = useState(false);
 
   // Derived: active user is the authenticated user's ID
   const activeUser = authUser?.id || '';
@@ -428,8 +314,8 @@ export default function AdminPipelinePage() {
   const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
 
   // Per-row claim/release state
-  const [claimingVideoId, setClaimingVideoId] = useState<string | null>(null);
-  const [claimError, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
+  const [, setClaimingVideoId] = useState<string | null>(null);
+  const [, setClaimError] = useState<{ videoId: string; message: string } | null>(null);
 
   // Attach script modal state
   const [attachModalVideoId, setAttachModalVideoId] = useState<string | null>(null);
@@ -443,7 +329,7 @@ export default function AdminPipelinePage() {
 
   // Post modal state (for READY_TO_POST -> POSTED)
   const [postModalVideoId, setPostModalVideoId] = useState<string | null>(null);
-  const [postModalVideo, setPostModalVideo] = useState<QueueVideo | null>(null);
+  const [, setPostModalVideo] = useState<QueueVideo | null>(null);
   const [postUrl, setPostUrl] = useState('');
   const [postPlatform, setPostPlatform] = useState('');
   const [posting, setPosting] = useState(false);
@@ -459,10 +345,10 @@ export default function AdminPipelinePage() {
   const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
 
   // Execution action state (for quick transitions)
-  const [executingVideoId, setExecutingVideoId] = useState<string | null>(null);
-  const [executionError, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
+  const [, setExecutingVideoId] = useState<string | null>(null);
+  const [, setExecutionError] = useState<{ videoId: string; message: string } | null>(null);
   // More menu state (which video's menu is open)
-  const [openMenuVideoId, setOpenMenuVideoId] = useState<string | null>(null);
+  const [, setOpenMenuVideoId] = useState<string | null>(null);
 
   // View mode state (simple vs advanced) - simple is default for VA usability
   const [simpleView, setSimpleView] = useState(true);
@@ -492,7 +378,7 @@ export default function AdminPipelinePage() {
     aging_buckets: { under_4h: number; h4_to_12h: number; h12_to_24h: number; over_24h: number };
     total_in_progress: number;
   } | null>(null);
-  const [queueHealthLoading, setQueueHealthLoading] = useState(false);
+  const [, setQueueHealthLoading] = useState(false);
 
   // Show toast with auto-dismiss
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -547,7 +433,7 @@ export default function AdminPipelinePage() {
       } else {
         showToast(data.message || 'Failed to mark winners', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Network error', 'error');
     } finally {
       setBulkActionLoading(false);
@@ -574,7 +460,7 @@ export default function AdminPipelinePage() {
       } else {
         showToast(data.message || 'Failed to mark underperform', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Network error', 'error');
     } finally {
       setBulkActionLoading(false);
@@ -583,7 +469,7 @@ export default function AdminPipelinePage() {
 
 
   // Reference data for filters
-  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [, setBrands] = useState<{ id: string; name: string }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
 
@@ -678,31 +564,6 @@ export default function AdminPipelinePage() {
   }, []);
 
 
-  // Save VA mode to localStorage (admins only can switch freely)
-  const updateVaMode = (mode: VAMode) => {
-    // Non-admins cannot switch to admin mode
-    if (mode === 'admin' && authUser?.role !== 'admin') {
-      return;
-    }
-    setVaMode(mode);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(VA_MODE_KEY, mode);
-    }
-    // Auto-set role tab to match VA mode (except admin which shows all)
-    if (mode !== 'admin') {
-      setActiveRoleTab(mode);
-    }
-  };
-
-  // Toggle simple/advanced view
-  const toggleSimpleView = () => {
-    const newValue = !simpleView;
-    setSimpleView(newValue);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SIMPLE_MODE_KEY, String(newValue));
-    }
-  };
-
   // Get videos filtered by current role mode and search query
   const getRoleFilteredVideos = (): QueueVideo[] => {
     let filtered = vaMode === 'admin' ? queueVideos : filterVideosByRole(queueVideos, vaMode);
@@ -768,9 +629,6 @@ export default function AdminPipelinePage() {
       account: account?.name || '—',
     };
   };
-
-  // Check if user is an admin
-  const isUserAdmin = authUser?.role === 'admin';
 
   // Helper to check if current VA mode is admin
   const isAdminMode = vaMode === 'admin';
@@ -860,7 +718,7 @@ export default function AdminPipelinePage() {
 
       setLastRefresh(new Date());
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch observability data');
     } finally {
       setLoading(false);
@@ -896,7 +754,7 @@ export default function AdminPipelinePage() {
       } else {
         setReleaseMessage(`Error: ${data.message || 'Failed to release'}`);
       }
-    } catch (err) {
+    } catch {
       setReleaseMessage('Error: Failed to release stale claims');
     } finally {
       setReleasing(false);
@@ -916,7 +774,7 @@ export default function AdminPipelinePage() {
       } else {
         setReclaimMessage(`Error: ${data.error || 'Failed to reclaim'}`);
       }
-    } catch (err) {
+    } catch {
       setReclaimMessage('Error: Failed to reclaim expired assignments');
     } finally {
       setReclaiming(false);
@@ -951,7 +809,7 @@ export default function AdminPipelinePage() {
       } else {
         setClaimError({ videoId, message: data.error || 'Failed to claim' });
       }
-    } catch (err) {
+    } catch {
       setClaimError({ videoId, message: 'Network error' });
     } finally {
       setClaimingVideoId(null);
@@ -976,7 +834,7 @@ export default function AdminPipelinePage() {
       } else {
         setClaimError({ videoId, message: data.error || 'Failed to release' });
       }
-    } catch (err) {
+    } catch {
       setClaimError({ videoId, message: 'Network error' });
     } finally {
       setClaimingVideoId(null);
@@ -1067,7 +925,7 @@ export default function AdminPipelinePage() {
         setAttachMessage(`Error: ${data.error || 'Failed to attach script'}`);
         showError(data.error || 'Failed to attach script');
       }
-    } catch (err) {
+    } catch {
       setAttachMessage('Error: Failed to attach script');
       showError('Failed to attach script');
     } finally {
@@ -1107,7 +965,7 @@ export default function AdminPipelinePage() {
         setExecutionError({ videoId, message: data.error || 'Failed to update status' });
         showError(data.error || 'Failed to update status');
       }
-    } catch (err) {
+    } catch {
       setExecutionError({ videoId, message: 'Network error' });
       showError('Network error - please try again');
     } finally {
@@ -1158,7 +1016,7 @@ export default function AdminPipelinePage() {
         setPostMessage(`Error: ${data.error || 'Failed to mark as posted'}`);
         showError(data.error || 'Failed to mark as posted');
       }
-    } catch (err) {
+    } catch {
       setPostMessage('Error: Network error');
       showError('Network error - please try again');
     } finally {
@@ -1266,7 +1124,7 @@ export default function AdminPipelinePage() {
       } else {
         setHandoffMessage(`Error: ${data.error || 'Failed to handoff'}`);
       }
-    } catch (err) {
+    } catch {
       setHandoffMessage('Error: Network error');
     } finally {
       setHandingOff(false);
@@ -1319,12 +1177,6 @@ export default function AdminPipelinePage() {
     return <div style={{ padding: '20px' }}>Loading observability data...</div>;
   }
 
-  // Use hydration-safe time display
-  const displayTime = (dateStr: string) => {
-    if (!hydrated) return formatDateString(dateStr);
-    return getTimeAgo(dateStr);
-  };
-
   // Table styles using theme colors
   const tableStyle = {
     width: '100%',
@@ -1351,66 +1203,6 @@ export default function AdminPipelinePage() {
     color: colors.text,
     fontSize: '14px',
   };
-  const inputStyle = {
-    padding: '8px 12px',
-    border: `1px solid ${colors.border}`,
-    borderRadius: '8px',
-    backgroundColor: colors.surface,
-    color: colors.text,
-    fontSize: '14px',
-  };
-  const selectStyle = {
-    padding: '8px 12px',
-    border: `1px solid ${colors.border}`,
-    borderRadius: '8px',
-    backgroundColor: colors.surface,
-    color: colors.text,
-    fontSize: '14px',
-  };
-
-  // Get distinct event types for dropdown
-  const eventTypes = Array.from(new Set(recentEvents.map(e => e.event_type))).sort();
-
-  // Apply filters
-  const filteredClaimedVideos = claimedVideos.filter(video => {
-    const matchesVideoId = !videoIdFilter || video.id.toLowerCase().includes(videoIdFilter.toLowerCase());
-    const matchesClaimedBy = !claimedByFilter || video.claimed_by.toLowerCase().includes(claimedByFilter.toLowerCase());
-    return matchesVideoId && matchesClaimedBy;
-  });
-
-  const filteredEvents = recentEvents.filter(event => {
-    const matchesVideoId = !videoIdFilter || event.video_id.toLowerCase().includes(videoIdFilter.toLowerCase());
-    const matchesEventType = !eventTypeFilter || event.event_type === eventTypeFilter;
-    const matchesActor = !claimedByFilter || event.actor.toLowerCase().includes(claimedByFilter.toLowerCase());
-    return matchesVideoId && matchesEventType && matchesActor;
-  });
-
-  const hasActiveFilters = videoIdFilter || claimedByFilter || eventTypeFilter;
-
-  const clearFilters = () => {
-    setVideoIdFilter('');
-    setClaimedByFilter('');
-    setEventTypeFilter('');
-  };
-
-  const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(label);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  const copyableCellStyle = {
-    ...tdStyle,
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    cursor: 'pointer',
-    position: 'relative' as const,
-  };
-
   // Check if a video is claimed by current user
   const isClaimedByMe = (video: QueueVideo) => video.claimed_by === activeUser;
 

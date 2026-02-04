@@ -1,0 +1,1163 @@
+
+> web@0.1.0 lint
+> eslint
+
+
+C:\Users\Brandon\tts-engine\web\app\accounts\[id]\performance\page.tsx
+  352:32  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\accounts\[id]\pipeline\page.tsx
+  38:41  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  52:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:14  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\activity\page.tsx
+  155:6  warning  React Hook useCallback has an unnecessary dependency: 'dateRange'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Brandon\tts-engine\web\app\admin\brands\page.tsx
+  187:23  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\app\admin\client-orgs\page.tsx
+  162:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  357:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  403:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  439:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  473:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  534:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  568:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  605:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  640:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  675:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  763:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  798:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  833:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  876:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\clients\[id]\page.tsx
+   78:6  warning  React Hook useEffect has a missing dependency: 'fetchClient'. Either include it or remove the dependency array                                  react-hooks/exhaustive-deps
+  157:6  warning  React Hook useEffect has missing dependencies: 'fetchReport', 'report', and 'reportPeriod'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Brandon\tts-engine\web\app\admin\clients\page.tsx
+   50:6   warning  React Hook useEffect has a missing dependency: 'fetchClients'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  123:60  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\admin\components\RoleWorkbench.tsx
+  651:20  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\admin\content-studio\page.tsx
+  452:6  warning  React Hook useEffect has a missing dependency: 'selectedContentType.subtypes'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  459:6  warning  React Hook useEffect has a missing dependency: 'selectedContentTypeId'. Either include it or remove the dependency array         react-hooks/exhaustive-deps
+
+C:\Users\Brandon\tts-engine\web\app\admin\dashboard\page.tsx
+   77:6   warning  React Hook useEffect has a missing dependency: 'fetchDashboardStats'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  123:58  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                         react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\admin\layout.tsx
+    7:51  warning  'Keyboard' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+    9:10  warning  'NAV_SECTIONS' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   62:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\app\admin\layout.tsx:62:5
+  60 |   // Close sidebar on route change
+  61 |   useEffect(() => {
+> 62 |     setSidebarOpen(false);
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  63 |     setUserMenuOpen(false);
+  64 |   }, [pathname]);
+  65 |                                                                                                                                                                                                                                                                                                                                              react-hooks/set-state-in-effect
+  280:18  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\app\admin\layout.tsx:280:18
+  278 |
+  279 |                 {/* Navigation */}
+> 280 |                 <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+      |                  ^^^^^^^^^^^^^^ This component is created during render
+  281 |
+  282 |                 {/* User info - Larger for mobile */}
+  283 |                 <div className="p-5 border-t border-zinc-800">
+
+C:\Users\Brandon\tts-engine\web\app\admin\layout.tsx:156:26
+  154 |
+  155 |   // Sidebar content (shared between mobile and desktop)
+> 156 |   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+      |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |     <nav className="flex-1 overflow-y-auto py-4">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |       {navSections.map((section, idx) => (
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 217 |     </nav>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 218 |   );
+      | ^^^^ The component is created during render here
+  219 |
+  220 |   return (
+  221 |     <ToastProvider>  react-hooks/static-components
+  387:14  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\app\admin\layout.tsx:387:14
+  385 |
+  386 |             {/* Navigation */}
+> 387 |             <SidebarContent />
+      |              ^^^^^^^^^^^^^^ This component is created during render
+  388 |           </aside>
+  389 |
+  390 |           {/* Desktop Header */}
+
+C:\Users\Brandon\tts-engine\web\app\admin\layout.tsx:156:26
+  154 |
+  155 |   // Sidebar content (shared between mobile and desktop)
+> 156 |   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+      |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |     <nav className="flex-1 overflow-y-auto py-4">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |       {navSections.map((section, idx) => (
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 217 |     </nav>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 218 |   );
+      | ^^^^ The component is created during render here
+  219 |
+  220 |   return (
+  221 |     <ToastProvider>                                                                                                                         react-hooks/static-components
+
+C:\Users\Brandon\tts-engine\web\app\admin\notifications\page.tsx
+   11:20  warning  'SkeletonCard' is defined but never used  @typescript-eslint/no-unused-vars
+  123:14  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\ops\page.tsx
+    8:8   warning  'NotificationBadge' is defined but never used  @typescript-eslint/no-unused-vars
+  135:14  warning  'err' is defined but never used                @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\performance\page.tsx
+   6:3   warning  'BarChart3' is defined but never used                @typescript-eslint/no-unused-vars
+   6:21  warning  'CheckCircle' is defined but never used              @typescript-eslint/no-unused-vars
+  44:10  warning  'recentActivity' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\pipeline\[id]\page.tsx
+   97:9   warning  'router' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  230:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  317:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  348:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  379:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  414:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  478:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  538:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  589:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\pipeline\components\CreateVideoDrawer.tsx
+    5:10  warning  'postJson' is defined but never used                          @typescript-eslint/no-unused-vars
+    5:20  warning  'isApiError' is defined but never used                        @typescript-eslint/no-unused-vars
+  196:10  warning  'showMoreOptions' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  196:27  warning  'setShowMoreOptions' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  219:10  warning  'selectedEmotionalDriver' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\pipeline\components\VideoDrawer.tsx
+    9:10  warning  'postJson' is defined but never used                      @typescript-eslint/no-unused-vars
+    9:20  warning  'isApiError' is defined but never used                    @typescript-eslint/no-unused-vars
+    9:37  warning  'ApiClientError' is defined but never used                @typescript-eslint/no-unused-vars
+   10:8   warning  'ApiErrorPanel' is defined but never used                 @typescript-eslint/no-unused-vars
+  117:3   warning  'onOpenHandoffModal' is defined but never used            @typescript-eslint/no-unused-vars
+  142:10  warning  'editAssetsUrl' is assigned a value but never used        @typescript-eslint/no-unused-vars
+  142:25  warning  'setEditAssetsUrl' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  175:10  warning  'qualityCheckLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  200:9   warning  'readiness' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  548:9   warning  'handleClaim' is assigned a value but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\pipeline\page.tsx
+     4:8   warning  'Link' is defined but never used                                     @typescript-eslint/no-unused-vars
+   115:7   warning  'RECORDING_STATUS_TABS' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+   116:7   warning  'DEPARTMENT_TABS' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+   117:7   warning  'CLAIM_ROLE_TABS' is assigned a value but only used as a type        @typescript-eslint/no-unused-vars
+   137:7   warning  'VIEW_MODE_KEY' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+   140:6   warning  'ViewMode' is defined but never used                                 @typescript-eslint/no-unused-vars
+   150:10  warning  'getStatusBadgeColor' is defined but never used                      @typescript-eslint/no-unused-vars
+   175:10  warning  'getSlaColor' is defined but never used                              @typescript-eslint/no-unused-vars
+   192:7   warning  'PIPELINE_STEPS' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+   203:10  warning  'getCurrentStep' is defined but never used                           @typescript-eslint/no-unused-vars
+   220:7   warning  'ROLE_INSTRUCTIONS' is assigned a value but never used               @typescript-eslint/no-unused-vars
+   358:10  warning  'getNextActionBadge' is defined but never used                       @typescript-eslint/no-unused-vars
+   378:7   warning  'ADMIN_IDENTIFIER' is assigned a value but never used                @typescript-eslint/no-unused-vars
+   387:10  warning  'queueSummary' is assigned a value but never used                    @typescript-eslint/no-unused-vars
+   394:10  warning  'lastRefresh' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+   402:10  warning  'copiedId' is assigned a value but never used                        @typescript-eslint/no-unused-vars
+   405:30  warning  'setActiveRecordingTab' is assigned a value but never used           @typescript-eslint/no-unused-vars
+   406:25  warning  'setClaimedFilter' is assigned a value but never used                @typescript-eslint/no-unused-vars
+   415:22  warning  'setMyWorkOnly' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+   431:10  warning  'claimingVideoId' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+   432:10  warning  'claimError' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+   446:10  warning  'postModalVideo' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+   462:10  warning  'executingVideoId' is assigned a value but never used                @typescript-eslint/no-unused-vars
+   463:10  warning  'executionError' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+   465:10  warning  'openMenuVideoId' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+   495:10  warning  'queueHealthLoading' is assigned a value but never used              @typescript-eslint/no-unused-vars
+   550:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+   577:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+   586:10  warning  'brands' is assigned a value but never used                          @typescript-eslint/no-unused-vars
+   682:9   warning  'updateVaMode' is assigned a value but never used                    @typescript-eslint/no-unused-vars
+   698:9   warning  'toggleSimpleView' is assigned a value but never used                @typescript-eslint/no-unused-vars
+   773:9   warning  'isUserAdmin' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+   863:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+   899:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+   919:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+   954:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+   979:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+  1070:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+  1110:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+  1161:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+  1269:14  warning  'err' is defined but never used                                      @typescript-eslint/no-unused-vars
+  1323:9   warning  'displayTime' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+  1354:9   warning  'inputStyle' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  1362:9   warning  'selectStyle' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+  1372:9   warning  'eventTypes' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  1375:9   warning  'filteredClaimedVideos' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  1381:9   warning  'filteredEvents' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+  1388:9   warning  'hasActiveFilters' is assigned a value but never used                @typescript-eslint/no-unused-vars
+  1390:9   warning  'clearFilters' is assigned a value but never used                    @typescript-eslint/no-unused-vars
+  1396:9   warning  'copyToClipboard' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  1406:9   warning  'copyableCellStyle' is assigned a value but never used               @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\products\page.tsx
+  85:10  warning  'warningsLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\requests\page.tsx
+    9:3  warning  'SLA_THRESHOLDS_MS' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  202:6  warning  React Hook useMemo has a missing dependency: 'computeSLAStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  232:6  warning  React Hook useMemo has a missing dependency: 'computeSLAStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Brandon\tts-engine\web\app\admin\scripts\[id]\page.tsx
+   40:11  warning  'ScriptRewrite' is defined but never used    @typescript-eslint/no-unused-vars
+   50:9   warning  'router' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  147:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  202:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  229:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  291:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  356:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\scripts\page.tsx
+   94:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  161:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  204:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\scripts\templates\[id]\page.tsx
+   29:9   warning  'router' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   80:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  130:14  warning  'err' is defined but never used              @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\settings\page.tsx
+  266:32  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  338:32  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\skit-generator\page.tsx
+    10:62  warning  'AlignmentType' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+   315:7   warning  'GENERATION_HISTORY_KEY' is assigned a value but never used                                                        @typescript-eslint/no-unused-vars
+   989:6   warning  React Hook useEffect has a missing dependency: 'handleGenerate'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  1206:14  warning  'networkError' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+  3728:44  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                    react/no-unescaped-entities
+  3728:56  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                    react/no-unescaped-entities
+  3946:29  warning  'startSec' is assigned a value but never used                                                                      @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\skit-library\page.tsx
+    3:44  warning  'useRef' is defined but never used                      @typescript-eslint/no-unused-vars
+  160:10  warning  'sendingToVideoId' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  496:9   warning  'handleSendToVideo' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\templates\page.tsx
+  114:63  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  114:87  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\admin\test-center\page.tsx
+  192:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\app\admin\test-center\page.tsx:192:9
+  190 |           };
+  191 |         });
+> 192 |         setCategories(merged);
+      |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  193 |       } catch {
+  194 |         // Invalid saved data, use defaults
+  195 |       }  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\app\admin\upgrade-requests\page.tsx
+    5:8   warning  'Link' is defined but never used  @typescript-eslint/no-unused-vars
+   78:14  warning  'err' is defined but never used   @typescript-eslint/no-unused-vars
+  120:14  warning  'err' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\usage\page.tsx
+   30:6   warning  React Hook useEffect has a missing dependency: 'fetchUsageStats'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  199:47  warning  'i' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\users\page.tsx
+    5:8   warning  'Link' is defined but never used  @typescript-eslint/no-unused-vars
+   78:16  warning  'err' is defined but never used   @typescript-eslint/no-unused-vars
+  111:14  warning  'err' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\video-editing\[id]\page.tsx
+   9:9   warning  'Eye' is defined but never used            @typescript-eslint/no-unused-vars
+   9:25  warning  'MessageSquare' is defined but never used  @typescript-eslint/no-unused-vars
+  10:19  warning  'Edit3' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\admin\video-editing\page.tsx
+  7:17  warning  'Clock' is defined but never used        @typescript-eslint/no-unused-vars
+  8:49  warning  'ArrowUpDown' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\admin\assignments\route.ts
+  10:6  warning  'AssignmentState' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\admin\client-requests\convert\route.ts
+   8:3   warning  'REQUEST_EVENT_TYPES' is defined but never used  @typescript-eslint/no-unused-vars
+  13:10  warning  'randomUUID' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\admin\dev\reset-video-ready\route.ts
+  129:19  warning  'updated' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\admin\upgrade-requests\route.ts
+  59:11  warning  'requestIds' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\analyze-winner\route.ts
+  197:14  warning  'parseErr' is defined but never used                                                                                                                                                         @typescript-eslint/no-unused-vars
+  210:34  error    React Hook "useCredit" cannot be called in an async function                                                                                                                                 react-hooks/rules-of-hooks
+  210:34  error    React Hook "useCredit" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\draft-video-brief\route.ts
+    26:7   warning  'EMOTIONAL_DRIVER_DISTRIBUTION' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  1131:3   warning  'targetLength' is defined but never used                            @typescript-eslint/no-unused-vars
+  1787:11  warning  'totalDriverHooks' is assigned a value but never used               @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\generate-content\route.ts
+    7:3  warning  'postProcessSkit' is defined but never used        @typescript-eslint/no-unused-vars
+    8:3  warning  'validateSkitStructure' is defined but never used  @typescript-eslint/no-unused-vars
+    9:8  warning  'RiskTier' is defined but never used               @typescript-eslint/no-unused-vars
+   10:8  warning  'Skit' is defined but never used                   @typescript-eslint/no-unused-vars
+  375:3  warning  'product' is defined but never used                @typescript-eslint/no-unused-vars
+  475:3  warning  'product' is defined but never used                @typescript-eslint/no-unused-vars
+  566:3  warning  'product' is defined but never used                @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\generate-image\route.ts
+  20:10  warning  'requireCredits' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\generate-skit\route.ts
+    27:8   warning  'BudgetDiagnostics' is defined but never used     @typescript-eslint/no-unused-vars
+    48:38  warning  'ProductContext' is defined but never used        @typescript-eslint/no-unused-vars
+  1691:16  warning  'callAnthropicForSkit' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\improve-section\route.ts
+  222:34  error  React Hook "useCredit" cannot be called in an async function                                                                                                                                 react-hooks/rules-of-hooks
+  222:34  error  React Hook "useCredit" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+C:\Users\Brandon\tts-engine\web\app\api\ai\refine-skit\route.ts
+  205:34  error  React Hook "useCredit" cannot be called in an async function                                                                                                                                 react-hooks/rules-of-hooks
+  205:34  error  React Hook "useCredit" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+C:\Users\Brandon\tts-engine\web\app\api\audience\analyze-language\route.ts
+  155:34  error  React Hook "useCredit" cannot be called in an async function                                                                                                                                 react-hooks/rules-of-hooks
+  155:34  error  React Hook "useCredit" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+C:\Users\Brandon\tts-engine\web\app\api\audience\extract-from-reviews\route.ts
+  195:34  error  React Hook "useCredit" cannot be called in an async function                                                                                                                                 react-hooks/rules-of-hooks
+  195:34  error  React Hook "useCredit" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+C:\Users\Brandon\tts-engine\web\app\api\debug\full-schema\route.ts
+  8:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Brandon\tts-engine\web\app\api\ingestion\tiktok\route.ts
+  162:7  warning  'sourceRef' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\observability\queue-summary\route.ts
+  2:26  warning  'QUEUE_STATUSES' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\scripts\generate\route.ts
+  18:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Brandon\tts-engine\web\app\api\subscriptions\checkout\route.ts
+  141:14  warning  'urlError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\variants\generate\route.ts
+  38:37  warning  'base_script_id' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\variants\lineage\route.ts
+  3:10  warning  'getVariantsScalingColumns' is defined but never used  @typescript-eslint/no-unused-vars
+  3:37  warning  'getIterationGroupsColumns' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\variants\route.ts
+  101:43  warning  'title' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  101:50  warning  'label' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  101:57  warning  'notes' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\variants\scale\route.ts
+  3:10  warning  'getVariantsScalingColumns' is defined but never used    @typescript-eslint/no-unused-vars
+  4:10  warning  'getVideosPerformanceColumns' is defined but never used  @typescript-eslint/no-unused-vars
+  5:10  warning  'safeColumnInsert' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\assets\route.ts
+  10:48  warning  'ApiErrorCode' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\claim\route.ts
+  15:10  warning  'apiError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\complete-assignment\route.ts
+  50:9  warning  'isAuthenticated' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\execution\route.ts
+  3:10  warning  'apiError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\handoff\route.ts
+  5:34  warning  'UserRole' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\release\route.ts
+  14:10  warning  'apiError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\[id]\route.ts
+  2:38  warning  'ALLOWED_TRANSITIONS' is defined but never used  @typescript-eslint/no-unused-vars
+  2:59  warning  'QUEUE_STATUSES' is defined but never used       @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\dispatch\route.ts
+    5:34  warning  'UserRole' is defined but never used                    @typescript-eslint/no-unused-vars
+  113:5   warning  'include_unclaimed' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  282:19  warning  'updated' is assigned a value but never used            @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\videos\route.ts
+  3:41  warning  'VIDEO_STATUSES' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\api\webhooks\stripe\route.ts
+  23:3  warning  'isVideoPlan' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\client\components\ClientNav.tsx
+  45:13  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\app\client\my-videos\[id]\page.tsx
+  42:9  warning  'router' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\client\page.tsx
+  136:9  warning  'accentBg' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\components\AppLayout.tsx
+  5:10  warning  'SIDEBAR_WIDTH' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\components\SchemaGuard.tsx
+  217:14  error  Error: Avoid constructing JSX within try/catch
+
+React does not immediately render components when JSX is rendered, so any errors from this component will not be caught by the try/catch. To catch errors in rendering a given component, wrap that component in an error boundary. (https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary).
+
+C:\Users\Brandon\tts-engine\web\app\components\SchemaGuard.tsx:217:14
+  215 |       // Schema is incompatible - render error screen directly
+  216 |       // No redirect, no client JS needed
+> 217 |       return <SchemaErrorScreen result={result} />;
+      |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid constructing JSX within try/catch
+  218 |     }
+  219 |   } catch (error) {
+  220 |     // Schema check failed (likely env/connection issue) - log and continue  react-hooks/error-boundaries
+
+C:\Users\Brandon\tts-engine\web\app\components\ThemeProvider.tsx
+  25:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\app\components\ThemeProvider.tsx:25:7
+  23 |     const stored = localStorage.getItem(THEME_KEY) as Theme | null;
+  24 |     if (stored === 'light' || stored === 'dark') {
+> 25 |       setTheme(stored);
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  26 |     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  27 |       setTheme('dark');
+  28 |     }  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\app\concepts\[id]\page.tsx
+   75:14  warning  'err' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   96:14  warning  'err' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  124:14  warning  'err' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  143:14  warning  'err' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  173:14  warning  'err' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  182:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Brandon\tts-engine\web\app\concepts\page.tsx
+  48:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\page.tsx
+  202:29  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  202:54  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  534:29  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\reset-password\page.tsx
+  12:9  warning  'searchParams' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\upgrade\page.tsx
+    9:37  warning  'Zap' is defined but never used                                  @typescript-eslint/no-unused-vars
+   10:53  warning  'SaaSPlan' is defined but never used                             @typescript-eslint/no-unused-vars
+   10:68  warning  'VideoPlan' is defined but never used                            @typescript-eslint/no-unused-vars
+  109:34  warning  'creditsSubscription' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  109:82  warning  'refetch' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+  384:69  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  452:36  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\app\uploader\components\UploaderDrawer.tsx
+  74:3  warning  'onRefresh' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\uploader\layout.tsx
+  6:10  warning  'SIDEBAR_WIDTH' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\uploader\page.tsx
+  96:10  warning  'actionLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\app\variants\[id]\page.tsx
+   20:11  warning  'IterationGroup' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   24:15  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   57:42  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   70:54  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   85:14  warning  'err' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+  123:14  warning  'err' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+  158:14  warning  'err' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+  192:6   warning  React Hook useEffect has a missing dependency: 'fetchLineage'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  459:32  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                  react/no-unescaped-entities
+  460:33  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                  react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\components\ActivityWidget.tsx
+  47:6  warning  React Hook useEffect has a missing dependency: 'fetchActivity'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Brandon\tts-engine\web\components\AppHeader.tsx
+   7:16  warning  'X' is defined but never used            @typescript-eslint/no-unused-vars
+  22:3   warning  'sidebarOpen' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\components\BottomSheet.tsx
+  36:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\BottomSheet.tsx:36:7
+  34 |     } else {
+  35 |       document.body.style.overflow = '';
+> 36 |       setDragY(0); // Reset drag on close
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |     }
+  38 |     return () => {
+  39 |       document.body.style.overflow = '';  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\components\BulkActions.tsx
+   6:3   warning  'FolderInput' is defined but never used     @typescript-eslint/no-unused-vars
+   6:16  warning  'MoreHorizontal' is defined but never used  @typescript-eslint/no-unused-vars
+  35:3   warning  'onMove' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\components\DevTools.tsx
+    4:18  warning  'ChevronDown' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+    4:31  warning  'ChevronUp' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  160:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\DevTools.tsx:160:7
+  158 |     if ('memory' in performance) {
+  159 |       const memory = (performance as unknown as { memory: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+> 160 |       setMetrics((prev) => ({
+      |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  161 |         ...prev,
+  162 |         memory: {
+  163 |           used: Math.round(memory.usedJSHeapSize / 1024 / 1024),  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\components\DynamicNav.tsx
+  10:10  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+  10:21  warning  'useState' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\components\GlobalSearch.tsx
+  186:6   warning  React Hook useCallback has a missing dependency: 'handleSelect'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  244:36  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                    react/no-unescaped-entities
+  244:44  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                    react/no-unescaped-entities
+
+C:\Users\Brandon\tts-engine\web\components\LowCreditBanner.tsx
+  14:20  warning  'subscription' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+  19:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\LowCreditBanner.tsx:19:5
+  17 |
+  18 |   useEffect(() => {
+> 19 |     setHasMounted(true);
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  20 |     // Check if user has dismissed this session
+  21 |     const dismissedKey = `low_credit_dismissed_${new Date().toDateString()}`;
+  22 |     if (typeof window !== 'undefined' && sessionStorage.getItem(dismissedKey)) {  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\components\MobileNav.tsx
+  110:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Brandon\tts-engine\web\components\NotificationsBell.tsx
+   4:37  warning  'X' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   4:40  warning  'Trash2' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  47:10  warning  'loading' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  47:19  warning  'setLoading' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  64:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\NotificationsBell.tsx:64:5
+  62 |
+  63 |   useEffect(() => {
+> 64 |     fetchNotifications();
+     |     ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  65 |
+  66 |     // Poll for new notifications every 60 seconds
+  67 |     const interval = setInterval(fetchNotifications, 60000);  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\components\OnboardingModal.tsx
+  5:8  warning  'Image' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\components\PWAProvider.tsx
+   19:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\PWAProvider.tsx:19:7
+  17 |     // Check if already installed
+  18 |     if (window.matchMedia('(display-mode: standalone)').matches) {
+> 19 |       setIsInstalled(true);
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  20 |     }
+  21 |
+  22 |     // Listen for install prompt                                react-hooks/set-state-in-effect
+  147:23  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\PWAProvider.tsx:147:23
+  145 |   useEffect(() => {
+  146 |     const wasDismissed = localStorage.getItem('pwa-banner-dismissed');
+> 147 |     if (wasDismissed) setDismissed(true);
+      |                       ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  148 |   }, []);
+  149 |
+  150 |   const handleDismiss = () => {  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\components\PersonaCard.tsx
+  92:9  warning  'objections' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx
+   84:12  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:84:12
+  82 |         {/* Demographics */}
+  83 |         {(persona.age_range || persona.gender || persona.income_level || persona.location_type || persona.life_stage) && (
+> 84 |           <Section title="Demographics">
+     |            ^^^^^^^ This component is created during render
+  85 |             <div className="flex flex-wrap gap-2">
+  86 |               {persona.age_range && <Tag color="blue">{persona.age_range}</Tag>}
+  87 |               {persona.gender && <Tag color="blue">{persona.gender}</Tag>}
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:16:19
+  14 |   showHeader = true,
+  15 | }: PersonaPreviewProps) {
+> 16 |   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 17 |     <div className="mb-6">
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |       <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">{title}</h4>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 19 |       {children}
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 20 |     </div>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 21 |   );
+     | ^^^^ The component is created during render here
+  22 |
+  23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+  24 |     const colorClasses: Record<string, string> = {                                                                                          react-hooks/static-components
+   86:38  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:86:38
+  84 |           <Section title="Demographics">
+  85 |             <div className="flex flex-wrap gap-2">
+> 86 |               {persona.age_range && <Tag color="blue">{persona.age_range}</Tag>}
+     |                                      ^^^ This component is created during render
+  87 |               {persona.gender && <Tag color="blue">{persona.gender}</Tag>}
+  88 |               {persona.income_level && <Tag color="emerald">{persona.income_level}</Tag>}
+  89 |               {persona.location_type && <Tag color="zinc">{persona.location_type}</Tag>}
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:23:15
+  21 |   );
+  22 |
+> 23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |     const colorClasses: Record<string, string> = {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       zinc: 'bg-zinc-800 text-zinc-300',
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^ The component is created during render here
+  39 |
+  40 |   const ListItem = ({ children, icon }: { children: React.ReactNode; icon?: string }) => (
+  41 |     <li className="flex items-start gap-2 text-sm text-zinc-300">                                                                               react-hooks/static-components
+   87:35  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:87:35
+  85 |             <div className="flex flex-wrap gap-2">
+  86 |               {persona.age_range && <Tag color="blue">{persona.age_range}</Tag>}
+> 87 |               {persona.gender && <Tag color="blue">{persona.gender}</Tag>}
+     |                                   ^^^ This component is created during render
+  88 |               {persona.income_level && <Tag color="emerald">{persona.income_level}</Tag>}
+  89 |               {persona.location_type && <Tag color="zinc">{persona.location_type}</Tag>}
+  90 |               {persona.life_stage && <Tag color="violet">{persona.life_stage}</Tag>}
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:23:15
+  21 |   );
+  22 |
+> 23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |     const colorClasses: Record<string, string> = {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       zinc: 'bg-zinc-800 text-zinc-300',
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^ The component is created during render here
+  39 |
+  40 |   const ListItem = ({ children, icon }: { children: React.ReactNode; icon?: string }) => (
+  41 |     <li className="flex items-start gap-2 text-sm text-zinc-300">                                      react-hooks/static-components
+   88:41  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:88:41
+  86 |               {persona.age_range && <Tag color="blue">{persona.age_range}</Tag>}
+  87 |               {persona.gender && <Tag color="blue">{persona.gender}</Tag>}
+> 88 |               {persona.income_level && <Tag color="emerald">{persona.income_level}</Tag>}
+     |                                         ^^^ This component is created during render
+  89 |               {persona.location_type && <Tag color="zinc">{persona.location_type}</Tag>}
+  90 |               {persona.life_stage && <Tag color="violet">{persona.life_stage}</Tag>}
+  91 |               {persona.lifestyle && <Tag color="cyan">{persona.lifestyle}</Tag>}
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:23:15
+  21 |   );
+  22 |
+> 23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |     const colorClasses: Record<string, string> = {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       zinc: 'bg-zinc-800 text-zinc-300',
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^ The component is created during render here
+  39 |
+  40 |   const ListItem = ({ children, icon }: { children: React.ReactNode; icon?: string }) => (
+  41 |     <li className="flex items-start gap-2 text-sm text-zinc-300">  react-hooks/static-components
+   89:42  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:89:42
+  87 |               {persona.gender && <Tag color="blue">{persona.gender}</Tag>}
+  88 |               {persona.income_level && <Tag color="emerald">{persona.income_level}</Tag>}
+> 89 |               {persona.location_type && <Tag color="zinc">{persona.location_type}</Tag>}
+     |                                          ^^^ This component is created during render
+  90 |               {persona.life_stage && <Tag color="violet">{persona.life_stage}</Tag>}
+  91 |               {persona.lifestyle && <Tag color="cyan">{persona.lifestyle}</Tag>}
+  92 |             </div>
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:23:15
+  21 |   );
+  22 |
+> 23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |     const colorClasses: Record<string, string> = {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       zinc: 'bg-zinc-800 text-zinc-300',
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^ The component is created during render here
+  39 |
+  40 |   const ListItem = ({ children, icon }: { children: React.ReactNode; icon?: string }) => (
+  41 |     <li className="flex items-start gap-2 text-sm text-zinc-300">                                                               react-hooks/static-components
+   90:39  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:90:39
+  88 |               {persona.income_level && <Tag color="emerald">{persona.income_level}</Tag>}
+  89 |               {persona.location_type && <Tag color="zinc">{persona.location_type}</Tag>}
+> 90 |               {persona.life_stage && <Tag color="violet">{persona.life_stage}</Tag>}
+     |                                       ^^^ This component is created during render
+  91 |               {persona.lifestyle && <Tag color="cyan">{persona.lifestyle}</Tag>}
+  92 |             </div>
+  93 |           </Section>
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:23:15
+  21 |   );
+  22 |
+> 23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |     const colorClasses: Record<string, string> = {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       zinc: 'bg-zinc-800 text-zinc-300',
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^ The component is created during render here
+  39 |
+  40 |   const ListItem = ({ children, icon }: { children: React.ReactNode; icon?: string }) => (
+  41 |     <li className="flex items-start gap-2 text-sm text-zinc-300">                                                                                                                        react-hooks/static-components
+   91:38  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:91:38
+  89 |               {persona.location_type && <Tag color="zinc">{persona.location_type}</Tag>}
+  90 |               {persona.life_stage && <Tag color="violet">{persona.life_stage}</Tag>}
+> 91 |               {persona.lifestyle && <Tag color="cyan">{persona.lifestyle}</Tag>}
+     |                                      ^^^ This component is created during render
+  92 |             </div>
+  93 |           </Section>
+  94 |         )}
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:23:15
+  21 |   );
+  22 |
+> 23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |     const colorClasses: Record<string, string> = {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       zinc: 'bg-zinc-800 text-zinc-300',
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^ The component is created during render here
+  39 |
+  40 |   const ListItem = ({ children, icon }: { children: React.ReactNode; icon?: string }) => (
+  41 |     <li className="flex items-start gap-2 text-sm text-zinc-300">                                                                                                                                                                                                        react-hooks/static-components
+   98:12  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:98:12
+   96 |         {/* Psychographics */}
+   97 |         {(persona.values?.length || persona.interests?.length || persona.personality_traits?.length) && (
+>  98 |           <Section title="Psychographics">
+      |            ^^^^^^^ This component is created during render
+   99 |             {persona.values && persona.values.length > 0 && (
+  100 |               <div className="mb-3">
+  101 |                 <div className="text-xs text-zinc-500 mb-2">Values</div>
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:16:19
+  14 |   showHeader = true,
+  15 | }: PersonaPreviewProps) {
+> 16 |   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 17 |     <div className="mb-6">
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |       <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">{title}</h4>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 19 |       {children}
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 20 |     </div>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 21 |   );
+     | ^^^^ The component is created during render here
+  22 |
+  23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+  24 |     const colorClasses: Record<string, string> = {                                                                                                                                   react-hooks/static-components
+  134:12  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:134:12
+  132 |         {/* Communication Style */}
+  133 |         {(persona.tone_preference || persona.humor_style || persona.attention_span || persona.trust_builders?.length) && (
+> 134 |           <Section title="Communication Style">
+      |            ^^^^^^^ This component is created during render
+  135 |             <div className="grid grid-cols-2 gap-4 mb-4">
+  136 |               {persona.tone_preference && (
+  137 |                 <div>
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:16:19
+  14 |   showHeader = true,
+  15 | }: PersonaPreviewProps) {
+> 16 |   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 17 |     <div className="mb-6">
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |       <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">{title}</h4>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 19 |       {children}
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 20 |     </div>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 21 |   );
+     | ^^^^ The component is created during render here
+  22 |
+  23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+  24 |     const colorClasses: Record<string, string> = {                                                                                                                                                       react-hooks/static-components
+  193:12  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:193:12
+  191 |         {/* Pain Points & Motivations */}
+  192 |         {(persona.primary_pain_points?.length || persona.emotional_triggers?.length || persona.buying_objections?.length || persona.purchase_motivators?.length) && (
+> 193 |           <Section title="Pain Points & Motivations">
+      |            ^^^^^^^ This component is created during render
+  194 |             <div className="grid gap-4">
+  195 |               {persona.primary_pain_points && persona.primary_pain_points.length > 0 && (
+  196 |                 <div>
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:16:19
+  14 |   showHeader = true,
+  15 | }: PersonaPreviewProps) {
+> 16 |   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 17 |     <div className="mb-6">
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |       <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">{title}</h4>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 19 |       {children}
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 20 |     </div>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 21 |   );
+     | ^^^^ The component is created during render here
+  22 |
+  23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+  24 |     const colorClasses: Record<string, string> = {                                                                   react-hooks/static-components
+  249:12  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:249:12
+  247 |         {/* Content Preferences */}
+  248 |         {(persona.content_types_preferred?.length || persona.platforms?.length || persona.best_posting_times) && (
+> 249 |           <Section title="Content Preferences">
+      |            ^^^^^^^ This component is created during render
+  250 |             {persona.platforms && persona.platforms.length > 0 && (
+  251 |               <div className="mb-3">
+  252 |                 <div className="text-xs text-zinc-500 mb-2">Platforms</div>
+
+C:\Users\Brandon\tts-engine\web\components\PersonaPreview.tsx:16:19
+  14 |   showHeader = true,
+  15 | }: PersonaPreviewProps) {
+> 16 |   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 17 |     <div className="mb-6">
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |       <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">{title}</h4>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 19 |       {children}
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 20 |     </div>
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 21 |   );
+     | ^^^^ The component is created during render here
+  22 |
+  23 |   const Tag = ({ children, color = 'zinc' }: { children: React.ReactNode; color?: string }) => {
+  24 |     const colorClasses: Record<string, string> = {                                                                                                      react-hooks/static-components
+
+C:\Users\Brandon\tts-engine\web\components\SmartSuggestions.tsx
+  100:3  warning  'currentHook' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  110:5  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Brandon\tts-engine\web\components\SmartSuggestions.tsx:110:5
+  108 |   useEffect(() => {
+  109 |     // Simulate loading suggestions
+> 110 |     setLoading(true);
+      |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  111 |     const timer = setTimeout(() => {
+  112 |       let baseSuggestions: Suggestion[];
+  113 |       switch (context) {  react-hooks/set-state-in-effect
+
+C:\Users\Brandon\tts-engine\web\components\VersionHistory.tsx
+  44:3  warning  'currentSkitId' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\components\VideoDetailSheet.tsx
+  118:11  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\components\VideoQueueMobile.tsx
+  37:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\components\VideoShowcase.tsx
+  136:21  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  254:7   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  344:11  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\components\WinnerCard.tsx
+  61:11  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\components\ui\LazyImage.tsx
+  94:9  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Brandon\tts-engine\web\hooks\useFetch.ts
+  82:18  error  Error: Cannot access variable before it is declared
+
+`fetchWithRetry` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\Brandon\tts-engine\web\hooks\useFetch.ts:82:18
+  80 |             setTimeout(resolve, retryDelay * Math.pow(2, attempt))
+  81 |           );
+> 82 |           return fetchWithRetry(attempt + 1);
+     |                  ^^^^^^^^^^^^^^ `fetchWithRetry` accessed before it is declared
+  83 |         }
+  84 |         throw err;
+  85 |       }
+
+C:\Users\Brandon\tts-engine\web\hooks\useFetch.ts:73:3
+  71 |   fetcherRef.current = fetcher;
+  72 |
+> 73 |   const fetchWithRetry = useCallback(
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |     async (attempt = 0): Promise<T> => {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |       try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 87 |     [retryCount, retryDelay]
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 88 |   );
+     | ^^^^^ `fetchWithRetry` is declared here
+  89 |
+  90 |   const refetch = useCallback(async (): Promise<T | null> => {
+  91 |     setState((prev) => ({  react-hooks/immutability
+
+C:\Users\Brandon\tts-engine\web\hooks\useFocusTrap.ts
+  220:10  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\Brandon\tts-engine\web\hooks\useFocusTrap.ts:220:10
+  218 |   }, [handleKeyDown]);
+  219 |
+> 220 |   return {
+      |          ^
+> 221 |     currentIndex: currentIndexRef.current,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 222 |     setCurrentIndex: (index: number) => {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 223 |       currentIndexRef.current = index;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 224 |     },
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 225 |   };
+      | ^^^^ Cannot access ref value during render
+  226 | }
+  227 |  react-hooks/refs
+  221:19  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\Brandon\tts-engine\web\hooks\useFocusTrap.ts:221:19
+  219 |
+  220 |   return {
+> 221 |     currentIndex: currentIndexRef.current,
+      |                   ^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  222 |     setCurrentIndex: (index: number) => {
+  223 |       currentIndexRef.current = index;
+  224 |     },                                                                                                                                                                                                                                                          react-hooks/refs
+
+C:\Users\Brandon\tts-engine\web\lib\ai\scoreHookOption.ts
+  134:13  warning  'U' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\client-email-notifications.ts
+  12:52  warning  'EmailResult' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\credits.ts
+  166:3  warning  'amount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\database.types.ts
+  1:0  error  Parsing error: File appears to be binary
+
+C:\Users\Brandon\tts-engine\web\lib\email-notifications.ts
+  23:11  warning  'UserInfo' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\export.ts
+   53:39  warning  'i' is defined but never used  @typescript-eslint/no-unused-vars
+  105:39  warning  'i' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\hook-feedback-loop.ts
+  167:21  warning  'feedback' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\hook-usage-counts.ts
+  103:21  warning  'inserted' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\http\fetchJson.ts
+  180:12  warning  'networkError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\ingestion.ts
+  15:10  warning  'VIDEO_STATUSES' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\ops-metrics.ts
+  11:10  warning  'VIDEO_STATUSES' is defined but never used  @typescript-eslint/no-unused-vars
+  11:42  warning  'isQueueStatus' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\lib\settings.ts
+  288:3  warning  '_correlationId' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Brandon\tts-engine\web\parse_lint.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+✖ 321 problems (64 errors, 257 warnings)
+

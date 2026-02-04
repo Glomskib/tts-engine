@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 
@@ -94,7 +94,6 @@ interface TimelineItem {
 
 export default function VideoDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const videoId = params.id as string;
   const hydrated = useHydrated();
 
@@ -227,7 +226,7 @@ export default function VideoDetailPage() {
       }
 
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch video data');
     } finally {
       setLoading(false);
@@ -314,7 +313,7 @@ export default function VideoDetailPage() {
       } else {
         setAdminActionMessage(`Error: ${data.message || data.error || 'Failed to force status'}`);
       }
-    } catch (err) {
+    } catch {
       setAdminActionMessage('Error: Failed to force status');
     } finally {
       setAdminActionLoading(false);
@@ -345,7 +344,7 @@ export default function VideoDetailPage() {
       } else {
         setAdminActionMessage(`Error: ${data.message || data.error || 'Failed to clear claim'}`);
       }
-    } catch (err) {
+    } catch {
       setAdminActionMessage('Error: Failed to clear claim');
     } finally {
       setAdminActionLoading(false);
@@ -376,7 +375,7 @@ export default function VideoDetailPage() {
       } else {
         setAdminActionMessage(`Error: ${data.message || data.error || 'Failed to reset assignments'}`);
       }
-    } catch (err) {
+    } catch {
       setAdminActionMessage('Error: Failed to reset assignments');
     } finally {
       setAdminActionLoading(false);
@@ -411,7 +410,7 @@ export default function VideoDetailPage() {
       } else {
         setAttachMessage(`Error: ${data.error || 'Failed to attach script'}`);
       }
-    } catch (err) {
+    } catch {
       setAttachMessage('Error: Failed to attach script');
     } finally {
       setAttaching(false);
@@ -475,7 +474,7 @@ export default function VideoDetailPage() {
       } else {
         setExecutionMessage(`Error: ${data.error || 'Failed to save'}`);
       }
-    } catch (err) {
+    } catch {
       setExecutionMessage('Error: Failed to save execution status');
     } finally {
       setSavingExecution(false);
@@ -535,7 +534,7 @@ export default function VideoDetailPage() {
       } else {
         setExecutionMessage(`Error: ${data.error || 'Failed to set timestamp'}`);
       }
-    } catch (err) {
+    } catch {
       setExecutionMessage('Error: Failed to set timestamp');
     } finally {
       setSavingExecution(false);
@@ -586,7 +585,7 @@ export default function VideoDetailPage() {
       } else {
         setReleaseMessage(`Error: ${data.message || data.error || 'Failed to release'}`);
       }
-    } catch (err) {
+    } catch {
       setReleaseMessage('Error: Failed to release claim');
     } finally {
       setReleasing(false);

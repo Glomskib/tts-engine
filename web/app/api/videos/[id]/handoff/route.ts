@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
-import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 

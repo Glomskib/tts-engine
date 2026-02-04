@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Loader2, ExternalLink, Download,
@@ -39,7 +39,6 @@ const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgCol
 
 export default function ClientVideoReviewPage() {
   const params = useParams();
-  const router = useRouter();
   const requestId = params.id as string;
 
   const [request, setRequest] = useState<VideoRequest | null>(null);

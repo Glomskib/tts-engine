@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import NotificationBadge from '../components/NotificationBadge';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -132,7 +131,7 @@ export default function OpsPage() {
         setError(data.error || 'Failed to load metrics');
       }
       setLastRefresh(new Date());
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);

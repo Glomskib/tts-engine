@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { VIDEO_STATUSES, QUEUE_STATUSES, isQueueStatus } from "@/lib/video-pipeline";
+import { VIDEO_STATUSES, isQueueStatus } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 

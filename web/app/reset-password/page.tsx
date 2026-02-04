@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
@@ -9,7 +9,6 @@ import { BRAND } from '@/lib/brand';
 
 function ResetPasswordForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

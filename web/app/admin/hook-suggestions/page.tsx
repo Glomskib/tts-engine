@@ -63,7 +63,7 @@ export default function HookSuggestionsPage() {
 
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
-  const [warningsLoading, setWarningsLoading] = useState(false);
+  const [, setWarningsLoading] = useState(false);
 
   // Auth check
   useEffect(() => {

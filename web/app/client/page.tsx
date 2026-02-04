@@ -133,7 +133,6 @@ export default function ClientPortalPage() {
   }
 
   // Get accent classes for styling
-  const accentBg = branding?.accent_bg_class || 'bg-slate-800';
   const accentText = branding?.accent_text_class || 'text-slate-800';
 
   return (

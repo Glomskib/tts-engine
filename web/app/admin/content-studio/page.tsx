@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
@@ -35,7 +35,6 @@ import {
   Settings,
   Zap,
   Target,
-  MessageSquare,
   Image as ImageIcon,
 } from 'lucide-react';
 
@@ -45,13 +44,7 @@ import {
   PRESENTATION_STYLES,
   TARGET_LENGTHS,
   HUMOR_LEVELS,
-  getContentType,
   getGenerationCreditCost,
-  type ContentType as ContentTypeData,
-  type ContentSubtype,
-  type PresentationStyle,
-  type TargetLength,
-  type HumorLevel,
 } from '@/lib/content-types';
 
 // Icon mapping for content types
@@ -242,7 +235,6 @@ function getActionableErrorMessage(error: ApiClientError): { message: string; ac
 }
 
 export default function ContentStudioPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
@@ -252,7 +244,7 @@ export default function ContentStudioPage() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Credits state
-  const { credits, hasCredits, refetch: refetchCredits } = useCredits();
+  const { hasCredits, refetch: refetchCredits } = useCredits();
   const noCreditsModal = useNoCreditsModal();
 
   // Data state
@@ -275,7 +267,7 @@ export default function ContentStudioPage() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [manualProductName, setManualProductName] = useState<string>('');
   const [manualBrandName, setManualBrandName] = useState<string>('');
-  const [productDescription, setProductDescription] = useState<string>('');
+  const [productDescription] = useState<string>('');
 
   // STEP 4: Target Audience
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
@@ -591,7 +583,7 @@ export default function ContentStudioPage() {
       } else {
         setResult(response.data);
       }
-    } catch (err) {
+    } catch {
       setError({
         ok: false,
         error_code: 'INTERNAL',
@@ -685,21 +677,6 @@ export default function ContentStudioPage() {
     color: '#fff',
     fontSize: '16px',
     minHeight: '48px',
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    padding: '14px 28px',
-    backgroundColor: '#3b82f6',
-    border: 'none',
-    borderRadius: '10px',
-    color: 'white',
-    fontSize: '15px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
   };
 
   // --- Loading state ---

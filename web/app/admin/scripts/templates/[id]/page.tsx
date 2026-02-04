@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 
@@ -26,7 +26,6 @@ interface ScriptTemplate {
 
 export default function TemplateEditorPage() {
   const params = useParams();
-  const router = useRouter();
   const templateId = params.id as string;
   const hydrated = useHydrated();
 
@@ -77,7 +76,7 @@ export default function TemplateEditorPage() {
       } else {
         setError(data.error || 'Failed to load template');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch template');
     } finally {
       setLoading(false);
@@ -127,7 +126,7 @@ export default function TemplateEditorPage() {
       } else {
         setError(data.error || 'Failed to save template');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to save template');
     } finally {
       setSaving(false);

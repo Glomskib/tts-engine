@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+import { useHydrated } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import NotificationBadge from './NotificationBadge';
 import IncidentBanner from './IncidentBanner';
 
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
@@ -197,7 +196,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
         setError(data.error || 'Failed to load videos');
       }
       setLastRefresh(new Date());
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -240,7 +239,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
       } else {
         setActionError({ videoId, message: data.error || 'Failed to claim' });
       }
-    } catch (err) {
+    } catch {
       setActionError({ videoId, message: 'Network error' });
     } finally {
       setClaimingVideoId(null);
@@ -281,7 +280,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
           text: data.error || 'Failed to dispatch',
         });
       }
-    } catch (err) {
+    } catch {
       setDispatchMessage({
         type: 'error',
         text: 'Network error',
@@ -310,7 +309,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
       } else {
         setActionError({ videoId, message: data.error || 'Failed to release' });
       }
-    } catch (err) {
+    } catch {
       setActionError({ videoId, message: 'Network error' });
     } finally {
       setClaimingVideoId(null);
@@ -325,11 +324,6 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
   if (!authUser) {
     return <div style={{ padding: '20px' }}>Redirecting...</div>;
   }
-
-  const displayTime = (dateStr: string) => {
-    if (!hydrated) return formatDateString(dateStr);
-    return getTimeAgo(dateStr);
-  };
 
   const isClaimedByMe = (video: QueueVideo) => video.claimed_by === authUser.id;
   const isClaimedByOther = (video: QueueVideo) => {

@@ -32,13 +32,6 @@ const PLATFORMS = [
   { value: 'all', label: 'All', color: 'bg-violet-500' },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-blue-500',
-  posted: 'bg-emerald-500',
-  cancelled: 'bg-zinc-500',
-  failed: 'bg-red-500',
-};
-
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [posts, setPosts] = useState<ScheduledPost[]>([]);

@@ -7,7 +7,6 @@
 
 import { useSubscription } from '@/hooks/useFeatureAccess';
 import { AppSidebar } from '@/components/AppSidebar';
-import { useEffect, useState } from 'react';
 
 interface DynamicNavProps {
   isAdmin: boolean;

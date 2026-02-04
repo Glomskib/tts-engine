@@ -8,7 +8,7 @@ import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface Notification {
   id: string;
@@ -120,7 +120,7 @@ export default function NotificationsPage() {
       } else {
         setError(data.error || 'Failed to load notifications');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);

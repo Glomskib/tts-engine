@@ -118,7 +118,6 @@ export async function POST(request: NextRequest) {
 
     let jobId: string;
     let totalRows: number;
-    let sourceRef: string;
 
     // Step 2: Create or append to job
     if (existingJobId) {
@@ -139,7 +138,6 @@ export async function POST(request: NextRequest) {
 
       jobId = existingJobId;
       totalRows = appendResult.job.total_rows;
-      sourceRef = appendResult.job.source_ref;
     } else {
       // Create new job
       const createResult = await createIngestionJob(supabaseAdmin, {
@@ -159,7 +157,6 @@ export async function POST(request: NextRequest) {
 
       jobId = createResult.job.id;
       totalRows = createResult.job.total_rows;
-      sourceRef = createResult.job.source_ref;
     }
 
     // Step 3: Validate job

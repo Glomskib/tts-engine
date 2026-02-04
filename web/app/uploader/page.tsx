@@ -93,7 +93,7 @@ export default function UploaderPage() {
   const [availableTargetAccounts, setAvailableTargetAccounts] = useState<string[]>([]);
 
   // Actions
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [, setActionLoading] = useState<string | null>(null);
 
   // Mark Posted modal state
   const [markPostedVideo, setMarkPostedVideo] = useState<UploaderVideo | null>(null);

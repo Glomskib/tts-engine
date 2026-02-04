@@ -194,7 +194,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
         jsonText = jsonText.slice(0, -3);
       }
       analysis = JSON.parse(jsonText.trim());
-    } catch (parseErr) {
+    } catch {
       console.error(`[${correlationId}] Failed to parse AI response:`, textContent.text.slice(0, 500));
       return NextResponse.json({
         ok: false,

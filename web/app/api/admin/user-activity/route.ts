@@ -120,7 +120,7 @@ export async function GET(request: Request) {
 
     // Fetch user profiles for email/role info
     const userIds = Object.keys(userStats);
-    let userProfiles: Record<string, { email: string | null; role: string | null }> = {};
+    const userProfiles: Record<string, { email: string | null; role: string | null }> = {};
 
     if (userIds.length > 0) {
       const { data: profilesData } = await supabaseAdmin

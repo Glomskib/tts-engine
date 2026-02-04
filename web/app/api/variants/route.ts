@@ -98,7 +98,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { concept_id, hook_id, script_id, title, label, notes, status } = body as Record<string, unknown>;
+  const { concept_id, hook_id, script_id, status } = body as Record<string, unknown>;
 
   if (typeof concept_id !== "string" || concept_id.trim() === "") {
     return NextResponse.json(

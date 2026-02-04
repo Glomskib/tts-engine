@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Loader2, RefreshCw, Filter, ExternalLink, Download,
-  CheckCircle2, Clock, AlertTriangle, User, Calendar,
-  ChevronRight, Play, Eye, RotateCcw, X, Users, ArrowUpDown
+  CheckCircle2, AlertTriangle, User, Calendar,
+  ChevronRight, Play, Eye, RotateCcw, X, Users
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import DeadlineWidget from './components/DeadlineWidget';

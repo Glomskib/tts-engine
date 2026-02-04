@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bug, X, ChevronDown, ChevronUp, Database, User, Zap, Copy, Check } from 'lucide-react';
+import { Bug, X, Database, User, Zap, Copy, Check } from 'lucide-react';
 
 /**
  * Development tools panel - only rendered in development mode

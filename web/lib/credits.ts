@@ -163,6 +163,7 @@ export async function checkCredits(
 export async function useCredit(
   userId: string,
   isAdmin: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   amount: number = 1,
   description: string = "AI generation"
 ): Promise<CreditDeductResult> {

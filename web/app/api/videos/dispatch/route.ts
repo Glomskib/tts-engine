@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
-import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   computeStageInfo,
   computeSlaInfo,
@@ -110,7 +110,6 @@ export async function POST(request: Request) {
 
   const {
     role: requestedRole,
-    include_unclaimed = true,
     force = false,
     ttl_minutes,
   } = body as Record<string, unknown>;
@@ -279,7 +278,7 @@ export async function POST(request: Request) {
       work_lane: dispatchRole,
     };
 
-    const { data: updated, error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("videos")
       .update(updatePayload)
       .eq("id", videoId)

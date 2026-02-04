@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { EmptyState } from '../components/AdminPageLayout';
 
@@ -75,7 +74,7 @@ export default function AdminUsersPage() {
         } else {
           setError(data.error || 'Failed to load users');
         }
-      } catch (err) {
+      } catch {
         setError('Network error');
       } finally {
         setLoading(false);
@@ -108,7 +107,7 @@ export default function AdminUsersPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update plan' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setUpdatingUser(null);

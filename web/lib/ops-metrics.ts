@@ -8,7 +8,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { VIDEO_STATUSES, QUEUE_STATUSES, isQueueStatus } from "./video-pipeline";
+import { QUEUE_STATUSES } from "./video-pipeline";
 import {
   getClaimExpiringSoonMinutes,
   getStuckThresholdHours,

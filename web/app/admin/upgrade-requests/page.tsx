@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 
@@ -75,7 +74,7 @@ export default function AdminUpgradeRequestsPage() {
       } else {
         setError(data.error || 'Failed to load requests');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -117,7 +116,7 @@ export default function AdminUpgradeRequestsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to resolve request' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setResolvingId(null);

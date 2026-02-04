@@ -47,7 +47,6 @@ export async function POST(request: Request, { params }: RouteParams) {
   const authContext = await getApiAuthContext();
 
   // Determine actor
-  const isAuthenticated = authContext.user !== null;
   let body: Record<string, unknown> = {};
   try {
     body = await request.json();

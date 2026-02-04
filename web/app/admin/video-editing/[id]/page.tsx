@@ -6,8 +6,8 @@ import Link from 'next/link';
 import {
   ArrowLeft, Loader2, ExternalLink, Download, Upload,
   User, Calendar, Clock, CheckCircle2, AlertTriangle,
-  Play, Eye, RotateCcw, MessageSquare, FileText,
-  Users, Send, X, Edit3
+  Play, RotateCcw, FileText,
+  Users, Send, X
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 

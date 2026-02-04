@@ -59,7 +59,7 @@ export default function PipelinePage() {
 
       setCounts({ videos: videoCounts, variants: variantCounts });
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch pipeline data');
     } finally {
       setLoading(false);

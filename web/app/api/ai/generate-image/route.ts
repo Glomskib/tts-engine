@@ -17,7 +17,6 @@ import {
   generateCorrelationId,
   createApiErrorResponse,
 } from "@/lib/api-errors";
-import { requireCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

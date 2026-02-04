@@ -138,7 +138,7 @@ export async function POST(request: Request) {
     try {
       new URL(successUrl);
       new URL(cancelUrl);
-    } catch (urlError) {
+    } catch {
       console.error('Invalid URL constructed:', { successUrl, cancelUrl });
       return NextResponse.json({
         ok: false,

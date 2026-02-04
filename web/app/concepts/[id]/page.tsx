@@ -72,7 +72,7 @@ export default function ConceptWorkbenchPage() {
       if (accountsResult.ok) setAccounts(accountsResult.data);
 
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch workbench data');
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function ConceptWorkbenchPage() {
         const result = await response.json();
         setError(result.error || 'Failed to generate hooks');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate hooks');
     }
   };
@@ -121,7 +121,7 @@ export default function ConceptWorkbenchPage() {
         const result = await response.json();
         setError(result.error || 'Failed to generate script');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate script');
     }
   };
@@ -140,7 +140,7 @@ export default function ConceptWorkbenchPage() {
         const result = await response.json();
         setError(result.error || 'Failed to generate variants');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate variants');
     }
   };
@@ -170,7 +170,7 @@ export default function ConceptWorkbenchPage() {
         const result = await response.json();
         setError(result.error || 'Failed to create video');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to create video');
     }
   };

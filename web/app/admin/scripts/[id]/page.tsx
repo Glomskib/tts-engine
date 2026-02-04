@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 
@@ -37,17 +37,8 @@ interface Script {
   updated_at: string;
 }
 
-interface ScriptRewrite {
-  id: string;
-  script_id: string;
-  rewrite_prompt: string;
-  model: string;
-  created_at: string;
-}
-
 export default function ScriptEditorPage() {
   const params = useParams();
-  const router = useRouter();
   const scriptId = params.id as string;
   const hydrated = useHydrated();
 
@@ -144,7 +135,7 @@ export default function ScriptEditorPage() {
       } else {
         setError(data.error || 'Failed to load script');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch script');
     } finally {
       setLoading(false);
@@ -199,7 +190,7 @@ export default function ScriptEditorPage() {
       } else {
         setError(data.error || 'Failed to save script');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to save script');
     } finally {
       setSaving(false);
@@ -226,7 +217,7 @@ export default function ScriptEditorPage() {
       } else {
         setError(data.error || 'Failed to approve script');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to approve script');
     } finally {
       setApproving(false);
@@ -288,7 +279,7 @@ export default function ScriptEditorPage() {
       } else {
         setError(data.error || 'Failed to rewrite script');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to rewrite script');
     } finally {
       setRewriting(false);
@@ -353,7 +344,7 @@ export default function ScriptEditorPage() {
       } else {
         setError(data.error || 'Failed to restore version');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to restore version');
     } finally {
       setRestoring(null);

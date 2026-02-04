@@ -12,7 +12,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { atomicClaimVideo, type ClaimRole } from "@/lib/video-claim";
-import { apiError, generateCorrelationId, createApiErrorResponse, type ApiErrorCode } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 import { getAssignmentTtlMinutes } from "@/lib/settings";

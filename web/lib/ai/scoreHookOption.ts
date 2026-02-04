@@ -131,7 +131,6 @@ export function scoreHookOption(
       // Extract performance stats with safe defaults
       const W = match.winner_count || 0;
       const P = match.posted_count || 0;
-      const U = match.used_count || 0;
       const D = match.underperform_count || 0;
       const A = match.approved_count || 0;
       const R = match.rejected_count || 0;

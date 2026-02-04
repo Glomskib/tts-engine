@@ -376,7 +376,6 @@ function VideoRow({
   video,
   status,
   hydrated,
-  processing: _processing,
   onClick,
   colors,
 }: {

@@ -249,7 +249,7 @@ export async function checkAndExpireUserAssignment(
     }
 
     // Find assignments for this user that are ASSIGNED but expired
-    let query = supabaseAdmin
+    const query = supabaseAdmin
       .from("videos")
       .select("id,assigned_to,assigned_role,assigned_expires_at,recording_status")
       .eq("assigned_to", userId)

@@ -20,7 +20,6 @@ import {
   PLAN_DETAILS,
   CREDIT_ALLOCATIONS,
   VIDEO_QUOTAS,
-  isVideoPlan,
   type PlanName,
   type SubscriptionType
 } from "@/lib/subscriptions";

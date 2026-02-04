@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
@@ -155,9 +155,6 @@ export default function SkitLibraryPage() {
 
   // Duplicate
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
-
-  // Send to Video
-  const [sendingToVideoId, setSendingToVideoId] = useState<string | null>(null);
 
   // Video Creation Sheet
   const [videoSheetOpen, setVideoSheetOpen] = useState(false);
@@ -490,39 +487,6 @@ export default function SkitLibraryPage() {
   const handleVideoCreationSuccess = () => {
     // Refresh the list to show updated status
     fetchSkits();
-  };
-
-  // Send skit to video queue (legacy quick create)
-  const handleSendToVideo = async (skitId: string) => {
-    const skit = skits.find(s => s.id === skitId);
-    if (!skit || skit.video_id) return;
-
-    setSendingToVideoId(skitId);
-    try {
-      const res = await fetch(`/api/skits/${skitId}/send-to-video`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priority: "normal" }),
-      });
-      const data = await res.json();
-
-      if (data.ok && data.data) {
-        // Update the skit in the list to show it has a linked video
-        setSkits(prev => prev.map(s =>
-          s.id === skitId ? { ...s, video_id: data.data.video_id, status: "produced" as const } : s
-        ));
-        // Also update expanded skit if it's this one
-        if (expandedSkit && expandedSkit.id === skitId) {
-          setExpandedSkit({ ...expandedSkit, video_id: data.data.video_id, status: "produced" });
-        }
-      } else {
-        setError(data.error || "Failed to create video from skit");
-      }
-    } catch {
-      setError("Failed to send skit to video queue");
-    } finally {
-      setSendingToVideoId(null);
-    }
   };
 
   // Open winner modal - uses new MarkAsWinnerModal component

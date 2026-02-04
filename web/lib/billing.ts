@@ -118,7 +118,7 @@ export async function getOrgBillingConfig(
   const planPricing = PLAN_PRICING[orgPlanInfo.plan];
 
   // Start with plan defaults
-  let config: OrgBillingConfig = {
+  const config: OrgBillingConfig = {
     org_id: orgId,
     plan: orgPlanInfo.plan,
     monthly_base_fee_cents: planPricing.monthly_base_fee_cents,

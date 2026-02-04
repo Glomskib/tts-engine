@@ -6,7 +6,6 @@ import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import {
   getRequestSLAStatus,
   SLAStatus,
-  SLA_THRESHOLDS_MS,
   RequestPriority as LibRequestPriority,
 } from '@/lib/client-requests';
 

@@ -3,12 +3,6 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { auditLogAsync } from "@/lib/audit";
-import {
-  postProcessSkit,
-  validateSkitStructure,
-  type RiskTier,
-  type Skit,
-} from "@/lib/ai/skitPostProcess";
 import { z } from "zod";
 import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
 import { requireCredits } from "@/lib/credits";
@@ -311,11 +305,11 @@ export async function POST(request: Request) {
     let result: unknown;
 
     if (input.content_type === "skit") {
-      result = await generateSkit(input, productContext, audienceContext, product);
+      result = await generateSkit(input, productContext, audienceContext);
     } else if (input.content_type === "script") {
-      result = await generateScript(input, productContext, audienceContext, product);
+      result = await generateScript(input, productContext, audienceContext);
     } else if (input.content_type === "hook") {
-      result = await generateHooks(input, productContext, audienceContext, product);
+      result = await generateHooks(input, productContext, audienceContext);
     }
 
     // Deduct credits (admins bypass)
@@ -371,8 +365,7 @@ export async function POST(request: Request) {
 async function generateSkit(
   input: z.infer<typeof GenerateContentInputSchema>,
   productContext: string,
-  audienceContext: string,
-  product: Product | null
+  audienceContext: string
 ) {
   const variationCount = input.variation_count || 3;
   const duration = input.target_duration || "standard";
@@ -471,8 +464,7 @@ Generate ${variationCount} unique variations now:`;
 async function generateScript(
   input: z.infer<typeof GenerateContentInputSchema>,
   productContext: string,
-  audienceContext: string,
-  product: Product | null
+  audienceContext: string
 ) {
   const format = input.script_format || "story";
   const voice = input.script_voice || "first_person";
@@ -562,8 +554,7 @@ Generate the script now:`;
 async function generateHooks(
   input: z.infer<typeof GenerateContentInputSchema>,
   productContext: string,
-  audienceContext: string,
-  product: Product | null
+  audienceContext: string
 ) {
   const hookTypes = input.hook_types || ["question", "bold_statement", "relatable"];
   const hookCount = input.hook_count || 10;

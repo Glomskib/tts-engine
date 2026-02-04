@@ -23,14 +23,6 @@ type HookFamily = (typeof HOOK_FAMILIES)[number];
 const EMOTIONAL_DRIVERS = ["shock", "fear", "curiosity", "insecurity", "fomo"] as const;
 type EmotionalDriver = (typeof EMOTIONAL_DRIVERS)[number];
 
-const EMOTIONAL_DRIVER_DISTRIBUTION: Record<EmotionalDriver, number> = {
-  shock: 2,
-  fear: 2,
-  curiosity: 3,
-  insecurity: 2,
-  fomo: 3,
-};
-
 // Emotional driver descriptions for AI prompting
 const EMOTIONAL_DRIVER_DESCRIPTIONS: Record<EmotionalDriver, string> = {
   shock: "Pattern interrupt, jarring openings, make them stop scrolling. Bold statements, unexpected reveals.",
@@ -1127,8 +1119,7 @@ function readjustBrief(
   lockedFields: string[],
   brand: string,
   productName: string,
-  tonePreset: TonePreset,
-  targetLength: string
+  tonePreset: TonePreset
 ): DraftVideoBriefResult {
   const isLocked = (field: string) => lockedFields.includes(field);
 
@@ -1493,8 +1484,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
       locked_fields,
       brand,
       productName,
-      validTonePreset,
-      target_length
+      validTonePreset
     );
 
     return NextResponse.json({
@@ -1784,8 +1774,6 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
       insecurity: hooksByDriver.insecurity.length,
       fomo: hooksByDriver.fomo.length,
     };
-    const totalDriverHooks = Object.values(driverCounts).reduce((a, b) => a + b, 0);
-
     // Find best hook by AI-assigned score
     const hookScores = aiResult.hook_scores || {};
 
@@ -1856,7 +1844,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
     const rankedTextHooks = diverseText.map((s) => s.option);
 
     // Best hook = top-ranked by our scoring (not AI's self-score)
-    let bestHook = rankedSpokenHooks[0] || "";
+    const bestHook = rankedSpokenHooks[0] || "";
     let bestEmotionalDriver: EmotionalDriver | null = null;
 
     // Find the emotional driver for the best hook

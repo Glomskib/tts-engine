@@ -9,7 +9,7 @@
  * All functions fail-safe: if email not configured, no-op safely with audit event.
  */
 
-import { sendEmailWithAudit, wasEmailSkipped, type EmailResult } from "@/lib/email";
+import { sendEmailWithAudit, wasEmailSkipped } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // ============================================================================

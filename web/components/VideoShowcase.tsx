@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Play, ExternalLink, Heart, Eye } from 'lucide-react';
-import { SHOWCASE_VIDEOS, type ShowcaseVideo as ConfigVideo } from '@/lib/showcase-videos';
+import { SHOWCASE_VIDEOS } from '@/lib/showcase-videos';
 
 interface ShowcaseVideo {
   id: string;
@@ -78,7 +78,7 @@ export function VideoShowcase({ limit = 6, showTitle = true, onContactClick }: V
               const data = await res.json();
               results[video.id] = data;
             }
-          } catch (e) {
+          } catch {
             console.error('Failed to fetch oEmbed for', video.id);
           }
         })

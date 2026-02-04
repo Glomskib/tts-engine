@@ -263,7 +263,7 @@ export default function SettingsPage() {
                         const res = await fetch('/api/subscriptions/portal', { method: 'POST' });
                         const data = await res.json();
                         if (data.url) window.location.href = data.url;
-                      } catch (err) {
+                      } catch {
                         showError('Failed to open billing portal');
                       }
                     }}
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                         const data = await res.json();
                         if (data.url) window.location.href = data.url;
                         else showError(data.error || 'Failed to start checkout');
-                      } catch (err) {
+                      } catch {
                         showError('Failed to start checkout');
                       }
                     }}

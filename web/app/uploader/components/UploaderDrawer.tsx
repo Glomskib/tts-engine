@@ -71,7 +71,6 @@ export default function UploaderDrawer({
   onClose,
   onOpenPostModal,
   onMarkChecklistComplete,
-  onRefresh,
 }: UploaderDrawerProps) {
   const hydrated = useHydrated();
   const [activeTab, setActiveTab] = useState<TabType>('info');

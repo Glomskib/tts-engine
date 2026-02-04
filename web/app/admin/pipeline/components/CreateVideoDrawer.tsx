@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
-import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
+import { type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 
 interface Product {
@@ -193,8 +193,6 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const [hookType, setHookType] = useState<HookType>('all');
 
   // More options toggle
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
-
   // AI Draft state
   const [aiDraft, setAiDraft] = useState<AIDraft | null>(null);
   const [originalAiDraft, setOriginalAiDraft] = useState<AIDraft | null>(null); // Store original for readjust
@@ -216,7 +214,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
   // Form state - Hook Package (editable after AI draft)
   const [selectedSpokenHook, setSelectedSpokenHook] = useState('');
-  const [selectedEmotionalDriver, setSelectedEmotionalDriver] = useState<EmotionalDriver | null>(null);
+  const [, setSelectedEmotionalDriver] = useState<EmotionalDriver | null>(null);
   const [visualHook, setVisualHook] = useState('');
   const [selectedTextHook, setSelectedTextHook] = useState('');
   const [onScreenTextMid, setOnScreenTextMid] = useState<string[]>([]);

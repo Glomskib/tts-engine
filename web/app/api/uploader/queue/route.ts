@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       .map((p) => p.current_version_id);
 
     // Then fetch the versions themselves (only locked ones matter)
-    let lockedScriptsMap: Map<string, {
+    const lockedScriptsMap: Map<string, {
       product_sku: string | null;
       product_link: string | null;
       caption: string | null;

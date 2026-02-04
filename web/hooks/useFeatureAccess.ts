@@ -3,7 +3,7 @@
  * Checks if user has access to specific features based on their subscription plan.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import type { PlanName } from '@/lib/subscriptions';
 

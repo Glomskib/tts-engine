@@ -301,7 +301,7 @@ export default function ActivityPage() {
               <div key={dateLabel}>
                 <h3 className="text-sm font-medium text-zinc-500 mb-4">{dateLabel}</h3>
                 <div className="space-y-1">
-                  {items.map((activity, idx) => {
+                  {items.map((activity) => {
                     const config = ACTION_CONFIG[activity.action] || {
                       label: activity.action,
                       icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',

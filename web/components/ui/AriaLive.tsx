@@ -109,6 +109,7 @@ export function LiveRegion({
   const [current, setCurrent] = useState(message);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrent(message);
     if (clearAfter > 0) {
       const timer = setTimeout(() => setCurrent(''), clearAfter);
@@ -154,11 +155,11 @@ export function LoadingAnnouncement({
   loadingMessage?: string;
   loadedMessage?: string;
 }) {
-  const [prevLoading, setPrevLoading] = useState(isLoading);
+  const [_prevLoading] = useState(isLoading);
 
   return (
     <LiveRegion
-      message={isLoading ? loadingMessage : prevLoading !== isLoading ? loadedMessage : ''}
+      message={isLoading ? loadingMessage : _prevLoading !== isLoading ? loadedMessage : ''}
       politeness="polite"
     />
   );

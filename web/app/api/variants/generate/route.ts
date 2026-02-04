@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { concept_id, base_hook_id, base_script_id, variant_plan, category_risk, style_preset } = body as Record<string, unknown>;
+  const { concept_id, base_hook_id, variant_plan, category_risk, style_preset } = body as Record<string, unknown>;
 
   if (typeof concept_id !== "string" || concept_id.trim() === "") {
     return NextResponse.json(

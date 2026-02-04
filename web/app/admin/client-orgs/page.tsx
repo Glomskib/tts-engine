@@ -159,7 +159,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setError(data.error || 'Failed to load organizations');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -354,7 +354,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to create organization' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setCreatingOrg(false);
@@ -400,7 +400,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update membership' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setManagingMember(false);
@@ -436,7 +436,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to assign video' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setAssigningVideo(false);
@@ -470,7 +470,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update branding' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setSavingBranding(false);
@@ -531,7 +531,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to create project' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setCreatingProject(false);
@@ -565,7 +565,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to archive project' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setArchivingProject(null);
@@ -602,7 +602,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to assign video to project' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setAssigningToProject(false);
@@ -637,7 +637,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to set plan' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setSavingPlan(false);
@@ -672,7 +672,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to set billing status' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setSavingBillingStatus(false);
@@ -760,7 +760,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to create invite' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setCreatingInvite(false);
@@ -795,7 +795,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to revoke member' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setRevokingMember(null);
@@ -830,7 +830,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to revoke invite' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setRevokingInvite(null);
@@ -873,7 +873,7 @@ export default function AdminClientOrgsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to resend invite' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setResendingInvite(null);

@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import {
-  TrendingUp, TrendingDown, FileText, Video, Zap, Clock,
-  CheckCircle, AlertCircle, ArrowRight, Sparkles, Calendar,
+  TrendingUp, TrendingDown, FileText, Video, Zap,
+  CheckCircle, ArrowRight, Sparkles, Calendar,
   CreditCard, Target, Users, Activity
 } from 'lucide-react';
 import Link from 'next/link';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 
 interface DashboardStats {

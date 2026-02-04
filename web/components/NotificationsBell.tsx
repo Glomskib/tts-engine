@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, Check, ExternalLink, X, Trash2 } from 'lucide-react';
+import { Bell, Check, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 interface Notification {
@@ -44,7 +44,6 @@ export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = useCallback(async () => {

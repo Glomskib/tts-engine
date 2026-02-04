@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Building2, Mail, Phone, Calendar, Video,
-  FileText, CreditCard, Edit, Trash2, Clock, TrendingUp,
-  MoreVertical, ExternalLink, Send, Globe, User, Loader2, X,
+  ArrowLeft, Mail, Phone, Video,
+  Edit, Trash2, TrendingUp,
+  ExternalLink, Globe, User, Loader2, X,
   Download, BarChart3, Timer, CheckCircle2, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';

@@ -88,11 +88,6 @@ export default function PersonaCard({
     ? persona.primary_pain_points
     : persona.common_objections || [];
 
-  // Get objections (prefer buying_objections)
-  const objections = persona.buying_objections?.length
-    ? persona.buying_objections
-    : persona.common_objections || [];
-
   if (compact) {
     return (
       <div

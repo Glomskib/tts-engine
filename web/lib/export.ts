@@ -50,7 +50,7 @@ export function exportToTxt(skit: SavedSkit, includeMetadata = false): string {
   lines.push('SCRIPT:');
   lines.push('-'.repeat(40));
 
-  skit.skit_data.beats.forEach((beat, i) => {
+  skit.skit_data.beats.forEach((beat) => {
     lines.push(`[${beat.t}]`);
     if (beat.action) lines.push(`  Action: ${beat.action}`);
     if (beat.dialogue) lines.push(`  Dialogue: "${beat.dialogue}"`);
@@ -102,7 +102,7 @@ export function exportToMarkdown(skit: SavedSkit, includeMetadata = false): stri
   lines.push('## Script Beats');
   lines.push('');
 
-  skit.skit_data.beats.forEach((beat, i) => {
+  skit.skit_data.beats.forEach((beat) => {
     lines.push(`### ${beat.t}`);
     if (beat.action) lines.push(`- **Action:** ${beat.action}`);
     if (beat.dialogue) lines.push(`- **Dialogue:** "${beat.dialogue}"`);

@@ -41,7 +41,6 @@ function formatTimeAgo(dateString: string): string {
 }
 
 export default function VersionHistory({
-  currentSkitId,
   versions,
   onRestore,
   onCompare,

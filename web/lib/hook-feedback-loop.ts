@@ -164,7 +164,7 @@ export async function recordHookOutcome(
     try {
       // Try to insert hook_feedback with source_video_id for idempotency
       // The unique index (hook_id, source_video_id, outcome) prevents duplicates
-      const { data: feedback, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from("hook_feedback")
         .insert({
           hook_id: hook.hook_id,

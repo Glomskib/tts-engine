@@ -7,7 +7,6 @@ import { computeSlaInfo } from "@/lib/execution-stages";
 
 export const runtime = "nodejs";
 
-type AssignmentState = "ASSIGNED" | "EXPIRED" | "COMPLETED" | "UNASSIGNED";
 type SortOption = "expires_soon" | "priority" | "newest";
 
 interface AssignmentRow {
@@ -74,7 +73,7 @@ export async function GET(request: Request) {
     const nowIso = now.toISOString();
 
     // Build query
-    let selectCols = "id,recording_status,assignment_state,assigned_to,assigned_role,assigned_at,assigned_expires_at,work_lane,work_priority,last_status_changed_at";
+    const selectCols = "id,recording_status,assignment_state,assigned_to,assigned_role,assigned_at,assigned_expires_at,work_lane,work_priority,last_status_changed_at";
 
     let query = supabaseAdmin.from("videos").select(selectCols);
 

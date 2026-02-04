@@ -20,11 +20,6 @@ type EmailTriggerEvent =
   | "admin_clear_claim"
   | "admin_reset_assignments";
 
-interface UserInfo {
-  user_id: string;
-  email: string | null;
-}
-
 /**
  * Write an email event to the video_events table for audit/debugging.
  */

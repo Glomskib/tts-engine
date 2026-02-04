@@ -85,7 +85,7 @@ const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   uploader: { bg: 'rgba(34, 197, 94, 0.2)', text: '#4ade80' },
 };
 
-export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
+export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
   const hydrated = useHydrated();
   const router = useRouter();
 
@@ -208,7 +208,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
       } else {
         setError(data.error || 'Failed to load video');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     }
   }, []);
@@ -265,7 +265,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
       } else {
         setError(dispatchData.error || 'Failed to dispatch');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
@@ -375,7 +375,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update' });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
       setSubmitting(false);
@@ -402,7 +402,7 @@ export default function RoleWorkbench({ role, title }: RoleWorkbenchProps) {
       setTimeout(() => {
         loadWork();
       }, 1000);
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to release' });
     } finally {
       setReleasing(false);

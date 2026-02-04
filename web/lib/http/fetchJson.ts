@@ -177,7 +177,7 @@ export async function fetchJson<T>(
   let response: Response;
   try {
     response = await fetch(url, fetchOptions);
-  } catch (networkError) {
+  } catch {
     // Network error (no response)
     return {
       ok: false,

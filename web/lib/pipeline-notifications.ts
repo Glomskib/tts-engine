@@ -155,7 +155,7 @@ async function sendPipelineEmails(
     correlation_id: string;
   }
 ): Promise<void> {
-  const { role, to_status, video_id, video_info, correlation_id } = params;
+  const { to_status, video_id, video_info, correlation_id } = params;
 
   // Get email addresses for users in the role
   const { data: roleUsers, error } = await supabase

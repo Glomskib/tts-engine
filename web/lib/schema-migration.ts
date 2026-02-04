@@ -10,7 +10,7 @@ export async function checkAndMigrateSchema() {
 
   try {
     // Check if accounts table exists
-    const { data: accountsCheck, error: accountsError } = await supabaseAdmin
+    const { error: accountsError } = await supabaseAdmin
       .from("accounts")
       .select("id")
       .limit(1);

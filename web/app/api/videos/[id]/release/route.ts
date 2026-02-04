@@ -11,7 +11,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { atomicReleaseVideo } from "@/lib/video-claim";
-import { apiError, generateCorrelationId, isAdminUser, createApiErrorResponse, type ApiErrorCode } from "@/lib/api-errors";
+import { generateCorrelationId, isAdminUser, createApiErrorResponse, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { checkIncidentReadOnlyBlock } from "@/lib/settings";

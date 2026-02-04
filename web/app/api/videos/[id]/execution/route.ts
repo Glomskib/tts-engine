@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId, isAdminUser, createApiErrorResponse } from "@/lib/api-errors";
+import { generateCorrelationId, isAdminUser, createApiErrorResponse } from "@/lib/api-errors";
 import { createHookSuggestionsFromVideo } from "@/lib/hook-suggestions";
 import { applyHookPostedCounts } from "@/lib/hook-usage-counts";
 import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";

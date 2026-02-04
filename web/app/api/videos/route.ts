@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { isValidStatus, QUEUE_STATUSES, VIDEO_STATUSES, type VideoStatus } from "@/lib/video-pipeline";
+import { isValidStatus, QUEUE_STATUSES, type VideoStatus } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 

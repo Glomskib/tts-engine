@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Users, Plus, Search, Building2, Mail, Phone,
-  MoreVertical, Video, FileText, CreditCard, ExternalLink,
-  ChevronRight, TrendingUp, Clock, X, Loader2
+  Users, Plus, Search,
+  ChevronRight, X, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { EmptyState } from '@/components/EmptyState';

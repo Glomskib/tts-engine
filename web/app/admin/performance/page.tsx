@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  BarChart3, Clock, CheckCircle, AlertTriangle,
+  Clock, AlertTriangle,
   TrendingUp, Users, Video, RefreshCw, ArrowRight
 } from 'lucide-react';
 
@@ -41,7 +41,7 @@ export default function PerformancePage() {
     completedToday: 0,
     overdueCount: 0,
   });
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 

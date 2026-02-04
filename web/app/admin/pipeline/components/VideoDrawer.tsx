@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { QueueVideo } from '../types';
-import { getStatusBadgeColor, getSlaColor, getPrimaryAction, getReadinessIndicators } from '../types';
+import { getStatusBadgeColor, getSlaColor, getPrimaryAction } from '../types';
 import { formatDateString, getTimeAgo, useHydrated } from '@/lib/useHydrated';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
-import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
-import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 
 interface Product {
   id: string;
@@ -114,7 +112,6 @@ export default function VideoDrawer({
   onExecuteTransition,
   onOpenAttachModal,
   onOpenPostModal,
-  onOpenHandoffModal,
   onRefresh,
   onAdvanceToNext,
 }: VideoDrawerProps) {
@@ -139,7 +136,6 @@ export default function VideoDrawer({
   const [editMode, setEditMode] = useState(false);
   const [editDriveUrl, setEditDriveUrl] = useState('');
   const [editRawFootageUrl, setEditRawFootageUrl] = useState('');
-  const [editAssetsUrl, setEditAssetsUrl] = useState('');
   const [editFinalUrl, setEditFinalUrl] = useState('');
   const [editSpokenHook, setEditSpokenHook] = useState('');
   const [editVisualHook, setEditVisualHook] = useState('');
@@ -172,7 +168,7 @@ export default function VideoDrawer({
   // Quality gate state (for winner marking)
   const [qualityIssues, setQualityIssues] = useState<{ code: string; message: string; severity: string }[]>([]);
   const [showQualityWarning, setShowQualityWarning] = useState(false);
-  const [qualityCheckLoading, setQualityCheckLoading] = useState(false);
+  const [, setQualityCheckLoading] = useState(false);
 
   // Reject quick tags configuration
   const REJECT_TAGS = [
@@ -197,7 +193,6 @@ export default function VideoDrawer({
   const statusColors = getStatusBadgeColor(video.recording_status);
   const slaColors = getSlaColor(video.sla_status);
   const primaryAction = getPrimaryAction(video);
-  const readiness = getReadinessIndicators(video);
 
   const isClaimedByMe = video.claimed_by === activeUser;
   const isClaimedByOther = !!(video.claimed_by && video.claimed_by !== activeUser &&
@@ -429,7 +424,7 @@ export default function VideoDrawer({
     const textHook = details?.brief?.on_screen_text_hook;
     const hookFamily = details?.brief?.hook_type;
 
-    let savedItems: string[] = [];
+    const savedItems: string[] = [];
 
     // Save script to library
     if (scriptText) {
@@ -540,16 +535,6 @@ export default function VideoDrawer({
           onAdvanceToNext();
         }, 500);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClaim = async () => {
-    setLoading(true);
-    try {
-      await onClaimVideo(video.id);
-      onRefresh();
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { getVariantsScalingColumns, getIterationGroupsColumns } from '@/lib/scaling-schema';
 
 export const runtime = "nodejs";
 

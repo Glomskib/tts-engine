@@ -91,7 +91,7 @@ export default function ScriptsLibraryPage() {
       if (templatesData.ok) setTemplates(templatesData.data || []);
       if (scriptsData.ok) setScripts(scriptsData.data || []);
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch data');
     } finally {
       setLoading(false);
@@ -158,7 +158,7 @@ export default function ScriptsLibraryPage() {
       } else {
         setError(data.error || 'Failed to create script');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to create script');
     } finally {
       setCreateLoading(false);
@@ -201,7 +201,7 @@ export default function ScriptsLibraryPage() {
       } else {
         setError(data.error || 'Failed to create template');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to create template');
     } finally {
       setCreateLoading(false);

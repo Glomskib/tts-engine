@@ -11,7 +11,7 @@ interface LowCreditBannerProps {
 }
 
 export function LowCreditBanner({ threshold = 5, className = '' }: LowCreditBannerProps) {
-  const { credits, subscription, isLoading, isFreeUser } = useCredits();
+  const { credits, isLoading, isFreeUser } = useCredits();
   const [dismissed, setDismissed] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 

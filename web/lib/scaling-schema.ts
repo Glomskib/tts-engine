@@ -15,15 +15,15 @@ export async function getVariantsScalingColumns(): Promise<Set<string>> {
   try {
     await supabaseAdmin.from('variants').select('parent_variant_id').limit(1);
     columns.add('parent_variant_id');
-  } catch (e) {
+  } catch {
     // Column doesn't exist
   }
-  
+
   // Probe for iteration_group_id column
   try {
     await supabaseAdmin.from('variants').select('iteration_group_id').limit(1);
     columns.add('iteration_group_id');
-  } catch (e) {
+  } catch {
     // Column doesn't exist
   }
 
@@ -50,7 +50,7 @@ export async function getIterationGroupsColumns(): Promise<Set<string>> {
     columns.add('error_message');
     columns.add('created_at');
     columns.add('updated_at');
-  } catch (e) {
+  } catch {
     // Table doesn't exist
   }
 

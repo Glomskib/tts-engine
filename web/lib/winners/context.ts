@@ -4,7 +4,7 @@
  * Builds prompt context from winners intelligence for script generation
  */
 
-import type { Winner, WinnerPatterns, WinnersIntelligence } from './types';
+import type { Winner, WinnersIntelligence } from './types';
 
 /**
  * Build enhanced winners context for script generation prompt

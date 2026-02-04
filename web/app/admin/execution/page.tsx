@@ -54,7 +54,7 @@ export default function ExecutionDashboardPage() {
       } else {
         setError(data.error || 'Failed to fetch videos');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch videos');
     } finally {
       setLoading(false);

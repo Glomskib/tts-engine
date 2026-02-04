@@ -196,7 +196,7 @@ export default function UsagePage() {
 
               {stats?.dailyUsage && stats.dailyUsage.length > 0 ? (
                 <div className="h-48 flex items-end gap-1">
-                  {stats.dailyUsage.map((day, i) => {
+                  {stats.dailyUsage.map((day) => {
                     const height = maxDailyCount > 0 ? (day.count / maxDailyCount) * 100 : 0;
                     return (
                       <div

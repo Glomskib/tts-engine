@@ -7,7 +7,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '@/app/admin/components/ApiErrorPanel';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
 import { Trophy } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -312,7 +312,6 @@ const SKIT_STATUS_OPTIONS: { value: SkitStatus; label: string }[] = [
 const SETTINGS_STORAGE_KEY = 'skit-generator-settings';
 const RECENT_PRODUCTS_KEY = 'skit-generator-recent-products';
 const TEMPLATE_FAVORITES_KEY = 'skit-generator-favorites';
-const GENERATION_HISTORY_KEY = 'skit-generator-history';
 
 interface RecentProduct {
   id: string;
@@ -1203,7 +1202,7 @@ export default function SkitGeneratorPage() {
     let response;
     try {
       response = await postJson<SkitResult>('/api/ai/generate-skit', payload);
-    } catch (networkError) {
+    } catch {
       setGenerating(false);
       setError({
         ok: false,
@@ -3943,7 +3942,6 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   currentSkit.beats.forEach(beat => {
                     const match = beat.t?.match(/(\d+):(\d+)-(\d+):(\d+)/);
                     if (match) {
-                      const startSec = parseInt(match[1]) * 60 + parseInt(match[2]);
                       const endSec = parseInt(match[3]) * 60 + parseInt(match[4]);
                       totalSeconds = Math.max(totalSeconds, endSec);
                     }

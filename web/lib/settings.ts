@@ -285,6 +285,7 @@ export async function setSystemSetting(
   key: SettingKey,
   value: SettingValue,
   actor: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   correlationId?: string
 ): Promise<{ ok: boolean; error?: string; eventId?: string }> {
   if (!isAllowedSettingKey(key)) {

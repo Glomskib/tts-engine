@@ -115,7 +115,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Fetch assets (video assets table if exists)
-    let assets: {
+    const assets: {
       raw_footage_url: string | null;
       final_mp4_url: string | null;
       thumbnail_url: string | null;

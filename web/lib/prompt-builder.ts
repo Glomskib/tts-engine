@@ -2,10 +2,6 @@
 // Builds the full context prompt for content generation
 
 import {
-  CONTENT_TYPES,
-  PRESENTATION_STYLES,
-  TARGET_LENGTHS,
-  HUMOR_LEVELS,
   getContentType,
   getContentSubtype,
   getPresentationStyle,

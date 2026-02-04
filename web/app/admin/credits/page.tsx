@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCredits } from '@/hooks/useCredits';
-import { Coins, Zap, TrendingUp, Package, Check, ArrowRight, Sparkles } from 'lucide-react';
+import { Coins, Zap, TrendingUp, Package, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface CreditPackage {
@@ -25,7 +25,7 @@ interface Transaction {
 }
 
 export default function CreditsPage() {
-  const { credits, subscription, isLoading, refetch } = useCredits();
+  const { credits, subscription, isLoading } = useCredits();
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);

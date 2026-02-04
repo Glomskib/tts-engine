@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   CheckSquare, Square, Trash2, Download, Tag,
-  FolderInput, MoreHorizontal, X, Loader2
+  X, Loader2
 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -32,7 +32,6 @@ export function BulkActions({
   onDelete,
   onExport,
   onTag,
-  onMove,
   customActions = [],
 }: BulkActionsProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

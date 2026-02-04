@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useSubscription } from '@/hooks/useFeatureAccess';
-import { Check, X, Sparkles, Video, Zap } from 'lucide-react';
-import { PRICING, PLAN_DETAILS, type PlanName, type SaaSPlan, type VideoPlan } from '@/lib/subscriptions';
+import { Check, X, Sparkles, Video } from 'lucide-react';
+import { PRICING, PLAN_DETAILS, type PlanName } from '@/lib/subscriptions';
 
 interface AuthUser {
   id: string;
@@ -106,7 +106,7 @@ export default function UpgradePage() {
   const [activeTab, setActiveTab] = useState<'saas' | 'video'>('saas');
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const { credits, subscription: creditsSubscription, isLoading: creditsLoading, refetch } = useCredits();
+  const { credits, isLoading: creditsLoading } = useCredits();
   const { planId, subscriptionType, loading: subLoading } = useSubscription();
 
   useEffect(() => {

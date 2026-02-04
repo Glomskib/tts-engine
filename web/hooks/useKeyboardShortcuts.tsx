@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 
 type ModifierKey = 'ctrl' | 'alt' | 'shift' | 'meta';
 

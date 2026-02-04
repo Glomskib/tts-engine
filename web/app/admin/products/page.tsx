@@ -82,7 +82,7 @@ export default function ProductsPage() {
 
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
-  const [warningsLoading, setWarningsLoading] = useState(false);
+  const [, setWarningsLoading] = useState(false);
 
   // Pain points generation state
   const [generatingPainPoints, setGeneratingPainPoints] = useState(false);

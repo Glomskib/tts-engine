@@ -56,7 +56,6 @@ export async function GET(request: Request) {
     }
 
     // Fetch all resolution events to map against requests
-    const requestIds = (requestEvents || []).map((e) => e.id);
 
     const { data: resolutionEvents } = await supabaseAdmin
       .from("video_events")

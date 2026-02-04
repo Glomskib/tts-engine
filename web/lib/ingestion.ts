@@ -12,7 +12,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { VIDEO_STATUSES, type VideoStatus } from "./video-pipeline";
+import { type VideoStatus } from "./video-pipeline";
 import { createScriptVersion } from "./video-script-versions";
 import { ensureEnrichmentTask, linkEnrichmentTaskToVideo } from "./enrichment";
 

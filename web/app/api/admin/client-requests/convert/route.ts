@@ -5,12 +5,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   getClientRequestByIdAdmin,
   convertClientRequestToVideo,
-  REQUEST_EVENT_TYPES,
 } from "@/lib/client-requests";
 import { CLIENT_ORG_EVENT_TYPES, getClientOrgById } from "@/lib/client-org";
 import { PROJECT_EVENT_TYPES } from "@/lib/client-projects";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { randomUUID } from "crypto";
 import { sendRequestConvertedEmail } from "@/lib/client-email-notifications";
 import { type VideoStatus } from "@/lib/video-pipeline";
 

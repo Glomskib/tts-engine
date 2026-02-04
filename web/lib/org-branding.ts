@@ -10,7 +10,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
-import { brandName, accentColorClass, accentTextClass, logoText } from './brand'
+import { brandName } from './brand'
 
 // Allowed accent color values
 export type AccentColor = 'indigo' | 'emerald' | 'cyan' | 'amber' | 'rose' | 'violet' | 'blue' | 'teal' | 'slate'

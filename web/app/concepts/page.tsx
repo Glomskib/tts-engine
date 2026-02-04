@@ -45,7 +45,7 @@ export default function ConceptsPage() {
       }
 
       setError('');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch concepts');
     } finally {
       setLoading(false);

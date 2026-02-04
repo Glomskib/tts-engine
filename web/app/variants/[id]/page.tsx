@@ -17,14 +17,6 @@ interface Variant {
   created_at: string;
 }
 
-interface IterationGroup {
-  id: string;
-  winner_variant_id: string;
-  concept_id: string;
-  plan_json?: any;
-  created_at: string;
-}
-
 interface Video {
   id: string;
   account_id: string;
@@ -82,7 +74,7 @@ export default function VariantPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch variant lineage');
     }
   };
@@ -120,7 +112,7 @@ export default function VariantPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to promote variant');
     } finally {
       setPromoting(false);
@@ -155,7 +147,7 @@ export default function VariantPage() {
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to scale variant');
     } finally {
       setScaling(false);

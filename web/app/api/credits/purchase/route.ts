@@ -124,7 +124,6 @@ export async function POST(request: Request) {
       status: "pending",
     });
 
-    console.log(`[${correlationId}] Created checkout session ${session.id} for user ${authContext.user.id}`);
 
     return NextResponse.json({
       ok: true,

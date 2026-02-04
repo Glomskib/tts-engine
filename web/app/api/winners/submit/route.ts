@@ -38,7 +38,7 @@ async function fetchOEmbedData(url: string): Promise<OEmbedResponse | null> {
     });
 
     if (!res.ok) {
-      console.log(`[oEmbed] Failed for ${url}: ${res.status}`);
+      console.error(`[oEmbed] Failed for ${url}: ${res.status}`);
       return null;
     }
 
@@ -50,7 +50,7 @@ async function fetchOEmbedData(url: string): Promise<OEmbedResponse | null> {
       thumbnail_url: data.thumbnail_url,
     };
   } catch (err) {
-    console.log(`[oEmbed] Error for ${url}:`, err);
+    console.error(`[oEmbed] Error for ${url}:`, err);
     return null;
   }
 }

@@ -78,7 +78,7 @@ export async function PATCH(
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
-  console.log(`[${correlationId}] Updating pain point ${id}, body:`, JSON.stringify(body).slice(0, 500));
+  // Debug logging removed - validation errors are logged below
 
   const parseResult = UpdatePainPointSchema.safeParse(body);
   if (!parseResult.success) {
@@ -88,7 +88,6 @@ export async function PATCH(
   }
 
   const updates = parseResult.data;
-  console.log(`[${correlationId}] Validated updates:`, JSON.stringify(updates).slice(0, 500));
 
   try {
     const { data, error } = await supabaseAdmin
@@ -103,7 +102,6 @@ export async function PATCH(
       return createApiErrorResponse("DB_ERROR", `Failed to update pain point: ${error.message}`, 500, correlationId);
     }
 
-    console.log(`[${correlationId}] Pain point updated successfully:`, data?.id);
 
     return NextResponse.json({
       ok: true,

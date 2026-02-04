@@ -25,7 +25,7 @@ export async function POST() {
         });
     } catch (dbError) {
       // If the table doesn't exist, that's okay
-      console.log('Could not update user_profiles:', dbError);
+      console.error('[Onboarding] Could not update user_profiles:', dbError);
     }
 
     return NextResponse.json({ success: true });

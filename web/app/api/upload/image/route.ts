@@ -96,7 +96,6 @@ export async function POST(request: NextRequest) {
       .from('b-roll-uploads')
       .getPublicUrl(data.path);
 
-    console.log(`[Upload] Successfully uploaded image for user ${authContext.user.id}: ${data.path}`);
 
     return NextResponse.json({
       ok: true,

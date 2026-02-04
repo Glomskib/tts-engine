@@ -1,14 +1,15 @@
 'use client';
 
-import { Trophy, ExternalLink, Eye, Heart, MessageCircle, Sparkles, TrendingUp } from 'lucide-react';
+import { Trophy, ExternalLink, Eye, Heart, MessageCircle, Sparkles, TrendingUp, Trash2 } from 'lucide-react';
 import type { Winner } from '@/lib/winners';
 
 interface WinnerCardProps {
   winner: Winner;
   onClick?: () => void;
+  onDelete?: (id: string) => void;
 }
 
-export function WinnerCard({ winner, onClick }: WinnerCardProps) {
+export function WinnerCard({ winner, onClick, onDelete }: WinnerCardProps) {
   const isOurScript = winner.source_type === 'generated';
 
   const formatNumber = (num?: number | null) => {
@@ -32,6 +33,22 @@ export function WinnerCard({ winner, onClick }: WinnerCardProps) {
         onClick ? 'cursor-pointer hover:border-zinc-700 hover:bg-zinc-800/50' : ''
       }`}
     >
+      {/* Delete Button */}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm('Delete this winner? This cannot be undone.')) {
+              onDelete(winner.id);
+            }
+          }}
+          className="absolute top-3 left-3 z-10 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-500 hover:text-red-400 hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-all"
+          title="Delete winner"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+
       {/* Source Badge */}
       <div className="absolute top-3 right-3 z-10">
         <span

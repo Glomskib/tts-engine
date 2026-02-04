@@ -99,6 +99,18 @@ export default function WinnersBankPage() {
     fetchWinners();
   }, [fetchWinners]);
 
+  const handleDeleteWinner = async (id: string) => {
+    try {
+      const res = await fetch(`/api/winners/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setWinners(prev => prev.filter(w => w.id !== id));
+        setSelectedWinner(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete winner:', err);
+    }
+  };
+
   // Filter winners by search query
   const filteredWinners = winners.filter(winner => {
     if (!searchQuery) return true;
@@ -331,6 +343,7 @@ export default function WinnersBankPage() {
                 key={winner.id}
                 winner={winner}
                 onClick={() => setSelectedWinner(winner)}
+                onDelete={handleDeleteWinner}
               />
             ))}
           </div>
@@ -347,6 +360,7 @@ export default function WinnersBankPage() {
             fetchWinners();
             setSelectedWinner(null);
           }}
+          onDelete={handleDeleteWinner}
         />
       )}
 

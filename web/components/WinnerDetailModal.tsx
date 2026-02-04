@@ -20,6 +20,7 @@ import {
   Loader2,
   Link2,
   Wand2,
+  Trash2,
 } from 'lucide-react';
 import type { Winner } from '@/lib/winners';
 
@@ -28,12 +29,14 @@ interface WinnerDetailModalProps {
   onClose: () => void;
   winner: Winner;
   onUpdate?: () => void;
+  onDelete?: (id: string) => void;
 }
 
-export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerDetailModalProps) {
+export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete }: WinnerDetailModalProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'patterns'>('overview');
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -465,12 +468,41 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <Clock className="w-3.5 h-3.5" />
-            Added {new Date(winner.created_at).toLocaleDateString()}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <Clock className="w-3.5 h-3.5" />
+              Added {new Date(winner.created_at).toLocaleDateString()}
+            </div>
+            {onDelete && (
+              <button
+                onClick={async () => {
+                  if (!confirm('Delete this winner? This cannot be undone.')) return;
+                  setIsDeleting(true);
+                  try {
+                    const res = await fetch(`/api/winners/${winner.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                      onDelete(winner.id);
+                      onClose();
+                    }
+                  } catch (err) {
+                    console.error('Failed to delete winner:', err);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Delete winner"
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
-            {/* Generate Similar Script button */}
             <button
               onClick={handleGenerateSimilar}
               className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"

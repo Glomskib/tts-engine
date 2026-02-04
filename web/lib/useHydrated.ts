@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
+
+const emptySubscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 /**
  * Hook that returns true only after the component has hydrated on the client.
@@ -6,13 +10,7 @@ import { useState, useEffect } from 'react';
  * that would cause hydration mismatches.
  */
 export function useHydrated(): boolean {
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  return hydrated;
+  return useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
 }
 
 /**

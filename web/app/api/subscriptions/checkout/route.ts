@@ -40,8 +40,6 @@ function getBaseUrl(): string {
 
 export async function POST(request: Request) {
   try {
-    console.log('Checkout request received');
-
     // Auth check
     const authContext = await getApiAuthContext();
     if (!authContext.user) {
@@ -56,8 +54,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { planId } = body as { planId: PlanName };
 
-    console.log('Plan requested:', planId);
-
     // Validate plan
     if (!planId || planId === 'free' || !PLAN_DETAILS[planId]) {
       return NextResponse.json({ ok: false, error: 'Invalid plan ID' }, { status: 400 });
@@ -65,8 +61,6 @@ export async function POST(request: Request) {
 
     const plan = PLAN_DETAILS[planId];
     const stripePriceId = STRIPE_PRICE_IDS[planId as keyof typeof STRIPE_PRICE_IDS];
-
-    console.log('Price ID lookup:', { planId, stripePriceId });
 
     if (!stripePriceId) {
       console.error(`No Stripe price ID configured for plan: ${planId}`);
@@ -92,7 +86,6 @@ export async function POST(request: Request) {
 
     if (existingSub?.stripe_customer_id) {
       stripeCustomerId = existingSub.stripe_customer_id;
-      console.log('Existing customer:', stripeCustomerId);
     } else {
       // Create new Stripe customer
       const customer = await stripe.customers.create({
@@ -102,7 +95,6 @@ export async function POST(request: Request) {
         },
       });
       stripeCustomerId = customer.id;
-      console.log('Created new customer:', stripeCustomerId);
 
       // Save customer ID to database
       await supabaseAdmin
@@ -123,7 +115,6 @@ export async function POST(request: Request) {
 
     // Build URLs with proper base
     const baseUrl = getBaseUrl();
-    console.log('Base URL:', baseUrl);
 
     // Determine success URL based on plan type
     const successUrl = isVideo
@@ -131,8 +122,6 @@ export async function POST(request: Request) {
       : `${baseUrl}/admin/content-studio?upgraded=true&plan=${planId}`;
 
     const cancelUrl = `${baseUrl}/upgrade?canceled=true`;
-
-    console.log('URLs:', { baseUrl, successUrl, cancelUrl });
 
     // Validate URLs before passing to Stripe
     try {
@@ -179,7 +168,7 @@ export async function POST(request: Request) {
       allow_promotion_codes: true,
     });
 
-    console.log('Checkout session created:', session.id, session.url);
+    console.info(`Checkout session created: ${session.id}`);
 
     if (!session.url) {
       console.error('No checkout URL returned from Stripe');

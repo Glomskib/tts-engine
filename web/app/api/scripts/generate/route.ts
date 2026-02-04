@@ -21,7 +21,7 @@ function safeParseJSON(content: string): { success: boolean; data: any; strategy
     const parsed = JSON.parse(content);
     return { success: true, data: parsed, strategy: "direct" };
   } catch (error) {
-    console.log(`Direct JSON parse failed: ${error}`);
+    // Direct JSON parse failed, trying repair
   }
 
   // Second attempt: repair pass
@@ -50,7 +50,7 @@ function safeParseJSON(content: string): { success: boolean; data: any; strategy
     const parsed = JSON.parse(jsonSubstring);
     return { success: true, data: parsed, strategy: "repair" };
   } catch (error) {
-    console.log(`Repair JSON parse failed: ${error}`);
+    // Repair JSON parse also failed
   }
 
   // Fallback: create minimal object
@@ -217,8 +217,6 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
         throw new Error("No content returned from Anthropic");
       }
 
-      console.log(`Anthropic response length: ${content.length}, preview: ${content.slice(0, 400)}`);
-      
       const parseResult = safeParseJSON(content);
       if (!parseResult.success) {
         console.error("Failed to parse Anthropic response after all attempts");
@@ -232,7 +230,6 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
         );
       }
       
-      console.log(`JSON parse strategy used: ${parseResult.strategy}`);
       generatedScript = parseResult.data;
 
     } else if (openaiKey) {
@@ -267,8 +264,6 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
         throw new Error("No content returned from OpenAI");
       }
 
-      console.log(`OpenAI response length: ${content.length}, preview: ${content.slice(0, 400)}`);
-      
       const parseResult = safeParseJSON(content);
       if (!parseResult.success) {
         console.error("Failed to parse OpenAI response after all attempts");
@@ -282,7 +277,6 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
         );
       }
       
-      console.log(`JSON parse strategy used: ${parseResult.strategy}`);
       generatedScript = parseResult.data;
     }
 
@@ -314,7 +308,6 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
 
     if (insertError) {
       console.error("Script insertion error:", insertError);
-      console.error("Script insertion payload:", insertPayload);
       return NextResponse.json(
         { 
           ok: false, 

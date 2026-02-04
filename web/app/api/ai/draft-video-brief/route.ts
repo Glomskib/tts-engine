@@ -169,7 +169,7 @@ function safeParseJSON(content: string): ParseResult {
     const parsed = JSON.parse(content);
     return { success: true, data: parsed, strategy: "direct" };
   } catch (error) {
-    console.log(`Direct JSON parse failed: ${error}`);
+    // Direct JSON parse failed, trying next strategy
   }
 
   // Strategy 2: Extract from ```json code block
@@ -180,7 +180,7 @@ function safeParseJSON(content: string): ParseResult {
       return { success: true, data: parsed, strategy: "json_code_block" };
     }
   } catch (error) {
-    console.log(`JSON code block extraction failed: ${error}`);
+    // JSON code block extraction failed, trying next strategy
   }
 
   // Strategy 3: Extract from generic ``` code block
@@ -195,7 +195,7 @@ function safeParseJSON(content: string): ParseResult {
       }
     }
   } catch (error) {
-    console.log(`Generic code block extraction failed: ${error}`);
+    // Generic code block extraction failed, trying next strategy
   }
 
   // Strategy 4: Find first { and last } and extract
@@ -233,7 +233,7 @@ function safeParseJSON(content: string): ParseResult {
       return { success: true, data: parsed, strategy: "brace_extract_repaired" };
     }
   } catch (error) {
-    console.log(`Brace extraction failed: ${error}`);
+    // Brace extraction failed, trying next strategy
   }
 
   // Strategy 5.5: Fix trailing commas (common AI error)
@@ -255,7 +255,7 @@ function safeParseJSON(content: string): ParseResult {
       return { success: true, data: parsed, strategy: "trailing_comma_fix" };
     }
   } catch (error) {
-    console.log(`Trailing comma fix failed: ${error}`);
+    // Trailing comma fix failed, trying next strategy
   }
 
   // Strategy 6: Try to find any JSON object pattern
@@ -288,7 +288,7 @@ function safeParseJSON(content: string): ParseResult {
       }
     }
   } catch (error) {
-    console.log(`Balanced brace extraction failed: ${error}`);
+    // Balanced brace extraction failed
   }
 
   // All strategies failed
@@ -622,7 +622,7 @@ async function getProvenHooksForBrand(brandName: string, productId?: string): Pr
 
     if (error) {
       // Table might not exist yet
-      console.log("proven_hooks table may not exist yet:", error.code);
+      // proven_hooks table may not exist yet
       return [];
     }
 
@@ -670,7 +670,7 @@ async function getWinnersBankContext(category?: string, limit: number = 5): Prom
     const { data, error } = await query;
 
     if (error) {
-      console.log("reference_extracts table may not exist yet:", error.code);
+      // reference_extracts table may not exist yet
       return [];
     }
 
@@ -1375,7 +1375,7 @@ export async function POST(request: Request) {
       });
 
       if (!primary) {
-        console.log(`[${correlationId}] Returned deduped result for product ${product_id}`);
+        console.info(`[${correlationId}] Returned deduped result for product ${product_id}`);
       }
       return result;
     } catch (error) {
@@ -1464,7 +1464,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
         referenceScriptContent = script.spoken_script;
       }
     } catch {
-      console.log(`[${correlationId}] Could not fetch reference script ${reference_script_id}`);
+      console.error(`[${correlationId}] Could not fetch reference script ${reference_script_id}`);
     }
   }
 
@@ -1476,7 +1476,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
 
   // Handle readjust mode
   if (mode === "readjust" && original_ai_draft && current_state) {
-    console.log(`[${correlationId}] Processing readjust request with ${locked_fields.length} locked fields`);
+    console.info(`[${correlationId}] Processing readjust request with ${locked_fields.length} locked fields`);
 
     const readjustedResult = readjustBrief(
       original_ai_draft,
@@ -1604,7 +1604,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
         throw new Error("No content returned from Anthropic");
       }
 
-      console.log(`[${correlationId}] Anthropic response length: ${rawAiResponse.length}`);
+      console.info(`[${correlationId}] Anthropic response received (${rawAiResponse.length} chars)`);
       parseResult = safeParseJSON(rawAiResponse);
 
       if (!parseResult.success || !parseResult.data) {
@@ -1647,7 +1647,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
         throw new Error("No content returned from OpenAI");
       }
 
-      console.log(`[${correlationId}] OpenAI response length: ${rawAiResponse.length}`);
+      console.info(`[${correlationId}] OpenAI response received (${rawAiResponse.length} chars)`);
       parseResult = safeParseJSON(rawAiResponse);
 
       if (!parseResult.success || !parseResult.data) {

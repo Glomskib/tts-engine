@@ -70,7 +70,7 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       navigator.serviceWorker
         .register('/sw.js')
         .then((reg) => {
-          console.log('SW registered:', reg.scope);
+          // SW registered successfully
           setRegistration(reg);
 
           // Check for updates periodically

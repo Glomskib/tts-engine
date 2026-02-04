@@ -16,7 +16,7 @@ function safeParseJSON(content: string): { success: boolean; data: unknown; stra
     const parsed = JSON.parse(content);
     return { success: true, data: parsed, strategy: "direct" };
   } catch (error) {
-    console.log(`Direct JSON parse failed: ${error}`);
+    // Direct JSON parse failed, trying repair
   }
 
   // Second attempt: repair pass
@@ -41,7 +41,7 @@ function safeParseJSON(content: string): { success: boolean; data: unknown; stra
     const parsed = JSON.parse(jsonSubstring);
     return { success: true, data: parsed, strategy: "repair" };
   } catch (error) {
-    console.log(`Repair JSON parse failed: ${error}`);
+    // Repair JSON parse also failed
     return { success: false, data: null, strategy: "failed", error: String(error) };
   }
 }
@@ -225,7 +225,6 @@ All fields are optional except hook and body. No markdown. No code fences. No ex
         prompt = `Your previous response had issues: ${errorDetails}
 
 Please fix and return ONLY valid JSON. ${basePrompt}`;
-        console.log(`Retry attempt ${attempt} with fix prompt`);
       }
 
       // Call AI
@@ -233,18 +232,13 @@ Please fix and return ONLY valid JSON. ${basePrompt}`;
       generatedContent = aiResult.content;
       modelUsed = aiResult.model;
 
-      console.log(`AI response (attempt ${attempt}) length: ${generatedContent.length}, preview: ${generatedContent.slice(0, 400)}`);
-
       // Parse the AI response
       parseResult = safeParseJSON(generatedContent);
       if (!parseResult.success) {
         lastParseError = parseResult.error || "Unknown parse error";
         lastValidationErrors = [];
-        console.log(`Parse failed on attempt ${attempt}: ${lastParseError}`);
         continue; // Retry
       }
-
-      console.log(`JSON parse strategy used: ${parseResult.strategy}`);
 
       // Normalize the data (trim strings, remove empty values)
       normalizedData = normalizeScriptJson(parseResult.data);
@@ -254,7 +248,6 @@ Please fix and return ONLY valid JSON. ${basePrompt}`;
       if (!validation.valid) {
         lastParseError = undefined;
         lastValidationErrors = validation.errors;
-        console.log(`Validation failed on attempt ${attempt}: ${validation.errors.join(", ")}`);
         continue; // Retry
       }
 

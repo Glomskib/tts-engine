@@ -125,8 +125,6 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     numOutputs = 1,
   } = params;
 
-  console.log('[Replicate] generateImages called with:', { model, style, aspectRatio, numOutputs });
-
   const replicate = getReplicateClient();
   const modelConfig = IMAGE_MODELS[model];
 
@@ -134,8 +132,6 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     console.error('[Replicate] Invalid model key:', model);
     throw new Error(`Invalid model: ${model}. Valid models: ${Object.keys(IMAGE_MODELS).join(', ')}`);
   }
-
-  console.log('[Replicate] Model config:', { key: model, id: modelConfig.id, name: modelConfig.name });
 
   const dimensions = ASPECT_RATIOS.find(ar => ar.value === aspectRatio) || ASPECT_RATIOS[1];
   const styleConfig = style ? IMAGE_STYLES.find(s => s.value === style) : null;
@@ -170,15 +166,7 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
 
   let output: unknown;
   try {
-    console.log('[Replicate] Calling replicate.run with:');
-    console.log('[Replicate]   Model ID:', modelConfig.id);
-    console.log('[Replicate]   Input:', JSON.stringify(input, null, 2));
-
     output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
-
-    console.log('[Replicate] API call successful');
-    console.log('Replicate raw output:', JSON.stringify(output));
-    console.log('[Replicate] Output type:', typeof output, Array.isArray(output) ? `(array of ${(output as unknown[]).length})` : '');
   } catch (runError) {
     console.error('[Replicate] API call failed!');
     console.error('[Replicate] Model ID was:', modelConfig.id);
@@ -273,12 +261,6 @@ export async function generateImageFromImage(params: GenerateImageFromImageParam
     negativePrompt,
   } = params;
 
-  console.log('[Replicate] generateImageFromImage called with:', {
-    prompt: prompt.substring(0, 50),
-    sourceImageUrl: sourceImageUrl.substring(0, 50),
-    strength
-  });
-
   const replicate = getReplicateClient();
 
   // Get style modifier
@@ -303,16 +285,10 @@ export async function generateImageFromImage(params: GenerateImageFromImageParam
 
   let output: unknown;
   try {
-    console.log('[Replicate] Calling SDXL img2img with:');
-    console.log('[Replicate]   Input:', JSON.stringify({ ...input, image: '[source image url]' }, null, 2));
-
     output = await replicate.run(
       "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
       { input }
     );
-
-    console.log('[Replicate] img2img API call successful');
-    console.log('Replicate raw output:', JSON.stringify(output));
   } catch (runError) {
     console.error('[Replicate] img2img API call failed!');
     console.error('[Replicate] Error:', runError);

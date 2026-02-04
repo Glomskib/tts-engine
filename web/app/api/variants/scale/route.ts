@@ -213,8 +213,8 @@ async function executeScalingBackground(
   googleDriveUrl?: string
 ): Promise<{ childVariants: ChildVariantRecord[], createdVideos: VideoRecord[] }> {
   try {
-    console.log(`[${correlationId}] Starting background scaling execution`);
-    
+    console.info(`[${correlationId}] Starting background scaling execution`);
+
     const childVariants = [];
     const createdVideos = [];
 
@@ -239,8 +239,6 @@ async function executeScalingBackground(
           drive_folder_url: googleDriveUrl || null
         };
         
-        console.log(`[${correlationId}] Creating child variant with payload:`, childPayload);
-        
         const { data: childVariant, error: childError } = await supabaseAdmin
           .from('variants')
           .insert(childPayload)
@@ -252,7 +250,6 @@ async function executeScalingBackground(
           continue;
         }
 
-        console.log(`[${correlationId}] Created child variant:`, childVariant.id);
         childVariants.push(childVariant);
 
         // Create videos for each account if requested
@@ -268,7 +265,6 @@ async function executeScalingBackground(
               .single();
 
             if (existingVideo) {
-              console.log(`[${correlationId}] Video already exists for variant ${childVariant.id}, account ${accountId}`);
               continue;
             }
 
@@ -279,8 +275,6 @@ async function executeScalingBackground(
               google_drive_url: googleDriveUrl?.trim() || null
             };
 
-            console.log(`[${correlationId}] Creating video with payload:`, videoPayload);
-
             const { data: newVideo, error: videoError } = await supabaseAdmin
               .from('videos')
               .insert(videoPayload)
@@ -289,7 +283,6 @@ async function executeScalingBackground(
 
             if (!videoError && newVideo) {
               createdVideos.push(newVideo);
-              console.log(`[${correlationId}] Created video:`, newVideo.id);
             } else {
               console.error(`[${correlationId}] Failed to create video:`, videoError);
             }
@@ -307,7 +300,7 @@ async function executeScalingBackground(
       })
       .eq('id', iterationGroupId);
 
-    console.log(`[${correlationId}] Background scaling completed: ${childVariants.length} variants, ${createdVideos.length} videos`);
+    console.info(`[${correlationId}] Background scaling completed: ${childVariants.length} variants, ${createdVideos.length} videos`);
 
     return { childVariants, createdVideos };
 
@@ -332,8 +325,6 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
   
   try {
-    console.log(`[${correlationId}] Starting scaling request`);
-    
     const body = await request.json();
     const {
       winner_variant_id,
@@ -348,11 +339,8 @@ export async function POST(request: NextRequest) {
     // Use winner_variant_id as canonical, fallback to winnerVariantId
     const winnerVariantIdValue = winner_variant_id || winnerVariantId;
 
-    console.log(`[${correlationId}] Received winner_variant_id: ${winnerVariantIdValue}`);
-
     // Validate required fields with detailed error messages
     if (!winnerVariantIdValue || typeof winnerVariantIdValue !== 'string' || winnerVariantIdValue.trim() === '') {
-      console.log(`[${correlationId}] Validation failed: winner_variant_id is empty or invalid`);
       return NextResponse.json(
         { ok: false, error: 'winner_variant_id is required and must be a non-empty string', correlation_id: correlationId },
         { status: 400 }
@@ -362,7 +350,6 @@ export async function POST(request: NextRequest) {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(winnerVariantIdValue.trim())) {
-      console.log(`[${correlationId}] Validation failed: winner_variant_id is not a valid UUID`);
       return NextResponse.json(
         { ok: false, error: 'winner_variant_id must be a valid UUID', correlation_id: correlationId },
         { status: 400 }
@@ -370,7 +357,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (!Array.isArray(change_types) || change_types.length === 0) {
-      console.log(`[${correlationId}] Validation failed: change_types is empty or invalid`);
       return NextResponse.json(
         { ok: false, error: 'change_types is required and must be a non-empty array', correlation_id: correlationId },
         { status: 400 }
@@ -380,7 +366,6 @@ export async function POST(request: NextRequest) {
     // Validate change types
     for (const changeType of change_types) {
       if (!VALID_CHANGE_TYPES.includes(changeType)) {
-        console.log(`[${correlationId}] Validation failed: invalid change_type ${changeType}`);
         return NextResponse.json(
           { ok: false, error: `Invalid change_type: ${changeType}. Valid types: ${VALID_CHANGE_TYPES.join(', ')}`, correlation_id: correlationId },
           { status: 400 }
@@ -389,7 +374,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (!count_per_type || typeof count_per_type !== 'number' || count_per_type < 1 || count_per_type > 20) {
-      console.log(`[${correlationId}] Validation failed: count_per_type is invalid`);
       return NextResponse.json(
         { ok: false, error: 'count_per_type must be a number between 1 and 20', correlation_id: correlationId },
         { status: 400 }
@@ -398,7 +382,6 @@ export async function POST(request: NextRequest) {
 
     // Validate account_ids if provided
     if (account_ids && (!Array.isArray(account_ids) || account_ids.some(id => typeof id !== 'string' || id.trim() === ''))) {
-      console.log(`[${correlationId}] Validation failed: account_ids contains invalid values`);
       return NextResponse.json(
         { ok: false, error: 'account_ids must be an array of non-empty strings', correlation_id: correlationId },
         { status: 400 }
@@ -407,14 +390,11 @@ export async function POST(request: NextRequest) {
 
     // If account_ids provided, google_drive_url is required
     if (account_ids && account_ids.length > 0 && (!google_drive_url || typeof google_drive_url !== 'string' || google_drive_url.trim() === '')) {
-      console.log(`[${correlationId}] Validation failed: google_drive_url required when account_ids provided`);
       return NextResponse.json(
         { ok: false, error: 'google_drive_url is required and must be non-empty when account_ids are provided', correlation_id: correlationId },
         { status: 400 }
       );
     }
-
-    console.log(`[${correlationId}] Fetching winner variant: ${winnerVariantIdValue.trim()}`);
 
     // Fetch winner variant with required fields for child creation
     const { data: winnerVariant, error: winnerError } = await supabaseAdmin
@@ -474,8 +454,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[${correlationId}] Fetched winnerVariant.concept_id: ${winnerVariant.concept_id}`);
-
     // Check schema availability
     const iterationGroupsColumns = await getIterationGroupsColumns();
 
@@ -488,8 +466,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create iteration group immediately - direct insert to avoid NULL values
-    console.log(`[${correlationId}] Creating iteration group`);
-    
     const { data: iterationGroup, error: groupError } = await supabaseAdmin
       .from('iteration_groups')
       .insert({
@@ -518,12 +494,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[${correlationId}] Created iteration group: ${iterationGroup.id}`);
+    console.info(`[${correlationId}] Created iteration group: ${iterationGroup.id}`);
 
     if (mode === 'async') {
-      // Return immediately and process in background
-      console.log(`[${correlationId}] Starting async processing`);
-      
       // Generate scaling plan and execute in background
       setImmediate(async () => {
         try {
@@ -554,7 +527,7 @@ export async function POST(request: NextRequest) {
             google_drive_url
           );
 
-          console.log(`[${correlationId}] Async scaling completed: ${results.childVariants.length} variants, ${results.createdVideos.length} videos`);
+          console.info(`[${correlationId}] Async scaling completed: ${results.childVariants.length} variants, ${results.createdVideos.length} videos`);
         } catch (error) {
           console.error(`[${correlationId}] Async processing failed:`, error);
           await supabaseAdmin
@@ -578,8 +551,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Sync mode - generate plan and execute immediately
-    console.log(`[${correlationId}] Sync mode - generating scaling plan`);
-    
     const scalingPlan = await generateScalingPlan(
       winnerVariant,
       null, // concepts

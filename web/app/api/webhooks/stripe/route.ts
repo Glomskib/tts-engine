@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  console.log(`[${correlationId}] Stripe webhook event: ${event.type}`);
+  console.info(`[${correlationId}] Stripe webhook event: ${event.type}`);
 
   try {
     switch (event.type) {
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       }
 
       default:
-        console.log(`[${correlationId}] Unhandled event type: ${event.type}`);
+        console.info(`[${correlationId}] Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
@@ -112,7 +112,7 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     const packageId = session.metadata?.package_id;
     const credits = parseInt(session.metadata?.credits || "0");
 
-    console.log(`[${correlationId}] Credit purchase completed for user ${userId}: ${credits} credits`);
+    console.info(`[${correlationId}] Credit purchase completed for user ${userId}: ${credits} credits`);
 
     // Add credits to user
     const { error: creditError } = await supabaseAdmin.rpc("add_purchased_credits", {
@@ -147,7 +147,7 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     return;
   }
 
-  console.log(`[${correlationId}] Checkout completed for user ${userId}, plan ${planId}, type ${subscriptionType}`);
+  console.info(`[${correlationId}] Checkout completed for user ${userId}, plan ${planId}, type ${subscriptionType}`);
 
   // Get plan details
   const plan = PLAN_DETAILS[planId];
@@ -220,7 +220,7 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
   const subscriptionType = (subscription.metadata?.subscription_type || 'saas') as SubscriptionType;
   const status = subscription.status === "active" ? "active" : subscription.status;
 
-  console.log(`[${correlationId}] Subscription ${subscription.status} for plan ${planId}, type ${subscriptionType}`);
+  console.info(`[${correlationId}] Subscription ${subscription.status} for plan ${planId}, type ${subscriptionType}`);
 
   // Get plan details
   const plan = PLAN_DETAILS[planId];
@@ -258,7 +258,7 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
 }
 
 async function handleSubscriptionCancelled(correlationId: string, subscription: Stripe.Subscription) {
-  console.log(`[${correlationId}] Subscription cancelled: ${subscription.id}`);
+  console.info(`[${correlationId}] Subscription cancelled: ${subscription.id}`);
 
   // Downgrade to free plan
   const { error } = await supabaseAdmin
@@ -302,7 +302,7 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
   const creditsToAdd = plan?.credits || PLAN_CREDITS[planId] || 0;
   const isVideoClient = subscription.subscription_type === 'video_editing';
 
-  console.log(`[${correlationId}] Invoice paid for user ${subscription.user_id}, plan ${planId}, credits ${creditsToAdd}`);
+  console.info(`[${correlationId}] Invoice paid for user ${subscription.user_id}, plan ${planId}, credits ${creditsToAdd}`);
 
   // Reset credits for the new billing period
   const { error } = await supabaseAdmin.from("user_credits").upsert(
@@ -327,7 +327,7 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
   if (isVideoClient) {
     const videosPerMonth = subscription.videos_per_month || PLAN_VIDEOS[planId] || 0;
 
-    console.log(`[${correlationId}] Resetting video quota to ${videosPerMonth} for user ${subscription.user_id}`);
+    console.info(`[${correlationId}] Resetting video quota to ${videosPerMonth} for user ${subscription.user_id}`);
 
     const { error: videoError } = await supabaseAdmin
       .from("user_subscriptions")
@@ -361,7 +361,7 @@ async function handlePaymentFailed(correlationId: string, invoice: Stripe.Invoic
 
   if (!subscriptionId) return;
 
-  console.log(`[${correlationId}] Payment failed for subscription ${subscriptionId}`);
+  console.info(`[${correlationId}] Payment failed for subscription ${subscriptionId}`);
 
   // Update subscription status
   const { error } = await supabaseAdmin

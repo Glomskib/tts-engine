@@ -6,8 +6,6 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function GET() {
-  console.log('=== Replicate Test Endpoint ===');
-
   // Check authentication
   const authContext = await getApiAuthContext();
   if (!authContext.user) {
@@ -20,8 +18,6 @@ export async function GET() {
 
   // Check environment variable
   const apiToken = process.env.REPLICATE_API_TOKEN;
-  console.log('REPLICATE_API_TOKEN exists:', !!apiToken);
-  console.log('REPLICATE_API_TOKEN prefix:', apiToken?.substring(0, 5) || 'N/A');
 
   if (!apiToken) {
     return NextResponse.json({
@@ -47,7 +43,6 @@ export async function GET() {
   let replicate: Replicate;
   try {
     replicate = new Replicate({ auth: apiToken });
-    console.log('Replicate client initialized');
   } catch (initError) {
     console.error('Client initialization error:', initError);
     return NextResponse.json({
@@ -60,8 +55,6 @@ export async function GET() {
 
   // Try a simple API call (get models list instead of running a model)
   try {
-    console.log('Testing Replicate connection...');
-
     // Use a quick, low-cost test generation
     const output = await replicate.run(
       'black-forest-labs/flux-schnell',
@@ -75,10 +68,6 @@ export async function GET() {
         },
       }
     );
-
-    console.log('Test generation succeeded');
-    console.log('Output type:', typeof output);
-    console.log('Output:', JSON.stringify(output).substring(0, 200));
 
     // Extract URL
     let imageUrl: string | null = null;

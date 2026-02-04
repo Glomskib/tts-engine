@@ -1,7 +1,8 @@
 /**
  * Winners Bank API Functions
  *
- * Database operations for the winners system
+ * Database operations for the winners system.
+ * All column names match the actual winners_bank table.
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -13,21 +14,20 @@ import type { Winner, WinnerPatterns, WinnersIntelligence, CreateWinnerInput, Up
 export async function fetchWinners(
   userId: string,
   options: {
-    sourceType?: 'our_script' | 'external';
+    sourceType?: 'generated' | 'external';
     category?: string;
     tag?: string;
     sort?: 'performance_score' | 'views' | 'engagement' | 'recent';
     limit?: number;
   } = {}
 ): Promise<{ winners: Winner[]; error?: string }> {
-  const { sourceType, category, tag, sort = 'performance_score', limit = 20 } = options;
+  const { sourceType, category, sort = 'performance_score', limit = 20 } = options;
 
   try {
     let query = supabaseAdmin
       .from('winners_bank')
       .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true);
+      .eq('user_id', userId);
 
     if (sourceType) {
       query = query.eq('source_type', sourceType);
@@ -37,14 +37,10 @@ export async function fetchWinners(
       query = query.eq('product_category', category);
     }
 
-    if (tag) {
-      query = query.contains('tags', [tag]);
-    }
-
     // Sorting
     switch (sort) {
       case 'views':
-        query = query.order('views', { ascending: false, nullsFirst: false });
+        query = query.order('view_count', { ascending: false, nullsFirst: false });
         break;
       case 'engagement':
         query = query.order('engagement_rate', { ascending: false, nullsFirst: false });
@@ -154,7 +150,7 @@ export async function updateWinner(
 }
 
 /**
- * Delete (soft-delete) a winner entry
+ * Delete a winner entry (hard delete — table has no is_active column)
  */
 export async function deleteWinner(
   winnerId: string,
@@ -163,7 +159,7 @@ export async function deleteWinner(
   try {
     const { error } = await supabaseAdmin
       .from('winners_bank')
-      .update({ is_active: false })
+      .delete()
       .eq('id', winnerId)
       .eq('user_id', userId);
 
@@ -236,7 +232,8 @@ export async function fetchWinnersIntelligence(
 }
 
 /**
- * Update winner with AI analysis
+ * Update winner with AI analysis results.
+ * Stores analysis in ai_analysis and extracted patterns in patterns.
  */
 export async function updateWinnerAnalysis(
   winnerId: string,
@@ -248,8 +245,7 @@ export async function updateWinnerAnalysis(
       .from('winners_bank')
       .update({
         ai_analysis: analysis,
-        ai_analyzed_at: new Date().toISOString(),
-        extracted_patterns: extractedPatterns,
+        patterns: extractedPatterns,
       })
       .eq('id', winnerId);
 

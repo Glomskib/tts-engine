@@ -1,7 +1,8 @@
 /**
  * Winners Bank Context Builder
  *
- * Builds prompt context from winners intelligence for script generation
+ * Builds prompt context from winners intelligence for script generation.
+ * Field names match the actual winners_bank table columns.
  */
 
 import type { Winner, WinnersIntelligence } from './types';
@@ -24,8 +25,8 @@ Analyzing ${intelligence.totalCount} of your highest-performing videos:
   const topWinners = winners.slice(0, 5);
   context += `TOP PERFORMING HOOKS:\n`;
   topWinners.forEach((w, i) => {
-    context += `${i + 1}. "${w.hook_text || 'Unknown hook'}"
-   - Views: ${w.views?.toLocaleString() || 'N/A'} | Engagement: ${w.engagement_rate?.toFixed(1) || 'N/A'}%
+    context += `${i + 1}. "${w.hook || 'Unknown hook'}"
+   - Views: ${w.view_count?.toLocaleString() || 'N/A'} | Engagement: ${w.engagement_rate?.toFixed(1) || 'N/A'}%
    - Hook type: ${w.hook_type || 'Unknown'} | Format: ${w.content_format || 'Unknown'}
 `;
     if (w.ai_analysis?.hook_analysis?.pattern) {
@@ -101,14 +102,14 @@ export function buildWinnerVariationPrompt(winner: Winner): string {
 You're creating a fresh variation of this PROVEN winner. Keep what works, make it new.
 
 ORIGINAL WINNING CONTENT:
-Hook: "${winner.hook_text || 'No hook recorded'}"
+Hook: "${winner.hook || 'No hook recorded'}"
 Format: ${winner.content_format || 'Unknown'}
-Product: ${winner.product_name || 'Unknown'}
+Category: ${winner.product_category || 'Unknown'}
 
 PERFORMANCE DATA:
-- Views: ${winner.views?.toLocaleString() || 'N/A'}
+- Views: ${winner.view_count?.toLocaleString() || 'N/A'}
 - Engagement: ${winner.engagement_rate?.toFixed(1) || 'N/A'}%
-- Watch completion: ${winner.retention_full?.toFixed(1) || 'N/A'}%
+- Retention 5s: ${winner.retention_5s?.toFixed(1) || 'N/A'}%
 
 ${winner.ai_analysis ? `
 WHY IT WORKED (AI Analysis):
@@ -118,8 +119,8 @@ HOOK PATTERN: ${winner.ai_analysis.hook_analysis?.pattern || 'Unknown'}
 CONTENT PATTERN: ${winner.ai_analysis.patterns?.content_pattern || 'Unknown'}
 ` : ''}
 
-${winner.user_notes ? `
-CREATOR'S INSIGHT: "${winner.user_notes}"
+${winner.notes ? `
+CREATOR'S INSIGHT: "${winner.notes}"
 ` : ''}
 
 YOUR MISSION:

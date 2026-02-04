@@ -11,46 +11,37 @@ import {
 
 export const runtime = 'nodejs';
 
-// Schema for updating a winner
+// Schema for updating a winner — field names match winners_bank table
 const UpdateWinnerSchema = z.object({
-  // Video details
-  tiktok_url: z.string().url().optional(),
-  video_title: z.string().max(255).optional(),
-  thumbnail_url: z.string().url().optional(),
-  posted_at: z.string().optional(),
-
-  // Creator info
-  creator_handle: z.string().max(100).optional(),
-  creator_niche: z.string().max(100).optional(),
-
-  // Metrics
-  views: z.number().int().min(0).optional(),
-  likes: z.number().int().min(0).optional(),
-  comments: z.number().int().min(0).optional(),
-  shares: z.number().int().min(0).optional(),
-  saves: z.number().int().min(0).optional(),
-
-  // Retention
-  avg_watch_time_seconds: z.number().min(0).optional(),
-  avg_watch_time_percent: z.number().min(0).max(100).optional(),
-  retention_3s: z.number().min(0).max(100).optional(),
-  retention_half: z.number().min(0).max(100).optional(),
-  retention_full: z.number().min(0).max(100).optional(),
-
   // Content
-  product_name: z.string().max(255).optional(),
-  product_category: z.string().max(100).optional(),
-  hook_text: z.string().optional(),
+  hook: z.string().optional(),
+  full_script: z.string().optional(),
+  video_url: z.string().url().optional(),
+  thumbnail_url: z.string().url().optional(),
+  notes: z.string().optional(),
+
+  // Categorization
   hook_type: z.string().max(50).optional(),
   content_format: z.string().max(50).optional(),
-  video_length_seconds: z.number().int().min(0).optional(),
+  product_category: z.string().max(100).optional(),
 
-  // User insights
-  user_notes: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  // Metrics
+  view_count: z.number().int().min(0).optional(),
+  like_count: z.number().int().min(0).optional(),
+  comment_count: z.number().int().min(0).optional(),
+  share_count: z.number().int().min(0).optional(),
+  save_count: z.number().int().min(0).optional(),
+  engagement_rate: z.number().min(0).optional(),
 
-  // Status
-  is_active: z.boolean().optional(),
+  // Retention
+  retention_1s: z.number().min(0).max(100).optional(),
+  retention_3s: z.number().min(0).max(100).optional(),
+  retention_5s: z.number().min(0).max(100).optional(),
+  retention_10s: z.number().min(0).max(100).optional(),
+  avg_watch_time: z.number().min(0).optional(),
+
+  // Timestamps
+  posted_at: z.string().optional(),
 });
 
 /**
@@ -159,7 +150,7 @@ export async function PATCH(
 
 /**
  * DELETE /api/winners/[id]
- * Soft-delete a winner (sets is_active = false)
+ * Delete a winner
  */
 export async function DELETE(
   request: NextRequest,

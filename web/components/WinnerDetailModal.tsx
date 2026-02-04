@@ -55,9 +55,6 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
     }
 
     // Pass product info if available
-    if (winner.product_name) {
-      params.set('product_name', winner.product_name);
-    }
     if (winner.product_category) {
       params.set('product_category', winner.product_category);
     }
@@ -67,7 +64,7 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
     onClose();
   };
 
-  const isOurScript = winner.source_type === 'our_script';
+  const isOurScript = winner.source_type === 'generated';
   const analysis = winner.ai_analysis;
 
   const formatNumber = (num?: number | null) => {
@@ -125,11 +122,10 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">
-                {winner.video_title || (isOurScript ? 'Our Script Winner' : 'Reference Winner')}
+                {isOurScript ? 'Our Script Winner' : 'Reference Winner'}
               </h2>
               <p className="text-sm text-zinc-400">
-                {isOurScript ? 'Generated Script' : `@${winner.creator_handle || 'Unknown Creator'}`}
-                {winner.creator_niche && ` · ${winner.creator_niche}`}
+                {isOurScript ? 'Generated Script' : 'External Reference'}
               </p>
             </div>
           </div>
@@ -170,7 +166,7 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
               <div>
                 <h3 className="text-sm font-medium text-zinc-400 mb-2">Hook</h3>
                 <blockquote className="text-lg text-white border-l-2 border-teal-500 pl-4 italic">
-                  &ldquo;{winner.hook_text || 'No hook captured'}&rdquo;
+                  &ldquo;{winner.hook || 'No hook captured'}&rdquo;
                 </blockquote>
                 {winner.hook_type && (
                   <span className="inline-block mt-2 px-2 py-1 text-xs bg-zinc-800 text-zinc-400 rounded">
@@ -179,10 +175,10 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
                 )}
               </div>
 
-              {/* TikTok Link */}
-              {winner.tiktok_url && (
+              {/* Video Link */}
+              {winner.video_url && (
                 <a
-                  href={winner.tiktok_url}
+                  href={winner.video_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
@@ -197,11 +193,11 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
               <div>
                 <h3 className="text-sm font-medium text-zinc-400 mb-3">Performance Metrics</h3>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                  <MetricCard icon={Eye} label="Views" value={formatNumber(winner.views)} />
-                  <MetricCard icon={Heart} label="Likes" value={formatNumber(winner.likes)} />
-                  <MetricCard icon={MessageCircle} label="Comments" value={formatNumber(winner.comments)} />
-                  <MetricCard icon={Share2} label="Shares" value={formatNumber(winner.shares)} />
-                  <MetricCard icon={Bookmark} label="Saves" value={formatNumber(winner.saves)} />
+                  <MetricCard icon={Eye} label="Views" value={formatNumber(winner.view_count)} />
+                  <MetricCard icon={Heart} label="Likes" value={formatNumber(winner.like_count)} />
+                  <MetricCard icon={MessageCircle} label="Comments" value={formatNumber(winner.comment_count)} />
+                  <MetricCard icon={Share2} label="Shares" value={formatNumber(winner.share_count)} />
+                  <MetricCard icon={Bookmark} label="Saves" value={formatNumber(winner.save_count)} />
                 </div>
 
                 {(winner.engagement_rate || winner.performance_score) && (
@@ -233,59 +229,45 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
               </div>
 
               {/* Retention Data */}
-              {(winner.avg_watch_time_percent || winner.retention_3s) && (
+              {(winner.avg_watch_time || winner.retention_3s) && (
                 <div>
                   <h3 className="text-sm font-medium text-zinc-400 mb-3">Retention</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {winner.avg_watch_time_percent && (
+                    {winner.avg_watch_time != null && (
                       <div className="p-3 bg-zinc-800/50 rounded-lg text-center">
                         <p className="text-xs text-zinc-500 mb-1">Avg Watch</p>
-                        <p className="text-lg font-semibold text-white">{winner.avg_watch_time_percent}%</p>
+                        <p className="text-lg font-semibold text-white">{winner.avg_watch_time}s</p>
                       </div>
                     )}
-                    {winner.retention_3s && (
+                    {winner.retention_3s != null && (
                       <div className="p-3 bg-zinc-800/50 rounded-lg text-center">
                         <p className="text-xs text-zinc-500 mb-1">@ 3 sec</p>
                         <p className="text-lg font-semibold text-white">{winner.retention_3s}%</p>
                       </div>
                     )}
-                    {winner.retention_half && (
+                    {winner.retention_5s != null && (
                       <div className="p-3 bg-zinc-800/50 rounded-lg text-center">
-                        <p className="text-xs text-zinc-500 mb-1">@ 50%</p>
-                        <p className="text-lg font-semibold text-white">{winner.retention_half}%</p>
+                        <p className="text-xs text-zinc-500 mb-1">@ 5 sec</p>
+                        <p className="text-lg font-semibold text-white">{winner.retention_5s}%</p>
                       </div>
                     )}
-                    {winner.retention_full && (
+                    {winner.retention_10s != null && (
                       <div className="p-3 bg-zinc-800/50 rounded-lg text-center">
-                        <p className="text-xs text-zinc-500 mb-1">@ 100%</p>
-                        <p className="text-lg font-semibold text-white">{winner.retention_full}%</p>
+                        <p className="text-xs text-zinc-500 mb-1">@ 10 sec</p>
+                        <p className="text-lg font-semibold text-white">{winner.retention_10s}%</p>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* User Notes */}
-              {winner.user_notes && (
+              {/* Notes */}
+              {winner.notes && (
                 <div>
                   <h3 className="text-sm font-medium text-zinc-400 mb-2">Notes</h3>
                   <p className="text-sm text-zinc-300 bg-zinc-800/50 rounded-lg p-3">
-                    {winner.user_notes}
+                    {winner.notes}
                   </p>
-                </div>
-              )}
-
-              {/* Tags */}
-              {winner.tags && winner.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {winner.tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-1 text-xs bg-zinc-800 text-zinc-400 rounded"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
                 </div>
               )}
             </div>
@@ -442,11 +424,11 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
                 </div>
               )}
 
-              {winner.extracted_patterns && (
+              {winner.patterns && (
                 <div className="p-4 bg-zinc-800/50 rounded-lg">
                   <h3 className="text-sm font-medium text-zinc-400 mb-2">Quick Reference</h3>
                   <pre className="text-xs text-zinc-400 overflow-x-auto">
-                    {JSON.stringify(winner.extracted_patterns, null, 2)}
+                    {JSON.stringify(winner.patterns, null, 2)}
                   </pre>
                 </div>
               )}
@@ -486,11 +468,6 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate }: WinnerD
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <Clock className="w-3.5 h-3.5" />
             Added {new Date(winner.created_at).toLocaleDateString()}
-            {winner.ai_analyzed_at && (
-              <span>
-                · Analyzed {new Date(winner.ai_analyzed_at).toLocaleDateString()}
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-3">
             {/* Generate Similar Script button */}

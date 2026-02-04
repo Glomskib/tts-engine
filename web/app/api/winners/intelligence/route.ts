@@ -54,8 +54,8 @@ export async function GET(request: Request) {
 
 interface WinnersIntelligenceSummary {
   totalWinners: number;
-  ourScripts: number;
-  references: number;
+  generated: number;
+  external: number;
 
   // Metrics
   avgViews: number;
@@ -66,9 +66,6 @@ interface WinnersIntelligenceSummary {
   topHookTypes: Array<{ type: string; count: number; avgEngagement: number }>;
   topContentFormats: Array<{ format: string; count: number; avgEngagement: number }>;
 
-  // Optimal ranges
-  optimalVideoLength: { min: number; max: number; avg: number } | null;
-
   // Common patterns from AI analysis
   commonPatterns: string[];
   patternsToAvoid: string[];
@@ -78,13 +75,12 @@ interface WinnersIntelligenceSummary {
 }
 
 function aggregateIntelligence(winners: Winner[]): WinnersIntelligenceSummary {
-  const ourScripts = winners.filter(w => w.source_type === 'our_script');
-  const references = winners.filter(w => w.source_type === 'external');
+  const generated = winners.filter(w => w.source_type === 'generated');
+  const external = winners.filter(w => w.source_type === 'external');
 
   // Calculate averages
-  const viewsData = winners.filter(w => w.views && w.views > 0).map(w => w.views!);
+  const viewsData = winners.filter(w => w.view_count && w.view_count > 0).map(w => w.view_count!);
   const engagementData = winners.filter(w => w.engagement_rate && w.engagement_rate > 0).map(w => w.engagement_rate!);
-  const lengthData = winners.filter(w => w.video_length_seconds && w.video_length_seconds > 0).map(w => w.video_length_seconds!);
 
   const avgViews = viewsData.length > 0
     ? Math.round(viewsData.reduce((a, b) => a + b, 0) / viewsData.length)
@@ -134,13 +130,6 @@ function aggregateIntelligence(winners: Winner[]): WinnersIntelligenceSummary {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // Optimal video length
-  const optimalVideoLength = lengthData.length >= 3 ? {
-    min: Math.min(...lengthData),
-    max: Math.max(...lengthData),
-    avg: Math.round(lengthData.reduce((a, b) => a + b, 0) / lengthData.length),
-  } : null;
-
   // Extract common patterns from AI analysis
   const allPatterns: string[] = [];
   const allAvoid: string[] = [];
@@ -162,25 +151,24 @@ function aggregateIntelligence(winners: Winner[]): WinnersIntelligenceSummary {
 
   // Top performing hooks
   const topHooks = winners
-    .filter(w => w.hook_text && w.views && w.views > 0)
-    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .filter(w => w.hook && w.view_count && w.view_count > 0)
+    .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
     .slice(0, 5)
     .map(w => ({
-      text: w.hook_text!.substring(0, 80) + (w.hook_text!.length > 80 ? '...' : ''),
-      views: w.views!,
+      text: w.hook!.substring(0, 80) + (w.hook!.length > 80 ? '...' : ''),
+      views: w.view_count!,
       engagement: w.engagement_rate || 0,
     }));
 
   return {
     totalWinners: winners.length,
-    ourScripts: ourScripts.length,
-    references: references.length,
+    generated: generated.length,
+    external: external.length,
     avgViews,
     avgEngagement,
     totalViews,
     topHookTypes,
     topContentFormats,
-    optimalVideoLength,
     commonPatterns,
     patternsToAvoid,
     topHooks,

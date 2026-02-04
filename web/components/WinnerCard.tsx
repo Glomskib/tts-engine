@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, ExternalLink, Eye, Heart, MessageCircle, Sparkles, Clock, TrendingUp } from 'lucide-react';
+import { Trophy, ExternalLink, Eye, Heart, MessageCircle, Sparkles, TrendingUp } from 'lucide-react';
 import type { Winner } from '@/lib/winners';
 
 interface WinnerCardProps {
@@ -9,7 +9,7 @@ interface WinnerCardProps {
 }
 
 export function WinnerCard({ winner, onClick }: WinnerCardProps) {
-  const isOurScript = winner.source_type === 'our_script';
+  const isOurScript = winner.source_type === 'generated';
 
   const formatNumber = (num?: number | null) => {
     if (num === null || num === undefined) return '-';
@@ -60,15 +60,9 @@ export function WinnerCard({ winner, onClick }: WinnerCardProps) {
         <div className="aspect-video bg-zinc-800 relative">
           <img
             src={winner.thumbnail_url}
-            alt={winner.video_title || 'Winner thumbnail'}
+            alt="Winner thumbnail"
             className="w-full h-full object-cover"
           />
-          {winner.video_length_seconds && (
-            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/80 rounded text-xs text-white flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {Math.floor(winner.video_length_seconds / 60)}:{(winner.video_length_seconds % 60).toString().padStart(2, '0')}
-            </div>
-          )}
         </div>
       ) : (
         <div className="aspect-video bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
@@ -81,7 +75,7 @@ export function WinnerCard({ winner, onClick }: WinnerCardProps) {
         {/* Hook Preview */}
         <div>
           <p className="text-sm text-white line-clamp-2 font-medium">
-            &ldquo;{winner.hook_text || 'No hook captured'}&rdquo;
+            &ldquo;{winner.hook || 'No hook captured'}&rdquo;
           </p>
           {winner.hook_type && (
             <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-zinc-800 text-zinc-400 rounded">
@@ -90,32 +84,24 @@ export function WinnerCard({ winner, onClick }: WinnerCardProps) {
           )}
         </div>
 
-        {/* Creator info for external */}
-        {!isOurScript && winner.creator_handle && (
-          <p className="text-xs text-zinc-500">
-            @{winner.creator_handle}
-            {winner.creator_niche && ` · ${winner.creator_niche}`}
-          </p>
-        )}
-
         {/* Metrics Row */}
         <div className="flex items-center gap-4 text-xs text-zinc-400">
-          {winner.views !== null && winner.views !== undefined && (
+          {winner.view_count !== null && winner.view_count !== undefined && (
             <span className="flex items-center gap-1">
               <Eye className="w-3.5 h-3.5" />
-              {formatNumber(winner.views)}
+              {formatNumber(winner.view_count)}
             </span>
           )}
-          {winner.likes !== null && winner.likes !== undefined && (
+          {winner.like_count !== null && winner.like_count !== undefined && (
             <span className="flex items-center gap-1">
               <Heart className="w-3.5 h-3.5" />
-              {formatNumber(winner.likes)}
+              {formatNumber(winner.like_count)}
             </span>
           )}
-          {winner.comments !== null && winner.comments !== undefined && (
+          {winner.comment_count !== null && winner.comment_count !== undefined && (
             <span className="flex items-center gap-1">
               <MessageCircle className="w-3.5 h-3.5" />
-              {formatNumber(winner.comments)}
+              {formatNumber(winner.comment_count)}
             </span>
           )}
           {winner.engagement_rate !== null && winner.engagement_rate !== undefined && (

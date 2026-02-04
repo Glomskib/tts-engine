@@ -1,11 +1,12 @@
 /**
  * Winners Bank Types
  *
- * Unified type definitions for the winners system
+ * Unified type definitions for the winners system.
+ * Field names match the actual winners_bank table columns.
  */
 
 // Source types for winners
-export type WinnerSourceType = 'our_script' | 'external';
+export type WinnerSourceType = 'generated' | 'external';
 
 // Hook types for categorization
 export type HookType =
@@ -35,61 +36,57 @@ export type ContentFormat =
 
 /**
  * Winner record from winners_bank table
+ *
+ * Columns: id, user_id, source_type, script_id,
+ *   hook, full_script, video_url, thumbnail_url, notes,
+ *   hook_type, content_format, product_category,
+ *   view_count, like_count, comment_count, share_count, save_count,
+ *   engagement_rate, retention_1s, retention_3s, retention_5s, retention_10s, avg_watch_time,
+ *   ai_analysis, patterns, performance_score,
+ *   posted_at, created_at, updated_at
  */
 export interface Winner {
   id: string;
   user_id: string;
   source_type: WinnerSourceType;
   script_id?: string | null;
-  skit_id?: string | null;
 
-  // Video details
-  tiktok_url?: string | null;
-  video_title?: string | null;
+  // Content
+  hook?: string | null;
+  full_script?: string | null;
+  video_url?: string | null;
   thumbnail_url?: string | null;
-  posted_at?: string | null;
+  notes?: string | null;
 
-  // Creator info (for external)
-  creator_handle?: string | null;
-  creator_niche?: string | null;
+  // Categorization
+  hook_type?: HookType | null;
+  content_format?: ContentFormat | null;
+  product_category?: string | null;
 
   // Performance metrics
-  views?: number | null;
-  likes?: number | null;
-  comments?: number | null;
-  shares?: number | null;
-  saves?: number | null;
+  view_count?: number | null;
+  like_count?: number | null;
+  comment_count?: number | null;
+  share_count?: number | null;
+  save_count?: number | null;
   engagement_rate?: number | null;
 
   // Retention
-  avg_watch_time_seconds?: number | null;
-  avg_watch_time_percent?: number | null;
+  retention_1s?: number | null;
   retention_3s?: number | null;
-  retention_half?: number | null;
-  retention_full?: number | null;
-
-  // Content analysis
-  product_name?: string | null;
-  product_category?: string | null;
-  hook_text?: string | null;
-  hook_type?: HookType | null;
-  content_format?: ContentFormat | null;
-  video_length_seconds?: number | null;
-
-  // User insights
-  user_notes?: string | null;
-  tags?: string[] | null;
+  retention_5s?: number | null;
+  retention_10s?: number | null;
+  avg_watch_time?: number | null;
 
   // AI analysis
   ai_analysis?: WinnerAIAnalysis | null;
-  ai_analyzed_at?: string | null;
-  extracted_patterns?: ExtractedPatterns | null;
+  patterns?: ExtractedPatterns | null;
 
   // Scoring
   performance_score?: number | null;
 
-  // Meta
-  is_active: boolean;
+  // Timestamps
+  posted_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -174,51 +171,47 @@ export interface WinnersIntelligence {
 
 /**
  * Input for creating a new winner
+ * Field names match the winners_bank table columns.
  */
 export interface CreateWinnerInput {
   source_type: WinnerSourceType;
   script_id?: string;
-  skit_id?: string;
-  tiktok_url?: string;
-  video_title?: string;
-  thumbnail_url?: string;
-  posted_at?: string;
-  creator_handle?: string;
-  creator_niche?: string;
-
-  // Metrics
-  views?: number;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  saves?: number;
-
-  // Retention
-  avg_watch_time_seconds?: number;
-  avg_watch_time_percent?: number;
-  retention_3s?: number;
-  retention_half?: number;
-  retention_full?: number;
 
   // Content
-  product_name?: string;
-  product_category?: string;
-  hook_text?: string;
+  hook?: string;
+  full_script?: string;
+  video_url?: string;
+  thumbnail_url?: string;
+  notes?: string;
+
+  // Categorization
   hook_type?: HookType;
   content_format?: ContentFormat;
-  video_length_seconds?: number;
+  product_category?: string;
 
-  // User insights
-  user_notes?: string;
-  tags?: string[];
+  // Metrics
+  view_count?: number;
+  like_count?: number;
+  comment_count?: number;
+  share_count?: number;
+  save_count?: number;
+  engagement_rate?: number;
+
+  // Retention
+  retention_1s?: number;
+  retention_3s?: number;
+  retention_5s?: number;
+  retention_10s?: number;
+  avg_watch_time?: number;
+
+  // Timestamps
+  posted_at?: string;
 }
 
 /**
  * Input for updating a winner
  */
-export interface UpdateWinnerInput extends Partial<CreateWinnerInput> {
-  is_active?: boolean;
-}
+export interface UpdateWinnerInput extends Partial<CreateWinnerInput> {}
 
 /**
  * Hook type options for UI

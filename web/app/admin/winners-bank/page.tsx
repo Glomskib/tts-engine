@@ -21,7 +21,7 @@ import { WinnerDetailModal } from '@/components/WinnerDetailModal';
 import { MarkAsWinnerModal } from '@/components/MarkAsWinnerModal';
 import { AddExternalWinnerModal } from '@/components/AddExternalWinnerModal';
 
-type SourceFilter = 'all' | 'our_script' | 'external';
+type SourceFilter = 'all' | 'generated' | 'external';
 type SortOption = 'performance_score' | 'views' | 'engagement' | 'recent';
 
 export default function WinnersBankPage() {
@@ -72,10 +72,10 @@ export default function WinnersBankPage() {
       setWinners(fetchedWinners);
 
       // Calculate stats
-      const ourScripts = fetchedWinners.filter(w => w.source_type === 'our_script').length;
+      const ourScripts = fetchedWinners.filter(w => w.source_type === 'generated').length;
       const external = fetchedWinners.filter(w => w.source_type === 'external').length;
       const engagements = fetchedWinners.filter(w => w.engagement_rate).map(w => w.engagement_rate!);
-      const views = fetchedWinners.filter(w => w.views).map(w => w.views!);
+      const views = fetchedWinners.filter(w => w.view_count).map(w => w.view_count!);
 
       setStats({
         total: fetchedWinners.length,
@@ -104,10 +104,10 @@ export default function WinnersBankPage() {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      winner.hook_text?.toLowerCase().includes(query) ||
-      winner.video_title?.toLowerCase().includes(query) ||
-      winner.creator_handle?.toLowerCase().includes(query) ||
-      winner.tags?.some(t => t.toLowerCase().includes(query))
+      winner.hook?.toLowerCase().includes(query) ||
+      winner.product_category?.toLowerCase().includes(query) ||
+      winner.content_format?.toLowerCase().includes(query) ||
+      winner.notes?.toLowerCase().includes(query)
     );
   });
 
@@ -203,7 +203,7 @@ export default function WinnersBankPage() {
         <div className="flex flex-wrap items-center gap-4">
           {/* Source Filter Tabs */}
           <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
-            {(['all', 'our_script', 'external'] as const).map((source) => (
+            {(['all', 'generated', 'external'] as const).map((source) => (
               <button
                 key={source}
                 onClick={() => setSourceFilter(source)}
@@ -213,7 +213,7 @@ export default function WinnersBankPage() {
                     : 'text-zinc-400 hover:text-zinc-300'
                 }`}
               >
-                {source === 'all' ? 'All' : source === 'our_script' ? 'Our Scripts' : 'References'}
+                {source === 'all' ? 'All' : source === 'generated' ? 'Our Scripts' : 'References'}
               </button>
             ))}
           </div>

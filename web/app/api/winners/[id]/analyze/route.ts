@@ -25,7 +25,6 @@ export async function POST(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   // Fetch the winner directly (no auth check since this is internal/async)
-  // In production, you might want to add API key auth for internal calls
   const { data: winner, error: fetchError } = await supabaseAdmin
     .from('winners_bank')
     .select('*')
@@ -38,15 +37,15 @@ export async function POST(
   }
 
   // Check if already analyzed recently (within 24 hours)
-  if (winner.ai_analyzed_at) {
-    const analyzedAt = new Date(winner.ai_analyzed_at);
-    const hoursSinceAnalysis = (Date.now() - analyzedAt.getTime()) / (1000 * 60 * 60);
+  // Use ai_analysis presence + updated_at as proxy since table has no ai_analyzed_at column
+  if (winner.ai_analysis) {
+    const updatedAt = new Date(winner.updated_at);
+    const hoursSinceUpdate = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60);
 
-    if (hoursSinceAnalysis < 24) {
+    if (hoursSinceUpdate < 24) {
       const response = NextResponse.json({
         ok: true,
         message: 'Already analyzed recently',
-        ai_analyzed_at: winner.ai_analyzed_at,
         correlation_id: correlationId,
       });
       response.headers.set('x-correlation-id', correlationId);
@@ -70,7 +69,7 @@ export async function POST(
   // Extract patterns for quick reference
   const extractedPatterns = extractPatternsFromAnalysis(analysis);
 
-  // Save analysis to database
+  // Save analysis to database (ai_analysis + patterns columns)
   const { success, error: updateError } = await updateWinnerAnalysis(
     id,
     analysis as unknown as Record<string, unknown>,
@@ -106,7 +105,7 @@ export async function GET(
 
   const { data: winner, error } = await supabaseAdmin
     .from('winners_bank')
-    .select('id, ai_analysis, ai_analyzed_at, extracted_patterns')
+    .select('id, ai_analysis, patterns')
     .eq('id', id)
     .single();
 
@@ -118,8 +117,7 @@ export async function GET(
     ok: true,
     winner_id: winner.id,
     ai_analysis: winner.ai_analysis,
-    ai_analyzed_at: winner.ai_analyzed_at,
-    extracted_patterns: winner.extracted_patterns,
+    patterns: winner.patterns,
     correlation_id: correlationId,
   });
   response.headers.set('x-correlation-id', correlationId);

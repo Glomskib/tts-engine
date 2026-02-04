@@ -1,7 +1,8 @@
 /**
  * Winners Bank Intelligence
  *
- * AI analysis and pattern extraction for winners
+ * AI analysis and pattern extraction for winners.
+ * Field names match the actual winners_bank table columns.
  */
 
 import type { Winner, WinnerAIAnalysis } from './types';
@@ -13,29 +14,28 @@ export function buildAnalysisPrompt(winner: Winner): string {
   return `Analyze this TikTok video that performed well and explain WHY it worked.
 
 VIDEO DETAILS:
-- Title/Description: ${winner.video_title || 'N/A'}
-- Hook: "${winner.hook_text || 'Not provided'}"
+- Hook: "${winner.hook || 'Not provided'}"
 - Hook Type: ${winner.hook_type || 'Unknown'}
 - Content Format: ${winner.content_format || 'Unknown'}
-- Video Length: ${winner.video_length_seconds || 'Unknown'} seconds
-- Product: ${winner.product_name || 'N/A'} (${winner.product_category || 'N/A'})
-${winner.source_type === 'external' ? `- Creator: @${winner.creator_handle || 'Unknown'} (${winner.creator_niche || 'N/A'})` : ''}
+- Product Category: ${winner.product_category || 'N/A'}
+- Video URL: ${winner.video_url || 'N/A'}
 
 PERFORMANCE METRICS:
-- Views: ${winner.views?.toLocaleString() || 'N/A'}
-- Likes: ${winner.likes?.toLocaleString() || 'N/A'}
-- Comments: ${winner.comments?.toLocaleString() || 'N/A'}
-- Shares: ${winner.shares?.toLocaleString() || 'N/A'}
-- Saves: ${winner.saves?.toLocaleString() || 'N/A'}
+- Views: ${winner.view_count?.toLocaleString() || 'N/A'}
+- Likes: ${winner.like_count?.toLocaleString() || 'N/A'}
+- Comments: ${winner.comment_count?.toLocaleString() || 'N/A'}
+- Shares: ${winner.share_count?.toLocaleString() || 'N/A'}
+- Saves: ${winner.save_count?.toLocaleString() || 'N/A'}
 - Engagement Rate: ${winner.engagement_rate?.toFixed(2) || 'N/A'}%
 
 RETENTION DATA:
-- Avg Watch Time: ${winner.avg_watch_time_percent || 'N/A'}%
-- Watched past 3s: ${winner.retention_3s || 'N/A'}%
-- Watched to half: ${winner.retention_half || 'N/A'}%
-- Watched to end: ${winner.retention_full || 'N/A'}%
+- Avg Watch Time: ${winner.avg_watch_time || 'N/A'}s
+- Retention 1s: ${winner.retention_1s || 'N/A'}%
+- Retention 3s: ${winner.retention_3s || 'N/A'}%
+- Retention 5s: ${winner.retention_5s || 'N/A'}%
+- Retention 10s: ${winner.retention_10s || 'N/A'}%
 
-USER NOTES: ${winner.user_notes || 'None provided'}
+USER NOTES: ${winner.notes || 'None provided'}
 
 Analyze this and return JSON with this EXACT structure:
 {

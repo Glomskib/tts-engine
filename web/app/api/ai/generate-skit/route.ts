@@ -45,6 +45,7 @@ import {
   buildBrandContextPrompt,
 } from "@/lib/ai/brandContext";
 import { buildPainPointsPrompt } from "@/lib/ai/productContext";
+import { getOutputFormatConfig } from "@/lib/ai/outputFormats";
 import type { PainPoint } from "@/lib/ai/painPointGenerator";
 
 export const runtime = "nodejs";
@@ -127,6 +128,9 @@ const GenerateSkitInputSchema = z.object({
   // Winners Bank Intelligence
   winner_id: z.string().uuid().optional(), // Generate variation of this winning script
   use_winners_intelligence: z.boolean().optional().default(true), // Learn from user's winners
+  // Content type identification (drives prompt framing)
+  content_type_id: z.string().max(50).optional(),
+  content_subtype_id: z.string().max(50).optional(),
 }).strict().refine(
   (data) => data.product_id || data.product_name,
   { message: "Either product_id or product_name is required" }
@@ -1418,6 +1422,8 @@ export async function POST(request: Request) {
       winnerVariation,
       brandContextPrompt,
       painPointsPrompt,
+      contentTypeId: input.content_type_id || null,
+      contentSubtypeId: input.content_subtype_id || null,
     });
 
     // Determine variation count (default 3)
@@ -1605,10 +1611,16 @@ interface PromptParams {
   brandContextPrompt: string;
   // Product Pain Points
   painPointsPrompt: string;
+  // Content type identification (drives prompt framing)
+  contentTypeId: string | null;
+  contentSubtypeId: string | null;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId } = params;
+
+  // Get content-type-aware prompt config (defaults to skit if unset)
+  const formatConfig = getOutputFormatConfig(contentTypeId, contentSubtypeId);
 
   // Use new creator persona system if available, otherwise fall back to legacy personas
   const personaGuideline = creatorPersona
@@ -1631,15 +1643,17 @@ function buildSkitPrompt(params: PromptParams): string {
   const winnersContext = buildWinnersContext(winnersIntelligence);
   const winnerVariationSection = winnerVariation ? buildWinnerVariationPrompt(winnerVariation) : "";
   const creativeDirectionSection = creativeDirection
-    ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the skit)\n`
+    ? `\nCREATIVE DIRECTION FROM USER:\n"${creativeDirection}"\n(Incorporate this vibe/style into the script)\n`
     : "";
   const productContextSection = productContext
     ? `\nADDITIONAL PRODUCT INFORMATION:\n${productContext}\n(Use these details to make the product integration more specific and compelling)\n`
     : "";
 
-  return `You are an elite TikTok comedy writer who creates viral product skits. Your content has that "wait I need to show this to everyone" energy.
+  return `${formatConfig.systemIdentity}
 
-${CREATIVE_PRINCIPLES}
+${formatConfig.characterConstraints}
+
+${formatConfig.creativePrinciples}
 
 PRODUCT INFO:
 - Product Name: ${productName}
@@ -1680,9 +1694,9 @@ ${templateSection}
 
 ${COMPLIANCE_REMINDER}
 
-${SKIT_STRUCTURE_TEMPLATE}
+${formatConfig.structureTemplate}
 
-Generate a creative, compliant skit now. Output ONLY valid JSON, no explanation.`;
+Generate a creative, compliant script now. Output ONLY valid JSON, no explanation.`;
 }
 
 // --- Variation Generation ---

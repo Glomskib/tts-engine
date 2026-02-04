@@ -547,6 +547,10 @@ export default function ContentStudioPage() {
       pain_point_focus: selectedPainPoints.length > 0 ? selectedPainPoints : undefined,
       use_audience_language: true,
 
+      // Content type identification (drives prompt framing)
+      content_type_id: selectedContentTypeId,
+      content_subtype_id: selectedSubtypeId || undefined,
+
       // Content format and presentation (mapped to API schema)
       content_format: getContentFormat(),
       actor_type: actorTypeMap[selectedPresentationStyleId] || 'human',

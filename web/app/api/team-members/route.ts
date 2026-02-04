@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
@@ -10,6 +11,12 @@ export const runtime = "nodejs";
  * Fetch all team members for display name mapping.
  */
 export async function GET(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   try {

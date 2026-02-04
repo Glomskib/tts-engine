@@ -22,8 +22,15 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { bulkRenewClaimsForActor } from "@/lib/video-claim";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { getLeaseDurationMinutes } from "@/lib/settings";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   // Extract actor from header
   const actor = request.headers.get("x-actor");
   if (!actor) {

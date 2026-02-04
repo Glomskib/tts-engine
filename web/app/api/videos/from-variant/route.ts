@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { type VideoStatus } from "@/lib/video-pipeline";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,12 @@ export const runtime = "nodejs";
 const INITIAL_STATUS: VideoStatus = "draft";
 
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

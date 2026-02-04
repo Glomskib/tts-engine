@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { singleFlight, generateFlightKey, createConflictResponse, SingleFlightConflictError } from "@/lib/single-flight";
 import { NextResponse } from "next/server";
@@ -1301,6 +1302,12 @@ If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
  * Uses nonce-based no-repeat logic and logs all generations.
  */
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const url = new URL(request.url);
   const debugMode = url.searchParams.get("debug") === "1" || process.env.DEBUG_AI === "1";

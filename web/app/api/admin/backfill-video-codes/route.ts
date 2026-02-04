@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import { generateSlug, generateAccountSlug, formatDateForVideoCode } from "@/lib/createVideoFromProduct";
 
@@ -138,6 +139,14 @@ function extractAccountName(
  * - limit=N: Process only N videos (default: 100, max: 1000)
  */
 export async function POST(request: Request) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 
@@ -272,6 +281,14 @@ export async function POST(request: Request) {
  * Check how many videos need backfilling.
  */
 export async function GET(request: Request) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   try {

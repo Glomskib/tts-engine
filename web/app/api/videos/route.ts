@@ -3,6 +3,7 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { isValidStatus, QUEUE_STATUSES, type VideoStatus } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,12 @@ async function writeVideoEvent(
 const DEFAULT_INITIAL_STATUS: VideoStatus = "needs_edit";
 
 export async function GET(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const account_id = searchParams.get("account_id");
   const status = searchParams.get("status");
@@ -85,6 +92,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   // Generate or read correlation ID
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 

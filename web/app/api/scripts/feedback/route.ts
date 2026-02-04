@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,12 @@ const REJECT_REASONS = [
  * Also increments the corresponding count on script_library
  */
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: CreateFeedbackParams;
@@ -160,6 +167,12 @@ export async function POST(request: Request) {
  * - limit: max results (default 50, max 200)
  */
 export async function GET(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 

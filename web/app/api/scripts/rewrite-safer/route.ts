@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,12 @@ export const runtime = "nodejs";
  * Uses AI to remove risky language and make scripts more TikTok-compliant
  */
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

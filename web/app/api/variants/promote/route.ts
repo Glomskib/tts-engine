@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getVariantsScalingColumns } from '@/lib/scaling-schema';
 import { VARIANT_STATUSES } from '@/lib/schema-migration';
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { variant_id, note } = body;

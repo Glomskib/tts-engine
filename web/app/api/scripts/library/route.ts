@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,12 @@ function hashText(text: string): string {
  * Save an approved script to the library
  */
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: Record<string, unknown>;
@@ -134,6 +141,12 @@ export async function POST(request: Request) {
  * Get scripts from library, optionally filtered by brand/product
  */
 export async function GET(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 

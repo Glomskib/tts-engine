@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import {
   analyzeWinnerWithAI,
   extractPatternsFromAnalysis,
@@ -21,6 +22,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
@@ -100,6 +107,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 

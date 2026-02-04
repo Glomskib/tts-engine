@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -14,6 +15,14 @@ const VALID_CATEGORIES = ["supplements", "beauty", "fitness", "health", "other"]
  * - brand: string (optional) - Filter by brand name
  */
 export async function GET(request: Request) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const brand = searchParams.get("brand");
 
@@ -52,6 +61,14 @@ export async function GET(request: Request) {
  * - notes: string (optional) - Additional notes
  */
 export async function POST(request: Request) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;

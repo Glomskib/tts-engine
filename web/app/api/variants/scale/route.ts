@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getIterationGroupsColumns, VALID_CHANGE_TYPES, ChangeType } from '@/lib/scaling-schema';
 import { generateCorrelationId } from '@/lib/safe-schema';
 
@@ -322,8 +323,14 @@ async function executeScalingBackground(
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = generateCorrelationId();
-  
+
   try {
     const body = await request.json();
     const {

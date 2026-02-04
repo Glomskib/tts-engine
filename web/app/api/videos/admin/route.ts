@@ -1,4 +1,5 @@
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import { createVideoFromProduct, type CreateVideoParams } from "@/lib/createVideoFromProduct";
 
@@ -13,6 +14,14 @@ export const runtime = "nodejs";
  * This endpoint is admin-only and should be protected by middleware.
  */
 export async function POST(request: Request) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;

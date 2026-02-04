@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
@@ -10,6 +11,12 @@ export const runtime = "nodejs";
  * Fetch all active posting accounts for dropdown selection.
  */
 export async function GET(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
   const includeInactive = searchParams.get("include_inactive") === "true";
@@ -55,6 +62,12 @@ export async function GET(request: Request) {
  * Create a new posting account (admin only).
  */
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;

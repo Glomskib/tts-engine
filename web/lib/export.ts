@@ -1,5 +1,9 @@
-// Script Export Utilities
-// Provides multiple export formats for scripts
+/**
+ * Script Export Utilities
+ *
+ * Provides multiple export formats (TXT, Markdown, JSON, CSV) for saved skits,
+ * along with download helpers and clipboard copy support.
+ */
 
 export interface SkitData {
   hook_line: string;
@@ -30,7 +34,12 @@ export interface SavedSkit {
   updated_at?: string;
 }
 
-// Export to plain text
+/**
+ * Export a saved skit to plain text format.
+ * @param skit - The saved skit to export
+ * @param includeMetadata - Whether to include product info and AI scores
+ * @returns Formatted plain text string
+ */
 export function exportToTxt(skit: SavedSkit, includeMetadata = false): string {
   const lines: string[] = [];
 
@@ -83,7 +92,12 @@ export function exportToTxt(skit: SavedSkit, includeMetadata = false): string {
   return lines.join('\n');
 }
 
-// Export to Markdown
+/**
+ * Export a saved skit to Markdown format.
+ * @param skit - The saved skit to export
+ * @param includeMetadata - Whether to include product info and AI scores
+ * @returns Formatted Markdown string
+ */
 export function exportToMarkdown(skit: SavedSkit, includeMetadata = false): string {
   const lines: string[] = [];
 
@@ -143,7 +157,12 @@ export function exportToMarkdown(skit: SavedSkit, includeMetadata = false): stri
   return lines.join('\n');
 }
 
-// Export to JSON
+/**
+ * Export a saved skit to formatted JSON.
+ * @param skit - The saved skit to export
+ * @param includeMetadata - Whether to include all fields or just title and skit_data
+ * @returns JSON string with 2-space indentation
+ */
 export function exportToJson(skit: SavedSkit, includeMetadata = true): string {
   const exportData = includeMetadata ? skit : {
     title: skit.title,
@@ -152,7 +171,11 @@ export function exportToJson(skit: SavedSkit, includeMetadata = true): string {
   return JSON.stringify(exportData, null, 2);
 }
 
-// Export to CSV (for multiple skits)
+/**
+ * Export multiple skits to CSV format.
+ * @param skits - Array of saved skits to export
+ * @returns CSV string with headers
+ */
 export function exportToCsv(skits: SavedSkit[]): string {
   const headers = ['Title', 'Hook', 'Beats', 'CTA', 'Product', 'Brand', 'Score', 'Created'];
   const rows = skits.map(skit => [
@@ -179,7 +202,12 @@ function escapeCSV(str: string): string {
   return str;
 }
 
-// Download helper
+/**
+ * Trigger a browser file download with the given content.
+ * @param content - File content string
+ * @param filename - Download filename
+ * @param mimeType - MIME type for the blob
+ */
 export function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -192,25 +220,28 @@ export function downloadFile(content: string, filename: string, mimeType: string
   URL.revokeObjectURL(url);
 }
 
-// Export handlers
+/** Download a skit as a .txt file. */
 export function downloadAsTxt(skit: SavedSkit, includeMetadata = false) {
   const content = exportToTxt(skit, includeMetadata);
   const filename = `${sanitizeFilename(skit.title)}.txt`;
   downloadFile(content, filename, 'text/plain');
 }
 
+/** Download a skit as a .md file. */
 export function downloadAsMarkdown(skit: SavedSkit, includeMetadata = false) {
   const content = exportToMarkdown(skit, includeMetadata);
   const filename = `${sanitizeFilename(skit.title)}.md`;
   downloadFile(content, filename, 'text/markdown');
 }
 
+/** Download a skit as a .json file. */
 export function downloadAsJson(skit: SavedSkit, includeMetadata = true) {
   const content = exportToJson(skit, includeMetadata);
   const filename = `${sanitizeFilename(skit.title)}.json`;
   downloadFile(content, filename, 'application/json');
 }
 
+/** Download multiple skits as a .csv file. */
 export function downloadAsCsv(skits: SavedSkit[], filename = 'scripts-export') {
   const content = exportToCsv(skits);
   downloadFile(content, `${filename}.csv`, 'text/csv');
@@ -224,7 +255,13 @@ function sanitizeFilename(name: string): string {
     .slice(0, 50);
 }
 
-// Copy to clipboard
+/**
+ * Copy a skit to clipboard in the specified format.
+ * Falls back to execCommand for older browsers.
+ * @param skit - The saved skit to copy
+ * @param format - Output format (txt, md, json)
+ * @returns Whether the copy succeeded
+ */
 export async function copyToClipboard(skit: SavedSkit, format: 'txt' | 'md' | 'json' = 'txt'): Promise<boolean> {
   let content: string;
 

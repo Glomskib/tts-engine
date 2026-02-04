@@ -1,5 +1,10 @@
-// lib/prompt-builder.ts - Comprehensive AI prompt builder
-// Builds the full context prompt for content generation
+/**
+ * Comprehensive AI Prompt Builder
+ *
+ * Builds the full context prompt for content generation by combining
+ * content type, presentation style, product info, audience persona,
+ * pain points, and style instructions into a structured AI prompt.
+ */
 
 import {
   getContentType,
@@ -92,7 +97,12 @@ export interface BuiltPrompt {
   };
 }
 
-// Build the full AI prompt with all context
+/**
+ * Build the full AI prompt with all context assembled from content type,
+ * product, persona, style, and advanced options.
+ * @param context - All content generation parameters
+ * @returns Structured prompt with system/user split and metadata
+ */
 export function buildFullPrompt(context: ContentContext): BuiltPrompt {
   const parts: string[] = [];
 
@@ -424,7 +434,11 @@ export function buildFullPrompt(context: ContentContext): BuiltPrompt {
   };
 }
 
-// Extract B-roll suggestions from a generated script
+/**
+ * Extract B-roll suggestions from a generated script by parsing [B-ROLL: ...] markers.
+ * @param script - Raw script text containing B-roll markers
+ * @returns Array of B-roll suggestion strings
+ */
 export function extractBrollSuggestions(script: string): string[] {
   const brollRegex = /\[B-ROLL:\s*([^\]]+)\]/gi;
   const suggestions: string[] = [];

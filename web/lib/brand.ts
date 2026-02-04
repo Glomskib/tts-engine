@@ -78,13 +78,22 @@ export const supportEmail = BRAND.supportEmail;
 // Plan-based user type detection
 export type UserType = 'creator' | 'agency' | 'admin';
 
+/**
+ * Determine the user type based on plan and admin status.
+ * @param planId - User's subscription plan ID
+ * @param isAdmin - Whether the user is an admin
+ * @returns 'admin', 'agency', or 'creator'
+ */
 export function getUserType(planId: string | undefined, isAdmin: boolean): UserType {
   if (isAdmin) return 'admin';
   if (planId === 'team') return 'agency';
   return 'creator';
 }
 
-// Check if user has access to video production features
+/**
+ * Check if a user has access to video production features.
+ * Only admins and team plan users have access.
+ */
 export function hasVideoProductionAccess(planId: string | undefined, isAdmin: boolean): boolean {
   return isAdmin || planId === 'team';
 }

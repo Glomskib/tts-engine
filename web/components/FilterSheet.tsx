@@ -44,6 +44,7 @@ export function FilterSheet({
       stickyFooter={
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => {
               setFilters({});
               onClose();
@@ -53,6 +54,7 @@ export function FilterSheet({
             Clear All
           </button>
           <button
+            type="button"
             onClick={() => {
               onApply(filters);
               onClose();
@@ -71,6 +73,7 @@ export function FilterSheet({
           <div className="flex flex-wrap gap-2">
             {STATUS_OPTIONS.map((status) => (
               <button
+                type="button"
                 key={status}
                 onClick={() => setFilters({ ...filters, status: status === 'All' ? undefined : status })}
                 className={`

@@ -44,6 +44,7 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
           if (item.isDrawerTrigger) {
             return (
               <button
+                type="button"
                 key={item.label}
                 onClick={onMoreClick}
                 aria-label="Open menu"

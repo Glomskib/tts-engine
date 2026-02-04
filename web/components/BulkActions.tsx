@@ -57,6 +57,7 @@ export function BulkActions({
           {/* Selection count */}
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={selectedIds.length === totalCount ? onClearSelection : onSelectAll}
               className="p-1"
             >
@@ -70,6 +71,7 @@ export function BulkActions({
               {selectedIds.length} selected
             </span>
             <button
+              type="button"
               onClick={onClearSelection}
               className="p-1 hover:bg-zinc-800 rounded"
             >
@@ -83,6 +85,7 @@ export function BulkActions({
           <div className="flex items-center gap-2">
             {onExport && (
               <button
+                type="button"
                 onClick={onExport}
                 className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-white transition-colors"
               >
@@ -94,6 +97,7 @@ export function BulkActions({
             {onTag && (
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setShowTagInput(!showTagInput)}
                   className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-white transition-colors"
                 >
@@ -111,6 +115,7 @@ export function BulkActions({
                       autoFocus
                     />
                     <button
+                      type="button"
                       onClick={() => {
                         if (tagValue) {
                           handleAction('tag', () => onTag(tagValue));
@@ -130,6 +135,7 @@ export function BulkActions({
 
             {customActions.map((action, i) => (
               <button
+                type="button"
                 key={i}
                 onClick={() => handleAction(`custom-${i}`, action.onClick)}
                 disabled={loading === `custom-${i}`}
@@ -146,6 +152,7 @@ export function BulkActions({
 
             {onDelete && (
               <button
+                type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-sm transition-colors"
               >

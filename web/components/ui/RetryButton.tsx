@@ -39,6 +39,7 @@ export function RetryButton({
           </p>
         )}
         <button
+          type="button"
           onClick={handleRetry}
           disabled={isRetrying}
           className="flex items-center gap-2 h-10 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
@@ -52,6 +53,7 @@ export function RetryButton({
 
   return (
     <button
+      type="button"
       onClick={handleRetry}
       disabled={isRetrying}
       className={`flex items-center gap-1.5 text-sm text-teal-400 hover:text-teal-300 transition-colors disabled:opacity-50 ${className}`}
@@ -93,6 +95,7 @@ export function FetchError({ error, onRetry, className = '' }: FetchErrorProps) 
           <p className="text-sm text-zinc-400 mt-1">{message}</p>
           {onRetry && (
             <button
+              type="button"
               onClick={handleRetry}
               disabled={isRetrying}
               className="flex items-center gap-1.5 mt-3 text-sm text-teal-400 hover:text-teal-300 transition-colors disabled:opacity-50"

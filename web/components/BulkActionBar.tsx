@@ -62,6 +62,7 @@ export default function BulkActionBar({
         <div className="flex items-center gap-2">
           {selectedCount < totalCount && (
             <button
+              type="button"
               onClick={onSelectAll}
               className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
             >
@@ -69,6 +70,7 @@ export default function BulkActionBar({
             </button>
           )}
           <button
+            type="button"
             onClick={onDeselectAll}
             className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
           >
@@ -83,6 +85,7 @@ export default function BulkActionBar({
         <div className="flex items-center gap-2">
           {actions.map(action => (
             <button
+              type="button"
               key={action.id}
               onClick={() => handleAction(action)}
               disabled={loading !== null}
@@ -119,6 +122,7 @@ interface BulkSelectCheckboxProps {
 export function BulkSelectCheckbox({ checked, onChange, className = '' }: BulkSelectCheckboxProps) {
   return (
     <button
+      type="button"
       onClick={e => {
         e.stopPropagation();
         onChange(!checked);

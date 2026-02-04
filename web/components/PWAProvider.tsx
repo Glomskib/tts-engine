@@ -124,12 +124,13 @@ function UpdateNotification({ onUpdate, onDismiss }: { onUpdate: () => void; onD
           <p className="text-xs text-blue-200">Refresh to get the latest version</p>
         </div>
         <button
+          type="button"
           onClick={onUpdate}
           className="h-8 px-3 bg-white text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 btn-press"
         >
           Refresh
         </button>
-        <button onClick={onDismiss} className="p-1 hover:bg-blue-500 rounded">
+        <button type="button" onClick={onDismiss} className="p-1 hover:bg-blue-500 rounded">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -168,12 +169,14 @@ export function InstallBanner() {
             </p>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={promptInstall}
                 className="h-9 px-4 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-800 btn-press"
               >
                 Install
               </button>
               <button
+                type="button"
                 onClick={handleDismiss}
                 className="h-9 px-4 text-zinc-400 rounded-lg text-sm font-medium hover:bg-zinc-700"
               >
@@ -182,6 +185,7 @@ export function InstallBanner() {
             </div>
           </div>
           <button
+            type="button"
             onClick={handleDismiss}
             className="p-1 text-zinc-500 hover:text-zinc-300"
             aria-label="Dismiss"

@@ -59,6 +59,7 @@ export default function ExportDropdown({ skit, buttonClassName = '' }: ExportDro
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 ${buttonClassName || 'px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm transition-colors'}`}
       >
@@ -89,6 +90,7 @@ export default function ExportDropdown({ skit, buttonClassName = '' }: ExportDro
           {/* Export Options */}
           <div className="py-1">
             <button
+              type="button"
               onClick={handleCopy}
               className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
             >
@@ -99,6 +101,7 @@ export default function ExportDropdown({ skit, buttonClassName = '' }: ExportDro
             </button>
 
             <button
+              type="button"
               onClick={() => handleExport('txt')}
               className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
             >
@@ -109,6 +112,7 @@ export default function ExportDropdown({ skit, buttonClassName = '' }: ExportDro
             </button>
 
             <button
+              type="button"
               onClick={() => handleExport('md')}
               className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
             >
@@ -119,6 +123,7 @@ export default function ExportDropdown({ skit, buttonClassName = '' }: ExportDro
             </button>
 
             <button
+              type="button"
               onClick={() => handleExport('json')}
               className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
             >

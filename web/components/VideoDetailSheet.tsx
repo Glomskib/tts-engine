@@ -115,7 +115,7 @@ export function VideoDetailSheet({
       {/* Video preview */}
       <div className="aspect-video bg-zinc-800 rounded-xl mb-4 overflow-hidden">
         {video.thumbnail ? (
-          <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+          <img src={video.thumbnail} alt={`Preview for ${video.title || 'video'}`} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-zinc-600">
             No preview

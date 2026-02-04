@@ -62,6 +62,7 @@ export function Pagination({
     <div className={`flex items-center justify-center gap-1 ${className}`}>
       {showFirstLast && (
         <button
+          type="button"
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
           className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -72,6 +73,7 @@ export function Pagination({
       )}
 
       <button
+        type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -88,6 +90,7 @@ export function Pagination({
             </span>
           ) : (
             <button
+              type="button"
               key={page}
               onClick={() => onPageChange(page)}
               className={`min-w-[36px] h-9 px-3 rounded-lg font-medium text-sm transition-colors ${
@@ -105,6 +108,7 @@ export function Pagination({
       </div>
 
       <button
+        type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -115,6 +119,7 @@ export function Pagination({
 
       {showFirstLast && (
         <button
+          type="button"
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
           className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -146,6 +151,7 @@ export function CompactPagination({
   return (
     <div className={`flex items-center justify-between gap-4 ${className}`}>
       <button
+        type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className="flex items-center gap-1 px-3 h-10 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -159,6 +165,7 @@ export function CompactPagination({
       </span>
 
       <button
+        type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         className="flex items-center gap-1 px-3 h-10 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -221,6 +228,7 @@ export function LoadMoreButton({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={isLoading}
       className={`w-full h-12 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 ${className}`}

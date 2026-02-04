@@ -137,6 +137,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       <div className="flex-shrink-0">{style.icon}</div>
       <p className={`text-sm ${style.text} flex-1`}>{toast.message}</p>
       <button
+        type="button"
         onClick={onDismiss}
         className="flex-shrink-0 text-zinc-500 hover:text-zinc-300 transition-colors"
       >

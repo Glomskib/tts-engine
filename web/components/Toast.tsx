@@ -57,6 +57,7 @@ export function Toast({
 
           {undoAction && (
             <button
+              type="button"
               onClick={() => {
                 undoAction();
                 onClose();
@@ -72,6 +73,7 @@ export function Toast({
           )}
 
           <button
+            type="button"
             onClick={onClose}
             className="p-1 flex-shrink-0 hover:bg-zinc-700 rounded"
           >

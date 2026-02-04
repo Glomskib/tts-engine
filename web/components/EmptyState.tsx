@@ -44,6 +44,7 @@ export function EmptyState({
         )}
         {secondaryAction && (
           <button
+            type="button"
             onClick={secondaryAction.onClick}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
           >

@@ -105,6 +105,7 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={menuRef}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
       >
@@ -132,6 +133,7 @@ export default function NotificationBell() {
             <h3 className="font-medium text-white">Notifications</h3>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllAsRead}
                 className="text-xs text-violet-400 hover:text-violet-300"
               >

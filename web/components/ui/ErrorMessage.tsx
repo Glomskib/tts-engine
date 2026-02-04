@@ -25,6 +25,7 @@ export function ErrorMessage({
       <p className="text-sm text-zinc-400 mb-4">{message}</p>
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           className="flex items-center gap-2 h-10 px-4 bg-zinc-800 text-white rounded-lg text-sm font-medium hover:bg-zinc-700 active:bg-zinc-600 transition-colors btn-press"
         >
@@ -50,6 +51,7 @@ export function ErrorMessageCompact({
       <span className="text-sm text-red-400 flex-1">{message}</span>
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 rounded text-xs font-medium hover:bg-red-500/30 transition-colors"
         >

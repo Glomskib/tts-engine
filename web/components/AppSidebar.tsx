@@ -79,6 +79,7 @@ export function AppSidebar({
           </Link>
           {isMobile && (
             <button
+              type="button"
               onClick={onClose}
               className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
             >

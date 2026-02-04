@@ -254,6 +254,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               )}
               {displayResults.map((result, index) => (
                 <button
+                  type="button"
                   key={result.id}
                   onClick={() => handleSelect(result)}
                   onMouseEnter={() => setSelectedIndex(index)}
@@ -288,6 +289,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               </div>
               {recentSearches.map((search, index) => (
                 <button
+                  type="button"
                   key={index}
                   onClick={() => setQuery(search)}
                   className="w-full px-4 py-2 flex items-center gap-3 text-left text-zinc-400 hover:bg-zinc-800"

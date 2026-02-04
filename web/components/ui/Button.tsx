@@ -70,6 +70,7 @@ export function Button({
   const { ...buttonProps } = props as ButtonAsButtonProps;
   return (
     <button
+      type="button"
       className={combinedClassName}
       disabled={disabled || loading}
       {...buttonProps}
@@ -127,6 +128,7 @@ export function IconButton({
 
   return (
     <button
+      type="button"
       className={`inline-flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${variantStyles[variant]} ${iconSizeStyles[size]} ${className}`}
       {...props}
     >

@@ -36,7 +36,7 @@ export function VideoQueueMobile({ videos, onVideoClick }: VideoQueueMobileProps
               {video.thumbnail ? (
                 <img
                   src={video.thumbnail}
-                  alt=""
+                  alt={`Thumbnail for ${video.title || 'video'}`}
                   className="w-20 h-12 rounded-lg object-cover flex-shrink-0"
                 />
               ) : (

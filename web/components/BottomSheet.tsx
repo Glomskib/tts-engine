@@ -124,6 +124,7 @@ export function BottomSheet({
           <h2 id="sheet-title" className="text-lg font-semibold text-white">{title}</h2>
           {showCloseButton && (
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close"
               className="p-2 -mr-2 rounded-lg hover:bg-zinc-800 active:bg-zinc-700 min-h-12 min-w-12 flex items-center justify-center"

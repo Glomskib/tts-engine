@@ -29,6 +29,7 @@ export function EmptyState({
       <p className="text-sm text-zinc-400 max-w-sm mb-6">{description}</p>
       {action && (
         <button
+          type="button"
           onClick={action.onClick}
           className="h-11 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 active:bg-teal-800 transition-colors"
         >

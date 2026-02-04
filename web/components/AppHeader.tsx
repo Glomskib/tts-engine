@@ -52,6 +52,7 @@ export function AppHeader({
       <div className="flex items-center gap-3">
         {/* Hamburger menu - mobile only */}
         <button
+          type="button"
           onClick={onToggleSidebar}
           className="p-2 -ml-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors lg:hidden"
           aria-label="Toggle menu"
@@ -78,6 +79,7 @@ export function AppHeader({
         {/* User menu */}
         <div className="relative" ref={userMenuRef}>
           <button
+            type="button"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
           >
@@ -119,6 +121,7 @@ export function AppHeader({
 
               <div className="border-t border-white/10 pt-1">
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
                 >

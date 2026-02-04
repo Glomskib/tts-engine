@@ -44,6 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
             We encountered an error loading this content.
           </p>
           <button
+            type="button"
             onClick={() => {
               this.setState({ hasError: false });
               window.location.reload();

@@ -93,6 +93,7 @@ export function LowCreditBanner({ threshold = 5, className = '' }: LowCreditBann
             {isFreeUser ? 'Upgrade' : 'Get Credits'}
           </Link>
           <button
+            type="button"
             onClick={handleDismiss}
             className="p-1 hover:bg-white/10 rounded transition-colors"
             aria-label="Dismiss"

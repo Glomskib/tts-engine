@@ -16,13 +16,16 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      throw new Error('TikTok API error');
+      return NextResponse.json(
+        { error: 'TikTok API error' },
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('TikTok oEmbed error:', error);
-    return NextResponse.json({ error: 'Failed to fetch video data' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch video data' }, { status: 502 });
   }
 }

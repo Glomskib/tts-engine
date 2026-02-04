@@ -1,22 +1,37 @@
 # QA Audit Report
 
-Date: 2026-02-03
+Date: 2026-02-03 (Updated after cleanup session)
 
 ## Build Status
 
 | Check | Result | Details |
 |-------|--------|---------|
 | TypeScript (`tsc --noEmit`) | PASS | 0 errors |
-| ESLint (`npm run lint`) | PASS | 0 warnings, 0 errors |
+| ESLint (`npm run lint`) | 61 errors, 33 warnings | See ESLint section below |
 | Production build (`next build`) | PASS | All pages compile |
+
+## ESLint Details
+
+| Category | Count | Notes |
+|----------|-------|-------|
+| `no-unused-vars` | 0 | All fixed in cleanup session |
+| `react/no-unescaped-entities` | ~14 | Apostrophes/quotes in JSX text |
+| `react-hooks/exhaustive-deps` | ~12 | Missing useEffect dependencies (intentional) |
+| `no-explicit-any` | ~7 | TypeScript `any` types in a few files |
+| `no-img-element` | ~9 | External URL images (intentionally not using next/image) |
+| `react-hooks/rules-of-hooks` | ~10 | Conditional hooks in database.types.ts (auto-generated) |
+| `no-require-imports` | ~5 | CommonJS require in config files |
+| Component render errors | ~4 | SidebarContent defined inside render |
 
 ## Code Quality
 
-| Metric | Count | Notes |
-|--------|-------|-------|
-| `console.log` statements | 121 | Mostly in API routes (server-side logging). Not user-facing. |
-| Hardcoded secrets | 0 | No `sk_live`, `sk_test`, or hardcoded passwords found |
-| API routes with auth | ~160/182 | 22 unprotected (see Security section) |
+| Metric | Before | After | Notes |
+|--------|--------|-------|-------|
+| `console.log` statements | 121 | 33 | Remaining are in low-traffic API routes |
+| Unused variables/imports | 327 warnings | 0 | All removed or prefixed |
+| Hardcoded secrets | 0 | 0 | No `sk_live`, `sk_test`, or hardcoded passwords |
+| Buttons without `type` | ~60 | 0 | All buttons now have explicit type attribute |
+| Images without `alt` | 2 | 0 | All images have descriptive alt text |
 
 ## Test Coverage
 
@@ -27,7 +42,14 @@ Date: 2026-02-03
 | E2E tests | NONE |
 | Manual test checklist | Created (`docs/MANUAL_TEST_CHECKLIST.md`) |
 
-## Security Findings
+## Security Status (Post-Cleanup)
+
+### Resolved
+- **Debug/schema routes (8)** - DELETED
+- **Migration routes (4)** - DELETED
+- **Health/schema route (1)** - DELETED
+- **Observability routes (8)** - Auth added via `getApiAuthContext()`
+- **Metrics route (1)** - Auth added via `getApiAuthContext()`
 
 ### No Issues
 - No hardcoded secrets or API keys in source code
@@ -35,52 +57,18 @@ Date: 2026-02-03
 - Stripe webhook uses signature verification
 - RLS policies on all database tables
 
-### Unprotected Routes (Non-User-Facing)
-
-**Debug/Schema routes (7)** - Expose database structure. Should be deleted or admin-gated:
-- `/api/debug/schema`
-- `/api/debug/full-schema`
-- `/api/debug/concepts-schema`
-- `/api/debug/hooks-schema`
-- `/api/debug/scripts-schema`
-- `/api/debug/variants-schema`
-- `/api/debug/videos-schema`
-
-**Migration routes (4)** - Allow unauthenticated schema changes. Should be deleted:
-- `/api/fix-concepts-schema`
-- `/api/manual-fix-concepts`
-- `/api/migrate`
-- `/api/run-migration`
-
-**Observability routes (8)** - Expose operational metrics. Consider admin-gating:
-- `/api/observability/claimed`
-- `/api/observability/health`
-- `/api/observability/ingestion`
-- `/api/observability/queue-health`
-- `/api/observability/queue-summary`
-- `/api/observability/recent-events`
-- `/api/observability/stuck`
-- `/api/observability/throughput`
-
-**Health/Metrics routes (3)** - Low risk:
-- `/api/health` (basic health check, acceptable)
-- `/api/health/schema`
-- `/api/metrics`
-
-**Intentionally public (2)** - Expected, not issues:
-- `/api/tiktok/oembed` (proxy for TikTok embeds)
-- `/api/showcase/videos` (public showcase)
+### Remaining Public Routes (Intentional)
+- `/api/health` - Basic health check (acceptable for monitoring)
+- `/api/tiktok/oembed` - Proxy for TikTok embeds
+- `/api/showcase/videos` - Public video showcase
+- `/api/webhooks/stripe` - Stripe webhook (signature verified)
 
 ## Recommendations
 
-### Pre-Launch (Should Fix)
-1. **Delete debug/schema routes** - Development-only, expose DB structure
-2. **Delete migration routes** - One-time use, dangerous if exposed
-3. **Add admin auth to observability routes** - Useful for ops but should be protected
-
 ### Post-Launch (Nice to Have)
-4. Add unit test framework (Vitest recommended for Next.js)
-5. Add E2E test suite (Playwright recommended)
-6. Clean up `console.log` statements in API routes (replace with structured logger)
-7. Add rate limiting to public API endpoints
-8. Add CSP headers via Next.js middleware
+1. Add unit test framework (Vitest recommended for Next.js)
+2. Add E2E test suite (Playwright recommended)
+3. Add structured logger to replace remaining console.log statements
+4. Add rate limiting to public API endpoints
+5. Fix remaining ESLint warnings (unescaped entities, exhaustive-deps)
+6. Extract SidebarContent from admin layout render function

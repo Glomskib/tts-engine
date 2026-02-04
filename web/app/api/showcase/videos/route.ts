@@ -30,8 +30,9 @@ export async function GET(request: Request) {
     const { data, error } = await query;
 
     if (error) {
+      // Table may not exist yet — return empty so landing page still loads
       console.error('Failed to fetch showcase videos:', error);
-      return NextResponse.json({ ok: false, error: 'Failed to fetch videos' }, { status: 500 });
+      return NextResponse.json({ ok: true, videos: [], count: 0 });
     }
 
     return NextResponse.json({
@@ -41,6 +42,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error('Showcase videos error:', err);
-    return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ ok: true, videos: [], count: 0 });
   }
 }

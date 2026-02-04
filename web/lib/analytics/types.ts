@@ -112,7 +112,7 @@ export const HOOK_TYPE_LABELS: Record<string, string> = {
 };
 
 export const CONTENT_FORMAT_LABELS: Record<string, string> = {
-  skit: 'Skit/Dialogue',
+  skit: 'Comedy Skit (Multi-Person)',
   story: 'Storytelling',
   tutorial: 'Tutorial',
   review: 'Review',

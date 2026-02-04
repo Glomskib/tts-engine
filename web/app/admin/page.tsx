@@ -21,7 +21,7 @@ interface RecentSkit {
 
 const quickAccessCards = [
   {
-    title: 'Skit Generator',
+    title: 'Script Generator',
     description: 'Create AI-powered video scripts',
     href: '/admin/skit-generator',
     icon: (

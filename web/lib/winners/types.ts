@@ -233,7 +233,7 @@ export const HOOK_TYPE_OPTIONS: { value: HookType; label: string; example: strin
  * Content format options for UI
  */
 export const CONTENT_FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
-  { value: 'skit', label: 'Skit/Dialogue' },
+  { value: 'skit', label: 'Comedy Skit (Multi-Person)' },
   { value: 'story', label: 'Storytelling' },
   { value: 'tutorial', label: 'Tutorial/How-To' },
   { value: 'review', label: 'Review/Reaction' },

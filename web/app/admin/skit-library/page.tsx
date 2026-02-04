@@ -214,7 +214,7 @@ export default function SkitLibraryPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        throw new Error(data.message || data.error || "Failed to fetch skits");
+        throw new Error(data.message || data.error || "Failed to fetch scripts");
       }
 
       let fetchedSkits = data.data || [];
@@ -254,7 +254,7 @@ export default function SkitLibraryPage() {
       setPagination(data.pagination || null);
     } catch (err) {
       console.error("Fetch error:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch skits. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to fetch scripts. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -290,7 +290,7 @@ export default function SkitLibraryPage() {
         setExpandedSkit(data.data);
       }
     } catch (err) {
-      console.error("Failed to fetch skit details:", err);
+      console.error("Failed to fetch script details:", err);
     } finally {
       setLoadingDetails(false);
     }
@@ -309,10 +309,10 @@ export default function SkitLibraryPage() {
           setExpandedSkit(null);
         }
       } else {
-        setError(data.error || "Failed to delete skit");
+        setError(data.error || "Failed to delete script");
       }
     } catch {
-      setError("Failed to delete skit");
+      setError("Failed to delete script");
     } finally {
       setDeletingId(null);
     }
@@ -333,6 +333,15 @@ export default function SkitLibraryPage() {
             s.id === skitId ? { ...s, status: newStatus as SavedSkit["status"] } : s
           )
         );
+
+        // When approved, prompt user to create a video in the pipeline
+        if (newStatus === "approved") {
+          const skit = skits.find(s => s.id === skitId);
+          if (skit && !skit.video_id) {
+            handleOpenVideoSheet(skitId);
+            setToast({ message: "Script approved! Create a video to add it to the pipeline.", type: "success" });
+          }
+        }
       } else {
         setError(data.error || "Failed to update status");
       }
@@ -381,7 +390,7 @@ export default function SkitLibraryPage() {
       );
       setSelectedIds(new Set());
     } catch {
-      setError("Failed to update some skits");
+      setError("Failed to update some scripts");
     } finally {
       setBulkActionLoading(false);
     }
@@ -402,7 +411,7 @@ export default function SkitLibraryPage() {
       }
       setSelectedIds(new Set());
     } catch {
-      setError("Failed to delete some skits");
+      setError("Failed to delete some scripts");
     } finally {
       setBulkActionLoading(false);
     }
@@ -425,7 +434,7 @@ export default function SkitLibraryPage() {
       }
 
       if (!fullSkit?.skit_data) {
-        setError("Could not load skit data for duplication");
+        setError("Could not load script data for duplication");
         return;
       }
 
@@ -448,10 +457,10 @@ export default function SkitLibraryPage() {
         // Add to list at top
         setSkits(prev => [data.data, ...prev]);
       } else {
-        setError(data.error || "Failed to duplicate skit");
+        setError(data.error || "Failed to duplicate script");
       }
     } catch {
-      setError("Failed to duplicate skit");
+      setError("Failed to duplicate script");
     } finally {
       setDuplicatingId(null);
     }
@@ -565,7 +574,7 @@ export default function SkitLibraryPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        setError(data.message || 'Failed to score skit');
+        setError(data.message || 'Failed to score script');
         return;
       }
 
@@ -590,7 +599,7 @@ export default function SkitLibraryPage() {
       );
       setExpandedSkit((prev) => prev ? { ...prev, ai_score: aiScore } : null);
     } catch {
-      setError('Failed to score skit');
+      setError('Failed to score script');
     } finally {
       setScoringId(null);
     }
@@ -690,22 +699,22 @@ export default function SkitLibraryPage() {
           Admin
         </Link>
         <span style={{ color: colors.textMuted, margin: "0 8px" }}>/</span>
-        <span style={{ color: colors.text, fontWeight: 500 }}>Skit Library</span>
+        <span style={{ color: colors.text, fontWeight: 500 }}>Script Library</span>
       </nav>
 
       {/* Header */}
       <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: 600, color: colors.text, margin: 0 }}>
-            Skit Library
+            Script Library
             {!loading && (
               <span style={{ fontSize: "16px", fontWeight: 400, color: colors.textMuted, marginLeft: "8px" }}>
-                ({totalCount} skit{totalCount !== 1 ? "s" : ""})
+                ({totalCount} script{totalCount !== 1 ? "s" : ""})
               </span>
             )}
           </h1>
           <p style={{ fontSize: "14px", color: colors.textMuted, marginTop: "4px" }}>
-            Browse, manage, and reuse your saved skits
+            Browse, manage, and reuse your saved scripts
           </p>
         </div>
         {/* Quick Nav Links */}
@@ -722,7 +731,7 @@ export default function SkitLibraryPage() {
               fontWeight: 500,
             }}
           >
-            Create New Skit
+            Create New Script
           </Link>
           <Link
             href="/admin/pipeline"
@@ -811,7 +820,7 @@ export default function SkitLibraryPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ ...inputStyle, flex: "1 1 200px", minWidth: "200px" }}
-            aria-label="Search skits by title"
+            aria-label="Search scripts by title"
           />
 
           {/* Status Filter */}
@@ -857,7 +866,7 @@ export default function SkitLibraryPage() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
             style={{ ...inputStyle, minWidth: "160px" }}
-            aria-label="Sort skits by"
+            aria-label="Sort scripts by"
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>
@@ -882,9 +891,9 @@ export default function SkitLibraryPage() {
             {showAdvancedFilters ? "▼" : "▶"} Filters
           </button>
 
-          {/* New Skit Button */}
+          {/* New Script Button */}
           <Link href="/admin/skit-generator" style={primaryButtonStyle}>
-            + New Skit
+            + New Script
           </Link>
         </div>
 
@@ -1061,14 +1070,14 @@ export default function SkitLibraryPage() {
         <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
           <div style={{ fontSize: "32px", marginBottom: "16px" }}>📝</div>
           <h3 style={{ fontSize: "18px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
-            {totalCount === 0 ? "No skits yet" : "No matches found"}
+            {totalCount === 0 ? "No scripts yet" : "No matches found"}
           </h3>
           <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "16px" }}>
-            {totalCount === 0 ? "Generate your first skit to see it here." : "Try adjusting your search or filters."}
+            {totalCount === 0 ? "Generate your first script to see it here." : "Try adjusting your search or filters."}
           </p>
           {totalCount === 0 && (
             <Link href="/admin/skit-generator" style={primaryButtonStyle}>
-              Create Your First Skit
+              Create Your First Script
             </Link>
           )}
         </div>
@@ -1076,7 +1085,7 @@ export default function SkitLibraryPage() {
         <div>
           {skits.map((skit) => (
             <div key={skit.id} style={cardStyle}>
-              {/* Skit Header */}
+              {/* Script Header */}
               <div
                 onClick={() => handleExpand(skit.id)}
                 style={{ padding: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}
@@ -1365,7 +1374,7 @@ export default function SkitLibraryPage() {
                           </div>
                         ) : (
                           <div style={{ padding: "16px", textAlign: "center", color: colors.textMuted, fontSize: "13px", backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: "6px" }}>
-                            {scoringId === skit.id ? "Getting AI score..." : "No AI score yet. Click 'Get AI Score' to analyze this skit."}
+                            {scoringId === skit.id ? "Getting AI score..." : "No AI score yet. Click 'Get AI Score' to analyze this script."}
                           </div>
                         )}
                       </div>
@@ -1406,7 +1415,7 @@ export default function SkitLibraryPage() {
                           <button type="button"
                             onClick={(e) => { e.stopPropagation(); handleOpenVideoSheet(skit.id); }}
                             disabled={!skit.product_name}
-                            title={!skit.product_name ? "Skit must have a product to create a video" : "Create video from this skit"}
+                            title={!skit.product_name ? "Script must have a product to create a video" : "Create video from this script"}
                             style={{
                               ...secondaryButtonStyle,
                               backgroundColor: "#059669",

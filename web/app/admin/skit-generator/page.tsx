@@ -192,7 +192,7 @@ const DURATION_OPTIONS: { value: TargetDuration; label: string; description: str
 type ContentFormat = 'skit_dialogue' | 'scene_montage' | 'pov_story' | 'product_demo_parody' | 'reaction_commentary' | 'day_in_life';
 
 const CONTENT_FORMAT_OPTIONS: { value: ContentFormat; label: string; description: string }[] = [
-  { value: 'skit_dialogue', label: 'Skit/Dialogue', description: 'Person-to-person comedy scenes with dialogue' },
+  { value: 'skit_dialogue', label: 'Comedy Skit (Multi-Person)', description: 'Person-to-person comedy scenes with dialogue' },
   { value: 'scene_montage', label: 'Scene Montage', description: 'Visual scenes with voiceover narration' },
   { value: 'pov_story', label: 'POV Story', description: 'First-person, natural slice-of-life feel' },
   { value: 'product_demo_parody', label: 'Product Demo Parody', description: 'Infomercial style with intentional comedy' },

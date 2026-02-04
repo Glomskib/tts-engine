@@ -49,8 +49,8 @@ const DEFAULT_TEST_CATEGORIES: TestCategory[] = [
   },
   {
     id: 'skit-library',
-    name: 'Skit Library',
-    description: 'Test the skit library management',
+    name: 'Script Library',
+    description: 'Test the script library management',
     tests: [
       { id: 'sl-1', name: 'List Skits', description: 'View list of saved skits', status: 'pending' },
       { id: 'sl-2', name: 'Search Skits', description: 'Search by title', status: 'pending' },
@@ -109,7 +109,7 @@ const DEFAULT_TEST_CATEGORIES: TestCategory[] = [
       { id: 'mr-2', name: 'Touch Targets', description: 'Buttons are at least 44px', status: 'pending' },
       { id: 'mr-3', name: 'Input Font Size', description: 'Inputs are 16px+ to prevent iOS zoom', status: 'pending' },
       { id: 'mr-4', name: 'Variation Tabs', description: 'Tabs scroll horizontally', status: 'pending' },
-      { id: 'mr-5', name: 'Skit Library Cards', description: 'Cards stack properly on mobile', status: 'pending' },
+      { id: 'mr-5', name: 'Script Library Cards', description: 'Cards stack properly on mobile', status: 'pending' },
       { id: 'mr-6', name: 'Breadcrumbs', description: 'Breadcrumbs visible and usable', status: 'pending' },
       { id: 'mr-7', name: 'Export Buttons', description: 'Export buttons accessible', status: 'pending' },
     ],
@@ -398,7 +398,7 @@ export default function TestCenterPage() {
               fontSize: '13px',
             }}
           >
-            Open Skit Library
+            Open Script Library
           </Link>
           <button type="button"
             onClick={resetAllTests}
@@ -568,7 +568,7 @@ export default function TestCenterPage() {
             Skit Generator
           </Link>
           <Link href="/admin/skit-library" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
-            Skit Library
+            Script Library
           </Link>
           <Link href="/admin/pipeline" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
             Video Pipeline

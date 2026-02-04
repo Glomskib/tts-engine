@@ -149,7 +149,7 @@ export default function ClientPortalPage() {
                 Your invite has been accepted. You now have access to this organization&apos;s portal.
               </div>
             </div>
-            <button
+            <button type="button"
               onClick={() => setShowWelcomeBanner(false)}
               className="text-green-600 hover:text-green-800 p-1"
               aria-label="Dismiss"

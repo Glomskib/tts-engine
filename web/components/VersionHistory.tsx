@@ -86,7 +86,7 @@ export default function VersionHistory({
           <span className="text-sm text-violet-400">
             2 versions selected
           </span>
-          <button
+          <button type="button"
             onClick={handleCompare}
             className="px-3 py-1.5 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-500 transition-colors"
           >
@@ -176,7 +176,7 @@ export default function VersionHistory({
                   {/* Actions */}
                   <div className="flex items-center gap-2 mt-3" onClick={e => e.stopPropagation()}>
                     {onCompare && (
-                      <button
+                      <button type="button"
                         onClick={() => toggleVersionSelect(version.id)}
                         className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                           isSelected
@@ -189,7 +189,7 @@ export default function VersionHistory({
                     )}
 
                     {!isCurrent && (
-                      <button
+                      <button type="button"
                         onClick={() => onRestore(version.id)}
                         className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white transition-colors"
                       >
@@ -197,7 +197,7 @@ export default function VersionHistory({
                       </button>
                     )}
 
-                    <button
+                    <button type="button"
                       onClick={() => setExpandedVersion(isExpanded ? null : version.id)}
                       className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 transition-colors ml-auto"
                     >
@@ -235,7 +235,7 @@ export function VersionCompare({ version1, version2, onClose }: VersionComparePr
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">Compare Versions</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+          <button type="button" onClick={onClose} className="text-zinc-500 hover:text-white transition-colors" aria-label="Close">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>

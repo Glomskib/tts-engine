@@ -332,8 +332,9 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
         padding: '24px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
       }}>
-        <button
+        <button type="button"
           onClick={onClose}
+          aria-label="Close"
           style={{
             position: 'absolute',
             top: '16px',
@@ -429,7 +430,7 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
             >
               View All Plans
             </Link>
-            <button
+            <button type="button"
               onClick={onClose}
               style={{
                 display: 'block',

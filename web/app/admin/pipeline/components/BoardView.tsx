@@ -158,7 +158,7 @@ export default function BoardView({
         </div>
 
         {(filters.brand || filters.product || filters.account) && (
-          <button
+          <button type="button"
             onClick={() => onFiltersChange({ brand: '', product: '', account: '' })}
             style={{
               padding: '6px 12px',

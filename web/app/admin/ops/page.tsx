@@ -181,7 +181,7 @@ export default function OpsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Ops Analytics Dashboard</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <button
+          <button type="button"
             onClick={fetchMetrics}
             disabled={loading}
             style={{
@@ -225,7 +225,7 @@ export default function OpsPage() {
         }}>
           {authUser.email || authUser.id.slice(0, 8)}
         </span>
-        <button
+        <button type="button"
           onClick={async () => {
             const supabase = createBrowserSupabaseClient();
             await supabase.auth.signOut();

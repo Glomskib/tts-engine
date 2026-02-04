@@ -1291,7 +1291,7 @@ export default function AdminPipelinePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Create Video - Primary Action */}
           {isAdminMode && (
-            <button
+            <button type="button"
               onClick={() => setShowCreateDrawer(true)}
               style={{
                 padding: '8px 16px',
@@ -1311,7 +1311,7 @@ export default function AdminPipelinePage() {
           {/* Maintenance Menu */}
           {isAdminMode && (
             <div style={{ position: 'relative' }}>
-              <button
+              <button type="button"
                 onClick={() => setShowMaintenanceMenu(!showMaintenanceMenu)}
                 style={{
                   padding: '8px 12px',
@@ -1346,7 +1346,7 @@ export default function AdminPipelinePage() {
                     minWidth: '160px',
                     overflow: 'hidden',
                   }}>
-                    <button
+                    <button type="button"
                       onClick={() => { fetchData(); fetchQueueVideos(); setShowMaintenanceMenu(false); }}
                       style={{
                         display: 'block',
@@ -1362,7 +1362,7 @@ export default function AdminPipelinePage() {
                     >
                       Refresh
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => { releaseStale(); setShowMaintenanceMenu(false); }}
                       disabled={releasing}
                       style={{
@@ -1380,7 +1380,7 @@ export default function AdminPipelinePage() {
                     >
                       {releasing ? 'Releasing...' : 'Release Stale Claims'}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => { reclaimExpired(); setShowMaintenanceMenu(false); }}
                       disabled={reclaiming}
                       style={{
@@ -1453,7 +1453,7 @@ export default function AdminPipelinePage() {
 
           {/* Stuck items indicator */}
           {queueHealth.stuck_items.length > 0 && (
-            <button
+            <button type="button"
               onClick={() => setFilterIntent('overdue')}
               style={{
                 padding: '4px 10px',
@@ -1520,7 +1520,7 @@ export default function AdminPipelinePage() {
           }}
         />
         {searchQuery && (
-          <button
+          <button type="button"
             onClick={() => setSearchQuery('')}
             style={{
               padding: '4px 8px',
@@ -1556,7 +1556,7 @@ export default function AdminPipelinePage() {
           <span style={{ fontSize: '13px', color: colors.text, fontWeight: 500 }}>
             {selectedVideoIds.size} selected
           </span>
-          <button
+          <button type="button"
             onClick={bulkMarkWinner}
             disabled={bulkActionLoading}
             style={{
@@ -1573,7 +1573,7 @@ export default function AdminPipelinePage() {
           >
             Mark Winner
           </button>
-          <button
+          <button type="button"
             onClick={bulkMarkUnderperform}
             disabled={bulkActionLoading}
             style={{
@@ -1590,7 +1590,7 @@ export default function AdminPipelinePage() {
           >
             Mark Underperform
           </button>
-          <button
+          <button type="button"
             onClick={clearSelection}
             style={{
               padding: '6px 12px',
@@ -1610,7 +1610,7 @@ export default function AdminPipelinePage() {
       {/* Mobile: Header with Filter */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-zinc-800 -mx-4 mb-4">
         <h1 className="text-lg font-semibold text-white">Work Queue</h1>
-        <button
+        <button type="button"
           onClick={() => setFilterSheetOpen(true)}
           className="flex items-center gap-2 px-3 h-10 rounded-lg bg-zinc-800 text-sm text-zinc-300"
         >
@@ -1895,7 +1895,7 @@ export default function AdminPipelinePage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0, color: colors.text }}>Attach Script</h2>
-              <button
+              <button type="button"
                 onClick={closeAttachModal}
                 style={{
                   background: 'none',
@@ -1977,7 +1977,7 @@ export default function AdminPipelinePage() {
                 )}
 
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
+                  <button type="button"
                     onClick={attachScript}
                     disabled={!selectedScriptId || attaching}
                     style={{
@@ -1994,7 +1994,7 @@ export default function AdminPipelinePage() {
                   >
                     {attaching ? 'Attaching...' : 'Attach Script'}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={closeAttachModal}
                     style={{
                       padding: '12px 20px',
@@ -2039,7 +2039,7 @@ export default function AdminPipelinePage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0, color: colors.text }}>Mark as Posted</h2>
-              <button
+              <button type="button"
                 onClick={closePostModal}
                 style={{
                   background: 'none',
@@ -2101,7 +2101,7 @@ export default function AdminPipelinePage() {
             )}
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
+              <button type="button"
                 onClick={submitPost}
                 disabled={!postUrl.trim() || !postPlatform || posting}
                 style={{
@@ -2118,7 +2118,7 @@ export default function AdminPipelinePage() {
               >
                 {posting ? 'Posting...' : 'Mark as Posted'}
               </button>
-              <button
+              <button type="button"
                 onClick={closePostModal}
                 style={{
                   padding: '12px 20px',
@@ -2161,7 +2161,7 @@ export default function AdminPipelinePage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0, color: colors.text }}>Handoff Video</h2>
-              <button
+              <button type="button"
                 onClick={closeHandoffModal}
                 style={{
                   background: 'none',
@@ -2268,7 +2268,7 @@ export default function AdminPipelinePage() {
             )}
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
+              <button type="button"
                 onClick={submitHandoff}
                 disabled={!handoffToUser.trim() || !handoffToRole || handingOff}
                 style={{
@@ -2285,7 +2285,7 @@ export default function AdminPipelinePage() {
               >
                 {handingOff ? 'Handing off...' : 'Handoff'}
               </button>
-              <button
+              <button type="button"
                 onClick={closeHandoffModal}
                 style={{
                   padding: '12px 20px',

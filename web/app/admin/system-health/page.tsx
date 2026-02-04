@@ -131,7 +131,7 @@ export default function SystemHealthPage() {
               />
               Auto-refresh
             </label>
-            <button
+            <button type="button"
               onClick={() => fetchHealth()}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 disabled:opacity-50"

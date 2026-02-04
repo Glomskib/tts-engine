@@ -1220,7 +1220,7 @@ export default function AdminClientOrgsPage() {
                       }}
                     />
                   </div>
-                  <button
+                  <button type="button"
                     onClick={handleSaveBranding}
                     disabled={savingBranding}
                     style={{
@@ -1264,7 +1264,7 @@ export default function AdminClientOrgsPage() {
                     fontSize: '13px',
                   }}
                 />
-                <button
+                <button type="button"
                   onClick={handleCreateProject}
                   disabled={creatingProject || !newProjectName.trim()}
                   style={{
@@ -1331,7 +1331,7 @@ export default function AdminClientOrgsPage() {
                         </div>
                       </div>
                       {!project.is_archived && (
-                        <button
+                        <button type="button"
                           onClick={() => handleArchiveProject(project.project_id)}
                           disabled={archivingProject === project.project_id}
                           style={{
@@ -1392,7 +1392,7 @@ export default function AdminClientOrgsPage() {
                         </option>
                       ))}
                     </select>
-                    <button
+                    <button type="button"
                       onClick={handleAssignToProject}
                       disabled={assigningToProject || !videoIdForProject.trim() || !selectedProjectId}
                       style={{
@@ -1454,7 +1454,7 @@ export default function AdminClientOrgsPage() {
                           {member.role} • {member.user_id.slice(0, 8)}...
                         </div>
                       </div>
-                      <button
+                      <button type="button"
                         onClick={() => handleRevokeMember(member.user_id)}
                         disabled={revokingMember === member.user_id}
                         style={{
@@ -1509,7 +1509,7 @@ export default function AdminClientOrgsPage() {
                     <option value="member">Member</option>
                     <option value="owner">Owner</option>
                   </select>
-                  <button
+                  <button type="button"
                     onClick={() => handleSetMember('add')}
                     disabled={managingMember || !memberUserId.trim()}
                     style={{
@@ -1625,7 +1625,7 @@ export default function AdminClientOrgsPage() {
                         backgroundColor: 'white',
                       }}
                     />
-                    <button
+                    <button type="button"
                       onClick={handleCopyInviteUrl}
                       style={{
                         padding: '6px 10px',
@@ -1680,7 +1680,7 @@ export default function AdminClientOrgsPage() {
                               </div>
                             </div>
                             <div style={{ display: 'flex', gap: '4px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => handleResendInvite(invite.invite_id)}
                                 disabled={resendingInvite === invite.invite_id}
                                 style={{
@@ -1695,7 +1695,7 @@ export default function AdminClientOrgsPage() {
                               >
                                 {resendingInvite === invite.invite_id ? '...' : 'Resend'}
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => handleRevokeInvite(invite.invite_id)}
                                 disabled={revokingInvite === invite.invite_id}
                                 style={{
@@ -1743,7 +1743,7 @@ export default function AdminClientOrgsPage() {
                   boxSizing: 'border-box',
                 }}
               />
-              <button
+              <button type="button"
                 onClick={handleAssignVideo}
                 disabled={assigningVideo || !videoIdToAssign.trim()}
                 style={{

@@ -289,7 +289,7 @@ export default function CalendarPage() {
             <h1 className="text-2xl font-bold text-white mb-2">Content Calendar</h1>
             <p className="text-zinc-400">Schedule and manage your content</p>
           </div>
-          <button
+          <button type="button"
             onClick={() => openModal(new Date())}
             className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
@@ -312,7 +312,7 @@ export default function CalendarPage() {
         {/* Calendar Navigation */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
-            <button
+            <button type="button"
               onClick={() => navigateMonth(-1)}
               className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
             >
@@ -321,7 +321,7 @@ export default function CalendarPage() {
               </svg>
             </button>
             <h2 className="text-xl font-semibold text-white min-w-[200px] text-center">{monthName}</h2>
-            <button
+            <button type="button"
               onClick={() => navigateMonth(1)}
               className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
             >
@@ -343,7 +343,7 @@ export default function CalendarPage() {
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
-            <button
+            <button type="button"
               onClick={goToToday}
               className="px-4 py-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 rounded-lg text-sm transition-colors"
             >
@@ -455,9 +455,10 @@ export default function CalendarPage() {
                 <h3 className="text-lg font-semibold text-white">
                   {selectedPost ? 'Edit Scheduled Post' : 'Schedule New Post'}
                 </h3>
-                <button
+                <button type="button"
                   onClick={closeModal}
                   className="text-zinc-400 hover:text-white"
+                  aria-label="Close"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -531,7 +532,7 @@ export default function CalendarPage() {
               {/* Actions */}
               <div className="flex items-center justify-between p-4 border-t border-white/10">
                 {selectedPost ? (
-                  <button
+                  <button type="button"
                     onClick={handleDelete}
                     className="px-4 py-2 text-red-400 hover:text-red-300 text-sm"
                   >
@@ -541,13 +542,13 @@ export default function CalendarPage() {
                   <div />
                 )}
                 <div className="flex gap-2">
-                  <button
+                  <button type="button"
                     onClick={closeModal}
                     className="px-4 py-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 rounded-lg text-sm"
                   >
                     Cancel
                   </button>
-                  <button
+                  <button type="button"
                     onClick={handleSave}
                     disabled={!formData.title || saving}
                     className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm disabled:opacity-50"

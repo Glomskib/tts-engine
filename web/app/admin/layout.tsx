@@ -242,7 +242,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-2 flex-shrink-0">
               <CreditsBadge compact />
               {/* User avatar - tap to open menu */}
-              <button
+              <button type="button"
                 onClick={() => setUserMenuOpen(true)}
                 className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
               >
@@ -268,9 +268,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     <Image src={BRAND.logo} alt={BRAND.name} width={40} height={40} className="rounded-lg" />
                     <span className="font-bold text-2xl">{BRAND.name}</span>
                   </div>
-                  <button
+                  <button type="button"
                     onClick={() => setSidebarOpen(false)}
                     className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
+                    aria-label="Close sidebar"
                   >
                     <X className="w-7 h-7" />
                   </button>
@@ -290,7 +291,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       <p className="text-base text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
                     </div>
                   </div>
-                  <button
+                  <button type="button"
                     onClick={handleLogout}
                     className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
                   >
@@ -336,7 +337,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     <Zap className="w-7 h-7" />
                     Upgrade Plan
                   </Link>
-                  <button
+                  <button type="button"
                     onClick={handleLogout}
                     className="flex items-center gap-4 w-full px-5 py-5 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
                   >
@@ -395,7 +396,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
                 {/* User menu */}
                 <div className="relative">
-                  <button
+                  <button type="button"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
                   >
@@ -433,7 +434,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           </Link>
                         </div>
                         <div className="border-t border-zinc-800 pt-1">
-                          <button
+                          <button type="button"
                             onClick={handleLogout}
                             className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-zinc-800 transition-colors"
                           >

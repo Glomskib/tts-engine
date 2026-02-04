@@ -464,7 +464,7 @@ export default function AdminRequestsPage() {
           <span style={{ color: '#e67700', fontWeight: 500 }}>
             {breachedCount} request{breachedCount !== 1 ? 's' : ''} past SLA
           </span>
-          <button
+          <button type="button"
             onClick={() => setSlaFilter('BREACHED')}
             style={{
               marginLeft: 'auto',
@@ -620,7 +620,7 @@ export default function AdminRequestsPage() {
                             }}
                           />
                           <div style={{ display: 'flex', gap: '4px' }}>
-                            <button
+                            <button type="button"
                               onClick={() => handleSetStatus(req.request_id, req.org_id, 'REJECTED', rejectReason)}
                               disabled={isActioning}
                               style={{
@@ -636,7 +636,7 @@ export default function AdminRequestsPage() {
                             >
                               Confirm
                             </button>
-                            <button
+                            <button type="button"
                               onClick={() => { setRejectingId(null); setRejectReason(''); }}
                               style={{
                                 padding: '4px 8px',
@@ -655,7 +655,7 @@ export default function AdminRequestsPage() {
                       ) : (
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {req.status === 'SUBMITTED' && (
-                            <button
+                            <button type="button"
                               onClick={() => handleSetStatus(req.request_id, req.org_id, 'IN_REVIEW')}
                               disabled={isActioning}
                               style={{
@@ -674,7 +674,7 @@ export default function AdminRequestsPage() {
                           )}
                           {(req.status === 'SUBMITTED' || req.status === 'IN_REVIEW') && (
                             <>
-                              <button
+                              <button type="button"
                                 onClick={() => handleSetStatus(req.request_id, req.org_id, 'APPROVED')}
                                 disabled={isActioning}
                                 style={{
@@ -690,7 +690,7 @@ export default function AdminRequestsPage() {
                               >
                                 Approve
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => setRejectingId(req.request_id)}
                                 disabled={isActioning}
                                 style={{
@@ -709,7 +709,7 @@ export default function AdminRequestsPage() {
                             </>
                           )}
                           {req.status === 'APPROVED' && (
-                            <button
+                            <button type="button"
                               onClick={() => handleConvert(req.request_id, req.org_id)}
                               disabled={isActioning}
                               style={{
@@ -727,7 +727,7 @@ export default function AdminRequestsPage() {
                             </button>
                           )}
                           {req.status === 'REJECTED' && (
-                            <button
+                            <button type="button"
                               onClick={() => handleSetStatus(req.request_id, req.org_id, 'IN_REVIEW')}
                               disabled={isActioning}
                               style={{

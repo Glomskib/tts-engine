@@ -321,7 +321,7 @@ export default function AdminAnalyticsPage() {
         marginBottom: '20px',
         borderBottom: '2px solid #dee2e6',
       }}>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('content')}
           style={{
             padding: '12px 24px',
@@ -341,7 +341,7 @@ export default function AdminAnalyticsPage() {
           <TrendingUp size={16} />
           Content Performance
         </button>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('pipeline')}
           style={{
             padding: '12px 24px',
@@ -361,7 +361,7 @@ export default function AdminAnalyticsPage() {
           <Video size={16} />
           Pipeline Analytics
         </button>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('winners')}
           style={{
             padding: '12px 24px',
@@ -392,7 +392,7 @@ export default function AdminAnalyticsPage() {
       }}>
         <span style={{ fontSize: '14px', color: '#6c757d' }}>Time Window:</span>
         {[7, 14, 30].map((w) => (
-          <button
+          <button type="button"
             key={w}
             onClick={() => setWindowDays(w)}
             style={{
@@ -529,7 +529,7 @@ export default function AdminAnalyticsPage() {
                 Export Data
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
+                <button type="button"
                   onClick={() => exportContentCsv('scripts')}
                   disabled={contentExporting === 'scripts'}
                   style={{
@@ -544,7 +544,7 @@ export default function AdminAnalyticsPage() {
                 >
                   {contentExporting === 'scripts' ? 'Exporting...' : 'Scripts by Day'}
                 </button>
-                <button
+                <button type="button"
                   onClick={() => exportContentCsv('videos')}
                   disabled={contentExporting === 'videos'}
                   style={{
@@ -559,7 +559,7 @@ export default function AdminAnalyticsPage() {
                 >
                   {contentExporting === 'videos' ? 'Exporting...' : 'Videos by Day'}
                 </button>
-                <button
+                <button type="button"
                   onClick={() => exportContentCsv('credits')}
                   disabled={contentExporting === 'credits'}
                   style={{
@@ -574,7 +574,7 @@ export default function AdminAnalyticsPage() {
                 >
                   {contentExporting === 'credits' ? 'Exporting...' : 'Credit Usage'}
                 </button>
-                <button
+                <button type="button"
                   onClick={() => exportContentCsv('content-types')}
                   disabled={contentExporting === 'content-types'}
                   style={{
@@ -590,7 +590,7 @@ export default function AdminAnalyticsPage() {
                   {contentExporting === 'content-types' ? 'Exporting...' : 'Content Types'}
                 </button>
                 <span style={{ borderLeft: '1px solid #dee2e6', margin: '0 4px' }} />
-                <button
+                <button type="button"
                   onClick={() => exportContentCsv('all-scripts')}
                   disabled={contentExporting === 'all-scripts'}
                   style={{
@@ -605,7 +605,7 @@ export default function AdminAnalyticsPage() {
                 >
                   {contentExporting === 'all-scripts' ? 'Exporting...' : 'All Scripts (Full)'}
                 </button>
-                <button
+                <button type="button"
                   onClick={() => exportContentCsv('video-requests')}
                   disabled={contentExporting === 'video-requests'}
                   style={{
@@ -1019,7 +1019,7 @@ export default function AdminAnalyticsPage() {
               borderBottom: '1px solid #dee2e6',
             }}>
               <h2 style={{ margin: 0, fontSize: '16px' }}>Stage Duration (SLA)</h2>
-              <button
+              <button type="button"
                 onClick={() => exportCsv('stage')}
                 disabled={exporting === 'stage'}
                 style={{
@@ -1129,7 +1129,7 @@ export default function AdminAnalyticsPage() {
               borderBottom: '1px solid #dee2e6',
             }}>
               <h2 style={{ margin: 0, fontSize: '16px' }}>Daily Throughput</h2>
-              <button
+              <button type="button"
                 onClick={() => exportCsv('throughput')}
                 disabled={exporting === 'throughput'}
                 style={{
@@ -1195,7 +1195,7 @@ export default function AdminAnalyticsPage() {
               borderBottom: '1px solid #dee2e6',
             }}>
               <h2 style={{ margin: 0, fontSize: '16px' }}>User Productivity</h2>
-              <button
+              <button type="button"
                 onClick={() => exportCsv('productivity')}
                 disabled={exporting === 'productivity'}
                 style={{

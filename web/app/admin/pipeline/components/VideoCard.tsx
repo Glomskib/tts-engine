@@ -234,7 +234,7 @@ export default function VideoCard({
       }}>
         {/* Primary Action Button */}
         {primaryAction.type !== 'done' && (
-          <button
+          <button type="button"
             onClick={handlePrimaryAction}
             disabled={loading || isClaimedByOther}
             style={{
@@ -262,7 +262,7 @@ export default function VideoCard({
         {!simpleMode && (
           <>
             {isUnclaimed && (
-              <button
+              <button type="button"
                 onClick={handleClaim}
                 disabled={loading}
                 style={{
@@ -280,7 +280,7 @@ export default function VideoCard({
               </button>
             )}
             {isClaimedByMe && (
-              <button
+              <button type="button"
                 onClick={handleRelease}
                 disabled={loading}
                 style={{

@@ -631,7 +631,7 @@ export default function VideoDetailPage() {
         <Link href="/admin/pipeline" style={{ padding: '8px 16px', marginRight: '10px', textDecoration: 'none', color: '#333', border: '1px solid #ccc', borderRadius: '4px', display: 'inline-block' }}>
           &larr; Back to Work Queue
         </Link>
-        <button onClick={fetchData} style={{ padding: '8px 16px' }}>
+        <button type="button" onClick={fetchData} style={{ padding: '8px 16px' }}>
           Refresh
         </button>
       </div>
@@ -731,7 +731,7 @@ export default function VideoDetailPage() {
       <section style={sectionStyle}>
         <h2 style={{ marginTop: 0 }}>Actions</h2>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
+          <button type="button"
             onClick={releaseVideo}
             disabled={!claimedInfo || releasing}
             style={{
@@ -745,7 +745,7 @@ export default function VideoDetailPage() {
           >
             {releasing ? 'Releasing...' : 'Release Claim'}
           </button>
-          <button
+          <button type="button"
             onClick={() => setShowAttachScript(!showAttachScript)}
             style={{
               padding: '8px 16px',
@@ -784,7 +784,7 @@ export default function VideoDetailPage() {
       <section style={{ ...sectionStyle, borderColor: '#e03131', backgroundColor: '#fff5f5' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h2 style={{ marginTop: 0, color: '#c92a2a' }}>Admin Actions</h2>
-          <button
+          <button type="button"
             onClick={() => setShowAdminActions(!showAdminActions)}
             style={{
               padding: '6px 12px',
@@ -849,7 +849,7 @@ export default function VideoDetailPage() {
                     style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-                <button
+                <button type="button"
                   onClick={handleForceStatus}
                   disabled={adminActionLoading || !forceStatusTarget || !forceStatusReason.trim()}
                   style={{
@@ -909,7 +909,7 @@ export default function VideoDetailPage() {
                     style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-                <button
+                <button type="button"
                   onClick={() => clearClaimReason.trim() && setShowConfirmModal('clear-claim')}
                   disabled={adminActionLoading || !clearClaimReason.trim()}
                   style={{
@@ -952,7 +952,7 @@ export default function VideoDetailPage() {
                     style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-                <button
+                <button type="button"
                   onClick={() => resetReason.trim() && setShowConfirmModal('reset')}
                   disabled={adminActionLoading || !resetReason.trim()}
                   style={{
@@ -1000,7 +1000,7 @@ export default function VideoDetailPage() {
                   : `Are you sure you want to ${resetMode === 'expire' ? 'expire' : 'unassign'} this video? This action will be logged.`}
               </p>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <button
+                <button type="button"
                   onClick={() => setShowConfirmModal(null)}
                   style={{
                     padding: '8px 16px',
@@ -1013,7 +1013,7 @@ export default function VideoDetailPage() {
                 >
                   Cancel
                 </button>
-                <button
+                <button type="button"
                   onClick={showConfirmModal === 'clear-claim' ? handleClearClaim : handleResetAssignments}
                   disabled={adminActionLoading}
                   style={{
@@ -1088,7 +1088,7 @@ export default function VideoDetailPage() {
                   <span>Overwrite existing / Force attach unapproved script</span>
                 </label>
               </div>
-              <button
+              <button type="button"
                 onClick={attachScript}
                 disabled={!selectedScriptId || attaching}
                 style={{
@@ -1201,7 +1201,7 @@ export default function VideoDetailPage() {
               <span style={{ fontSize: '13px', color: '#666' }}>
                 {videoDetail?.recorded_at ? (hydrated ? new Date(videoDetail.recorded_at).toLocaleString() : formatDateString(videoDetail.recorded_at)) : '-'}
               </span>
-              <button
+              <button type="button"
                 onClick={() => setTimestampNow('recorded_at')}
                 disabled={savingExecution}
                 style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
@@ -1216,7 +1216,7 @@ export default function VideoDetailPage() {
               <span style={{ fontSize: '13px', color: '#666' }}>
                 {videoDetail?.edited_at ? (hydrated ? new Date(videoDetail.edited_at).toLocaleString() : formatDateString(videoDetail.edited_at)) : '-'}
               </span>
-              <button
+              <button type="button"
                 onClick={() => setTimestampNow('edited_at')}
                 disabled={savingExecution}
                 style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
@@ -1231,7 +1231,7 @@ export default function VideoDetailPage() {
               <span style={{ fontSize: '13px', color: '#666' }}>
                 {videoDetail?.ready_to_post_at ? (hydrated ? new Date(videoDetail.ready_to_post_at).toLocaleString() : formatDateString(videoDetail.ready_to_post_at)) : '-'}
               </span>
-              <button
+              <button type="button"
                 onClick={() => setTimestampNow('ready_to_post_at')}
                 disabled={savingExecution}
                 style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
@@ -1246,7 +1246,7 @@ export default function VideoDetailPage() {
               <span style={{ fontSize: '13px', color: '#666' }}>
                 {videoDetail?.posted_at ? (hydrated ? new Date(videoDetail.posted_at).toLocaleString() : formatDateString(videoDetail.posted_at)) : '-'}
               </span>
-              <button
+              <button type="button"
                 onClick={() => setTimestampNow('posted_at')}
                 disabled={savingExecution}
                 style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
@@ -1261,7 +1261,7 @@ export default function VideoDetailPage() {
               <span style={{ fontSize: '13px', color: '#666' }}>
                 {videoDetail?.rejected_at ? (hydrated ? new Date(videoDetail.rejected_at).toLocaleString() : formatDateString(videoDetail.rejected_at)) : '-'}
               </span>
-              <button
+              <button type="button"
                 onClick={() => setTimestampNow('rejected_at')}
                 disabled={savingExecution}
                 style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
@@ -1438,7 +1438,7 @@ export default function VideoDetailPage() {
         </div>
 
         {/* Save Button */}
-        <button
+        <button type="button"
           onClick={saveExecution}
           disabled={savingExecution}
           style={{
@@ -1503,7 +1503,7 @@ export default function VideoDetailPage() {
             <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
               ({timelineItems.length} items)
             </span>
-            <button
+            <button type="button"
               onClick={fetchTimeline}
               disabled={timelineLoading}
               style={{

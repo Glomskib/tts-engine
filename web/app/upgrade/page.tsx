@@ -80,7 +80,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="border border-white/10 rounded-lg overflow-hidden">
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-zinc-900/50 transition-colors"
       >
@@ -242,7 +242,7 @@ export default function UpgradePage() {
               <div>
                 <p className="text-red-400 font-medium">Checkout Failed</p>
                 <p className="text-red-300/80 text-sm mt-1">{checkoutError}</p>
-                <button
+                <button type="button"
                   onClick={() => setCheckoutError(null)}
                   className="text-xs text-red-400 hover:text-red-300 mt-2 underline"
                 >
@@ -256,7 +256,7 @@ export default function UpgradePage() {
         {/* Tab Switcher */}
         <div className="flex justify-center mb-10">
           <div className="inline-flex bg-zinc-900/50 p-1 rounded-xl border border-white/10">
-            <button
+            <button type="button"
               onClick={() => setActiveTab('saas')}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                 activeTab === 'saas'
@@ -267,7 +267,7 @@ export default function UpgradePage() {
               <Sparkles className="w-4 h-4" />
               AI Tools
             </button>
-            <button
+            <button type="button"
               onClick={() => setActiveTab('video')}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                 activeTab === 'video'
@@ -322,7 +322,7 @@ export default function UpgradePage() {
                     ) : plan.id === 'free' ? (
                       <div className="text-center text-sm text-zinc-500 py-2.5">Free Forever</div>
                     ) : (
-                      <button
+                      <button type="button"
                         onClick={() => handleSubscribe(plan.id as PlanName)}
                         disabled={checkoutLoading === plan.id}
                         className={`w-full py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
@@ -424,7 +424,7 @@ export default function UpgradePage() {
                           Current Plan
                         </div>
                       ) : (
-                        <button
+                        <button type="button"
                           onClick={() => handleSubscribe(plan.id as PlanName)}
                           disabled={checkoutLoading === plan.id}
                           className={`w-full py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${

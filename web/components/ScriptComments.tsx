@@ -170,7 +170,7 @@ export default function ScriptComments({ skitId, isOwner = false, className = ''
         </h3>
 
         {resolvedCount > 0 && (
-          <button
+          <button type="button"
             onClick={() => setShowResolved(!showResolved)}
             className="text-sm text-zinc-400 hover:text-zinc-300"
           >
@@ -256,21 +256,21 @@ export default function ScriptComments({ skitId, isOwner = false, className = ''
 
                   {/* Actions */}
                   <div className="flex items-center gap-4 mt-2">
-                    <button
+                    <button type="button"
                       onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                       className="text-xs text-zinc-500 hover:text-zinc-300"
                     >
                       Reply
                     </button>
                     {isOwner && (
-                      <button
+                      <button type="button"
                         onClick={() => handleResolve(comment.id, !comment.is_resolved)}
                         className="text-xs text-zinc-500 hover:text-zinc-300"
                       >
                         {comment.is_resolved ? 'Unresolve' : 'Resolve'}
                       </button>
                     )}
-                    <button
+                    <button type="button"
                       onClick={() => handleDelete(comment.id)}
                       className="text-xs text-zinc-500 hover:text-red-400"
                     >
@@ -290,7 +290,7 @@ export default function ScriptComments({ skitId, isOwner = false, className = ''
                         autoFocus
                       />
                       <div className="flex justify-end gap-2 mt-2">
-                        <button
+                        <button type="button"
                           onClick={() => {
                             setReplyingTo(null);
                             setReplyContent('');
@@ -299,7 +299,7 @@ export default function ScriptComments({ skitId, isOwner = false, className = ''
                         >
                           Cancel
                         </button>
-                        <button
+                        <button type="button"
                           onClick={() => handleReply(comment.id)}
                           disabled={!replyContent.trim() || submitting}
                           className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white rounded text-sm disabled:opacity-50"

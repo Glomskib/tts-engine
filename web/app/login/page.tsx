@@ -154,7 +154,7 @@ function LoginForm() {
             <p className="text-zinc-400 mb-6">
               Check your email to confirm your account, then sign in.
             </p>
-            <button
+            <button type="button"
               onClick={() => {
                 setSignupSuccess(false);
                 setMode('signin');

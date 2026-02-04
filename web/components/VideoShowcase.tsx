@@ -211,7 +211,7 @@ export function VideoShowcase({ limit = 6, showTitle = true, onContactClick }: V
           View all on TikTok
         </a>
         {onContactClick && (
-          <button
+          <button type="button"
             onClick={onContactClick}
             className="inline-flex items-center px-8 py-3 rounded-full bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all shadow-lg"
           >
@@ -330,9 +330,10 @@ function VideoModal({
       {/* Modal */}
       <div className="relative w-full max-w-md bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
         {/* Close button */}
-        <button
+        <button type="button"
           onClick={onClose}
           className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-zinc-400 hover:text-white hover:bg-black/70 transition-colors"
+          aria-label="Close"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

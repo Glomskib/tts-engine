@@ -124,7 +124,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-2">
           {(['7d', '30d', '90d'] as const).map((range) => (
-            <button
+            <button type="button"
               key={range}
               onClick={() => setTimeRange(range)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${

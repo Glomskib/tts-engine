@@ -782,7 +782,7 @@ export default function ContentStudioPage() {
             const Icon = tab.icon;
             const isSelected = selectedMainTabId === tab.id;
             return (
-              <button
+              <button type="button"
                 key={tab.id}
                 onClick={() => setSelectedMainTabId(tab.id)}
                 title={tab.description}
@@ -829,7 +829,7 @@ export default function ContentStudioPage() {
                     const stageColor = FUNNEL_STAGE_COLORS[type.funnelStage];
 
                     return (
-                      <button
+                      <button type="button"
                         key={type.id}
                         onClick={() => setSelectedContentTypeId(type.id)}
                         style={{
@@ -887,7 +887,7 @@ export default function ContentStudioPage() {
                     {selectedContentType.subtypes.map((sub) => {
                       const isSelected = selectedSubtypeId === sub.id;
                       return (
-                        <button
+                        <button type="button"
                           key={sub.id}
                           onClick={() => setSelectedSubtypeId(sub.id)}
                           title={sub.description}
@@ -1070,7 +1070,7 @@ export default function ContentStudioPage() {
                     const isSelected = selectedPresentationStyleId === style.id;
 
                     return (
-                      <button
+                      <button type="button"
                         key={style.id}
                         onClick={() => setSelectedPresentationStyleId(style.id)}
                         style={{
@@ -1142,7 +1142,7 @@ export default function ContentStudioPage() {
                     {TARGET_LENGTHS.map((length) => {
                       const isSelected = selectedLengthId === length.id;
                       return (
-                        <button
+                        <button type="button"
                           key={length.id}
                           onClick={() => setSelectedLengthId(length.id)}
                           style={{
@@ -1173,7 +1173,7 @@ export default function ContentStudioPage() {
                     {HUMOR_LEVELS.map((humor) => {
                       const isSelected = selectedHumorId === humor.id;
                       return (
-                        <button
+                        <button type="button"
                           key={humor.id}
                           onClick={() => setSelectedHumorId(humor.id)}
                           title={humor.description}
@@ -1210,7 +1210,7 @@ export default function ContentStudioPage() {
                         SPICY: '#ef4444',
                       };
                       return (
-                        <button
+                        <button type="button"
                           key={tier}
                           onClick={() => setRiskTier(tier)}
                           style={{
@@ -1235,7 +1235,7 @@ export default function ContentStudioPage() {
 
               {/* STEP 7: Advanced Options */}
               <div style={sectionStyle}>
-                <button
+                <button type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
                   style={{
                     display: 'flex',
@@ -1265,7 +1265,7 @@ export default function ContentStudioPage() {
                       </label>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {[1, 2, 3, 4, 5].map(n => (
-                          <button
+                          <button type="button"
                             key={n}
                             onClick={() => setVariationCount(n)}
                             style={{
@@ -1346,7 +1346,7 @@ export default function ContentStudioPage() {
 
               {/* Generate Button - Sticky on mobile */}
               <div className="sticky bottom-4 lg:static lg:bottom-auto mt-6">
-                <button
+                <button type="button"
                   onClick={handleGenerate}
                   disabled={generating || (!selectedProductId && !manualProductName.trim())}
                   className={`w-full h-14 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
@@ -1381,7 +1381,7 @@ export default function ContentStudioPage() {
               Generated Scripts
             </h2>
             {result && (
-              <button
+              <button type="button"
                 onClick={openSaveModal}
                 style={{
                   padding: '8px 16px',
@@ -1465,7 +1465,7 @@ export default function ContentStudioPage() {
               {result.variations && result.variations.length > 1 && (
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
                   {result.variations.map((v, idx) => (
-                    <button
+                    <button type="button"
                       key={idx}
                       onClick={() => setSelectedVariationIndex(idx)}
                       style={{
@@ -1507,7 +1507,7 @@ export default function ContentStudioPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
+                    <button type="button"
                       onClick={() => handleSaveHook(currentSkit.hook_line)}
                       disabled={savingHook}
                       style={{
@@ -1531,7 +1531,7 @@ export default function ContentStudioPage() {
                         <><Bookmark size={14} /> Save Hook</>
                       )}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
                       style={{
                         padding: '6px 12px',
@@ -1677,7 +1677,7 @@ export default function ContentStudioPage() {
               )}
 
               {/* Copy Full Script Button */}
-              <button
+              <button type="button"
                 onClick={() => {
                   const fullScript = [
                     `HOOK: ${currentSkit.hook_line}`,
@@ -1768,7 +1768,7 @@ export default function ContentStudioPage() {
               </select>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button
+              <button type="button"
                 onClick={() => setSaveModalOpen(false)}
                 style={{
                   flex: 1,
@@ -1782,7 +1782,7 @@ export default function ContentStudioPage() {
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleSaveToLibrary}
                 disabled={savingToLibrary || !saveTitle.trim()}
                 style={{

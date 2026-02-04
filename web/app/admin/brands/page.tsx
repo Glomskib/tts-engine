@@ -209,13 +209,13 @@ export default function BrandsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <button
+                    <button type="button"
                       onClick={() => { setEditingBrand(brand); setIsModalOpen(true); }}
                       className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => handleDelete(brand.id)}
                       disabled={deleting === brand.id}
                       className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-700 rounded disabled:opacity-50"
@@ -381,7 +381,7 @@ function BrandEditModal({
           <h2 className="text-lg font-semibold text-white">
             {brand?.id ? 'Edit Brand' : 'Add Brand'}
           </h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-white" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>

@@ -132,9 +132,10 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
               </p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-zinc-400" />
           </button>
@@ -143,7 +144,7 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
         {/* Tab Navigation */}
         <div className="flex border-b border-zinc-800">
           {tabs.map((tab) => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => !tab.disabled && setActiveTab(tab.id)}
               disabled={tab.disabled}
@@ -445,7 +446,7 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
               <p className="text-sm text-zinc-400 mb-3">
                 This winner hasn&apos;t been analyzed by AI yet.
               </p>
-              <button
+              <button type="button"
                 onClick={handleReanalyze}
                 disabled={isReanalyzing}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-violet-600/50 text-white text-sm font-medium rounded-lg transition-colors"
@@ -474,7 +475,7 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
               Added {new Date(winner.created_at).toLocaleDateString()}
             </div>
             {onDelete && (
-              <button
+              <button type="button"
                 onClick={async () => {
                   if (!confirm('Delete this winner? This cannot be undone.')) return;
                   setIsDeleting(true);
@@ -503,7 +504,7 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
             )}
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <button type="button"
               onClick={handleGenerateSimilar}
               className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
             >
@@ -512,16 +513,17 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
             </button>
 
             {analysis && (
-              <button
+              <button type="button"
                 onClick={handleReanalyze}
                 disabled={isReanalyzing}
                 className="p-2 rounded-lg text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                 title="Re-analyze"
+                aria-label="Re-analyze"
               >
                 <RefreshCw className={`w-4 h-4 ${isReanalyzing ? 'animate-spin' : ''}`} />
               </button>
             )}
-            <button
+            <button type="button"
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-300 transition-colors"
             >

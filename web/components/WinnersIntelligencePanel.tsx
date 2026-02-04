@@ -89,7 +89,7 @@ export function WinnersIntelligencePanel({ className = '' }: WinnersIntelligence
   return (
     <div className={`bg-gradient-to-r from-amber-500/10 to-violet-500/10 border border-amber-500/20 rounded-xl overflow-hidden ${className}`}>
       {/* Summary Header - Always Visible */}
-      <button
+      <button type="button"
         onClick={() => setExpanded(!expanded)}
         className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
       >

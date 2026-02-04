@@ -816,7 +816,7 @@ export default function VideoDrawer({
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
               {REJECT_TAGS.map((tag) => (
-                <button
+                <button type="button"
                   key={tag.code}
                   onClick={() => setSelectedRejectTag(selectedRejectTag === tag.code ? null : tag.code)}
                   style={{
@@ -836,7 +836,7 @@ export default function VideoDrawer({
               ))}
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button
+              <button type="button"
                 onClick={() => setShowRejectModal(false)}
                 style={{
                   flex: 1,
@@ -851,7 +851,7 @@ export default function VideoDrawer({
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleConfirmReject}
                 disabled={loading}
                 style={{
@@ -931,7 +931,7 @@ export default function VideoDrawer({
               You can still mark this as a winner, but the data may be incomplete.
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button
+              <button type="button"
                 onClick={() => setShowQualityWarning(false)}
                 style={{
                   flex: 1,
@@ -946,7 +946,7 @@ export default function VideoDrawer({
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={confirmSaveAsWinner}
                 disabled={feedbackLoading}
                 style={{
@@ -1016,7 +1016,7 @@ export default function VideoDrawer({
                 }}>
                   {video.video_code || video.id.slice(0, 12) + '...'}
                 </span>
-                <button
+                <button type="button"
                   onClick={() => copyToClipboard(video.video_code || video.id, 'videoCode')}
                   style={{
                     padding: '2px 6px',
@@ -1030,7 +1030,7 @@ export default function VideoDrawer({
                 >
                   {copiedField === 'videoCode' ? 'Copied!' : 'Copy'}
                 </button>
-                <button
+                <button type="button"
                   onClick={() => {
                     const brand = video.brand_name || details?.video.brand_name || '';
                     const product = video.product_name || details?.video.product_name || '';
@@ -1183,7 +1183,7 @@ export default function VideoDrawer({
               )}
               {/* Admin Edit Mode Toggle */}
               {isAdmin && (
-                <button
+                <button type="button"
                   onClick={() => setEditMode(!editMode)}
                   style={{
                     padding: '4px 10px',
@@ -1199,7 +1199,7 @@ export default function VideoDrawer({
                   {editMode ? 'Editing' : 'Edit'}
                 </button>
               )}
-              <button
+              <button type="button"
                 onClick={onClose}
                 style={{
                   background: 'none',
@@ -1231,6 +1231,7 @@ export default function VideoDrawer({
                 {primaryAction.icon} {primaryAction.label}
               </span>
               <button
+                type="button"
                 onClick={handlePrimaryAction}
                 disabled={loading || primaryAction.type === 'done' || isClaimedByOther}
                 style={{
@@ -1357,7 +1358,7 @@ export default function VideoDrawer({
                   </select>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
+                  <button type="button"
                     onClick={() => setShowMapping(false)}
                     style={{
                       flex: 1,
@@ -1372,7 +1373,7 @@ export default function VideoDrawer({
                   >
                     Cancel
                   </button>
-                  <button
+                  <button type="button"
                     onClick={saveMapping}
                     disabled={!selectedProductId || mappingSaving}
                     style={{
@@ -1512,7 +1513,7 @@ export default function VideoDrawer({
           borderBottom: '1px solid #e0e0e0',
         }}>
           {tabs.map(tab => (
-            <button
+            <button type="button"
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               style={{
@@ -1558,7 +1559,7 @@ export default function VideoDrawer({
                             <h4 style={{ margin: 0, fontSize: '12px', color: isDark ? '#69db7c' : '#2b8a3e', textTransform: 'uppercase' }}>
                               Hook Package {details.brief.hook_type && <span style={{ fontWeight: 'normal', textTransform: 'none' }}>({details.brief.hook_type.replace(/_/g, ' ')})</span>}
                             </h4>
-                            <button
+                            <button type="button"
                               onClick={() => {
                                 const hookText = [
                                   details.brief?.hook_options?.[0] ? `Spoken: ${details.brief.hook_options[0]}` : '',
@@ -1602,7 +1603,7 @@ export default function VideoDrawer({
                                     }}
                                     placeholder="Enter spoken hook..."
                                   />
-                                  <button
+                                  <button type="button"
                                     onClick={() => saveEdits('hook_options', [editSpokenHook])}
                                     disabled={editSaving}
                                     style={{
@@ -1654,7 +1655,7 @@ export default function VideoDrawer({
                                     }}
                                     placeholder="Enter visual hook..."
                                   />
-                                  <button
+                                  <button type="button"
                                     onClick={() => saveEdits('visual_hook', editVisualHook)}
                                     disabled={editSaving}
                                     style={{
@@ -1706,7 +1707,7 @@ export default function VideoDrawer({
                                     }}
                                     placeholder="Enter on-screen text hook..."
                                   />
-                                  <button
+                                  <button type="button"
                                     onClick={() => saveEdits('on_screen_text_hook', editTextHook)}
                                     disabled={editSaving}
                                     style={{
@@ -1781,7 +1782,7 @@ export default function VideoDrawer({
                         <div style={{ marginBottom: '16px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <h4 style={{ margin: 0, fontSize: '12px', color: '#868e96', textTransform: 'uppercase' }}>Hook Options</h4>
-                            <button
+                            <button type="button"
                               onClick={() => copyToClipboard(details.brief?.hook_options?.join('\n') || '', 'hooks')}
                               style={{
                                 padding: '2px 8px',
@@ -1830,7 +1831,7 @@ export default function VideoDrawer({
                                 }}
                                 placeholder="Enter angle..."
                               />
-                              <button
+                              <button type="button"
                                 onClick={() => saveEdits('angle', editAngle)}
                                 disabled={editSaving}
                                 style={{
@@ -1877,7 +1878,7 @@ export default function VideoDrawer({
                                 }}
                                 placeholder="Enter notes..."
                               />
-                              <button
+                              <button type="button"
                                 onClick={() => saveEdits('notes', editNotes)}
                                 disabled={editSaving}
                                 style={{
@@ -2003,7 +2004,7 @@ export default function VideoDrawer({
                             Locked v{video.script_locked_version || 1}
                           </span>
                         </div>
-                        <button
+                        <button type="button"
                           onClick={() => copyToClipboard(video.script_locked_text || '', 'fullScript')}
                           style={{
                             padding: '4px 12px',
@@ -2024,7 +2025,7 @@ export default function VideoDrawer({
                       <div style={{ marginBottom: '16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <h4 style={{ margin: 0, fontSize: '12px', color: '#868e96', textTransform: 'uppercase' }}>Hook (First Line)</h4>
-                          <button
+                          <button type="button"
                             onClick={() => copyToClipboard(extractHook(video.script_locked_text || ''), 'hook')}
                             style={{
                               padding: '2px 8px',
@@ -2073,7 +2074,7 @@ export default function VideoDrawer({
                               }}
                               placeholder="Enter script text..."
                             />
-                            <button
+                            <button type="button"
                               onClick={() => saveEdits('script_locked_text', editScript)}
                               disabled={editSaving}
                               style={{
@@ -2164,7 +2165,7 @@ export default function VideoDrawer({
                           )}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             {/* Save as Winner */}
-                            <button
+                            <button type="button"
                               onClick={handleSaveAsWinner}
                               disabled={feedbackLoading}
                               style={{
@@ -2183,7 +2184,7 @@ export default function VideoDrawer({
 
                             {/* Mark as Weak - with optional reason dropdown */}
                             <div style={{ position: 'relative' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => setShowUnderperformMenu(!showUnderperformMenu)}
                                 disabled={feedbackLoading}
                                 style={{
@@ -2218,7 +2219,7 @@ export default function VideoDrawer({
                                     minWidth: '160px',
                                     overflow: 'hidden',
                                   }}>
-                                    <button
+                                    <button type="button"
                                       onClick={() => handleMarkUnderperform()}
                                       style={{
                                         display: 'block',
@@ -2237,7 +2238,7 @@ export default function VideoDrawer({
                                       No specific reason
                                     </button>
                                     {UNDERPERFORM_TAGS.map((tag) => (
-                                      <button
+                                      <button type="button"
                                         key={tag.code}
                                         onClick={() => handleMarkUnderperform(tag.code)}
                                         style={{
@@ -2262,7 +2263,7 @@ export default function VideoDrawer({
                             </div>
 
                             {/* Reject */}
-                            <button
+                            <button type="button"
                               onClick={handleReject}
                               disabled={feedbackLoading}
                               style={{
@@ -2294,7 +2295,7 @@ export default function VideoDrawer({
                       border: '1px solid #fef08a',
                     }}>
                       <div style={{ color: '#854d0e', marginBottom: '16px' }}>No script attached yet</div>
-                      <button
+                      <button type="button"
                         onClick={() => onOpenAttachModal(video)}
                         style={{
                           padding: '10px 20px',
@@ -2379,7 +2380,7 @@ export default function VideoDrawer({
                               color: colors.text,
                             }}
                           />
-                          <button
+                          <button type="button"
                             onClick={() => saveEdits('google_drive_url', editDriveUrl)}
                             disabled={editSaving}
                             style={{
@@ -2419,7 +2420,7 @@ export default function VideoDrawer({
                               color: colors.text,
                             }}
                           />
-                          <button
+                          <button type="button"
                             onClick={() => saveEdits('raw_footage_url', editRawFootageUrl)}
                             disabled={editSaving}
                             style={{
@@ -2459,7 +2460,7 @@ export default function VideoDrawer({
                               color: colors.text,
                             }}
                           />
-                          <button
+                          <button type="button"
                             onClick={() => saveEdits('final_video_url', editFinalUrl)}
                             disabled={editSaving}
                             style={{
@@ -2687,7 +2688,7 @@ export default function VideoDrawer({
                       }}
                       disabled={chatLoading}
                     />
-                    <button
+                    <button type="button"
                       onClick={sendChatMessage}
                       disabled={chatLoading || !chatInput.trim()}
                       style={{
@@ -2715,7 +2716,7 @@ export default function VideoDrawer({
                       'Dial up curiosity',
                       'Shorten the first 2 seconds',
                     ].map((prompt) => (
-                      <button
+                      <button type="button"
                         key={prompt}
                         onClick={() => {
                           setChatInput(prompt);
@@ -2819,7 +2820,7 @@ export default function VideoDrawer({
             <>
               {/* Primary Action - ONE button */}
               {primaryAction.type !== 'done' && (
-                <button
+                <button type="button"
                   onClick={handlePrimaryAction}
                   disabled={loading}
                   style={{
@@ -2842,7 +2843,7 @@ export default function VideoDrawer({
               {/* Secondary actions - subtle */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
                 {isClaimedByMe && (
-                  <button
+                  <button type="button"
                     onClick={handleRelease}
                     disabled={loading}
                     style={{
@@ -2858,7 +2859,7 @@ export default function VideoDrawer({
                   </button>
                 )}
                 {video.recording_status !== 'REJECTED' && video.recording_status !== 'POSTED' && (
-                  <button
+                  <button type="button"
                     onClick={handleReject}
                     disabled={loading}
                     style={{

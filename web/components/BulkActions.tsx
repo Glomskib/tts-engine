@@ -74,6 +74,7 @@ export function BulkActions({
               type="button"
               onClick={onClearSelection}
               className="p-1 hover:bg-zinc-800 rounded"
+              aria-label="Clear selection"
             >
               <X className="w-4 h-4 text-zinc-500" />
             </button>

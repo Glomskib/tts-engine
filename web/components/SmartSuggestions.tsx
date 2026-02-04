@@ -224,17 +224,18 @@ export default function SmartSuggestions({
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {suggestion.actionLabel && (
-                    <button
+                    <button type="button"
                       onClick={() => handleApply(suggestion)}
                       className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white rounded text-xs transition-colors"
                     >
                       {suggestion.actionLabel}
                     </button>
                   )}
-                  <button
+                  <button type="button"
                     onClick={() => handleDismiss(suggestion.id)}
                     className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
                     title="Dismiss"
+                    aria-label="Dismiss suggestion"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -269,19 +270,20 @@ export function InlineSuggestion({ suggestion, onApply, onDismiss }: InlineSugge
       </svg>
       <span className="text-amber-200 flex-1">{suggestion}</span>
       {onApply && (
-        <button
+        <button type="button"
           onClick={onApply}
           className="text-xs text-amber-400 hover:text-amber-300 font-medium"
         >
           Apply
         </button>
       )}
-      <button
+      <button type="button"
         onClick={() => {
           setVisible(false);
           onDismiss?.();
         }}
         className="text-amber-500 hover:text-amber-400"
+        aria-label="Dismiss"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

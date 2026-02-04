@@ -218,7 +218,7 @@ export default function ClientVideoDetailPage() {
             {/* Script Accordion */}
             {video.script_locked_text && (
               <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                <button
+                <button type="button"
                   onClick={() => setScriptOpen(!scriptOpen)}
                   className="w-full px-5 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors"
                 >

@@ -346,7 +346,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>{title}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <button
+          <button type="button"
             onClick={dispatchNext}
             disabled={dispatching}
             style={{
@@ -362,7 +362,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
           >
             {dispatching ? 'Dispatching...' : 'Dispatch Next'}
           </button>
-          <button
+          <button type="button"
             onClick={fetchVideos}
             style={{ padding: '8px 16px', cursor: 'pointer' }}
           >
@@ -387,7 +387,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
           border: `1px solid ${dispatchMessage.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
         }}>
           {dispatchMessage.text}
-          <button
+          <button type="button"
             onClick={() => setDispatchMessage(null)}
             style={{
               marginLeft: '15px',
@@ -435,7 +435,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
             {authUser.role}
           </span>
         )}
-        <button
+        <button type="button"
           onClick={async () => {
             const supabase = createBrowserSupabaseClient();
             await supabase.auth.signOut();
@@ -650,7 +650,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
                   <td style={{ border: '1px solid #ccc', padding: '10px' }}>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                       {unclaimed && (
-                        <button
+                        <button type="button"
                           onClick={() => claimAndStart(video.id)}
                           disabled={isProcessing}
                           style={{
@@ -685,7 +685,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
                           >
                             Open
                           </Link>
-                          <button
+                          <button type="button"
                             onClick={() => releaseVideo(video.id)}
                             disabled={isProcessing}
                             style={{

@@ -194,14 +194,14 @@ export default function ConceptWorkbenchPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
         <div>
           <h2>Hooks ({hooks.length})</h2>
-          <button onClick={generateHooks} style={{ marginBottom: '10px', padding: '5px 10px' }}>
+          <button type="button" onClick={generateHooks} style={{ marginBottom: '10px', padding: '5px 10px' }}>
             Generate Hooks
           </button>
           <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px' }}>
             {hooks.map(hook => (
               <div key={hook.id} style={{ marginBottom: '10px', padding: '5px', border: '1px solid #eee' }}>
                 <div>{hook.hook_text}</div>
-                <button 
+                <button type="button" 
                   onClick={() => setSelectedHook(hook.hook_text)}
                   style={{ marginTop: '5px', padding: '2px 5px', fontSize: '12px' }}
                 >
@@ -227,7 +227,7 @@ export default function ConceptWorkbenchPage() {
                 </option>
               ))}
             </select>
-            <button onClick={generateScript} disabled={!selectedHook} style={{ padding: '5px 10px' }}>
+            <button type="button" onClick={generateScript} disabled={!selectedHook} style={{ padding: '5px 10px' }}>
               Generate Script
             </button>
           </div>
@@ -243,14 +243,14 @@ export default function ConceptWorkbenchPage() {
 
         <div>
           <h2>Variants ({variants.length})</h2>
-          <button onClick={generateVariants} style={{ marginBottom: '10px', padding: '5px 10px' }}>
+          <button type="button" onClick={generateVariants} style={{ marginBottom: '10px', padding: '5px 10px' }}>
             Generate Variants
           </button>
           <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px' }}>
             {variants.map(variant => (
               <div key={variant.id} style={{ marginBottom: '10px', padding: '5px', border: '1px solid #eee' }}>
                 <div>Status: {variant.status}</div>
-                <button 
+                <button type="button" 
                   onClick={() => setShowVideoForm(variant.id)}
                   style={{ marginTop: '5px', padding: '2px 5px', fontSize: '12px' }}
                 >
@@ -319,14 +319,14 @@ export default function ConceptWorkbenchPage() {
                   <option value="ready_to_upload">Ready to Upload</option>
                 </select>
               </div>
-              <button 
+              <button type="button" 
                 onClick={() => createVideo(showVideoForm)}
                 disabled={!videoForm.account_id || !videoForm.google_drive_url}
                 style={{ marginRight: '10px', padding: '5px 10px' }}
               >
                 Create Video
               </button>
-              <button 
+              <button type="button" 
                 onClick={() => setShowVideoForm(null)}
                 style={{ padding: '5px 10px' }}
               >

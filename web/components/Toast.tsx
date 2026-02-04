@@ -76,6 +76,7 @@ export function Toast({
             type="button"
             onClick={onClose}
             className="p-1 flex-shrink-0 hover:bg-zinc-700 rounded"
+            aria-label="Dismiss"
           >
             <X className="w-4 h-4 text-zinc-500" />
           </button>

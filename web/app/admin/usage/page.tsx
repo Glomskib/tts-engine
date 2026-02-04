@@ -135,7 +135,7 @@ export default function UsagePage() {
           {/* Date Range Selector */}
           <div className="flex gap-2">
             {DATE_RANGES.map(range => (
-              <button
+              <button type="button"
                 key={range.id}
                 onClick={() => setDateRange(range.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

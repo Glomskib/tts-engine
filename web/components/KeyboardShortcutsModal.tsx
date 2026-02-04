@@ -79,7 +79,7 @@ export function KeyboardShortcutsModal() {
             <Keyboard className="w-5 h-5 text-violet-400" />
             <h2 className="text-lg font-semibold text-white">Keyboard Shortcuts</h2>
           </div>
-          <button
+          <button type="button"
             onClick={() => setIsOpen(false)}
             className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
           >
@@ -141,7 +141,7 @@ export function KeyboardShortcutsButton() {
 
   return (
     <>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(true)}
         className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
         title="Keyboard shortcuts (?)"
@@ -181,9 +181,10 @@ function KeyboardShortcutsModalContent({ onClose }: { onClose: () => void }) {
             <Keyboard className="w-5 h-5 text-violet-400" />
             <h2 className="text-lg font-semibold text-white">Keyboard Shortcuts</h2>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-zinc-400" />
           </button>

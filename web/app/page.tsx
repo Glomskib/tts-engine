@@ -278,7 +278,7 @@ export default function LandingPage() {
           {/* Billing toggle */}
           <div className="flex items-center justify-center gap-4 mb-12">
             <span className={`text-sm ${billingPeriod === 'monthly' ? 'text-white' : 'text-zinc-500'}`}>Monthly</span>
-            <button
+            <button type="button"
               onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'yearly' : 'monthly')}
               className="relative w-14 h-7 rounded-full bg-zinc-800 border border-white/10 transition-colors"
             >
@@ -380,7 +380,7 @@ export default function LandingPage() {
             <p className="text-zinc-400 mb-6 max-w-2xl mx-auto">
               Enterprise plans with custom limits, dedicated support, and white-label options available.
             </p>
-            <button
+            <button type="button"
               onClick={() => setContactOpen(true)}
               className="inline-flex items-center px-6 py-3 rounded-lg border border-white/10 text-zinc-300 font-medium hover:bg-white/5 hover:border-white/20 transition-all"
             >
@@ -562,7 +562,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-6 text-sm text-zinc-500">
               <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>
-              <button onClick={() => setContactOpen(true)} className="hover:text-zinc-300 transition-colors">Contact</button>
+              <button type="button" onClick={() => setContactOpen(true)} className="hover:text-zinc-300 transition-colors">Contact</button>
             </div>
           </div>
           <p className="text-center text-sm text-zinc-600 mt-8">
@@ -700,7 +700,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-white/5 pb-6">
-      <button
+      <button type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between text-left"
       >

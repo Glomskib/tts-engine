@@ -205,7 +205,7 @@ export default function AdminBillingPage() {
           </select>
 
           {/* Export Button */}
-          <button
+          <button type="button"
             onClick={exportCsv}
             disabled={exporting || loading}
             style={{

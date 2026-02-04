@@ -208,7 +208,7 @@ export default function ClientVideoReviewPage() {
 
             {!showRevisionForm ? (
               <div className="flex gap-3 mt-4">
-                <button
+                <button type="button"
                   onClick={handleApprove}
                   disabled={submitting}
                   className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
@@ -220,7 +220,7 @@ export default function ClientVideoReviewPage() {
                   )}
                   Approve Video
                 </button>
-                <button
+                <button type="button"
                   onClick={() => setShowRevisionForm(true)}
                   disabled={submitting}
                   className="flex items-center gap-2 px-6 py-3 bg-white text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 disabled:opacity-50 transition-colors font-medium"
@@ -242,7 +242,7 @@ export default function ClientVideoReviewPage() {
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                 />
                 <div className="flex gap-3 mt-4">
-                  <button
+                  <button type="button"
                     onClick={handleRevision}
                     disabled={submitting || !revisionNotes.trim()}
                     className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
@@ -250,7 +250,7 @@ export default function ClientVideoReviewPage() {
                     {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                     Submit Revision Request
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => { setShowRevisionForm(false); setRevisionNotes(''); }}
                     className="px-4 py-2 text-slate-600 hover:text-slate-900"
                   >

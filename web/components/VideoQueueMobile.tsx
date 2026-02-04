@@ -66,7 +66,7 @@ export function VideoQueueMobile({ videos, onVideoClick }: VideoQueueMobileProps
 
             {/* Action buttons - FULL WIDTH, STACKED */}
             <div className="flex gap-2">
-              <button
+              <button type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onVideoClick(video);
@@ -78,13 +78,14 @@ export function VideoQueueMobile({ videos, onVideoClick }: VideoQueueMobileProps
               >
                 Review
               </button>
-              <button
+              <button type="button"
                 onClick={(e) => e.stopPropagation()}
                 className="
                   h-12 w-12 rounded-lg border border-zinc-700
                   flex items-center justify-center
                   active:bg-zinc-800
                 "
+                aria-label="More options"
               >
                 <MoreHorizontal className="w-5 h-5 text-zinc-400" />
               </button>

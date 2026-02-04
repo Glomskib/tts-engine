@@ -179,7 +179,7 @@ export default function PersonaCard({
       {!compact && (
         <>
           <div className="px-4 pb-2">
-            <button
+            <button type="button"
               onClick={() => setExpanded(!expanded)}
               className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
             >
@@ -272,7 +272,7 @@ export default function PersonaCard({
 
               {/* Edit button */}
               {onEdit && (
-                <button
+                <button type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit();

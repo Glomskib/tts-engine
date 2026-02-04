@@ -94,7 +94,7 @@ export default function CollectionsPage() {
             <h1 className="text-2xl font-bold text-white mb-2">Collections</h1>
             <p className="text-zinc-400">Organize your scripts into folders</p>
           </div>
-          <button
+          <button type="button"
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors flex items-center gap-2"
           >
@@ -124,7 +124,7 @@ export default function CollectionsPage() {
             </svg>
             <h3 className="text-xl font-semibold text-white mb-2">No collections yet</h3>
             <p className="text-zinc-500 mb-6">Create your first collection to organize scripts</p>
-            <button
+            <button type="button"
               onClick={() => setShowCreateModal(true)}
               className="px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-500 transition-colors"
             >
@@ -173,7 +173,7 @@ export default function CollectionsPage() {
                   >
                     View Scripts
                   </Link>
-                  <button
+                  <button type="button"
                     onClick={() => handleDeleteCollection(collection.id)}
                     className="px-3 py-2 bg-zinc-800 text-zinc-400 rounded-lg hover:bg-red-500/20 hover:text-red-400 transition-colors"
                   >
@@ -225,7 +225,7 @@ export default function CollectionsPage() {
                   <label className="block text-sm text-zinc-400 mb-2">Color</label>
                   <div className="flex gap-2">
                     {COLLECTION_COLORS.map(color => (
-                      <button
+                      <button type="button"
                         key={color.value}
                         onClick={() => setNewCollection({ ...newCollection, color: color.value })}
                         className={`w-8 h-8 rounded-full transition-transform ${
@@ -240,13 +240,13 @@ export default function CollectionsPage() {
 
                 {/* Actions */}
                 <div className="flex gap-3">
-                  <button
+                  <button type="button"
                     onClick={() => setShowCreateModal(false)}
                     className="flex-1 py-2.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
                   >
                     Cancel
                   </button>
-                  <button
+                  <button type="button"
                     onClick={handleCreateCollection}
                     disabled={!newCollection.name.trim() || creating}
                     className="flex-1 py-2.5 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors disabled:opacity-50"

@@ -146,9 +146,10 @@ export function AddExternalWinnerModal({
               <p className="text-sm text-zinc-400">Competitor or inspiration video</p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-zinc-400" />
           </button>
@@ -159,7 +160,7 @@ export function AddExternalWinnerModal({
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
-              <button
+              <button type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
@@ -502,13 +503,13 @@ export function AddExternalWinnerModal({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-zinc-800 flex items-center justify-end gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-300 transition-colors"
           >
             Cancel
           </button>
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !isValid}
             className="px-6 py-2 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"

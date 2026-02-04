@@ -29,7 +29,7 @@ export default function AdminError({
           <p className="text-xs text-zinc-600 mb-6 font-mono">Error ID: {error.digest}</p>
         )}
         <div className="flex items-center justify-center gap-3">
-          <button
+          <button type="button"
             onClick={reset}
             className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
           >

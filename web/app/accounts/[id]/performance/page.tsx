@@ -176,7 +176,7 @@ export default function PerformancePage() {
       )}
 
       <div style={{ marginBottom: '20px' }}>
-        <button 
+        <button type="button" 
           onClick={evaluateWinners}
           disabled={evaluating}
           style={{ 
@@ -189,7 +189,7 @@ export default function PerformancePage() {
         >
           {evaluating ? 'Evaluating...' : 'Evaluate Winners (7d)'}
         </button>
-        <button 
+        <button type="button" 
           onClick={fetchPostedVideos}
           style={{ padding: '10px 20px' }}
         >
@@ -330,13 +330,13 @@ export default function PerformancePage() {
                         />
                       </div>
                       <div>
-                        <button 
+                        <button type="button" 
                           onClick={() => submitMetrics(video.id)}
                           style={{ marginRight: '5px', padding: '5px 10px', fontSize: '12px' }}
                         >
                           Save
                         </button>
-                        <button 
+                        <button type="button" 
                           onClick={() => setActiveMetricForm(null)}
                           style={{ padding: '5px 10px', fontSize: '12px' }}
                         >
@@ -345,7 +345,7 @@ export default function PerformancePage() {
                       </div>
                     </div>
                   ) : (
-                    <button 
+                    <button type="button" 
                       onClick={() => openMetricForm(video.id)}
                       style={{ padding: '5px 10px', fontSize: '12px' }}
                     >

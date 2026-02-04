@@ -44,7 +44,7 @@ export function MobileTestChecklist() {
 
   return (
     <div className="fixed bottom-24 right-4 z-[200]">
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg flex items-center gap-2 btn-press"
       >
@@ -66,7 +66,7 @@ export function MobileTestChecklist() {
           </div>
           <div className="p-2">
             {TESTS.map(test => (
-              <button
+              <button type="button"
                 key={test.id}
                 onClick={() => toggleResult(test.id)}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-800 text-left transition-colors"
@@ -87,7 +87,7 @@ export function MobileTestChecklist() {
               <span className="text-xs text-zinc-500">
                 {passCount === TESTS.length ? 'All tests passed!' : `${TESTS.length - passCount} remaining`}
               </span>
-              <button
+              <button type="button"
                 onClick={() => setResults({})}
                 className="text-xs text-zinc-400 hover:text-white"
               >

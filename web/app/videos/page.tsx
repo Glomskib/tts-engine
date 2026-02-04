@@ -96,7 +96,7 @@ export default function VideosPage() {
                 />
               </td>
               <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                <button onClick={() => markPosted(video.id)}>Mark Posted</button>
+                <button type="button" onClick={() => markPosted(video.id)}>Mark Posted</button>
               </td>
             </tr>
           ))}

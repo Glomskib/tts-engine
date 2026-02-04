@@ -83,7 +83,7 @@ export function VideoCreationSheet({ isOpen, onClose, script, onSuccess }: Video
 
         <div className="flex items-center justify-between px-4 pb-3 border-b border-zinc-800">
           <h2 className="text-lg font-semibold text-white">Create Video</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-800">
+          <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-800" aria-label="Close">
             <X className="w-5 h-5 text-zinc-400" />
           </button>
         </div>
@@ -186,7 +186,7 @@ export function VideoCreationSheet({ isOpen, onClose, script, onSuccess }: Video
         </div>
 
         <div className="p-4 border-t border-zinc-800 pb-[max(16px,env(safe-area-inset-bottom))]">
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={submitting}
             className="w-full h-12 bg-teal-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-teal-700 transition-colors"

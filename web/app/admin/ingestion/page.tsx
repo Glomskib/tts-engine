@@ -558,7 +558,7 @@ export default function IngestionPage() {
     >
       {/* Tab Navigation */}
       <div className="flex border-b border-white/10 mb-6">
-        <button
+        <button type="button"
           onClick={() => setActiveTab('tiktok')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === 'tiktok'
@@ -568,7 +568,7 @@ export default function IngestionPage() {
         >
           TikTok URLs
         </button>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('csv')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === 'csv'
@@ -578,7 +578,7 @@ export default function IngestionPage() {
         >
           CSV Import
         </button>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('winners')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === 'winners'
@@ -1008,13 +1008,13 @@ export default function IngestionPage() {
                         </td>
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
-                            <button
+                            <button type="button"
                               onClick={() => openEditForm(video)}
                               className="text-sm text-violet-400 hover:underline"
                             >
                               Edit
                             </button>
-                            <button
+                            <button type="button"
                               onClick={() => handleDeleteVideo(video.id)}
                               className="text-sm text-red-400 hover:underline"
                             >
@@ -1040,7 +1040,7 @@ export default function IngestionPage() {
                 <div className="p-6 border-b border-white/10">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-zinc-100">Edit Video Data</h3>
-                    <button
+                    <button type="button"
                       onClick={() => setEditingVideo(null)}
                       className="text-zinc-400 hover:text-zinc-200"
                     >

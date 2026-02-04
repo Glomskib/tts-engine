@@ -115,7 +115,7 @@ export default function ApiErrorPanel({
         </div>
 
         {onDismiss && (
-          <button
+          <button type="button"
             onClick={onDismiss}
             className="text-zinc-500 hover:text-zinc-300 p-1"
             aria-label="Dismiss error"
@@ -141,7 +141,7 @@ export default function ApiErrorPanel({
         >
           {error.correlation_id}
         </code>
-        <button
+        <button type="button"
           onClick={handleCopyCorrelationId}
           className="text-xs px-2 py-0.5 rounded border transition-colors"
           style={{
@@ -166,7 +166,7 @@ export default function ApiErrorPanel({
       {/* Debug details accordion */}
       {debugMode && error.details && Object.keys(error.details).length > 0 && (
         <div className="mt-3 border-t pt-3" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-          <button
+          <button type="button"
             onClick={() => setDetailsOpen(!detailsOpen)}
             className="flex items-center gap-1 text-xs"
             style={{ color: '#71717a' }}
@@ -224,7 +224,7 @@ export function ApiErrorInline({
   return (
     <div className={`flex items-center gap-2 text-sm ${className}`}>
       <span style={{ color: '#f87171' }}>{error.message}</span>
-      <button
+      <button type="button"
         onClick={handleCopy}
         className="text-xs px-1.5 py-0.5 rounded border"
         style={{

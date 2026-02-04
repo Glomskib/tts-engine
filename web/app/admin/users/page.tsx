@@ -242,7 +242,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       {user.plan === 'free' ? (
-                        <button
+                        <button type="button"
                           onClick={() => handleSetPlan(user.user_id, 'pro')}
                           disabled={updatingUser === user.user_id}
                           style={{
@@ -259,7 +259,7 @@ export default function AdminUsersPage() {
                           {updatingUser === user.user_id ? 'Updating...' : 'Upgrade to Pro'}
                         </button>
                       ) : (
-                        <button
+                        <button type="button"
                           onClick={() => handleSetPlan(user.user_id, 'free')}
                           disabled={updatingUser === user.user_id}
                           style={{

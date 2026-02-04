@@ -679,7 +679,7 @@ export default function ScriptEditorPage() {
                       )}
                     </div>
                     {!rewrite.error_metadata && rewrite.rewrite_result_json && (
-                      <button
+                      <button type="button"
                         onClick={() => handleRestore(rewrite.id)}
                         disabled={restoring === rewrite.id}
                         style={{

@@ -165,7 +165,7 @@ export default function UploaderDrawer({
                 <span className="font-mono text-sm text-slate-600">
                   {video.video_id.slice(0, 12)}...
                 </span>
-                <button
+                <button type="button"
                   onClick={() => copyToClipboard(video.video_id, 'videoId')}
                   className={`px-2 py-0.5 text-xs rounded ${
                     copiedField === 'videoId' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
@@ -195,7 +195,7 @@ export default function UploaderDrawer({
               </div>
             </div>
 
-            <button
+            <button type="button"
               onClick={onClose}
               className="text-2xl text-slate-400 hover:text-slate-600"
             >
@@ -209,7 +209,7 @@ export default function UploaderDrawer({
               <div className="text-xs text-green-700 mb-1 font-bold uppercase">Ready to Post</div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-800">Post this video</span>
-                <button
+                <button type="button"
                   onClick={handlePost}
                   className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-bold hover:bg-green-700"
                 >
@@ -230,7 +230,7 @@ export default function UploaderDrawer({
         {/* Tabs */}
         <div className="flex border-b border-slate-200">
           {tabs.map(tab => (
-            <button
+            <button type="button"
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 py-2 px-2 text-sm flex items-center justify-center gap-1 ${
@@ -259,7 +259,7 @@ export default function UploaderDrawer({
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <h4 className="text-xs text-slate-400 uppercase font-medium">Caption</h4>
-                        <button
+                        <button type="button"
                           onClick={() => copyToClipboard(video.caption || '', 'caption')}
                           className={`px-2 py-0.5 text-xs rounded ${
                             copiedField === 'caption' ? 'bg-green-100 text-green-700' : 'bg-slate-100'
@@ -279,7 +279,7 @@ export default function UploaderDrawer({
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <h4 className="text-xs text-slate-400 uppercase font-medium">Hashtags</h4>
-                        <button
+                        <button type="button"
                           onClick={() => copyToClipboard(video.hashtags?.join(' ') || '', 'hashtags')}
                           className={`px-2 py-0.5 text-xs rounded ${
                             copiedField === 'hashtags' ? 'bg-green-100 text-green-700' : 'bg-slate-100'
@@ -362,7 +362,7 @@ export default function UploaderDrawer({
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">
                           Locked v{details.script.version || 1}
                         </span>
-                        <button
+                        <button type="button"
                           onClick={() => copyToClipboard(details?.script?.text || '', 'fullScript')}
                           className={`px-3 py-1 text-xs font-bold rounded ${
                             copiedField === 'fullScript'
@@ -440,7 +440,7 @@ export default function UploaderDrawer({
         <div className="p-4 border-t border-slate-200 bg-slate-50">
           <div className="flex gap-2">
             {canPost && (
-              <button
+              <button type="button"
                 onClick={handlePost}
                 className="flex-1 py-3 bg-green-600 text-white rounded-md font-bold text-sm hover:bg-green-700"
               >
@@ -448,7 +448,7 @@ export default function UploaderDrawer({
               </button>
             )}
             {!video.uploader_checklist_completed_at && (
-              <button
+              <button type="button"
                 onClick={handleMarkDone}
                 disabled={actionLoading}
                 className="flex-1 py-3 bg-blue-500 text-white rounded-md font-bold text-sm hover:bg-blue-600 disabled:opacity-50"

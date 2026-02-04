@@ -266,7 +266,7 @@ export default function VideoEditingPipelinePage() {
           <p className="text-zinc-400">Manage video editing requests from clients</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
               showFilters ? 'bg-teal-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
@@ -275,7 +275,7 @@ export default function VideoEditingPipelinePage() {
             <Filter className="w-4 h-4" />
             Filters
           </button>
-          <button
+          <button type="button"
             onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-2 px-3 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
@@ -298,7 +298,7 @@ export default function VideoEditingPipelinePage() {
               These need immediate attention
             </p>
           </div>
-          <button
+          <button type="button"
             onClick={() => setSortBy('deadline')}
             className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
           >
@@ -350,7 +350,7 @@ export default function VideoEditingPipelinePage() {
                 <option value="created">Created Date</option>
               </select>
             </div>
-            <button
+            <button type="button"
               onClick={() => { setEditorFilter('all'); setPriorityFilter('all'); setSortBy('deadline'); }}
               className="self-end px-3 py-2 text-sm text-zinc-400 hover:text-white"
             >
@@ -437,7 +437,7 @@ export default function VideoEditingPipelinePage() {
           <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl">
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
               <h3 className="text-lg font-semibold text-white">Assign Editor</h3>
-              <button onClick={() => setAssigningRequest(null)} className="p-1 hover:bg-zinc-800 rounded">
+              <button type="button" onClick={() => setAssigningRequest(null)} className="p-1 hover:bg-zinc-800 rounded">
                 <X className="w-5 h-5 text-zinc-400" />
               </button>
             </div>
@@ -449,7 +449,7 @@ export default function VideoEditingPipelinePage() {
 
               <div className="space-y-2">
                 {editors.map(editor => (
-                  <button
+                  <button type="button"
                     key={editor.id}
                     onClick={() => setSelectedEditor(editor.id)}
                     className={`w-full p-3 rounded-lg border text-left transition-colors ${
@@ -474,13 +474,13 @@ export default function VideoEditingPipelinePage() {
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
-                <button
+                <button type="button"
                   onClick={() => setAssigningRequest(null)}
                   className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700"
                 >
                   Cancel
                 </button>
-                <button
+                <button type="button"
                   onClick={handleAssign}
                   disabled={!selectedEditor || assigning}
                   className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
@@ -593,7 +593,7 @@ function RequestCard({
 
         {/* Status Actions */}
         {request.status === 'pending' && (
-          <button
+          <button type="button"
             onClick={onAssign}
             className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
           >
@@ -602,7 +602,7 @@ function RequestCard({
         )}
 
         {request.status === 'assigned' && (
-          <button
+          <button type="button"
             onClick={() => onStatusChange(request.id, 'in_progress')}
             className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 flex items-center gap-1"
           >
@@ -612,7 +612,7 @@ function RequestCard({
         )}
 
         {(request.status === 'in_progress' || request.status === 'revision') && (
-          <button
+          <button type="button"
             onClick={() => onStatusChange(request.id, 'review')}
             className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
           >
@@ -622,7 +622,7 @@ function RequestCard({
         )}
 
         {request.status === 'review' && (
-          <button
+          <button type="button"
             onClick={() => onStatusChange(request.id, 'completed')}
             className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-1"
           >

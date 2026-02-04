@@ -300,7 +300,7 @@ export default function VariantPage() {
                   style={{ width: '100%', padding: '5px', marginTop: '5px' }}
                 />
               </div>
-              <button 
+              <button type="button" 
                 onClick={promoteVariant}
                 disabled={promoting}
                 style={{ 
@@ -377,7 +377,7 @@ export default function VariantPage() {
                 </div>
               </div>
 
-              <button 
+              <button type="button" 
                 onClick={scaleVariant}
                 disabled={scaling || scalingForm.change_types.length === 0}
                 style={{ 
@@ -403,7 +403,7 @@ export default function VariantPage() {
             <div style={{ marginBottom: '20px' }}>
               <h3>Parent Variant</h3>
               <Link href={`/variants/${lineage.parent_variant.id}`}>
-                <button style={{ padding: '5px 10px' }}>
+                <button type="button" style={{ padding: '5px 10px' }}>
                   {lineage.parent_variant.id.slice(0, 8)}... ({lineage.parent_variant.status})
                 </button>
               </Link>
@@ -422,7 +422,7 @@ export default function VariantPage() {
                     <div><strong>Change Note:</strong> {child.change_note || 'N/A'}</div>
                     <div style={{ marginTop: '10px' }}>
                       <Link href={`/variants/${child.id}`}>
-                        <button style={{ padding: '5px 10px' }}>View Details</button>
+                        <button type="button" style={{ padding: '5px 10px' }}>View Details</button>
                       </Link>
                     </div>
                   </div>

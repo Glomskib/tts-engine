@@ -81,7 +81,7 @@ export function OnboardingChecklist({ className = '' }: OnboardingChecklistProps
             <p className="text-sm text-zinc-400">Complete these steps to unlock the full potential</p>
           </div>
         </div>
-        <button
+        <button type="button"
           onClick={dismissOnboarding}
           className="p-1 rounded hover:bg-zinc-800 transition-colors"
           aria-label="Dismiss onboarding"

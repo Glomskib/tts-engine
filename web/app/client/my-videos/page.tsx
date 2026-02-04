@@ -109,7 +109,7 @@ export default function ClientMyVideosPage() {
               </p>
               <p className="text-sm text-purple-700">Please review and approve your edited videos</p>
             </div>
-            <button
+            <button type="button"
               onClick={() => setFilter('review')}
               className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
             >
@@ -148,7 +148,7 @@ export default function ClientMyVideosPage() {
             { key: 'review', label: 'Needs Review' },
             { key: 'completed', label: 'Completed' },
           ].map(f => (
-            <button
+            <button type="button"
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

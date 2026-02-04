@@ -111,7 +111,7 @@ export default function ConceptsPage() {
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
                   <Link href={`/concepts/${concept.id}`}>
-                    <button style={{ padding: '5px 10px' }}>Open Workbench</button>
+                    <button type="button" style={{ padding: '5px 10px' }}>Open Workbench</button>
                   </Link>
                 </td>
               </tr>

@@ -316,7 +316,7 @@ export default function AssignmentsPage() {
           border: `1px solid ${message.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
         }}>
           {message.text}
-          <button
+          <button type="button"
             onClick={() => setMessage(null)}
             style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}
           >
@@ -327,7 +327,7 @@ export default function AssignmentsPage() {
 
       {/* Quick actions */}
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-        <button
+        <button type="button"
           onClick={handleSweep}
           style={{
             padding: '8px 16px',
@@ -341,7 +341,7 @@ export default function AssignmentsPage() {
         >
           Sweep Expired
         </button>
-        <button
+        <button type="button"
           onClick={() => { fetchAssignments(); fetchUserActivity(); }}
           style={{
             padding: '8px 16px',
@@ -518,7 +518,7 @@ export default function AssignmentsPage() {
                           <div style={{ display: 'flex', gap: '5px' }}>
                             {a.assignment_state === 'ASSIGNED' && (
                               <>
-                                <button
+                                <button type="button"
                                   onClick={() => setExtendModal({ videoId: a.video_id, currentExpires: a.assigned_expires_at })}
                                   style={{
                                     padding: '4px 8px',
@@ -532,7 +532,7 @@ export default function AssignmentsPage() {
                                 >
                                   Extend
                                 </button>
-                                <button
+                                <button type="button"
                                   onClick={() => setReassignModal({ videoId: a.video_id, currentAssignee: a.assigned_to })}
                                   style={{
                                     padding: '4px 8px',
@@ -667,7 +667,7 @@ export default function AssignmentsPage() {
               />
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
+              <button type="button"
                 onClick={() => setExtendModal(null)}
                 style={{
                   padding: '8px 16px',
@@ -680,7 +680,7 @@ export default function AssignmentsPage() {
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleExtend}
                 disabled={extending}
                 style={{
@@ -772,7 +772,7 @@ export default function AssignmentsPage() {
               />
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
+              <button type="button"
                 onClick={() => { setReassignModal(null); setReassignUserId(''); setReassignNotes(''); }}
                 style={{
                   padding: '8px 16px',
@@ -785,7 +785,7 @@ export default function AssignmentsPage() {
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleReassign}
                 disabled={reassigning}
                 style={{

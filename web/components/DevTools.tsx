@@ -26,10 +26,11 @@ export function DevTools() {
   return (
     <>
       {/* Toggle Button */}
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-4 right-4 z-[9999] w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
         title="Toggle Dev Tools"
+        aria-label="Toggle Dev Tools"
       >
         <Bug className="w-5 h-5" />
       </button>
@@ -40,9 +41,10 @@ export function DevTools() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-700 bg-zinc-800">
             <span className="text-sm font-medium text-white">Dev Tools</span>
-            <button
+            <button type="button"
               onClick={() => setIsOpen(false)}
               className="p-1 rounded hover:bg-zinc-700 text-zinc-400"
+              aria-label="Close Dev Tools"
             >
               <X className="w-4 h-4" />
             </button>
@@ -55,7 +57,7 @@ export function DevTools() {
               { id: 'env', icon: Database, label: 'Env' },
               { id: 'perf', icon: Zap, label: 'Perf' },
             ].map((tab) => (
-              <button
+              <button type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
@@ -136,7 +138,7 @@ function EnvTab({ onCopy, copied }: { onCopy: (text: string) => void; copied: bo
           </div>
         ))
       )}
-      <button
+      <button type="button"
         onClick={() => onCopy(JSON.stringify(publicEnvVars, null, 2))}
         className="flex items-center gap-1 mt-2 text-xs text-zinc-400 hover:text-white"
       >
@@ -215,19 +217,19 @@ function PerfTab() {
       <div className="pt-2 border-t border-zinc-700">
         <p className="text-xs text-zinc-500 mb-2">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
-          <button
+          <button type="button"
             onClick={() => window.location.reload()}
             className="px-2 py-1 text-xs bg-zinc-800 hover:bg-zinc-700 text-white rounded"
           >
             Reload
           </button>
-          <button
+          <button type="button"
             onClick={() => localStorage.clear()}
             className="px-2 py-1 text-xs bg-zinc-800 hover:bg-zinc-700 text-white rounded"
           >
             Clear Storage
           </button>
-          <button
+          <button type="button"
             onClick={() => console.clear()}
             className="px-2 py-1 text-xs bg-zinc-800 hover:bg-zinc-700 text-white rounded"
           >

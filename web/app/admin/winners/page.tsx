@@ -583,7 +583,7 @@ export default function WinnersPage() {
               style={{ ...inputStyle, flex: 1 }}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
-            <button
+            <button type="button"
               onClick={handleSubmit}
               disabled={submitting || !submitUrl.trim()}
               style={{
@@ -609,7 +609,7 @@ export default function WinnersPage() {
         {/* Filters */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
           {(["all", "ready", "processing", "needs_data", "failed"] as StatusFilter[]).map((status) => (
-            <button
+            <button type="button"
               key={status}
               onClick={() => setStatusFilter(status)}
               style={{
@@ -716,14 +716,14 @@ export default function WinnersPage() {
                       >
                         View
                       </a>
-                      <button
+                      <button type="button"
                         onClick={(e) => { e.stopPropagation(); openEditModal(winner); }}
                         className="flex-1 h-11 rounded-lg bg-zinc-800 text-zinc-200 text-sm font-medium flex items-center justify-center hover:bg-zinc-700 transition-colors btn-press"
                       >
                         Edit
                       </button>
                       {winner.status === "ready" && (
-                        <button
+                        <button type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/admin/skit-generator?winner_id=${winner.id}`);
@@ -839,7 +839,7 @@ export default function WinnersPage() {
                       <td style={{ ...tdStyle, textAlign: "right" }}>
                         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                           {winner.status === "ready" && (
-                            <button
+                            <button type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 router.push(`/admin/skit-generator?winner_id=${winner.id}`);
@@ -863,7 +863,7 @@ export default function WinnersPage() {
                               Generate Similar
                             </button>
                           )}
-                          <button
+                          <button type="button"
                             onClick={(e) => { e.stopPropagation(); handleDelete(winner.id); }}
                             style={{
                               background: "none",
@@ -929,7 +929,7 @@ export default function WinnersPage() {
                     Open in TikTok ↗
                   </a>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); setSaveMessage(null); }}
                   style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer", padding: "4px" }}
                 >
@@ -1015,7 +1015,7 @@ export default function WinnersPage() {
                 </div>
 
                 {/* Analyze Button */}
-                <button
+                <button type="button"
                   onClick={handleAnalyze}
                   disabled={analyzing || !editForm.transcript.trim()}
                   style={{
@@ -1126,20 +1126,20 @@ export default function WinnersPage() {
 
               {/* Modal Footer */}
               <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
-                <button
+                <button type="button"
                   onClick={() => handleDelete(editingWinner.id)}
                   style={{ ...buttonStyle, backgroundColor: "transparent", color: "#ef4444", padding: "8px 12px" }}
                 >
                   Delete
                 </button>
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button
+                  <button type="button"
                     onClick={() => { setEditingWinner(null); setAnalysisResult(null); setAnalysisError(null); setSaveMessage(null); }}
                     style={secondaryButtonStyle}
                   >
                     Cancel
                   </button>
-                  <button
+                  <button type="button"
                     onClick={handleSave}
                     disabled={editSaving}
                     style={{ ...primaryButtonStyle, opacity: editSaving ? 0.5 : 1 }}

@@ -81,7 +81,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="border border-white/10 rounded-lg overflow-hidden">
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-zinc-900/50 transition-colors"
       >
@@ -160,7 +160,7 @@ export default function PricingPage() {
           {/* Tab Switcher */}
           <div className="flex justify-center mb-12">
             <div className="inline-flex bg-zinc-900/50 p-1 rounded-xl border border-white/10">
-              <button
+              <button type="button"
                 onClick={() => setActiveTab('saas')}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                   activeTab === 'saas'
@@ -171,7 +171,7 @@ export default function PricingPage() {
                 <Sparkles className="w-4 h-4" />
                 AI Tools
               </button>
-              <button
+              <button type="button"
                 onClick={() => setActiveTab('video')}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                   activeTab === 'video'

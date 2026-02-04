@@ -1765,7 +1765,7 @@ export default function SkitGeneratorPage() {
           </p>
         </div>
         <div className="header-buttons" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button
+          <button type="button"
             onClick={openLoadModal}
             style={{
               padding: '10px 16px',
@@ -1843,7 +1843,7 @@ export default function SkitGeneratorPage() {
               )}
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={() => {
               setWinnerId(null);
               setWinnerInfo(null);
@@ -1902,7 +1902,7 @@ export default function SkitGeneratorPage() {
                       {recentProducts
                         .filter(rp => products.some(p => p.id === rp.id)) // Only show if product still exists
                         .map((rp) => (
-                        <button
+                        <button type="button"
                           key={rp.id}
                           onClick={() => {
                             setSelectedProductId(rp.id);
@@ -2344,7 +2344,7 @@ export default function SkitGeneratorPage() {
                       Skit Template (optional)
                     </label>
                     {/* Favorite button for current combo */}
-                    <button
+                    <button type="button"
                       onClick={() => toggleFavorite(selectedPreset, selectedTemplate)}
                       title={isFavorited(selectedPreset, selectedTemplate) ? 'Remove from favorites' : 'Add to favorites'}
                       style={{
@@ -2394,7 +2394,7 @@ export default function SkitGeneratorPage() {
                     </label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {templateFavorites.map((fav) => (
-                        <button
+                        <button type="button"
                           key={fav.id}
                           onClick={() => {
                             setSelectedPreset(fav.presetId);
@@ -2428,7 +2428,7 @@ export default function SkitGeneratorPage() {
 
               {/* Advanced Options Toggle */}
               <div>
-                <button
+                <button type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
                   style={{
                     display: 'flex',
@@ -2987,7 +2987,7 @@ export default function SkitGeneratorPage() {
               </div>
 
               {/* Generate Button */}
-              <button
+              <button type="button"
                 onClick={() => handleGenerate()}
                 disabled={generating || !hasCredits}
                 style={{
@@ -3033,7 +3033,7 @@ export default function SkitGeneratorPage() {
               <h2 style={{ margin: 0, fontSize: '16px', color: colors.text }}>Result</h2>
               {/* Undo Button */}
               {undoStack.length > 0 && (
-                <button
+                <button type="button"
                   onClick={undoEdit}
                   title={`Undo last edit (Ctrl+Z) - ${undoStack.length} action${undoStack.length > 1 ? 's' : ''} available`}
                   style={{
@@ -3057,7 +3057,7 @@ export default function SkitGeneratorPage() {
             {/* Generation History Dropdown */}
             {generationHistory.length > 0 && (
               <div style={{ position: 'relative' }}>
-                <button
+                <button type="button"
                   onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
                   style={{
                     padding: '4px 10px',
@@ -3098,7 +3098,7 @@ export default function SkitGeneratorPage() {
                       const score = item.result.variations?.[0]?.ai_score?.overall_score
                         || item.result.ai_score?.overall_score;
                       return (
-                        <button
+                        <button type="button"
                           key={item.id}
                           onClick={() => loadFromHistory(item)}
                           style={{
@@ -3166,7 +3166,7 @@ export default function SkitGeneratorPage() {
                       {action}
                     </span>
                     {canRetry && retryPayload && (
-                      <button
+                      <button type="button"
                         onClick={handleRetry}
                         disabled={generating}
                         style={{
@@ -3268,7 +3268,7 @@ export default function SkitGeneratorPage() {
                       const score = v.ai_score?.overall_score;
                       const isSelected = idx === selectedVariationIndex;
                       return (
-                        <button
+                        <button type="button"
                           key={idx}
                           onClick={() => {
                             setSelectedVariationIndex(idx);
@@ -3311,7 +3311,7 @@ export default function SkitGeneratorPage() {
                     })}
                     {/* Generate More button */}
                     {variations.length < 5 && (
-                      <button
+                      <button type="button"
                         onClick={() => handleGenerate()}
                         disabled={generating}
                         title="Generate more variations"
@@ -3392,7 +3392,7 @@ export default function SkitGeneratorPage() {
                 )}
 
                 {/* Copy Full Script Button */}
-                <button
+                <button type="button"
                   onClick={() => {
                     const script = `HOOK: ${currentSkit.hook_line || '(No hook)'}
 
@@ -3530,7 +3530,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   </div>
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {editingSection !== 'hook' && (
-                      <button
+                      <button type="button"
                         onClick={() => startEditing('hook', currentSkit.hook_line)}
                         style={{
                           padding: '2px 8px',
@@ -3545,7 +3545,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                         Edit
                       </button>
                     )}
-                    <button
+                    <button type="button"
                       onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
                       style={{
                         padding: '2px 8px',
@@ -3586,7 +3586,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       }}
                     />
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button
+                      <button type="button"
                         onClick={() => saveEdit('hook')}
                         style={{
                           padding: '6px 12px',
@@ -3600,7 +3600,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       >
                         Save
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => improveSection('hook', currentSkit.hook_line)}
                         disabled={improvingSection}
                         style={{
@@ -3615,7 +3615,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       >
                         {improvingSection ? 'Improving...' : 'AI Improve'}
                       </button>
-                      <button
+                      <button type="button"
                         onClick={cancelEditing}
                         style={{
                           padding: '6px 12px',
@@ -3675,7 +3675,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     })()}
                   </div>
                   <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
+                    <button type="button"
                       onClick={addBeat}
                       style={{
                         padding: '2px 8px',
@@ -3689,7 +3689,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     >
                       + Add Scene
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => copyToClipboard(
                         (currentSkit.beats || []).map(b => `[${b.t}] ${b.action}${b.dialogue ? `\n"${b.dialogue}"` : ''}${b.on_screen_text ? `\n(Text: ${b.on_screen_text})` : ''}`).join('\n\n'),
                         'scenes'
@@ -3799,7 +3799,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                             />
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
+                            <button type="button"
                               onClick={() => saveEdit(`beat-${i}`)}
                               style={{
                                 padding: '6px 12px',
@@ -3813,7 +3813,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                             >
                               Save
                             </button>
-                            <button
+                            <button type="button"
                               onClick={() => improveSection(`beat-${i}`, beat.action)}
                               disabled={improvingSection}
                               style={{
@@ -3828,7 +3828,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                             >
                               {improvingSection ? 'Improving...' : 'AI Improve'}
                             </button>
-                            <button
+                            <button type="button"
                               onClick={cancelEditing}
                               style={{
                                 padding: '6px 12px',
@@ -3851,7 +3851,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               [{beat.t}]
                             </div>
                             <div style={{ display: 'flex', gap: '2px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => moveBeat(i, 'up')}
                                 disabled={i === 0}
                                 title="Move up"
@@ -3867,7 +3867,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 ▲
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => moveBeat(i, 'down')}
                                 disabled={i === currentSkit.beats.length - 1}
                                 title="Move down"
@@ -3883,7 +3883,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 ▼
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => startEditing(`beat-${i}`, beat.action, beat.dialogue, beat.on_screen_text)}
                                 title="Edit beat"
                                 style={{
@@ -3898,7 +3898,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 ✏️
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => deleteBeat(i)}
                                 disabled={currentSkit.beats.length <= 1}
                                 title="Delete beat"
@@ -3973,7 +3973,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>CTA</span>
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {editingSection !== 'cta' && editingSection !== 'cta_overlay' && (
-                      <button
+                      <button type="button"
                         onClick={() => startEditing('cta', currentSkit.cta_line)}
                         style={{
                           padding: '2px 8px',
@@ -3988,7 +3988,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                         Edit
                       </button>
                     )}
-                    <button
+                    <button type="button"
                       onClick={() => copyToClipboard(`${currentSkit.cta_line}\n[Overlay: ${currentSkit.cta_overlay}]`, 'cta')}
                       style={{
                         padding: '2px 8px',
@@ -4030,7 +4030,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       />
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
+                      <button type="button"
                         onClick={() => saveEdit('cta')}
                         style={{
                           padding: '6px 12px',
@@ -4044,7 +4044,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       >
                         Save
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => improveSection('cta', currentSkit.cta_line)}
                         disabled={improvingSection}
                         style={{
@@ -4059,7 +4059,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       >
                         {improvingSection ? 'Improving...' : 'AI Improve'}
                       </button>
-                      <button
+                      <button type="button"
                         onClick={cancelEditing}
                         style={{
                           padding: '6px 12px',
@@ -4077,7 +4077,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #d97706' }}>
                       <div style={{ color: '#b45309', fontSize: '11px', marginBottom: '4px' }}>
                         Overlay: {currentSkit.cta_overlay}
-                        <button
+                        <button type="button"
                           onClick={() => {
                             cancelEditing();
                             startEditing('cta_overlay', currentSkit.cta_overlay);
@@ -4107,7 +4107,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   }}>
                     <div style={{ color: '#92400e', marginBottom: '8px', fontSize: '14px' }}>
                       {currentSkit.cta_line}
-                      <button
+                      <button type="button"
                         onClick={() => {
                           cancelEditing();
                           startEditing('cta', currentSkit.cta_line);
@@ -4147,7 +4147,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       <div style={{ fontSize: '10px', color: '#92400e', marginTop: '2px' }}>{editValue.length}/40 characters</div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
+                      <button type="button"
                         onClick={() => saveEdit('cta_overlay')}
                         style={{
                           padding: '6px 12px',
@@ -4161,7 +4161,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       >
                         Save
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => improveSection('cta_overlay', currentSkit.cta_overlay)}
                         disabled={improvingSection}
                         style={{
@@ -4176,7 +4176,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       >
                         {improvingSection ? 'Improving...' : 'AI Improve'}
                       </button>
-                      <button
+                      <button type="button"
                         onClick={cancelEditing}
                         style={{
                           padding: '6px 12px',
@@ -4236,7 +4236,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>
                       B-Roll ({currentSkit.b_roll.length})
                     </span>
-                    <button
+                    <button type="button"
                       onClick={addBrollItem}
                       style={{
                         padding: '2px 6px',
@@ -4278,7 +4278,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               }}
                             />
                             <div style={{ display: 'flex', gap: '4px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => saveEdit(`broll-${i}`)}
                                 style={{
                                   padding: '4px 8px',
@@ -4292,7 +4292,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 Save
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => improveSection(`broll-${i}`, item)}
                                 disabled={improvingSection}
                                 style={{
@@ -4307,7 +4307,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 {improvingSection ? '...' : 'AI'}
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={cancelEditing}
                                 style={{
                                   padding: '4px 8px',
@@ -4329,7 +4329,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               {i + 1}. {item}
                             </div>
                             <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => startEditing(`broll-${i}`, item)}
                                 style={{
                                   padding: '2px 4px',
@@ -4343,7 +4343,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 ✏️
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => deleteBrollItem(i)}
                                 style={{
                                   padding: '2px 4px',
@@ -4371,7 +4371,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     <span style={{ fontSize: '12px', fontWeight: 600, color: colors.text }}>
                       Overlays ({currentSkit.overlays.length})
                     </span>
-                    <button
+                    <button type="button"
                       onClick={addOverlayItem}
                       style={{
                         padding: '2px 6px',
@@ -4415,7 +4415,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                             />
                             <div style={{ fontSize: '9px', color: colors.textSecondary, marginBottom: '8px' }}>{editValue.length}/50</div>
                             <div style={{ display: 'flex', gap: '4px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => saveEdit(`overlay-${i}`)}
                                 style={{
                                   padding: '4px 8px',
@@ -4429,7 +4429,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 Save
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => improveSection(`overlay-${i}`, item)}
                                 disabled={improvingSection}
                                 style={{
@@ -4444,7 +4444,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 {improvingSection ? '...' : 'AI'}
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={cancelEditing}
                                 style={{
                                   padding: '4px 8px',
@@ -4479,7 +4479,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               )}
                             </div>
                             <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => startEditing(`overlay-${i}`, item)}
                                 style={{
                                   padding: '2px 4px',
@@ -4493,7 +4493,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                               >
                                 ✏️
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => deleteOverlayItem(i)}
                                 style={{
                                   padding: '2px 4px',
@@ -4519,7 +4519,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
               {/* Export Actions */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {/* Copy Full Skit */}
-                <button
+                <button type="button"
                   onClick={() => copyToClipboard(
                     `HOOK: ${currentSkit.hook_line}\n\n` +
                     `SCENES:\n${currentSkit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? `\nDialogue: "${b.dialogue}"` : ''}${b.on_screen_text ? `\nText: ${b.on_screen_text}` : ''}`).join('\n\n')}\n\n` +
@@ -4543,7 +4543,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 </button>
 
                 {/* Export as JSON */}
-                <button
+                <button type="button"
                   onClick={() => {
                     const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
                     const productName = product?.name || manualProductName || 'Product';
@@ -4577,7 +4577,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 </button>
 
                 {/* Export as Markdown */}
-                <button
+                <button type="button"
                   onClick={() => {
                     const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
                     const productName = product?.name || manualProductName || 'Product';
@@ -4618,7 +4618,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 </button>
 
                 {/* Download as Plain Text */}
-                <button
+                <button type="button"
                   onClick={() => {
                     const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
                     const productName = product?.name || manualProductName || 'Product';
@@ -4658,7 +4658,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 </button>
 
                 {/* Copy for Google Docs (HTML/Rich Text) */}
-                <button
+                <button type="button"
                   onClick={async () => {
                     const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
                     const productName = product?.name || manualProductName || 'Product';
@@ -4721,7 +4721,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 </button>
 
                 {/* Download Word Doc */}
-                <button
+                <button type="button"
                   onClick={async () => {
                     const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
                     const productName = product?.name || manualProductName || 'Product';
@@ -4873,7 +4873,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 </button>
 
                 {/* Download PDF */}
-                <button
+                <button type="button"
                   onClick={() => {
                     const product = selectedProductId ? products.find(p => p.id === selectedProductId) : null;
                     const productName = product?.name || manualProductName || 'Product';
@@ -5026,7 +5026,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '12px' }}>
                       Auto-scoring was unavailable. You can manually score this skit.
                     </div>
-                    <button
+                    <button type="button"
                       onClick={handleGetAIScore}
                       disabled={scoringInProgress}
                       style={{
@@ -5153,7 +5153,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                     )}
 
                     {/* Re-score Button */}
-                    <button
+                    <button type="button"
                       onClick={handleGetAIScore}
                       disabled={scoringInProgress}
                       style={{
@@ -5181,7 +5181,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {versions.map((v, i) => (
-                      <button
+                      <button type="button"
                         key={v.id}
                         onClick={() => switchToVersion(i)}
                         style={{
@@ -5212,7 +5212,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 borderTop: `1px solid ${colors.border}`,
                 paddingTop: '16px',
               }}>
-                <button
+                <button type="button"
                   onClick={() => setRefinementOpen(!refinementOpen)}
                   style={{
                     display: 'flex',
@@ -5242,7 +5242,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {QUICK_ACTIONS.map((action) => (
-                          <button
+                          <button type="button"
                             key={action.id}
                             onClick={() => handleRefine(action.instruction)}
                             disabled={refining}
@@ -5260,7 +5260,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                             {action.label}
                           </button>
                         ))}
-                        <button
+                        <button type="button"
                           onClick={() => handleGenerate()}
                           disabled={refining || generating}
                           style={{
@@ -5302,7 +5302,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                           fontFamily: 'inherit',
                         }}
                       />
-                      <button
+                      <button type="button"
                         onClick={() => handleRefine(refinementText)}
                         disabled={refining || !refinementText.trim()}
                         style={{
@@ -5337,7 +5337,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 {/* Star Rating */}
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <button
+                    <button type="button"
                       key={star}
                       onClick={() => {
                         setUserRating(star);
@@ -5388,7 +5388,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                         marginBottom: '8px',
                       }}
                     />
-                    <button
+                    <button type="button"
                       onClick={handleSaveRating}
                       disabled={savingRating || ratingSaved}
                       style={{
@@ -5414,7 +5414,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                 borderTop: `1px solid ${colors.border}`,
                 paddingTop: '16px',
               }}>
-                <button
+                <button type="button"
                   onClick={openSaveModal}
                   style={{
                     width: '100%',
@@ -5433,7 +5433,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
 
                 {/* Send to Video Queue - only show after saving to library */}
                 {savedSkitId && !linkedVideoId && (
-                  <button
+                  <button type="button"
                     onClick={handleSendToVideo}
                     disabled={sendingToVideo}
                     style={{
@@ -5607,7 +5607,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
             </div>
 
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button
+              <button type="button"
                 onClick={() => setSaveModalOpen(false)}
                 style={{
                   padding: '10px 20px',
@@ -5621,7 +5621,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={handleSaveToLibrary}
                 disabled={savingToLibrary || !saveTitle.trim() || savedToLibrary}
                 style={{
@@ -5666,7 +5666,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   >
                     View in Library
                   </Link>
-                  <button
+                  <button type="button"
                     onClick={() => {
                       setSaveModalOpen(false);
                       setSavedToLibrary(false);
@@ -5728,7 +5728,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: colors.text }}>Load from Library</h3>
-              <button
+              <button type="button"
                 onClick={() => setLoadModalOpen(false)}
                 style={{
                   padding: '4px 8px',
@@ -5802,7 +5802,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <button
+              <button type="button"
                 onClick={fetchSavedSkits}
                 style={{
                   padding: '8px 16px',
@@ -5831,7 +5831,7 @@ ${(currentSkit.overlays || []).map(o => `- ${o}`).join('\n') || '(No overlay sug
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {savedSkits.map((skit) => (
-                    <button
+                    <button type="button"
                       key={skit.id}
                       onClick={() => handleLoadSkit(skit.id)}
                       style={{

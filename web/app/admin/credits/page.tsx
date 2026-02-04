@@ -234,7 +234,7 @@ export default function CreditsPage() {
                         </span>
                       )}
                     </div>
-                    <button
+                    <button type="button"
                       onClick={() => handlePurchase(pkg.id)}
                       disabled={purchasing === pkg.id}
                       className={`w-full h-11 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors ${

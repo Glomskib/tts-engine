@@ -50,7 +50,7 @@ export function UpgradePrompt({
             {cta}
           </Link>
           {dismissible && (
-            <button
+            <button type="button"
               onClick={handleDismiss}
               className="absolute right-4 text-zinc-500 hover:text-white transition-colors"
               aria-label="Dismiss"
@@ -82,7 +82,7 @@ export function UpgradePrompt({
   return (
     <div className="relative p-6 rounded-xl bg-gradient-to-br from-blue-600/10 via-violet-600/10 to-blue-600/10 border border-blue-500/20">
       {dismissible && (
-        <button
+        <button type="button"
           onClick={handleDismiss}
           className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
           aria-label="Dismiss"

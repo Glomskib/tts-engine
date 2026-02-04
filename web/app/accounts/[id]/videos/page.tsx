@@ -138,7 +138,7 @@ export default function UploaderPortalPage() {
       {error && <div style={{ color: 'red', marginBottom: '20px' }}>Error: {error}</div>}
 
       <div style={{ marginBottom: '20px' }}>
-        <button 
+        <button type="button" 
           onClick={() => setActiveTab('ready')}
           style={{ 
             marginRight: '10px', 
@@ -150,7 +150,7 @@ export default function UploaderPortalPage() {
         >
           Ready to Upload ({readyVideos.length})
         </button>
-        <button 
+        <button type="button" 
           onClick={() => setActiveTab('needs_edit')}
           style={{ 
             marginRight: '10px',
@@ -162,7 +162,7 @@ export default function UploaderPortalPage() {
         >
           Needs Edit ({needsEditVideos.length})
         </button>
-        <button 
+        <button type="button" 
           onClick={() => setActiveTab('posted')}
           style={{ 
             padding: '10px 20px',
@@ -217,7 +217,7 @@ export default function UploaderPortalPage() {
                       />
                     </td>
                     <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                      <button 
+                      <button type="button" 
                         onClick={() => markPosted(video.id)}
                         disabled={!ttPostUrls[video.id]?.trim()}
                         style={{ padding: '5px 10px' }}
@@ -271,7 +271,7 @@ export default function UploaderPortalPage() {
                     <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.caption_used || 'N/A'}</td>
                     <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.hashtags_used || 'N/A'}</td>
                     <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                      <button 
+                      <button type="button" 
                         onClick={() => markReadyToUpload(video.id)}
                         style={{ padding: '5px 10px' }}
                       >

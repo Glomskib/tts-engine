@@ -101,9 +101,10 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
               <p className="text-sm text-zinc-400 truncate max-w-[250px]">{skit.title}</p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-zinc-400" />
           </button>
@@ -143,7 +144,7 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
                     <p className="text-xs text-zinc-500">{format.description}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
+                    <button type="button"
                       onClick={() => handleCopy(format.id as 'txt' | 'md' | 'json')}
                       className="p-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors"
                       title={`Copy as ${format.extension}`}
@@ -154,7 +155,7 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
                         <Copy className="w-4 h-4 text-zinc-300" />
                       )}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => handleDownload(format.id as 'txt' | 'md' | 'json')}
                       className="p-2 rounded-lg bg-teal-600 hover:bg-teal-500 transition-colors"
                       title={`Download ${format.extension}`}
@@ -169,7 +170,7 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
 
           {/* Copy link section */}
           <div className="pt-4 border-t border-zinc-800">
-            <button
+            <button type="button"
               onClick={handleCopyLink}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
             >

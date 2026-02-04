@@ -35,7 +35,7 @@ export function WinnerCard({ winner, onClick, onDelete }: WinnerCardProps) {
     >
       {/* Delete Button */}
       {onDelete && (
-        <button
+        <button type="button"
           onClick={(e) => {
             e.stopPropagation();
             if (confirm('Delete this winner? This cannot be undone.')) {
@@ -44,6 +44,7 @@ export function WinnerCard({ winner, onClick, onDelete }: WinnerCardProps) {
           }}
           className="absolute top-3 left-3 z-10 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-500 hover:text-red-400 hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-all"
           title="Delete winner"
+          aria-label="Delete winner"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>

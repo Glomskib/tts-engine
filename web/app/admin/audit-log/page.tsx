@@ -399,7 +399,7 @@ export default function AdminAuditLogPage() {
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-100">Audit Entry Details</h2>
-              <button
+              <button type="button"
                 onClick={closeDrawer}
                 className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none"
               >

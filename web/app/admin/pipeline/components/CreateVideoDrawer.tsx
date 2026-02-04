@@ -968,7 +968,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: colors.text }}>
               Create Video
             </h2>
-            <button
+            <button type="button"
               onClick={onClose}
               disabled={aiLoading || submitting}
               style={{
@@ -1018,7 +1018,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     onKeyDown={(e) => e.key === 'Enter' && handleAddBrand()}
                   />
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
+                    <button type="button"
                       onClick={() => { setShowAddBrand(false); setNewBrandName(''); }}
                       style={{
                         flex: 1, padding: '8px', backgroundColor: colors.bgSecondary,
@@ -1028,7 +1028,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     >
                       Cancel
                     </button>
-                    <button
+                    <button type="button"
                       onClick={handleAddBrand}
                       disabled={!newBrandName.trim() || addingBrand}
                       style={{
@@ -1071,7 +1071,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     {CATEGORIES.map(cat => (<option key={cat.value} value={cat.value}>{cat.label}</option>))}
                   </select>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
+                    <button type="button"
                       onClick={() => { setShowAddProduct(false); setNewProductName(''); }}
                       style={{
                         flex: 1, padding: '8px', backgroundColor: colors.bgSecondary,
@@ -1081,7 +1081,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                     >
                       Cancel
                     </button>
-                    <button
+                    <button type="button"
                       onClick={handleAddProduct}
                       disabled={!newProductName.trim() || addingProduct}
                       style={{
@@ -1221,7 +1221,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           {/* ==================== AI GENERATE BUTTON ==================== */}
           {isProductSelected && !aiDraft && (
             <div style={{ marginBottom: '16px' }}>
-              <button
+              <button type="button"
                 onClick={generateAIDraft}
                 disabled={aiLoading}
                 style={{
@@ -1270,7 +1270,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               {/* Debug expander (show raw AI response info) */}
               {aiResponseDebug && (
                 <div style={{ marginTop: '10px' }}>
-                  <button
+                  <button type="button"
                     onClick={() => setShowDebug(!showDebug)}
                     style={{
                       background: 'none', border: 'none',
@@ -1327,7 +1327,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {/* Readjust button - only show if user has made edits */}
                   {userModifiedFields.size > 0 && (
-                    <button
+                    <button type="button"
                       onClick={readjustWithAI}
                       disabled={aiLoading || isReadjusting}
                       title="Re-align other fields to your edits without overwriting what you changed"
@@ -1343,7 +1343,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       {isReadjusting ? '...' : 'Readjust'}
                     </button>
                   )}
-                  <button
+                  <button type="button"
                     onClick={generateAIDraft}
                     disabled={aiLoading || isReadjusting}
                     style={{
@@ -1546,7 +1546,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   {/* Feedback buttons */}
                   {selectedSpokenHook && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button
+                      <button type="button"
                         onClick={() => submitHookFeedback(selectedSpokenHook, 1)}
                         disabled={feedbackLoading}
                         title="Save this hook for future generations"
@@ -1563,7 +1563,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                       >
                         Save
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => submitHookFeedback(selectedSpokenHook, -1)}
                         disabled={feedbackLoading}
                         title="Exclude this hook from future generations"
@@ -1904,7 +1904,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           )}
 
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button
+            <button type="button"
               onClick={onClose}
               disabled={submitting || aiLoading}
               style={{
@@ -1917,7 +1917,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               Cancel
             </button>
 
-            <button
+            <button type="button"
               onClick={() => handleSubmit(false)}
               disabled={!canCreate || submitting || aiLoading}
               style={{
@@ -1932,7 +1932,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               {submitting ? 'Creating...' : 'Create & Add Another'}
             </button>
 
-            <button
+            <button type="button"
               onClick={() => handleSubmit(true)}
               disabled={!canCreate || submitting || aiLoading}
               style={{

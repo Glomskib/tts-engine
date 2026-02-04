@@ -119,7 +119,7 @@ export default function ExecutionDashboardPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Execution Dashboard</h1>
-        <button onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
+        <button type="button" onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
       </div>
 
       {error && <div style={{ color: 'red', marginBottom: '20px', padding: '10px', backgroundColor: '#fee', borderRadius: '4px' }}>{error}</div>}

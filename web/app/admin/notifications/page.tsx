@@ -214,14 +214,14 @@ export default function NotificationsPage() {
         </h1>
         <div className="flex gap-2">
           {unreadCount > 0 && (
-            <button
+            <button type="button"
               onClick={markAllAsRead}
               className="px-4 py-2.5 bg-violet-600 text-white rounded-lg font-medium text-sm hover:bg-violet-700 transition-colors min-h-[44px] btn-press"
             >
               Mark All Read
             </button>
           )}
-          <button
+          <button type="button"
             onClick={fetchNotifications}
             className="px-4 py-2.5 bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-lg font-medium text-sm hover:bg-zinc-700 transition-colors min-h-[44px] btn-press"
           >
@@ -286,7 +286,7 @@ export default function NotificationsPage() {
                           View
                         </Link>
                       )}
-                      <button
+                      <button type="button"
                         onClick={() => markAsRead(n.id)}
                         disabled={isMarking}
                         className={`px-3 py-2 rounded-lg text-xs font-medium min-h-[36px] transition-colors btn-press ${

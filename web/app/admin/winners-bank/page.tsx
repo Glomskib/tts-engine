@@ -221,14 +221,14 @@ export default function WinnersBankPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
+              <button type="button"
                 onClick={() => setShowMarkWinner(true)}
                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <Trophy className="w-4 h-4 text-amber-400" />
                 Mark Script as Winner
               </button>
-              <button
+              <button type="button"
                 onClick={() => setShowAddExternal(true)}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
@@ -277,7 +277,7 @@ export default function WinnersBankPage() {
 
         {/* View Toggle */}
         <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
-          <button
+          <button type="button"
             onClick={() => setActiveView('winners')}
             className={`px-5 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
               activeView === 'winners' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-300'
@@ -286,7 +286,7 @@ export default function WinnersBankPage() {
             <Trophy className="w-4 h-4" />
             Winning Scripts
           </button>
-          <button
+          <button type="button"
             onClick={() => setActiveView('hooks')}
             className={`px-5 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
               activeView === 'hooks' ? 'bg-teal-600 text-white' : 'text-zinc-400 hover:text-zinc-300'
@@ -333,14 +333,14 @@ export default function WinnersBankPage() {
                         <span>{new Date(hook.created_at).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
+                        <button type="button"
                           onClick={() => copyHookText(hook.id, hook.hook_text)}
                           className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-1.5"
                         >
                           <Copy className="w-3.5 h-3.5" />
                           {copiedHookId === hook.id ? 'Copied!' : 'Copy'}
                         </button>
-                        <button
+                        <button type="button"
                           onClick={() => {
                             if (confirm('Delete this hook?')) {
                               handleDeleteHook(hook.id);
@@ -367,7 +367,7 @@ export default function WinnersBankPage() {
           {/* Source Filter Tabs */}
           <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
             {(['all', 'generated', 'external'] as const).map((source) => (
-              <button
+              <button type="button"
                 key={source}
                 onClick={() => setSourceFilter(source)}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -428,10 +428,11 @@ export default function WinnersBankPage() {
           </div>
 
           {/* Refresh */}
-          <button
+          <button type="button"
             onClick={fetchWinners}
             disabled={loading}
             className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
+            aria-label="Refresh"
           >
             <RefreshCw className={`w-4 h-4 text-zinc-400 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -467,14 +468,14 @@ export default function WinnersBankPage() {
             </p>
             {!searchQuery && !categoryFilter && (
               <div className="flex items-center justify-center gap-3">
-                <button
+                <button type="button"
                   onClick={() => setShowMarkWinner(true)}
                   className="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   <Trophy className="w-4 h-4" />
                   Mark a Script as Winner
                 </button>
-                <button
+                <button type="button"
                   onClick={() => setShowAddExternal(true)}
                   className="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
@@ -647,7 +648,7 @@ function ScriptSelectionModal({
             <p className="text-center text-zinc-500 py-8">No scripts found</p>
           ) : (
             filteredScripts.map((script) => (
-              <button
+              <button type="button"
                 key={script.id}
                 onClick={() => setSelectedScript(script)}
                 className={`w-full p-3 rounded-lg text-left transition-colors ${
@@ -670,13 +671,13 @@ function ScriptSelectionModal({
         </div>
 
         <div className="px-6 py-4 border-t border-zinc-800 flex items-center justify-end gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-300"
           >
             Cancel
           </button>
-          <button
+          <button type="button"
             onClick={() => {
               if (selectedScript) {
                 // Open MarkAsWinnerModal with selected script

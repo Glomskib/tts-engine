@@ -249,7 +249,7 @@ export default function HookSuggestionsPage() {
       {/* Status Filter */}
       <div className="flex gap-2 flex-wrap">
         {(['pending', 'approved', 'rejected'] as StatusFilter[]).map((status) => (
-          <button
+          <button type="button"
             key={status}
             onClick={() => setStatusFilter(status)}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
@@ -312,7 +312,7 @@ export default function HookSuggestionsPage() {
                     <td className="px-4 py-3 text-right">
                       {statusFilter === 'pending' && (
                         <div className="flex gap-2 justify-end" onClick={e => e.stopPropagation()}>
-                          <button
+                          <button type="button"
                             onClick={() => {
                               setSelectedSuggestion(suggestion);
                               handleApprove();
@@ -321,7 +321,7 @@ export default function HookSuggestionsPage() {
                           >
                             Approve
                           </button>
-                          <button
+                          <button type="button"
                             onClick={() => {
                               setSelectedSuggestion(suggestion);
                               handleReject();
@@ -362,7 +362,7 @@ export default function HookSuggestionsPage() {
               <h2 className="text-lg font-semibold text-zinc-100">
                 Review Hook Suggestion
               </h2>
-              <button
+              <button type="button"
                 onClick={() => setDrawerOpen(false)}
                 className="text-zinc-400 hover:text-zinc-200"
               >

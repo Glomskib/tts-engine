@@ -110,7 +110,7 @@ export function NotificationsBell() {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <button type="button"
         onClick={() => setOpen(!open)}
         className="relative p-2 rounded-lg hover:bg-zinc-800 transition-colors"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
@@ -129,7 +129,7 @@ export function NotificationsBell() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
             <h3 className="font-semibold text-white">Notifications</h3>
             {unreadCount > 0 && (
-              <button
+              <button type="button"
                 onClick={markAllAsRead}
                 className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
               >
@@ -161,7 +161,7 @@ export function NotificationsBell() {
                           {notification.title}
                         </p>
                         {!notification.is_read && (
-                          <button
+                          <button type="button"
                             onClick={() => markAsRead(notification.id)}
                             className="p-1 rounded hover:bg-zinc-700 flex-shrink-0"
                             aria-label="Mark as read"

@@ -384,7 +384,7 @@ export default function VideoRequestDetailPage() {
             <h3 className="text-sm font-semibold text-zinc-400 mb-3">Actions</h3>
             <div className="space-y-2">
               {request.status === 'pending' && (
-                <button
+                <button type="button"
                   onClick={() => setShowAssignModal(true)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
                 >
@@ -394,7 +394,7 @@ export default function VideoRequestDetailPage() {
               )}
 
               {request.status === 'assigned' && (
-                <button
+                <button type="button"
                   onClick={() => handleStatusChange('in_progress')}
                   disabled={updating}
                   className="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center justify-center gap-2 disabled:opacity-50"
@@ -405,7 +405,7 @@ export default function VideoRequestDetailPage() {
               )}
 
               {(request.status === 'in_progress' || request.status === 'revision') && (
-                <button
+                <button type="button"
                   onClick={() => setShowDeliveryModal(true)}
                   className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
                 >
@@ -416,7 +416,7 @@ export default function VideoRequestDetailPage() {
 
               {request.status === 'review' && (
                 <>
-                  <button
+                  <button type="button"
                     onClick={() => handleStatusChange('completed')}
                     disabled={updating}
                     className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-50"
@@ -424,7 +424,7 @@ export default function VideoRequestDetailPage() {
                     <CheckCircle2 className="w-4 h-4" />
                     Approve & Complete
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setShowRevisionModal(true)}
                     className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2"
                   >
@@ -458,7 +458,7 @@ export default function VideoRequestDetailPage() {
                 {request.editor_email ? (
                   <span className="text-sm text-white">{request.editor_email}</span>
                 ) : (
-                  <button
+                  <button type="button"
                     onClick={() => setShowAssignModal(true)}
                     className="text-sm text-blue-400 hover:text-blue-300"
                   >
@@ -476,7 +476,7 @@ export default function VideoRequestDetailPage() {
                 {editingPriority ? (
                   <div className="flex gap-1">
                     {[0, 1, 2].map(p => (
-                      <button
+                      <button type="button"
                         key={p}
                         onClick={() => handlePriorityUpdate(p)}
                         className={`px-2 py-0.5 text-xs rounded ${PRIORITY_CONFIG[p].color}`}
@@ -486,7 +486,7 @@ export default function VideoRequestDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <button
+                  <button type="button"
                     onClick={() => setEditingPriority(true)}
                     className={`px-2 py-0.5 text-xs rounded ${priorityConfig.color}`}
                   >
@@ -509,7 +509,7 @@ export default function VideoRequestDetailPage() {
                       onChange={(e) => setNewDeadline(e.target.value)}
                       className="px-2 py-0.5 text-xs bg-zinc-800 border border-zinc-700 rounded text-white"
                     />
-                    <button
+                    <button type="button"
                       onClick={handleDeadlineUpdate}
                       className="px-2 py-0.5 text-xs bg-teal-600 text-white rounded"
                     >
@@ -517,7 +517,7 @@ export default function VideoRequestDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
+                  <button type="button"
                     onClick={() => setEditingDeadline(true)}
                     className={`text-sm ${isOverdue ? 'text-red-400' : 'text-white'}`}
                   >
@@ -561,7 +561,7 @@ export default function VideoRequestDetailPage() {
         <Modal title="Assign Editor" onClose={() => setShowAssignModal(false)}>
           <div className="space-y-3">
             {editors.map(editor => (
-              <button
+              <button type="button"
                 key={editor.id}
                 onClick={() => setSelectedEditor(editor.id)}
                 className={`w-full p-3 rounded-lg border text-left transition-colors ${
@@ -585,13 +585,13 @@ export default function VideoRequestDetailPage() {
             ))}
           </div>
           <div className="flex justify-end gap-3 mt-6">
-            <button
+            <button type="button"
               onClick={() => setShowAssignModal(false)}
               className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700"
             >
               Cancel
             </button>
-            <button
+            <button type="button"
               onClick={handleAssign}
               disabled={!selectedEditor || updating}
               className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
@@ -617,13 +617,13 @@ export default function VideoRequestDetailPage() {
             className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500"
           />
           <div className="flex justify-end gap-3 mt-6">
-            <button
+            <button type="button"
               onClick={() => setShowDeliveryModal(false)}
               className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700"
             >
               Cancel
             </button>
-            <button
+            <button type="button"
               onClick={handleDelivery}
               disabled={!deliveryLink || updating}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
@@ -649,13 +649,13 @@ export default function VideoRequestDetailPage() {
             className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 resize-none"
           />
           <div className="flex justify-end gap-3 mt-6">
-            <button
+            <button type="button"
               onClick={() => setShowRevisionModal(false)}
               className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700"
             >
               Cancel
             </button>
-            <button
+            <button type="button"
               onClick={handleRevision}
               disabled={!revisionNotes || updating}
               className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
@@ -686,7 +686,7 @@ function Modal({
       <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl">
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
           <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-zinc-800 rounded">
+          <button type="button" onClick={onClose} className="p-1 hover:bg-zinc-800 rounded" aria-label="Close">
             <X className="w-5 h-5 text-zinc-400" />
           </button>
         </div>

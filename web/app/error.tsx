@@ -68,7 +68,7 @@ export default function Error({
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
+            <button type="button"
               onClick={reset}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-colors"
             >

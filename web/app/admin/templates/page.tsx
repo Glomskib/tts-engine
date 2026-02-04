@@ -72,7 +72,7 @@ export default function TemplatesPage() {
           {/* Category Filter */}
           <div className="flex gap-2 overflow-x-auto pb-2">
             {TEMPLATE_CATEGORIES.map(category => (
-              <button
+              <button type="button"
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
@@ -145,7 +145,7 @@ export default function TemplatesPage() {
               </div>
 
               {/* Use Template Button */}
-              <button
+              <button type="button"
                 onClick={() => handleUseTemplate(template)}
                 className="w-full py-2.5 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-colors flex items-center justify-center gap-2 group-hover:shadow-lg"
               >
@@ -162,7 +162,7 @@ export default function TemplatesPage() {
         {filteredTemplates.length === 0 && (
           <div className="text-center py-12">
             <div className="text-zinc-500 mb-2">No templates found</div>
-            <button
+            <button type="button"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');

@@ -475,7 +475,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
     badge?: string;
   }) => (
     <div className="border border-white/10 rounded-lg overflow-hidden bg-zinc-900">
-      <button
+      <button type="button"
         onClick={onToggle}
         className="w-full px-4 py-3 flex items-center justify-between bg-zinc-800/50 hover:bg-zinc-800 transition-colors"
       >
@@ -510,7 +510,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <button type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative px-3 py-1.5 text-sm rounded-md border border-white/10 bg-zinc-900 hover:bg-zinc-800 transition-colors text-zinc-300"
               >
@@ -547,7 +547,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
             <span className="text-zinc-300">{authUser.email || authUser.id.slice(0, 8)}</span>
             <span className="px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400 capitalize">{authUser.role}</span>
           </div>
-          <button
+          <button type="button"
             onClick={async () => {
               const supabase = createBrowserSupabaseClient();
               await supabase.auth.signOut();
@@ -564,7 +564,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
           <div className="mb-4 p-4 bg-zinc-900 rounded-lg border border-white/10 max-h-72 overflow-auto">
             <div className="flex items-center justify-between mb-3">
               <span className="font-medium text-zinc-200">Recent Notifications</span>
-              <button
+              <button type="button"
                 onClick={() => setShowNotifications(false)}
                 className="text-xs text-zinc-400 hover:text-zinc-200"
               >
@@ -650,7 +650,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
               <p className="text-zinc-400 mb-6">
                 You&apos;re all caught up. Check back soon or dispatch the next item.
               </p>
-              <button
+              <button type="button"
                 onClick={loadWork}
                 className="px-6 py-2.5 bg-violet-600 text-white rounded-md font-medium hover:bg-violet-700 transition-colors"
               >
@@ -664,7 +664,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
         {error && (
           <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             <div className="text-red-400 mb-2">{error}</div>
-            <button
+            <button type="button"
               onClick={loadWork}
               className="px-4 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
             >
@@ -682,7 +682,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-zinc-400">Current Task</span>
                   <span className="font-mono text-sm text-zinc-300">{video.id.slice(0, 8)}...</span>
-                  <button
+                  <button type="button"
                     onClick={copyVideoId}
                     className={`px-2 py-0.5 text-xs rounded border transition-colors ${
                       copiedId
@@ -854,7 +854,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
             {/* Primary CTA */}
             <div className="px-6 py-4 bg-zinc-800/50 border-t border-white/10">
               {primaryAction && (
-                <button
+                <button type="button"
                   onClick={handleSubmit}
                   disabled={submitting || subscriptionRequired}
                   className="w-full py-3 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -920,7 +920,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
                 onToggle={() => setShowAdvanced(!showAdvanced)}
               >
                 <div className="p-4">
-                  <button
+                  <button type="button"
                     onClick={handleRelease}
                     disabled={releasing}
                     className="px-4 py-2 text-sm border border-white/10 rounded-md text-zinc-400 hover:bg-zinc-800 transition-colors disabled:opacity-50"

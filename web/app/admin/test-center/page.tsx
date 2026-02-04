@@ -400,7 +400,7 @@ export default function TestCenterPage() {
           >
             Open Skit Library
           </Link>
-          <button
+          <button type="button"
             onClick={resetAllTests}
             style={{
               padding: '8px 14px',
@@ -440,7 +440,7 @@ export default function TestCenterPage() {
               }}
             >
               {/* Category Header */}
-              <button
+              <button type="button"
                 onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
                 style={{
                   width: '100%',
@@ -506,7 +506,7 @@ export default function TestCenterPage() {
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           {(['pass', 'fail', 'skip', 'pending'] as TestStatus[]).map(status => (
-                            <button
+                            <button type="button"
                               key={status}
                               onClick={() => updateTestStatus(category.id, test.id, status)}
                               style={{

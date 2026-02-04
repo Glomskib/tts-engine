@@ -154,7 +154,7 @@ export default function AdminStatusPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>System Status</h1>
-        <button
+        <button type="button"
           onClick={fetchStatus}
           disabled={loading}
           style={{

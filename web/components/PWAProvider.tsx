@@ -130,7 +130,7 @@ function UpdateNotification({ onUpdate, onDismiss }: { onUpdate: () => void; onD
         >
           Refresh
         </button>
-        <button type="button" onClick={onDismiss} className="p-1 hover:bg-blue-500 rounded">
+        <button type="button" onClick={onDismiss} className="p-1 hover:bg-blue-500 rounded" aria-label="Dismiss">
           <X className="w-4 h-4" />
         </button>
       </div>

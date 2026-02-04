@@ -160,7 +160,7 @@ export default function AdminEventsPage() {
         <h1 style={{ margin: 0, fontSize: '24px' }}>Events Explorer</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
           <span style={{ color: '#666', fontSize: '14px' }}>{userEmail}</span>
-          <button
+          <button type="button"
             onClick={handleSignOut}
             style={{
               padding: '4px 10px',
@@ -230,7 +230,7 @@ export default function AdminEventsPage() {
             </select>
           </div>
 
-          <button
+          <button type="button"
             onClick={fetchEvents}
             disabled={loading}
             style={{
@@ -247,7 +247,7 @@ export default function AdminEventsPage() {
             {loading ? 'Loading...' : 'Apply Filters'}
           </button>
 
-          <button
+          <button type="button"
             onClick={() => {
               setTypeFilter('');
               setVideoIdFilter('');

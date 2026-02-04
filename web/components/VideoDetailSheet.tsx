@@ -66,7 +66,7 @@ export function VideoDetailSheet({
       stickyFooter={
         <div className="flex gap-3">
           {onReject && (
-            <button
+            <button type="button"
               onClick={handleReject}
               disabled={isLoading}
               className={`
@@ -88,7 +88,7 @@ export function VideoDetailSheet({
             </button>
           )}
           {onApprove && (
-            <button
+            <button type="button"
               onClick={handleApprove}
               disabled={isLoading}
               className={`

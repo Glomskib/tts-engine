@@ -332,7 +332,7 @@ export default function InviteAcceptPage({
           </div>
         )}
 
-        <button
+        <button type="button"
           onClick={handleAccept}
           disabled={accepting}
           style={{

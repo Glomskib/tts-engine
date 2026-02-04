@@ -121,7 +121,7 @@ export default function ScriptActions({
 
   return (
     <div className="relative" ref={menuRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
       >
@@ -133,7 +133,7 @@ export default function ScriptActions({
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 py-2 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50">
           {/* Duplicate */}
-          <button
+          <button type="button"
             onClick={handleDuplicate}
             disabled={loading !== null}
             className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3 disabled:opacity-50"
@@ -152,7 +152,7 @@ export default function ScriptActions({
           </button>
 
           {/* Remix */}
-          <button
+          <button type="button"
             onClick={handleRemix}
             className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
           >
@@ -163,7 +163,7 @@ export default function ScriptActions({
           </button>
 
           {/* Save as Template */}
-          <button
+          <button type="button"
             onClick={handleSaveAsTemplate}
             disabled={loading !== null}
             className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3 disabled:opacity-50"
@@ -177,7 +177,7 @@ export default function ScriptActions({
           <div className="my-2 border-t border-white/10" />
 
           {/* Delete */}
-          <button
+          <button type="button"
             onClick={handleDelete}
             disabled={loading !== null}
             className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 disabled:opacity-50"
@@ -241,7 +241,7 @@ export function FavoriteButton({ skitId, isFavorite, onToggle, size = 'md' }: Fa
   };
 
   return (
-    <button
+    <button type="button"
       onClick={handleToggle}
       disabled={loading}
       className={`p-1.5 rounded-lg transition-colors ${
@@ -250,6 +250,7 @@ export function FavoriteButton({ skitId, isFavorite, onToggle, size = 'md' }: Fa
           : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
       } disabled:opacity-50`}
       title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+      aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
     >
       <svg
         className={sizeClasses[size]}

@@ -237,7 +237,7 @@ export default function SubmitVideoPage() {
             </p>
           )}
           <div className="flex gap-3 justify-center">
-            <button
+            <button type="button"
               onClick={() => {
                 setSuccess(false);
                 setTitle('');

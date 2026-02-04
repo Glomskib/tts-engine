@@ -279,7 +279,7 @@ export default function AdminUpgradeRequestsPage() {
                               }}
                             />
                             <div style={{ display: 'flex', gap: '8px' }}>
-                              <button
+                              <button type="button"
                                 onClick={() => handleResolve(req.id, 'approved', noteInput.note)}
                                 disabled={resolvingId === req.id}
                                 style={{
@@ -294,7 +294,7 @@ export default function AdminUpgradeRequestsPage() {
                               >
                                 Confirm
                               </button>
-                              <button
+                              <button type="button"
                                 onClick={() => setNoteInput(null)}
                                 style={{
                                   padding: '6px 12px',
@@ -312,7 +312,7 @@ export default function AdminUpgradeRequestsPage() {
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                            <button
+                            <button type="button"
                               onClick={() => setNoteInput({ id: req.id, note: '' })}
                               disabled={resolvingId === req.id}
                               style={{
@@ -328,7 +328,7 @@ export default function AdminUpgradeRequestsPage() {
                             >
                               Approve
                             </button>
-                            <button
+                            <button type="button"
                               onClick={() => handleResolve(req.id, 'denied')}
                               disabled={resolvingId === req.id}
                               style={{

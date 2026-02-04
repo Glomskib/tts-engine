@@ -712,10 +712,10 @@ export default function AudiencePage() {
 
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: `1px solid ${colors.border}`, marginBottom: "20px" }}>
-          <button style={tabStyle(activeTab === "personas")} onClick={() => setActiveTab("personas")}>
+          <button type="button" style={tabStyle(activeTab === "personas")} onClick={() => setActiveTab("personas")}>
             Personas ({personas.length})
           </button>
-          <button style={tabStyle(activeTab === "pain-points")} onClick={() => setActiveTab("pain-points")}>
+          <button type="button" style={tabStyle(activeTab === "pain-points")} onClick={() => setActiveTab("pain-points")}>
             Pain Points ({painPoints.length})
           </button>
         </div>
@@ -725,7 +725,7 @@ export default function AudiencePage() {
           <div>
             {/* Add Persona Button */}
             <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button style={primaryButton} onClick={() => openPersonaModal()}>
+              <button type="button" style={primaryButton} onClick={() => openPersonaModal()}>
                 + New Persona
               </button>
             </div>
@@ -810,7 +810,7 @@ export default function AudiencePage() {
                   <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
                 ))}
               </select>
-              <button style={primaryButton} onClick={() => openPainPointModal()}>
+              <button type="button" style={primaryButton} onClick={() => openPainPointModal()}>
                 + New Pain Point
               </button>
               <div style={{ marginLeft: "auto" }}>
@@ -820,7 +820,7 @@ export default function AudiencePage() {
 
             {/* Advanced: Extract from Text Panel */}
             <div style={{ ...cardStyle, marginBottom: "16px" }}>
-              <button
+              <button type="button"
                 onClick={() => setShowAdvancedExtract(!showAdvancedExtract)}
                 style={{
                   display: "flex",
@@ -868,7 +868,7 @@ export default function AudiencePage() {
               />
 
               <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-                <button
+                <button type="button"
                   onClick={extractFromText}
                   disabled={extracting || extractText.trim().length < 50}
                   style={{ ...primaryButton, opacity: extracting || extractText.trim().length < 50 ? 0.5 : 1 }}
@@ -890,7 +890,7 @@ export default function AudiencePage() {
                       Extracted from ~{extractResult.review_count_detected || 0} reviews
                     </div>
                     {extractResult.pain_points && extractResult.pain_points.length > 0 && (
-                      <button
+                      <button type="button"
                         onClick={addAllExtractedPainPoints}
                         disabled={addingAllPainPoints}
                         style={{ ...primaryButton, fontSize: "11px", padding: "6px 12px", opacity: addingAllPainPoints ? 0.5 : 1 }}
@@ -964,7 +964,7 @@ export default function AudiencePage() {
                                   )}
                                 </div>
                               </div>
-                              <button
+                              <button type="button"
                                 onClick={() => addExtractedPainPoint(pp, i)}
                                 disabled={addingPainPointIndex === i}
                                 style={{
@@ -1131,7 +1131,7 @@ export default function AudiencePage() {
                 <div style={{ fontSize: "16px", fontWeight: 600, color: colors.text }}>
                   {editingPersona.id === "new" ? "New Persona" : "Edit Persona"}
                 </div>
-                <button onClick={() => setEditingPersona(null)} style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer" }}>
+                <button type="button" onClick={() => setEditingPersona(null)} style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer" }}>
                   ×
                 </button>
               </div>
@@ -1681,15 +1681,15 @@ export default function AudiencePage() {
               {/* Modal Footer */}
               <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
                 {editingPersona.id !== "new" ? (
-                  <button onClick={() => deletePersona(editingPersona.id)} style={{ ...buttonStyle, color: "#ef4444", backgroundColor: "transparent" }}>
+                  <button type="button" onClick={() => deletePersona(editingPersona.id)} style={{ ...buttonStyle, color: "#ef4444", backgroundColor: "transparent" }}>
                     Delete
                   </button>
                 ) : (
                   <div />
                 )}
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button onClick={() => setEditingPersona(null)} style={secondaryButton}>Cancel</button>
-                  <button onClick={savePersona} disabled={savingPersona} style={{ ...primaryButton, opacity: savingPersona ? 0.5 : 1 }}>
+                  <button type="button" onClick={() => setEditingPersona(null)} style={secondaryButton}>Cancel</button>
+                  <button type="button" onClick={savePersona} disabled={savingPersona} style={{ ...primaryButton, opacity: savingPersona ? 0.5 : 1 }}>
                     {savingPersona ? "Saving..." : "Save Persona"}
                   </button>
                 </div>
@@ -1730,7 +1730,7 @@ export default function AudiencePage() {
                 <div style={{ fontSize: "16px", fontWeight: 600, color: colors.text }}>
                   {editingPainPoint.id === "new" ? "New Pain Point" : "Edit Pain Point"}
                 </div>
-                <button onClick={() => setEditingPainPoint(null)} style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer" }}>
+                <button type="button" onClick={() => setEditingPainPoint(null)} style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer" }}>
                   ×
                 </button>
               </div>
@@ -1851,15 +1851,15 @@ export default function AudiencePage() {
               {/* Modal Footer */}
               <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
                 {editingPainPoint.id !== "new" ? (
-                  <button onClick={() => deletePainPoint(editingPainPoint.id)} style={{ ...buttonStyle, color: "#ef4444", backgroundColor: "transparent" }}>
+                  <button type="button" onClick={() => deletePainPoint(editingPainPoint.id)} style={{ ...buttonStyle, color: "#ef4444", backgroundColor: "transparent" }}>
                     Delete
                   </button>
                 ) : (
                   <div />
                 )}
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button onClick={() => setEditingPainPoint(null)} style={secondaryButton}>Cancel</button>
-                  <button onClick={savePainPoint} disabled={savingPainPoint} style={{ ...primaryButton, opacity: savingPainPoint ? 0.5 : 1 }}>
+                  <button type="button" onClick={() => setEditingPainPoint(null)} style={secondaryButton}>Cancel</button>
+                  <button type="button" onClick={savePainPoint} disabled={savingPainPoint} style={{ ...primaryButton, opacity: savingPainPoint ? 0.5 : 1 }}>
                     {savingPainPoint ? "Saving..." : "Save Pain Point"}
                   </button>
                 </div>

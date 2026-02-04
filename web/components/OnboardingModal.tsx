@@ -124,9 +124,10 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
         }`}
       >
         {/* Skip button */}
-        <button
+        <button type="button"
           onClick={handleSkip}
           className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
+          aria-label="Skip"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -153,7 +154,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
           {/* Progress dots */}
           <div className="flex justify-center gap-2 mb-6">
             {steps.map((_, index) => (
-              <button
+              <button type="button"
                 key={index}
                 onClick={() => setCurrentStep(index)}
                 className={`w-2 h-2 rounded-full transition-all ${
@@ -171,13 +172,13 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
           <div className="flex flex-col gap-3">
             {isLastStep ? (
               <>
-                <button
+                <button type="button"
                   onClick={handleCreateFirstSkit}
                   className="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-semibold rounded-lg transition-all shadow-lg shadow-violet-500/25"
                 >
                   Create Your First Skit
                 </button>
-                <button
+                <button type="button"
                   onClick={handleComplete}
                   className="w-full py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium rounded-lg transition-colors border border-white/10"
                 >
@@ -186,13 +187,13 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </>
             ) : (
               <>
-                <button
+                <button type="button"
                   onClick={handleNext}
                   className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-semibold rounded-lg transition-colors"
                 >
                   Next
                 </button>
-                <button
+                <button type="button"
                   onClick={handleSkip}
                   className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
                 >

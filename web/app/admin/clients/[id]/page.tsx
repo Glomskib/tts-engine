@@ -357,13 +357,13 @@ export default function ClientDetailPage() {
                 <option value="paused">Paused</option>
                 <option value="churned">Churned</option>
               </select>
-              <button
+              <button type="button"
                 onClick={() => setShowEditModal(true)}
                 className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg"
               >
                 <Edit className="w-4 h-4 text-zinc-400" />
               </button>
-              <button
+              <button type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 className="p-2 bg-zinc-800 hover:bg-red-500/20 rounded-lg"
               >
@@ -394,7 +394,7 @@ export default function ClientDetailPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {(['overview', 'videos', 'reports', 'billing'] as const).map((tab) => (
-            <button
+            <button type="button"
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
@@ -465,7 +465,7 @@ export default function ClientDetailPage() {
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Recent Videos</h2>
-                <button
+                <button type="button"
                   onClick={() => setActiveTab('videos')}
                   className="text-sm text-teal-400 hover:text-teal-300"
                 >
@@ -541,7 +541,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="text-sm text-zinc-400">Period:</span>
                 {[30, 60, 90].map((days) => (
-                  <button
+                  <button type="button"
                     key={days}
                     onClick={() => { setReportPeriod(days); fetchReport(days); }}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -555,7 +555,7 @@ export default function ClientDetailPage() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <button type="button"
                   onClick={() => fetchReport(reportPeriod)}
                   disabled={reportLoading}
                   className="px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 flex items-center gap-2 text-sm"
@@ -563,7 +563,7 @@ export default function ClientDetailPage() {
                   <RefreshCw className={`w-4 h-4 ${reportLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
-                <button
+                <button type="button"
                   onClick={exportToPdf}
                   disabled={!report}
                   className="px-4 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 text-sm disabled:opacity-50"
@@ -738,7 +738,7 @@ export default function ClientDetailPage() {
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
                 <BarChart3 className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
                 <p className="text-zinc-400">No report data available</p>
-                <button
+                <button type="button"
                   onClick={() => fetchReport(reportPeriod)}
                   className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                 >
@@ -763,7 +763,7 @@ export default function ClientDetailPage() {
             <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl">
               <div className="flex items-center justify-between p-4 border-b border-zinc-800">
                 <h2 className="text-lg font-semibold text-white">Edit Client</h2>
-                <button onClick={() => setShowEditModal(false)} className="p-1 hover:bg-zinc-800 rounded">
+                <button type="button" onClick={() => setShowEditModal(false)} className="p-1 hover:bg-zinc-800 rounded">
                   <X className="w-5 h-5 text-zinc-400" />
                 </button>
               </div>
@@ -848,13 +848,13 @@ export default function ClientDetailPage() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-4">
-                  <button
+                  <button type="button"
                     onClick={() => setShowEditModal(false)}
                     className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700"
                   >
                     Cancel
                   </button>
-                  <button
+                  <button type="button"
                     onClick={handleUpdate}
                     disabled={saving}
                     className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"

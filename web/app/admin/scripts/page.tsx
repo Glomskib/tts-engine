@@ -286,17 +286,17 @@ export default function ScriptsLibraryPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Scripts Library</h1>
-        <button onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
+        <button type="button" onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
       </div>
 
       {error && <div style={{ color: 'red', marginBottom: '20px', padding: '10px', backgroundColor: '#fee', borderRadius: '4px' }}>{error}</div>}
 
       {/* Tabs */}
       <div style={{ marginBottom: '0' }}>
-        <button style={tabStyle(activeTab === 'scripts')} onClick={() => setActiveTab('scripts')}>
+        <button type="button" style={tabStyle(activeTab === 'scripts')} onClick={() => setActiveTab('scripts')}>
           Scripts ({scripts.length})
         </button>
-        <button style={tabStyle(activeTab === 'templates')} onClick={() => setActiveTab('templates')}>
+        <button type="button" style={tabStyle(activeTab === 'templates')} onClick={() => setActiveTab('templates')}>
           Templates ({templates.length})
         </button>
       </div>
@@ -325,7 +325,7 @@ export default function ScriptsLibraryPage() {
                 <option value="APPROVED">APPROVED</option>
                 <option value="ARCHIVED">ARCHIVED</option>
               </select>
-              <button style={buttonStyle} onClick={() => setShowCreateScript(true)}>
+              <button type="button" style={buttonStyle} onClick={() => setShowCreateScript(true)}>
                 + New Script
               </button>
             </div>
@@ -463,7 +463,7 @@ export default function ScriptsLibraryPage() {
                   ))}
                 </select>
               )}
-              <button style={buttonStyle} onClick={() => setShowCreateTemplate(true)}>
+              <button type="button" style={buttonStyle} onClick={() => setShowCreateTemplate(true)}>
                 + New Template
               </button>
             </div>

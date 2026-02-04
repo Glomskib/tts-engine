@@ -869,7 +869,7 @@ export default function SkitLibraryPage() {
           </select>
 
           {/* Advanced Filters Toggle */}
-          <button
+          <button type="button"
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             aria-expanded={showAdvancedFilters}
             aria-controls="advanced-filters-panel"
@@ -918,7 +918,7 @@ export default function SkitLibraryPage() {
               />
             </div>
             {(aiScoreMin || aiScoreMax) && (
-              <button
+              <button type="button"
                 onClick={() => { setAiScoreMin(""); setAiScoreMax(""); }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "11px" }}
               >
@@ -935,22 +935,22 @@ export default function SkitLibraryPage() {
             {searchTerm && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
                 {searchTerm}
-                <button onClick={() => setSearchTerm("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                <button type="button" onClick={() => setSearchTerm("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
               </span>
             )}
             {statusFilter && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text, textTransform: "capitalize" }}>
                 {statusFilter}
-                <button onClick={() => setStatusFilter("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                <button type="button" onClick={() => setStatusFilter("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
               </span>
             )}
             {(aiScoreMin || aiScoreMax) && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
                 AI: {aiScoreMin || "0"}-{aiScoreMax || "10"}
-                <button onClick={() => { setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                <button type="button" onClick={() => { setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
               </span>
             )}
-            <button onClick={() => { setSearchTerm(""); setStatusFilter(""); setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "12px" }}>
+            <button type="button" onClick={() => { setSearchTerm(""); setStatusFilter(""); setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "12px" }}>
               Clear all
             </button>
           </div>
@@ -961,7 +961,7 @@ export default function SkitLibraryPage() {
       {error && (
         <div style={{ ...cardStyle, padding: "12px 16px", backgroundColor: isDark ? "#7f1d1d" : "#fee2e2", borderColor: isDark ? "#991b1b" : "#fecaca", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
           <span style={{ color: isDark ? "#fca5a5" : "#dc2626", fontSize: "14px" }}>{error}</span>
-          <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: isDark ? "#fca5a5" : "#dc2626", fontWeight: 500 }}>Dismiss</button>
+          <button type="button" onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: isDark ? "#fca5a5" : "#dc2626", fontWeight: 500 }}>Dismiss</button>
         </div>
       )}
 
@@ -999,7 +999,7 @@ export default function SkitLibraryPage() {
                 </select>
               </div>
 
-              <button
+              <button type="button"
                 onClick={handleBulkDelete}
                 disabled={bulkActionLoading}
                 style={{
@@ -1014,7 +1014,7 @@ export default function SkitLibraryPage() {
                 {bulkActionLoading ? "..." : `Delete (${selectedIds.size})`}
               </button>
 
-              <button
+              <button type="button"
                 onClick={() => setSelectedIds(new Set())}
                 style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, fontSize: "12px" }}
               >
@@ -1265,7 +1265,7 @@ export default function SkitLibraryPage() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
                           <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, textTransform: "uppercase" }}>AI Score</div>
                           {!expandedSkit.ai_score && (
-                            <button
+                            <button type="button"
                               onClick={(e) => { e.stopPropagation(); handleScoreSkit(skit.id); }}
                               disabled={scoringId === skit.id}
                               style={{
@@ -1345,7 +1345,7 @@ export default function SkitLibraryPage() {
                             </div>
 
                             {/* Re-score Button */}
-                            <button
+                            <button type="button"
                               onClick={(e) => { e.stopPropagation(); handleScoreSkit(skit.id); }}
                               disabled={scoringId === skit.id}
                               style={{
@@ -1376,7 +1376,7 @@ export default function SkitLibraryPage() {
                           Edit in Generator
                         </Link>
 
-                        <button
+                        <button type="button"
                           onClick={(e) => { e.stopPropagation(); handleDuplicate(skit.id); }}
                           disabled={duplicatingId === skit.id}
                           style={{
@@ -1403,7 +1403,7 @@ export default function SkitLibraryPage() {
                             View Video
                           </Link>
                         ) : (
-                          <button
+                          <button type="button"
                             onClick={(e) => { e.stopPropagation(); handleOpenVideoSheet(skit.id); }}
                             disabled={!skit.product_name}
                             title={!skit.product_name ? "Skit must have a product to create a video" : "Create video from this skit"}
@@ -1422,7 +1422,7 @@ export default function SkitLibraryPage() {
 
                         {/* Mark as Winner Button */}
                         {skit.is_winner ? (
-                          <button
+                          <button type="button"
                             onClick={(e) => { e.stopPropagation(); handleRemoveWinner(skit.id); }}
                             style={{
                               ...secondaryButtonStyle,
@@ -1437,7 +1437,7 @@ export default function SkitLibraryPage() {
                             <Trophy size={14} /> Winner
                           </button>
                         ) : (
-                          <button
+                          <button type="button"
                             onClick={(e) => { e.stopPropagation(); openWinnerModal(skit.id); }}
                             style={{
                               ...secondaryButtonStyle,
@@ -1535,15 +1535,15 @@ export default function SkitLibraryPage() {
                           {deleteConfirm === skit.id ? (
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <span style={{ fontSize: "12px", color: colors.danger }}>Delete?</span>
-                              <button onClick={() => handleDelete(skit.id)} disabled={deletingId === skit.id} style={{ ...buttonStyle, padding: "4px 10px", fontSize: "12px", backgroundColor: colors.danger, color: "#fff" }}>
+                              <button type="button" onClick={() => handleDelete(skit.id)} disabled={deletingId === skit.id} style={{ ...buttonStyle, padding: "4px 10px", fontSize: "12px", backgroundColor: colors.danger, color: "#fff" }}>
                                 {deletingId === skit.id ? "..." : "Yes"}
                               </button>
-                              <button onClick={() => setDeleteConfirm(null)} style={{ ...buttonStyle, padding: "4px 10px", fontSize: "12px", backgroundColor: "transparent", color: colors.textMuted }}>
+                              <button type="button" onClick={() => setDeleteConfirm(null)} style={{ ...buttonStyle, padding: "4px 10px", fontSize: "12px", backgroundColor: "transparent", color: colors.textMuted }}>
                                 No
                               </button>
                             </div>
                           ) : (
-                            <button onClick={() => setDeleteConfirm(skit.id)} style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "12px" }}>
+                            <button type="button" onClick={() => setDeleteConfirm(skit.id)} style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "12px" }}>
                               Delete
                             </button>
                           )}
@@ -1602,7 +1602,7 @@ export default function SkitLibraryPage() {
             Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, pagination.total)} of {pagination.total}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
+            <button type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               style={{ ...secondaryButtonStyle, padding: "6px 12px", fontSize: "13px", opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
@@ -1610,7 +1610,7 @@ export default function SkitLibraryPage() {
               Previous
             </button>
             <span style={{ fontSize: "14px", color: colors.text, padding: "0 8px" }}>{currentPage} / {totalPages}</span>
-            <button
+            <button type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               style={{ ...secondaryButtonStyle, padding: "6px 12px", fontSize: "13px", opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}

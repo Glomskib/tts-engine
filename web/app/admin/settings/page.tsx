@@ -157,7 +157,7 @@ export default function SettingsPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {TABS.map(tab => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
@@ -203,7 +203,7 @@ export default function SettingsPage() {
                   <div className="text-sm font-medium text-zinc-200">Sign out</div>
                   <div className="text-sm text-zinc-500">Sign out of your account on this device</div>
                 </div>
-                <button
+                <button type="button"
                   onClick={handleLogout}
                   disabled={loggingOut}
                   className="px-4 py-2 bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 border border-white/10 disabled:opacity-50"
@@ -257,7 +257,7 @@ export default function SettingsPage() {
                   {isUnlimited ? 'Change Plan' : 'Upgrade Plan'}
                 </Link>
                 {subscription?.stripeCustomerId && (
-                  <button
+                  <button type="button"
                     onClick={async () => {
                       try {
                         const res = await fetch('/api/subscriptions/portal', { method: 'POST' });
@@ -323,7 +323,7 @@ export default function SettingsPage() {
                   { id: 'pro_pack', name: 'Pro', credits: 500, price: '$29.99' },
                   { id: 'enterprise_pack', name: 'Enterprise', credits: 2000, price: '$99.99' },
                 ].map(pack => (
-                  <button
+                  <button type="button"
                     key={pack.id}
                     onClick={async () => {
                       try {
@@ -493,7 +493,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-zinc-400 sm:w-40">Theme</span>
                 <div className="flex gap-2">
                   {['dark', 'light', 'system'].map(theme => (
-                    <button
+                    <button type="button"
                       key={theme}
                       onClick={() => updateSettings({ theme })}
                       className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${

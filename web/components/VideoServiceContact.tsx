@@ -63,9 +63,10 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
       {/* Modal */}
       <div className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl">
         {/* Close button */}
-        <button
+        <button type="button"
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+          aria-label="Close"
         >
           <X size={20} />
         </button>
@@ -80,7 +81,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
             <p className="text-zinc-400 mb-6">
               We&apos;ve received your inquiry and will be in touch within 24 hours.
             </p>
-            <button
+            <button type="button"
               onClick={onClose}
               className="px-6 py-3 rounded-lg bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-colors"
             >

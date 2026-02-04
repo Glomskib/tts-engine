@@ -151,10 +151,10 @@ export default function PipelinePage() {
         <h3>Quick Actions</h3>
         <div style={{ display: 'flex', gap: '10px' }}>
           <Link href={`/accounts/${accountId}/videos`}>
-            <button style={{ padding: '10px 20px' }}>Go to Uploader Portal</button>
+            <button type="button" style={{ padding: '10px 20px' }}>Go to Uploader Portal</button>
           </Link>
           <Link href="/concepts">
-            <button style={{ padding: '10px 20px' }}>Go to Concept Workbench</button>
+            <button type="button" style={{ padding: '10px 20px' }}>Go to Concept Workbench</button>
           </Link>
         </div>
       </div>

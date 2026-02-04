@@ -571,7 +571,7 @@ export default function ProductsPage() {
         )}
 
         {(brandFilter || categoryFilter || brandEntityFilter) && (
-          <button
+          <button type="button"
             onClick={() => { setBrandFilter(''); setCategoryFilter(''); setBrandEntityFilter(''); }}
             className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:underline"
           >
@@ -706,7 +706,7 @@ export default function ProductsPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex gap-2 justify-end">
                           {isAdmin && (
-                            <button
+                            <button type="button"
                               onClick={() => handleEdit(product)}
                               className="text-xs text-zinc-400 hover:text-zinc-100 hover:underline"
                             >
@@ -748,9 +748,10 @@ export default function ProductsPage() {
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-100">Edit Product</h2>
-              <button
+              <button type="button"
                 onClick={handleCloseDrawer}
                 className="text-zinc-400 hover:text-zinc-200"
+                aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1063,9 +1064,10 @@ export default function ProductsPage() {
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-100">Add Product</h2>
-              <button
+              <button type="button"
                 onClick={handleAddClose}
                 className="text-zinc-400 hover:text-zinc-200"
+                aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

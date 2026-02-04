@@ -27,7 +27,7 @@ export default function OfflinePage() {
       </p>
 
       {/* Retry button */}
-      <button
+      <button type="button"
         onClick={() => window.location.reload()}
         className="flex items-center gap-2 h-12 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 active:bg-teal-800 transition-colors btn-press"
       >

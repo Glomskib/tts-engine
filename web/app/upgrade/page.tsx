@@ -139,8 +139,6 @@ export default function UpgradePage() {
     setCheckoutError(null);
 
     try {
-      console.log('Subscribing to:', selectedPlanId);
-
       const res = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,7 +146,6 @@ export default function UpgradePage() {
       });
 
       const data = await res.json();
-      console.log('Checkout response:', data);
 
       if (!res.ok) {
         throw new Error(data.error || 'Checkout failed');

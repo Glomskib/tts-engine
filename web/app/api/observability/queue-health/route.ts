@@ -11,14 +11,20 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { computeQueueHealth } from "@/lib/ops-metrics";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
+  }
 
   try {
     const result = await computeQueueHealth(supabaseAdmin);

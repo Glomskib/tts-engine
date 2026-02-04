@@ -1,12 +1,18 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { VIDEO_STATUSES, isQueueStatus } from "@/lib/video-pipeline";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
+  }
 
   try {
     // Get counts by status

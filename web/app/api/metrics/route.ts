@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getVideoMetricsColumns, getVideosPerformanceColumns } from '@/lib/performance-schema';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const account_id = searchParams.get('account_id');
@@ -83,6 +89,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const {

@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 /**
  * POST /api/videos/create-from-script
  * Creates a video in the pipeline from an approved script.
- * No drive link or variant_id required - those are added later.
+ * Lightweight path for scripts without a product_id (manual product entry).
+ * For scripts with product_id, prefer /api/skits/[id]/send-to-video.
  */
 export async function POST(request: Request) {
   const authContext = await getApiAuthContext();
@@ -28,38 +29,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'script_id is required' }, { status: 400 });
   }
 
-  // Check if a video already exists for this script
-  const { data: existing } = await supabaseAdmin
-    .from('videos')
-    .select('id')
-    .eq('variant_id', `script-${script_id}`)
-    .limit(1)
+  // Check if a video already exists for this script via saved_skits.video_id
+  const { data: skit } = await supabaseAdmin
+    .from('saved_skits')
+    .select('id, video_id')
+    .eq('id', script_id)
     .maybeSingle();
 
-  if (existing) {
+  if (skit?.video_id) {
     return NextResponse.json({
       ok: true,
-      data: existing,
+      data: { id: skit.video_id },
       message: 'Video already exists for this script',
       duplicate: true,
     });
   }
 
-  // Generate a video code
-  const brand = typeof product_brand === 'string' ? product_brand.substring(0, 6).toUpperCase().replace(/\s/g, '') : 'SCRIPT';
-  const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  const videoCode = `${brand}-${dateStr}-${random}`;
-
-  // Create video with minimal data
+  // Create video with minimal data — use valid recording_status values only
   const { data: video, error } = await supabaseAdmin
     .from('videos')
     .insert({
-      variant_id: `script-${script_id}`,
-      video_code: videoCode,
       account_id: authContext.user.id,
-      status: 'draft',
-      recording_status: 'NEEDS_CONTENT',
+      status: 'needs_edit',
+      recording_status: 'NEEDS_SCRIPT',
       google_drive_url: '',
       script_locked_text: hook_line ? `HOOK: ${hook_line}` : null,
     })
@@ -67,8 +59,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    console.error('Failed to create video from script:', error);
-    return NextResponse.json({ ok: false, error: 'Failed to create video' }, { status: 500 });
+    console.error('Failed to create video from script:', error.message, error.details, error.hint);
+    return NextResponse.json({ ok: false, error: `Failed to create video: ${error.message}` }, { status: 500 });
   }
 
   // Update the script with the video_id link
@@ -77,14 +69,14 @@ export async function POST(request: Request) {
     .update({ video_id: video.id })
     .eq('id', script_id);
 
-  // Write video event
+  // Write video event (fire-and-forget)
   await supabaseAdmin.from('video_events').insert({
     video_id: video.id,
     event_type: 'created_from_script',
     correlation_id: `script-approval-${Date.now()}`,
     actor: authContext.user.id,
     from_status: null,
-    to_status: 'draft',
+    to_status: 'NEEDS_SCRIPT',
     details: {
       script_id,
       title: title || null,
@@ -99,6 +91,5 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     data: video,
-    video_code: videoCode,
   });
 }

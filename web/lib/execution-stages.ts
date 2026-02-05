@@ -6,7 +6,6 @@
 import type { ApiErrorCode } from './api-errors';
 
 export const RECORDING_STATUSES = [
-  'NEEDS_CONTENT',
   'NEEDS_SCRIPT',
   'GENERATING_SCRIPT',
   'NOT_RECORDED',
@@ -22,7 +21,6 @@ export const RECORDING_STATUSES = [
  * These define how long a video should stay in each stage before becoming overdue
  */
 export const SLA_DEADLINES_MINUTES: Record<string, number> = {
-  'NEEDS_CONTENT': 72 * 60,    // 72 hours to gather content/assets
   'NEEDS_SCRIPT': 48 * 60,     // 48 hours to get a script
   'GENERATING_SCRIPT': 60,     // 1 hour for AI generation
   'NOT_RECORDED': 24 * 60,     // 24 hours
@@ -55,7 +53,6 @@ export function isValidRecordingStatus(status: unknown): status is RecordingStat
 
 // Next logical status in the pipeline
 const NEXT_STATUS_MAP: Record<RecordingStatus, RecordingStatus | null> = {
-  'NEEDS_CONTENT': 'NOT_RECORDED',
   'NEEDS_SCRIPT': 'NOT_RECORDED',
   'GENERATING_SCRIPT': 'NOT_RECORDED',
   'NOT_RECORDED': 'RECORDED',
@@ -68,7 +65,6 @@ const NEXT_STATUS_MAP: Record<RecordingStatus, RecordingStatus | null> = {
 
 // Human-readable next action
 const NEXT_ACTION_MAP: Record<RecordingStatus, string> = {
-  'NEEDS_CONTENT': 'Gather content and assets',
   'NEEDS_SCRIPT': 'Add a script',
   'GENERATING_SCRIPT': 'Waiting for AI script',
   'NOT_RECORDED': 'Record the video',

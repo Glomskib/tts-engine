@@ -38,6 +38,7 @@ import {
   Image as ImageIcon,
   Bookmark,
   Pencil,
+  X,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -290,6 +291,7 @@ export default function ContentStudioPage() {
   const [specificHooks, setSpecificHooks] = useState<string>('');
   const [thingsToAvoid, setThingsToAvoid] = useState<string>('');
   const [ctaPreference, setCtaPreference] = useState<string>('');
+  const [customCta, setCustomCta] = useState<string>('');
   const [variationCount, setVariationCount] = useState<number>(3);
 
   // Result state
@@ -302,6 +304,7 @@ export default function ContentStudioPage() {
   // Save hook state
   const [savingHook, setSavingHook] = useState(false);
   const [hookSaved, setHookSaved] = useState(false);
+  const [hookSaveError, setHookSaveError] = useState(false);
 
   // Save modal state
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -483,6 +486,7 @@ export default function ContentStudioPage() {
 
   const handleSaveHook = async (hookText: string) => {
     setSavingHook(true);
+    setHookSaveError(false);
     try {
       const productName = selectedProductId
         ? products.find(p => p.id === selectedProductId)?.name
@@ -508,9 +512,13 @@ export default function ContentStudioPage() {
       if (res.ok) {
         setHookSaved(true);
         setTimeout(() => setHookSaved(false), 2000);
+      } else {
+        setHookSaveError(true);
+        setTimeout(() => setHookSaveError(false), 3000);
       }
     } catch {
-      // Save failed silently
+      setHookSaveError(true);
+      setTimeout(() => setHookSaveError(false), 3000);
     } finally {
       setSavingHook(false);
     }
@@ -616,7 +624,7 @@ export default function ContentStudioPage() {
         referenceScript.trim() ? `Reference style: ${referenceScript.trim()}` : '',
         specificHooks.trim() ? `Include hooks: ${specificHooks.trim()}` : '',
         thingsToAvoid.trim() ? `Avoid: ${thingsToAvoid.trim()}` : '',
-        ctaPreference.trim() ? `CTA style: ${ctaPreference.trim()}` : '',
+        (ctaPreference === 'custom' ? customCta.trim() : ctaPreference.trim()) ? `CTA style: ${ctaPreference === 'custom' ? customCta.trim() : ctaPreference.trim()}` : '',
       ].filter(Boolean).join('. ') || undefined,
     };
 
@@ -1339,12 +1347,27 @@ export default function ContentStudioPage() {
                       <label style={{ display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '6px' }}>
                         CTA Preference
                       </label>
-                      <input
+                      <select
                         value={ctaPreference}
                         onChange={(e) => setCtaPreference(e.target.value)}
-                        placeholder="e.g., Link in bio, Shop now, Comment below..."
                         style={inputStyle}
-                      />
+                      >
+                        <option value="">Auto-generate CTA</option>
+                        <option value="Add to cart before they sell out">Add to cart before they sell out</option>
+                        <option value="Tap the yellow basket NOW">Tap the yellow basket NOW</option>
+                        <option value="Grab yours while it's in stock">Grab yours while it&apos;s in stock</option>
+                        <option value="This deal ends tonight - add to cart">This deal ends tonight - add to cart</option>
+                        <option value="Don't scroll past - tap add to cart">Don&apos;t scroll past - tap add to cart</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {ctaPreference === 'custom' && (
+                        <input
+                          value={customCta}
+                          onChange={(e) => setCustomCta(e.target.value)}
+                          placeholder="Enter your custom CTA..."
+                          style={{ ...inputStyle, marginTop: '8px' }}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -1518,10 +1541,10 @@ export default function ContentStudioPage() {
                       disabled={savingHook}
                       style={{
                         padding: '6px 12px',
-                        backgroundColor: hookSaved ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)',
-                        border: '1px solid rgba(20, 184, 166, 0.3)',
+                        backgroundColor: hookSaveError ? 'rgba(239, 68, 68, 0.2)' : hookSaved ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)',
+                        border: `1px solid ${hookSaveError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(20, 184, 166, 0.3)'}`,
                         borderRadius: '6px',
-                        color: hookSaved ? '#14b8a6' : '#5eead4',
+                        color: hookSaveError ? '#ef4444' : hookSaved ? '#14b8a6' : '#5eead4',
                         cursor: savingHook ? 'not-allowed' : 'pointer',
                         fontSize: '12px',
                         display: 'flex',
@@ -1529,7 +1552,9 @@ export default function ContentStudioPage() {
                         gap: '4px',
                       }}
                     >
-                      {hookSaved ? (
+                      {hookSaveError ? (
+                        <><X size={14} /> Failed</>
+                      ) : hookSaved ? (
                         <><Check size={14} /> Saved!</>
                       ) : savingHook ? (
                         <><Loader2 size={14} className="animate-spin" /> Saving...</>

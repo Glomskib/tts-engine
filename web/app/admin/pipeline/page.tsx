@@ -961,6 +961,26 @@ export default function AdminPipelinePage() {
         fetchQueueVideos();
         // Close mobile detail sheet if open
         setMobileDetailOpen(false);
+
+        // Auto-schedule when video reaches READY_TO_POST
+        if (targetStatus === 'READY_TO_POST') {
+          fetch(`/api/videos/${videoId}/auto-schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          }).then(async (schedRes) => {
+            if (schedRes.ok) {
+              const schedData = await schedRes.json();
+              if (schedData.scheduled_for) {
+                const formattedDate = new Date(schedData.scheduled_for).toLocaleDateString('en-US', {
+                  weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                });
+                showSuccess(`Auto-scheduled for ${formattedDate}`);
+              }
+            }
+          }).catch(() => {
+            // Auto-schedule is best-effort, don't block on failure
+          });
+        }
       } else {
         setExecutionError({ videoId, message: data.error || 'Failed to update status' });
         showError(data.error || 'Failed to update status');

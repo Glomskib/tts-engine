@@ -12,6 +12,8 @@ export interface StrategyRequest {
   winner_patterns?: WinnerPattern[];
   /** Recent feedback for learning */
   recent_feedback?: FeedbackSummary[];
+  /** Weekly pattern summary from learning loop */
+  pattern_summary?: Record<string, unknown> | null;
 }
 
 export interface WinnerPattern {

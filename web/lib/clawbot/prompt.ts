@@ -37,9 +37,33 @@ function formatFeedbackHistory(feedback: FeedbackSummary[]): string {
     .join("\n");
 }
 
+function formatPatternSummary(summary: Record<string, unknown> | null | undefined): string {
+  if (!summary) return "No weekly summary available yet.";
+
+  const parts: string[] = [];
+
+  const winning = summary.winning_patterns as Array<{ angle: string; winners: number; score: number }> | undefined;
+  if (winning?.length) {
+    parts.push("Top performing angles: " + winning.slice(0, 5).map(p => `${p.angle} (score: ${p.score})`).join(", "));
+  }
+
+  const losing = summary.losing_patterns as Array<{ angle: string; losers: number; score: number }> | undefined;
+  if (losing?.length) {
+    parts.push("Underperforming angles: " + losing.slice(0, 5).map(p => `${p.angle} (score: ${p.score})`).join(", "));
+  }
+
+  const suppression = summary.suppression_rules as Array<{ pattern_id: string; reason: string }> | undefined;
+  if (suppression?.length) {
+    parts.push("SUPPRESS these patterns: " + suppression.map(s => `${s.pattern_id} (${s.reason})`).join(", "));
+  }
+
+  return parts.length ? parts.join("\n") : "Summary exists but no clear patterns yet.";
+}
+
 export function buildStrategyPrompt(request: StrategyRequest): string {
   const winnerSection = formatWinnerPatterns(request.winner_patterns ?? []);
   const feedbackSection = formatFeedbackHistory(request.recent_feedback ?? []);
+  const summarySection = formatPatternSummary(request.pattern_summary);
 
   return `You are Clawbot, a TikTok content strategy AI for FlashFlow. Your job is to analyze context and recommend the best creative strategy for a skit about a product.
 
@@ -51,6 +75,9 @@ ${request.product_context ? `- Details: ${request.product_context}` : ""}
 ${request.content_format ? `- Requested Format: ${request.content_format}` : ""}
 ${request.risk_tier ? `- Risk Tolerance: ${request.risk_tier}` : ""}
 ${request.target_audience ? `- Target Audience: ${request.target_audience}` : ""}
+
+WEEKLY PATTERN SUMMARY (aggregated learning from recent performance):
+${summarySection}
 
 WINNING PATTERNS (from this user's top-performing content):
 ${winnerSection}

@@ -68,10 +68,19 @@ export async function POST(request: Request) {
   let clawbotActive = false;
 
   try {
-    // Fetch winner patterns and feedback in parallel
-    const [winnerPatterns, recentFeedback] = await Promise.all([
+    // Fetch winner patterns, feedback, and weekly summary in parallel
+    const [winnerPatterns, recentFeedback, latestSummary] = await Promise.all([
       fetchWinnerPatternsForStrategy(authContext.user.id, productCategory),
       fetchRecentFeedback(authContext.user.id),
+      supabaseAdmin
+        .from("clawbot_summaries")
+        .select("summary")
+        .eq("user_id", authContext.user.id)
+        .eq("summary_type", "weekly")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => data?.summary as Record<string, unknown> | null ?? null),
     ]);
 
     const strategyRequest: StrategyRequest = {
@@ -83,6 +92,7 @@ export async function POST(request: Request) {
       risk_tier: riskTier,
       winner_patterns: winnerPatterns,
       recent_feedback: recentFeedback,
+      pattern_summary: latestSummary,
     };
 
     strategy = await generateStrategy(strategyRequest, correlationId);

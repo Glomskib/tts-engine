@@ -7,7 +7,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { EmptyState } from '../components/AdminPageLayout';
 import SimpleBarChart from './components/SimpleBarChart';
-import { FileText, Video, Coins, ArrowRight, TrendingUp, Trophy, Eye, Percent, Target } from 'lucide-react';
+import { FileText, Video, Coins, ArrowRight, TrendingUp, TrendingDown, Trophy, Eye, Percent, Target, Brain, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { WinnersAnalytics } from '@/lib/analytics/types';
 import { StatCard } from '@/components/analytics/StatCard';
 import { TopPerformersCard } from '@/components/analytics/TopPerformersCard';
@@ -110,6 +110,202 @@ function formatDuration(minutes: number): string {
   const hours = Math.round((minutes % (60 * 24)) / 60);
   return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
 }
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function ClawbotWeeklyInsights() {
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const loadSummary = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/clawbot/summaries/latest', { credentials: 'include' });
+      const json = await res.json();
+      setSummary(json.summary);
+    } catch (error) {
+      console.error('Failed to load summary:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSummary = async () => {
+    setGenerating(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/clawbot/summaries/weekly', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Weekly summary generated!' });
+        await loadSummary();
+      } else {
+        setMessage({ type: 'error', text: 'Failed to generate summary' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to generate summary' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
+
+  return (
+    <div style={{
+      backgroundColor: '#18181b',
+      border: '1px solid #27272a',
+      borderRadius: '8px',
+      padding: '24px',
+      marginBottom: '24px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <Brain size={20} style={{ color: '#a855f7' }} />
+          Clawbot Weekly Insights
+        </h3>
+        <button
+          type="button"
+          onClick={generateSummary}
+          disabled={generating}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: generating ? '#6b21a8' : '#a855f7',
+            color: '#fff',
+            fontSize: '13px',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: generating ? 'not-allowed' : 'pointer',
+            opacity: generating ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <RefreshCw size={14} style={generating ? { animation: 'spin 1s linear infinite' } : {}} />
+          {generating ? 'Generating...' : summary ? 'Regenerate' : 'Generate Summary'}
+        </button>
+      </div>
+
+      {message && (
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: '6px',
+          marginBottom: '12px',
+          fontSize: '13px',
+          backgroundColor: message.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          color: message.type === 'success' ? '#4ade80' : '#f87171',
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ color: '#a1a1aa', margin: 0 }}>Loading insights...</p>
+      ) : !summary ? (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <p style={{ color: '#a1a1aa', marginBottom: '8px' }}>No weekly insights yet.</p>
+          <p style={{ color: '#71717a', fontSize: '13px', margin: 0 }}>
+            Generate your first summary after tagging some videos as winners or losers.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* Winning Patterns */}
+          <div style={{ backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', padding: '16px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#4ade80', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+              <TrendingUp size={16} />
+              Winning Patterns
+            </h4>
+            {summary.winning_patterns?.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {summary.winning_patterns.map((p: any) => (
+                  <span key={p.angle} style={{
+                    padding: '4px 12px',
+                    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                    color: '#86efac',
+                    borderRadius: '9999px',
+                    fontSize: '13px',
+                  }}>
+                    {p.angle} (+{p.winners})
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: '#71717a', fontSize: '13px', margin: 0 }}>No winning patterns yet</p>
+            )}
+          </div>
+
+          {/* Losing Patterns */}
+          <div style={{ backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', padding: '16px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#f87171', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+              <TrendingDown size={16} />
+              Losing Patterns
+            </h4>
+            {summary.losing_patterns?.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {summary.losing_patterns.map((p: any) => (
+                  <span key={p.angle} style={{
+                    padding: '4px 12px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    color: '#fca5a5',
+                    borderRadius: '9999px',
+                    fontSize: '13px',
+                  }}>
+                    {p.angle} (-{p.losers + p.flagged})
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: '#71717a', fontSize: '13px', margin: 0 }}>No losing patterns yet</p>
+            )}
+          </div>
+
+          {/* Suppression Warnings */}
+          {summary.suppression_rules?.length > 0 && (
+            <div style={{
+              gridColumn: '1 / -1',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: '8px',
+              padding: '16px',
+            }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#fbbf24', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+                <AlertTriangle size={16} />
+                Patterns to Avoid
+              </h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {summary.suppression_rules.map((r: any) => (
+                  <span key={r.pattern_id} style={{
+                    padding: '4px 12px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    color: '#fcd34d',
+                    borderRadius: '9999px',
+                    fontSize: '13px',
+                  }}>
+                    {r.pattern_id}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary Stats */}
+          <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#71717a', marginTop: '8px' }}>
+            Period: {summary.window?.start?.slice(0, 10)} to {summary.window?.end?.slice(0, 10)} &bull;{' '}
+            {summary.totals?.feedback_events || 0} feedback events
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function AdminAnalyticsPage() {
   const router = useRouter();
@@ -415,6 +611,9 @@ export default function AdminAnalyticsPage() {
           </span>
         )}
       </div>
+
+      {/* Clawbot Weekly Insights */}
+      <ClawbotWeeklyInsights />
 
       {/* Loading/Error */}
       {loading && (

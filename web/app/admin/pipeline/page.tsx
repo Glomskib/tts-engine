@@ -10,7 +10,7 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
 import { FilterSheet } from '@/components/FilterSheet';
-import { Filter, Film } from 'lucide-react';
+import { Filter, Film, Download } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -388,6 +388,39 @@ export default function AdminPipelinePage() {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  // Export videos as CSV
+  const handleExportVideos = () => {
+    const videos = getRoleFilteredVideos();
+    if (!videos.length) {
+      showToast('No videos to export', 'error');
+      return;
+    }
+    const esc = (v: string | null | undefined) => `"${(v || '').replace(/"/g, '""')}"`;
+    const csv = [
+      ['ID', 'Video Code', 'Status', 'Recording Status', 'Brand', 'Product', 'Claimed By', 'SLA Status', 'Priority', 'Created At'].join(','),
+      ...videos.map(v => [
+        v.id,
+        esc(v.video_code),
+        esc(v.status),
+        esc(v.recording_status),
+        esc(v.brand_name),
+        esc(v.product_name),
+        esc(v.claimed_by),
+        esc(v.sla_status),
+        v.priority_score,
+        v.created_at?.slice(0, 10) || '',
+      ].join(','))
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pipeline-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Pipeline exported!');
   };
 
   // Bulk selection handlers
@@ -1355,6 +1388,29 @@ export default function AdminPipelinePage() {
               }}
             >
               New Video
+            </button>
+          )}
+
+          {/* Export CSV */}
+          {isAdminMode && (
+            <button type="button"
+              onClick={handleExportVideos}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: colors.surface,
+                color: colors.textMuted,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Download size={14} />
+              Export
             </button>
           )}
 

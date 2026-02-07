@@ -20,6 +20,7 @@ import {
   X,
   Check,
   Package,
+  Download,
 } from 'lucide-react';
 import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
@@ -196,6 +197,36 @@ export default function WinnersBankPage() {
     }
   };
 
+  // Export winners as CSV
+  const handleExportWinners = () => {
+    if (!filteredWinners.length) return;
+    const esc = (v: string | null | undefined) => `"${(v || '').replace(/"/g, '""')}"`;
+    const csv = [
+      ['ID', 'Hook', 'Source', 'Hook Type', 'Content Format', 'Category', 'Views', 'Likes', 'Engagement Rate', 'Performance Score', 'Posted At', 'Created At'].join(','),
+      ...filteredWinners.map(w => [
+        w.id,
+        esc(w.hook),
+        w.source_type,
+        w.hook_type || '',
+        w.content_format || '',
+        esc(w.product_category),
+        w.view_count ?? '',
+        w.like_count ?? '',
+        w.engagement_rate ?? '',
+        w.performance_score ?? '',
+        w.posted_at?.slice(0, 10) || '',
+        w.created_at?.slice(0, 10) || '',
+      ].join(','))
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `winners-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Generate Like This handlers
   const handleGenerateLikeWinner = async (winner: Winner) => {
     setGenerateLikeModal({ open: true, winner });
@@ -325,6 +356,14 @@ export default function WinnersBankPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              <button type="button"
+                onClick={handleExportWinners}
+                disabled={!filteredWinners.length}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
               <button type="button"
                 onClick={() => setShowMarkWinner(true)}
                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"

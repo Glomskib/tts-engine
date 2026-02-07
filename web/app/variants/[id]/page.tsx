@@ -402,10 +402,8 @@ export default function VariantPage() {
           {lineage.parent_variant && (
             <div style={{ marginBottom: '20px' }}>
               <h3>Parent Variant</h3>
-              <Link href={`/variants/${lineage.parent_variant.id}`}>
-                <button type="button" style={{ padding: '5px 10px' }}>
+              <Link href={`/variants/${lineage.parent_variant.id}`} style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
                   {lineage.parent_variant.id.slice(0, 8)}... ({lineage.parent_variant.status})
-                </button>
               </Link>
             </div>
           )}
@@ -421,8 +419,8 @@ export default function VariantPage() {
                     <div><strong>Change Type:</strong> {child.change_type || 'N/A'}</div>
                     <div><strong>Change Note:</strong> {child.change_note || 'N/A'}</div>
                     <div style={{ marginTop: '10px' }}>
-                      <Link href={`/variants/${child.id}`}>
-                        <button type="button" style={{ padding: '5px 10px' }}>View Details</button>
+                      <Link href={`/variants/${child.id}`} style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+                        View Details
                       </Link>
                     </div>
                   </div>

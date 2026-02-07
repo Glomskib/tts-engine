@@ -150,11 +150,11 @@ export default function PipelinePage() {
       <div style={{ marginTop: '30px' }}>
         <h3>Quick Actions</h3>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Link href={`/accounts/${accountId}/videos`}>
-            <button type="button" style={{ padding: '10px 20px' }}>Go to Uploader Portal</button>
+          <Link href={`/accounts/${accountId}/videos`} style={{ display: 'inline-block', padding: '10px 20px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+            Go to Uploader Portal
           </Link>
-          <Link href="/concepts">
-            <button type="button" style={{ padding: '10px 20px' }}>Go to Concept Workbench</button>
+          <Link href="/concepts" style={{ display: 'inline-block', padding: '10px 20px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+            Go to Concept Workbench
           </Link>
         </div>
       </div>

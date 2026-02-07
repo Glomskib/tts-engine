@@ -110,8 +110,8 @@ export default function ConceptsPage() {
                   {new Date(concept.created_at).toLocaleDateString()}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                  <Link href={`/concepts/${concept.id}`}>
-                    <button type="button" style={{ padding: '5px 10px' }}>Open Workbench</button>
+                  <Link href={`/concepts/${concept.id}`} style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+                    Open Workbench
                   </Link>
                 </td>
               </tr>

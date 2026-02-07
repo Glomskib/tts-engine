@@ -122,6 +122,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Video Editing Queue', href: '/admin/video-editing', icon: Clapperboard },
       { name: 'Client Management', href: '/admin/clients', icon: Building },
+      { name: 'Editor Management', href: '/admin/client-management', icon: Users },
     ],
   },
   {

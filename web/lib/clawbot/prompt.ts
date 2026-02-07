@@ -57,6 +57,24 @@ function formatPatternSummary(summary: Record<string, unknown> | null | undefine
     parts.push("SUPPRESS these patterns: " + suppression.map(s => `${s.pattern_id} (${s.reason})`).join(", "));
   }
 
+  // Product-level context (injected by generate-skit when product has enough data)
+  const productCtx = summary._product_context as {
+    product_id: string;
+    winning_angles: string[];
+    losing_angles: string[];
+    volume: number;
+  } | undefined;
+  if (productCtx) {
+    parts.push(`\nPRODUCT-SPECIFIC INTELLIGENCE (${productCtx.volume} feedback events for this product):`);
+    if (productCtx.winning_angles.length) {
+      parts.push("  Winning angles for THIS product: " + productCtx.winning_angles.join(", "));
+    }
+    if (productCtx.losing_angles.length) {
+      parts.push("  Losing angles for THIS product: " + productCtx.losing_angles.join(", "));
+    }
+    parts.push("  → Prioritize product-specific patterns over global patterns when they conflict.");
+  }
+
   return parts.length ? parts.join("\n") : "Summary exists but no clear patterns yet.";
 }
 

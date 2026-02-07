@@ -305,6 +305,181 @@ function ClawbotWeeklyInsights() {
     </div>
   );
 }
+function ClawbotMonthlyInsights() {
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const loadSummary = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/clawbot/summaries/monthly', { credentials: 'include' });
+      const json = await res.json();
+      setSummary(json.summary);
+    } catch (error) {
+      console.error('Failed to load monthly summary:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSummary = async () => {
+    setGenerating(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/clawbot/summaries/monthly', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Monthly summary generated!' });
+        await loadSummary();
+      } else {
+        setMessage({ type: 'error', text: 'Failed to generate summary' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to generate summary' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
+
+  return (
+    <div style={{
+      backgroundColor: '#18181b',
+      border: '1px solid #27272a',
+      borderRadius: '8px',
+      padding: '24px',
+      marginBottom: '24px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <TrendingUp size={20} style={{ color: '#3b82f6' }} />
+          Clawbot Monthly Insights
+        </h3>
+        <button
+          type="button"
+          onClick={generateSummary}
+          disabled={generating}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: generating ? '#1e40af' : '#3b82f6',
+            color: '#fff',
+            fontSize: '13px',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: generating ? 'not-allowed' : 'pointer',
+            opacity: generating ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <RefreshCw size={14} style={generating ? { animation: 'spin 1s linear infinite' } : {}} />
+          {generating ? 'Generating...' : summary ? 'Regenerate' : 'Generate Monthly'}
+        </button>
+      </div>
+
+      {message && (
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: '6px',
+          marginBottom: '12px',
+          fontSize: '13px',
+          backgroundColor: message.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          color: message.type === 'success' ? '#4ade80' : '#f87171',
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ color: '#a1a1aa', margin: 0 }}>Loading monthly insights...</p>
+      ) : !summary ? (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <p style={{ color: '#a1a1aa', marginBottom: '8px' }}>No monthly insights yet.</p>
+          <p style={{ color: '#71717a', fontSize: '13px', margin: 0 }}>
+            Generate a monthly summary to see 30-day trends and patterns.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* Top 5 Winning Angles */}
+          <div style={{ backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', padding: '16px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#4ade80', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+              <TrendingUp size={16} />
+              Top Winning Angles (30d)
+            </h4>
+            {summary.winning_patterns?.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {summary.winning_patterns.slice(0, 5).map((p: any, i: number) => (
+                  <div key={p.angle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#d4d4d8' }}>
+                      {i + 1}. {p.angle}
+                    </span>
+                    <span style={{
+                      padding: '2px 8px',
+                      backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                      color: '#86efac',
+                      borderRadius: '9999px',
+                      fontSize: '11px',
+                    }}>
+                      +{p.winners} wins
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: '#71717a', fontSize: '13px', margin: 0 }}>No winning patterns yet</p>
+            )}
+          </div>
+
+          {/* Top 5 Losing Angles */}
+          <div style={{ backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', padding: '16px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#f87171', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+              <TrendingDown size={16} />
+              Top Losing Angles (30d)
+            </h4>
+            {summary.losing_patterns?.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {summary.losing_patterns.slice(0, 5).map((p: any, i: number) => (
+                  <div key={p.angle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#d4d4d8' }}>
+                      {i + 1}. {p.angle}
+                    </span>
+                    <span style={{
+                      padding: '2px 8px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                      color: '#fca5a5',
+                      borderRadius: '9999px',
+                      fontSize: '11px',
+                    }}>
+                      -{p.losers + p.flagged} losses
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: '#71717a', fontSize: '13px', margin: 0 }}>No losing patterns yet</p>
+            )}
+          </div>
+
+          {/* Period Stats */}
+          <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#71717a', marginTop: '8px' }}>
+            Period: {summary.window?.start?.slice(0, 10)} to {summary.window?.end?.slice(0, 10)} &bull;{' '}
+            {summary.totals?.feedback_events || 0} feedback events &bull;{' '}
+            {summary.totals?.unique_angles || 0} unique angles
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function AdminAnalyticsPage() {
@@ -614,6 +789,7 @@ export default function AdminAnalyticsPage() {
 
       {/* Clawbot Weekly Insights */}
       <ClawbotWeeklyInsights />
+      <ClawbotMonthlyInsights />
 
       {/* Loading/Error */}
       {loading && (

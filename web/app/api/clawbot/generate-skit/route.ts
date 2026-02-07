@@ -66,6 +66,9 @@ export async function POST(request: Request) {
   // Build strategy context
   let strategy: StrategyResponse | null = null;
   let clawbotActive = false;
+  let dataSource: "product" | "global" = "global";
+  let feedbackCount = 0;
+  let winnerCount = 0;
 
   try {
     // Fetch winner patterns, feedback, and weekly summary in parallel
@@ -83,6 +86,31 @@ export async function POST(request: Request) {
         .then(({ data }) => data?.summary as Record<string, unknown> | null ?? null),
     ]);
 
+    feedbackCount = recentFeedback?.length ?? 0;
+    winnerCount = winnerPatterns?.length ?? 0;
+
+    // Extract product-level patterns if available
+    let effectiveSummary = latestSummary;
+
+    if (productId && latestSummary) {
+      const productPatterns = (latestSummary.product_patterns as Record<string, unknown>)?.[productId] as
+        { winning?: string[]; losing?: string[]; volume?: number } | undefined;
+
+      if (productPatterns && (productPatterns.volume ?? 0) >= 3) {
+        dataSource = "product";
+        // Merge product-level insights into summary for strategy prompt
+        effectiveSummary = {
+          ...latestSummary,
+          _product_context: {
+            product_id: productId,
+            winning_angles: productPatterns.winning ?? [],
+            losing_angles: productPatterns.losing ?? [],
+            volume: productPatterns.volume ?? 0,
+          },
+        };
+      }
+    }
+
     const strategyRequest: StrategyRequest = {
       product_name: productName,
       product_category: productCategory,
@@ -92,7 +120,7 @@ export async function POST(request: Request) {
       risk_tier: riskTier,
       winner_patterns: winnerPatterns,
       recent_feedback: recentFeedback,
-      pattern_summary: latestSummary,
+      pattern_summary: effectiveSummary,
     };
 
     strategy = await generateStrategy(strategyRequest, correlationId);
@@ -139,12 +167,28 @@ export async function POST(request: Request) {
     return createApiErrorResponse("AI_ERROR", "Invalid response from skit generation", 502, correlationId);
   }
 
+  // Compute strategy confidence based on available data
+  let strategyConfidence: { level: "high" | "medium" | "low"; reason: string } | null = null;
+  if (strategy) {
+    const hasProductData = dataSource === "product";
+
+    if (hasProductData && feedbackCount >= 10 && winnerCount >= 3) {
+      strategyConfidence = { level: "high", reason: "Product-level patterns with strong feedback history" };
+    } else if (feedbackCount >= 5 || winnerCount >= 2) {
+      strategyConfidence = { level: "medium", reason: hasProductData ? "Product-level data with moderate feedback" : "Global patterns with moderate feedback" };
+    } else {
+      strategyConfidence = { level: "low", reason: feedbackCount === 0 ? "No feedback data yet — strategy is exploratory" : "Limited feedback data" };
+    }
+  }
+
   // Attach strategy metadata to response
   const response = NextResponse.json(
     {
       ...generateData,
       strategy_metadata: strategy,
       clawbot_active: clawbotActive,
+      data_source: clawbotActive ? dataSource : undefined,
+      strategy_confidence: strategyConfidence,
       correlation_id: correlationId,
     },
     { status: generateResponse.status }

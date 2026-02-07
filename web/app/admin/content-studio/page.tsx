@@ -201,6 +201,11 @@ interface GenerationResult {
     avoid: string[];
   } | null;
   clawbot_active?: boolean;
+  data_source?: 'product' | 'global';
+  strategy_confidence?: {
+    level: 'high' | 'medium' | 'low';
+    reason: string;
+  } | null;
 }
 
 type RiskTier = 'SAFE' | 'BALANCED' | 'SPICY';
@@ -1941,6 +1946,43 @@ export default function ContentStudioPage() {
                         </span>
                       );
                     })()}
+
+                    {/* Confidence badge */}
+                    {result.strategy_confidence && (() => {
+                      const cl = result.strategy_confidence!.level;
+                      const confColor = cl === 'high' ? '#22c55e' : cl === 'medium' ? '#f59e0b' : '#9ca3af';
+                      const confBg = cl === 'high' ? 'rgba(34, 197, 94, 0.15)' : cl === 'medium' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(156, 163, 175, 0.15)';
+                      const confBorder = cl === 'high' ? 'rgba(34, 197, 94, 0.3)' : cl === 'medium' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(156, 163, 175, 0.3)';
+                      return (
+                        <span title={result.strategy_confidence!.reason} style={{
+                          padding: '4px 10px',
+                          backgroundColor: confBg,
+                          border: `1px solid ${confBorder}`,
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          color: confColor,
+                          fontWeight: 500,
+                          cursor: 'help',
+                        }}>
+                          {cl.charAt(0).toUpperCase() + cl.slice(1)} Confidence
+                        </span>
+                      );
+                    })()}
+
+                    {/* Data source badge */}
+                    {result.data_source && (
+                      <span style={{
+                        padding: '4px 10px',
+                        backgroundColor: result.data_source === 'product' ? 'rgba(14, 165, 233, 0.15)' : 'rgba(156, 163, 175, 0.1)',
+                        border: `1px solid ${result.data_source === 'product' ? 'rgba(14, 165, 233, 0.3)' : 'rgba(156, 163, 175, 0.2)'}`,
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: result.data_source === 'product' ? '#38bdf8' : '#9ca3af',
+                        fontWeight: 500,
+                      }}>
+                        {result.data_source === 'product' ? 'Product-level data' : 'Global patterns'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Suggested hooks */}

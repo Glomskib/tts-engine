@@ -12,7 +12,7 @@ const PainPointSchema = z.object({
   point: z.string().min(1).max(500),
   category: z.enum(["emotional", "practical", "social", "financial"]),
   intensity: z.enum(["mild", "moderate", "severe"]),
-  hook_angle: z.string().max(200),
+  hook_angle: z.string().max(200).optional().default(''),
 });
 
 // Validation schema for product updates - use strict() to reject unknown fields
@@ -30,8 +30,14 @@ const UpdateProductSchema = z.object({
   category_risk: z.enum(["low", "medium", "high"]).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   description: z.string().max(2000).optional().nullable(),
-  primary_link: z.string().url().max(500).optional().nullable(),
-  tiktok_showcase_url: z.string().url().max(500).optional().nullable(),
+  primary_link: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    z.string().url().max(500).optional().nullable()
+  ),
+  tiktok_showcase_url: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    z.string().url().max(500).optional().nullable()
+  ),
   slug: z.string().max(100).optional().nullable(),
   pain_points: z.array(PainPointSchema).optional().nullable(),
 }).strict(); // Reject unknown fields

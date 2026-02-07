@@ -13,8 +13,10 @@ export async function GET(request: Request) {
   const error = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
 
-  // Log for debugging
-  console.log('Auth callback received:', { code: !!code, error, errorDescription });
+  // Log for debugging (server-side only)
+  if (process.env.NODE_ENV === 'development') {
+    console.error('[auth/callback] received:', { code: !!code, error, errorDescription });
+  }
 
   // Handle OAuth errors
   if (error) {
@@ -28,11 +30,13 @@ export async function GET(request: Request) {
     const supabase = await createServerSupabaseClient();
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-    console.log('Exchange result:', {
-      user: data?.user?.email,
-      session: !!data?.session,
-      error: exchangeError?.message
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[auth/callback] exchange result:', {
+        user: data?.user?.email,
+        session: !!data?.session,
+        error: exchangeError?.message
+      });
+    }
 
     if (exchangeError) {
       console.error('Code exchange error:', exchangeError);
@@ -85,7 +89,6 @@ export async function GET(request: Request) {
       }
 
       // Successfully authenticated - redirect to destination
-      console.log('Auth successful, redirecting to:', next);
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

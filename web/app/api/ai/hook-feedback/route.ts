@@ -80,7 +80,7 @@ export async function POST(request: Request) {
           hook_hash: hookHash,
           rating,
           reason: reason || null,
-          created_by: "admin", // TODO: get from auth
+          created_by: authContext.user?.id || "anonymous",
         },
         {
           onConflict: "brand_name,hook_hash",

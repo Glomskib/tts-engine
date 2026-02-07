@@ -35,10 +35,11 @@ async function writeVideoEvent(
 const DEFAULT_INITIAL_STATUS: VideoStatus = "needs_edit";
 
 export async function GET(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const supabase = await createServerSupabaseClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
   // account_id is required for portal pages
   if (!account_id) {
     return NextResponse.json(
-      { ok: false, error: "account_id is required" },
+      { ok: false, error: "account_id is required", correlation_id: correlationId },
       { status: 400 }
     );
   }
@@ -73,19 +74,19 @@ export async function GET(request: Request) {
     const { data, error } = await query;
 
     if (error) {
-      console.error("GET /api/videos Supabase error:", error);
+      console.error(`[${correlationId}] GET /api/videos Supabase error:`, error);
       return NextResponse.json(
-        { ok: false, error: "Failed to fetch videos" },
+        { ok: false, error: "Failed to fetch videos", correlation_id: correlationId },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, data });
+    return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 
   } catch (err) {
-    console.error("GET /api/videos error:", err);
+    console.error(`[${correlationId}] GET /api/videos error:`, err);
     return NextResponse.json(
-      { ok: false, error: "Internal server error" },
+      { ok: false, error: "Internal server error", correlation_id: correlationId },
       { status: 500 }
     );
   }

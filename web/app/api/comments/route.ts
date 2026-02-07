@@ -1,48 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { generateCorrelationId } from '@/lib/api-errors';
 
 export async function GET(request: NextRequest) {
-  const supabase = await createServerSupabaseClient();
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createServerSupabaseClient();
 
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  const { searchParams } = new URL(request.url);
-  const skitId = searchParams.get('skit_id');
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
+    }
 
-  if (!skitId) {
-    return NextResponse.json({ error: 'skit_id is required' }, { status: 400 });
-  }
+    const { searchParams } = new URL(request.url);
+    const skitId = searchParams.get('skit_id');
 
-  const { data, error } = await supabase
-    .from('script_comments')
-    .select(`
-      *,
-      user:auth.users(id, email),
-      replies:script_comments(
+    if (!skitId) {
+      return NextResponse.json({ error: 'skit_id is required', correlation_id: correlationId }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('script_comments')
+      .select(`
         *,
-        user:auth.users(id, email)
-      )
-    `)
-    .eq('skit_id', skitId)
-    .is('parent_id', null)
-    .order('created_at', { ascending: true });
+        user:auth.users(id, email),
+        replies:script_comments(
+          *,
+          user:auth.users(id, email)
+        )
+      `)
+      .eq('skit_id', skitId)
+      .is('parent_id', null)
+      .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error('Failed to fetch comments:', error);
-    return NextResponse.json({ error: 'Failed to fetch comments' }, { status: 500 });
+    if (error) {
+      console.error(`[${correlationId}] Failed to fetch comments:`, error);
+      return NextResponse.json({ error: 'Failed to fetch comments', correlation_id: correlationId }, { status: 500 });
+    }
+
+    return NextResponse.json({ data, correlation_id: correlationId });
+  } catch (err) {
+    console.error(`[${correlationId}] Comments GET error:`, err);
+    return NextResponse.json({ error: 'Internal server error', correlation_id: correlationId }, { status: 500 });
   }
-
-  return NextResponse.json({ data });
 }
 
 export async function POST(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
+
   const supabase = await createServerSupabaseClient();
 
   const {
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
   }
 
   try {
@@ -60,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     if (!skit_id || !content) {
       return NextResponse.json(
-        { error: 'skit_id and content are required' },
+        { error: 'skit_id and content are required', correlation_id: correlationId },
         { status: 400 }
       );
     }
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!skit) {
-      return NextResponse.json({ error: 'Skit not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Skit not found', correlation_id: correlationId }, { status: 404 });
     }
 
     if (skit.user_id !== user.id && !skit.is_public) {
@@ -85,7 +95,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (profile?.role !== 'admin') {
-        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+        return NextResponse.json({ error: 'Not authorized', correlation_id: correlationId }, { status: 403 });
       }
     }
 
@@ -104,13 +114,13 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Failed to create comment:', error);
-      return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
+      console.error(`[${correlationId}] Failed to create comment:`, error);
+      return NextResponse.json({ error: 'Failed to create comment', correlation_id: correlationId }, { status: 500 });
     }
 
-    return NextResponse.json({ data }, { status: 201 });
+    return NextResponse.json({ data, correlation_id: correlationId }, { status: 201 });
   } catch (err) {
-    console.error('Failed to parse request:', err);
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    console.error(`[${correlationId}] Failed to parse request:`, err);
+    return NextResponse.json({ error: 'Invalid request body', correlation_id: correlationId }, { status: 400 });
   }
 }

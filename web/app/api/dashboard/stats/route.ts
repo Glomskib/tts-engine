@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { generateCorrelationId } from '@/lib/api-errors';
 
 export async function GET(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
     }
 
     const userId = authContext.user.id;
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
       recentActivity,
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+    console.error(`[${correlationId}] Dashboard stats error:`, error);
+    return NextResponse.json({ error: 'Failed to fetch stats', correlation_id: correlationId }, { status: 500 });
   }
 }

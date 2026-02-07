@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { sendEmailWithAudit, getAdminEmailRecipient } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -64,8 +65,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Failed to submit inquiry' }, { status: 500 });
     }
 
-    // TODO: Send notification email to sales team
-    // TODO: Send confirmation email to user
+    // Send notification email to sales team (non-blocking)
+    const adminEmail = getAdminEmailRecipient();
+    if (adminEmail) {
+      sendEmailWithAudit(supabaseAdmin, {
+        to: adminEmail,
+        subject: `New Video Service Inquiry from ${parsed.data.name}`,
+        templateKey: 'video_service_inquiry_admin',
+        html: `
+          <h2>New Video Service Inquiry</h2>
+          <p><strong>Name:</strong> ${parsed.data.name}</p>
+          <p><strong>Email:</strong> ${parsed.data.email}</p>
+          ${parsed.data.company ? `<p><strong>Company:</strong> ${parsed.data.company}</p>` : ''}
+          ${parsed.data.phone ? `<p><strong>Phone:</strong> ${parsed.data.phone}</p>` : ''}
+          ${parsed.data.videos_per_month ? `<p><strong>Videos/Month:</strong> ${parsed.data.videos_per_month}</p>` : ''}
+          ${parsed.data.budget_range ? `<p><strong>Budget:</strong> ${parsed.data.budget_range}</p>` : ''}
+          ${parsed.data.notes ? `<p><strong>Notes:</strong> ${parsed.data.notes}</p>` : ''}
+        `,
+        context: { inquiry_id: inquiry.id },
+      }).catch((err) => console.error('Failed to send admin notification:', err));
+    }
+
+    // Send confirmation email to user (non-blocking)
+    sendEmailWithAudit(supabaseAdmin, {
+      to: parsed.data.email,
+      subject: 'We received your video service inquiry',
+      templateKey: 'video_service_inquiry_confirmation',
+      html: `
+        <h2>Thanks for reaching out, ${parsed.data.name}!</h2>
+        <p>We've received your inquiry about our video production services. A member of our team will be in touch within 24 hours.</p>
+        <p>In the meantime, feel free to reply to this email with any additional details.</p>
+        <p>Best,<br>The FlashFlow AI Team</p>
+      `,
+      context: { inquiry_id: inquiry.id },
+    }).catch((err) => console.error('Failed to send confirmation email:', err));
 
     return NextResponse.json({
       ok: true,

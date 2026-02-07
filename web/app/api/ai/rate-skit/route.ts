@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { z } from "zod";
@@ -58,6 +59,14 @@ export async function POST(request: Request) {
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
+
+  // Rate limiting (light DB-only - 20 req/min)
+  const rateLimitResponse = enforceRateLimits(
+    { userId: authContext.user.id, ...extractRateLimitContext(request) },
+    correlationId,
+    { userLimit: 20 }
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Parse and validate input
   let input: RateSkitInput;

@@ -1,4 +1,5 @@
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
@@ -62,6 +63,13 @@ export async function POST(request: Request) {
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
+
+  // Rate limiting
+  const rateLimitResponse = enforceRateLimits(
+    { userId: authContext.user.id, ...extractRateLimitContext(request) },
+    correlationId
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Credit check (admins bypass)
   const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);

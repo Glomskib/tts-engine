@@ -1,6 +1,7 @@
 // app/api/ai/generate-image/route.ts - AI B-Roll image generation
 import { NextResponse, NextRequest } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { auditLogAsync } from "@/lib/audit";
 import { z } from "zod";
@@ -55,6 +56,14 @@ export async function POST(request: NextRequest) {
         correlationId
       );
     }
+
+    // Rate limiting (heavy AI generation - 5 req/min)
+    const rateLimitResponse = enforceRateLimits(
+      { userId: authContext.user.id, ...extractRateLimitContext(request) },
+      correlationId,
+      { userLimit: 5 }
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse request body
     let rawBody: unknown;

@@ -42,10 +42,15 @@ interface ScalingForm {
   google_drive_url: string;
 }
 
+const cellClass = "border border-gray-300 dark:border-gray-600 p-2 text-gray-800 dark:text-gray-200";
+const headerCellClass = "border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100";
+const labelCellClass = "border border-gray-300 dark:border-gray-600 p-2 font-bold text-gray-800 dark:text-gray-200";
+const inputClass = "w-full p-1 mt-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200";
+
 export default function VariantPage() {
   const params = useParams();
   const variantId = params.id as string;
-  
+
   const [lineage, setLineage] = useState<any>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +72,7 @@ export default function VariantPage() {
     try {
       const response = await fetch(`/api/variants/lineage?variant_id=${variantId}`);
       const result = await response.json();
-      
+
       if (result.ok) {
         setLineage(result.data);
         setError('');
@@ -83,7 +88,7 @@ export default function VariantPage() {
     try {
       const response = await fetch('/api/accounts');
       const result = await response.json();
-      
+
       if (result.ok) {
         setAccounts(result.data);
       }
@@ -106,7 +111,7 @@ export default function VariantPage() {
 
       const result = await response.json();
       if (result.ok) {
-        await fetchLineage(); // Refresh data
+        await fetchLineage();
         setPromotionNote('');
         setError('Variant successfully promoted to winner!');
       } else {
@@ -142,7 +147,7 @@ export default function VariantPage() {
       const result = await response.json();
       if (result.ok) {
         setScalingResult(result.data);
-        await fetchLineage(); // Refresh data
+        await fetchLineage();
         setError(`Scaling complete! Created ${result.summary.variants_created} variants and ${result.summary.videos_created} videos.`);
       } else {
         setError(result.error);
@@ -183,87 +188,87 @@ export default function VariantPage() {
     }
   }, [variantId]);
 
-  if (loading) return <div>Loading variant data...</div>;
-  if (!lineage) return <div>Variant not found</div>;
+  if (loading) return <div className="p-5 text-gray-700 dark:text-gray-300">Loading variant data...</div>;
+  if (!lineage) return <div className="p-5 text-gray-700 dark:text-gray-300">Variant not found</div>;
 
   const variant = lineage.target_variant;
   const rootVariant = lineage.root_variant;
   const videos = lineage.videos_by_variant[variant.id] || [];
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Variant Management - {variant.id.slice(0, 8)}...</h1>
-      
+    <div className="p-5">
+      <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+        Variant Management - {variant.id.slice(0, 8)}...
+      </h1>
+
       {error && (
-        <div style={{ 
-          color: error.includes('successfully') || error.includes('complete') ? 'green' : 'red', 
-          marginBottom: '20px',
-          padding: '10px',
-          border: '1px solid',
-          borderRadius: '4px'
-        }}>
+        <div className={`mb-5 p-3 border rounded ${
+          error.includes('successfully') || error.includes('complete')
+            ? 'border-green-500 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+            : 'border-red-500 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+        }`}>
           {error}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Variant Details */}
         <div>
-          <h2>Variant Details</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Variant Details</h2>
+          <table className="w-full border-collapse">
             <tbody>
               <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>Status</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{variant.status}</td>
+                <td className={labelCellClass}>Status</td>
+                <td className={cellClass}>{variant.status}</td>
               </tr>
               <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>Score</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{variant.score || 'N/A'}</td>
+                <td className={labelCellClass}>Score</td>
+                <td className={cellClass}>{variant.score || 'N/A'}</td>
               </tr>
               <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>Winner</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{variant.is_winner ? 'Yes' : 'No'}</td>
+                <td className={labelCellClass}>Winner</td>
+                <td className={cellClass}>{variant.is_winner ? 'Yes' : 'No'}</td>
               </tr>
               <tr>
-                <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>Locked</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{variant.locked ? 'Yes' : 'No'}</td>
+                <td className={labelCellClass}>Locked</td>
+                <td className={cellClass}>{variant.locked ? 'Yes' : 'No'}</td>
               </tr>
               {variant.change_type && (
                 <tr>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>Change Type</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px' }}>{variant.change_type}</td>
+                  <td className={labelCellClass}>Change Type</td>
+                  <td className={cellClass}>{variant.change_type}</td>
                 </tr>
               )}
               {variant.change_note && (
                 <tr>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>Change Note</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px' }}>{variant.change_note}</td>
+                  <td className={labelCellClass}>Change Note</td>
+                  <td className={cellClass}>{variant.change_note}</td>
                 </tr>
               )}
             </tbody>
           </table>
 
           {/* Associated Videos */}
-          <h3 style={{ marginTop: '20px' }}>Associated Videos</h3>
+          <h3 className="mt-5 mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">Associated Videos</h3>
           {videos.length === 0 ? (
-            <p>No videos found for this variant.</p>
+            <p className="text-gray-600 dark:text-gray-400">No videos found for this variant.</p>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Account</th>
-                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Status</th>
-                  <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Performance</th>
+                  <th className={headerCellClass}>Account</th>
+                  <th className={headerCellClass}>Status</th>
+                  <th className={headerCellClass}>Performance</th>
                 </tr>
               </thead>
               <tbody>
                 {videos.map((video: Video) => (
                   <tr key={video.id}>
-                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                    <td className={cellClass}>
                       {video.accounts?.name || 'Unknown'} ({video.accounts?.platform || 'Unknown'})
                     </td>
-                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.status}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                    <td className={cellClass}>{video.status}</td>
+                    <td className={cellClass}>
                       {video.views_total !== undefined ? (
                         <div>
                           Views: {video.views_total.toLocaleString()}<br/>
@@ -284,31 +289,26 @@ export default function VariantPage() {
 
         {/* Actions */}
         <div>
-          <h2>Actions</h2>
-          
+          <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Actions</h2>
+
           {/* Promotion */}
           {!variant.is_winner && (
-            <div style={{ marginBottom: '30px', padding: '15px', border: '1px solid #ccc' }}>
-              <h3>Promote to Winner</h3>
-              <div style={{ marginBottom: '10px' }}>
-                <label>Note (optional):</label>
+            <div className="mb-8 p-4 border border-gray-300 dark:border-gray-600 rounded">
+              <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Promote to Winner</h3>
+              <div className="mb-3">
+                <label className="text-gray-700 dark:text-gray-300">Note (optional):</label>
                 <input
                   type="text"
                   value={promotionNote}
                   onChange={(e) => setPromotionNote(e.target.value)}
                   placeholder="Reason for promotion..."
-                  style={{ width: '100%', padding: '5px', marginTop: '5px' }}
+                  className={inputClass}
                 />
               </div>
-              <button type="button" 
+              <button type="button"
                 onClick={promoteVariant}
                 disabled={promoting}
-                style={{ 
-                  padding: '10px 20px', 
-                  backgroundColor: '#28a745', 
-                  color: 'white', 
-                  border: 'none' 
-                }}
+                className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
               >
                 {promoting ? 'Promoting...' : 'Promote to Winner'}
               </button>
@@ -317,19 +317,19 @@ export default function VariantPage() {
 
           {/* Scaling */}
           {(variant.is_winner || rootVariant.is_winner) && (
-            <div style={{ padding: '15px', border: '1px solid #ccc' }}>
-              <h3>Generate Scaling Plan</h3>
-              
-              <div style={{ marginBottom: '15px' }}>
-                <label><strong>Change Types:</strong></label>
-                <div style={{ marginTop: '5px' }}>
+            <div className="p-4 border border-gray-300 dark:border-gray-600 rounded">
+              <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Generate Scaling Plan</h3>
+
+              <div className="mb-4">
+                <label className="font-bold text-gray-700 dark:text-gray-300">Change Types:</label>
+                <div className="mt-1">
                   {CHANGE_TYPES.map(changeType => (
-                    <label key={changeType} style={{ display: 'block', marginBottom: '5px' }}>
+                    <label key={changeType} className="block mb-1 text-gray-700 dark:text-gray-300">
                       <input
                         type="checkbox"
                         checked={scalingForm.change_types.includes(changeType)}
                         onChange={() => toggleChangeType(changeType)}
-                        style={{ marginRight: '8px' }}
+                        className="mr-2"
                       />
                       {changeType.replace('_', ' ')}
                     </label>
@@ -337,39 +337,39 @@ export default function VariantPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label><strong>Variants per type:</strong></label>
+              <div className="mb-4">
+                <label className="font-bold text-gray-700 dark:text-gray-300">Variants per type:</label>
                 <input
                   type="number"
                   min="1"
                   max="20"
                   value={scalingForm.count_per_type}
                   onChange={(e) => updateScalingForm('count_per_type', parseInt(e.target.value))}
-                  style={{ width: '100%', padding: '5px', marginTop: '5px' }}
+                  className={inputClass}
                 />
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label><strong>Google Drive URL (optional):</strong></label>
+              <div className="mb-4">
+                <label className="font-bold text-gray-700 dark:text-gray-300">Google Drive URL (optional):</label>
                 <input
                   type="text"
                   value={scalingForm.google_drive_url}
                   onChange={(e) => updateScalingForm('google_drive_url', e.target.value)}
                   placeholder="https://drive.google.com/..."
-                  style={{ width: '100%', padding: '5px', marginTop: '5px' }}
+                  className={inputClass}
                 />
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label><strong>Create Videos for Accounts (optional):</strong></label>
-                <div style={{ marginTop: '5px', maxHeight: '150px', overflowY: 'auto' }}>
+              <div className="mb-4">
+                <label className="font-bold text-gray-700 dark:text-gray-300">Create Videos for Accounts (optional):</label>
+                <div className="mt-1 max-h-36 overflow-y-auto">
                   {accounts.map(account => (
-                    <label key={account.id} style={{ display: 'block', marginBottom: '5px' }}>
+                    <label key={account.id} className="block mb-1 text-gray-700 dark:text-gray-300">
                       <input
                         type="checkbox"
                         checked={scalingForm.account_ids.includes(account.id)}
                         onChange={() => toggleAccount(account.id)}
-                        style={{ marginRight: '8px' }}
+                        className="mr-2"
                       />
                       {account.name} ({account.platform})
                     </label>
@@ -377,15 +377,10 @@ export default function VariantPage() {
                 </div>
               </div>
 
-              <button type="button" 
+              <button type="button"
                 onClick={scaleVariant}
                 disabled={scaling || scalingForm.change_types.length === 0}
-                style={{ 
-                  padding: '10px 20px', 
-                  backgroundColor: '#007bff', 
-                  color: 'white', 
-                  border: 'none' 
-                }}
+                className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
                 {scaling ? 'Generating...' : 'Generate Scaling Plan'}
               </button>
@@ -396,13 +391,13 @@ export default function VariantPage() {
 
       {/* Lineage Display */}
       {(lineage.child_variants.length > 0 || lineage.parent_variant) && (
-        <div style={{ marginTop: '30px' }}>
-          <h2>Variant Lineage</h2>
-          
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Variant Lineage</h2>
+
           {lineage.parent_variant && (
-            <div style={{ marginBottom: '20px' }}>
-              <h3>Parent Variant</h3>
-              <Link href={`/variants/${lineage.parent_variant.id}`} style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+            <div className="mb-5">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">Parent Variant</h3>
+              <Link href={`/variants/${lineage.parent_variant.id}`} className="inline-block px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                   {lineage.parent_variant.id.slice(0, 8)}... ({lineage.parent_variant.status})
               </Link>
             </div>
@@ -410,16 +405,18 @@ export default function VariantPage() {
 
           {lineage.child_variants.length > 0 && (
             <div>
-              <h3>Child Variants ({lineage.child_variants.length})</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
+              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                Child Variants ({lineage.child_variants.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {lineage.child_variants.map((child: Variant) => (
-                  <div key={child.id} style={{ border: '1px solid #ccc', padding: '10px' }}>
-                    <div><strong>ID:</strong> {child.id.slice(0, 8)}...</div>
-                    <div><strong>Status:</strong> {child.status}</div>
-                    <div><strong>Change Type:</strong> {child.change_type || 'N/A'}</div>
-                    <div><strong>Change Note:</strong> {child.change_note || 'N/A'}</div>
-                    <div style={{ marginTop: '10px' }}>
-                      <Link href={`/variants/${child.id}`} style={{ display: 'inline-block', padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+                  <div key={child.id} className="border border-gray-300 dark:border-gray-600 rounded p-3">
+                    <div className="text-gray-800 dark:text-gray-200"><strong>ID:</strong> {child.id.slice(0, 8)}...</div>
+                    <div className="text-gray-800 dark:text-gray-200"><strong>Status:</strong> {child.status}</div>
+                    <div className="text-gray-800 dark:text-gray-200"><strong>Change Type:</strong> {child.change_type || 'N/A'}</div>
+                    <div className="text-gray-800 dark:text-gray-200"><strong>Change Note:</strong> {child.change_note || 'N/A'}</div>
+                    <div className="mt-2">
+                      <Link href={`/variants/${child.id}`} className="inline-block px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                         View Details
                       </Link>
                     </div>
@@ -433,21 +430,21 @@ export default function VariantPage() {
 
       {/* Scaling Results */}
       {scalingResult && (
-        <div style={{ marginTop: '30px' }}>
-          <h2>Scaling Results</h2>
-          <div style={{ backgroundColor: '#f8f9fa', padding: '15px', border: '1px solid #dee2e6' }}>
-            <div><strong>Variants Created:</strong> {scalingResult.child_variants?.length || 0}</div>
-            <div><strong>Videos Created:</strong> {scalingResult.created_videos?.length || 0}</div>
-            <div><strong>Iteration Group ID:</strong> {scalingResult.iteration_group?.id}</div>
-            
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Scaling Results</h2>
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded">
+            <div className="text-gray-800 dark:text-gray-200"><strong>Variants Created:</strong> {scalingResult.child_variants?.length || 0}</div>
+            <div className="text-gray-800 dark:text-gray-200"><strong>Videos Created:</strong> {scalingResult.created_videos?.length || 0}</div>
+            <div className="text-gray-800 dark:text-gray-200"><strong>Iteration Group ID:</strong> {scalingResult.iteration_group?.id}</div>
+
             {scalingResult.scaling_plan?.editor_brief && (
-              <div style={{ marginTop: '15px' }}>
-                <h4>Editor Brief</h4>
-                <div><strong>B-Roll:</strong> {scalingResult.scaling_plan.editor_brief.b_roll?.join(', ')}</div>
-                <div><strong>Style:</strong> {scalingResult.scaling_plan.editor_brief.on_screen_style}</div>
-                <div><strong>Pacing:</strong> {scalingResult.scaling_plan.editor_brief.pacing}</div>
-                <div><strong>Do&apos;s:</strong> {scalingResult.scaling_plan.editor_brief.dos?.join(', ')}</div>
-                <div><strong>Don&apos;ts:</strong> {scalingResult.scaling_plan.editor_brief.donts?.join(', ')}</div>
+              <div className="mt-4">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Editor Brief</h4>
+                <div className="text-gray-800 dark:text-gray-200"><strong>B-Roll:</strong> {scalingResult.scaling_plan.editor_brief.b_roll?.join(', ')}</div>
+                <div className="text-gray-800 dark:text-gray-200"><strong>Style:</strong> {scalingResult.scaling_plan.editor_brief.on_screen_style}</div>
+                <div className="text-gray-800 dark:text-gray-200"><strong>Pacing:</strong> {scalingResult.scaling_plan.editor_brief.pacing}</div>
+                <div className="text-gray-800 dark:text-gray-200"><strong>Do&apos;s:</strong> {scalingResult.scaling_plan.editor_brief.dos?.join(', ')}</div>
+                <div className="text-gray-800 dark:text-gray-200"><strong>Don&apos;ts:</strong> {scalingResult.scaling_plan.editor_brief.donts?.join(', ')}</div>
               </div>
             )}
           </div>

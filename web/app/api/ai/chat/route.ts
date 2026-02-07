@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const authContext = await getApiAuthContext();
   const rateLimitContext = {
     userId: authContext.user?.id ?? null,
-    orgId: null, // TODO: Add org context when available
+    orgId: null, // Org membership is event-sourced; user-level limiting is sufficient
     ...extractRateLimitContext(request),
   };
   const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { singleFlight, generateFlightKey, createConflictResponse, SingleFlightConflictError } from "@/lib/single-flight";
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
@@ -1310,6 +1311,13 @@ export async function POST(request: Request) {
   }
 
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Rate limiting
+  const rateLimitResponse = enforceRateLimits(
+    { userId: user.id, ...extractRateLimitContext(request) },
+    correlationId
+  );
+  if (rateLimitResponse) return rateLimitResponse;
   const url = new URL(request.url);
   const debugMode = url.searchParams.get("debug") === "1" || process.env.DEBUG_AI === "1";
 

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { auditLogAsync } from "@/lib/audit";
@@ -214,6 +215,14 @@ export async function POST(request: Request) {
         correlationId
       );
     }
+
+    // Rate limiting (heavy AI generation - 5 req/min)
+    const rateLimitResponse = enforceRateLimits(
+      { userId: authContext.user.id, ...extractRateLimitContext(request) },
+      correlationId,
+      { userLimit: 5 }
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse and validate input
     let body: unknown;

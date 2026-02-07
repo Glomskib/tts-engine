@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { auditLogAsync } from "@/lib/audit";
@@ -1022,6 +1023,14 @@ export async function POST(request: Request) {
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
+
+  // Rate limiting (heavy AI generation - 5 req/min)
+  const rateLimitResponse = enforceRateLimits(
+    { userId: authContext.user.id, ...extractRateLimitContext(request) },
+    correlationId,
+    { userLimit: 5 }
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Admin bypass: Admins don't need credits
   let creditResult: { success: boolean; credits_remaining: number }[] | null = null;

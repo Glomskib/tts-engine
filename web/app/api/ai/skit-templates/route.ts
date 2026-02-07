@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { getAllSkitTemplates } from "@/lib/ai/skitTemplates";
 
 export const runtime = "nodejs";
@@ -17,6 +18,14 @@ export async function GET(request: Request) {
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
+
+  // Rate limiting (read-only - 30 req/min)
+  const rateLimitResponse = enforceRateLimits(
+    { userId: authContext.user.id, ...extractRateLimitContext(request) },
+    correlationId,
+    { userLimit: 30 }
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   const templates = getAllSkitTemplates();
 

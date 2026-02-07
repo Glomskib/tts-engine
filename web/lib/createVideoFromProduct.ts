@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { notifyPipelineTransition } from "@/lib/pipeline-notifications";
 
 /**
  * Generate a slug from a string (uppercase alphanumeric only)
@@ -503,13 +504,36 @@ export async function createVideoFromProduct(
       },
     });
 
-    // TODO: If shouldNotifyRecorder, trigger pipeline notification
-    // For now, this is handled by the status machine when script is attached
+    // Notify recorder if video is ready for recording
+    if (shouldNotifyRecorder) {
+      notifyPipelineTransition(supabaseAdmin, {
+        video_id: video.id,
+        from_status: null,
+        to_status: recordingStatus,
+        actor,
+        correlation_id: correlationId,
+        video_info: {
+          brand_name: product.brand,
+          product_sku: (product.slug as string) || product.name,
+        },
+      }).catch((err) => {
+        console.error(`[${correlationId}] Failed to notify recorder:`, err);
+      });
+    }
 
-    // If script_path is "generate", queue for AI generation
+    // If script_path is "generate", mark for AI generation processing
+    // Videos with recording_status=GENERATING_SCRIPT are picked up by /api/jobs/generate-scripts
     if (script_path === "generate") {
       console.log(`[${correlationId}] Video ${video.id} queued for AI script generation`);
-      // TODO: Trigger AI script generation job
+      await supabaseAdmin.from("video_events").insert({
+        video_id: video.id,
+        event_type: "script_generation_queued",
+        correlation_id: correlationId,
+        actor,
+        from_status: null,
+        to_status: "GENERATING_SCRIPT",
+        details: { concept_id: concept.id, product_id: product_id.trim() },
+      });
     }
 
     return {

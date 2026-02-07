@@ -45,8 +45,8 @@ export default function VideosPage() {
       });
 
       if (response.ok) {
-        await fetchVideos(); // Refresh list
-        setTtPostUrls(prev => ({ ...prev, [videoId]: '' })); // Clear input
+        await fetchVideos();
+        setTtPostUrls(prev => ({ ...prev, [videoId]: '' }));
       }
     } catch (error) {
       console.error('Failed to mark video as posted:', error);
@@ -57,52 +57,54 @@ export default function VideosPage() {
     fetchVideos();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="p-5 text-gray-700 dark:text-gray-300">Loading...</div>;
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Videos Ready for Upload</h1>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div className="p-5">
+      <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Videos Ready for Upload</h1>
+      <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>ID</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Google Drive URL</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Caption</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Hashtags</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Status</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>TikTok Post URL</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Action</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">ID</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">Google Drive URL</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">Caption</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">Hashtags</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">Status</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">TikTok Post URL</th>
+            <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">Action</th>
           </tr>
         </thead>
         <tbody>
           {videos.map((video) => (
             <tr key={video.id}>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.id}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                <a href={video.google_drive_url} target="_blank" rel="noopener noreferrer">
+              <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-800 dark:text-gray-200">{video.id}</td>
+              <td className="border border-gray-300 dark:border-gray-600 p-2">
+                <a href={video.google_drive_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
                   {video.google_drive_url}
                 </a>
               </td>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.caption_used}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.hashtags_used}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{video.status}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+              <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-800 dark:text-gray-200">{video.caption_used}</td>
+              <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-800 dark:text-gray-200">{video.hashtags_used}</td>
+              <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-800 dark:text-gray-200">{video.status}</td>
+              <td className="border border-gray-300 dark:border-gray-600 p-2">
                 <input
                   type="text"
                   value={ttPostUrls[video.id] || ''}
                   onChange={(e) => setTtPostUrls(prev => ({ ...prev, [video.id]: e.target.value }))}
                   placeholder="TikTok post URL"
-                  style={{ width: '100%' }}
+                  className="w-full p-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
                 />
               </td>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                <button type="button" onClick={() => markPosted(video.id)}>Mark Posted</button>
+              <td className="border border-gray-300 dark:border-gray-600 p-2">
+                <button type="button" onClick={() => markPosted(video.id)} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+                  Mark Posted
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {videos.length === 0 && <p>No videos ready for upload.</p>}
+      {videos.length === 0 && <p className="mt-4 text-gray-600 dark:text-gray-400">No videos ready for upload.</p>}
     </div>
   );
 }

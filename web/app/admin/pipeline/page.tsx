@@ -477,6 +477,9 @@ export default function AdminPipelinePage() {
   const [products, setProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
 
+  // User lookup map (UUID -> display label)
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+
 
   // Fetch authenticated user on mount
   useEffect(() => {
@@ -530,13 +533,14 @@ export default function AdminPipelinePage() {
     fetchAuthUser();
   }, [router]);
 
-  // Fetch reference data (brands, products, accounts) for filters
+  // Fetch reference data (brands, products, accounts, users) for filters
   useEffect(() => {
     const fetchReferenceData = async () => {
       try {
-        const [productsRes, accountsRes] = await Promise.all([
+        const [productsRes, accountsRes, usersRes] = await Promise.all([
           fetch('/api/products'),
           fetch('/api/accounts'),
+          fetch('/api/admin/users'),
         ]);
         const [productsData, accountsData] = await Promise.all([
           productsRes.json(),
@@ -558,6 +562,18 @@ export default function AdminPipelinePage() {
             id: a.id,
             name: a.name,
           })));
+        }
+
+        // Build user lookup map (UUID -> "email (role)" or "email")
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          const map: Record<string, string> = {};
+          for (const u of (usersData.data || [])) {
+            const email = u.email || u.user_id?.slice(0, 8);
+            const label = u.role ? `${email} (${u.role})` : email;
+            map[u.user_id] = label;
+          }
+          setUserMap(map);
         }
       } catch (err) {
         console.error('Failed to fetch reference data:', err);
@@ -1573,7 +1589,9 @@ export default function AdminPipelinePage() {
         >
           <option value="">All Assignees</option>
           {Array.from(new Set(queueVideos.map(v => v.claimed_by).filter(Boolean))).map(assignee => (
-            <option key={assignee} value={assignee!}>{assignee}</option>
+            <option key={assignee} value={assignee!}>
+              {assignee === activeUser ? 'You' : (userMap[assignee!] || assignee!.slice(0, 8))}
+            </option>
           ))}
         </select>
 
@@ -1876,7 +1894,7 @@ export default function AdminPipelinePage() {
                   {/* Owner */}
                   <td style={tdStyle}>
                     <span style={{ fontSize: '12px', color: colors.textMuted }}>
-                      {claimedByMe ? 'You' : claimedByOther ? video.claimed_by?.slice(0, 8) : '—'}
+                      {claimedByMe ? 'You' : claimedByOther ? (userMap[video.claimed_by!] || video.claimed_by?.slice(0, 8)) : '—'}
                     </span>
                   </td>
                 </tr>

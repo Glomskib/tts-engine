@@ -1855,35 +1855,39 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
             </div>
           )}
 
-          {/* ==================== MANUAL MODE TOGGLE ==================== */}
-          {isProductSelected && !aiDraft && (
+          {/* ==================== SCRIPT PATH OPTIONS ==================== */}
+          {isProductSelected && (
             <div style={{
               padding: '12px', backgroundColor: colors.bgSecondary,
               borderRadius: '6px', border: `1px solid ${colors.border}`, marginBottom: '16px',
             }}>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <label style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: scriptPath === 'later' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
-                  borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
-                  border: `1px solid ${scriptPath === 'later' ? colors.info : 'transparent'}`,
-                  minWidth: '120px',
-                }}>
-                  <input type="radio" name="manualPath" checked={scriptPath === 'later'} onChange={() => setScriptPath('later')} />
-                  Script later
-                </label>
-                <label style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: scriptPath === 'manual' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
-                  borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
-                  border: `1px solid ${scriptPath === 'manual' ? colors.info : 'transparent'}`,
-                  minWidth: '120px',
-                }}>
-                  <input type="radio" name="manualPath" checked={scriptPath === 'manual'} onChange={() => setScriptPath('manual')} />
-                  Manual entry
-                </label>
+                {!aiDraft && (
+                  <>
+                    <label style={{
+                      flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '8px 12px',
+                      backgroundColor: scriptPath === 'later' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
+                      borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
+                      border: `1px solid ${scriptPath === 'later' ? colors.info : 'transparent'}`,
+                      minWidth: '120px',
+                    }}>
+                      <input type="radio" name="manualPath" checked={scriptPath === 'later'} onChange={() => setScriptPath('later')} />
+                      Script later
+                    </label>
+                    <label style={{
+                      flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '8px 12px',
+                      backgroundColor: scriptPath === 'manual' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
+                      borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
+                      border: `1px solid ${scriptPath === 'manual' ? colors.info : 'transparent'}`,
+                      minWidth: '120px',
+                    }}>
+                      <input type="radio" name="manualPath" checked={scriptPath === 'manual'} onChange={() => setScriptPath('manual')} />
+                      Manual entry
+                    </label>
+                  </>
+                )}
                 <label style={{
                   flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '8px 12px',
@@ -1892,12 +1896,16 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   border: `1px solid ${scriptPath === 'not_required' ? '#10b981' : 'transparent'}`,
                   minWidth: '120px',
                 }}>
-                  <input type="radio" name="manualPath" checked={scriptPath === 'not_required'} onChange={() => setScriptPath('not_required')} />
+                  <input type="radio" name="manualPath" checked={scriptPath === 'not_required'} onChange={() => {
+                    setScriptPath('not_required');
+                    setAiDraft(null);
+                    setScriptDraft('');
+                  }} />
                   No script needed
                 </label>
               </div>
               <p style={{ margin: '8px 0 0', fontSize: '11px', color: colors.textSecondary, textAlign: 'center' }}>
-                {scriptPath === 'not_required' ? 'Already filmed / BOF — skips script stage' : 'Or skip AI and create video now'}
+                {scriptPath === 'not_required' ? 'Already filmed / BOF — skips script stage' : aiDraft ? 'Or skip script entirely' : 'Or skip AI and create video now'}
               </p>
             </div>
           )}

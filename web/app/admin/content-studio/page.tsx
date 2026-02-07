@@ -483,32 +483,42 @@ export default function ContentStudioPage() {
 
   // --- Handlers ---
 
+  // Normalize pain points: objects {point, category, ...} → extract .point text; strings pass through
+  const normalizePainPoints = (points: unknown[]): string[] => {
+    return points.map(p => {
+      if (typeof p === 'string') return p;
+      if (p && typeof p === 'object' && 'point' in p) return (p as { point: string }).point;
+      return String(p);
+    }).filter(Boolean);
+  };
+
   const fetchOrGeneratePainPoints = async () => {
     if (!selectedProductId) return;
     setGeneratingPainPoints(true);
     try {
-      // First try to GET existing pain points
-      const getRes = await fetch(`/api/products/${selectedProductId}`);
+      // First try to GET existing pain points from product
+      const getRes = await fetch(`/api/products/${selectedProductId}`, { credentials: 'include' });
       if (getRes.ok) {
         const data = await getRes.json();
         const existing = data.data?.pain_points;
         if (existing && Array.isArray(existing) && existing.length > 0) {
-          setProductPainPoints(existing);
+          setProductPainPoints(normalizePainPoints(existing));
           setGeneratingPainPoints(false);
           return;
         }
       }
 
-      // No existing pain points — generate them
+      // No existing pain points — generate them (saves to product automatically)
       const genRes = await fetch('/api/products/generate-pain-points', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: selectedProductId }),
+        credentials: 'include',
       });
       if (genRes.ok) {
         const genData = await genRes.json();
         const points = genData.data?.pain_points || genData.pain_points || [];
-        setProductPainPoints(Array.isArray(points) ? points : []);
+        setProductPainPoints(normalizePainPoints(Array.isArray(points) ? points : []));
       }
     } catch (err) {
       console.error('Failed to fetch/generate pain points:', err);

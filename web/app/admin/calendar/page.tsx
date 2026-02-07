@@ -134,17 +134,34 @@ export default function CalendarPage() {
   const fetchReadyVideos = useCallback(async () => {
     setReadyLoading(true);
     try {
-      const res = await fetch('/api/videos/queue?recording_status=READY_TO_POST&claimed=any&limit=50');
-      if (res.ok) {
-        const data = await res.json();
-        const videos: ReadyVideo[] = (data.data || []).map((v: Record<string, unknown>) => ({
-          id: v.id,
-          video_code: v.video_code,
-          brand_name: v.brand_name,
-          product_name: v.product_name,
-          recording_status: v.recording_status,
-          created_at: v.created_at,
-        }));
+      const [queueRes, productsRes] = await Promise.all([
+        fetch('/api/videos/queue?recording_status=READY_TO_POST&claimed=any&limit=50', { credentials: 'include' }),
+        fetch('/api/products', { credentials: 'include' }),
+      ]);
+
+      if (queueRes.ok) {
+        const data = await queueRes.json();
+
+        // Build product lookup map for enrichment
+        let productMap: Record<string, { name: string; brand: string }> = {};
+        if (productsRes.ok) {
+          const prodData = await productsRes.json();
+          for (const p of (prodData.data || [])) {
+            productMap[p.id] = { name: p.name, brand: p.brand };
+          }
+        }
+
+        const videos: ReadyVideo[] = (data.data || []).map((v: Record<string, unknown>) => {
+          const product = v.product_id ? productMap[v.product_id as string] : null;
+          return {
+            id: v.id,
+            video_code: v.video_code,
+            brand_name: product?.brand || (v.brand_name as string) || null,
+            product_name: product?.name || (v.product_name as string) || null,
+            recording_status: v.recording_status,
+            created_at: v.created_at,
+          };
+        });
         // Exclude videos that already have a scheduled post (by matching metadata.video_id)
         const scheduledVideoIds = new Set(posts.filter(p => p.metadata?.video_id).map(p => p.metadata!.video_id));
         setReadyVideos(videos.filter(v => !scheduledVideoIds.has(v.id)));

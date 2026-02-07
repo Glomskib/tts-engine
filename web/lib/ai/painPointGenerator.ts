@@ -37,35 +37,46 @@ Category: ${category}`;
     context += `\nNotes: ${notes}`;
   }
 
-  return `You are an expert marketing psychologist specializing in consumer pain points and emotional triggers. Analyze this product and generate the key pain points that would make someone buy it.
+  return `You are a TikTok content strategist who deeply understands customer psychology. You generate HIGHLY SPECIFIC pain points based on the ACTUAL product details provided.
 
 ${context}
 
-Generate 5-8 specific pain points that would resonate with the target audience for this product. Each pain point should:
-1. Be specific and actionable (not generic like "wants to save money")
-2. Tap into real emotional, practical, social, or financial frustrations
-3. Include a hook angle that could be used in marketing content
+CRITICAL: Your pain points MUST directly relate to what THIS SPECIFIC product does. Read the product description carefully and generate pain points that match the EXACT benefits, ingredients, or features listed.
+
+DO NOT generate generic pain points like:
+- "Overwhelmed by too many choices"
+- "Worried about product quality"
+- "Frustrated with the shopping experience"
+- "Feeling like nothing works"
+
+DO generate product-specific pain points. Examples:
+- For a prostate supplement: "Waking up 3-4 times a night and your wife is tired of it"
+- For a testosterone booster: "Feeling like you lost your edge somewhere in your 30s"
+- For a sleep aid: "Lying awake at 2am watching the ceiling while your mind races"
+- For a skincare product: "That moment when you see your face in a car mirror and barely recognize yourself"
+
+Generate 6-8 pain points that are so specific the customer thinks "that's EXACTLY me!"
 
 Output valid JSON with this exact structure:
 {
   "pain_points": [
     {
-      "point": "Specific pain point description - what the customer is struggling with",
+      "point": "Specific pain point in customer's own words (10-15 words)",
       "category": "emotional|practical|social|financial",
       "intensity": "mild|moderate|severe",
-      "hook_angle": "A hook line that calls out this pain point directly"
+      "hook_angle": "A TikTok opening line that calls out this pain point (scroll-stopping)"
     }
   ],
-  "product_category_insights": "Brief insight about this product category and common pain points",
-  "target_audience_summary": "Brief description of who experiences these pain points most acutely"
+  "product_category_insights": "Brief insight about this product category",
+  "target_audience_summary": "Who experiences these pain points most acutely"
 }
 
 REQUIREMENTS:
-- Pain points must be SPECIFIC to this type of product, not generic
-- Include a mix of categories (emotional, practical, social, financial)
-- Hook angles should be scroll-stopping and relatable
-- Intensity should reflect how urgently customers feel this pain
-- Write from the customer's perspective, using language they would use
+- Every pain point MUST connect to a specific product benefit or ingredient
+- Write as a REAL PERSON would describe their problem, not marketing copy
+- Hook angles should work as TikTok video openers
+- Mix of emotional, practical, and social categories
+- At least 2 should be "severe" intensity
 
 Generate the pain points now:`;
 }

@@ -33,6 +33,7 @@ import {
   Package,
   Users,
   Settings,
+  Download,
   Zap,
   Target,
   Image as ImageIcon,
@@ -809,7 +810,7 @@ export default function ContentStudioPage() {
       const saveRes = await postJson<{ id: string }>('/api/skits', {
         title: `${productName} - ${selectedContentType?.name || 'Content'} - ${new Date().toLocaleDateString()}`,
         status: 'approved',
-        product_id: selectedProductId || null,
+        product_id: selectedProductId || undefined,
         product_name: productName,
         product_brand: productBrand,
         skit_data: currentSkit,
@@ -821,7 +822,7 @@ export default function ContentStudioPage() {
           humor_level: selectedHumorId,
           risk_tier: riskTier,
         },
-        ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score,
+        ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score || undefined,
       });
 
       if (isApiError(saveRes)) {
@@ -1984,13 +1985,13 @@ export default function ContentStudioPage() {
                 return (
                   <div style={{
                     padding: '12px 16px',
-                    backgroundColor: 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${colors.border}`,
+                    backgroundColor: '#1a1f2e',
+                    border: '1px solid #2d3748',
                     borderRadius: '10px',
                     marginBottom: '16px',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>
                         AI Score
                       </div>
                       <div style={{ fontSize: '20px', fontWeight: 700, color: scoreColor }}>
@@ -1998,23 +1999,23 @@ export default function ContentStudioPage() {
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
-                      <div><span style={{ color: colors.textSecondary }}>Hook </span><span style={{ color: colors.text, fontWeight: 600 }}>{currentAiScore.hook_strength}/10</span></div>
-                      <div><span style={{ color: colors.textSecondary }}>Humor </span><span style={{ color: colors.text, fontWeight: 600 }}>{currentAiScore.humor_level}/10</span></div>
-                      <div><span style={{ color: colors.textSecondary }}>Viral </span><span style={{ color: colors.text, fontWeight: 600 }}>{currentAiScore.virality_potential}/10</span></div>
+                      <div><span style={{ color: '#9CA3AF' }}>Hook </span><span style={{ color: '#E5E7EB', fontWeight: 600 }}>{currentAiScore.hook_strength}/10</span></div>
+                      <div><span style={{ color: '#9CA3AF' }}>Humor </span><span style={{ color: '#E5E7EB', fontWeight: 600 }}>{currentAiScore.humor_level}/10</span></div>
+                      <div><span style={{ color: '#9CA3AF' }}>Viral </span><span style={{ color: '#E5E7EB', fontWeight: 600 }}>{currentAiScore.virality_potential}/10</span></div>
                     </div>
                     {currentAiScore.strengths && currentAiScore.strengths.length > 0 && (
-                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${colors.border}` }}>
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #2d3748' }}>
                         <div style={{ fontSize: '11px', color: '#22c55e', marginBottom: '4px' }}>Strengths</div>
-                        {currentAiScore.strengths.slice(0, 2).map((s, i) => (
-                          <div key={i} style={{ fontSize: '12px', color: colors.textSecondary }}>{s}</div>
+                        {currentAiScore.strengths.slice(0, 2).map((str, i) => (
+                          <div key={i} style={{ fontSize: '12px', color: '#D1D5DB' }}>{str}</div>
                         ))}
                       </div>
                     )}
                     {currentAiScore.improvements && currentAiScore.improvements.length > 0 && (
                       <div style={{ marginTop: '6px' }}>
                         <div style={{ fontSize: '11px', color: '#f97316', marginBottom: '4px' }}>Could improve</div>
-                        {currentAiScore.improvements.slice(0, 2).map((s, i) => (
-                          <div key={i} style={{ fontSize: '12px', color: colors.textSecondary }}>{s}</div>
+                        {currentAiScore.improvements.slice(0, 2).map((str, i) => (
+                          <div key={i} style={{ fontSize: '12px', color: '#D1D5DB' }}>{str}</div>
                         ))}
                       </div>
                     )}
@@ -2076,10 +2077,10 @@ export default function ContentStudioPage() {
                     style={{
                       flex: 1,
                       padding: '10px',
-                      backgroundColor: copiedField === 'full' ? '#10b981' : colors.bg,
-                      border: `1px solid ${copiedField === 'full' ? '#10b981' : colors.border}`,
+                      backgroundColor: copiedField === 'full' ? '#10b981' : '#374151',
+                      border: `1px solid ${copiedField === 'full' ? '#10b981' : '#4B5563'}`,
                       borderRadius: '10px',
-                      color: copiedField === 'full' ? 'white' : colors.text,
+                      color: '#E5E7EB',
                       cursor: 'pointer',
                       fontSize: '13px',
                       fontWeight: 500,
@@ -2115,10 +2116,10 @@ export default function ContentStudioPage() {
                     style={{
                       flex: 1,
                       padding: '10px',
-                      backgroundColor: copiedField === 'broll' ? '#10b981' : colors.bg,
-                      border: `1px solid ${copiedField === 'broll' ? '#10b981' : colors.border}`,
+                      backgroundColor: copiedField === 'broll' ? '#10b981' : '#374151',
+                      border: `1px solid ${copiedField === 'broll' ? '#10b981' : '#4B5563'}`,
                       borderRadius: '10px',
-                      color: copiedField === 'broll' ? 'white' : colors.text,
+                      color: '#E5E7EB',
                       cursor: 'pointer',
                       fontSize: '13px',
                       fontWeight: 500,
@@ -2162,10 +2163,10 @@ export default function ContentStudioPage() {
                     }}
                     style={{
                       padding: '10px 14px',
-                      backgroundColor: colors.bg,
-                      border: `1px solid ${colors.border}`,
+                      backgroundColor: '#374151',
+                      border: '1px solid #4B5563',
                       borderRadius: '10px',
-                      color: colors.text,
+                      color: '#E5E7EB',
                       cursor: 'pointer',
                       fontSize: '13px',
                       fontWeight: 500,
@@ -2174,7 +2175,7 @@ export default function ContentStudioPage() {
                       gap: '6px',
                     }}
                   >
-                    <Settings size={14} /> .txt
+                    <Download size={14} /> .txt
                   </button>
                 </div>
               </div>

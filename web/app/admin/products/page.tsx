@@ -407,8 +407,11 @@ export default function ProductsPage() {
       const res = await fetch('/api/products/generate-pain-points', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           product_id: editingProduct.id,
+          product_name: editForm.name || editingProduct.name,
+          product_description: editForm.notes || editForm.description || editingProduct.notes || editingProduct.description,
           save_to_product: true,
         }),
       });

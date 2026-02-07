@@ -35,7 +35,12 @@ const GenerationConfigSchema = z.object({
   preset_id: z.string().optional(),
   template_id: z.string().optional(),
   creative_direction: z.string().optional(),
-}).optional();
+  content_type: z.string().optional(),
+  content_subtype: z.string().optional(),
+  presentation_style: z.string().optional(),
+  target_length: z.string().optional(),
+  humor_level: z.string().optional(),
+}).passthrough().optional();
 
 const AIScoreSchema = z.object({
   hook_strength: z.number().min(1).max(10),
@@ -54,13 +59,13 @@ const SaveSkitInputSchema = z.object({
   title: z.string().min(1).max(200),
   skit_data: SkitDataSchema,
   generation_config: GenerationConfigSchema,
-  product_id: z.string().uuid().optional(),
+  product_id: z.string().uuid().nullable().optional(),
   product_name: z.string().max(100).optional(),
   product_brand: z.string().max(100).optional(),
   status: z.enum(['draft', 'approved', 'produced', 'posted', 'archived']).default('draft'),
   user_rating: z.number().int().min(1).max(5).optional(),
-  ai_score: AIScoreSchema,
-}).strict();
+  ai_score: AIScoreSchema.nullable(),
+});
 
 type SaveSkitInput = z.infer<typeof SaveSkitInputSchema>;
 

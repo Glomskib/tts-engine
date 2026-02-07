@@ -170,6 +170,20 @@ export default function VideoDrawer({
   const [showQualityWarning, setShowQualityWarning] = useState(false);
   const [, setQualityCheckLoading] = useState(false);
 
+  // Performance metrics state
+  const [performanceData, setPerformanceData] = useState({
+    views: '',
+    likes: '',
+    shares: '',
+    comments: '',
+  });
+  const [savingPerformance, setSavingPerformance] = useState(false);
+  const [performanceSaved, setPerformanceSaved] = useState(false);
+
+  // Clawbot feedback state
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<string | null>(null);
+
   // Reject quick tags configuration
   const REJECT_TAGS = [
     { code: 'too_generic', label: 'Too Generic' },
@@ -719,6 +733,76 @@ export default function VideoDrawer({
       setTimeout(() => setSavedToast(null), 3000);
     } finally {
       setFeedbackLoading(false);
+    }
+  };
+
+  // Save performance data
+  const handleSavePerformance = async () => {
+    if (!video?.id) return;
+    const hasData = performanceData.views || performanceData.likes || performanceData.shares || performanceData.comments;
+    if (!hasData) return;
+
+    setSavingPerformance(true);
+    setPerformanceSaved(false);
+    try {
+      const body: Record<string, number> = {};
+      if (performanceData.views) body.views = parseInt(performanceData.views);
+      if (performanceData.likes) body.likes = parseInt(performanceData.likes);
+      if (performanceData.shares) body.shares = parseInt(performanceData.shares);
+      if (performanceData.comments) body.comments = parseInt(performanceData.comments);
+
+      const res = await fetch(`/api/videos/${video.id}/performance`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        setPerformanceSaved(true);
+        setSavedToast('Performance data saved');
+        setTimeout(() => { setSavedToast(null); setPerformanceSaved(false); }, 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save performance:', err);
+    } finally {
+      setSavingPerformance(false);
+    }
+  };
+
+  // Submit Clawbot learning feedback
+  const handleClawbotFeedback = async (feedbackType: 'positive' | 'negative' | 'neutral') => {
+    if (!video?.id) return;
+
+    setSubmittingFeedback(true);
+    try {
+      // Try to find the skit_id from the video's script
+      const skitId = video.concept_id || video.id;
+
+      const res = await fetch('/api/clawbot/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          video_id: video.id,
+          skit_id: skitId,
+          feedback_type: feedbackType,
+          notes: feedbackType === 'positive' ? 'Marked as winner from pipeline' :
+                 feedbackType === 'negative' ? 'Marked as underperform from pipeline' :
+                 'Flagged from pipeline',
+        }),
+      });
+
+      if (res.ok) {
+        setFeedbackGiven(feedbackType);
+        const label = feedbackType === 'positive' ? 'Winner' : feedbackType === 'negative' ? 'Underperform' : 'Flagged';
+        setSavedToast(`Marked as ${label}`);
+        setTimeout(() => setSavedToast(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -2629,6 +2713,167 @@ export default function VideoDrawer({
                     }}>
                       <div>No assets linked yet</div>
                       <div style={{ fontSize: '12px', marginTop: '4px' }}>Use the edit fields above to add Drive or video links.</div>
+                    </div>
+                  )}
+
+                  {/* Performance Metrics Section */}
+                  {isAdmin && (
+                    <div style={{
+                      marginTop: '20px',
+                      padding: '16px',
+                      backgroundColor: isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc',
+                      borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(71, 85, 105, 0.5)' : '#e2e8f0'}`,
+                    }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#93c5fd' : '#2563eb', marginBottom: '14px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '14px' }}>📊</span> Performance Metrics
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Views</label>
+                          <input
+                            type="number"
+                            value={performanceData.views}
+                            onChange={(e) => setPerformanceData(p => ({ ...p, views: e.target.value }))}
+                            placeholder="0"
+                            style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.input, border: `1px solid ${colors.inputBorder}`, borderRadius: '6px', fontSize: '13px', color: colors.text }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Likes</label>
+                          <input
+                            type="number"
+                            value={performanceData.likes}
+                            onChange={(e) => setPerformanceData(p => ({ ...p, likes: e.target.value }))}
+                            placeholder="0"
+                            style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.input, border: `1px solid ${colors.inputBorder}`, borderRadius: '6px', fontSize: '13px', color: colors.text }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Shares</label>
+                          <input
+                            type="number"
+                            value={performanceData.shares}
+                            onChange={(e) => setPerformanceData(p => ({ ...p, shares: e.target.value }))}
+                            placeholder="0"
+                            style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.input, border: `1px solid ${colors.inputBorder}`, borderRadius: '6px', fontSize: '13px', color: colors.text }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Comments</label>
+                          <input
+                            type="number"
+                            value={performanceData.comments}
+                            onChange={(e) => setPerformanceData(p => ({ ...p, comments: e.target.value }))}
+                            placeholder="0"
+                            style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.input, border: `1px solid ${colors.inputBorder}`, borderRadius: '6px', fontSize: '13px', color: colors.text }}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSavePerformance}
+                        disabled={savingPerformance}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          backgroundColor: performanceSaved ? '#22c55e' : '#3b82f6',
+                          border: 'none',
+                          borderRadius: '8px',
+                          color: 'white',
+                          cursor: savingPerformance ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          opacity: savingPerformance ? 0.7 : 1,
+                        }}
+                      >
+                        {performanceSaved ? '✓ Saved' : savingPerformance ? 'Saving...' : 'Save Performance Data'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Learning Feedback Section */}
+                  {isAdmin && (
+                    <div style={{
+                      marginTop: '16px',
+                      padding: '16px',
+                      backgroundColor: isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc',
+                      borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(71, 85, 105, 0.5)' : '#e2e8f0'}`,
+                    }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#c084fc' : '#7c3aed', marginBottom: '8px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '14px' }}>🎯</span> Learning Feedback
+                      </div>
+                      <div style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '12px' }}>
+                        Tag this video to help improve future script recommendations.
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleClawbotFeedback('positive')}
+                          disabled={submittingFeedback || feedbackGiven === 'positive'}
+                          style={{
+                            flex: 1,
+                            padding: '10px 8px',
+                            backgroundColor: feedbackGiven === 'positive' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(34, 197, 94, 0.1)',
+                            border: feedbackGiven === 'positive' ? '2px solid #22c55e' : '1px solid rgba(34, 197, 94, 0.3)',
+                            borderRadius: '8px',
+                            color: feedbackGiven === 'positive' ? '#4ade80' : '#86efac',
+                            cursor: submittingFeedback || feedbackGiven === 'positive' ? 'not-allowed' : 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          🏆 Winner
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleClawbotFeedback('negative')}
+                          disabled={submittingFeedback || feedbackGiven === 'negative'}
+                          style={{
+                            flex: 1,
+                            padding: '10px 8px',
+                            backgroundColor: feedbackGiven === 'negative' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
+                            border: feedbackGiven === 'negative' ? '2px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: '8px',
+                            color: feedbackGiven === 'negative' ? '#f87171' : '#fca5a5',
+                            cursor: submittingFeedback || feedbackGiven === 'negative' ? 'not-allowed' : 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          📉 Underperform
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleClawbotFeedback('neutral')}
+                          disabled={submittingFeedback || feedbackGiven === 'neutral'}
+                          style={{
+                            flex: 1,
+                            padding: '10px 8px',
+                            backgroundColor: feedbackGiven === 'neutral' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.1)',
+                            border: feedbackGiven === 'neutral' ? '2px solid #f59e0b' : '1px solid rgba(245, 158, 11, 0.3)',
+                            borderRadius: '8px',
+                            color: feedbackGiven === 'neutral' ? '#fbbf24' : '#fcd34d',
+                            cursor: submittingFeedback || feedbackGiven === 'neutral' ? 'not-allowed' : 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          🚩 Flagged
+                        </button>
+                      </div>
+
+                      {feedbackGiven && (
+                        <div style={{ fontSize: '11px', color: colors.textMuted, textAlign: 'center', marginTop: '8px' }}>
+                          Feedback recorded. This will improve future recommendations.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

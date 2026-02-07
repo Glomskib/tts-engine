@@ -16,6 +16,10 @@ import {
   Bookmark,
   Copy,
   Trash2,
+  Zap,
+  X,
+  Check,
+  Package,
 } from 'lucide-react';
 import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
@@ -64,6 +68,23 @@ export default function WinnersBankPage() {
   const [selectedWinner, setSelectedWinner] = useState<Winner | null>(null);
   const [showAddExternal, setShowAddExternal] = useState(false);
   const [showMarkWinner, setShowMarkWinner] = useState(false);
+
+  // Generate Like This state
+  const [generateLikeModal, setGenerateLikeModal] = useState<{
+    open: boolean;
+    winner: Winner | null;
+  }>({ open: false, winner: null });
+  const [glProducts, setGlProducts] = useState<Array<{ id: string; name: string; brand: string }>>([]);
+  const [glProductsLoading, setGlProductsLoading] = useState(false);
+  const [targetProductId, setTargetProductId] = useState<string>('');
+  const [generatingLike, setGeneratingLike] = useState(false);
+  const [generatedScripts, setGeneratedScripts] = useState<Array<{
+    variations?: Array<{ skit: { hook_line: string; beats: Array<{ t: string; action: string; dialogue?: string }>; cta_line: string; cta_overlay: string; b_roll: string[]; overlays: string[] }; ai_score?: { overall_score: number } | null }>;
+    skit?: { hook_line: string; beats: Array<{ t: string; action: string; dialogue?: string }>; cta_line: string; cta_overlay: string; b_roll: string[]; overlays: string[] };
+    strategy_metadata?: Record<string, unknown>;
+  }>>([]);
+  const [savingScriptIdx, setSavingScriptIdx] = useState<number | null>(null);
+  const [savedScriptIdx, setSavedScriptIdx] = useState<Set<number>>(new Set());
 
   // Stats
   const [stats, setStats] = useState({
@@ -172,6 +193,89 @@ export default function WinnersBankPage() {
       setTimeout(() => setCopiedHookId(null), 2000);
     } catch {
       // Clipboard not available
+    }
+  };
+
+  // Generate Like This handlers
+  const handleGenerateLikeWinner = async (winner: Winner) => {
+    setGenerateLikeModal({ open: true, winner });
+    setTargetProductId('');
+    setGeneratedScripts([]);
+    setSavedScriptIdx(new Set());
+
+    // Fetch products if not loaded
+    if (glProducts.length === 0) {
+      setGlProductsLoading(true);
+      try {
+        const res = await fetch('/api/products?limit=100');
+        const data = await res.json();
+        if (data.ok) {
+          setGlProducts((data.data || []).map((p: { id: string; name: string; brand: string }) => ({ id: p.id, name: p.name, brand: p.brand })));
+        }
+      } catch {
+        // Products fetch failed
+      } finally {
+        setGlProductsLoading(false);
+      }
+    }
+  };
+
+  const handleGenerateFromWinner = async () => {
+    if (!generateLikeModal.winner || !targetProductId) return;
+
+    setGeneratingLike(true);
+    try {
+      const res = await fetch('/api/clawbot/generate-like-winner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          winner_id: generateLikeModal.winner.id,
+          target_product_id: targetProductId,
+          variations: 3,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok !== false) {
+        setGeneratedScripts([data]);
+      } else {
+        setError(data.message || 'Failed to generate scripts');
+      }
+    } catch {
+      setError('Failed to generate scripts from winner');
+    } finally {
+      setGeneratingLike(false);
+    }
+  };
+
+  const handleSaveGeneratedScript = async (scriptData: { hook_line: string; beats: Array<{ t: string; action: string; dialogue?: string }>; cta_line: string; cta_overlay: string; b_roll: string[]; overlays: string[] }, aiScore: { overall_score: number } | null | undefined, strategyMeta: Record<string, unknown> | undefined, idx: number) => {
+    setSavingScriptIdx(idx);
+    try {
+      const product = glProducts.find(p => p.id === targetProductId);
+      const res = await fetch('/api/skits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: `${product?.name || 'Product'} - Winner Pattern - ${new Date().toLocaleDateString()}`,
+          status: 'draft',
+          product_id: targetProductId,
+          product_name: product?.name,
+          product_brand: product?.brand,
+          skit_data: scriptData,
+          ai_score: aiScore || null,
+          strategy_metadata: strategyMeta || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setSavedScriptIdx(prev => new Set(prev).add(idx));
+      }
+    } catch {
+      // Save failed
+    } finally {
+      setSavingScriptIdx(null);
     }
   };
 
@@ -491,17 +595,163 @@ export default function WinnersBankPage() {
         {!loading && filteredWinners.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredWinners.map((winner) => (
-              <WinnerCard
-                key={winner.id}
-                winner={winner}
-                onClick={() => setSelectedWinner(winner)}
-                onDelete={handleDeleteWinner}
-              />
+              <div key={winner.id} className="flex flex-col">
+                <WinnerCard
+                  winner={winner}
+                  onClick={() => setSelectedWinner(winner)}
+                  onDelete={handleDeleteWinner}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleGenerateLikeWinner(winner); }}
+                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-sm transition-colors"
+                >
+                  <Zap className="w-4 h-4" />
+                  Generate Like This
+                </button>
+              </div>
             ))}
           </div>
         )}
         </>}
       </div>
+
+      {/* Generate Like This Modal */}
+      {generateLikeModal.open && generateLikeModal.winner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setGenerateLikeModal({ open: false, winner: null })} />
+
+          <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-purple-400" />
+                  Generate Like This Winner
+                </h2>
+                <p className="text-sm text-zinc-400 mt-1">Create new scripts inspired by this winning pattern</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGenerateLikeModal({ open: false, winner: null })}
+                className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Reference Winner */}
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <div className="text-xs font-semibold text-amber-400 uppercase mb-2">Reference Hook</div>
+                <p className="text-white text-sm font-medium">
+                  &ldquo;{generateLikeModal.winner.hook || 'No hook'}&rdquo;
+                </p>
+                {generateLikeModal.winner.product_category && (
+                  <span className="inline-block mt-2 px-2 py-0.5 bg-zinc-800 text-zinc-400 text-xs rounded">
+                    {generateLikeModal.winner.product_category}
+                  </span>
+                )}
+              </div>
+
+              {/* Product Selection */}
+              <div>
+                <label className="text-sm font-medium text-zinc-300 block mb-2">
+                  <Package className="w-4 h-4 inline mr-1.5" />
+                  Target Product
+                </label>
+                {glProductsLoading ? (
+                  <div className="flex items-center gap-2 text-zinc-500 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading products...
+                  </div>
+                ) : (
+                  <select
+                    value={targetProductId}
+                    onChange={(e) => setTargetProductId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  >
+                    <option value="">Select a product...</option>
+                    {glProducts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.brand})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Generate Button */}
+              <button
+                type="button"
+                onClick={handleGenerateFromWinner}
+                disabled={!targetProductId || generatingLike}
+                className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {generatingLike ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating 3 Scripts...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Generate 3 Scripts
+                  </>
+                )}
+              </button>
+
+              {/* Generated Scripts */}
+              {generatedScripts.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-zinc-300 uppercase">Generated Scripts</h3>
+                  {generatedScripts.map((result) => {
+                    const variations = result.variations || (result.skit ? [{ skit: result.skit, ai_score: null }] : []);
+                    return variations.map((v: { skit: { hook_line: string; beats: Array<{ t: string; action: string; dialogue?: string }>; cta_line: string; cta_overlay: string; b_roll: string[]; overlays: string[] }; ai_score?: { overall_score: number } | null }, vIdx: number) => (
+                      <div key={vIdx} className="p-4 bg-zinc-800 border border-zinc-700 rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-purple-400 uppercase">Variation {vIdx + 1}</span>
+                          {v.ai_score && (
+                            <span className="text-xs text-zinc-400">Score: {v.ai_score.overall_score}/10</span>
+                          )}
+                        </div>
+                        <p className="text-white text-sm font-medium">&ldquo;{v.skit.hook_line}&rdquo;</p>
+                        <div className="text-xs text-zinc-400 space-y-1">
+                          {v.skit.beats.slice(0, 3).map((b: { t: string; action: string }, bIdx: number) => (
+                            <div key={bIdx}>[{b.t}] {b.action}</div>
+                          ))}
+                          {v.skit.beats.length > 3 && (
+                            <div className="text-zinc-500">...+{v.skit.beats.length - 3} more beats</div>
+                          )}
+                        </div>
+                        <div className="text-xs text-red-400">CTA: {v.skit.cta_line}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveGeneratedScript(v.skit, v.ai_score, result.strategy_metadata, vIdx)}
+                          disabled={savingScriptIdx === vIdx || savedScriptIdx.has(vIdx)}
+                          className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                            savedScriptIdx.has(vIdx)
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                              : 'bg-zinc-700 hover:bg-zinc-600 text-white'
+                          }`}
+                        >
+                          {savedScriptIdx.has(vIdx) ? (
+                            <><Check className="w-4 h-4" /> Saved to Library</>
+                          ) : savingScriptIdx === vIdx ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                          ) : (
+                            <><Bookmark className="w-4 h-4" /> Save to Library</>
+                          )}
+                        </button>
+                      </div>
+                    ));
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Winner Detail Modal */}
       {selectedWinner && (

@@ -341,6 +341,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       final_video_url: currentVideo.final_video_url,
       google_drive_url: currentVideo.google_drive_url,
       script_locked_text: currentVideo.script_locked_text,
+      script_not_required: currentVideo.script_not_required,
     };
 
     const validation = validateStatusTransition(

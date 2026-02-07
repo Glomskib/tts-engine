@@ -515,13 +515,41 @@ export default function ContentStudioPage() {
         body: JSON.stringify({ product_id: selectedProductId }),
         credentials: 'include',
       });
-      if (genRes.ok) {
-        const genData = await genRes.json();
-        const points = genData.data?.pain_points || genData.pain_points || [];
-        setProductPainPoints(normalizePainPoints(Array.isArray(points) ? points : []));
+      if (!genRes.ok) {
+        const errData = await genRes.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Pain points generation failed:', genRes.status, errData);
+        setError({
+          ok: false,
+          error_code: errData.error_code || 'INTERNAL',
+          message: errData.message || `Failed to generate pain points (${genRes.status})`,
+          correlation_id: errData.correlation_id || '',
+          httpStatus: genRes.status,
+        });
+        return;
       }
+      const genData = await genRes.json();
+      const points = genData.data?.pain_points || genData.pain_points || [];
+      const normalized = normalizePainPoints(Array.isArray(points) ? points : []);
+      if (normalized.length === 0) {
+        setError({
+          ok: false,
+          error_code: 'INTERNAL',
+          message: 'AI returned no pain points — try again',
+          correlation_id: '',
+          httpStatus: 0,
+        });
+        return;
+      }
+      setProductPainPoints(normalized);
     } catch (err) {
       console.error('Failed to fetch/generate pain points:', err);
+      setError({
+        ok: false,
+        error_code: 'INTERNAL',
+        message: 'Network error generating pain points',
+        correlation_id: '',
+        httpStatus: 0,
+      });
     } finally {
       setGeneratingPainPoints(false);
     }

@@ -1963,10 +1963,10 @@ export default function VideoDrawer({
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{
                           width: '6px', height: '6px', borderRadius: '50%',
-                          backgroundColor: video.script_locked_text ? colors.success : colors.border,
+                          backgroundColor: (video.script_locked_text || video.script_not_required) ? colors.success : colors.border,
                         }} />
-                        <span style={{ fontSize: '13px', color: video.script_locked_text ? colors.text : colors.textMuted }}>
-                          Script locked
+                        <span style={{ fontSize: '13px', color: (video.script_locked_text || video.script_not_required) ? colors.text : colors.textMuted }}>
+                          {video.script_not_required ? 'Script not required' : 'Script locked'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2302,6 +2302,17 @@ export default function VideoDrawer({
                         </div>
                       )}
                     </>
+                  ) : video.script_not_required ? (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px 20px',
+                      backgroundColor: '#d3f9d8',
+                      borderRadius: '8px',
+                      border: '1px solid #69db7c',
+                    }}>
+                      <div style={{ color: '#2b8a3e', marginBottom: '8px', fontWeight: 600 }}>No script required</div>
+                      <div style={{ color: '#37b24d', fontSize: '13px' }}>This video was marked as not needing a script — ready for recording.</div>
+                    </div>
                   ) : (
                     <div style={{
                       textAlign: 'center',
@@ -2328,20 +2339,20 @@ export default function VideoDrawer({
                     </div>
                   )}
 
-                  {/* Skit Generator Link */}
+                  {/* Content Studio Link */}
                   <div style={{
                     marginTop: '24px',
                     paddingTop: '20px',
                     borderTop: `1px solid ${colors.border}`,
                   }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>
-                      Skit Generator
+                      Content Studio
                     </h4>
                     <p style={{ margin: '0 0 12px', fontSize: '12px', color: colors.textSecondary }}>
-                      Generate AI-powered comedy skits for product marketing.
+                      Generate AI-powered scripts for product marketing.
                     </p>
                     <Link
-                      href={video.product_id ? `/admin/skit-generator?product_id=${video.product_id}` : '/admin/skit-generator'}
+                      href={video.product_id ? `/admin/content-studio?product_id=${video.product_id}` : '/admin/content-studio'}
                       style={{
                         display: 'inline-block',
                         padding: '8px 16px',
@@ -2353,7 +2364,7 @@ export default function VideoDrawer({
                         fontWeight: 600,
                       }}
                     >
-                      Open Skit Generator
+                      Open Content Studio
                     </Link>
                   </div>
                 </div>

@@ -18,6 +18,7 @@ export interface QueueVideo {
   posted_platform: string | null;
   script_locked_text: string | null;
   script_locked_version: number | null;
+  script_not_required?: boolean | null;
   concept_id: string | null;
   product_id: string | null;
   final_video_url?: string | null;
@@ -124,8 +125,21 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // If needs script or no locked script: primary = Add Script
-  if (video.recording_status === 'NEEDS_SCRIPT' || !video.script_locked_text) {
+  // If script_not_required, skip script gating entirely
+  if (video.script_not_required) {
+    // Jump to recording or later stage based on recording_status
+    if (!video.recording_status || video.recording_status === 'NEEDS_SCRIPT' || video.recording_status === 'NOT_RECORDED') {
+      return {
+        type: 'record',
+        label: 'Mark Recorded',
+        shortLabel: 'Record',
+        color: '#228be6',
+        icon: '',
+      };
+    }
+    // Fall through to other status checks below
+  } else if (video.recording_status === 'NEEDS_SCRIPT' || !video.script_locked_text) {
+    // If needs script or no locked script: primary = Add Script
     return {
       type: 'add_script',
       label: 'Add Script',
@@ -210,7 +224,7 @@ export interface ReadinessIndicators {
 export function getReadinessIndicators(video: QueueVideo): ReadinessIndicators {
   const preRecordingStates = ['NEEDS_SCRIPT', 'GENERATING_SCRIPT', 'NOT_RECORDED'];
   return {
-    hasScript: !!video.script_locked_text,
+    hasScript: !!video.script_locked_text || !!video.script_not_required,
     hasRaw: !preRecordingStates.includes(video.recording_status || '') && video.recording_status !== null,
     hasFinal: !!video.final_video_url || video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED',
   };

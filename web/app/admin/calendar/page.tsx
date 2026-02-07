@@ -494,15 +494,19 @@ export default function CalendarPage() {
       </div>
 
       {/* Ready to Schedule Queue */}
-      {readyVideos.length > 0 && (
-        <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
-          <div className="flex items-center gap-2 mb-3">
-            <Video className="w-4 h-4 text-amber-400" />
-            <h3 className="text-sm font-semibold text-amber-300">
-              Ready to Schedule ({readyVideos.length})
-            </h3>
-            {readyLoading && <span className="text-xs text-zinc-500">refreshing...</span>}
-          </div>
+      <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+        <div className="flex items-center gap-2 mb-3">
+          <Video className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-semibold text-amber-300">
+            Ready to Schedule ({readyVideos.length})
+          </h3>
+          {readyLoading && <span className="text-xs text-zinc-500">refreshing...</span>}
+        </div>
+        {readyVideos.length === 0 ? (
+          <p className="text-xs text-zinc-500">
+            No videos ready to schedule. Videos appear here when marked &quot;Ready to Post&quot; in the pipeline.
+          </p>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {readyVideos.map(video => (
               <div
@@ -539,8 +543,8 @@ export default function CalendarPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Calendar Navigation */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">

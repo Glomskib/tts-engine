@@ -219,6 +219,7 @@ export async function POST(request: Request) {
         final_video_url: candidate.final_video_url as string | null,
         google_drive_url: candidate.google_drive_url as string | null,
         script_locked_text: candidate.script_locked_text as string | null,
+        script_not_required: candidate.script_not_required as boolean | null,
       };
 
       const stageInfo = computeStageInfo(videoForValidation);

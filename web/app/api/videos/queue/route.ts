@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 const VIDEO_SELECT_BASE = "id,video_code,variant_id,account_id,status,google_drive_url,created_at,final_video_url,concept_id,product_id";
 const VIDEO_SELECT_CLAIM = ",claimed_by,claimed_at,claim_expires_at";
 const VIDEO_SELECT_CLAIM_ROLE = ",claim_role";
-const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,recording_notes,editor_notes,uploader_notes";
+const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,script_not_required,recording_notes,editor_notes,uploader_notes";
 const VIDEO_SELECT_ASSIGNMENT = ",assigned_to,assigned_at,assigned_expires_at,assigned_role,assignment_state";
 
 const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
@@ -187,6 +187,7 @@ export async function GET(request: Request) {
         final_video_url: video.final_video_url as string | null,
         google_drive_url: video.google_drive_url as string | null,
         script_locked_text: video.script_locked_text as string | null,
+        script_not_required: video.script_not_required as boolean | null,
       };
 
       const stageInfo = computeStageInfo(videoForValidation);

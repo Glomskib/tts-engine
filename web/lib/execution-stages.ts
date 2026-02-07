@@ -85,6 +85,7 @@ export interface VideoForValidation {
   final_video_url?: string | null;
   google_drive_url?: string | null;
   script_locked_text?: string | null;
+  script_not_required?: boolean | null;
 }
 
 export interface TransitionValidation {
@@ -186,11 +187,12 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
   const nextStatus = NEXT_STATUS_MAP[currentStatus];
   let nextAction = NEXT_ACTION_MAP[currentStatus];
 
-  // Check if script is locked (required before recording)
+  // Check if script is locked (required before recording) or not required
   const hasLockedScript = !!video.script_locked_text;
+  const scriptSatisfied = hasLockedScript || !!video.script_not_required;
 
   // Compute individual action flags
-  const can_record = currentStatus === 'NOT_RECORDED' && hasLockedScript;
+  const can_record = currentStatus === 'NOT_RECORDED' && scriptSatisfied;
   const can_mark_edited = currentStatus === 'RECORDED';
 
   // READY_TO_POST requires video URL
@@ -204,7 +206,7 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
 
   // Compute required_fields for next step
   let required_fields: string[] = [];
-  if (currentStatus === 'NOT_RECORDED' && !hasLockedScript) {
+  if (currentStatus === 'NOT_RECORDED' && !scriptSatisfied) {
     required_fields = ['script'];
   } else if (currentStatus === 'EDITED' && !hasVideoUrl) {
     required_fields = ['final_video_url', 'google_drive_url'];
@@ -228,8 +230,8 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
     };
   }
 
-  // Override next_action if script is needed
-  if (currentStatus === 'NOT_RECORDED' && !hasLockedScript) {
+  // Override next_action if script is needed (but not if script_not_required)
+  if (currentStatus === 'NOT_RECORDED' && !scriptSatisfied) {
     nextAction = 'Attach and lock a script';
     return {
       can_move_next: false,

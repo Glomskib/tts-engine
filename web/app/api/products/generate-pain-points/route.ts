@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 
 const GeneratePainPointsSchema = z.object({
   product_id: z.string().uuid(),
+  product_name: z.string().optional(),
+  product_description: z.string().optional(),
   save_to_product: z.boolean().optional().default(true),
 });
 
@@ -44,30 +46,36 @@ export async function POST(request: Request) {
       return createApiErrorResponse("VALIDATION_ERROR", "Validation failed", 400, correlationId, { errors });
     }
 
-    const { product_id, save_to_product } = parseResult.data;
+    const { product_id, product_name: fallbackName, product_description: fallbackDesc, save_to_product } = parseResult.data;
 
-    // Fetch product
+    // Fetch product (use fallback data if lookup fails)
     const { data: product, error: productError } = await supabaseAdmin
       .from("products")
       .select("id, name, brand, category, description, notes")
       .eq("id", product_id)
       .single();
 
-    if (productError || !product) {
-      return createApiErrorResponse("NOT_FOUND", "Product not found", 404, correlationId);
+    if (productError) {
+      console.error("[generate-pain-points] Product lookup error:", productError.message, "product_id:", product_id);
+    }
+
+    // Use DB product data if available, otherwise fallback to provided names
+    const productName = product?.name || fallbackName;
+    if (!productName) {
+      return createApiErrorResponse("NOT_FOUND", "Product not found and no fallback name provided", 404, correlationId);
     }
 
     // Generate pain points via AI
     const result = await generatePainPoints(
-      product.name,
-      product.brand,
-      product.category,
-      product.description,
-      product.notes
+      productName,
+      product?.brand || "Unknown",
+      product?.category || "General",
+      product?.description || fallbackDesc || null,
+      product?.notes || null
     );
 
-    // Optionally save to product
-    if (save_to_product) {
+    // Optionally save to product (only if product was found in DB)
+    if (save_to_product && product) {
       const { error: updateError } = await supabaseAdmin
         .from("products")
         .update({ pain_points: result.pain_points })

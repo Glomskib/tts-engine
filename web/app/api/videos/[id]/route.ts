@@ -4,6 +4,7 @@ import { transitionVideoStatusAtomic } from "@/lib/video-status-machine";
 import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -236,6 +237,78 @@ export async function PATCH(
 
   } catch (err) {
     console.error("PATCH /api/videos/[id] error:", err);
+    const error = apiError("DB_ERROR", "Internal server error", 500);
+    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const { id } = await params;
+
+  // Auth check - admin only
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+  if (!authContext.isAdmin) {
+    const err = apiError("FORBIDDEN", "Admin access required", 403);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // Validate UUID
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400);
+    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  try {
+    // Verify video exists
+    const { data: video, error: fetchError } = await supabaseAdmin
+      .from("videos")
+      .select("id, video_code, recording_status")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !video) {
+      const err = apiError("NOT_FOUND", "Video not found", 404);
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    // Delete related records first (video_events, scheduled_posts referencing this video)
+    await supabaseAdmin.from("video_events").delete().eq("video_id", id);
+    await supabaseAdmin.from("scheduled_posts").delete().eq("metadata->>video_id", id);
+
+    // Delete the video
+    const { error: deleteError } = await supabaseAdmin
+      .from("videos")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      console.error("DELETE /api/videos/[id] error:", deleteError);
+      const err = apiError("DB_ERROR", deleteError.message, 500);
+      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    }
+
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: AuditEventTypes.VIDEO_DELETED,
+      entity_type: EntityTypes.VIDEO,
+      entity_id: id,
+      actor: authContext.user.id,
+      summary: `Video ${video.video_code || id} deleted`,
+      details: { recording_status: video.recording_status },
+    });
+
+    return NextResponse.json({ ok: true, deleted: id, correlation_id: correlationId });
+  } catch (err) {
+    console.error("DELETE /api/videos/[id] error:", err);
     const error = apiError("DB_ERROR", "Internal server error", 500);
     return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
   }

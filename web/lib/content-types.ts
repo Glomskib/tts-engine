@@ -48,15 +48,15 @@ export const CONTENT_TYPES: ContentType[] = [
   {
     id: 'bof',
     name: 'Bottom of Funnel (BOF)',
-    description: 'Conversion content - offers, urgency, direct response',
+    description: 'Ultra-short 10-15 sec conversion — urgency, scarcity, FOMO, buy NOW',
     funnelStage: 'conversion',
     icon: 'ShoppingCart',
     subtypes: [
-      { id: 'limited_offer', name: 'Limited Time Offer', description: 'Urgency-driven' },
-      { id: 'flash_sale', name: 'Flash Sale', description: 'Time-sensitive deal' },
-      { id: 'direct_response', name: 'Direct Response', description: 'Clear CTA focus' },
-      { id: 'objection_handler', name: 'Objection Handler', description: 'Address final concerns' },
-      { id: 'final_push', name: 'Final Push', description: 'Last chance messaging' },
+      { id: 'flash_sale', name: 'Flash Sale', description: '10-15s urgent deal announcement' },
+      { id: 'limited_offer', name: 'Limited Time Offer', description: '10-15s scarcity-driven pitch' },
+      { id: 'price_drop', name: 'Price Drop React', description: '10-15s shocked reaction to deal' },
+      { id: 'last_chance', name: 'Last Chance', description: '10-15s final push before deadline' },
+      { id: 'restock_alert', name: 'Restock Alert', description: '10-15s back-in-stock urgency' },
     ],
   },
   {
@@ -85,6 +85,20 @@ export const CONTENT_TYPES: ContentType[] = [
       { id: 'parody', name: 'Parody', description: 'Comedic take on something' },
       { id: 'relatable_situation', name: 'Relatable Situation', description: 'Everyday comedy' },
       { id: 'product_integration', name: 'Product Integration', description: 'Natural product moment' },
+    ],
+  },
+  {
+    id: 'slideshow_story',
+    name: 'Slideshow Story',
+    description: 'Visual storytelling — 30-60s narrative arc with transitions and emotional journey',
+    funnelStage: 'consideration',
+    icon: 'Film',
+    subtypes: [
+      { id: 'transformation', name: 'Transformation Story', description: 'Before/after journey with product' },
+      { id: 'day_in_life', name: 'Day in the Life', description: 'Product woven into daily routine' },
+      { id: 'problem_journey', name: 'Problem Journey', description: 'Struggle to discovery to solution' },
+      { id: 'emotional_reveal', name: 'Emotional Reveal', description: 'Build suspense to satisfying reveal' },
+      { id: 'montage', name: 'Visual Montage', description: 'Scene-by-scene visual narrative' },
     ],
   },
   {

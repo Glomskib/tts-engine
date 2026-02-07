@@ -2373,8 +2373,8 @@ export default function VideoDrawer({
               {/* Assets Tab */}
               {activeTab === 'assets' && (
                 <div>
-                  {/* Editable Drive Links (Admin Edit Mode) */}
-                  {editMode && (
+                  {/* Editable Drive Links - Always visible for admins */}
+                  {isAdmin && (
                     <div style={{
                       marginBottom: '16px',
                       padding: '12px',
@@ -2619,15 +2619,16 @@ export default function VideoDrawer({
                   {!video.google_drive_url && !details?.assets.google_drive_url &&
                    !video.final_video_url && !details?.assets.final_mp4_url &&
                    !video.posted_url &&
-                   (!details?.assets.screenshots || details.assets.screenshots.length === 0) && (
+                   (!details?.assets.screenshots || details.assets.screenshots.length === 0) && !isAdmin && (
                     <div style={{
                       textAlign: 'center',
                       padding: '40px 20px',
-                      backgroundColor: '#f8fafc',
+                      backgroundColor: isDark ? colors.bgTertiary : '#f8fafc',
                       borderRadius: '8px',
-                      color: '#64748b',
+                      color: colors.textMuted,
                     }}>
                       <div>No assets linked yet</div>
+                      <div style={{ fontSize: '12px', marginTop: '4px' }}>Use the edit fields above to add Drive or video links.</div>
                     </div>
                   )}
                 </div>
@@ -2899,6 +2900,39 @@ export default function VideoDrawer({
                     }}
                   >
                     Reject
+                  </button>
+                )}
+                {isAdmin && (
+                  <button type="button"
+                    onClick={async () => {
+                      if (!window.confirm(`Delete video ${video.video_code || video.id.slice(0, 8)}? This cannot be undone.`)) return;
+                      setLoading(true);
+                      try {
+                        const res = await fetch(`/api/videos/${video.id}`, { method: 'DELETE', credentials: 'include' });
+                        if (res.ok) {
+                          onRefresh();
+                          onClose();
+                        } else {
+                          const err = await res.json().catch(() => ({}));
+                          alert(err.message || 'Failed to delete video');
+                        }
+                      } catch {
+                        alert('Network error deleting video');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: 'transparent',
+                      color: '#991b1b',
+                      border: 'none',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    Delete
                   </button>
                 )}
               </div>

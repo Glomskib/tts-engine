@@ -1321,6 +1321,15 @@ export async function POST(request: Request) {
       ? getPersonaById(input.creator_persona_id)
       : null;
 
+    // Enforce duration by content type:
+    // BOF = always quick (10-15s), slideshow_story = always extended (45-60s)
+    let effectiveDuration: TargetDuration = input.target_duration ?? "standard";
+    if (input.content_type_id === "bof") {
+      effectiveDuration = "quick";
+    } else if (input.content_type_id === "slideshow_story") {
+      effectiveDuration = input.target_duration ?? "extended";
+    }
+
     const prompt = buildSkitPrompt({
       productName,
       brandName: product.brand || "",
@@ -1336,7 +1345,7 @@ export async function POST(request: Request) {
       plotStyle: input.chaos_level ?? input.plot_style ?? 50,
       creativeDirection: input.creative_direction || "",
       actorType: input.actor_type ?? "human",
-      targetDuration: input.target_duration ?? "standard",
+      targetDuration: effectiveDuration,
       contentFormat: input.content_format ?? "skit_dialogue",
       productContext: input.product_context || "",
       pacing: input.pacing ?? null,

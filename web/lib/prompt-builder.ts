@@ -146,10 +146,21 @@ export function buildFullPrompt(context: ContentContext): BuiltPrompt {
         parts.push('- Build trust through transparency');
         break;
       case 'bof':
-        parts.push('- Lead with the offer or urgency');
-        parts.push('- Address objections directly');
-        parts.push('- Clear, compelling CTA');
-        parts.push('- Create FOMO without being sleazy');
+        parts.push('- ULTRA-SHORT: 10-15 seconds MAX, under 50 spoken words');
+        parts.push('- Lead with shocked reaction to the deal/price');
+        parts.push('- Stack urgency: time limit + low stock + price never this low');
+        parts.push('- NO storytelling, NO education, NO problem-solution arcs');
+        parts.push('- Viewer ALREADY knows the product — just announce the deal');
+        parts.push('- CTA is a command: "Yellow basket. Now. Go."');
+        parts.push('- Exactly 3-4 beats, no beat longer than 5 seconds');
+        break;
+      case 'slideshow_story':
+        parts.push('- Visual narrative arc: setup → tension → resolution');
+        parts.push('- 30-60 seconds with 5-8 scene transitions');
+        parts.push('- Each scene should have a clear visual description');
+        parts.push('- Build emotional journey — make viewer FEEL something');
+        parts.push('- Product integration should feel organic to the story');
+        parts.push('- End with satisfying resolution tied to product benefit');
         break;
       case 'testimonial':
         parts.push('- Write as if the customer is speaking naturally');

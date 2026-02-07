@@ -150,6 +150,7 @@ export const AuditEventTypes = {
   VIDEO_POSTED: "video.posted",
   VIDEO_CLAIMED: "video.claimed",
   VIDEO_RELEASED: "video.released",
+  VIDEO_DELETED: "video.deleted",
   HOOK_APPROVED: "hook.approved",
   HOOK_REJECTED: "hook.rejected",
   HOOK_WINNER: "hook.winner",

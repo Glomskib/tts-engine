@@ -86,7 +86,7 @@ const MAIN_TABS = [
   { id: 'ugc', label: 'UGC / Testimonial', icon: User, description: 'Authentic user-generated style', contentTypes: ['testimonial', 'mof'], funnelHint: 'Middle of funnel: demos, social proof' },
   { id: 'hook', label: 'Hook / Teaser', icon: Zap, description: 'Quick attention-grabbing content', contentTypes: ['tof'], funnelHint: 'Top of funnel: scroll-stopping openers' },
   { id: 'educational', label: 'Educational', icon: GraduationCap, description: 'Value-first teaching content', contentTypes: ['educational'], funnelHint: 'Mid-funnel: builds trust and authority' },
-  { id: 'story', label: 'Story / Narrative', icon: BookOpen, description: 'Emotional storytelling', contentTypes: ['story'], funnelHint: 'Full-funnel: emotional connection' },
+  { id: 'story', label: 'Story / Narrative', icon: BookOpen, description: 'Emotional storytelling', contentTypes: ['story', 'slideshow_story'], funnelHint: 'Full-funnel: emotional connection' },
   { id: 'direct', label: 'Direct Response', icon: Target, description: 'Conversion-focused content', contentTypes: ['bof'], funnelHint: 'Bottom of funnel: offers, urgency, direct CTA' },
 ];
 
@@ -513,10 +513,15 @@ export default function ContentStudioPage() {
       }
 
       // No existing pain points — generate them (saves to product automatically)
+      const selectedProduct = products.find(p => p.id === selectedProductId);
       const genRes = await fetch('/api/products/generate-pain-points', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: selectedProductId }),
+        body: JSON.stringify({
+          product_id: selectedProductId,
+          product_name: selectedProduct?.name,
+          product_description: selectedProduct?.description,
+        }),
         credentials: 'include',
       });
       if (!genRes.ok) {
@@ -663,6 +668,8 @@ export default function ContentStudioPage() {
     const getContentFormat = (): string => {
       // Map based on content type and subtype
       if (selectedContentTypeId === 'skit') return 'skit_dialogue';
+      if (selectedContentTypeId === 'bof') return 'pov_story'; // BOF: direct-to-camera urgency pitch
+      if (selectedContentTypeId === 'slideshow_story') return 'scene_montage'; // Slideshow: visual scenes
       if (selectedSubtypeId === 'day_in_life' || selectedSubtypeId === 'day_in_life_story') return 'day_in_life';
       if (selectedSubtypeId === 'product_demo' || selectedSubtypeId === 'how_it_works') return 'product_demo_parody';
       if (selectedSubtypeId === 'relatable' || selectedSubtypeId === 'relatable_situation') return 'pov_story';

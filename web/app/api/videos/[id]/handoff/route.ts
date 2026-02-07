@@ -184,10 +184,7 @@ export async function POST(
       }
 
       if (video.claimed_by !== actor) {
-        const err = apiError("NOT_CLAIM_OWNER", `Video is claimed by ${video.claimed_by}, not ${actor}`, 403, {
-          claimed_by: video.claimed_by,
-          from_user: actor,
-        });
+        const err = apiError("NOT_CLAIM_OWNER", "You do not have a claim on this video", 403);
         return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
     }

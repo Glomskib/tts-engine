@@ -29,9 +29,9 @@ export async function GET(request: Request) {
 
     switch (type) {
       case 'scripts': {
-        // Scripts by day
+        // Skits by day
         const { data: scriptsData } = await supabaseAdmin
-          .from('scripts')
+          .from('saved_skits')
           .select('created_at')
           .gte('created_at', startDateStr)
           .order('created_at', { ascending: true });
@@ -109,13 +109,13 @@ export async function GET(request: Request) {
       case 'content-types': {
         // Content type breakdown
         const { data: contentTypeData } = await supabaseAdmin
-          .from('scripts')
-          .select('hook_style')
+          .from('saved_skits')
+          .select('status')
           .gte('created_at', startDateStr);
 
         const typeCount = new Map<string, number>();
         (contentTypeData || []).forEach((s: Record<string, unknown>) => {
-          const hookType = (s.hook_style as string) || 'unknown';
+          const hookType = (s.status as string) || 'unknown';
           typeCount.set(hookType, (typeCount.get(hookType) || 0) + 1);
         });
 

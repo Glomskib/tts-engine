@@ -26,14 +26,13 @@ export async function GET(request: Request) {
 
   try {
     let query = supabaseAdmin
-      .from('scripts')
+      .from('saved_skits')
       .select(`
         id,
         title,
         product_name,
         product_brand,
-        hook_style,
-        target_audience,
+        status,
         ai_score,
         created_at,
         updated_at,
@@ -69,8 +68,7 @@ export async function GET(request: Request) {
       'Title',
       'Product Name',
       'Product Brand',
-      'Hook Style',
-      'Target Audience',
+      'Status',
       'AI Score',
       'Hook Strength',
       'Virality Score',
@@ -87,8 +85,7 @@ export async function GET(request: Request) {
         escapeCSV(String(s.title || '')),
         escapeCSV(String(s.product_name || '')),
         escapeCSV(String(s.product_brand || '')),
-        escapeCSV(String(s.hook_style || '')),
-        escapeCSV(String(s.target_audience || '')),
+        escapeCSV(String(s.status || '')),
         aiScore?.overall_score?.toString() || '',
         aiScore?.hook_strength?.toString() || '',
         aiScore?.virality_potential?.toString() || '',

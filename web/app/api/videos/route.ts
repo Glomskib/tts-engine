@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     if (error) {
       console.error("GET /api/videos Supabase error:", error);
       return NextResponse.json(
-        { ok: false, error: error.message },
+        { ok: false, error: "Failed to fetch videos" },
         { status: 500 }
       );
     }
@@ -220,7 +220,7 @@ export async function POST(request: Request) {
       console.error("POST /api/videos Supabase error:", error);
       console.error("POST /api/videos insert payload:", insertPayload);
 
-      const err = apiError("DB_ERROR", error.message, 500);
+      const err = apiError("DB_ERROR", "Failed to create video", 500);
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 

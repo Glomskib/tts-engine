@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import ClientNav from '../components/ClientNav';
+import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
 
 interface AuthUser {
   id: string;
@@ -14,6 +15,7 @@ export default function ClientSupportPage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [branding, setBranding] = useState<EffectiveOrgBranding | null>(null);
 
   // Fetch authenticated user
   useEffect(() => {
@@ -42,6 +44,29 @@ export default function ClientSupportPage() {
     fetchAuthUser();
   }, [router]);
 
+  // Fetch branding
+  useEffect(() => {
+    if (!authUser) return;
+
+    const fetchBranding = async () => {
+      try {
+        const res = await fetch('/api/client/branding');
+        const data = await res.json();
+
+        if (res.ok && data.ok && data.data?.branding) {
+          setBranding(data.data.branding);
+        } else {
+          setBranding(getDefaultOrgBranding());
+        }
+      } catch (err) {
+        console.error('Failed to fetch branding:', err);
+        setBranding(getDefaultOrgBranding());
+      }
+    };
+
+    fetchBranding();
+  }, [authUser]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -61,7 +86,7 @@ export default function ClientSupportPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <ClientNav userName={authUser.email || undefined} />
+        <ClientNav userName={authUser.email || undefined} branding={branding} />
 
         {/* Header */}
         <div className="mb-6">

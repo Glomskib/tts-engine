@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = 'nodejs';
 
+const TIKTOK_URL_PATTERN = /^https?:\/\/(www\.|vm\.)?tiktok\.com\//;
+
 export async function GET(request: NextRequest) {
+  const authContext = await getApiAuthContext();
+  if (!authContext.user) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
   const url = request.nextUrl.searchParams.get('url');
 
   if (!url) {
     return NextResponse.json({ error: 'URL required' }, { status: 400 });
+  }
+
+  if (!TIKTOK_URL_PATTERN.test(url)) {
+    return NextResponse.json({ error: 'Invalid TikTok URL' }, { status: 400 });
   }
 
   try {

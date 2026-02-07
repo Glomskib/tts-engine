@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         .from('scripts')
         .select('id, title, hook, created_at')
         .eq('user_id', user.id)
-        .or(`title.ilike.${searchPattern},hook.ilike.${searchPattern}`)
+        .or(`title.ilike.%${query.replace(/[%_\\]/g, '\\$&')}%,hook.ilike.%${query.replace(/[%_\\]/g, '\\$&')}%`)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         .from('agency_clients')
         .select('id, company_name, contact_name, email, status, created_at')
         .eq('agency_id', user.id)
-        .or(`company_name.ilike.${searchPattern},contact_name.ilike.${searchPattern},email.ilike.${searchPattern}`)
+        .or(`company_name.ilike.%${query.replace(/[%_\\]/g, '\\$&')}%,contact_name.ilike.%${query.replace(/[%_\\]/g, '\\$&')}%,email.ilike.%${query.replace(/[%_\\]/g, '\\$&')}%`)
         .order('created_at', { ascending: false })
         .limit(limit);
 

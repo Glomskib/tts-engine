@@ -65,6 +65,7 @@ const SaveSkitInputSchema = z.object({
   status: z.enum(['draft', 'approved', 'produced', 'posted', 'archived']).default('draft'),
   user_rating: z.number().int().min(1).max(5).optional(),
   ai_score: AIScoreSchema.nullable(),
+  strategy_metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 type SaveSkitInput = z.infer<typeof SaveSkitInputSchema>;
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
         status: input.status,
         user_rating: input.user_rating || null,
         ai_score: input.ai_score || null,
+        strategy_metadata: input.strategy_metadata || null,
         user_id: authContext.user.id,
       })
       .select("id, title, status, created_at")

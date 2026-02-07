@@ -24,6 +24,7 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Clock,
   Smile,
   Sparkles,
@@ -188,6 +189,16 @@ interface GenerationResult {
     presentationStyle: string;
     funnelStage: string;
   };
+  strategy_metadata?: {
+    recommended_angle: string;
+    tone_direction: string;
+    risk_score: number;
+    reasoning: string;
+    suggested_hooks: string[];
+    content_approach: string;
+    avoid: string[];
+  } | null;
+  clawbot_active?: boolean;
 }
 
 type RiskTier = 'SAFE' | 'BALANCED' | 'SPICY';
@@ -326,6 +337,9 @@ export default function ContentStudioPage() {
   const [editingCTA, setEditingCTA] = useState(false);
   const [editedCTALine, setEditedCTALine] = useState('');
   const [editedCTAOverlay, setEditedCTAOverlay] = useState('');
+
+  // Strategy reasoning toggle
+  const [showStrategyReasoning, setShowStrategyReasoning] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -722,7 +736,7 @@ export default function ContentStudioPage() {
     };
 
     try {
-      const response = await postJson<GenerationResult>('/api/ai/generate-skit', payload);
+      const response = await postJson<GenerationResult>('/api/clawbot/generate-skit', payload);
 
       if (isApiError(response)) {
         if (response.httpStatus === 402) {
@@ -778,6 +792,7 @@ export default function ContentStudioPage() {
           risk_tier: riskTier,
         },
         ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score,
+        strategy_metadata: result.strategy_metadata || null,
       });
 
       if (!isApiError(response)) {
@@ -823,6 +838,7 @@ export default function ContentStudioPage() {
           risk_tier: riskTier,
         },
         ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score || undefined,
+        strategy_metadata: result.strategy_metadata || null,
       });
 
       if (isApiError(saveRes)) {
@@ -1754,6 +1770,122 @@ export default function ContentStudioPage() {
                       )}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Clawbot Strategy Card */}
+              {result.strategy_metadata && (
+                <div style={{
+                  padding: '14px 16px',
+                  backgroundColor: 'rgba(168, 85, 247, 0.08)',
+                  border: '1px solid rgba(168, 85, 247, 0.25)',
+                  borderRadius: '10px',
+                  marginBottom: '16px',
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#a855f7', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={12} /> Clawbot Strategy
+                  </div>
+
+                  {/* Badges row */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                    {/* Angle badge */}
+                    <span style={{
+                      padding: '4px 10px',
+                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      color: '#60a5fa',
+                      fontWeight: 500,
+                    }}>
+                      {result.strategy_metadata.recommended_angle}
+                    </span>
+
+                    {/* Tone badge */}
+                    <span style={{
+                      padding: '4px 10px',
+                      backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      color: '#c084fc',
+                      fontWeight: 500,
+                    }}>
+                      {result.strategy_metadata.tone_direction}
+                    </span>
+
+                    {/* Risk score badge */}
+                    {(() => {
+                      const rs = result.strategy_metadata!.risk_score;
+                      const riskColor = rs <= 3 ? '#22c55e' : rs <= 6 ? '#f59e0b' : '#ef4444';
+                      const riskBg = rs <= 3 ? 'rgba(34, 197, 94, 0.15)' : rs <= 6 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+                      const riskBorder = rs <= 3 ? 'rgba(34, 197, 94, 0.3)' : rs <= 6 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+                      return (
+                        <span style={{
+                          padding: '4px 10px',
+                          backgroundColor: riskBg,
+                          border: `1px solid ${riskBorder}`,
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          color: riskColor,
+                          fontWeight: 500,
+                        }}>
+                          Risk {rs}/10
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Suggested hooks */}
+                  {result.strategy_metadata.suggested_hooks && result.strategy_metadata.suggested_hooks.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      {result.strategy_metadata.suggested_hooks.map((hook, i) => (
+                        <span key={i} style={{
+                          padding: '3px 8px',
+                          backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                          border: '1px solid rgba(20, 184, 166, 0.2)',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          color: '#5eead4',
+                        }}>
+                          {hook}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Collapsible reasoning */}
+                  <button
+                    type="button"
+                    onClick={() => setShowStrategyReasoning(!showStrategyReasoning)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#9ca3af',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: 0,
+                    }}
+                  >
+                    {showStrategyReasoning ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    Strategy reasoning
+                  </button>
+                  {showStrategyReasoning && (
+                    <div style={{
+                      marginTop: '8px',
+                      padding: '10px 12px',
+                      backgroundColor: 'rgba(255,255,255,0.03)',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: '#d1d5db',
+                      lineHeight: 1.5,
+                    }}>
+                      {result.strategy_metadata.reasoning}
+                    </div>
+                  )}
                 </div>
               )}
 

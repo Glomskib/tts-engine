@@ -41,6 +41,7 @@ import {
   Bookmark,
   Pencil,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -342,6 +343,9 @@ export default function ContentStudioPage() {
   // Strategy reasoning toggle
   const [showStrategyReasoning, setShowStrategyReasoning] = useState(false);
 
+  // Clawbot suppression patterns
+  const [suppressedPatterns, setSuppressedPatterns] = useState<string[]>([]);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // --- Computed Values ---
@@ -407,9 +411,10 @@ export default function ContentStudioPage() {
     const loadData = async () => {
       setLoadingData(true);
       try {
-        const [productsRes, personasRes] = await Promise.all([
+        const [productsRes, personasRes, suppressionsRes] = await Promise.all([
           fetch('/api/products', { credentials: 'include' }),
           fetch('/api/audience/personas', { credentials: 'include' }),
+          fetch('/api/clawbot/summaries/latest', { credentials: 'include' }).catch(() => null),
         ]);
 
         if (productsRes.ok) {
@@ -427,6 +432,21 @@ export default function ContentStudioPage() {
           setAudiencePersonas(data.data || []);
         } else {
           console.error('Failed to fetch personas:', personasRes.status);
+        }
+
+        // Load Clawbot suppression patterns
+        if (suppressionsRes?.ok) {
+          try {
+            const sData = await suppressionsRes.json();
+            if (sData.summary?.suppression_rules) {
+              setSuppressedPatterns(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                sData.summary.suppression_rules.map((r: any) => r.pattern_id)
+              );
+            }
+          } catch {
+            // Ignore parse errors for non-critical data
+          }
         }
       } catch (err) {
         console.error('Failed to load data:', err);
@@ -628,6 +648,19 @@ export default function ContentStudioPage() {
     } finally {
       setSavingHook(false);
     }
+  };
+
+  // Clawbot suppression check
+  const isPatternSuppressed = (r: GenerationResult) => {
+    const angle = r.strategy_metadata?.recommended_angle;
+    return angle ? suppressedPatterns.some(p => angle.toLowerCase().includes(p.toLowerCase())) : false;
+  };
+
+  const handleRegenerateWithDifferentAngle = (avoidAngle: string | undefined) => {
+    if (!avoidAngle) return;
+    const avoidLine = `Avoid using the "${avoidAngle}" angle - try a different approach`;
+    const current = thingsToAvoid.trim();
+    setThingsToAvoid(current ? `${current}. ${avoidLine}` : avoidLine);
   };
 
   const handleGenerate = async () => {
@@ -1887,6 +1920,46 @@ export default function ContentStudioPage() {
                       {result.strategy_metadata.reasoning}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Suppression Warning */}
+              {isPatternSuppressed(result) && (
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '12px 14px',
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                }}>
+                  <AlertTriangle size={18} style={{ color: '#fbbf24', flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ color: '#fcd34d', fontSize: '13px', fontWeight: 500, margin: 0 }}>
+                      Pattern Underperforming
+                    </p>
+                    <p style={{ color: 'rgba(251, 191, 36, 0.7)', fontSize: '12px', marginTop: '4px', marginBottom: '8px', lineHeight: 1.4 }}>
+                      The &ldquo;{result.strategy_metadata?.recommended_angle}&rdquo; angle has been flagged as underperforming recently.
+                      Consider trying a different approach or regenerating with different settings.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleRegenerateWithDifferentAngle(result.strategy_metadata?.recommended_angle)}
+                      style={{
+                        padding: '5px 12px',
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        borderRadius: '6px',
+                        color: '#fcd34d',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Try Different Angle
+                    </button>
+                  </div>
                 </div>
               )}
 

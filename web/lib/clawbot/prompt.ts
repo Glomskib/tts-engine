@@ -102,6 +102,7 @@ RULES:
 - suggested_hooks should be 2-4 options, each under 15 words
 - Learn from positive feedback: repeat what works
 - Learn from negative feedback: avoid what didn't work
+- CRITICAL: If a pattern appears in SUPPRESSED PATTERNS above, do NOT use that angle unless explicitly requested
 - Be specific, not generic — reference the actual product and patterns
 - If risk_tier is SAFE, keep risk_score under 4
 - If risk_tier is SPICY, push risk_score to 6+`;

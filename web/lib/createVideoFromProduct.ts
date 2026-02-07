@@ -184,7 +184,7 @@ export interface ReferenceParams {
 
 export interface CreateVideoParams {
   product_id: string;
-  script_path: "existing" | "generate" | "later";
+  script_path: "existing" | "generate" | "later" | "not_required";
   existing_script_id?: string;
   brief?: {
     hook?: string;
@@ -252,7 +252,7 @@ export async function createVideoFromProduct(
   }
 
   // Validate script_path
-  const validScriptPaths = ["existing", "generate", "later"];
+  const validScriptPaths = ["existing", "generate", "later", "not_required"];
   if (!script_path || !validScriptPaths.includes(script_path)) {
     return {
       ok: false,
@@ -309,6 +309,11 @@ export async function createVideoFromProduct(
         // If script is being attached, video is ready for recording
         recordingStatus = "NOT_RECORDED";
         shouldNotifyRecorder = true;
+        break;
+      case "not_required":
+        // Already filmed / BOF — skip script stage entirely
+        recordingStatus = "NOT_RECORDED";
+        shouldNotifyRecorder = false;
         break;
       default:
         recordingStatus = "NEEDS_SCRIPT";
@@ -390,6 +395,11 @@ export async function createVideoFromProduct(
       recording_status: recordingStatus,
       google_drive_url: "", // Will be set later
     };
+
+    // Set script_not_required flag
+    if (script_path === "not_required") {
+      videoPayload.script_not_required = true;
+    }
 
     // Set posting_account_id if provided
     if (posting_account_id) {

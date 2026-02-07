@@ -128,7 +128,7 @@ const TARGET_LENGTHS: { value: TargetLength; label: string }[] = [
   { value: '60s+', label: '60+ seconds (Deep dive)' },
 ];
 
-type ScriptPath = 'ai_draft' | 'manual' | 'later';
+type ScriptPath = 'ai_draft' | 'manual' | 'later' | 'not_required';
 type ProofType = 'testimonial' | 'demo' | 'comparison' | 'other';
 type HookType = 'all' | 'pattern_interrupt' | 'relatable_pain' | 'proof_teaser' | 'contrarian' | 'mini_story' | 'curiosity_gap';
 type TonePreset = 'ugc_casual' | 'funny' | 'serious' | 'fast_paced' | 'soft_sell';
@@ -769,7 +769,8 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
   const canCreate = isProductSelected && (
     aiDraft !== null ||
     scriptPath === 'later' ||
-    scriptPath === 'manual'
+    scriptPath === 'manual' ||
+    scriptPath === 'not_required'
   );
 
   // Reset form for "Create & Add Another"
@@ -816,7 +817,9 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
     setError('');
 
     const hasScript = scriptPath === 'ai_draft' && scriptDraft.trim();
-    const recordingScriptPath = hasScript ? 'existing' : (scriptPath === 'later' ? 'later' : 'later');
+    const recordingScriptPath = scriptPath === 'not_required'
+      ? 'not_required'
+      : hasScript ? 'existing' : (scriptPath === 'later' ? 'later' : 'later');
 
     try {
       const res = await fetch('/api/videos/create-from-product', {
@@ -1858,13 +1861,14 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
               padding: '12px', backgroundColor: colors.bgSecondary,
               borderRadius: '6px', border: `1px solid ${colors.border}`, marginBottom: '16px',
             }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <label style={{
                   flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '8px 12px',
                   backgroundColor: scriptPath === 'later' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
                   borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
                   border: `1px solid ${scriptPath === 'later' ? colors.info : 'transparent'}`,
+                  minWidth: '120px',
                 }}>
                   <input type="radio" name="manualPath" checked={scriptPath === 'later'} onChange={() => setScriptPath('later')} />
                   Script later
@@ -1875,13 +1879,25 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
                   backgroundColor: scriptPath === 'manual' ? (isDark ? '#1f3a5f' : '#e7f5ff') : 'transparent',
                   borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
                   border: `1px solid ${scriptPath === 'manual' ? colors.info : 'transparent'}`,
+                  minWidth: '120px',
                 }}>
                   <input type="radio" name="manualPath" checked={scriptPath === 'manual'} onChange={() => setScriptPath('manual')} />
                   Manual entry
                 </label>
+                <label style={{
+                  flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: scriptPath === 'not_required' ? (isDark ? '#1f4a3f' : '#e6f9f0') : 'transparent',
+                  borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: colors.text,
+                  border: `1px solid ${scriptPath === 'not_required' ? '#10b981' : 'transparent'}`,
+                  minWidth: '120px',
+                }}>
+                  <input type="radio" name="manualPath" checked={scriptPath === 'not_required'} onChange={() => setScriptPath('not_required')} />
+                  No script needed
+                </label>
               </div>
               <p style={{ margin: '8px 0 0', fontSize: '11px', color: colors.textSecondary, textAlign: 'center' }}>
-                Or skip AI and create video now
+                {scriptPath === 'not_required' ? 'Already filmed / BOF — skips script stage' : 'Or skip AI and create video now'}
               </p>
             </div>
           )}

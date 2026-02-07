@@ -309,6 +309,10 @@ export default function AdminPipelinePage() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Brand & assignee filter state
+  const [brandFilter, setBrandFilter] = useState<string>('');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('');
+
   // Filter intent state
   const [filterIntent, setFilterIntent] = useState<FilterIntent>('all');
   const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
@@ -469,7 +473,7 @@ export default function AdminPipelinePage() {
 
 
   // Reference data for filters
-  const [, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
 
@@ -1272,6 +1276,16 @@ export default function AdminPipelinePage() {
         break;
     }
 
+    // Apply brand filter
+    if (brandFilter) {
+      videos = videos.filter(v => v.brand_name === brandFilter);
+    }
+
+    // Apply assignee filter
+    if (assigneeFilter) {
+      videos = videos.filter(v => v.claimed_by === assigneeFilter);
+    }
+
     // Apply search query on top
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -1523,6 +1537,46 @@ export default function AdminPipelinePage() {
           ))}
         </select>
 
+        {/* Brand Filter */}
+        <select
+          value={brandFilter}
+          onChange={(e) => setBrandFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            fontSize: '13px',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            backgroundColor: colors.surface,
+            color: colors.text,
+            cursor: 'pointer',
+          }}
+        >
+          <option value="">All Brands</option>
+          {brands.map(b => (
+            <option key={b.id} value={b.name}>{b.name}</option>
+          ))}
+        </select>
+
+        {/* Assignee Filter */}
+        <select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            fontSize: '13px',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            backgroundColor: colors.surface,
+            color: colors.text,
+            cursor: 'pointer',
+          }}
+        >
+          <option value="">All Assignees</option>
+          {Array.from(new Set(queueVideos.map(v => v.claimed_by).filter(Boolean))).map(assignee => (
+            <option key={assignee} value={assignee!}>{assignee}</option>
+          ))}
+        </select>
+
         {/* Search */}
         <input
           type="text"
@@ -1539,9 +1593,9 @@ export default function AdminPipelinePage() {
             color: colors.text,
           }}
         />
-        {searchQuery && (
+        {(searchQuery || brandFilter || assigneeFilter) && (
           <button type="button"
-            onClick={() => setSearchQuery('')}
+            onClick={() => { setSearchQuery(''); setBrandFilter(''); setAssigneeFilter(''); }}
             style={{
               padding: '4px 8px',
               fontSize: '12px',
@@ -1551,7 +1605,7 @@ export default function AdminPipelinePage() {
               color: colors.textMuted,
             }}
           >
-            Clear
+            Clear Filters
           </button>
         )}
 

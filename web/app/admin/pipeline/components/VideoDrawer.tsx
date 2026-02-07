@@ -1271,19 +1271,15 @@ export default function VideoDrawer({
             backgroundColor: isDark ? colors.bgSecondary : '#fafbfc',
             borderBottom: `1px solid ${colors.border}`,
           }}>
-            {/* Brand/Product Mapping - Show warning if missing, or allow admin to edit */}
-            {(isMappingMissing || (isAdmin && !showMapping)) && !showMapping && (
+            {/* Brand/Product Mapping - Show warning only if actually missing */}
+            {isMappingMissing && !showMapping && (
               <div
                 onClick={() => setShowMapping(true)}
                 style={{
                   marginBottom: '12px',
                   padding: '10px 12px',
-                  backgroundColor: isMappingMissing
-                    ? (isDark ? '#4a3000' : '#fff3cd')
-                    : colors.surface2,
-                  border: `1px solid ${isMappingMissing
-                    ? (isDark ? '#6b4400' : '#ffc107')
-                    : colors.border}`,
+                  backgroundColor: isDark ? '#4a3000' : '#fff3cd',
+                  border: `1px solid ${isDark ? '#6b4400' : '#ffc107'}`,
                   borderRadius: '6px',
                   cursor: 'pointer',
                   display: 'flex',
@@ -1292,11 +1288,31 @@ export default function VideoDrawer({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 500, color: isMappingMissing ? colors.warning : colors.text }}>
-                    {isMappingMissing ? 'Add Brand / Product' : 'Edit Mapping'}
+                  <span style={{ fontSize: '13px', fontWeight: 500, color: colors.warning }}>
+                    Add Brand / Product
                   </span>
                 </div>
                 <span style={{ fontSize: '12px', color: colors.textMuted }}>Click to edit</span>
+              </div>
+            )}
+            {/* Admin edit link when mapping IS present */}
+            {!isMappingMissing && isAdmin && !showMapping && (
+              <div
+                onClick={() => setShowMapping(true)}
+                style={{
+                  marginBottom: '12px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '13px',
+                  color: colors.text,
+                }}
+              >
+                <span>{video.brand_name} — {video.product_sku || video.product_name}</span>
+                <span style={{ fontSize: '12px', color: colors.accent, fontWeight: 500 }}>Edit</span>
               </div>
             )}
 

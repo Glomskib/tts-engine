@@ -81,13 +81,13 @@ const FUNNEL_STAGE_COLORS: Record<string, { bg: string; text: string; border: st
 
 // Main content category tabs
 const MAIN_TABS = [
-  { id: 'all', label: 'All Types', icon: Sparkles, description: 'View all content types', contentTypes: [] as string[] },
-  { id: 'skit', label: 'Skit / Comedy', icon: Theater, description: 'Dialogue-based comedy content', contentTypes: ['skit', 'tof'] },
-  { id: 'ugc', label: 'UGC / Testimonial', icon: User, description: 'Authentic user-generated style', contentTypes: ['testimonial', 'mof'] },
-  { id: 'hook', label: 'Hook / Teaser', icon: Zap, description: 'Quick attention-grabbing content', contentTypes: ['tof'] },
-  { id: 'educational', label: 'Educational', icon: GraduationCap, description: 'Value-first teaching content', contentTypes: ['educational'] },
-  { id: 'story', label: 'Story / Narrative', icon: BookOpen, description: 'Emotional storytelling', contentTypes: ['story'] },
-  { id: 'direct', label: 'Direct Response', icon: Target, description: 'Conversion-focused content', contentTypes: ['bof'] },
+  { id: 'all', label: 'All Types', icon: Sparkles, description: 'View all content types', contentTypes: [] as string[], funnelHint: '' },
+  { id: 'skit', label: 'Skit / Comedy', icon: Theater, description: 'Dialogue-based comedy content', contentTypes: ['skit', 'tof'], funnelHint: 'Top of funnel: hooks and viral moments' },
+  { id: 'ugc', label: 'UGC / Testimonial', icon: User, description: 'Authentic user-generated style', contentTypes: ['testimonial', 'mof'], funnelHint: 'Middle of funnel: demos, social proof' },
+  { id: 'hook', label: 'Hook / Teaser', icon: Zap, description: 'Quick attention-grabbing content', contentTypes: ['tof'], funnelHint: 'Top of funnel: scroll-stopping openers' },
+  { id: 'educational', label: 'Educational', icon: GraduationCap, description: 'Value-first teaching content', contentTypes: ['educational'], funnelHint: 'Mid-funnel: builds trust and authority' },
+  { id: 'story', label: 'Story / Narrative', icon: BookOpen, description: 'Emotional storytelling', contentTypes: ['story'], funnelHint: 'Full-funnel: emotional connection' },
+  { id: 'direct', label: 'Direct Response', icon: Target, description: 'Conversion-focused content', contentTypes: ['bof'], funnelHint: 'Bottom of funnel: offers, urgency, direct CTA' },
 ];
 
 // --- Types ---
@@ -276,6 +276,10 @@ export default function ContentStudioPage() {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedPainPoints, setSelectedPainPoints] = useState<string[]>([]);
   const [personaExpanded, setPersonaExpanded] = useState(true);
+
+  // Product pain points
+  const [productPainPoints, setProductPainPoints] = useState<string[]>([]);
+  const [generatingPainPoints, setGeneratingPainPoints] = useState(false);
 
   // STEP 5: Presentation Style
   const [selectedPresentationStyleId, setSelectedPresentationStyleId] = useState<string>('talking_head');
@@ -472,7 +476,46 @@ export default function ContentStudioPage() {
     }
   }, [selectedMainTabId, filteredContentTypes]);
 
+  // Reset product pain points when product changes
+  useEffect(() => {
+    setProductPainPoints([]);
+  }, [selectedProductId]);
+
   // --- Handlers ---
+
+  const fetchOrGeneratePainPoints = async () => {
+    if (!selectedProductId) return;
+    setGeneratingPainPoints(true);
+    try {
+      // First try to GET existing pain points
+      const getRes = await fetch(`/api/products/${selectedProductId}`);
+      if (getRes.ok) {
+        const data = await getRes.json();
+        const existing = data.data?.pain_points;
+        if (existing && Array.isArray(existing) && existing.length > 0) {
+          setProductPainPoints(existing);
+          setGeneratingPainPoints(false);
+          return;
+        }
+      }
+
+      // No existing pain points — generate them
+      const genRes = await fetch('/api/products/generate-pain-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: selectedProductId }),
+      });
+      if (genRes.ok) {
+        const genData = await genRes.json();
+        const points = genData.data?.pain_points || genData.pain_points || [];
+        setProductPainPoints(Array.isArray(points) ? points : []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch/generate pain points:', err);
+    } finally {
+      setGeneratingPainPoints(false);
+    }
+  };
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -812,6 +855,10 @@ export default function ContentStudioPage() {
             );
           })}
         </div>
+        {/* Funnel stage hint for selected tab */}
+        {selectedMainTab?.funnelHint && (
+          <p className="mt-2 text-xs text-zinc-500 italic">{selectedMainTab.funnelHint}</p>
+        )}
       </div>
 
       {/* Main Grid - stacks on mobile */}
@@ -825,18 +872,13 @@ export default function ContentStudioPage() {
             </div>
           ) : (
             <>
-              {/* STEP 1: Content Type */}
+              {/* STEP 1: Content Type - Compact pills */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>1</span>
                   Content Type
-                  {selectedMainTabId !== 'all' && (
-                    <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary, marginLeft: '8px' }}>
-                      ({filteredContentTypes.length} matching)
-                    </span>
-                  )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {filteredContentTypes.map((type) => {
                     const Icon = CONTENT_TYPE_ICONS[type.icon];
                     const isSelected = selectedContentTypeId === type.id;
@@ -846,51 +888,48 @@ export default function ContentStudioPage() {
                       <button type="button"
                         key={type.id}
                         onClick={() => setSelectedContentTypeId(type.id)}
+                        title={type.description}
                         style={{
-                          ...cardStyle(isSelected),
                           display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '12px',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 14px',
+                          backgroundColor: isSelected ? '#3b82f6' : colors.bg,
+                          border: `1px solid ${isSelected ? '#3b82f6' : colors.border}`,
+                          borderRadius: '8px',
+                          color: isSelected ? 'white' : colors.text,
+                          fontSize: '13px',
+                          fontWeight: isSelected ? 600 : 400,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        <div style={{
-                          padding: '8px',
-                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.05)',
-                          borderRadius: '8px',
-                          flexShrink: 0,
-                          color: isSelected ? '#3b82f6' : colors.textSecondary,
-                        }}>
-                          {Icon && <Icon size={20} />}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: 600, color: colors.text, fontSize: '13px' }}>{type.name}</span>
-                            {isSelected && <Check size={14} style={{ color: '#3b82f6' }} />}
-                          </div>
-                          <p style={{ margin: 0, fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
-                            {type.description}
-                          </p>
-                          <span style={{
-                            display: 'inline-block',
-                            marginTop: '6px',
-                            padding: '2px 8px',
-                            backgroundColor: stageColor.bg,
-                            color: stageColor.text,
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                          }}>
-                            {type.funnelStage}
-                          </span>
-                        </div>
+                        {Icon && <Icon size={14} />}
+                        {type.name}
+                        {isSelected && <Check size={12} />}
                       </button>
                     );
                   })}
                 </div>
+                {selectedContentType && (
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      padding: '2px 8px',
+                      backgroundColor: FUNNEL_STAGE_COLORS[selectedContentType.funnelStage]?.bg,
+                      color: FUNNEL_STAGE_COLORS[selectedContentType.funnelStage]?.text,
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                    }}>
+                      {selectedContentType.funnelStage}
+                    </span>
+                    <span style={{ fontSize: '12px', color: colors.textSecondary }}>{selectedContentType.description}</span>
+                  </div>
+                )}
               </div>
 
-              {/* STEP 2: Subtype */}
+              {/* STEP 2: Content Format */}
               {selectedContentType && (
                 <div style={sectionStyle}>
                   <div style={sectionTitleStyle}>
@@ -1007,6 +1046,76 @@ export default function ContentStudioPage() {
                     style={{ ...inputStyle, flex: 1 }}
                   />
                 </div>
+
+                {/* Pain Points - show when product is selected */}
+                {selectedProductId && (
+                  <div style={{ marginTop: '12px' }}>
+                    {productPainPoints.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={fetchOrGeneratePainPoints}
+                        disabled={generatingPainPoints}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 14px',
+                          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                          border: '1px solid rgba(139, 92, 246, 0.3)',
+                          borderRadius: '8px',
+                          color: '#8b5cf6',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          cursor: generatingPainPoints ? 'not-allowed' : 'pointer',
+                          opacity: generatingPainPoints ? 0.7 : 1,
+                        }}
+                      >
+                        {generatingPainPoints ? (
+                          <><Loader2 size={14} className="animate-spin" /> Generating pain points...</>
+                        ) : (
+                          <><Zap size={14} /> Generate Pain Points</>
+                        )}
+                      </button>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '6px' }}>
+                          Pain points (click to focus):
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {productPainPoints.map((point, idx) => {
+                            const isSelected = selectedPainPoints.includes(point);
+                            return (
+                              <button
+                                type="button"
+                                key={idx}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedPainPoints(prev => prev.filter(p => p !== point));
+                                  } else {
+                                    setSelectedPainPoints(prev => [...prev, point]);
+                                  }
+                                }}
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                                  border: `1px solid ${isSelected ? '#8b5cf6' : colors.border}`,
+                                  borderRadius: '6px',
+                                  color: isSelected ? '#8b5cf6' : colors.textSecondary,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                {isSelected && <Check size={10} style={{ marginRight: '4px', display: 'inline' }} />}
+                                {point}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* STEP 4: Target Audience */}

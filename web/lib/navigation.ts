@@ -55,7 +55,7 @@ export const NAV_SECTIONS: NavSection[] = [
   // SAAS SECTIONS
   // ========================
   {
-    title: 'CONTENT CREATION',
+    title: 'CREATE',
     subscriptionType: 'saas',
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
@@ -65,22 +65,16 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'AUDIENCE',
-    subscriptionType: 'saas',
-    items: [
-      { name: 'Personas', href: '/admin/audience', icon: Users, featureKey: 'audience_intelligence' },
-    ],
-  },
-  {
-    title: 'PRODUCTS',
+    title: 'CATALOG',
     subscriptionType: 'saas',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
       { name: 'Brands', href: '/admin/brands', icon: Building },
+      { name: 'Personas', href: '/admin/audience', icon: Users, featureKey: 'audience_intelligence' },
     ],
   },
   {
-    title: 'VIDEO PRODUCTION',
+    title: 'PRODUCTION',
     subscriptionType: 'saas',
     showFor: ['agency', 'admin'],
     items: [
@@ -101,12 +95,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Submit Video', href: '/client/requests/new', icon: Upload },
       { name: 'My Videos', href: '/client/videos', icon: Play },
       { name: 'All Requests', href: '/client/requests', icon: FileText },
-    ],
-  },
-  {
-    title: 'AI TOOLS',
-    subscriptionType: 'video_editing',
-    items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
       { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
     ],
@@ -126,7 +114,6 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SETTINGS',
     items: [
       { name: 'Account', href: '/admin/settings', icon: Settings },
-      { name: 'Billing', href: '/upgrade', icon: CreditCard },
     ],
   },
   {
@@ -176,11 +163,6 @@ export function getFilteredNavSections(options: {
 
     // Check subscription type filter
     if (section.subscriptionType && section.subscriptionType !== subscriptionType) {
-      // Exception: video clients can see AI tools sections if they have access
-      if (section.subscriptionType === 'saas' && subscriptionType === 'video_editing') {
-        // Only show AI TOOLS section for video clients (defined separately)
-        return false;
-      }
       return false;
     }
 

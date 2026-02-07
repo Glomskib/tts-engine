@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, X, Trash2, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, X, Trash2, ExternalLink, Video } from 'lucide-react';
 
 interface ScheduledPost {
   id: string;
@@ -22,6 +22,15 @@ interface ScheduledPost {
     product_name?: string;
     product_brand?: string;
   };
+}
+
+interface ReadyVideo {
+  id: string;
+  video_code: string | null;
+  brand_name?: string;
+  product_name?: string;
+  recording_status: string;
+  created_at: string;
 }
 
 interface CalendarDay {
@@ -83,6 +92,10 @@ export default function CalendarPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [platformFilter, setPlatformFilter] = useState<string>('all_platforms');
 
+  // Ready to Schedule queue
+  const [readyVideos, setReadyVideos] = useState<ReadyVideo[]>([]);
+  const [readyLoading, setReadyLoading] = useState(false);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -116,6 +129,36 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  // Fetch READY_TO_POST videos for scheduling queue
+  const fetchReadyVideos = useCallback(async () => {
+    setReadyLoading(true);
+    try {
+      const res = await fetch('/api/videos/queue?recording_status=READY_TO_POST&claimed=any&limit=50');
+      if (res.ok) {
+        const data = await res.json();
+        const videos: ReadyVideo[] = (data.data || []).map((v: Record<string, unknown>) => ({
+          id: v.id,
+          video_code: v.video_code,
+          brand_name: v.brand_name,
+          product_name: v.product_name,
+          recording_status: v.recording_status,
+          created_at: v.created_at,
+        }));
+        // Exclude videos that already have a scheduled post (by matching metadata.video_id)
+        const scheduledVideoIds = new Set(posts.filter(p => p.metadata?.video_id).map(p => p.metadata!.video_id));
+        setReadyVideos(videos.filter(v => !scheduledVideoIds.has(v.id)));
+      }
+    } catch (err) {
+      console.error('Failed to fetch ready videos:', err);
+    } finally {
+      setReadyLoading(false);
+    }
+  }, [posts]);
+
+  useEffect(() => {
+    fetchReadyVideos();
+  }, [fetchReadyVideos]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -432,6 +475,55 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* Ready to Schedule Queue */}
+      {readyVideos.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+          <div className="flex items-center gap-2 mb-3">
+            <Video className="w-4 h-4 text-amber-400" />
+            <h3 className="text-sm font-semibold text-amber-300">
+              Ready to Schedule ({readyVideos.length})
+            </h3>
+            {readyLoading && <span className="text-xs text-zinc-500">refreshing...</span>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {readyVideos.map(video => (
+              <div
+                key={video.id}
+                className="flex items-center justify-between gap-2 p-3 rounded-lg bg-zinc-900/80 border border-white/5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-zinc-200 truncate">
+                    {video.video_code || video.id.slice(0, 8)}
+                  </div>
+                  <div className="text-xs text-zinc-500 truncate">
+                    {[video.brand_name, video.product_name].filter(Boolean).join(' — ') || 'Unmapped'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                    setSelectedPost(null);
+                    setFormData({
+                      title: video.video_code || `Video ${video.id.slice(0, 8)}`,
+                      description: [video.brand_name, video.product_name].filter(Boolean).join(' — '),
+                      scheduled_date: dateStr,
+                      scheduled_time: '12:00',
+                      platform: 'tiktok',
+                    });
+                    setShowModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-md transition-colors shrink-0"
+                >
+                  Schedule
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Calendar Navigation */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">

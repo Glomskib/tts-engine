@@ -139,6 +139,12 @@ export async function GET(request: Request) {
               status: "warn",
               until: new Date(Date.now() + 30 * 86400000).toISOString(),
             })),
+          recommended_next: (() => {
+            const winners = allBuckets.filter(b => b.score > 0).sort((a, b) => b.score - a.score);
+            if (!winners.length) return [];
+            const top = winners[0];
+            return [{ goal: top.score > 2 ? "sales" : "engagement", angle: top.angle, why: `Your "${top.angle}" content has ${top.winners} winners this week` }];
+          })(),
           generated_by: "cron",
         };
 

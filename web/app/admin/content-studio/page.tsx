@@ -346,6 +346,13 @@ export default function ContentStudioPage() {
   // Clawbot suppression patterns
   const [suppressedPatterns, setSuppressedPatterns] = useState<string[]>([]);
 
+  // Clawbot recommendation
+  const [recommendation, setRecommendation] = useState<{
+    content_type: string;
+    angle: string;
+    reason: string;
+  } | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // --- Computed Values ---
@@ -434,7 +441,7 @@ export default function ContentStudioPage() {
           console.error('Failed to fetch personas:', personasRes.status);
         }
 
-        // Load Clawbot suppression patterns
+        // Load Clawbot suppression patterns + recommendations
         if (suppressionsRes?.ok) {
           try {
             const sData = await suppressionsRes.json();
@@ -443,6 +450,22 @@ export default function ContentStudioPage() {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 sData.summary.suppression_rules.map((r: any) => r.pattern_id)
               );
+            }
+            // Extract recommendation
+            if (sData.summary?.recommended_next?.[0]) {
+              const rec = sData.summary.recommended_next[0];
+              setRecommendation({
+                content_type: rec.goal === 'sales' ? 'bof' : rec.goal === 'awareness' ? 'tof' : 'mof',
+                angle: rec.angle,
+                reason: rec.why,
+              });
+            } else if (sData.summary?.winning_patterns?.[0]) {
+              const winner = sData.summary.winning_patterns[0];
+              setRecommendation({
+                content_type: 'mof',
+                angle: winner.angle,
+                reason: `Your "${winner.angle}" content is performing well (+${winner.winners} winners)`,
+              });
             }
           } catch {
             // Ignore parse errors for non-critical data
@@ -1011,6 +1034,56 @@ export default function ContentStudioPage() {
           </div>
         </div>
       </div>
+
+      {/* Clawbot Recommendation Banner */}
+      {recommendation && (
+        <div className="mb-6 p-4 rounded-xl" style={{
+          background: 'linear-gradient(to right, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.1))',
+          border: '1px solid rgba(168, 85, 247, 0.3)',
+        }}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)' }}>
+                <Sparkles size={18} className="text-purple-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-medium flex items-center gap-2 text-sm">
+                  Clawbot Recommends
+                  <span className="text-xs text-purple-400 px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)' }}>
+                    Based on your data
+                  </span>
+                </h3>
+                <p className="text-zinc-300 text-sm mt-1">
+                  Try <span className="text-purple-300 font-medium">{recommendation.content_type.toUpperCase()}</span> content
+                  {' '}with a <span className="text-purple-300 font-medium">{recommendation.angle}</span> angle
+                </p>
+                <p className="text-zinc-500 text-xs mt-1">{recommendation.reason}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedContentTypeId(recommendation.content_type);
+                  setRecommendation(null);
+                }}
+                className="px-3 py-1.5 text-white rounded-lg text-sm flex items-center gap-2"
+                style={{ backgroundColor: '#a855f7' }}
+              >
+                <Zap size={14} />
+                Use This
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecommendation(null)}
+                className="p-1.5 text-zinc-400 hover:text-white rounded"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Category Tabs - horizontal scroll on mobile */}
       <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">

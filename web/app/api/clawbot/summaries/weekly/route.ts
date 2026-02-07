@@ -153,6 +153,17 @@ export async function POST(request: Request) {
         total: b.total,
       }));
 
+    // 5. Generate recommendations based on winning patterns
+    const recommended_next: Array<{ goal: string; angle: string; why: string }> = [];
+    if (winning_patterns.length > 0) {
+      const top = winning_patterns[0];
+      recommended_next.push({
+        goal: top.score > 2 ? "sales" : "engagement",
+        angle: top.angle,
+        why: `Your "${top.angle}" content has ${top.winners} winners this week`,
+      });
+    }
+
     const summary = {
       window: {
         start: sevenDaysAgo.toISOString(),
@@ -166,6 +177,7 @@ export async function POST(request: Request) {
       winning_patterns,
       losing_patterns,
       suppression_rules,
+      recommended_next,
     };
 
     // 5. Upsert to clawbot_summaries

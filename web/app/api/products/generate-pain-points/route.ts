@@ -66,12 +66,16 @@ export async function POST(request: Request) {
     }
 
     // Generate pain points via AI
+    // Merge all available context — notes often has the real product detail
+    const description = product?.description || fallbackDesc || null;
+    const notes = product?.notes || null;
+
     const result = await generatePainPoints(
       productName,
       product?.brand || "Unknown",
       product?.category || "General",
-      product?.description || fallbackDesc || null,
-      product?.notes || null
+      description,
+      notes
     );
 
     // Optionally save to product (only if product was found in DB)

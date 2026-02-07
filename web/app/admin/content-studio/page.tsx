@@ -105,6 +105,7 @@ interface Product {
   brand: string;
   category: string;
   description?: string;
+  notes?: string;
 }
 
 interface AudiencePersona {
@@ -535,7 +536,7 @@ export default function ContentStudioPage() {
         body: JSON.stringify({
           product_id: selectedProductId,
           product_name: selectedProduct?.name,
-          product_description: selectedProduct?.description,
+          product_description: selectedProduct?.notes || selectedProduct?.description,
         }),
         credentials: 'include',
       });

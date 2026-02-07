@@ -317,6 +317,10 @@ export default function ContentStudioPage() {
   const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
 
+  // Approve & pipeline state
+  const [approvingToPipeline, setApprovingToPipeline] = useState(false);
+  const [approvedToPipeline, setApprovedToPipeline] = useState(false);
+
   // CTA editing state
   const [editingCTA, setEditingCTA] = useState(false);
   const [editedCTALine, setEditedCTALine] = useState('');
@@ -721,6 +725,7 @@ export default function ContentStudioPage() {
         setError(response);
       } else {
         setResult(response.data);
+        setApprovedToPipeline(false);
       }
     } catch {
       setError({
@@ -776,6 +781,85 @@ export default function ContentStudioPage() {
       console.error('Failed to save:', err);
     } finally {
       setSavingToLibrary(false);
+    }
+  };
+
+  const handleApproveAndSend = async () => {
+    if (!result || approvedToPipeline) return;
+    setApprovingToPipeline(true);
+    try {
+      const currentSkit = result.variations?.[selectedVariationIndex]?.skit || result.skit;
+      if (!currentSkit) throw new Error('No script to approve');
+
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Manual Entry';
+      const productBrand = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.brand || ''
+        : manualBrandName || '';
+
+      // 1. Save to library as approved
+      const saveRes = await postJson<{ id: string }>('/api/skits', {
+        title: `${productName} - ${selectedContentType?.name || 'Content'} - ${new Date().toLocaleDateString()}`,
+        status: 'approved',
+        product_id: selectedProductId || null,
+        product_name: productName,
+        product_brand: productBrand,
+        skit_data: currentSkit,
+        generation_config: {
+          content_type: selectedContentTypeId,
+          content_subtype: selectedSubtypeId,
+          presentation_style: selectedPresentationStyleId,
+          target_length: selectedLengthId,
+          humor_level: selectedHumorId,
+          risk_tier: riskTier,
+        },
+        ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score,
+      });
+
+      if (isApiError(saveRes)) {
+        throw new Error(saveRes.message || 'Failed to save script');
+      }
+
+      const savedSkitId = saveRes.data?.id;
+      if (!savedSkitId) throw new Error('No script ID returned');
+
+      // 2. Send to pipeline
+      if (selectedProductId) {
+        // Product-based: use send-to-video (creates via createVideoFromProduct)
+        const pipelineRes = await postJson(`/api/skits/${savedSkitId}/send-to-video`, {
+          priority: 'normal',
+        });
+        if (isApiError(pipelineRes)) {
+          console.error('Send to pipeline failed:', pipelineRes.message);
+          // Script was saved, just pipeline link failed
+        }
+      } else {
+        // Manual product: use lightweight create-from-script
+        const pipelineRes = await postJson('/api/videos/create-from-script', {
+          script_id: savedSkitId,
+          title: currentSkit.hook_line?.substring(0, 50) || 'Untitled',
+          product_name: productName,
+          product_brand: productBrand,
+          hook_line: currentSkit.hook_line,
+        });
+        if (isApiError(pipelineRes)) {
+          console.error('Create video from script failed:', pipelineRes.message);
+        }
+      }
+
+      setApprovedToPipeline(true);
+    } catch (err) {
+      console.error('Approve and send failed:', err);
+      setError({
+        ok: false,
+        error_code: 'INTERNAL',
+        message: err instanceof Error ? err.message : 'Failed to approve and send to pipeline',
+        correlation_id: '',
+        httpStatus: 0,
+      });
+    } finally {
+      setApprovingToPipeline(false);
     }
   };
 
@@ -1887,71 +1971,206 @@ export default function ContentStudioPage() {
               )}
 
               {/* AI Score */}
-              {currentAiScore && (
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: colors.bg,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '10px',
-                  marginBottom: '16px',
-                }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>
-                    AI Score: {currentAiScore.overall_score}/10
+              {currentAiScore && (() => {
+                const s = currentAiScore.overall_score;
+                const scoreColor = s >= 8 ? '#22c55e' : s >= 6 ? '#eab308' : s >= 4 ? '#f97316' : '#ef4444';
+                return (
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '10px',
+                    marginBottom: '16px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase' }}>
+                        AI Score
+                      </div>
+                      <div style={{ fontSize: '20px', fontWeight: 700, color: scoreColor }}>
+                        {s}/10
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                      <div><span style={{ color: colors.textSecondary }}>Hook </span><span style={{ color: colors.text, fontWeight: 600 }}>{currentAiScore.hook_strength}/10</span></div>
+                      <div><span style={{ color: colors.textSecondary }}>Humor </span><span style={{ color: colors.text, fontWeight: 600 }}>{currentAiScore.humor_level}/10</span></div>
+                      <div><span style={{ color: colors.textSecondary }}>Viral </span><span style={{ color: colors.text, fontWeight: 600 }}>{currentAiScore.virality_potential}/10</span></div>
+                    </div>
+                    {currentAiScore.strengths && currentAiScore.strengths.length > 0 && (
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${colors.border}` }}>
+                        <div style={{ fontSize: '11px', color: '#22c55e', marginBottom: '4px' }}>Strengths</div>
+                        {currentAiScore.strengths.slice(0, 2).map((s, i) => (
+                          <div key={i} style={{ fontSize: '12px', color: colors.textSecondary }}>{s}</div>
+                        ))}
+                      </div>
+                    )}
+                    {currentAiScore.improvements && currentAiScore.improvements.length > 0 && (
+                      <div style={{ marginTop: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#f97316', marginBottom: '4px' }}>Could improve</div>
+                        {currentAiScore.improvements.slice(0, 2).map((s, i) => (
+                          <div key={i} style={{ fontSize: '12px', color: colors.textSecondary }}>{s}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '11px' }}>
-                    <div>Hook: {currentAiScore.hook_strength}/10</div>
-                    <div>Humor: {currentAiScore.humor_level}/10</div>
-                    <div>Virality: {currentAiScore.virality_potential}/10</div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
-              {/* Copy Full Script Button */}
-              <button type="button"
-                onClick={() => {
-                  const fullScript = [
-                    `HOOK: ${currentSkit.hook_line}`,
-                    '',
-                    ...currentSkit.beats.map((b) => {
-                      let beatText = `[${b.t}] ${b.action}`;
-                      if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
-                      if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
-                      return beatText;
-                    }),
-                    '',
-                    `CTA: ${currentSkit.cta_line}`,
-                    currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
-                  ].filter(Boolean).join('\n');
-                  copyToClipboard(fullScript, 'full');
-                }}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  backgroundColor: copiedField === 'full' ? '#10b981' : colors.bg,
-                  border: `1px solid ${copiedField === 'full' ? '#10b981' : colors.border}`,
-                  borderRadius: '10px',
-                  color: copiedField === 'full' ? 'white' : colors.text,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                }}
-              >
-                {copiedField === 'full' ? (
-                  <>
-                    <Check size={16} />
-                    Copied Full Script!
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} />
-                    Copy Full Script
-                  </>
-                )}
-              </button>
+              {/* Export & Action Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Approve & Send to Pipeline */}
+                <button type="button"
+                  onClick={handleApproveAndSend}
+                  disabled={approvingToPipeline}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    backgroundColor: approvedToPipeline ? '#22c55e' : '#10b981',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: 'white',
+                    cursor: approvingToPipeline || approvedToPipeline ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: approvingToPipeline ? 0.7 : 1,
+                  }}
+                >
+                  {approvedToPipeline ? (
+                    <><Check size={16} /> Approved &amp; In Pipeline</>
+                  ) : approvingToPipeline ? (
+                    <><Loader2 size={16} className="animate-spin" /> Sending to Pipeline...</>
+                  ) : (
+                    <><Zap size={16} /> Approve &amp; Send to Pipeline</>
+                  )}
+                </button>
+
+                {/* Copy Buttons Row */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button"
+                    onClick={() => {
+                      const fullScript = [
+                        `HOOK: ${currentSkit.hook_line}`,
+                        '',
+                        ...currentSkit.beats.map((b) => {
+                          let beatText = `[${b.t}] ${b.action}`;
+                          if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+                          if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+                          return beatText;
+                        }),
+                        '',
+                        `CTA: ${currentSkit.cta_line}`,
+                        currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
+                      ].filter(Boolean).join('\n');
+                      copyToClipboard(fullScript, 'full');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      backgroundColor: copiedField === 'full' ? '#10b981' : colors.bg,
+                      border: `1px solid ${copiedField === 'full' ? '#10b981' : colors.border}`,
+                      borderRadius: '10px',
+                      color: copiedField === 'full' ? 'white' : colors.text,
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    {copiedField === 'full' ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Script</>}
+                  </button>
+
+                  <button type="button"
+                    onClick={() => {
+                      const withBroll = [
+                        `HOOK: ${currentSkit.hook_line}`,
+                        '',
+                        ...currentSkit.beats.map((b) => {
+                          let beatText = `[${b.t}] ${b.action}`;
+                          if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+                          if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+                          return beatText;
+                        }),
+                        '',
+                        `CTA: ${currentSkit.cta_line}`,
+                        currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
+                        '',
+                        currentSkit.b_roll?.length ? `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : '',
+                        currentSkit.overlays?.length ? `OVERLAYS:\n${currentSkit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}` : '',
+                      ].filter(Boolean).join('\n');
+                      copyToClipboard(withBroll, 'broll');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      backgroundColor: copiedField === 'broll' ? '#10b981' : colors.bg,
+                      border: `1px solid ${copiedField === 'broll' ? '#10b981' : colors.border}`,
+                      borderRadius: '10px',
+                      color: copiedField === 'broll' ? 'white' : colors.text,
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    {copiedField === 'broll' ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> + B-Roll</>}
+                  </button>
+
+                  <button type="button"
+                    onClick={() => {
+                      const content = [
+                        `HOOK: ${currentSkit.hook_line}`,
+                        '',
+                        ...currentSkit.beats.map((b) => {
+                          let beatText = `[${b.t}] ${b.action}`;
+                          if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+                          if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+                          return beatText;
+                        }),
+                        '',
+                        `CTA: ${currentSkit.cta_line}`,
+                        currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
+                        '',
+                        currentSkit.b_roll?.length ? `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : '',
+                        '',
+                        currentAiScore ? `AI SCORE: ${currentAiScore.overall_score}/10` : '',
+                      ].filter(Boolean).join('\n');
+                      const blob = new Blob([content], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `script-${currentSkit.hook_line.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.txt`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{
+                      padding: '10px 14px',
+                      backgroundColor: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '10px',
+                      color: colors.text,
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Settings size={14} /> .txt
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

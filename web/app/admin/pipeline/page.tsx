@@ -322,6 +322,8 @@ export default function AdminPipelinePage() {
   const [workflowFilter, setWorkflowFilter] = useState<RecordingStatusTab>('ALL');
   const [productFilter, setProductFilter] = useState<string>('');
   const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [sortBy, setSortBy] = useState<'priority' | 'newest' | 'oldest' | 'sla'>('priority');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
   // Per-row claim/release state
   const [, setClaimingVideoId] = useState<string | null>(null);
@@ -573,6 +575,8 @@ export default function AdminPipelinePage() {
             if (parsed.workflowFilter) setWorkflowFilter(parsed.workflowFilter);
             if (parsed.productFilter) setProductFilter(parsed.productFilter);
             if (parsed.dateRangeFilter) setDateRangeFilter(parsed.dateRangeFilter);
+            if (parsed.sortBy) setSortBy(parsed.sortBy);
+            if (parsed.priorityFilter) setPriorityFilter(parsed.priorityFilter);
           }
         } catch {
           // Ignore parse errors
@@ -648,11 +652,13 @@ export default function AdminPipelinePage() {
         workflowFilter,
         productFilter,
         dateRangeFilter,
+        sortBy,
+        priorityFilter,
       }));
     } catch {
       // Ignore write errors
     }
-  }, [filterIntent, brandFilter, assigneeFilter, workflowFilter, productFilter, dateRangeFilter]);
+  }, [filterIntent, brandFilter, assigneeFilter, workflowFilter, productFilter, dateRangeFilter, sortBy, priorityFilter]);
 
 
   // Get videos filtered by current role mode and search query
@@ -1397,6 +1403,16 @@ export default function AdminPipelinePage() {
       videos = videos.filter(v => v.claimed_by === assigneeFilter);
     }
 
+    // Apply priority filter
+    if (priorityFilter !== 'all') {
+      videos = videos.filter(v => {
+        const score = v.priority_score ?? 0;
+        if (priorityFilter === 'high') return score >= 70;
+        if (priorityFilter === 'medium') return score >= 30 && score < 70;
+        return score < 30; // low
+      });
+    }
+
     // Apply search query on top
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -1408,6 +1424,26 @@ export default function AdminPipelinePage() {
         v.product_sku?.toLowerCase().includes(q)
       );
     }
+
+    // Apply sort
+    videos.sort((a, b) => {
+      switch (sortBy) {
+        case 'priority':
+          return (b.priority_score ?? 0) - (a.priority_score ?? 0);
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'sla': {
+          // Items with SLA deadlines first, then by deadline ascending
+          const aDeadline = a.sla_deadline_at ? new Date(a.sla_deadline_at).getTime() : Infinity;
+          const bDeadline = b.sla_deadline_at ? new Date(b.sla_deadline_at).getTime() : Infinity;
+          return aDeadline - bDeadline;
+        }
+        default:
+          return 0;
+      }
+    });
 
     return videos;
   };
@@ -1789,6 +1825,26 @@ export default function AdminPipelinePage() {
             <option value="month">Past 30 Days</option>
           </select>
 
+          {/* Priority Filter */}
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: priorityFilter !== 'all' ? colors.text : colors.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">Any Priority</option>
+            <option value="high">High Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="low">Low Priority</option>
+          </select>
+
           {/* Assignee Filter */}
           <select
             value={assigneeFilter}
@@ -1811,6 +1867,26 @@ export default function AdminPipelinePage() {
             ))}
           </select>
 
+          {/* Sort By */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'priority' | 'newest' | 'oldest' | 'sla')}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: sortBy !== 'priority' ? colors.text : colors.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="priority">Sort: Priority</option>
+            <option value="newest">Sort: Newest</option>
+            <option value="oldest">Sort: Oldest</option>
+            <option value="sla">Sort: SLA Deadline</option>
+          </select>
+
           {/* Search */}
           <input
             type="text"
@@ -1829,7 +1905,7 @@ export default function AdminPipelinePage() {
           />
 
           {/* Clear All Filters */}
-          {(searchQuery || brandFilter || assigneeFilter || workflowFilter !== 'ALL' || productFilter || dateRangeFilter !== 'all' || filterIntent !== 'all') && (
+          {(searchQuery || brandFilter || assigneeFilter || workflowFilter !== 'ALL' || productFilter || dateRangeFilter !== 'all' || filterIntent !== 'all' || sortBy !== 'priority' || priorityFilter !== 'all') && (
             <button type="button"
               onClick={() => {
                 setSearchQuery('');
@@ -1839,6 +1915,8 @@ export default function AdminPipelinePage() {
                 setProductFilter('');
                 setDateRangeFilter('all');
                 setFilterIntent('all');
+                setSortBy('priority');
+                setPriorityFilter('all');
               }}
               style={{
                 padding: '4px 8px',

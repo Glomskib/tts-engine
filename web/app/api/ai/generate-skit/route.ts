@@ -1018,8 +1018,8 @@ PRESENTATION: TREND JACKING
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  // Auth check
-  const authContext = await getApiAuthContext();
+  // Auth check (supports both session cookies and Bearer token)
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }

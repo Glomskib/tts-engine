@@ -15,7 +15,6 @@ import {
   fetchRecentFeedback,
 } from "@/lib/clawbot";
 import type { StrategyRequest, StrategyResponse } from "@/lib/clawbot";
-import { config } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -139,23 +138,28 @@ export async function POST(request: Request) {
   }
 
   // Forward to existing generate-skit endpoint via internal HTTP
-  const appUrl = config.app.url;
+  // Derive origin from incoming request (works on both localhost and Vercel)
+  const appUrl = new URL(request.url).origin;
   let generateResponse: Response;
   try {
-    // Forward cookies for auth propagation
+    // Forward cookies and authorization for auth propagation
     const cookieHeader = request.headers.get("cookie") ?? "";
+    const authHeader = request.headers.get("authorization") ?? "";
+
+    const forwardHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      "x-correlation-id": correlationId,
+    };
+    if (cookieHeader) forwardHeaders["Cookie"] = cookieHeader;
+    if (authHeader) forwardHeaders["Authorization"] = authHeader;
 
     generateResponse = await fetch(`${appUrl}/api/ai/generate-skit`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Cookie": cookieHeader,
-        "x-correlation-id": correlationId,
-      },
+      headers: forwardHeaders,
       body: JSON.stringify(body),
     });
   } catch (err) {
-    console.error(`[${correlationId}] Failed to call generate-skit:`, err);
+    console.error(`[${correlationId}] Failed to call generate-skit (url=${appUrl}):`, err);
     return createApiErrorResponse("AI_ERROR", "Failed to reach skit generation service", 502, correlationId);
   }
 

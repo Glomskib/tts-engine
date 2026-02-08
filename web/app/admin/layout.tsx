@@ -138,17 +138,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // Loading state
   if (auth.loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-zinc-400">
-        <div className="flex items-center gap-3 text-lg">
-          <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
-          Loading...
+      <ToastProvider>
+        <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-zinc-400">
+          <div className="flex items-center gap-3 text-lg">
+            <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
+            Loading...
+          </div>
         </div>
-      </div>
+      </ToastProvider>
     );
   }
 
   if (!auth.authenticated) {
-    return <>{children}</>;
+    return <ToastProvider>{children}</ToastProvider>;
   }
 
   const navSections = getFilteredNavSections({ planId: subscription?.planId, isAdmin: auth.isAdmin });

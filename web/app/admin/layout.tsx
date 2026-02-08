@@ -8,6 +8,7 @@ import { X, ChevronDown, User, LogOut, Zap, Bell } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
+import { ClawbotStatus } from '@/components/ClawbotStatus';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
@@ -392,6 +393,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <header className="fixed top-0 left-72 right-0 z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
             <div className="flex items-center justify-end px-6 h-16">
               <div className="flex items-center gap-4">
+                <ClawbotStatus compact />
                 <CreditsBadge />
 
                 {/* User menu */}

@@ -120,6 +120,7 @@ const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
 // localStorage keys
 const VA_MODE_KEY = 'pipeline_va_mode';
 const SIMPLE_MODE_KEY = 'pipeline_simple_mode';
+const FILTER_STATE_KEY = 'pipeline_filter_state';
 
 // Auth user info type
 interface AuthUser {
@@ -316,6 +317,11 @@ export default function AdminPipelinePage() {
   // Filter intent state
   const [filterIntent, setFilterIntent] = useState<FilterIntent>('all');
   const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
+
+  // Enhanced filter state
+  const [workflowFilter, setWorkflowFilter] = useState<RecordingStatusTab>('ALL');
+  const [productFilter, setProductFilter] = useState<string>('');
+  const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   // Per-row claim/release state
   const [, setClaimingVideoId] = useState<string | null>(null);
@@ -555,6 +561,22 @@ export default function AdminPipelinePage() {
         if (savedSimpleView === 'false') {
           setSimpleView(false);
         }
+
+        // Restore filter state from localStorage
+        try {
+          const savedFilters = localStorage.getItem(FILTER_STATE_KEY);
+          if (savedFilters) {
+            const parsed = JSON.parse(savedFilters);
+            if (parsed.filterIntent) setFilterIntent(parsed.filterIntent);
+            if (parsed.brandFilter) setBrandFilter(parsed.brandFilter);
+            if (parsed.assigneeFilter) setAssigneeFilter(parsed.assigneeFilter);
+            if (parsed.workflowFilter) setWorkflowFilter(parsed.workflowFilter);
+            if (parsed.productFilter) setProductFilter(parsed.productFilter);
+            if (parsed.dateRangeFilter) setDateRangeFilter(parsed.dateRangeFilter);
+          }
+        } catch {
+          // Ignore parse errors
+        }
       } catch (err) {
         console.error('Failed to fetch auth user:', err);
         router.push('/login?redirect=/admin/pipeline');
@@ -616,23 +638,40 @@ export default function AdminPipelinePage() {
     fetchReferenceData();
   }, []);
 
+  // Persist filter state to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_STATE_KEY, JSON.stringify({
+        filterIntent,
+        brandFilter,
+        assigneeFilter,
+        workflowFilter,
+        productFilter,
+        dateRangeFilter,
+      }));
+    } catch {
+      // Ignore write errors
+    }
+  }, [filterIntent, brandFilter, assigneeFilter, workflowFilter, productFilter, dateRangeFilter]);
+
 
   // Get videos filtered by current role mode and search query
   const getRoleFilteredVideos = (): QueueVideo[] => {
     let filtered = vaMode === 'admin' ? queueVideos : filterVideosByRole(queueVideos, vaMode);
 
-    // Apply search filter
+    // Apply search filter (uses API-provided brand_name/product_name/product_sku)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(video => {
-        const product = products.find(p => p.id === video.product_id);
-        const brand = (product?.brand || '').toLowerCase();
-        const sku = (product?.name || '').toLowerCase();
+        const brand = (video.brand_name || '').toLowerCase();
+        const productName = (video.product_name || '').toLowerCase();
+        const sku = (video.product_sku || '').toLowerCase();
         const videoCode = (video.video_code || '').toLowerCase();
         const videoId = video.id.toLowerCase();
 
         return (
           brand.includes(query) ||
+          productName.includes(query) ||
           sku.includes(query) ||
           videoCode.includes(query) ||
           videoId.includes(query)
@@ -672,13 +711,12 @@ export default function AdminPipelinePage() {
     }
   };
 
-  // Get product/account info for display
+  // Get product/account info for display (brand_name/product_name/product_sku populated by API join)
   const getVideoMetaBadges = (video: QueueVideo) => {
-    const product = products.find(p => p.id === video.product_id);
     const account = accounts.find(a => a.id === video.account_id);
     return {
-      brand: product?.brand || '—',
-      sku: product?.name?.slice(0, 12) || video.product_id?.slice(0, 8) || '—',
+      brand: video.brand_name || '—',
+      sku: video.product_name?.slice(0, 12) || video.product_sku || video.product_id?.slice(0, 8) || '—',
       account: account?.name || '—',
     };
   };
@@ -1325,6 +1363,30 @@ export default function AdminPipelinePage() {
         break;
     }
 
+    // Apply workflow status filter
+    if (workflowFilter !== 'ALL') {
+      videos = videos.filter(v => v.recording_status === workflowFilter);
+    }
+
+    // Apply product filter
+    if (productFilter) {
+      videos = videos.filter(v => v.product_id === productFilter);
+    }
+
+    // Apply date range filter
+    if (dateRangeFilter !== 'all') {
+      const now = new Date();
+      let cutoff: Date;
+      if (dateRangeFilter === 'today') {
+        cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (dateRangeFilter === 'week') {
+        cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else {
+        cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      videos = videos.filter(v => new Date(v.created_at) >= cutoff);
+    }
+
     // Apply brand filter
     if (brandFilter) {
       videos = videos.filter(v => v.brand_name === brandFilter);
@@ -1584,110 +1646,220 @@ export default function AdminPipelinePage() {
       )}
 
       {/* Compact Filter Bar - Desktop only */}
-      <div className="hidden lg:flex" style={{
-        marginBottom: '16px',
-        alignItems: 'center',
-        gap: '12px',
-        flexWrap: 'wrap',
-      }}>
-        {/* Filter Dropdown */}
-        <select
-          value={filterIntent}
-          onChange={(e) => setFilterIntent(e.target.value as FilterIntent)}
-          style={{
-            padding: '8px 12px',
-            fontSize: '13px',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            backgroundColor: colors.surface,
-            color: colors.text,
-            cursor: 'pointer',
-          }}
-        >
-          {FILTER_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+      <div className="hidden lg:block" style={{ marginBottom: '16px' }}>
+        {/* Row 1: Intent pill buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+          {FILTER_OPTIONS.map(opt => {
+            const isActive = filterIntent === opt.value;
+            // Compute count for this intent
+            const getCountForIntent = (intent: FilterIntent): number => {
+              let vids = getRoleFilteredVideos();
+              switch (intent) {
+                case 'my_work': return vids.filter(v => v.claimed_by === activeUser).length;
+                case 'needs_action': return vids.filter(v => ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST'].includes(v.recording_status || '')).length;
+                case 'overdue': return vids.filter(v => v.sla_status === 'overdue').length;
+                case 'needs_mapping': return vids.filter(v => !v.brand_name || !v.product_id).length;
+                case 'ready_to_post': return vids.filter(v => v.recording_status === 'READY_TO_POST').length;
+                default: return vids.length;
+              }
+            };
+            const count = getCountForIntent(opt.value);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setFilterIntent(opt.value)}
+                style={{
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  border: `1px solid ${isActive ? colors.accent : colors.border}`,
+                  borderRadius: '20px',
+                  backgroundColor: isActive ? `${colors.accent}20` : 'transparent',
+                  color: isActive ? colors.accent : colors.textMuted,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {opt.label}
+                <span style={{
+                  padding: '0 5px',
+                  borderRadius: '10px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  backgroundColor: isActive ? colors.accent : colors.surface,
+                  color: isActive ? 'white' : colors.textMuted,
+                  minWidth: '18px',
+                  textAlign: 'center',
+                }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-        {/* Brand Filter */}
-        <select
-          value={brandFilter}
-          onChange={(e) => setBrandFilter(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            fontSize: '13px',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            backgroundColor: colors.surface,
-            color: colors.text,
-            cursor: 'pointer',
-          }}
-        >
-          <option value="">All Brands</option>
-          {brands.map(b => (
-            <option key={b.id} value={b.name}>{b.name}</option>
-          ))}
-        </select>
-
-        {/* Assignee Filter */}
-        <select
-          value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            fontSize: '13px',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            backgroundColor: colors.surface,
-            color: colors.text,
-            cursor: 'pointer',
-          }}
-        >
-          <option value="">All Assignees</option>
-          {Array.from(new Set(queueVideos.map(v => v.claimed_by).filter(Boolean))).map(assignee => (
-            <option key={assignee} value={assignee!}>
-              {assignee === activeUser ? 'You' : (userMap[assignee!] || assignee!.slice(0, 8))}
-            </option>
-          ))}
-        </select>
-
-        {/* Search */}
-        <input
-          type="text"
-          placeholder="Search by job, brand, or product..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            fontSize: '13px',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            width: '200px',
-            backgroundColor: colors.surface,
-            color: colors.text,
-          }}
-        />
-        {(searchQuery || brandFilter || assigneeFilter) && (
-          <button type="button"
-            onClick={() => { setSearchQuery(''); setBrandFilter(''); setAssigneeFilter(''); }}
+        {/* Row 2: Dropdowns + search */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Workflow Status */}
+          <select
+            value={workflowFilter}
+            onChange={(e) => setWorkflowFilter(e.target.value as RecordingStatusTab)}
             style={{
-              padding: '4px 8px',
+              padding: '7px 10px',
               fontSize: '12px',
-              background: 'none',
-              border: 'none',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: workflowFilter !== 'ALL' ? colors.text : colors.textMuted,
               cursor: 'pointer',
-              color: colors.textMuted,
             }}
           >
-            Clear Filters
-          </button>
-        )}
+            <option value="ALL">All Stages</option>
+            <option value="NEEDS_SCRIPT">Needs Script</option>
+            <option value="NOT_RECORDED">Not Recorded</option>
+            <option value="RECORDED">Recorded</option>
+            <option value="EDITED">Edited</option>
+            <option value="READY_TO_POST">Ready to Post</option>
+            <option value="POSTED">Posted</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
 
-        {/* Count */}
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
-          {getIntentFilteredVideos().length} {getIntentFilteredVideos().length === 1 ? 'video' : 'videos'}
-          {queueLoading && ' (loading...)'}
-        </span>
+          {/* Brand Filter */}
+          <select
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: brandFilter ? colors.text : colors.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">All Brands</option>
+            {brands.map(b => (
+              <option key={b.id} value={b.name}>{b.name}</option>
+            ))}
+          </select>
+
+          {/* Product Filter */}
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: productFilter ? colors.text : colors.textMuted,
+              cursor: 'pointer',
+              maxWidth: '180px',
+            }}
+          >
+            <option value="">All Products</option>
+            {products.map(p => (
+              <option key={p.id} value={p.id}>{p.brand ? `${p.brand} — ` : ''}{p.name}</option>
+            ))}
+          </select>
+
+          {/* Date Range */}
+          <select
+            value={dateRangeFilter}
+            onChange={(e) => setDateRangeFilter(e.target.value as 'all' | 'today' | 'week' | 'month')}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: dateRangeFilter !== 'all' ? colors.text : colors.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">Any Date</option>
+            <option value="today">Today</option>
+            <option value="week">Past 7 Days</option>
+            <option value="month">Past 30 Days</option>
+          </select>
+
+          {/* Assignee Filter */}
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: colors.surface,
+              color: assigneeFilter ? colors.text : colors.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">All Assignees</option>
+            {Array.from(new Set(queueVideos.map(v => v.claimed_by).filter(Boolean))).map(assignee => (
+              <option key={assignee} value={assignee!}>
+                {assignee === activeUser ? 'You' : (userMap[assignee!] || assignee!.slice(0, 8))}
+              </option>
+            ))}
+          </select>
+
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              width: '160px',
+              backgroundColor: colors.surface,
+              color: colors.text,
+            }}
+          />
+
+          {/* Clear All Filters */}
+          {(searchQuery || brandFilter || assigneeFilter || workflowFilter !== 'ALL' || productFilter || dateRangeFilter !== 'all' || filterIntent !== 'all') && (
+            <button type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setBrandFilter('');
+                setAssigneeFilter('');
+                setWorkflowFilter('ALL');
+                setProductFilter('');
+                setDateRangeFilter('all');
+                setFilterIntent('all');
+              }}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: colors.textMuted,
+                textDecoration: 'underline',
+              }}
+            >
+              Clear All
+            </button>
+          )}
+
+          {/* Count */}
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.textMuted }}>
+            {getIntentFilteredVideos().length} {getIntentFilteredVideos().length === 1 ? 'video' : 'videos'}
+            {queueLoading && ' (loading...)'}
+          </span>
+        </div>
       </div>
 
       {/* Bulk Action Bar - Desktop only, appears when items selected */}

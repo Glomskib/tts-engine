@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, X, Trash2, ExternalLink, Video } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, X, Trash2, ExternalLink, Video, Sparkles } from 'lucide-react';
 
 interface ScheduledPost {
   id: string;
@@ -96,6 +96,16 @@ export default function CalendarPage() {
   const [readyVideos, setReadyVideos] = useState<ReadyVideo[]>([]);
   const [readyLoading, setReadyLoading] = useState(false);
 
+  // Clawbot recommendations
+  const [recommendations, setRecommendations] = useState<Array<{
+    content_type: string;
+    angle: string;
+    reason: string;
+    product_id?: string;
+    product_name?: string;
+  }>>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -176,6 +186,45 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchReadyVideos();
   }, [fetchReadyVideos]);
+
+  // Fetch Clawbot recommendations
+  useEffect(() => {
+    const fetchRecs = async () => {
+      setRecsLoading(true);
+      try {
+        const [summaryRes, productsRes] = await Promise.all([
+          fetch('/api/clawbot/summaries/latest', { credentials: 'include' }),
+          fetch('/api/products', { credentials: 'include' }),
+        ]);
+        if (!summaryRes.ok) return;
+        const summaryData = await summaryRes.json();
+        const summary = summaryData.summary;
+        if (!summary?.recommended_next?.length) return;
+
+        let productMap: Record<string, string> = {};
+        if (productsRes.ok) {
+          const pData = await productsRes.json();
+          for (const p of (pData.data || [])) {
+            productMap[p.id] = p.name;
+          }
+        }
+
+        const recs = summary.recommended_next.slice(0, 3).map((rec: { goal?: string; angle?: string; why?: string; product_id?: string }) => ({
+          content_type: rec.goal === 'sales' ? 'bof' : rec.goal === 'awareness' ? 'tof' : 'mof',
+          angle: rec.angle || 'General content',
+          reason: rec.why || '',
+          product_id: rec.product_id,
+          product_name: rec.product_id ? productMap[rec.product_id] : undefined,
+        }));
+        setRecommendations(recs);
+      } catch {
+        // Non-critical
+      } finally {
+        setRecsLoading(false);
+      }
+    };
+    fetchRecs();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -492,6 +541,44 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* Clawbot Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            <h3 className="text-sm font-semibold text-purple-300">Recommended Next</h3>
+            {recsLoading && <span className="text-xs text-zinc-500">loading...</span>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recommendations.map((rec, idx) => (
+              <Link
+                key={idx}
+                href={`/admin/content-studio?type=${rec.content_type}${rec.product_id ? `&product=${rec.product_id}` : ''}`}
+                className="block p-4 rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-violet-500/5 hover:from-purple-500/20 hover:to-violet-500/10 transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">
+                      {rec.angle}
+                    </div>
+                    {rec.product_name && (
+                      <div className="text-xs text-purple-400/80 mt-0.5">{rec.product_name}</div>
+                    )}
+                    <div className="text-xs text-zinc-500 mt-1 line-clamp-2">{rec.reason}</div>
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Create in Studio &rarr;
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Ready to Schedule Queue */}
       <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">

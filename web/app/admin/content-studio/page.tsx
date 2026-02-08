@@ -42,6 +42,7 @@ import {
   Pencil,
   X,
   AlertTriangle,
+  FlaskConical,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -348,6 +349,10 @@ export default function ContentStudioPage() {
   // Strategy reasoning toggle
   const [showStrategyReasoning, setShowStrategyReasoning] = useState(false);
 
+  // A/B Test mode
+  const [abTestMode, setAbTestMode] = useState(false);
+  const [savingAbTest, setSavingAbTest] = useState(false);
+
   // Clawbot suppression patterns
   const [suppressedPatterns, setSuppressedPatterns] = useState<string[]>([]);
 
@@ -527,6 +532,19 @@ export default function ContentStudioPage() {
     const productId = searchParams.get('product');
     if (productId) {
       setSelectedProductId(productId);
+    }
+    const typeParam = searchParams.get('type');
+    if (typeParam) {
+      // Set the content type
+      const matchedType = CONTENT_TYPES.find(ct => ct.id === typeParam);
+      if (matchedType) {
+        setSelectedContentTypeId(typeParam);
+        // Find matching main tab
+        const matchingTab = MAIN_TABS.find(t => t.contentTypes.includes(typeParam));
+        if (matchingTab) {
+          setSelectedMainTabId(matchingTab.id);
+        }
+      }
     }
   }, [searchParams]);
 
@@ -785,8 +803,8 @@ export default function ContentStudioPage() {
       risk_tier: riskTier,
       persona: 'NONE', // Default persona - user can customize later
 
-      // Variations
-      variation_count: variationCount,
+      // Variations (A/B mode forces 2)
+      variation_count: abTestMode ? 2 : variationCount,
 
       // Creative direction from advanced options
       creative_direction: [
@@ -866,6 +884,70 @@ export default function ContentStudioPage() {
       console.error('Failed to save:', err);
     } finally {
       setSavingToLibrary(false);
+    }
+  };
+
+  const handleSaveAsAbTest = async () => {
+    if (!result || !result.variations || result.variations.length < 2) return;
+    setSavingAbTest(true);
+    try {
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Manual Entry';
+      const productBrand = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.brand || ''
+        : manualBrandName || '';
+
+      // Save both variants to library first
+      const saveVariant = async (index: number, label: string) => {
+        const skit = result.variations![index]?.skit;
+        if (!skit) return null;
+        const res = await postJson<{ id: string }>('/api/skits', {
+          title: `${productName} - ${label} - ${new Date().toLocaleDateString()}`,
+          status: 'draft',
+          product_id: selectedProductId || null,
+          product_name: productName,
+          product_brand: productBrand,
+          skit_data: skit,
+          generation_config: {
+            content_type: selectedContentTypeId,
+            presentation_style: selectedPresentationStyleId,
+            risk_tier: riskTier,
+          },
+          ai_score: result.variations![index]?.ai_score || null,
+        });
+        if (isApiError(res)) return null;
+        return res.data?.id || null;
+      };
+
+      const [variantAId, variantBId] = await Promise.all([
+        saveVariant(0, 'Variant A'),
+        saveVariant(1, 'Variant B'),
+      ]);
+
+      // Create the A/B test
+      const testRes = await fetch('/api/ab-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${productName} - A/B Test - ${new Date().toLocaleDateString()}`,
+          product_id: selectedProductId || undefined,
+          variant_a_id: variantAId,
+          variant_b_id: variantBId,
+          hypothesis: `Comparing two ${selectedContentType?.name || 'content'} variations for ${productName}`,
+        }),
+      });
+
+      if (testRes.ok) {
+        // Show success
+        setAbTestMode(false);
+        // Brief notification
+        alert('A/B Test created! View it in the A/B Tests page.');
+      }
+    } catch (err) {
+      console.error('Failed to save A/B test:', err);
+    } finally {
+      setSavingAbTest(false);
     }
   };
 
@@ -1740,6 +1822,23 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
+              {/* A/B Test Mode Toggle */}
+              <label className="flex items-center gap-3 mt-4 p-3 rounded-lg border border-white/5 bg-zinc-800/30 cursor-pointer hover:bg-zinc-800/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={abTestMode}
+                  onChange={(e) => setAbTestMode(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-600 text-teal-500 focus:ring-teal-500 focus:ring-offset-0 bg-zinc-700"
+                />
+                <div>
+                  <span className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                    <FlaskConical size={14} className="text-teal-400" />
+                    A/B Test Mode
+                  </span>
+                  <span className="text-xs text-zinc-500 block">Generate 2 variations for side-by-side comparison</span>
+                </div>
+              </label>
+
               {/* Generate Button - Sticky on mobile */}
               <div className="sticky bottom-4 lg:static lg:bottom-auto mt-6">
                 <button type="button"
@@ -1777,24 +1876,48 @@ export default function ContentStudioPage() {
               Generated Scripts
             </h2>
             {result && (
-              <button type="button"
-                onClick={openSaveModal}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#8b5cf6',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <BookOpen size={14} />
-                Save to Library
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {abTestMode && result.variations && result.variations.length >= 2 && (
+                  <button type="button"
+                    onClick={handleSaveAsAbTest}
+                    disabled={savingAbTest}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#0d9488',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '13px',
+                      cursor: savingAbTest ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      opacity: savingAbTest ? 0.6 : 1,
+                    }}
+                  >
+                    <FlaskConical size={14} />
+                    {savingAbTest ? 'Saving...' : 'Save as A/B Test'}
+                  </button>
+                )}
+                <button type="button"
+                  onClick={openSaveModal}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#8b5cf6',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <BookOpen size={14} />
+                  Save to Library
+                </button>
+              </div>
             )}
           </div>
 

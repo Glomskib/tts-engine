@@ -96,7 +96,7 @@ export async function PATCH(
   }
 
   // Get authentication context
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   const actor = authContext.user?.id || "api";
   const isAdmin = authContext.isAdmin;
 
@@ -250,7 +250,7 @@ export async function DELETE(
   const { id } = await params;
 
   // Auth check - admin only
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

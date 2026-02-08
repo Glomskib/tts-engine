@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  * This endpoint is admin-only and should be protected by middleware.
  */
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

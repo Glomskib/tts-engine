@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Auth check - user must be logged in
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
@@ -57,7 +57,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Auth check - user must be logged in
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

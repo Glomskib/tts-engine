@@ -4,7 +4,7 @@ import { QUEUE_STATUSES } from "@/lib/video-pipeline";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { computeStageInfo, computeSlaInfo, RECORDING_STATUSES, type VideoForValidation } from "@/lib/execution-stages";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 const VALID_SORT_VALUES = ["priority", "newest", "oldest"] as const;
 type SortValue = typeof VALID_SORT_VALUES[number];
@@ -20,11 +20,11 @@ const VIDEO_SELECT_ASSIGNMENT = ",assigned_to,assigned_at,assigned_expires_at,as
 const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 
 export async function GET(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const user = authContext.user;
 
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);

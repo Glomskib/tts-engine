@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { verifyApiKeyFromRequest } from '@/lib/api-keys';
 
 export type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader';
 
@@ -59,15 +60,73 @@ async function safeGetUserRole(
 }
 
 /**
+ * Resolve role for a given user ID and email.
+ * Shared between session auth and API key auth paths.
+ */
+async function resolveUserRole(
+  userId: string,
+  email: string | undefined
+): Promise<AuthContext> {
+  const adminEmails = parseAdminUsersEnv();
+  const userEmail = email?.toLowerCase();
+
+  if (userEmail && adminEmails.has(userEmail)) {
+    return {
+      user: { id: userId, email },
+      role: 'admin',
+      isAdmin: true,
+      isUploader: true,
+    };
+  }
+
+  let role = await safeGetUserRole(supabaseAdmin, userId);
+
+  if (!role && userEmail) {
+    const uploaderEmails = parseUploaderUsersEnv();
+    if (uploaderEmails.has(userEmail)) {
+      role = 'uploader';
+    }
+  }
+
+  return {
+    user: { id: userId, email },
+    role,
+    isAdmin: role === 'admin',
+    isUploader: role === 'admin' || role === 'uploader',
+  };
+}
+
+/**
  * Get authentication context for API routes.
- * Returns user info and role derived from session.
+ * Returns user info and role derived from session or API key.
  *
- * Resolution order:
+ * When `request` is provided and contains a Bearer ff_ak_* token,
+ * API key auth is used. Otherwise falls back to cookie-based session auth.
+ *
+ * Resolution order for role:
  * 1. ADMIN_USERS env (authoritative - email match = admin)
  * 2. user_roles table (if exists)
  * 3. Default: no role
  */
-export async function getApiAuthContext(): Promise<AuthContext> {
+export async function getApiAuthContext(request?: Request): Promise<AuthContext> {
+  // API key auth path: if request has a Bearer ff_ak_* token, use it
+  if (request) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ff_ak_')) {
+      const keyResult = await verifyApiKeyFromRequest(request);
+      if (!keyResult) {
+        return { user: null, role: null, isAdmin: false, isUploader: false };
+      }
+
+      // Look up user email for role resolution
+      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(keyResult.userId);
+      const email = userData?.user?.email;
+
+      return resolveUserRole(keyResult.userId, email);
+    }
+  }
+
+  // Session auth path (existing behavior)
   const cookieStore = await cookies();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -113,35 +172,7 @@ export async function getApiAuthContext(): Promise<AuthContext> {
     return { user: null, role: null, isAdmin: false, isUploader: false };
   }
 
-  // Check ADMIN_USERS env (authoritative for admin access)
-  const adminEmails = parseAdminUsersEnv();
-  const userEmail = user.email?.toLowerCase();
-  if (userEmail && adminEmails.has(userEmail)) {
-    return {
-      user: { id: user.id, email: user.email },
-      role: 'admin',
-      isAdmin: true,
-      isUploader: true, // Admins can act as uploaders
-    };
-  }
-
-  // Query user_roles table (safe - handles missing table)
-  let role = await safeGetUserRole(supabaseAdmin, user.id);
-
-  // Check UPLOADER_USERS env as fallback for uploader role
-  if (!role && userEmail) {
-    const uploaderEmails = parseUploaderUsersEnv();
-    if (uploaderEmails.has(userEmail)) {
-      role = 'uploader';
-    }
-  }
-
-  return {
-    user: { id: user.id, email: user.email },
-    role,
-    isAdmin: role === 'admin',
-    isUploader: role === 'admin' || role === 'uploader',
-  };
+  return resolveUserRole(user.id, user.email);
 }
 
 /**

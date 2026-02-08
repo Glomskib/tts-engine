@@ -53,7 +53,7 @@ const CreateWinnerSchema = z.object({
 export async function GET(request: NextRequest) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }

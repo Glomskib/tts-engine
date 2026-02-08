@@ -5,12 +5,22 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
-import { User, CreditCard, Bell, Palette, Shield, Loader2, Check } from 'lucide-react';
+import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle } from 'lucide-react';
 
 interface UserProfile {
   id: string;
   email: string | null;
   created_at: string;
+}
+
+interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  created_at: string;
+  revoked_at: string | null;
 }
 
 interface UserSettings {
@@ -36,13 +46,14 @@ interface UserSettings {
   };
 }
 
-type TabId = 'account' | 'subscription' | 'notifications' | 'preferences';
+type TabId = 'account' | 'subscription' | 'notifications' | 'preferences' | 'api-keys';
 
 const TABS = [
   { id: 'account' as TabId, label: 'Account', icon: User },
   { id: 'subscription' as TabId, label: 'Subscription', icon: CreditCard },
   { id: 'notifications' as TabId, label: 'Notifications', icon: Bell },
   { id: 'preferences' as TabId, label: 'Preferences', icon: Palette },
+  { id: 'api-keys' as TabId, label: 'API Keys', icon: Key },
 ];
 
 export default function SettingsPage() {
@@ -55,6 +66,14 @@ export default function SettingsPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('account');
   const { credits, subscription, isLoading: creditsLoading } = useCredits();
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
+  const [showCreateKey, setShowCreateKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newKeyPlaintext, setNewKeyPlaintext] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,6 +139,77 @@ export default function SettingsPage() {
       setLoggingOut(false);
     }
   };
+
+  const fetchApiKeys = async () => {
+    setApiKeysLoading(true);
+    try {
+      const res = await fetch('/api/user/api-keys');
+      if (res.ok) {
+        const data = await res.json();
+        setApiKeys(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch API keys:', err);
+    } finally {
+      setApiKeysLoading(false);
+    }
+  };
+
+  const createApiKey = async () => {
+    if (!newKeyName.trim()) return;
+    setCreatingKey(true);
+    try {
+      const res = await fetch('/api/user/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newKeyName.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNewKeyPlaintext(data.data.plaintext);
+        setNewKeyName('');
+        fetchApiKeys();
+        showSuccess('API key created');
+      } else {
+        const data = await res.json();
+        showError(data.error || 'Failed to create API key');
+      }
+    } catch {
+      showError('Failed to create API key');
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  const revokeApiKey = async (keyId: string) => {
+    setRevokingId(keyId);
+    try {
+      const res = await fetch(`/api/user/api-keys/${keyId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchApiKeys();
+        showSuccess('API key revoked');
+      } else {
+        showError('Failed to revoke API key');
+      }
+    } catch {
+      showError('Failed to revoke API key');
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Fetch API keys when tab becomes active
+  useEffect(() => {
+    if (activeTab === 'api-keys') {
+      fetchApiKeys();
+    }
+  }, [activeTab]);
 
   const isUnlimited = credits?.remaining === -1;
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -412,6 +502,156 @@ export default function SettingsPage() {
                   />
                 </label>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* API Keys Tab */}
+        {activeTab === 'api-keys' && (
+          <div className="space-y-6">
+            {/* Create Key Section */}
+            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">API Keys</h2>
+                  <p className="text-sm text-zinc-400 mt-1">Create keys for machine-to-machine access to the FlashFlow API</p>
+                </div>
+                {!showCreateKey && !newKeyPlaintext && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateKey(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Key
+                  </button>
+                )}
+              </div>
+
+              {/* New Key Plaintext Display */}
+              {newKeyPlaintext && (
+                <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/10 mb-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-300">Copy your API key now</p>
+                      <p className="text-sm text-amber-400/80 mt-1">This key will only be shown once. Store it securely.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-200 font-mono break-all">
+                      {newKeyPlaintext}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(newKeyPlaintext)}
+                      className="flex items-center gap-1 px-3 py-2 bg-zinc-800 text-zinc-200 rounded hover:bg-zinc-700 border border-zinc-600 text-sm"
+                    >
+                      <Copy className="w-4 h-4" />
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewKeyPlaintext(null)}
+                    className="mt-3 text-sm text-zinc-400 hover:text-zinc-200"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+
+              {/* Create Key Form */}
+              {showCreateKey && !newKeyPlaintext && (
+                <div className="flex items-end gap-3 mb-4">
+                  <div className="flex-1">
+                    <label className="block text-sm text-zinc-400 mb-1">Key Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. OpenClaw Production"
+                      value={newKeyName}
+                      onChange={(e) => setNewKeyName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && createApiKey()}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={createApiKey}
+                    disabled={creatingKey || !newKeyName.trim()}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium disabled:opacity-50"
+                  >
+                    {creatingKey ? 'Creating...' : 'Create'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreateKey(false); setNewKeyName(''); }}
+                    className="px-4 py-2 bg-zinc-800 text-zinc-400 rounded-lg hover:text-zinc-200 border border-zinc-700 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* Keys List */}
+              {apiKeysLoading ? (
+                <div className="flex items-center gap-2 text-zinc-400 py-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading keys...
+                </div>
+              ) : apiKeys.length === 0 ? (
+                <p className="text-zinc-500 text-sm py-4">No API keys yet. Create one to get started.</p>
+              ) : (
+                <div className="space-y-3">
+                  {apiKeys.map(key => (
+                    <div
+                      key={key.id}
+                      className={`flex items-center justify-between p-4 rounded-lg border ${
+                        key.revoked_at
+                          ? 'border-zinc-800 bg-zinc-900/30 opacity-60'
+                          : 'border-white/10 bg-zinc-800/50'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-zinc-200">{key.name}</span>
+                          {key.revoked_at && (
+                            <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">Revoked</span>
+                          )}
+                          {key.scopes.map(scope => (
+                            <span key={scope} className="px-2 py-0.5 text-xs bg-zinc-700 text-zinc-300 rounded">{scope}</span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-zinc-500">
+                          <span className="font-mono">{key.key_prefix}</span>
+                          <span>Created {formatDate(key.created_at)}</span>
+                          {key.last_used_at && <span>Last used {formatDate(key.last_used_at)}</span>}
+                        </div>
+                      </div>
+                      {!key.revoked_at && (
+                        <button
+                          type="button"
+                          onClick={() => revokeApiKey(key.id)}
+                          disabled={revokingId === key.id}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg border border-transparent hover:border-red-500/20 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {revokingId === key.id ? 'Revoking...' : 'Revoke'}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Usage Info */}
+            <div className="p-4 rounded-xl border border-white/10 bg-zinc-900/30">
+              <h3 className="text-sm font-medium text-zinc-300 mb-2">Usage</h3>
+              <p className="text-xs text-zinc-500 mb-2">Include your API key in the Authorization header:</p>
+              <code className="block px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-400 font-mono">
+                curl -H &quot;Authorization: Bearer ff_ak_your_key_here&quot; https://your-domain/api/products
+              </code>
             </div>
           </div>
         )}

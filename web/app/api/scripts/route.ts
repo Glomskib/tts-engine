@@ -25,8 +25,12 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from("scripts")
     .select("*")
-    .eq("user_id", authContext.user.id)  // Filter by user_id
     .order("created_at", { ascending: false });
+
+  // Filter by ownership: admins see all, others see only their own
+  if (!authContext.isAdmin) {
+    query = query.eq("created_by", authContext.user.id);
+  }
 
   if (conceptId) {
     query = query.eq("concept_id", conceptId);
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
   const insertPayload: Record<string, unknown> = {
     version: 1,
     status: typeof scriptStatus === "string" ? scriptStatus : "DRAFT",
-    user_id: authContext.user.id,  // Set user_id on insert
+    created_by: authContext.user.id,  // Track script ownership
   };
 
   // concept_id is optional now (can create scripts without concept)

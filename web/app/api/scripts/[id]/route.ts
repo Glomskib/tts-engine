@@ -28,14 +28,14 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
-  // Build query - filter by user_id (admins can see all)
+  // Build query - filter by created_by (admins can see all)
   let query = supabaseAdmin
     .from("scripts")
     .select("*")
     .eq("id", id);
 
   if (!authContext.isAdmin) {
-    query = query.eq("user_id", authContext.user.id);
+    query = query.eq("created_by", authContext.user.id);
   }
 
   const { data, error } = await query.single();
@@ -77,7 +77,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     .eq("id", id);
 
   if (!authContext.isAdmin) {
-    ownershipQuery = ownershipQuery.eq("user_id", authContext.user.id);
+    ownershipQuery = ownershipQuery.eq("created_by", authContext.user.id);
   }
 
   const { data: existing, error: existError } = await ownershipQuery.single();

@@ -281,7 +281,12 @@ export async function GET(request: Request) {
   const id = searchParams.get("id");
 
   if (!type || !id) {
-    return createApiErrorResponse("BAD_REQUEST", "Missing required params: type and id", 400, correlationId);
+    // Bare GET with no params returns empty warnings (used by monitoring)
+    return NextResponse.json({
+      ok: true,
+      correlation_id: correlationId,
+      data: { warnings: [] },
+    });
   }
 
   try {

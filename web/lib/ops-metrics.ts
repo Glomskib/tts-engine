@@ -192,7 +192,6 @@ interface VideoForStuck {
   claim_expires_at: string | null;
   assigned_to: string | null;
   last_status_changed_at: string | null;
-  updated_at: string | null;
   created_at: string;
 }
 
@@ -215,7 +214,7 @@ export async function computeStuckVideos(
     const { data: videos, error: fetchError } = await supabase
       .from("videos")
       .select(
-        "id, status, claimed_by, claim_expires_at, assigned_to, last_status_changed_at, updated_at, created_at"
+        "id, status, claimed_by, claim_expires_at, assigned_to, last_status_changed_at, created_at"
       )
       .in("status", [...QUEUE_STATUSES, "draft"]);
 
@@ -232,7 +231,7 @@ export async function computeStuckVideos(
     for (const video of allVideos) {
       // Determine last activity timestamp
       const lastActivity =
-        video.last_status_changed_at || video.updated_at || video.created_at;
+        video.last_status_changed_at || video.created_at;
       const lastActivityDate = new Date(lastActivity);
 
       // Check if stuck (older than threshold)

@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   try {
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
     }

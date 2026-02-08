@@ -70,6 +70,7 @@ export default function SettingsPage() {
   const [apiKeysLoading, setApiKeysLoading] = useState(false);
   const [showCreateKey, setShowCreateKey] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyScopes, setNewKeyScopes] = useState<string[]>(['read']);
   const [creatingKey, setCreatingKey] = useState(false);
   const [newKeyPlaintext, setNewKeyPlaintext] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -162,12 +163,13 @@ export default function SettingsPage() {
       const res = await fetch('/api/user/api-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newKeyName.trim() }),
+        body: JSON.stringify({ name: newKeyName.trim(), scopes: newKeyScopes }),
       });
       if (res.ok) {
         const data = await res.json();
         setNewKeyPlaintext(data.data.plaintext);
         setNewKeyName('');
+        setNewKeyScopes(['read']);
         fetchApiKeys();
         showSuccess('API key created');
       } else {
@@ -563,33 +565,62 @@ export default function SettingsPage() {
 
               {/* Create Key Form */}
               {showCreateKey && !newKeyPlaintext && (
-                <div className="flex items-end gap-3 mb-4">
-                  <div className="flex-1">
-                    <label className="block text-sm text-zinc-400 mb-1">Key Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. OpenClaw Production"
-                      value={newKeyName}
-                      onChange={(e) => setNewKeyName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && createApiKey()}
-                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
+                <div className="mb-4 space-y-3">
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                      <label className="block text-sm text-zinc-400 mb-1">Key Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. OpenClaw Production"
+                        value={newKeyName}
+                        onChange={(e) => setNewKeyName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && createApiKey()}
+                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={createApiKey}
+                      disabled={creatingKey || !newKeyName.trim()}
+                      className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium disabled:opacity-50"
+                    >
+                      {creatingKey ? 'Creating...' : 'Create'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCreateKey(false); setNewKeyName(''); setNewKeyScopes(['read']); }}
+                      className="px-4 py-2 bg-zinc-800 text-zinc-400 rounded-lg hover:text-zinc-200 border border-zinc-700 text-sm"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={createApiKey}
-                    disabled={creatingKey || !newKeyName.trim()}
-                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium disabled:opacity-50"
-                  >
-                    {creatingKey ? 'Creating...' : 'Create'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowCreateKey(false); setNewKeyName(''); }}
-                    className="px-4 py-2 bg-zinc-800 text-zinc-400 rounded-lg hover:text-zinc-200 border border-zinc-700 text-sm"
-                  >
-                    Cancel
-                  </button>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Scopes</label>
+                    <div className="flex gap-2">
+                      {['read', 'write', 'admin'].map((scope) => {
+                        const active = newKeyScopes.includes(scope);
+                        return (
+                          <button
+                            key={scope}
+                            type="button"
+                            onClick={() => {
+                              if (scope === 'read') return; // read is always required
+                              setNewKeyScopes(prev =>
+                                active ? prev.filter(s => s !== scope) : [...prev, scope]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                              active
+                                ? 'bg-violet-600/20 text-violet-300 border-violet-500/50'
+                                : 'bg-zinc-800 text-zinc-500 border-zinc-700 hover:text-zinc-300 hover:border-zinc-600'
+                            } ${scope === 'read' ? 'cursor-default' : 'cursor-pointer'}`}
+                          >
+                            {scope}{scope === 'read' ? ' (required)' : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 

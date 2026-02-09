@@ -4,6 +4,8 @@ import { generateCorrelationId } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * GET /api/va/videos?va_name=<name>
  * Public VA endpoint — returns videos assigned to a specific VA.
@@ -64,8 +66,22 @@ export async function GET(request: Request) {
       });
     }
 
-    // Step 3: Query videos assigned to any matching ID
-    // assigned_to is UUID — use .in() for exact matches
+    // Step 3: Filter to valid UUIDs only — assigned_to is a UUID column,
+    // and team_members may contain placeholder IDs like 'editor1'
+    const uuidIds = [...new Set(matchIds.filter(id => UUID_REGEX.test(id)))];
+
+    if (uuidIds.length === 0) {
+      // Matched a team member but their user_id isn't a real UUID
+      return NextResponse.json({
+        ok: true,
+        data: [],
+        count: 0,
+        message: "Team member found but has no linked auth account",
+        correlation_id: correlationId,
+      });
+    }
+
+    // Step 4: Query videos assigned to any matching UUID
     const { data, error } = await supabaseAdmin
       .from("videos")
       .select(`
@@ -78,40 +94,13 @@ export async function GET(request: Request) {
         assigned_expires_at,
         last_status_changed_at, created_at
       `)
-      .in("assigned_to", matchIds)
+      .in("assigned_to", uuidIds)
       .not("recording_status", "eq", "POSTED")
       .not("recording_status", "eq", "REJECTED")
       .order("last_status_changed_at", { ascending: true });
 
     if (error) {
       console.error(`[${correlationId}] VA videos query error:`, error.message, error.details);
-      // If the .in() fails because IDs aren't valid UUIDs, try text cast
-      // Fall back to a raw query approach
-      const uuidIds = matchIds.filter(id =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-      );
-
-      if (uuidIds.length > 0) {
-        const { data: fallback, error: fbErr } = await supabaseAdmin
-          .from("videos")
-          .select(`
-            id, video_code, status, recording_status,
-            product_id, product:product_id(id, name, brand),
-            script_locked_text,
-            google_drive_url, final_video_url, posted_url,
-            recording_notes, editor_notes, uploader_notes,
-            assigned_to, assigned_role, assignment_state,
-            last_status_changed_at, created_at
-          `)
-          .in("assigned_to", uuidIds)
-          .order("last_status_changed_at", { ascending: true });
-
-        if (!fbErr && fallback) {
-          const videos = flattenVideos(fallback);
-          return NextResponse.json({ ok: true, data: videos, count: videos.length, correlation_id: correlationId });
-        }
-      }
-
       return NextResponse.json(
         { ok: false, error: "Failed to fetch videos", correlation_id: correlationId },
         { status: 500 }

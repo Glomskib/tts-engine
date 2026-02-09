@@ -116,7 +116,7 @@ export async function GET(
 
   const { data: winner, error } = await supabaseAdmin
     .from('winners_bank')
-    .select('id, ai_analysis, extracted_patterns')
+    .select('id, ai_analysis, patterns')
     .eq('id', id)
     .single();
 
@@ -128,7 +128,7 @@ export async function GET(
     ok: true,
     winner_id: winner.id,
     ai_analysis: winner.ai_analysis,
-    extracted_patterns: winner.extracted_patterns,
+    patterns: winner.patterns,
     correlation_id: correlationId,
   });
   response.headers.set('x-correlation-id', correlationId);

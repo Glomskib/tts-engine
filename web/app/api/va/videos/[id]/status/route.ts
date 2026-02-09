@@ -66,7 +66,26 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Verify VA is assigned to this video
-    if (video.assigned_to?.toLowerCase() !== va_name.trim().toLowerCase()) {
+    // Look up team member by display_name to match against assigned_to UUID
+    const { data: members } = await supabaseAdmin
+      .from("team_members")
+      .select("user_id")
+      .ilike("display_name", va_name.trim());
+    const memberIds = (members || []).map((m: { user_id: string }) => m.user_id);
+
+    // Also check auth users by name
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers({ perPage: 50 });
+    const authIds = (authUsers?.users || [])
+      .filter(u => {
+        const fullName = u.user_metadata?.full_name || u.user_metadata?.name || "";
+        return fullName.toLowerCase().includes(va_name.trim().toLowerCase());
+      })
+      .map(u => u.id);
+
+    const allMatchIds = [...memberIds, ...authIds];
+    const assignedTo = video.assigned_to as string;
+
+    if (!allMatchIds.includes(assignedTo)) {
       return NextResponse.json(
         { ok: false, error: "You are not assigned to this video", correlation_id: correlationId },
         { status: 403 }

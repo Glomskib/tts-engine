@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import {
   analyzeWinnerWithAI,
   extractPatternsFromAnalysis,
@@ -22,9 +22,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -76,7 +75,7 @@ export async function POST(
   // Extract patterns for quick reference
   const extractedPatterns = extractPatternsFromAnalysis(analysis);
 
-  // Save analysis to database (ai_analysis + patterns columns)
+  // Save analysis to database (ai_analysis + extracted_patterns columns)
   const { success, error: updateError } = await updateWinnerAnalysis(
     id,
     analysis as unknown as Record<string, unknown>,
@@ -107,9 +106,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -118,7 +116,7 @@ export async function GET(
 
   const { data: winner, error } = await supabaseAdmin
     .from('winners_bank')
-    .select('id, ai_analysis, patterns')
+    .select('id, ai_analysis, extracted_patterns')
     .eq('id', id)
     .single();
 
@@ -130,7 +128,7 @@ export async function GET(
     ok: true,
     winner_id: winner.id,
     ai_analysis: winner.ai_analysis,
-    patterns: winner.patterns,
+    extracted_patterns: winner.extracted_patterns,
     correlation_id: correlationId,
   });
   response.headers.set('x-correlation-id', correlationId);

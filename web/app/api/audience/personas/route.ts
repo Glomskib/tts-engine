@@ -67,7 +67,7 @@ const CreatePersonaSchema = z.object({
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
@@ -137,7 +137,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }

@@ -1,7 +1,7 @@
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { createVideoFromProduct, CreateVideoParams } from "@/lib/createVideoFromProduct";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
@@ -12,9 +12,8 @@ export const runtime = "nodejs";
  * This is the main entrypoint for creating videos from the pipeline UI.
  */
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

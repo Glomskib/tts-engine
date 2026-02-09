@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
  * For scripts with product_id, prefer /api/skits/[id]/send-to-video.
  */
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

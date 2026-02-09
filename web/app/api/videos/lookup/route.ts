@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from("videos")
     .select(
-      "id, title, video_code, tiktok_url, posted_url, posted_platform, recording_status, product_id, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, is_winner, stats_updated_at"
+      "id, video_code, tiktok_url, posted_url, posted_platform, recording_status, product_id, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, is_winner, stats_updated_at"
     );
 
   if (tiktokUrl) {
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
   } else if (postedUrl) {
     query = query.eq("posted_url", postedUrl);
   } else if (title) {
-    query = query.ilike("title", `%${title}%`);
+    query = query.ilike("video_code", `%${title}%`);
   }
 
   const { data, error } = await query.limit(20);

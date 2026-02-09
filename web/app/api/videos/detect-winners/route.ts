@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   const { data: videos, error } = await supabaseAdmin
     .from("videos")
     .select(
-      "id, title, product_id, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, tiktok_saves, tiktok_sales, tiktok_revenue, tiktok_clicks, is_winner, winner_detected_at, created_at"
+      "id, video_code, product_id, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, tiktok_saves, tiktok_sales, tiktok_revenue, tiktok_clicks, is_winner, winner_detected_at, created_at"
     )
     .gt("tiktok_views", 0);
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     already_winners: 0,
     winners: [] as Array<{
       id: string;
-      title: string | null;
+      video_code: string | null;
       is_winner: boolean;
       confidence: string;
       score: number;
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
 
       results.winners.push({
         id: video.id,
-        title: video.title,
+        video_code: video.video_code,
         is_winner: true,
         confidence: result.confidence,
         score: result.score,

@@ -39,7 +39,6 @@ CREATE OR REPLACE VIEW video_performance AS
 SELECT
   v.id,
   v.video_code,
-  v.title,
   v.product_id,
   p.name AS product_name,
   p.brand AS product_brand,

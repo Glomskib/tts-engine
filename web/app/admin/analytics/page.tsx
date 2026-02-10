@@ -7,7 +7,8 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { EmptyState } from '../components/AdminPageLayout';
 import SimpleBarChart from './components/SimpleBarChart';
-import { FileText, Video, Coins, ArrowRight, TrendingUp, TrendingDown, Trophy, Eye, Percent, Target, Brain, RefreshCw, AlertTriangle } from 'lucide-react';
+import PerformanceTab from './components/PerformanceTab';
+import { FileText, Video, Coins, ArrowRight, TrendingUp, TrendingDown, Trophy, Eye, Percent, Target, Brain, RefreshCw, AlertTriangle, BarChart3 } from 'lucide-react';
 import type { WinnersAnalytics } from '@/lib/analytics/types';
 import { StatCard } from '@/components/analytics/StatCard';
 import { TopPerformersCard } from '@/components/analytics/TopPerformersCard';
@@ -493,7 +494,7 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [contentData, setContentData] = useState<ContentAnalytics | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'content' | 'winners'>('content');
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'content' | 'winners' | 'performance'>('content');
   const [contentExporting, setContentExporting] = useState<string | null>(null);
   const [winnersData, setWinnersData] = useState<WinnersAnalytics | null>(null);
   const [winnersLoading, setWinnersLoading] = useState(false);
@@ -751,6 +752,26 @@ export default function AdminAnalyticsPage() {
         >
           <Trophy size={16} />
           Winners Insights
+        </button>
+        <button type="button"
+          onClick={() => setActiveTab('performance')}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: 'transparent',
+            color: activeTab === 'performance' ? '#22c55e' : '#6c757d',
+            border: 'none',
+            borderBottom: activeTab === 'performance' ? '2px solid #22c55e' : '2px solid transparent',
+            marginBottom: '-2px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: activeTab === 'performance' ? 'bold' : 'normal',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <BarChart3 size={16} />
+          Performance
         </button>
       </div>
 
@@ -1373,6 +1394,11 @@ export default function AdminAnalyticsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Performance Tab */}
+      {activeTab === 'performance' && (
+        <PerformanceTab days={windowDays} />
       )}
 
       {/* Pipeline Analytics Tab */}

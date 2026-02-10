@@ -24,7 +24,7 @@ export async function GET(
 
     const { data: videos, error } = await supabaseAdmin
       .from('videos')
-      .select('id, title, status, recording_status, tiktok_url, views_total, likes_total, comments_total, shares_total, created_at, product:product_id(id,name,brand)')
+      .select('id, title, status, recording_status, tiktok_url, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, created_at, product:product_id(id,name,brand)')
       .eq('account_id', id)
       .order('created_at', { ascending: false })
       .limit(100);

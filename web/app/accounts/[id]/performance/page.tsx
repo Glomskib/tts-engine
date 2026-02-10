@@ -6,12 +6,12 @@ import { useParams } from 'next/navigation';
 interface Video {
   id: string;
   tt_post_url?: string;
-  views_total?: number;
-  likes_total?: number;
-  comments_total?: number;
-  shares_total?: number;
-  orders_total?: number;
-  revenue_total?: number;
+  tiktok_views?: number;
+  tiktok_likes?: number;
+  tiktok_comments?: number;
+  tiktok_shares?: number;
+  tiktok_sales?: number;
+  tiktok_revenue?: number;
   last_metric_at?: string;
   caption_used?: string;
   hashtags_used?: string;
@@ -246,16 +246,16 @@ export default function PerformancePage() {
                   )}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                  {video.views_total !== undefined ? video.views_total.toLocaleString() : '—'}
+                  {video.tiktok_views !== undefined ? video.tiktok_views.toLocaleString() : '—'}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                  {video.likes_total !== undefined ? video.likes_total.toLocaleString() : '—'}
+                  {video.tiktok_likes !== undefined ? video.tiktok_likes.toLocaleString() : '—'}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                  {video.orders_total !== undefined ? video.orders_total.toLocaleString() : '—'}
+                  {video.tiktok_sales !== undefined ? video.tiktok_sales.toLocaleString() : '—'}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                  {video.revenue_total !== undefined ? `$${video.revenue_total.toFixed(2)}` : '—'}
+                  {video.tiktok_revenue !== undefined ? `$${video.tiktok_revenue.toFixed(2)}` : '—'}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
                   {video.last_metric_at ? new Date(video.last_metric_at).toLocaleDateString() : '—'}

@@ -21,10 +21,10 @@ interface Video {
   id: string;
   account_id: string;
   status: string;
-  views_total?: number;
-  likes_total?: number;
-  orders_total?: number;
-  revenue_total?: number;
+  tiktok_views?: number;
+  tiktok_likes?: number;
+  tiktok_sales?: number;
+  tiktok_revenue?: number;
   last_metric_at?: string;
   accounts?: { name: string; platform: string };
 }
@@ -269,12 +269,12 @@ export default function VariantPage() {
                     </td>
                     <td className={cellClass}>{video.status}</td>
                     <td className={cellClass}>
-                      {video.views_total !== undefined ? (
+                      {video.tiktok_views !== undefined ? (
                         <div>
-                          Views: {video.views_total.toLocaleString()}<br/>
-                          Likes: {video.likes_total || 0}<br/>
-                          Orders: {video.orders_total || 0}<br/>
-                          Revenue: ${(video.revenue_total || 0).toFixed(2)}
+                          Views: {video.tiktok_views.toLocaleString()}<br/>
+                          Likes: {video.tiktok_likes || 0}<br/>
+                          Sales: {video.tiktok_sales || 0}<br/>
+                          Revenue: ${(video.tiktok_revenue || 0).toFixed(2)}
                         </div>
                       ) : (
                         'No metrics'

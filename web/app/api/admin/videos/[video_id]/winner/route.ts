@@ -70,8 +70,8 @@ export async function POST(
       .from("videos")
       .select(`
         id,
-        views_total,
-        orders_total,
+        tiktok_views,
+        tiktok_sales,
         concept_id,
         product_id,
         script_locked_text,
@@ -115,8 +115,8 @@ export async function POST(
         details: {
           winner_reason: winner_reason || null,
           notes: notes || null,
-          views: video.views_total || 0,
-          orders: video.orders_total || 0,
+          views: video.tiktok_views || 0,
+          orders: video.tiktok_sales || 0,
         },
       });
 
@@ -127,8 +127,8 @@ export async function POST(
       const winningScript = video.script_locked_text || null;
 
       // Calculate CTR/CVR if we have data (simplified)
-      const views = video.views_total || 0;
-      const orders = video.orders_total || 0;
+      const views = video.tiktok_views || 0;
+      const orders = video.tiktok_sales || 0;
       const ctr = views > 0 ? Math.min(orders / views, 1) : 0; // Simplified - real CTR needs clicks
       const cvr = views > 0 ? Math.min(orders / views, 1) : 0;
 

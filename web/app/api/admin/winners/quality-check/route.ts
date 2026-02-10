@@ -85,8 +85,8 @@ export async function POST(request: Request) {
       .from("videos")
       .select(`
         id,
-        views_total,
-        orders_total,
+        tiktok_views,
+        tiktok_sales,
         script_locked_text,
         concept_id,
         concepts:concept_id (
@@ -103,8 +103,8 @@ export async function POST(request: Request) {
     const issues: QualityIssue[] = [];
 
     // Extract metrics
-    const views = video.views_total || 0;
-    const orders = video.orders_total || 0;
+    const views = video.tiktok_views || 0;
+    const orders = video.tiktok_sales || 0;
     const concept = video.concepts as { hook_options?: string[] } | null;
     const hookText = concept?.hook_options?.[0] || null;
     const hasHook = !!hookText && hookText.trim().length > 0;

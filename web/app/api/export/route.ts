@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (type === 'videos' || type === 'all') {
       const { data: videos } = await supabaseAdmin
         .from('videos')
-        .select('id, title, status, recording_status, priority_score, scheduled_date, tiktok_url, views_total, likes_total, comments_total, shares_total, created_at, last_status_changed_at, product:product_id(name,brand)')
+        .select('id, title, status, recording_status, priority_score, scheduled_date, tiktok_url, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, created_at, last_status_changed_at, product:product_id(name,brand)')
         .order('created_at', { ascending: false })
         .limit(5000);
 
@@ -66,10 +66,10 @@ export async function GET(request: NextRequest) {
         priority_score: v.priority_score,
         scheduled_date: v.scheduled_date,
         tiktok_url: v.tiktok_url,
-        views: v.views_total,
-        likes: v.likes_total,
-        comments: v.comments_total,
-        shares: v.shares_total,
+        views: v.tiktok_views,
+        likes: v.tiktok_likes,
+        comments: v.tiktok_comments,
+        shares: v.tiktok_shares,
         product: (v.product as any)?.name || '',
         brand: (v.product as any)?.brand || '',
         created_at: v.created_at,

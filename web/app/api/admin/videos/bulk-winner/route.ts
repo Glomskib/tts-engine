@@ -91,8 +91,8 @@ export async function POST(request: Request) {
         .from("videos")
         .select(`
           id,
-          views_total,
-          orders_total,
+          tiktok_views,
+          tiktok_sales,
           concept_id,
           product_id,
           script_locked_text,
@@ -140,8 +140,8 @@ export async function POST(request: Request) {
       const winningScript = video.script_locked_text || null;
 
       // Calculate metrics
-      const views = video.views_total || 0;
-      const orders = video.orders_total || 0;
+      const views = video.tiktok_views || 0;
+      const orders = video.tiktok_sales || 0;
       const ctr = views > 0 ? Math.min(orders / views, 1) : 0;
       const cvr = views > 0 ? Math.min(orders / views, 1) : 0;
 

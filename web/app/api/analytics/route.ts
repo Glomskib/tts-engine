@@ -91,18 +91,18 @@ export async function GET(request: Request) {
         // Top performing videos by views/engagement
         const { data: videos, error } = await db
           .from('videos')
-          .select('id, title, status, views_total, likes_total, comments_total, shares_total, tiktok_url, product_id, product:product_id(id,name,brand)')
-          .not('views_total', 'is', null)
-          .gt('views_total', 0)
-          .order('views_total', { ascending: false })
+          .select('id, title, status, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, tiktok_url, product_id, product:product_id(id,name,brand)')
+          .not('tiktok_views', 'is', null)
+          .gt('tiktok_views', 0)
+          .order('tiktok_views', { ascending: false })
           .limit(20);
 
         if (error) throw error;
 
         const topContent = (videos || []).map(v => {
-          const views = v.views_total || 0;
-          const likes = v.likes_total || 0;
-          const comments = v.comments_total || 0;
+          const views = v.tiktok_views || 0;
+          const likes = v.tiktok_likes || 0;
+          const comments = v.tiktok_comments || 0;
           const engagement = views > 0 ? ((likes + comments) / views * 100) : 0;
           const product = v.product as any;
           return {
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
             views: views,
             likes: likes,
             comments: comments,
-            shares: v.shares_total || 0,
+            shares: v.tiktok_shares || 0,
             engagement_rate: Math.round(engagement * 100) / 100,
             tiktok_url: v.tiktok_url,
             product_name: product?.name || null,
@@ -213,7 +213,7 @@ export async function GET(request: Request) {
         // Per-account metrics
         const { data: videos, error } = await db
           .from('videos')
-          .select('account_id, views_total, likes_total, comments_total, revenue_total, recording_status')
+          .select('account_id, tiktok_views, tiktok_likes, tiktok_comments, tiktok_revenue, recording_status')
           .not('account_id', 'is', null);
 
         if (error) throw error;
@@ -224,9 +224,9 @@ export async function GET(request: Request) {
           if (!byAccount[acct]) byAccount[acct] = { videos: 0, posted: 0, views: 0, likes: 0, revenue: 0 };
           byAccount[acct].videos += 1;
           if (v.recording_status === 'POSTED') byAccount[acct].posted += 1;
-          byAccount[acct].views += v.views_total || 0;
-          byAccount[acct].likes += v.likes_total || 0;
-          byAccount[acct].revenue += v.revenue_total || 0;
+          byAccount[acct].views += v.tiktok_views || 0;
+          byAccount[acct].likes += v.tiktok_likes || 0;
+          byAccount[acct].revenue += v.tiktok_revenue || 0;
         }
 
         // Fetch account names

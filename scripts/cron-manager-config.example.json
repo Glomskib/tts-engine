@@ -1,0 +1,9 @@
+{
+  "flashflow_api_url": "https://web-pied-delta-30.vercel.app/api",
+  "flashflow_api_key": "ff_ak_your_api_key_here",
+  "remote_host": "HP_WORKER_IP_HERE",
+  "remote_user": "Brandon",
+  "remote_ssh_key": "~/.ssh/id_ed25519_new",
+  "remote_scripts_dir": "C:\\FlashFlow\\scripts",
+  "remote_python": "C:\\FlashFlow\\.venv\\Scripts\\python.exe"
+}

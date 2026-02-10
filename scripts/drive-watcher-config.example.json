@@ -1,0 +1,7 @@
+{
+  "google_credentials_path": "/path/to/your-service-account-credentials.json",
+  "watch_folder_id": "YOUR_GOOGLE_DRIVE_FOLDER_ID",
+  "flashflow_api_url": "https://web-pied-delta-30.vercel.app/api",
+  "flashflow_api_key": "ff_ak_your_api_key_here",
+  "poll_interval_minutes": 30
+}

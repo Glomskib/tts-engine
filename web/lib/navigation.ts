@@ -32,6 +32,7 @@ import {
   BookOpen,
   Mic,
   Search,
+  Hash,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -89,6 +90,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Quality', href: '/admin/quality', icon: FlaskConical },
       { name: 'Competitors', href: '/admin/competitors', icon: Search },
       { name: 'A/B Tests', href: '/admin/ab-tests', icon: FlaskConical },
+      { name: 'Trends', href: '/admin/trends', icon: Hash },
     ],
   },
   {

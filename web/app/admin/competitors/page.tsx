@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Eye, Search, Brain, Upload, Video, TrendingUp, X, Loader2, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Eye, Search, Brain, Upload, Video, TrendingUp, X, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
+import { PullToRefresh } from '@/components/ui/PullToRefresh';
 
 interface Competitor {
   id: string;
@@ -155,27 +156,30 @@ export default function CompetitorsPage() {
 
   const selected = competitors.find(c => c.id === selectedId);
 
+  const handleRefresh = async () => {
+    await fetchCompetitors();
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 p-6 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 text-zinc-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 lg:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl lg:text-2xl font-bold">Competitor Tracker</h1>
-            <p className="text-sm text-zinc-400 mt-1">Monitor competitor TikTok accounts and steal their winning patterns</p>
-          </div>
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm transition-colors">
-            <Plus className="w-4 h-4" /> Add Competitor
-          </button>
+    <PullToRefresh onRefresh={handleRefresh} className="pb-24 lg:pb-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-xl font-bold">Competitor Tracker</h1>
+          <p className="text-sm text-zinc-400 mt-1">Monitor competitor TikTok accounts and steal their winning patterns</p>
         </div>
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm transition-colors btn-press min-h-[44px]">
+          <Plus className="w-4 h-4" /> Add Competitor
+        </button>
+      </div>
 
         {/* Add Form */}
         {showAdd && (
@@ -194,8 +198,8 @@ export default function CompetitorsPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Competitor List */}
-          <div className="lg:col-span-1 space-y-3">
+          {/* Competitor List - hide on mobile when detail selected */}
+          <div className={`lg:col-span-1 space-y-3 ${selectedId ? 'hidden lg:block' : ''}`}>
             {competitors.length === 0 ? (
               <div className="text-center py-12 text-zinc-500">
                 <Search className="w-8 h-8 mx-auto mb-3 opacity-50" />
@@ -205,7 +209,7 @@ export default function CompetitorsPage() {
               <div
                 key={c.id}
                 onClick={() => selectCompetitor(c.id)}
-                className={`p-4 rounded-xl border cursor-pointer transition-colors ${
+                className={`p-4 rounded-xl border cursor-pointer transition-colors card-press ${
                   selectedId === c.id ? 'bg-zinc-800 border-indigo-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
                 }`}
               >
@@ -214,8 +218,8 @@ export default function CompetitorsPage() {
                     <div className="font-semibold truncate">{c.name}</div>
                     <div className="text-sm text-zinc-400">{c.tiktok_handle}</div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); handleDelete(c.id); }} className="p-1 hover:bg-zinc-700 rounded ml-2">
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <button onClick={e => { e.stopPropagation(); handleDelete(c.id); }} className="p-2.5 hover:bg-zinc-700 rounded-lg ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                    <Trash2 className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-3 text-center">
@@ -238,7 +242,7 @@ export default function CompetitorsPage() {
           </div>
 
           {/* Detail Panel */}
-          <div className="lg:col-span-2">
+          <div className={`lg:col-span-2 ${selectedId ? '' : 'hidden lg:block'}`}>
             {!selected ? (
               <div className="flex items-center justify-center h-64 text-zinc-500">
                 <div className="text-center">
@@ -248,9 +252,17 @@ export default function CompetitorsPage() {
               </div>
             ) : (
               <div className="space-y-4">
+                {/* Mobile Back Button */}
+                <button
+                  onClick={() => { setSelectedId(null); setSelectedVideos([]); setAnalysis(null); }}
+                  className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white mb-3 lg:hidden btn-press min-h-[44px]"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back to list
+                </button>
+
                 {/* Competitor Header */}
-                <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
+                <div className="p-4 sm:p-5 bg-zinc-900 border border-zinc-800 rounded-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                     <div>
                       <h2 className="text-lg font-bold">{selected.name}</h2>
                       <p className="text-sm text-zinc-400">{selected.tiktok_handle} {selected.category ? `| ${selected.category}` : ''}</p>
@@ -258,7 +270,7 @@ export default function CompetitorsPage() {
                     <button
                       onClick={handleAnalyze}
                       disabled={analyzing}
-                      className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm transition-colors"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm transition-colors btn-press min-h-[44px] self-start"
                     >
                       {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
                       {analyzing ? 'Analyzing...' : 'AI Analysis'}
@@ -272,12 +284,12 @@ export default function CompetitorsPage() {
                       onChange={e => setTrackUrl(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleTrackVideo()}
                       placeholder="Paste TikTok URL to track..."
-                      className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm"
+                      className="flex-1 px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm min-h-[44px]"
                     />
                     <button
                       onClick={handleTrackVideo}
                       disabled={tracking || !trackUrl.trim()}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm"
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm btn-press min-h-[44px]"
                     >
                       {tracking ? 'Adding...' : 'Track'}
                     </button>
@@ -365,12 +377,12 @@ export default function CompetitorsPage() {
                               <div className="text-sm font-medium truncate">{v.title || v.tiktok_url}</div>
                               {v.hook_text && <div className="text-xs text-indigo-400 mt-0.5 truncate">Hook: {v.hook_text}</div>}
                             </div>
-                            <div className="flex gap-1.5 shrink-0">
-                              <a href={v.tiktok_url} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-zinc-700 rounded" title="Open on TikTok">
-                                <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                            <div className="flex gap-1 shrink-0">
+                              <a href={v.tiktok_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-zinc-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center" title="Open on TikTok">
+                                <ExternalLink className="w-4 h-4 text-zinc-400" />
                               </a>
-                              <button onClick={() => handleImportAsWinner(v)} className="p-1 hover:bg-zinc-700 rounded" title="Import as Winner">
-                                <Upload className="w-3.5 h-3.5 text-green-400" />
+                              <button onClick={() => handleImportAsWinner(v)} className="p-2 hover:bg-zinc-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center" title="Import as Winner">
+                                <Upload className="w-4 h-4 text-green-400" />
                               </button>
                             </div>
                           </div>
@@ -389,7 +401,6 @@ export default function CompetitorsPage() {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </PullToRefresh>
   );
 }

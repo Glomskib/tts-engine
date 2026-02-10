@@ -178,6 +178,8 @@ interface SkitVariation {
   risk_tier_applied: 'SAFE' | 'BALANCED' | 'SPICY';
   risk_score?: number;
   risk_flags?: string[];
+  variation_angle?: string;
+  pain_points_covered?: string[];
 }
 
 interface GenerationResult {
@@ -1237,33 +1239,43 @@ export default function ContentStudioPage() {
         </div>
       )}
 
-      {/* Main Category Tabs - horizontal scroll on mobile */}
+      {/* Content Type Filter Bar */}
       <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {MAIN_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isSelected = selectedMainTabId === tab.id;
-            return (
-              <button type="button"
-                key={tab.id}
-                onClick={() => setSelectedMainTabId(tab.id)}
-                title={tab.description}
-                className={`flex-shrink-0 px-4 py-3 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-colors ${
-                  isSelected
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                }`}
-              >
-                <Icon size={16} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: 'rgba(59, 130, 246, 0.05)',
+          border: '1px solid rgba(59, 130, 246, 0.15)',
+          borderRadius: '14px',
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+            Filter by Content Type
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {MAIN_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = selectedMainTabId === tab.id;
+              return (
+                <button type="button"
+                  key={tab.id}
+                  onClick={() => setSelectedMainTabId(tab.id)}
+                  title={tab.description}
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-colors ${
+                    isSelected
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Funnel stage hint for selected tab */}
+          {selectedMainTab?.funnelHint && (
+            <p className="mt-2 text-xs text-zinc-500 italic">{selectedMainTab.funnelHint}</p>
+          )}
         </div>
-        {/* Funnel stage hint for selected tab */}
-        {selectedMainTab?.funnelHint && (
-          <p className="mt-2 text-xs text-zinc-500 italic">{selectedMainTab.funnelHint}</p>
-        )}
       </div>
 
       {/* Main Grid - stacks on mobile */}
@@ -2063,6 +2075,11 @@ export default function ContentStudioPage() {
                       }}
                     >
                       V{idx + 1}
+                      {v.variation_angle && (
+                        <span style={{ marginLeft: '6px', fontSize: '11px', opacity: 0.7 }}>
+                          {v.variation_angle}
+                        </span>
+                      )}
                       {v.ai_score && (
                         <span style={{ marginLeft: '8px', opacity: 0.8 }}>
                           ({v.ai_score.overall_score}/10)
@@ -2643,6 +2660,39 @@ export default function ContentStudioPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+                );
+              })()}
+
+              {/* Painpoint Coverage */}
+              {(() => {
+                const currentVariation = result.variations?.[selectedVariationIndex];
+                const painPointsCovered = currentVariation?.pain_points_covered;
+                const audiencePainPoints = result.audience_metadata?.pain_points_addressed;
+                if (!painPointsCovered?.length && !audiencePainPoints?.length) return null;
+                return (
+                  <div style={{
+                    padding: '14px 16px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    borderRadius: '10px',
+                    marginBottom: '16px',
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '8px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Target size={12} /> Painpoint Coverage
+                    </div>
+                    {painPointsCovered?.map((pp, i) => (
+                      <div key={i} style={{ fontSize: '13px', color: '#D1D5DB', marginBottom: '4px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                        <span>{pp}</span>
+                      </div>
+                    ))}
+                    {!painPointsCovered?.length && audiencePainPoints?.map((pp, i) => (
+                      <div key={i} style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '4px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <Target size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                        <span>Targeted: {pp}</span>
+                      </div>
+                    ))}
                   </div>
                 );
               })()}

@@ -398,7 +398,7 @@ async function generateSkit(
     day_in_life: "Following a routine with product naturally integrated",
   }[format];
 
-  const prompt = `You are a viral TikTok script writer. Generate ${variationCount} comedy skit variations for the following product.
+  const prompt = `You are a top-tier viral TikTok script writer who creates content that ACTUALLY performs. Your scripts sound like real people talking — not marketing copy.
 
 ${productContext}
 ${audienceContext}
@@ -427,20 +427,27 @@ For each variation, output valid JSON with this structure:
         "cta_overlay": "CTA text overlay",
         "b_roll": ["b-roll suggestion 1"],
         "overlays": ["additional text overlay"]
-      }
+      },
+      "variation_angle": "Brief label: what makes this variation different",
+      "pain_points_covered": ["Which pain points this variation addresses and how"]
     }
   ]
 }
 
-REQUIREMENTS:
-- Hook must stop the scroll in under 3 seconds
-- Product integration should feel natural, not forced
-- Each variation should have a different angle/approach
-- Include timing markers for each beat
-- Keep dialogue natural and conversational
-- Add humor that matches the target audience
+CRITICAL QUALITY RULES:
+1. HOOKS: Each hook MUST be a pattern-interrupt — something that makes the viewer stop scrolling. NOT generic openers like "Did you know..." or "Are you tired of...". Use specific, unexpected, or polarizing statements. The hook should feel like overhearing something wild.
+2. VARIATION DIVERSITY: Each of the ${variationCount} variations MUST use a DIFFERENT approach:
+   - Different hook style (question vs bold claim vs controversy vs relatable moment vs shock)
+   - Different story structure (comedy skit vs day-in-life vs reaction vs POV)
+   - Different emotional trigger (humor vs FOMO vs curiosity vs insecurity vs aspiration)
+   - If 2 variations feel similar, rewrite one completely
+3. PAIN POINTS: If pain points are listed above, each variation must WEAVE them into the narrative naturally. Don't just mention the pain point — show how the product solves it through story, not exposition. Each variation should address pain points from a different angle.
+4. DIALOGUE: Write how real people ACTUALLY talk. Use incomplete sentences, filler words, natural reactions. No one says "This product has changed my life" — they say "bro I literally can't go back to the other stuff"
+5. PRODUCT INTEGRATION: The product should feel like a natural part of the story, never the main character. Viewer should think "that's cool" not "this is an ad"
+6. Include timing markers for each beat
+7. CTA should feel organic — like a friend recommending something, not a sales pitch
 
-Generate ${variationCount} unique variations now:`;
+Generate ${variationCount} truly unique variations now:`;
 
   // Call AI (using Anthropic/OpenAI based on environment)
   const aiResponse = await callAI(prompt);
@@ -502,7 +509,7 @@ async function generateScript(
     long: "60-90 seconds, full story",
   }[duration];
 
-  const prompt = `You are a viral social media copywriter. Write a script for the following product.
+  const prompt = `You are a top-performing TikTok content creator who writes scripts that sound REAL, not like ads. You know that the first 2 seconds decide everything.
 
 ${productContext}
 ${audienceContext}
@@ -524,16 +531,18 @@ Output valid JSON with this structure:
     ],
     "cta": "Clear call to action",
     "talking_points": ["Key point 1", "Key point 2"],
-    "visual_suggestions": ["Visual idea 1", "Visual idea 2"]
+    "visual_suggestions": ["Visual idea 1", "Visual idea 2"],
+    "pain_points_covered": ["Which pain points are addressed and where"]
   }
 }
 
-REQUIREMENTS:
-- Hook must be scroll-stopping
-- Body should flow naturally when read aloud
-- CTA should feel organic, not salesy
-- Match the tone to the target audience
-- Keep it authentic and conversational
+CRITICAL QUALITY RULES:
+1. HOOK: Must be a pattern-interrupt. NOT "Did you know" or "Are you tired of". Use something specific, unexpected, or polarizing that makes the viewer NEED to keep watching.
+2. PAIN POINTS: If pain points are listed above, weave them into the narrative naturally. Show don't tell — demonstrate how the product addresses each pain point through story, not exposition.
+3. DIALOGUE: Write how real people actually talk. Incomplete sentences, natural reactions, conversational rhythm. This should sound like a friend talking, not a copywriter writing.
+4. CTA: Should feel organic — like recommending something to a friend, not selling
+5. Body should flow naturally when read aloud — read it back to yourself
+6. Product mention should feel incidental, not forced
 
 Generate the script now:`;
 

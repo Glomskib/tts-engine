@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Building2, Edit, Trash2, ExternalLink, X, Loader2 } from 'lucide-react';
+import {
+  Plus, Building2, Edit, Trash2, ExternalLink, X, Loader2,
+  TrendingUp, Video, Trophy, Target, AlertCircle, CheckCircle,
+} from 'lucide-react';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 
 interface Brand {
@@ -19,6 +22,109 @@ interface Brand {
   videos_this_month: number;
   is_active: boolean;
   created_at: string;
+}
+
+interface BrandStats {
+  brand: string;
+  total_videos: number;
+  posted_videos: number;
+  winner_count: number;
+  avg_engagement: number;
+  products: string[];
+  health_score: number; // 0-100
+  health_label: 'excellent' | 'good' | 'needs_attention' | 'critical';
+  suggested_product: string | null;
+}
+
+function computeBrandStats(brand: Brand, videos: BrandVideo[], products: BrandProduct[], winners: BrandWinner[]): BrandStats {
+  const brandVideos = videos.filter(v => v.brand_name === brand.name);
+  const postedVideos = brandVideos.filter(v => v.recording_status === 'POSTED');
+  const brandWinners = winners.filter(w => w.brand === brand.name);
+  const brandProducts = products.filter(p => p.brand === brand.name);
+
+  // Calculate average engagement from posted videos with stats
+  const engagements = postedVideos
+    .map(v => {
+      const views = v.tiktok_views || 0;
+      const likes = v.tiktok_likes || 0;
+      return views > 0 ? (likes / views) * 100 : 0;
+    })
+    .filter(e => e > 0);
+  const avgEngagement = engagements.length > 0
+    ? engagements.reduce((a, b) => a + b, 0) / engagements.length
+    : 0;
+
+  // Health score: weighted factors
+  let score = 50; // base
+  const quotaUsage = brand.monthly_video_quota > 0
+    ? brand.videos_this_month / brand.monthly_video_quota
+    : 0;
+
+  // Quota utilization (30 points)
+  if (brand.monthly_video_quota > 0) {
+    if (quotaUsage >= 0.5 && quotaUsage <= 1.0) score += 30;
+    else if (quotaUsage >= 0.25) score += 15;
+    else score -= 10;
+  } else {
+    score += 15; // unlimited = neutral
+  }
+
+  // Content production (20 points)
+  if (postedVideos.length >= 5) score += 20;
+  else if (postedVideos.length >= 2) score += 10;
+  else score -= 10;
+
+  // Winners (20 points)
+  if (brandWinners.length >= 3) score += 20;
+  else if (brandWinners.length >= 1) score += 10;
+
+  // Engagement (10 points)
+  if (avgEngagement >= 5) score += 10;
+  else if (avgEngagement >= 2) score += 5;
+
+  score = Math.min(100, Math.max(0, score));
+
+  const health_label: BrandStats['health_label'] =
+    score >= 80 ? 'excellent' :
+    score >= 60 ? 'good' :
+    score >= 40 ? 'needs_attention' : 'critical';
+
+  // Suggest product that has fewest recent videos
+  const productVideoCounts = brandProducts.map(p => ({
+    name: p.name,
+    count: brandVideos.filter(v => v.product_name === p.name).length,
+  }));
+  const leastCoveredProduct = productVideoCounts.sort((a, b) => a.count - b.count)[0];
+
+  return {
+    brand: brand.name,
+    total_videos: brandVideos.length,
+    posted_videos: postedVideos.length,
+    winner_count: brandWinners.length,
+    avg_engagement: Math.round(avgEngagement * 10) / 10,
+    products: brandProducts.map(p => p.name),
+    health_score: score,
+    health_label,
+    suggested_product: leastCoveredProduct?.name || null,
+  };
+}
+
+interface BrandVideo {
+  brand_name: string | null;
+  product_name: string | null;
+  recording_status: string | null;
+  tiktok_views: number | null;
+  tiktok_likes: number | null;
+}
+
+interface BrandProduct {
+  id: string;
+  name: string;
+  brand: string;
+}
+
+interface BrandWinner {
+  brand: string | null;
 }
 
 interface AuthUser {
@@ -39,6 +145,9 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Analytics data
+  const [brandStats, setBrandStats] = useState<BrandStats[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Fetch auth user
   useEffect(() => {
@@ -90,11 +199,59 @@ export default function BrandsPage() {
     }
   }, []);
 
+  // Fetch brand analytics data
+  const fetchBrandStats = useCallback(async (brandList: Brand[]) => {
+    if (brandList.length === 0) return;
+    setStatsLoading(true);
+    try {
+      const [videosRes, productsRes, winnersRes] = await Promise.all([
+        fetch('/api/admin/videos?limit=500'),
+        fetch('/api/products'),
+        fetch('/api/admin/winners-bank?limit=200'),
+      ]);
+      const [videosData, productsData, winnersData] = await Promise.all([
+        videosRes.json(),
+        productsRes.json(),
+        winnersRes.json(),
+      ]);
+
+      const videos: BrandVideo[] = (videosData.data || []).map((v: Record<string, unknown>) => ({
+        brand_name: v.brand_name || null,
+        product_name: v.product_name || null,
+        recording_status: v.recording_status || null,
+        tiktok_views: v.tiktok_views || null,
+        tiktok_likes: v.tiktok_likes || null,
+      }));
+      const products: BrandProduct[] = (productsData.data || []).map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        name: p.name as string,
+        brand: p.brand as string,
+      }));
+      const winners: BrandWinner[] = (winnersData.data || []).map((w: Record<string, unknown>) => ({
+        brand: (w.brand as string) || null,
+      }));
+
+      const stats = brandList.map(brand => computeBrandStats(brand, videos, products, winners));
+      setBrandStats(stats);
+    } catch {
+      // stats are supplementary, don't block main page
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!authLoading && authUser) {
       fetchBrands();
     }
   }, [authLoading, authUser, fetchBrands]);
+
+  // Fetch stats after brands load
+  useEffect(() => {
+    if (brands.length > 0) {
+      fetchBrandStats(brands);
+    }
+  }, [brands, fetchBrandStats]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this brand? Products will be unlinked but not deleted.')) return;
@@ -159,6 +316,60 @@ export default function BrandsPage() {
       {error && (
         <div className="bg-red-900/50 border border-red-500/50 rounded-md p-3 text-sm text-red-200">
           Error: {error}
+        </div>
+      )}
+
+      {/* Brand Health Dashboard */}
+      {brandStats.length > 0 && !statsLoading && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-zinc-400 mb-3">Brand Health Overview</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {brandStats.map(stat => {
+              const healthColor = stat.health_label === 'excellent' ? 'text-green-400' :
+                stat.health_label === 'good' ? 'text-teal-400' :
+                stat.health_label === 'needs_attention' ? 'text-yellow-400' : 'text-red-400';
+              const healthBg = stat.health_label === 'excellent' ? 'bg-green-500' :
+                stat.health_label === 'good' ? 'bg-teal-500' :
+                stat.health_label === 'needs_attention' ? 'bg-yellow-500' : 'bg-red-500';
+              const HealthIcon = stat.health_label === 'excellent' || stat.health_label === 'good'
+                ? CheckCircle : AlertCircle;
+
+              return (
+                <div key={stat.brand} className="bg-zinc-800/50 border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-zinc-200 truncate">{stat.brand}</span>
+                    <div className={`flex items-center gap-1 text-xs ${healthColor}`}>
+                      <HealthIcon className="w-3.5 h-3.5" />
+                      {stat.health_score}
+                    </div>
+                  </div>
+                  {/* Health bar */}
+                  <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-3">
+                    <div className={`h-full ${healthBg} rounded-full transition-all`} style={{ width: `${stat.health_score}%` }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-zinc-400">
+                      <Video className="w-3 h-3" /> {stat.posted_videos}/{stat.total_videos} posted
+                    </div>
+                    <div className="flex items-center gap-1.5 text-zinc-400">
+                      <Trophy className="w-3 h-3 text-yellow-500" /> {stat.winner_count} winners
+                    </div>
+                    <div className="flex items-center gap-1.5 text-zinc-400">
+                      <TrendingUp className="w-3 h-3" /> {stat.avg_engagement}% eng.
+                    </div>
+                    <div className="flex items-center gap-1.5 text-zinc-400">
+                      <Target className="w-3 h-3" /> {stat.products.length} products
+                    </div>
+                  </div>
+                  {stat.suggested_product && (
+                    <div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-zinc-500">
+                      Next: <span className="text-teal-400">{stat.suggested_product}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

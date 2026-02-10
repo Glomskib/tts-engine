@@ -41,3 +41,17 @@ Read TASK_QUEUE.md now for full specs, file paths, expected behavior, and testin
 Brandon is ready to test with VA once all 4 are working. Commit frequently with descriptive messages. No deployment needed until full test passes.
 
 ACKNOWLEDGE and begin Task 1 immediately.
+
+---
+[2026-02-10 07:24:00 PST] URGENT — Tailscale Setup + Vercel Deploy Fix
+INSTRUCTIONS:
+1. Run: `tailscale up` — it will print an auth URL like https://login.tailscale.com/a/xxxxx
+2. Copy that auth URL and send it to JARVIS via message tool (JARVIS will relay to Brandon's phone)
+3. Once confirmed authenticated, fix Vercel deploy:
+   cd /Volumes/WorkSSD/01_ACTIVE/FlashFlow/web
+   pnpm install
+   pnpm build
+   git add -A && git commit -m "Fix pnpm lockfile and pending changes" && git push origin master
+4. Verify build succeeds and Vercel deploys tts-engine successfully
+
+Brandon will authenticate Tailscale from his phone using the URL. Mac Mini will get a Tailscale IP (100.x.x.x) for remote access.

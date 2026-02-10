@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
-import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle, Zap, Send, ToggleLeft, ToggleRight } from 'lucide-react';
+import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle, Zap, Send, ToggleLeft, ToggleRight, Download, Upload } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -58,7 +58,7 @@ interface Webhook {
   failure_count: number;
 }
 
-type TabId = 'account' | 'subscription' | 'notifications' | 'preferences' | 'api-keys' | 'webhooks';
+type TabId = 'account' | 'subscription' | 'notifications' | 'preferences' | 'api-keys' | 'webhooks' | 'data';
 
 const TABS = [
   { id: 'account' as TabId, label: 'Account', icon: User },
@@ -67,6 +67,15 @@ const TABS = [
   { id: 'preferences' as TabId, label: 'Preferences', icon: Palette },
   { id: 'api-keys' as TabId, label: 'API Keys', icon: Key },
   { id: 'webhooks' as TabId, label: 'Webhooks', icon: Zap },
+  { id: 'data' as TabId, label: 'Data', icon: Download },
+];
+
+const EXPORT_TYPES = [
+  { id: 'videos', label: 'Videos', description: 'Pipeline videos with stats and status' },
+  { id: 'scripts', label: 'Scripts', description: 'Saved scripts and hooks' },
+  { id: 'winners', label: 'Winners', description: 'Winners bank entries' },
+  { id: 'products', label: 'Products', description: 'Product catalog' },
+  { id: 'all', label: 'All Data', description: 'Complete export of all data' },
 ];
 
 export default function SettingsPage() {
@@ -100,6 +109,11 @@ export default function SettingsPage() {
   const [newWebhookSecret, setNewWebhookSecret] = useState<string | null>(null);
   const [creatingWebhook, setCreatingWebhook] = useState(false);
   const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+
+  // Data export/import state
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -328,6 +342,73 @@ export default function SettingsPage() {
       showError('Failed to send test');
     } finally {
       setTestingWebhookId(null);
+    }
+  };
+
+  // Data export function
+  const handleExport = async (type: string, format: 'json' | 'csv') => {
+    setExporting(`${type}-${format}`);
+    try {
+      const res = await fetch(`/api/export?type=${type}&format=${format}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || `export.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showSuccess(`${type} exported as ${format.toUpperCase()}`);
+    } catch {
+      showError('Export failed');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      // Auto-detect type from export format
+      let type = '';
+      let data: unknown[] = [];
+      if (json.products) { type = 'products'; data = json.products; }
+      else if (json.winners) { type = 'winners'; data = json.winners; }
+      else if (Array.isArray(json) && json.length > 0) {
+        if ('hook' in json[0]) { type = 'winners'; data = json; }
+        else if ('name' in json[0]) { type = 'products'; data = json; }
+      }
+
+      if (!type || data.length === 0) {
+        showError('Could not detect import type. File must contain products or winners data.');
+        return;
+      }
+
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, data }),
+      });
+      const result = await res.json();
+      if (result.ok) {
+        setImportResult(result.data);
+        showSuccess(`Imported ${result.data.imported} ${type}`);
+      } else {
+        showError(result.error?.message || 'Import failed');
+      }
+    } catch {
+      showError('Failed to parse import file. Must be valid JSON.');
+    } finally {
+      setImporting(false);
+      e.target.value = '';
     }
   };
 
@@ -1162,6 +1243,75 @@ export default function SettingsPage() {
   "data": { ... }
 }`}</code>
               <p className="text-xs text-zinc-500 mt-2">Verify payloads using the <code className="text-zinc-400">X-Webhook-Signature</code> header (HMAC SHA-256).</p>
+            </div>
+          </div>
+        )}
+
+        {/* Data Tab */}
+        {activeTab === 'data' && (
+          <div className="space-y-6">
+            {/* Export Section */}
+            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+              <h2 className="text-lg font-semibold text-white mb-1">Export Data</h2>
+              <p className="text-sm text-zinc-400 mb-4">Download your data in JSON or CSV format</p>
+              <div className="space-y-3">
+                {EXPORT_TYPES.map((et) => (
+                  <div key={et.id} className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-zinc-800/30">
+                    <div>
+                      <span className="text-sm font-medium text-zinc-200">{et.label}</span>
+                      <p className="text-xs text-zinc-500">{et.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleExport(et.id, 'json')}
+                        disabled={exporting === `${et.id}-json`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-700 text-zinc-200 rounded-lg hover:bg-zinc-600 disabled:opacity-50"
+                      >
+                        {exporting === `${et.id}-json` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                        JSON
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport(et.id, 'csv')}
+                        disabled={exporting === `${et.id}-csv`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-700 text-zinc-200 rounded-lg hover:bg-zinc-600 disabled:opacity-50"
+                      >
+                        {exporting === `${et.id}-csv` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                        CSV
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Import Section */}
+            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+              <h2 className="text-lg font-semibold text-white mb-1">Import Data</h2>
+              <p className="text-sm text-zinc-400 mb-4">Restore from a JSON export file (products or winners)</p>
+
+              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-zinc-700 rounded-xl hover:border-zinc-500 cursor-pointer transition-colors">
+                <Upload className="w-8 h-8 text-zinc-500 mb-2" />
+                <span className="text-sm text-zinc-400">
+                  {importing ? 'Importing...' : 'Click to select a JSON file'}
+                </span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportFile}
+                  disabled={importing}
+                  className="hidden"
+                />
+              </label>
+
+              {importResult && (
+                <div className="mt-4 p-3 rounded-lg bg-teal-500/10 border border-teal-500/20">
+                  <p className="text-sm text-teal-300">
+                    Import complete: <strong>{importResult.imported}</strong> imported, <strong>{importResult.skipped}</strong> skipped
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

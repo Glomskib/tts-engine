@@ -23,6 +23,7 @@ import {
   Download,
   Calendar,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
 import { HOOK_TYPE_OPTIONS, CONTENT_FORMAT_OPTIONS } from '@/lib/winners';
@@ -75,6 +76,10 @@ export default function WinnersBankPage() {
   const [selectedWinner, setSelectedWinner] = useState<Winner | null>(null);
   const [showAddExternal, setShowAddExternal] = useState(false);
   const [showMarkWinner, setShowMarkWinner] = useState(false);
+  const [showQuickImport, setShowQuickImport] = useState(false);
+  const [quickImportUrl, setQuickImportUrl] = useState('');
+  const [quickImporting, setQuickImporting] = useState(false);
+  const [quickImportSuccess, setQuickImportSuccess] = useState(false);
 
   // Generate Like This state
   const [generateLikeModal, setGenerateLikeModal] = useState<{
@@ -418,6 +423,13 @@ export default function WinnersBankPage() {
                 <Trophy className="w-4 h-4 text-amber-400" />
                 Mark Script as Winner
               </button>
+              <Link
+                href="/admin/winners/import"
+                className="px-4 py-2 bg-pink-600 hover:bg-pink-500 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Import TikTok
+              </Link>
               <button type="button"
                 onClick={() => setShowAddExternal(true)}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
@@ -949,6 +961,99 @@ export default function WinnersBankPage() {
             setShowMarkWinner(false);
           }}
         />
+      )}
+
+      {/* Quick Import FAB */}
+      <button
+        type="button"
+        onClick={() => setShowQuickImport(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-pink-600 hover:bg-pink-500 rounded-full shadow-2xl shadow-pink-600/30 flex items-center justify-center transition-all hover:scale-110 z-20"
+        title="Quick Import TikTok"
+      >
+        <Plus className="w-6 h-6 text-white" />
+      </button>
+
+      {/* Quick Import Modal */}
+      {showQuickImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowQuickImport(false); setQuickImportUrl(''); setQuickImportSuccess(false); }} />
+          <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Quick Import TikTok</h3>
+              {quickImportSuccess ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-3">
+                    <Check className="w-6 h-6 text-green-400" />
+                  </div>
+                  <p className="text-green-400 font-medium mb-4">Added to Winners Bank!</p>
+                  <button
+                    type="button"
+                    onClick={() => { setQuickImportUrl(''); setQuickImportSuccess(false); }}
+                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-lg"
+                  >
+                    Import Another
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="url"
+                    value={quickImportUrl}
+                    onChange={e => setQuickImportUrl(e.target.value)}
+                    placeholder="Paste TikTok URL..."
+                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-pink-500/50 mb-4"
+                    autoFocus
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && quickImportUrl.trim() && !quickImporting) {
+                        setQuickImporting(true);
+                        try {
+                          const res = await fetch('/api/winners/import-tiktok', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: quickImportUrl.trim() }),
+                          });
+                          const data = await res.json();
+                          if (data.ok) {
+                            setQuickImportSuccess(true);
+                            fetchWinners();
+                          } else {
+                            setError(data.message || 'Import failed');
+                          }
+                        } catch { setError('Import failed'); }
+                        finally { setQuickImporting(false); }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!quickImportUrl.trim() || quickImporting}
+                    onClick={async () => {
+                      setQuickImporting(true);
+                      try {
+                        const res = await fetch('/api/winners/import-tiktok', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ url: quickImportUrl.trim() }),
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                          setQuickImportSuccess(true);
+                          fetchWinners();
+                        } else {
+                          setError(data.message || 'Import failed');
+                        }
+                      } catch { setError('Import failed'); }
+                      finally { setQuickImporting(false); }
+                    }}
+                    className="w-full py-3 bg-pink-600 hover:bg-pink-500 disabled:bg-pink-600/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    {quickImporting ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</> : <>Import</>}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

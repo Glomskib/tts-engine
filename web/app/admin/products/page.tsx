@@ -96,6 +96,15 @@ export default function ProductsPage() {
   const [brandEntities, setBrandEntities] = useState<BrandEntity[]>([]);
   const [brandEntityFilter, setBrandEntityFilter] = useState<string>('');
 
+  // Quick brand creation
+  const [showQuickBrand, setShowQuickBrand] = useState(false);
+  const [quickBrandName, setQuickBrandName] = useState('');
+  const [creatingBrand, setCreatingBrand] = useState(false);
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<'name' | 'brand' | 'posted' | 'this_month' | 'in_queue'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   // Fetch auth user
   useEffect(() => {
     const fetchAuthUser = async () => {
@@ -314,6 +323,35 @@ export default function ProductsPage() {
     }
   };
 
+  // Quick brand creation from add product form
+  const handleQuickBrandCreate = async () => {
+    if (!quickBrandName.trim()) return;
+
+    setCreatingBrand(true);
+    try {
+      const res = await fetch('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: quickBrandName.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setAddError(data.error?.message || data.error || 'Failed to create brand');
+        return;
+      }
+      // Add to brand entities and auto-select
+      const newBrand = data.data;
+      setBrandEntities(prev => [...prev, { id: newBrand.id, name: newBrand.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      setAddForm(prev => ({ ...prev, brand_id: newBrand.id }));
+      setShowQuickBrand(false);
+      setQuickBrandName('');
+    } catch {
+      setAddError('Failed to create brand');
+    } finally {
+      setCreatingBrand(false);
+    }
+  };
+
   // Save product changes
   const handleSave = async () => {
     if (!editingProduct) return;
@@ -499,7 +537,30 @@ export default function ProductsPage() {
       }
     }
     return true;
+  }).sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    switch (sortBy) {
+      case 'name': return dir * a.name.localeCompare(b.name);
+      case 'brand': return dir * a.brand.localeCompare(b.brand);
+      case 'posted': return dir * (a.posted - b.posted);
+      case 'this_month': return dir * (a.videos_this_month - b.videos_this_month);
+      case 'in_queue': return dir * (a.in_queue - b.in_queue);
+      default: return 0;
+    }
   });
+
+  const handleSort = (col: typeof sortBy) => {
+    if (sortBy === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir(col === 'name' || col === 'brand' ? 'asc' : 'desc');
+    }
+  };
+
+  const SortIndicator = ({ col }: { col: typeof sortBy }) => (
+    sortBy === col ? <span className="ml-1 text-teal-400">{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</span> : null
+  );
 
   return (
     <AdminPageLayout
@@ -619,12 +680,12 @@ export default function ProductsPage() {
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Product</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Brand</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('name')}>Product<SortIndicator col="name" /></th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('brand')}>Brand<SortIndicator col="brand" /></th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Category</th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400">This Month</th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400">In Queue</th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400">Posted</th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('this_month')}>This Month<SortIndicator col="this_month" /></th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('in_queue')}>In Queue<SortIndicator col="in_queue" /></th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('posted')}>Posted<SortIndicator col="posted" /></th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Target Accounts</th>
                   <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
                 </tr>
@@ -1105,22 +1166,56 @@ export default function ProductsPage() {
                 <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Brand <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={addForm.brand_id || ''}
-                  onChange={(e) => setAddForm({ ...addForm, brand_id: e.target.value || null })}
-                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                  <option value="">Select a brand...</option>
-                  {brandEntities.map(brand => (
-                    <option key={brand.id} value={brand.id}>{brand.name}</option>
-                  ))}
-                </select>
-                {brandEntities.length === 0 && (
+                <div className="flex gap-2">
+                  <select
+                    value={addForm.brand_id || ''}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        setShowQuickBrand(true);
+                      } else {
+                        setAddForm({ ...addForm, brand_id: e.target.value || null });
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Select a brand...</option>
+                    {brandEntities.map(brand => (
+                      <option key={brand.id} value={brand.id}>{brand.name}</option>
+                    ))}
+                    <option value="__new__">+ Create New Brand</option>
+                  </select>
+                </div>
+                {showQuickBrand && (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={quickBrandName}
+                      onChange={(e) => setQuickBrandName(e.target.value)}
+                      placeholder="New brand name..."
+                      className="flex-1 px-3 py-2 border border-teal-500/50 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleQuickBrandCreate(); }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleQuickBrandCreate}
+                      disabled={creatingBrand || !quickBrandName.trim()}
+                      className="px-3 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-md disabled:opacity-50"
+                    >
+                      {creatingBrand ? '...' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowQuickBrand(false); setQuickBrandName(''); }}
+                      className="px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                {brandEntities.length === 0 && !showQuickBrand && (
                   <p className="text-xs text-zinc-500 mt-1">
-                    No brands yet.{' '}
-                    <Link href="/admin/brands" className="text-teal-400 hover:text-teal-300">
-                      Create one first
-                    </Link>
+                    No brands yet — select &quot;+ Create New Brand&quot; above.
                   </p>
                 )}
               </div>

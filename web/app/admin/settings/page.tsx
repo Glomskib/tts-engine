@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
-import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle, Zap, Send, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -46,7 +46,19 @@ interface UserSettings {
   };
 }
 
-type TabId = 'account' | 'subscription' | 'notifications' | 'preferences' | 'api-keys';
+interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  created_at: string;
+  last_triggered_at: string | null;
+  last_status_code: number | null;
+  failure_count: number;
+}
+
+type TabId = 'account' | 'subscription' | 'notifications' | 'preferences' | 'api-keys' | 'webhooks';
 
 const TABS = [
   { id: 'account' as TabId, label: 'Account', icon: User },
@@ -54,6 +66,7 @@ const TABS = [
   { id: 'notifications' as TabId, label: 'Notifications', icon: Bell },
   { id: 'preferences' as TabId, label: 'Preferences', icon: Palette },
   { id: 'api-keys' as TabId, label: 'API Keys', icon: Key },
+  { id: 'webhooks' as TabId, label: 'Webhooks', icon: Zap },
 ];
 
 export default function SettingsPage() {
@@ -75,6 +88,18 @@ export default function SettingsPage() {
   const [newKeyPlaintext, setNewKeyPlaintext] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  // Webhook state
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [webhooksLoading, setWebhooksLoading] = useState(false);
+  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
+  const [showCreateWebhook, setShowCreateWebhook] = useState(false);
+  const [newWebhookName, setNewWebhookName] = useState('');
+  const [newWebhookUrl, setNewWebhookUrl] = useState('');
+  const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>([]);
+  const [newWebhookSecret, setNewWebhookSecret] = useState<string | null>(null);
+  const [creatingWebhook, setCreatingWebhook] = useState(false);
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -206,10 +231,113 @@ export default function SettingsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Fetch API keys when tab becomes active
+  // Webhook functions
+  const fetchWebhooks = async () => {
+    setWebhooksLoading(true);
+    try {
+      const res = await fetch('/api/webhooks');
+      if (res.ok) {
+        const data = await res.json();
+        setWebhooks(data.data?.webhooks || []);
+        setAvailableEvents(data.data?.available_events || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch webhooks:', err);
+    } finally {
+      setWebhooksLoading(false);
+    }
+  };
+
+  const createWebhook = async () => {
+    if (!newWebhookName.trim() || !newWebhookUrl.trim() || newWebhookEvents.length === 0) return;
+    setCreatingWebhook(true);
+    try {
+      const res = await fetch('/api/webhooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newWebhookName.trim(),
+          url: newWebhookUrl.trim(),
+          events: newWebhookEvents,
+          generate_secret: true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data?.secret) setNewWebhookSecret(data.data.secret);
+        setNewWebhookName('');
+        setNewWebhookUrl('');
+        setNewWebhookEvents([]);
+        setShowCreateWebhook(false);
+        fetchWebhooks();
+        showSuccess('Webhook created');
+      } else {
+        const data = await res.json();
+        showError(data.error?.message || 'Failed to create webhook');
+      }
+    } catch {
+      showError('Failed to create webhook');
+    } finally {
+      setCreatingWebhook(false);
+    }
+  };
+
+  const toggleWebhook = async (webhookId: string, isActive: boolean) => {
+    try {
+      const res = await fetch('/api/webhooks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: webhookId, is_active: !isActive }),
+      });
+      if (res.ok) {
+        fetchWebhooks();
+        showSuccess(isActive ? 'Webhook disabled' : 'Webhook enabled');
+      }
+    } catch {
+      showError('Failed to update webhook');
+    }
+  };
+
+  const deleteWebhook = async (webhookId: string) => {
+    try {
+      const res = await fetch(`/api/webhooks?id=${webhookId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchWebhooks();
+        showSuccess('Webhook deleted');
+      }
+    } catch {
+      showError('Failed to delete webhook');
+    }
+  };
+
+  const testWebhook = async (webhookId: string) => {
+    setTestingWebhookId(webhookId);
+    try {
+      const res = await fetch('/api/webhooks/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook_id: webhookId }),
+      });
+      const data = await res.json();
+      if (data.data?.success) {
+        showSuccess(`Test ping sent (${data.data.status_code}, ${data.data.duration_ms}ms)`);
+      } else {
+        showError(`Test failed: ${data.data?.status_code || 'Connection error'}`);
+      }
+    } catch {
+      showError('Failed to send test');
+    } finally {
+      setTestingWebhookId(null);
+    }
+  };
+
+  // Fetch API keys / webhooks when tab becomes active
   useEffect(() => {
     if (activeTab === 'api-keys') {
       fetchApiKeys();
+    }
+    if (activeTab === 'webhooks') {
+      fetchWebhooks();
     }
   }, [activeTab]);
 
@@ -821,6 +949,219 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Webhooks Tab */}
+        {activeTab === 'webhooks' && (
+          <div className="space-y-6">
+            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Webhooks</h2>
+                  <p className="text-sm text-zinc-400 mt-1">Receive real-time HTTP callbacks when events occur</p>
+                </div>
+                {!showCreateWebhook && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateWebhook(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Webhook
+                  </button>
+                )}
+              </div>
+
+              {/* Secret display */}
+              {newWebhookSecret && (
+                <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/10 mb-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-300">Copy your webhook signing secret</p>
+                      <p className="text-sm text-amber-400/80 mt-1">Use this to verify webhook payloads. It won&apos;t be shown again.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-200 font-mono break-all">
+                      {newWebhookSecret}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(newWebhookSecret)}
+                      className="flex items-center gap-1 px-3 py-2 bg-zinc-800 text-zinc-200 rounded hover:bg-zinc-700 border border-zinc-600 text-sm"
+                    >
+                      <Copy className="w-4 h-4" />
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewWebhookSecret(null)}
+                    className="mt-3 text-sm text-zinc-400 hover:text-zinc-200"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+
+              {/* Create Webhook Form */}
+              {showCreateWebhook && (
+                <div className="mb-6 p-4 rounded-lg border border-white/10 bg-zinc-800/50 space-y-3">
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Production Alerts"
+                      value={newWebhookName}
+                      onChange={(e) => setNewWebhookName(e.target.value)}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">Endpoint URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/webhook"
+                      value={newWebhookUrl}
+                      onChange={(e) => setNewWebhookUrl(e.target.value)}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Events</label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableEvents.map((evt) => {
+                        const selected = newWebhookEvents.includes(evt);
+                        return (
+                          <button
+                            key={evt}
+                            type="button"
+                            onClick={() => {
+                              setNewWebhookEvents(prev =>
+                                selected ? prev.filter(e => e !== evt) : [...prev, evt]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                              selected
+                                ? 'bg-violet-600/20 text-violet-300 border-violet-500/50'
+                                : 'bg-zinc-800 text-zinc-500 border-zinc-700 hover:text-zinc-300 hover:border-zinc-600'
+                            }`}
+                          >
+                            {evt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={createWebhook}
+                      disabled={creatingWebhook || !newWebhookName.trim() || !newWebhookUrl.trim() || newWebhookEvents.length === 0}
+                      className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-medium disabled:opacity-50"
+                    >
+                      {creatingWebhook ? 'Creating...' : 'Create Webhook'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCreateWebhook(false); setNewWebhookName(''); setNewWebhookUrl(''); setNewWebhookEvents([]); }}
+                      className="px-4 py-2 bg-zinc-800 text-zinc-400 rounded-lg hover:text-zinc-200 border border-zinc-700 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Webhooks List */}
+              {webhooksLoading ? (
+                <div className="flex items-center gap-2 text-zinc-400 py-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading webhooks...
+                </div>
+              ) : webhooks.length === 0 ? (
+                <p className="text-zinc-500 text-sm py-4">No webhooks configured. Add one to receive real-time event notifications.</p>
+              ) : (
+                <div className="space-y-3">
+                  {webhooks.map(wh => (
+                    <div
+                      key={wh.id}
+                      className={`p-4 rounded-lg border ${
+                        wh.is_active
+                          ? 'border-white/10 bg-zinc-800/50'
+                          : 'border-zinc-800 bg-zinc-900/30 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-zinc-200">{wh.name}</span>
+                            {!wh.is_active && (
+                              <span className="px-2 py-0.5 text-xs bg-zinc-700 text-zinc-400 rounded">Disabled</span>
+                            )}
+                            {wh.failure_count > 0 && wh.is_active && (
+                              <span className="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-400 rounded">{wh.failure_count} failures</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500 font-mono truncate">{wh.url}</p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {wh.events.map(evt => (
+                              <span key={evt} className="px-2 py-0.5 text-[10px] bg-zinc-700/50 text-zinc-400 rounded">{evt}</span>
+                            ))}
+                          </div>
+                          {wh.last_triggered_at && (
+                            <p className="text-[11px] text-zinc-600 mt-2">
+                              Last triggered: {new Date(wh.last_triggered_at).toLocaleString()} (HTTP {wh.last_status_code})
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => testWebhook(wh.id)}
+                            disabled={testingWebhookId === wh.id}
+                            title="Send test ping"
+                            className="p-2 text-zinc-400 hover:text-teal-400 hover:bg-teal-500/10 rounded-lg disabled:opacity-50"
+                          >
+                            {testingWebhookId === wh.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleWebhook(wh.id, wh.is_active)}
+                            title={wh.is_active ? 'Disable' : 'Enable'}
+                            className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded-lg"
+                          >
+                            {wh.is_active ? <ToggleRight className="w-4 h-4 text-green-400" /> : <ToggleLeft className="w-4 h-4" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteWebhook(wh.id)}
+                            title="Delete"
+                            className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Webhook Docs */}
+            <div className="p-4 rounded-xl border border-white/10 bg-zinc-900/30">
+              <h3 className="text-sm font-medium text-zinc-300 mb-2">Payload Format</h3>
+              <p className="text-xs text-zinc-500 mb-2">Each webhook delivery sends a JSON POST with this structure:</p>
+              <code className="block px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-400 font-mono whitespace-pre">{`{
+  "event": "video.status_changed",
+  "timestamp": "2026-02-10T12:00:00Z",
+  "data": { ... }
+}`}</code>
+              <p className="text-xs text-zinc-500 mt-2">Verify payloads using the <code className="text-zinc-400">X-Webhook-Signature</code> header (HMAC SHA-256).</p>
             </div>
           </div>
         )}

@@ -83,6 +83,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Video Pipeline', href: '/admin/pipeline', icon: Video },
       { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
       { name: 'A/B Tests', href: '/admin/ab-tests', icon: FlaskConical },
+      { name: 'Accounts', href: '/admin/accounts', icon: Users },
       { name: 'Performance', href: '/admin/analytics', icon: BarChart },
       { name: 'Activity Log', href: '/admin/activity', icon: Activity },
     ],

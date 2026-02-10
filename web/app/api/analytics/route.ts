@@ -230,10 +230,10 @@ export async function GET(request: Request) {
         }
 
         // Fetch account names
-        const { data: accounts } = await db.from('tiktok_accounts').select('id, name, handle');
+        const { data: accounts } = await db.from('posting_accounts').select('id, display_name, account_code');
         const accountMap: Record<string, { name: string; handle: string }> = {};
         for (const a of accounts || []) {
-          accountMap[a.id] = { name: a.name, handle: a.handle || '' };
+          accountMap[a.id] = { name: a.display_name, handle: a.account_code || '' };
         }
 
         const accountMetrics = Object.entries(byAccount)

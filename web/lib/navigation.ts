@@ -28,6 +28,7 @@ import {
   Wallet,
   Clapperboard,
   FlaskConical,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -132,6 +133,7 @@ export const NAV_SECTIONS: NavSection[] = [
     showFor: ['admin'],
     items: [
       { name: 'System Health', href: '/admin/ops', icon: Server },
+      { name: 'Automation', href: '/admin/automation', icon: Zap },
       { name: 'Team Members', href: '/admin/users', icon: Users },
       { name: 'System Settings', href: '/admin/status', icon: Shield },
     ],

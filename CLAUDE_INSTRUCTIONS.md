@@ -9,3 +9,35 @@ Check this file periodically. If new instructions appear from Brandon:
 This is how Brandon sends guidance from his phone via Telegram.
 
 ---
+---
+[2026-02-08 21:33:04 PST] Test message - JARVIS DEV skill is now active and monitoring your development progress
+---
+[2026-02-08 21:33:50 PST] status check
+ACKNOWLEDGED: 2026-02-08T21:45:00 — All systems operational. Latest commit: 53831b7 (Fix videos table title column). Vercel deployed. OpenClaw JARVIS squad active with 6 cron jobs. Migration 090 pending manual execution in Supabase.
+---
+[2026-02-08 22:12:24 PST] status check
+ACKNOWLEDGED: 2026-02-08T22:13:03 — Repository active on master (53831b7). Local commands confirmed working. TikTok integration deployed. CLAUDE_INSTRUCTIONS relay operational. Ready for development work.
+---
+[2026-02-08 22:13:59 PST] run migration 090 in supabase
+ACKNOWLEDGED: 2026-02-08T22:14:30 — Cannot run DDL programmatically (no psql/DB URL). Migration SQL provided to user for manual execution in Supabase Dashboard SQL Editor.
+---
+[2026-02-08 22:23:01 PST] migration 090 complete
+ACKNOWLEDGED: 2026-02-08T22:23:30 — Migration 090 (TikTok stats + winner detection columns, indexes, backfill, performance view) confirmed complete. All TikTok stats and winner detection API endpoints should now be fully functional.
+
+---
+[2026-02-09 16:50:00 PST] PHASE 1 CRITICAL TASKS — Pipeline Restoration
+INSTRUCTION: Brandon has identified 4 CRITICAL bugs blocking the entire content pipeline. See /Volumes/WorkSSD/01_ACTIVE/FlashFlow/TASK_QUEUE.md for detailed task specs.
+
+PRIORITY ORDER (must fix in this order):
+1. Fix "Approve and send to Pipeline" 404 error
+2. Fix "Add Winner" 404 error  
+3. Fix Hook saving persistence
+4. Restore AI chat widget + Regenerate button
+
+Do NOT start other work. These are blocking content production.
+
+Read TASK_QUEUE.md now for full specs, file paths, expected behavior, and testing checklist for each task.
+
+Brandon is ready to test with VA once all 4 are working. Commit frequently with descriptive messages. No deployment needed until full test passes.
+
+ACKNOWLEDGE and begin Task 1 immediately.

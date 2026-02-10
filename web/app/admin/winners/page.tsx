@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trophy, Wand2, Upload } from "lucide-react";
+import { Trophy, Wand2, Upload, Download } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -545,9 +545,25 @@ export default function WinnersPage() {
               Save and analyze your top-performing videos to learn what works
             </p>
           </div>
+          <a
+            href="/api/winners/export"
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm transition-colors btn-press"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </a>
         </div>
-        {/* Mobile page title */}
-        <h1 className="lg:hidden text-lg font-semibold text-zinc-100 mb-4">Winners Bank</h1>
+        {/* Mobile page title + export */}
+        <div className="lg:hidden flex items-center justify-between mb-4">
+          <h1 className="text-lg font-semibold text-zinc-100">Winners Bank</h1>
+          <a
+            href="/api/winners/export"
+            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs transition-colors btn-press min-h-[36px]"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </a>
+        </div>
 
         {/* Stats Row */}
         <div

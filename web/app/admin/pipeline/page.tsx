@@ -512,6 +512,57 @@ export default function AdminPipelinePage() {
     }
   };
 
+  // Bulk action: Change Status
+  const bulkChangeStatus = async (newStatus: string) => {
+    if (selectedVideoIds.size === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/videos/bulk-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_ids: Array.from(selectedVideoIds), status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Moved ${data.data?.updated || 0} video(s) to ${newStatus}`);
+        clearSelection();
+        fetchQueueVideos();
+      } else {
+        showToast(data.message || 'Failed to change status', 'error');
+      }
+    } catch {
+      showToast('Network error', 'error');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  // Bulk action: Archive (soft delete)
+  const bulkArchive = async () => {
+    if (selectedVideoIds.size === 0) return;
+    if (!confirm(`Archive ${selectedVideoIds.size} video(s)? They will be moved to ARCHIVED status.`)) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/videos/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_ids: Array.from(selectedVideoIds) }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Archived ${data.data?.archived || 0} video(s)`);
+        clearSelection();
+        fetchQueueVideos();
+      } else {
+        showToast(data.message || 'Failed to archive', 'error');
+      }
+    } catch {
+      showToast('Network error', 'error');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
 
   // Reference data for filters
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
@@ -1987,6 +2038,46 @@ export default function AdminPipelinePage() {
             }}
           >
             Mark Underperform
+          </button>
+          <select
+            disabled={bulkActionLoading}
+            defaultValue=""
+            onChange={e => { if (e.target.value) { bulkChangeStatus(e.target.value); e.target.value = ''; } }}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: colors.surface,
+              color: colors.text,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '6px',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="" disabled>Move to...</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SCRIPTED">Scripted</option>
+            <option value="READY_TO_FILM">Ready to Film</option>
+            <option value="FILMED">Filmed</option>
+            <option value="EDITED">Edited</option>
+            <option value="READY_TO_POST">Ready to Post</option>
+            <option value="POSTED">Posted</option>
+          </select>
+          <button type="button"
+            onClick={bulkArchive}
+            disabled={bulkActionLoading}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: 'transparent',
+              color: '#f87171',
+              border: '1px solid rgba(248,113,113,0.3)',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+              opacity: bulkActionLoading ? 0.6 : 1,
+            }}
+          >
+            Archive
           </button>
           <button type="button"
             onClick={clearSelection}

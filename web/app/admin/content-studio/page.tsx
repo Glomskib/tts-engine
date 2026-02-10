@@ -43,6 +43,9 @@ import {
   X,
   AlertTriangle,
   FlaskConical,
+  RefreshCw,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -362,6 +365,13 @@ export default function ContentStudioPage() {
     angle: string;
     reason: string;
   } | null>(null);
+
+  // AI Chat state
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -707,6 +717,51 @@ export default function ContentStudioPage() {
     const avoidLine = `Avoid using the "${avoidAngle}" angle - try a different approach`;
     const current = thingsToAvoid.trim();
     setThingsToAvoid(current ? `${current}. ${avoidLine}` : avoidLine);
+  };
+
+  // AI Chat handler
+  const handleChatSend = async (messageOverride?: string) => {
+    const msg = (messageOverride || chatInput).trim();
+    if (!msg || chatLoading) return;
+
+    const userMessage = { role: 'user' as const, content: msg };
+    setChatMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      // Build context from current script
+      const currentSkit = result?.variations?.[selectedVariationIndex]?.skit || result?.skit;
+      const selectedProduct = products.find(p => p.id === selectedProductId);
+      const scriptText = currentSkit ? [
+        `HOOK: ${currentSkit.hook_line}`,
+        ...currentSkit.beats.map(b => `[${b.t}] ${b.action}${b.dialogue ? ` "${b.dialogue}"` : ''}`),
+        `CTA: ${currentSkit.cta_line}`,
+      ].join('\n') : undefined;
+
+      const res = await postJson('/api/ai/chat', {
+        message: msg,
+        context: {
+          brand: selectedProduct?.brand || manualBrandName || undefined,
+          product: selectedProduct?.name || manualProductName || undefined,
+          current_script: scriptText,
+          spoken_hook: currentSkit?.hook_line,
+          angle: result?.strategy_metadata?.recommended_angle,
+        },
+      });
+
+      if (isApiError(res)) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Try again.' }]);
+      } else {
+        const data = res as unknown as { response: string };
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect. Try again.' }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
   };
 
   const handleGenerate = async () => {
@@ -2469,6 +2524,34 @@ export default function ContentStudioPage() {
 
               {/* Export & Action Buttons */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Regenerate Button */}
+                <button type="button"
+                  onClick={() => { handleGenerate(); }}
+                  disabled={generating}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: generating ? '#374151' : '#6366f1',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: 'white',
+                    cursor: generating ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: generating ? 0.7 : 1,
+                  }}
+                >
+                  {generating ? (
+                    <><Loader2 size={16} className="animate-spin" /> Regenerating...</>
+                  ) : (
+                    <><RefreshCw size={16} /> Regenerate Script</>
+                  )}
+                </button>
+
                 {/* Approve & Send to Pipeline */}
                 <button type="button"
                   onClick={handleApproveAndSend}
@@ -2622,6 +2705,159 @@ export default function ContentStudioPage() {
                     <Download size={14} /> .txt
                   </button>
                 </div>
+              </div>
+
+              {/* AI Chat Section */}
+              <div style={{
+                marginTop: '16px',
+                border: `1px solid ${chatOpen ? '#6366f1' : colors.border}`,
+                borderRadius: '12px',
+                overflow: 'hidden',
+                transition: 'border-color 0.2s',
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setChatOpen(!chatOpen)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    backgroundColor: chatOpen ? 'rgba(99, 102, 241, 0.1)' : colors.card,
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    color: colors.text,
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <MessageCircle size={16} style={{ color: '#6366f1' }} />
+                    AI Script Assistant
+                  </span>
+                  {chatOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {chatOpen && (
+                  <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border}` }}>
+                    {/* Quick action nudges */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                      {[
+                        'Make the hook punchier',
+                        'Add more urgency',
+                        'Rewrite for younger audience',
+                        'Shorten the first 2 seconds',
+                        'Make CTA more compelling',
+                        'Dial up the humor',
+                      ].map((nudge) => (
+                        <button
+                          key={nudge}
+                          type="button"
+                          onClick={() => handleChatSend(nudge)}
+                          disabled={chatLoading}
+                          style={{
+                            padding: '6px 10px',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                            borderRadius: '16px',
+                            color: '#a5b4fc',
+                            fontSize: '11px',
+                            cursor: chatLoading ? 'not-allowed' : 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {nudge}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Chat messages */}
+                    {chatMessages.length > 0 && (
+                      <div style={{
+                        maxHeight: '240px',
+                        overflowY: 'auto',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                      }}>
+                        {chatMessages.map((msg, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              backgroundColor: msg.role === 'user' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(55, 65, 81, 0.5)',
+                              color: colors.text,
+                              fontSize: '13px',
+                              lineHeight: '1.5',
+                              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                              maxWidth: '90%',
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            {msg.content}
+                          </div>
+                        ))}
+                        {chatLoading && (
+                          <div style={{
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            backgroundColor: 'rgba(55, 65, 81, 0.5)',
+                            color: '#9CA3AF',
+                            fontSize: '13px',
+                            alignSelf: 'flex-start',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}>
+                            <Loader2 size={14} className="animate-spin" /> Thinking...
+                          </div>
+                        )}
+                        <div ref={chatEndRef} />
+                      </div>
+                    )}
+
+                    {/* Chat input */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChatSend(); } }}
+                        placeholder="Ask AI to adjust the script..."
+                        disabled={chatLoading}
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          backgroundColor: colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '10px',
+                          color: colors.text,
+                          fontSize: '13px',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleChatSend()}
+                        disabled={!chatInput.trim() || chatLoading}
+                        style={{
+                          padding: '10px 14px',
+                          backgroundColor: chatInput.trim() && !chatLoading ? '#6366f1' : '#374151',
+                          border: 'none',
+                          borderRadius: '10px',
+                          color: 'white',
+                          cursor: chatInput.trim() && !chatLoading ? 'pointer' : 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Send size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

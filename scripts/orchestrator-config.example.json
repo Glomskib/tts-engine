@@ -1,0 +1,22 @@
+{
+  "machines": {
+    "mac-mini": {
+      "host": "localhost",
+      "role": "primary",
+      "capabilities": ["api", "ai-generation", "orchestration", "cron"],
+      "scripts_dir": "/Volumes/WorkSSD/01_ACTIVE/FlashFlow/scripts"
+    },
+    "hp-worker": {
+      "host": "HP_WORKER_IP_HERE",
+      "role": "worker",
+      "ssh_user": "Brandon",
+      "ssh_key": "~/.ssh/id_ed25519_new",
+      "capabilities": ["scraping", "research", "video-processing"],
+      "scripts_dir": "C:\\FlashFlow\\scripts"
+    }
+  },
+  "flashflow_api_url": "https://web-pied-delta-30.vercel.app/api",
+  "flashflow_api_key": "ff_ak_your_api_key_here",
+  "health_check_interval_minutes": 5,
+  "task_dispatch_interval_minutes": 15
+}

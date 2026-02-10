@@ -19,7 +19,7 @@ export async function POST(
   const { video_id: videoId } = await params;
 
   // Require authentication
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

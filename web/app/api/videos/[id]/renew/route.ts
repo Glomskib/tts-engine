@@ -50,7 +50,7 @@ export async function POST(
   const { ttl_minutes } = body as Record<string, unknown>;
 
   // Get authentication context from session
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
 
   // Determine actor from authenticated user
   const actor = authContext.user?.id;

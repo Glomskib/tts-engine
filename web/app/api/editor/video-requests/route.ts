@@ -11,7 +11,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
  * GET: List video requests assigned to the current editor
  */
 export async function GET(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
  * PATCH: Update a video request (editor can update status and delivery link)
  */
 export async function PATCH(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

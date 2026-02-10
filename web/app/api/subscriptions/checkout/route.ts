@@ -41,7 +41,7 @@ function getBaseUrl(): string {
 export async function POST(request: Request) {
   try {
     // Auth check
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       console.error('No authenticated user');
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

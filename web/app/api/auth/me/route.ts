@@ -3,9 +3,9 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
 
     if (!authContext.user) {
       return NextResponse.json(

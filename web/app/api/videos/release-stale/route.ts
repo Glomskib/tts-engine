@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Guard: only allowed if admin is enabled or user is admin
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   const isAdmin = authContext.isAdmin;
 
   if (!isAdmin && !isAdminAllowed()) {

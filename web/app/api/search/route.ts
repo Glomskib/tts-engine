@@ -14,7 +14,7 @@ interface SearchResult {
 }
 
 export async function GET(request: NextRequest) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

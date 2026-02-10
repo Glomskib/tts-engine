@@ -139,7 +139,7 @@ function extractAccountName(
  * - limit=N: Process only N videos (default: 100, max: 1000)
  */
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
@@ -281,7 +281,7 @@ export async function POST(request: Request) {
  * Check how many videos need backfilling.
  */
 export async function GET(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

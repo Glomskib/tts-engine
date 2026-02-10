@@ -10,8 +10,8 @@ export const runtime = "nodejs";
  *
  * Returns all unique brands from the products table.
  */
-export async function GET() {
-  const authContext = await getApiAuthContext();
+export async function GET(request: Request) {
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
@@ -47,7 +47,7 @@ export async function GET() {
  * - name: string (required) - The brand name
  */
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

@@ -11,8 +11,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  const authContext = await getApiAuthContext();
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }

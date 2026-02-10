@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Rate limiting check
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   const rateLimitContext = {
     userId: authContext.user?.id ?? null,
     orgId: null,
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   // Rate limiting check (lighter limit for GET)
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   const rateLimitContext = {
     userId: authContext.user?.id ?? null,
     orgId: null,

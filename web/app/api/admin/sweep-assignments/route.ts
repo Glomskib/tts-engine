@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Admin-only endpoint
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

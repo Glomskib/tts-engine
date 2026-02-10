@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     return createApiErrorResponse("CONFIG_ERROR", "Stripe not configured", 500, correlationId);
   }
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }

@@ -11,7 +11,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
  * GET: List all video requests for the authenticated client
  */
 export async function GET(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

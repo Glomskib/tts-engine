@@ -117,7 +117,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Get auth context
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   const actor = authContext.user?.id || request.headers.get("x-actor") || "api";
 
   // Parse body

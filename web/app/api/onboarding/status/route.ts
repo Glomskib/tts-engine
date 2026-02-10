@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

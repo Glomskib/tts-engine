@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 const TIKTOK_URL_PATTERN = /^https?:\/\/(www\.|vm\.)?tiktok\.com\//;
 
 export async function GET(request: NextRequest) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }

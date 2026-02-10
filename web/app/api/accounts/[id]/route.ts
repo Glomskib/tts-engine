@@ -13,7 +13,7 @@ export async function PATCH(
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Auth check - user must be logged in
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }

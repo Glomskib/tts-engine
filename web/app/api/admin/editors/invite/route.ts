@@ -8,7 +8,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }

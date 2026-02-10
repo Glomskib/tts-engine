@@ -33,7 +33,7 @@ interface ContentBreakdown {
 }
 
 export async function GET(request: Request, context: RouteContext) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
   }

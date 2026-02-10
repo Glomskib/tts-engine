@@ -11,10 +11,10 @@ export const runtime = 'nodejs';
  * POST /api/subscriptions/portal
  * Creates a Stripe Customer Portal session for the authenticated user
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
     // Get authenticated user
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

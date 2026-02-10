@@ -14,8 +14,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: Request, { params }: RouteParams) {
-  const authContext = await getApiAuthContext();
+export async function GET(request: Request, { params }: RouteParams) {
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
@@ -64,7 +64,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 }
 
 export async function DELETE(request: Request, { params }: RouteParams) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }

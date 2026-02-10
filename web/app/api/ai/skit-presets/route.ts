@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
   try {
     // Auth check
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
     }

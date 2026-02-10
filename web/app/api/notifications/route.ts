@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   // Get auth context
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
 
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);

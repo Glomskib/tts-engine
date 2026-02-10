@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Admin-only check
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
     const err = apiError("FORBIDDEN", "Admin access required for ingestion", 403);
     return NextResponse.json(

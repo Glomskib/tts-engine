@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
   try {
     // Auth check - admin only
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
     }
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Auth check
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }

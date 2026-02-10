@@ -17,8 +17,8 @@ export interface Editor {
 /**
  * GET: List all editors (admins and users with editor role)
  */
-export async function GET() {
-  const authContext = await getApiAuthContext();
+export async function GET(request: Request) {
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
   }

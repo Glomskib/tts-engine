@@ -35,7 +35,7 @@ export interface VideoRequest {
  * GET: List all video requests (admin only)
  */
 export async function GET(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
   }
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
  * PATCH: Bulk update video requests
  */
 export async function PATCH(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
     return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
   }

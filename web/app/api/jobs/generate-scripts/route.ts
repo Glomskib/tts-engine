@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
     // Authorized via cron secret
   } else {
-    const authContext = await getApiAuthContext();
+    const authContext = await getApiAuthContext(request);
     if (!authContext.isAdmin) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized", correlation_id: correlationId },

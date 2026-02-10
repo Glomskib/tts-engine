@@ -80,7 +80,7 @@ export async function POST(
   const { from_user, to_user, to_user_id, to_role, ttl_minutes, force, notes } = body as Record<string, unknown>;
 
   // Get authentication context from session
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
 
   // Determine actor (from_user): prefer authenticated user, fallback to legacy for tests
   const isAuthenticated = authContext.user !== null;

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Get authentication context
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json(

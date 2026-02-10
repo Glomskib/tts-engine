@@ -131,7 +131,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   } = body as Record<string, unknown>;
 
   // Get authentication context from session
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
 
   // Determine actor: prefer authenticated user, fallback to legacy updated_by for tests
   const isAuthenticated = authContext.user !== null;

@@ -12,8 +12,8 @@ interface HealthCheck {
   lastChecked: string;
 }
 
-export async function GET() {
-  const authContext = await getApiAuthContext();
+export async function GET(request: Request) {
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

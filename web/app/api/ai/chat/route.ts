@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Rate limiting check
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   const rateLimitContext = {
     userId: authContext.user?.id ?? null,
     orgId: null, // Org membership is event-sourced; user-level limiting is sufficient

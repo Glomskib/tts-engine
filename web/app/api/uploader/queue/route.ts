@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Access control: admin or uploader
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.isUploader) {
     const err = apiError("FORBIDDEN", "Uploader or admin access required", 403);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

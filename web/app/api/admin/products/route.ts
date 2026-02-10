@@ -15,7 +15,7 @@ const VALID_CATEGORIES = ["supplements", "beauty", "fitness", "health", "other"]
  * - brand: string (optional) - Filter by brand name
  */
 export async function GET(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
  * - notes: string (optional) - Additional notes
  */
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

@@ -8,8 +8,8 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { PLAN_DETAILS, type PlanName } from '@/lib/subscriptions';
 
-export async function GET() {
-  const authContext = await getApiAuthContext();
+export async function GET(request: Request) {
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

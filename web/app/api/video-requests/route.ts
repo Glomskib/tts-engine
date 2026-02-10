@@ -12,7 +12,7 @@ import { isVideoClient, getVideosRemaining, deductVideo } from '@/lib/subscripti
  * GET: List user's video requests
  */
 export async function GET(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
  * POST: Create new video request
  */
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

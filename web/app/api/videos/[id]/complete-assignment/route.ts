@@ -44,7 +44,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   // Get authentication context
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
 
   // Determine actor
   let body: Record<string, unknown> = {};

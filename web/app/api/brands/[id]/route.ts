@@ -30,7 +30,7 @@ export async function GET(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
@@ -66,7 +66,7 @@ export async function PATCH(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
@@ -156,7 +156,7 @@ export async function DELETE(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
 
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   // Session-only auth (no API key auth for key management)
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   // Session-only auth
-  const authContext = await getApiAuthContext();
+  const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }

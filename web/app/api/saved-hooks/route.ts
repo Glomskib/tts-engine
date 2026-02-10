@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const correlationId = generateCorrelationId();
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -17,15 +19,15 @@ export async function GET(request: NextRequest) {
   const validSorts = ['created_at', 'performance_score', 'hook_text'];
   const sortColumn = validSorts.includes(sort) ? sort : 'created_at';
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('saved_hooks')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', authContext.user.id)
     .order(sortColumn, { ascending: false })
     .limit(limit);
 
   if (error) {
-    console.error('[Saved Hooks GET] Error:', error);
+    console.error(`[${correlationId}] Saved Hooks GET error:`, error);
     return NextResponse.json({ hooks: [] });
   }
 
@@ -33,9 +35,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const correlationId = generateCorrelationId();
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
 
   const payload: Record<string, unknown> = {
-    user_id: user.id,
+    user_id: authContext.user.id,
     hook_text: hookText,
     source: typeof body.source === 'string' ? body.source : 'generated',
   };
@@ -64,14 +66,14 @@ export async function POST(request: NextRequest) {
   if (typeof body.brand_name === 'string') payload.brand_name = body.brand_name;
   if (typeof body.notes === 'string') payload.notes = body.notes;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('saved_hooks')
     .insert(payload)
     .select()
     .single();
 
   if (error) {
-    console.error('[Saved Hooks POST] Error:', error);
+    console.error(`[${correlationId}] Saved Hooks POST error:`, error);
     return NextResponse.json({ error: 'Failed to save hook' }, { status: 500 });
   }
 

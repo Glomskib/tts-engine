@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const runtime = 'nodejs';
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { id } = await params;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('saved_hooks')
     .delete()
     .eq('id', id)
-    .eq('user_id', user.id);
+    .eq('user_id', authContext.user.id);
 
   if (error) {
     console.error('[Saved Hooks DELETE] Error:', error);

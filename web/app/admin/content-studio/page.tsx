@@ -349,6 +349,16 @@ export default function ContentStudioPage() {
   const [editedCTALine, setEditedCTALine] = useState('');
   const [editedCTAOverlay, setEditedCTAOverlay] = useState('');
 
+  // Hook editing state
+  const [editingHook, setEditingHook] = useState(false);
+  const [editedHookLine, setEditedHookLine] = useState('');
+
+  // Beat/scene editing state
+  const [editingBeatIndex, setEditingBeatIndex] = useState<number | null>(null);
+  const [editedBeatAction, setEditedBeatAction] = useState('');
+  const [editedBeatDialogue, setEditedBeatDialogue] = useState('');
+  const [editedBeatOnScreenText, setEditedBeatOnScreenText] = useState('');
+
   // Strategy reasoning toggle
   const [showStrategyReasoning, setShowStrategyReasoning] = useState(false);
 
@@ -693,7 +703,7 @@ export default function ContentStudioPage() {
 
       if (res.ok) {
         setHookSaved(true);
-        setTimeout(() => setHookSaved(false), 2000);
+        setTimeout(() => setHookSaved(false), 4000);
       } else {
         setHookSaveError(true);
         setTimeout(() => setHookSaveError(false), 3000);
@@ -2269,52 +2279,94 @@ export default function ContentStudioPage() {
                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6', marginBottom: '6px', textTransform: 'uppercase' }}>
                       🎣 Hook
                     </div>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff' }}>
-                      {currentSkit.hook_line}
+                    {editingHook ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <textarea
+                          value={editedHookLine}
+                          onChange={(e) => setEditedHookLine(e.target.value)}
+                          rows={2}
+                          style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '15px', fontWeight: 600, resize: 'vertical' }}
+                          autoFocus
+                        />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button type="button" onClick={() => {
+                            if (result) {
+                              const variation = result.variations?.[selectedVariationIndex];
+                              if (variation) {
+                                variation.skit.hook_line = editedHookLine;
+                              } else if (result.skit) {
+                                result.skit.hook_line = editedHookLine;
+                              }
+                              setResult({ ...result });
+                            }
+                            setEditingHook(false);
+                          }}
+                            style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                          >
+                            <Check size={14} /> Save
+                          </button>
+                          <button type="button" onClick={() => setEditingHook(false)}
+                            style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => { setEditedHookLine(currentSkit.hook_line); setEditingHook(true); }}
+                        style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', cursor: 'pointer', position: 'relative' }}
+                        title="Click to edit"
+                      >
+                        {currentSkit.hook_line}
+                        <Pencil size={12} style={{ marginLeft: '8px', opacity: 0.4, verticalAlign: 'middle' }} />
+                      </div>
+                    )}
+                  </div>
+                  {!editingHook && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button type="button"
+                        onClick={() => handleSaveHook(currentSkit.hook_line)}
+                        disabled={savingHook}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: hookSaveError ? 'rgba(239, 68, 68, 0.2)' : hookSaved ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)',
+                          border: `1px solid ${hookSaveError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(20, 184, 166, 0.3)'}`,
+                          borderRadius: '6px',
+                          color: hookSaveError ? '#ef4444' : hookSaved ? '#14b8a6' : '#5eead4',
+                          cursor: savingHook ? 'not-allowed' : 'pointer',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {hookSaveError ? (
+                          <><X size={14} /> Failed</>
+                        ) : hookSaved ? (
+                          <><Check size={14} /> Saved to Winners Bank</>
+                        ) : savingHook ? (
+                          <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                        ) : (
+                          <><Bookmark size={14} /> Save Hook</>
+                        )}
+                      </button>
+                      <button type="button"
+                        onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: copiedField === 'hook' ? '#10b981' : colors.bg,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '6px',
+                          color: copiedField === 'hook' ? 'white' : colors.textSecondary,
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                        }}
+                      >
+                        {copiedField === 'hook' ? '✓ Copied' : 'Copy'}
+                      </button>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button type="button"
-                      onClick={() => handleSaveHook(currentSkit.hook_line)}
-                      disabled={savingHook}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: hookSaveError ? 'rgba(239, 68, 68, 0.2)' : hookSaved ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)',
-                        border: `1px solid ${hookSaveError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(20, 184, 166, 0.3)'}`,
-                        borderRadius: '6px',
-                        color: hookSaveError ? '#ef4444' : hookSaved ? '#14b8a6' : '#5eead4',
-                        cursor: savingHook ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      {hookSaveError ? (
-                        <><X size={14} /> Failed</>
-                      ) : hookSaved ? (
-                        <><Check size={14} /> Saved!</>
-                      ) : savingHook ? (
-                        <><Loader2 size={14} className="animate-spin" /> Saving...</>
-                      ) : (
-                        <><Bookmark size={14} /> Save Hook</>
-                      )}
-                    </button>
-                    <button type="button"
-                      onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: copiedField === 'hook' ? '#10b981' : colors.bg,
-                        border: `1px solid ${colors.border}`,
-                        borderRadius: '6px',
-                        color: copiedField === 'hook' ? 'white' : colors.textSecondary,
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                      }}
-                    >
-                      {copiedField === 'hook' ? '✓ Copied' : 'Copy'}
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -2323,61 +2375,134 @@ export default function ContentStudioPage() {
                 <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '12px', textTransform: 'uppercase' }}>
                   📽️ Scenes ({currentSkit.beats.length})
                 </div>
-                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {currentSkit.beats.map((beat, idx) => (
                     <div
                       key={idx}
                       style={{
                         padding: '12px 16px',
-                        backgroundColor: colors.bg,
-                        border: `1px solid ${colors.border}`,
+                        backgroundColor: editingBeatIndex === idx ? 'rgba(59, 130, 246, 0.05)' : colors.bg,
+                        border: `1px solid ${editingBeatIndex === idx ? 'rgba(59, 130, 246, 0.3)' : colors.border}`,
                         borderRadius: '10px',
                         marginBottom: '8px',
+                        cursor: editingBeatIndex === idx ? 'default' : 'pointer',
+                        transition: 'border-color 0.2s',
                       }}
+                      onClick={() => {
+                        if (editingBeatIndex !== idx) {
+                          setEditingBeatIndex(idx);
+                          setEditedBeatAction(beat.action);
+                          setEditedBeatDialogue(beat.dialogue || '');
+                          setEditedBeatOnScreenText(beat.on_screen_text || '');
+                        }
+                      }}
+                      title={editingBeatIndex === idx ? undefined : 'Click to edit'}
                     >
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                        <div style={{
-                          backgroundColor: '#3b82f6',
-                          color: 'white',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          flexShrink: 0,
-                        }}>
-                          {beat.t}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', color: colors.text, marginBottom: beat.dialogue ? '8px' : 0 }}>
-                            {beat.action}
+                      {editingBeatIndex === idx ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{
+                              backgroundColor: '#3b82f6', color: 'white', padding: '4px 8px',
+                              borderRadius: '6px', fontSize: '11px', fontWeight: 600, flexShrink: 0,
+                            }}>
+                              {beat.t}
+                            </div>
+                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>Scene {idx + 1}</span>
                           </div>
-                          {beat.dialogue && (
-                            <div style={{
-                              fontSize: '14px',
-                              color: colors.text,
-                              fontStyle: 'italic',
-                              padding: '8px 12px',
-                              backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                              borderRadius: '8px',
-                              borderLeft: '3px solid #8b5cf6',
-                            }}>
-                              &ldquo;{beat.dialogue}&rdquo;
-                            </div>
-                          )}
-                          {beat.on_screen_text && (
-                            <div style={{
-                              marginTop: '8px',
-                              fontSize: '12px',
-                              color: '#f59e0b',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                            }}>
-                              <Type size={12} /> {beat.on_screen_text}
-                            </div>
-                          )}
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', color: colors.textSecondary, marginBottom: '4px' }}>Action / Direction</label>
+                            <textarea
+                              value={editedBeatAction}
+                              onChange={(e) => setEditedBeatAction(e.target.value)}
+                              rows={2}
+                              style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px', resize: 'vertical' }}
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', color: '#8b5cf6', marginBottom: '4px' }}>Dialogue (optional)</label>
+                            <textarea
+                              value={editedBeatDialogue}
+                              onChange={(e) => setEditedBeatDialogue(e.target.value)}
+                              rows={2}
+                              style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px', fontStyle: 'italic', resize: 'vertical' }}
+                              placeholder="Character dialogue..."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', color: '#f59e0b', marginBottom: '4px' }}>On-Screen Text (optional)</label>
+                            <input
+                              value={editedBeatOnScreenText}
+                              onChange={(e) => setEditedBeatOnScreenText(e.target.value)}
+                              style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px' }}
+                              placeholder="Text overlay..."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button type="button" onClick={(e) => {
+                              e.stopPropagation();
+                              if (result) {
+                                const variation = result.variations?.[selectedVariationIndex];
+                                const targetSkit = variation ? variation.skit : result.skit;
+                                if (targetSkit) {
+                                  targetSkit.beats[idx] = {
+                                    ...targetSkit.beats[idx],
+                                    action: editedBeatAction,
+                                    dialogue: editedBeatDialogue || undefined,
+                                    on_screen_text: editedBeatOnScreenText || undefined,
+                                  };
+                                  setResult({ ...result });
+                                }
+                              }
+                              setEditingBeatIndex(null);
+                            }}
+                              style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                            >
+                              <Check size={14} /> Save
+                            </button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setEditingBeatIndex(null); }}
+                              style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                          <div style={{
+                            backgroundColor: '#3b82f6', color: 'white', padding: '4px 8px',
+                            borderRadius: '6px', fontSize: '11px', fontWeight: 600, flexShrink: 0,
+                          }}>
+                            {beat.t}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '14px', color: colors.text, marginBottom: beat.dialogue ? '8px' : 0 }}>
+                              {beat.action}
+                              <Pencil size={10} style={{ marginLeft: '6px', opacity: 0.3, verticalAlign: 'middle' }} />
+                            </div>
+                            {beat.dialogue && (
+                              <div style={{
+                                fontSize: '14px', color: colors.text, fontStyle: 'italic',
+                                padding: '8px 12px', backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                borderRadius: '8px', borderLeft: '3px solid #8b5cf6',
+                              }}>
+                                &ldquo;{beat.dialogue}&rdquo;
+                              </div>
+                            )}
+                            {beat.on_screen_text && (
+                              <div style={{
+                                marginTop: '8px', fontSize: '12px', color: '#f59e0b',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                              }}>
+                                <Type size={12} /> {beat.on_screen_text}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

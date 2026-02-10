@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       // Mark all unread notifications as read
       const { error } = await supabaseAdmin
         .from("notifications")
-        .update({ is_read: true, read_at: now })
+        .update({ is_read: true, read: true, read_at: now })
         .eq("user_id", userId)
         .eq("is_read", false);
 
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       // Mark specific notifications as read (only if owned by user)
       const { error, count } = await supabaseAdmin
         .from("notifications")
-        .update({ is_read: true, read_at: now })
+        .update({ is_read: true, read: true, read_at: now })
         .eq("user_id", userId)
         .in("id", ids!)
         .eq("is_read", false);

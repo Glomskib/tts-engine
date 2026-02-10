@@ -13,10 +13,15 @@ import { Skeleton } from '@/components/ui/Skeleton';
 interface Notification {
   id: string;
   user_id: string;
-  type: 'handoff' | 'assigned' | 'status_changed' | 'script_attached' | 'comment';
+  type: string;
   video_id: string | null;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | null;
   is_read: boolean;
+  read: boolean;
+  title: string | null;
+  message: string | null;
+  action_url: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   read_at: string | null;
 }
@@ -28,7 +33,12 @@ interface AuthUser {
 }
 
 function getNotificationMessage(notification: Notification): string {
-  const payload = notification.payload;
+  // New-style notifications use title/message directly
+  if (notification.message) {
+    return notification.message;
+  }
+  // Legacy notifications use payload
+  const payload = notification.payload || {};
   switch (notification.type) {
     case 'handoff':
       return `Handoff from ${payload.from || 'unknown'} as ${payload.to_role || 'unknown role'}`;
@@ -45,6 +55,11 @@ function getNotificationMessage(notification: Notification): string {
   }
 }
 
+function getNotificationTitle(notification: Notification): string | null {
+  if (notification.title) return notification.title;
+  return null;
+}
+
 function getTypeColor(type: string): { bg: string; text: string } {
   switch (type) {
     case 'handoff':
@@ -57,6 +72,22 @@ function getTypeColor(type: string): { bg: string; text: string } {
       return { bg: 'rgba(139, 92, 246, 0.15)', text: '#a78bfa' };
     case 'comment':
       return { bg: 'rgba(113, 113, 122, 0.15)', text: '#a1a1aa' };
+    case 'winner_detected':
+      return { bg: 'rgba(234, 179, 8, 0.15)', text: '#facc15' };
+    case 'va_submission':
+      return { bg: 'rgba(16, 185, 129, 0.15)', text: '#34d399' };
+    case 'brand_quota':
+      return { bg: 'rgba(239, 68, 68, 0.15)', text: '#f87171' };
+    case 'pipeline_idle':
+      return { bg: 'rgba(245, 158, 11, 0.15)', text: '#fbbf24' };
+    case 'drive_new_video':
+      return { bg: 'rgba(59, 130, 246, 0.15)', text: '#60a5fa' };
+    case 'competitor_viral':
+      return { bg: 'rgba(236, 72, 153, 0.15)', text: '#f472b6' };
+    case 'system':
+      return { bg: 'rgba(113, 113, 122, 0.15)', text: '#a1a1aa' };
+    case 'info':
+      return { bg: 'rgba(56, 189, 248, 0.15)', text: '#38bdf8' };
     default:
       return { bg: 'rgba(113, 113, 122, 0.15)', text: '#a1a1aa' };
   }
@@ -115,8 +146,9 @@ export default function NotificationsPage() {
       const data = await res.json();
 
       if (data.ok) {
-        setNotifications(data.data || []);
-        setUnreadCount(data.meta?.unread_count || 0);
+        const notifs = data.data?.notifications || data.data || [];
+        setNotifications(notifs);
+        setUnreadCount(data.data?.unread_count || data.meta?.unread_count || 0);
       } else {
         setError(data.error || 'Failed to load notifications');
       }
@@ -146,7 +178,7 @@ export default function NotificationsPage() {
       });
       // Update local state
       setNotifications(prev =>
-        prev.map(n => n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n)
+        prev.map(n => n.id === id ? { ...n, is_read: true, read: true, read_at: new Date().toISOString() } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
@@ -170,7 +202,7 @@ export default function NotificationsPage() {
       });
       // Update local state
       setNotifications(prev =>
-        prev.map(n => ({ ...n, is_read: true, read_at: n.read_at || new Date().toISOString() }))
+        prev.map(n => ({ ...n, is_read: true, read: true, read_at: n.read_at || new Date().toISOString() }))
       );
       setUnreadCount(0);
     } catch (err) {
@@ -192,9 +224,10 @@ export default function NotificationsPage() {
     return getTimeAgo(dateStr);
   };
 
-  // Separate unread and read
-  const unreadNotifications = notifications.filter(n => !n.is_read);
-  const readNotifications = notifications.filter(n => n.is_read);
+  // Separate unread and read (support both old is_read and new read columns)
+  const isRead = (n: Notification) => n.read || n.is_read;
+  const unreadNotifications = notifications.filter(n => !isRead(n));
+  const readNotifications = notifications.filter(n => isRead(n));
 
   const handleRefresh = async () => {
     await fetchNotifications();
@@ -273,14 +306,19 @@ export default function NotificationsPage() {
                     >
                       {n.type.replace('_', ' ')}
                     </span>
-                    <span className="flex-1 text-zinc-100 text-sm">{getNotificationMessage(n)}</span>
-                    <span className="text-zinc-500 text-xs">
+                    <div className="flex-1 min-w-0">
+                      {getNotificationTitle(n) && (
+                        <span className="block text-zinc-100 text-sm font-medium">{getNotificationTitle(n)}</span>
+                      )}
+                      <span className="block text-zinc-300 text-sm">{getNotificationMessage(n)}</span>
+                    </div>
+                    <span className="text-zinc-500 text-xs whitespace-nowrap">
                       {displayTime(n.created_at)}
                     </span>
                     <div className="flex gap-2 mt-2 sm:mt-0">
-                      {n.video_id && (
+                      {(n.action_url || n.video_id) && (
                         <Link
-                          href={`/admin/pipeline/${n.video_id}`}
+                          href={n.action_url || `/admin/pipeline/${n.video_id}`}
                           className="px-3 py-2 bg-zinc-800 text-zinc-100 rounded-lg text-xs font-medium hover:bg-zinc-700 transition-colors min-h-[36px] flex items-center"
                         >
                           View
@@ -321,13 +359,18 @@ export default function NotificationsPage() {
                     >
                       {n.type.replace('_', ' ')}
                     </span>
-                    <span className="flex-1 text-zinc-300 text-sm">{getNotificationMessage(n)}</span>
-                    <span className="text-zinc-500 text-xs">
+                    <div className="flex-1 min-w-0">
+                      {getNotificationTitle(n) && (
+                        <span className="block text-zinc-400 text-sm font-medium">{getNotificationTitle(n)}</span>
+                      )}
+                      <span className="block text-zinc-400 text-sm">{getNotificationMessage(n)}</span>
+                    </div>
+                    <span className="text-zinc-500 text-xs whitespace-nowrap">
                       {displayTime(n.created_at)}
                     </span>
-                    {n.video_id && (
+                    {(n.action_url || n.video_id) && (
                       <Link
-                        href={`/admin/pipeline/${n.video_id}`}
+                        href={n.action_url || `/admin/pipeline/${n.video_id}`}
                         className="px-3 py-2 bg-zinc-800 text-zinc-400 rounded-lg text-xs font-medium hover:bg-zinc-700 hover:text-zinc-200 transition-colors min-h-[36px] flex items-center self-start sm:self-auto"
                       >
                         View

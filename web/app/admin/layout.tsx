@@ -114,7 +114,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         const res = await fetch('/api/notifications?unread_only=true&limit=1');
         if (res.ok) {
           const data = await res.json();
-          setUnreadCount(data.meta?.unread_count || 0);
+          setUnreadCount(data.data?.unread_count || data.meta?.unread_count || 0);
         }
       } catch {
         // ignore

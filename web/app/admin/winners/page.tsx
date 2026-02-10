@@ -511,8 +511,13 @@ export default function WinnersPage() {
   // Loading
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-zinc-500">
-        Loading...
+      <div className="px-4 py-6 space-y-4">
+        <div className="h-8 w-44 bg-zinc-800 rounded animate-pulse" />
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-24 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -658,7 +663,11 @@ export default function WinnersPage() {
               ))}
             </div>
             {/* Desktop skeleton */}
-            <div className="hidden lg:block" style={{ textAlign: "center", padding: "48px", color: colors.textMuted }}>Loading...</div>
+            <div className="hidden lg:block space-y-3 py-6">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-16 bg-zinc-900 border border-zinc-800 rounded-lg animate-pulse" />
+              ))}
+            </div>
           </>
         ) : filteredWinners.length === 0 ? (
           <EmptyState

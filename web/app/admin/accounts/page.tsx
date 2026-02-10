@@ -134,8 +134,13 @@ export default function AccountsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-zinc-400">Loading accounts...</div>
+      <div className="px-4 py-6 space-y-4">
+        <div className="h-8 w-48 bg-zinc-800 rounded animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-40 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }

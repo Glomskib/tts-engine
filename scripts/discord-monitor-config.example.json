@@ -1,0 +1,10 @@
+{
+  "discord_bot_token": "YOUR_DISCORD_BOT_TOKEN",
+  "watch_channel_ids": [
+    "CHANNEL_ID_1",
+    "CHANNEL_ID_2"
+  ],
+  "flashflow_api_url": "https://web-pied-delta-30.vercel.app/api",
+  "flashflow_api_key": "ff_ak_your_api_key_here",
+  "lookback_hours": 24
+}

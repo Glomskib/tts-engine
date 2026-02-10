@@ -59,6 +59,15 @@ function timeAgo(dateStr: string | null): string {
   return `${days}d ago`;
 }
 
+function elapsedTimer(dateStr: string | null): { text: string; color: string; isOverdue: boolean } {
+  if (!dateStr) return { text: "", color: "text-zinc-500", isOverdue: false };
+  const hours = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
+  if (hours < 4) return { text: `${hours.toFixed(1)}h`, color: "text-green-400", isOverdue: false };
+  if (hours < 12) return { text: `${hours.toFixed(1)}h`, color: "text-amber-400", isOverdue: false };
+  if (hours < 24) return { text: `${hours.toFixed(1)}h`, color: "text-orange-400", isOverdue: false };
+  return { text: `${hours.toFixed(0)}h`, color: "text-red-400", isOverdue: true };
+}
+
 /* ---------- Components ---------- */
 
 function NameEntry({ onSubmit }: { onSubmit: (name: string) => void }) {
@@ -197,6 +206,15 @@ function VideoCard({
           <div className="flex items-center gap-3 flex-wrap mb-1">
             <StatusBadge status={video.recording_status} />
             <span className="text-xs text-zinc-500">{timeAgo(video.last_status_changed_at)}</span>
+            {/* SLA Timer */}
+            {video.last_status_changed_at && (() => {
+              const timer = elapsedTimer(video.last_status_changed_at);
+              return (
+                <span className={`text-xs font-mono ${timer.color} ${timer.isOverdue ? 'animate-pulse' : ''}`}>
+                  {timer.isOverdue ? '⚠ ' : '⏱ '}{timer.text}
+                </span>
+              );
+            })()}
           </div>
           <div className="font-medium text-lg truncate">
             {video.product_name || video.video_code || "Untitled Video"}
@@ -327,13 +345,33 @@ function VideoCard({
             </div>
           )}
 
+          {/* Revision notes for rejected videos */}
+          {video.recording_status === "REJECTED" && (
+            <div className="mt-2 p-4 bg-red-900/20 border border-red-900/40 rounded-xl">
+              <div className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-2">
+                Revision Needed
+              </div>
+              <div className="text-sm text-red-300">
+                {video.editor_notes || video.recording_notes || "Please check with your admin for revision details."}
+              </div>
+              <button
+                onClick={() => {
+                  // Allow re-editing rejected videos
+                  handleAction();
+                }}
+                disabled={loading}
+                className="mt-3 w-full py-3 text-sm font-bold rounded-xl text-white bg-amber-600 hover:bg-amber-500 transition-colors disabled:opacity-50"
+              >
+                {loading ? "Updating..." : "Start Revision"}
+              </button>
+            </div>
+          )}
+
           {/* Terminal states — no action */}
-          {!action && (
+          {!action && video.recording_status !== "REJECTED" && (
             <div className="text-center py-4 text-zinc-500 text-sm">
               {video.recording_status === "POSTED"
-                ? "This video has been posted. Nice work!"
-                : video.recording_status === "REJECTED"
-                ? "This video was rejected. Contact your admin for details."
+                ? "This video has been posted. Nice work! 🎉"
                 : "No action available for this status."}
             </div>
           )}
@@ -397,11 +435,40 @@ export default function VADashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Hi, {vaName}</h1>
-          <p className="text-zinc-400 text-sm">
-            {videos.length === 0 ? "No assignments right now" : `${videos.length} video${videos.length !== 1 ? "s" : ""} assigned to you`}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">Hi, {vaName}</h1>
+            <p className="text-zinc-400 text-sm">
+              {videos.length === 0 ? "No assignments right now" : `${videos.length} video${videos.length !== 1 ? "s" : ""} assigned to you`}
+            </p>
+          </div>
+          {/* New assignments badge */}
+          {(() => {
+            const newCount = videos.filter(v => {
+              const changed = v.last_status_changed_at;
+              if (!changed) return false;
+              const hoursSinceChange = (Date.now() - new Date(changed).getTime()) / (1000 * 60 * 60);
+              return hoursSinceChange < 4 && ['NOT_RECORDED', 'RECORDED'].includes(v.recording_status);
+            }).length;
+            return newCount > 0 ? (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-teal-600/20 border border-teal-500/30 text-teal-400 text-xs font-bold rounded-full animate-pulse">
+                {newCount} new
+              </span>
+            ) : null;
+          })()}
+          {/* Overdue badge */}
+          {(() => {
+            const overdueCount = videos.filter(v => {
+              if (!v.last_status_changed_at) return false;
+              const hours = (Date.now() - new Date(v.last_status_changed_at).getTime()) / (1000 * 60 * 60);
+              return hours > 24 && !['POSTED', 'READY_TO_POST'].includes(v.recording_status);
+            }).length;
+            return overdueCount > 0 ? (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-red-600/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-full">
+                {overdueCount} overdue
+              </span>
+            ) : null;
+          })()}
         </div>
         <button
           onClick={() => {

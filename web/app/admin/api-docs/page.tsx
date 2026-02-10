@@ -156,6 +156,7 @@ const API_SECTIONS: ApiSection[] = [
       { method: 'POST', path: '/api/clawbot/generate-like-winner', description: 'Generate script from winner', auth: true },
       { method: 'GET', path: '/api/clawbot/summaries/latest', description: 'Latest summary', auth: false },
       { method: 'POST', path: '/api/ai/draft-video-brief', description: 'Draft video brief', auth: true },
+      { method: 'POST', path: '/api/remix', description: 'Remix content (variation, angle, tone)', auth: true },
     ],
   },
   {

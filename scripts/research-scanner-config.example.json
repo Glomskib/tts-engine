@@ -1,0 +1,29 @@
+{
+  "flashflow_api_url": "https://web-pied-delta-30.vercel.app/api",
+  "flashflow_api_key": "ff_ak_your_api_key_here",
+  "scan_interval_hours": 4,
+  "posts_per_subreddit": 25,
+  "min_upvotes": 5,
+  "subreddits": [
+    {
+      "name": "TikTokShop",
+      "category": "tiktok_trends",
+      "keywords": ["trending", "viral", "best seller", "commission", "affiliate", "blowing up"]
+    },
+    {
+      "name": "printOnDemand",
+      "category": "pod_trends",
+      "keywords": ["trending", "best seller", "niche", "design", "sales"]
+    },
+    {
+      "name": "ehlersdanlos",
+      "category": "chronic_illness",
+      "keywords": ["product", "help", "recommend", "changed my life", "game changer"]
+    },
+    {
+      "name": "POTS",
+      "category": "chronic_illness",
+      "keywords": ["product", "supplement", "electrolyte", "compression", "recommend"]
+    }
+  ]
+}

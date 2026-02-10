@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       correlation_id: correlationId,
     });
     response.headers.set('x-correlation-id', correlationId);
+    response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
     return response;
   } catch (error) {
     console.error(`[${correlationId}] Accounts GET error:`, error);

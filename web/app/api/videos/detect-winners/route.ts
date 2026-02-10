@@ -63,6 +63,9 @@ export async function POST(request: Request) {
     }>,
   };
 
+  // Evaluate all videos and collect DB updates
+  const updatePromises: PromiseLike<unknown>[] = [];
+
   for (const video of videos || []) {
     const stats = {
       views: video.tiktok_views || 0,
@@ -84,30 +87,30 @@ export async function POST(request: Request) {
 
       if (isNew) {
         results.new_winners++;
-
-        // Mark as winner in DB
-        await supabaseAdmin
-          .from("videos")
-          .update({
-            is_winner: true,
-            winner_detected_at: new Date().toISOString(),
-            winner_confidence: result.confidence,
-            winner_score: result.score,
-            winner_reasons: result.reasons,
-          })
-          .eq("id", video.id);
+        updatePromises.push(
+          supabaseAdmin
+            .from("videos")
+            .update({
+              is_winner: true,
+              winner_detected_at: new Date().toISOString(),
+              winner_confidence: result.confidence,
+              winner_score: result.score,
+              winner_reasons: result.reasons,
+            })
+            .eq("id", video.id)
+        );
       } else {
         results.already_winners++;
-
-        // Update score/reasons if they've changed
-        await supabaseAdmin
-          .from("videos")
-          .update({
-            winner_confidence: result.confidence,
-            winner_score: result.score,
-            winner_reasons: result.reasons,
-          })
-          .eq("id", video.id);
+        updatePromises.push(
+          supabaseAdmin
+            .from("videos")
+            .update({
+              winner_confidence: result.confidence,
+              winner_score: result.score,
+              winner_reasons: result.reasons,
+            })
+            .eq("id", video.id)
+        );
       }
 
       results.winners.push({
@@ -121,6 +124,11 @@ export async function POST(request: Request) {
         is_new: isNew,
       });
     }
+  }
+
+  // Execute all DB updates in parallel (batched)
+  if (updatePromises.length > 0) {
+    await Promise.all(updatePromises);
   }
 
   return NextResponse.json({

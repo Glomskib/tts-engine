@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.json({ ok: true, data, correlation_id: correlationId });
   response.headers.set('x-correlation-id', correlationId);
+  response.headers.set('Cache-Control', 'private, max-age=120, stale-while-revalidate=600');
   return response;
 }
 

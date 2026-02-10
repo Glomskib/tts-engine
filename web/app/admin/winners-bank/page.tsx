@@ -24,13 +24,15 @@ import {
   Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
 import { HOOK_TYPE_OPTIONS, CONTENT_FORMAT_OPTIONS } from '@/lib/winners';
 import { WinnerCard } from '@/components/WinnerCard';
-import { WinnerDetailModal } from '@/components/WinnerDetailModal';
-import { MarkAsWinnerModal } from '@/components/MarkAsWinnerModal';
-import { AddExternalWinnerModal } from '@/components/AddExternalWinnerModal';
+
+const WinnerDetailModal = dynamic(() => import('@/components/WinnerDetailModal').then(m => ({ default: m.WinnerDetailModal })), { ssr: false });
+const MarkAsWinnerModal = dynamic(() => import('@/components/MarkAsWinnerModal').then(m => ({ default: m.MarkAsWinnerModal })), { ssr: false });
+const AddExternalWinnerModal = dynamic(() => import('@/components/AddExternalWinnerModal').then(m => ({ default: m.AddExternalWinnerModal })), { ssr: false });
 
 type SourceFilter = 'all' | 'generated' | 'external';
 type SortOption = 'performance_score' | 'views' | 'engagement' | 'recent';

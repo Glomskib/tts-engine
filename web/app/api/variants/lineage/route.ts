@@ -41,25 +41,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Probe for schema availability using actual selects instead of information_schema
-    let hasParentVariantId = false;
-    let hasIterationGroupId = false;
-    let iterationGroupsAvailable = false;
+    // Probe for schema availability — run all probes in parallel
+    const [probeParent, probeIterGroup, probeIterTable] = await Promise.all([
+      supabaseAdmin.from('variants').select('parent_variant_id').limit(1),
+      supabaseAdmin.from('variants').select('iteration_group_id').limit(1),
+      supabaseAdmin.from('iteration_groups').select('id').limit(1),
+    ]);
 
-    const probeParent = await supabaseAdmin.from('variants').select('parent_variant_id').limit(1);
-    if (!probeParent.error) {
-      hasParentVariantId = true;
-    }
-
-    const probeIterGroup = await supabaseAdmin.from('variants').select('iteration_group_id').limit(1);
-    if (!probeIterGroup.error) {
-      hasIterationGroupId = true;
-    }
-
-    const probeIterTable = await supabaseAdmin.from('iteration_groups').select('id').limit(1);
-    if (!probeIterTable.error) {
-      iterationGroupsAvailable = true;
-    }
+    const hasParentVariantId = !probeParent.error;
+    const hasIterationGroupId = !probeIterGroup.error;
+    const iterationGroupsAvailable = !probeIterTable.error;
 
     // Fetch the target variant with explicit select list
     const { data: targetVariant, error: targetError } = await supabaseAdmin
@@ -111,45 +102,47 @@ export async function GET(request: NextRequest) {
     }
     rootVariant = currentVariant;
 
-    // Find all child variants of the target variant - remove schema check
-    const { data: children, error: childrenError } = await supabaseAdmin
+    // Fetch children, iteration groups, and target group in parallel
+    const childrenPromise = supabaseAdmin
       .from('variants')
       .select('id,concept_id,hook_id,script_id,parent_variant_id,iteration_group_id,change_type,change_note,variable_changed,status,created_at,updated_at')
       .eq('parent_variant_id', targetVariant.id)
       .order('created_at', { ascending: true });
 
-    if (!childrenError && children) {
-      childVariants = children;
-    } else if (childrenError) {
-      console.error('Failed to fetch child variants:', childrenError);
-    }
-
-    // Find iteration groups - remove schema checks and use explicit selects
-    // First, get groups where root is the winner
-    const { data: winnerGroups, error: winnerGroupsError } = await supabaseAdmin
+    const winnerGroupsPromise = supabaseAdmin
       .from('iteration_groups')
       .select('id,winner_variant_id,concept_id,plan_json,status,error_message,created_at,updated_at')
       .eq('winner_variant_id', rootVariant.id)
       .order('created_at', { ascending: false });
 
-    if (!winnerGroupsError && winnerGroups) {
-      iterationGroups = winnerGroups;
+    const targetGroupPromise = targetVariant.iteration_group_id
+      ? supabaseAdmin
+          .from('iteration_groups')
+          .select('id,winner_variant_id,concept_id,plan_json,status,error_message,created_at,updated_at')
+          .eq('id', targetVariant.iteration_group_id)
+          .single()
+      : Promise.resolve({ data: null, error: null });
+
+    const [childrenResult, winnerGroupsResult, targetGroupResult] = await Promise.all([
+      childrenPromise,
+      winnerGroupsPromise,
+      targetGroupPromise,
+    ]);
+
+    if (!childrenResult.error && childrenResult.data) {
+      childVariants = childrenResult.data;
+    } else if (childrenResult.error) {
+      console.error('Failed to fetch child variants:', childrenResult.error);
     }
 
-    // Also check if target variant has iteration_group_id
-    if (targetVariant.iteration_group_id) {
-      const { data: targetGroup, error: targetGroupError } = await supabaseAdmin
-        .from('iteration_groups')
-        .select('id,winner_variant_id,concept_id,plan_json,status,error_message,created_at,updated_at')
-        .eq('id', targetVariant.iteration_group_id)
-        .single();
+    if (!winnerGroupsResult.error && winnerGroupsResult.data) {
+      iterationGroups = winnerGroupsResult.data;
+    }
 
-      if (!targetGroupError && targetGroup) {
-        // Add to groups if not already present
-        const exists = iterationGroups.some(g => g.id === targetGroup.id);
-        if (!exists) {
-          iterationGroups.push(targetGroup);
-        }
+    if (!targetGroupResult.error && targetGroupResult.data) {
+      const exists = iterationGroups.some(g => g.id === (targetGroupResult.data as DatabaseRecord).id);
+      if (!exists) {
+        iterationGroups.push(targetGroupResult.data as DatabaseRecord);
       }
     }
 

@@ -14,7 +14,9 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { InstallBanner } from '@/components/PWAProvider';
-import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal';
+import dynamic from 'next/dynamic';
+
+const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
 import { LowCreditBanner } from '@/components/LowCreditBanner';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 

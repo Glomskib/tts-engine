@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Trophy } from "lucide-react";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VideoCreationSheet } from "@/components/VideoCreationSheet";
-import { MarkAsWinnerModal } from "@/components/MarkAsWinnerModal";
+
+const MarkAsWinnerModal = dynamic(() => import("@/components/MarkAsWinnerModal").then(m => ({ default: m.MarkAsWinnerModal })), { ssr: false });
 import { Toast } from "@/components/Toast";
 
 // --- Types ---

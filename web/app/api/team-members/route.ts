@@ -41,11 +41,13 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       data: data || [],
       correlation_id: correlationId,
     });
+    response.headers.set('Cache-Control', 'private, max-age=120, stale-while-revalidate=600');
+    return response;
 
   } catch (error) {
     console.error(`[${correlationId}] Team members error:`, error);

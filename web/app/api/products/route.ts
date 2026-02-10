@@ -27,7 +27,9 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  const response = NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
+  return response;
 }
 
 export async function POST(request: Request) {

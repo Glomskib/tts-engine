@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { EmptyState } from '../components/AdminPageLayout';
+import dynamic from 'next/dynamic';
 import SimpleBarChart from './components/SimpleBarChart';
-import PerformanceTab from './components/PerformanceTab';
+
+const PerformanceTab = dynamic(() => import('./components/PerformanceTab'), { ssr: false });
 import { FileText, Video, Coins, ArrowRight, TrendingUp, TrendingDown, Trophy, Eye, Percent, Target, Brain, RefreshCw, AlertTriangle, BarChart3 } from 'lucide-react';
 import type { WinnersAnalytics } from '@/lib/analytics/types';
 import { StatCard } from '@/components/analytics/StatCard';

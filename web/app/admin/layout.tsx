@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, ChevronDown, User, LogOut, Zap, Bell } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Bell, Search } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
@@ -18,6 +18,7 @@ import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
 import { LowCreditBanner } from '@/components/LowCreditBanner';
+import { CommandPalette } from '@/components/CommandPalette';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -401,6 +402,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <header className="fixed top-0 left-72 right-0 z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
             <div className="flex items-center justify-end px-6 h-16">
               <div className="flex items-center gap-4">
+                {/* Search trigger */}
+                <button
+                  onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg transition-colors"
+                >
+                  <Search className="w-4 h-4" />
+                  <span className="hidden xl:inline">Search...</span>
+                  <kbd className="hidden xl:inline ml-2 px-1.5 py-0.5 text-[10px] bg-zinc-800 border border-zinc-700 rounded font-mono">⌘K</kbd>
+                </button>
                 <ClawbotStatus compact />
                 <CreditsBadge />
 
@@ -471,6 +481,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
     </div>
+    <CommandPalette />
     <KeyboardShortcutsModal />
     </ToastProvider>
   );

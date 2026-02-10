@@ -1,0 +1,299 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Search,
+  Package,
+  FileText,
+  Trophy,
+  Video,
+  Users,
+  LayoutTemplate,
+  Clock,
+  X,
+  ArrowRight,
+} from 'lucide-react';
+
+interface SearchResult {
+  id: string;
+  type: 'product' | 'script' | 'winner' | 'video' | 'competitor' | 'template';
+  title: string;
+  subtitle?: string;
+  href: string;
+}
+
+const TYPE_CONFIG: Record<SearchResult['type'], { icon: typeof Search; label: string; color: string }> = {
+  product: { icon: Package, label: 'Products', color: 'text-blue-400' },
+  script: { icon: FileText, label: 'Scripts', color: 'text-green-400' },
+  winner: { icon: Trophy, label: 'Winners', color: 'text-yellow-400' },
+  video: { icon: Video, label: 'Pipeline', color: 'text-purple-400' },
+  competitor: { icon: Users, label: 'Competitors', color: 'text-red-400' },
+  template: { icon: LayoutTemplate, label: 'Templates', color: 'text-teal-400' },
+};
+
+const RECENT_KEY = 'ff_recent_searches';
+const MAX_RECENT = 5;
+
+function getRecentSearches(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearch(query: string) {
+  const recent = getRecentSearches().filter(q => q !== query);
+  recent.unshift(query);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
+}
+
+export function CommandPalette() {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  // Listen for Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setOpen(prev => !prev);
+      }
+      if (e.key === 'Escape' && open) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open]);
+
+  // Focus input when opening
+  useEffect(() => {
+    if (open) {
+      setRecentSearches(getRecentSearches());
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setQuery('');
+      setResults([]);
+      setSelectedIndex(0);
+    }
+  }, [open]);
+
+  // Search across endpoints
+  const search = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+
+    setLoading(true);
+    const lower = q.toLowerCase();
+
+    try {
+      const [productsRes, scriptsRes, winnersRes, videosRes, competitorsRes, templatesRes] = await Promise.all([
+        fetch('/api/products').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+        fetch('/api/scripts').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+        fetch('/api/admin/winners-bank').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+        fetch('/api/admin/videos?limit=50').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+        fetch('/api/competitors').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+        fetch('/api/admin/templates').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+      ]);
+
+      const matched: SearchResult[] = [];
+
+      // Products
+      for (const p of productsRes.data || []) {
+        if ((p.name || '').toLowerCase().includes(lower) || (p.brand || '').toLowerCase().includes(lower)) {
+          matched.push({ id: p.id, type: 'product', title: p.name, subtitle: p.brand, href: '/admin/products' });
+        }
+      }
+
+      // Scripts
+      for (const s of scriptsRes.data || []) {
+        const title = s.title || s.hook || `Script ${s.id?.slice(0, 8)}`;
+        if (title.toLowerCase().includes(lower) || (s.hook || '').toLowerCase().includes(lower)) {
+          matched.push({ id: s.id, type: 'script', title, subtitle: s.product_name || '', href: '/admin/skit-library' });
+        }
+      }
+
+      // Winners
+      for (const w of winnersRes.data || []) {
+        const title = w.hook || w.title || `Winner ${w.id?.slice(0, 8)}`;
+        if (title.toLowerCase().includes(lower) || (w.product_name || '').toLowerCase().includes(lower)) {
+          matched.push({ id: w.id, type: 'winner', title, subtitle: w.product_name || '', href: '/admin/winners-bank' });
+        }
+      }
+
+      // Videos (pipeline)
+      for (const v of videosRes.data || []) {
+        const title = v.video_code || v.title || `Video ${v.id?.slice(0, 8)}`;
+        if (title.toLowerCase().includes(lower) || (v.product_name || '').toLowerCase().includes(lower)) {
+          matched.push({ id: v.id, type: 'video', title, subtitle: v.recording_status || '', href: '/admin/pipeline' });
+        }
+      }
+
+      // Competitors
+      for (const c of competitorsRes.data || []) {
+        if ((c.name || '').toLowerCase().includes(lower) || (c.handle || '').toLowerCase().includes(lower)) {
+          matched.push({ id: c.id, type: 'competitor', title: c.name || c.handle, subtitle: c.platform || '', href: '/admin/competitors' });
+        }
+      }
+
+      // Templates
+      for (const t of templatesRes.data || []) {
+        if ((t.name || '').toLowerCase().includes(lower) || (t.category || '').toLowerCase().includes(lower)) {
+          matched.push({ id: t.id, type: 'template', title: t.name, subtitle: t.category || '', href: '/admin/templates' });
+        }
+      }
+
+      setResults(matched.slice(0, 20));
+      setSelectedIndex(0);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => search(query), 300);
+    return () => clearTimeout(timer);
+  }, [query, search]);
+
+  const navigate = (result: SearchResult) => {
+    saveRecentSearch(query);
+    setOpen(false);
+    router.push(result.href);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.min(i + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && results[selectedIndex]) {
+      navigate(results[selectedIndex]);
+    }
+  };
+
+  // Group results by type
+  const grouped = results.reduce((acc, r) => {
+    if (!acc[r.type]) acc[r.type] = [];
+    acc[r.type].push(r);
+    return acc;
+  }, {} as Record<string, SearchResult[]>);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100]">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)} />
+
+      {/* Modal */}
+      <div className="relative mx-auto mt-[15vh] w-full max-w-xl">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
+          {/* Search input */}
+          <div className="flex items-center gap-3 px-4 border-b border-zinc-800">
+            <Search className="w-5 h-5 text-zinc-500 flex-shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Search products, scripts, winners, pipeline..."
+              className="flex-1 py-4 bg-transparent text-white placeholder:text-zinc-500 outline-none text-base"
+            />
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {loading && <div className="w-4 h-4 border-2 border-zinc-600 border-t-teal-400 rounded-full animate-spin" />}
+              <button onClick={() => setOpen(false)} className="p-1 text-zinc-500 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="max-h-[50vh] overflow-y-auto">
+            {query.length < 2 && recentSearches.length > 0 && (
+              <div className="p-3">
+                <p className="text-xs font-medium text-zinc-500 uppercase px-2 mb-2">Recent Searches</p>
+                {recentSearches.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setQuery(q)}
+                    className="flex items-center gap-3 w-full px-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                  >
+                    <Clock className="w-4 h-4 flex-shrink-0" />
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {query.length >= 2 && results.length === 0 && !loading && (
+              <div className="py-12 text-center text-zinc-500">
+                <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No results for &quot;{query}&quot;</p>
+              </div>
+            )}
+
+            {Object.entries(grouped).map(([type, items]) => {
+              const config = TYPE_CONFIG[type as SearchResult['type']];
+              const Icon = config.icon;
+              return (
+                <div key={type} className="p-2">
+                  <p className={`text-xs font-medium uppercase px-3 py-1 ${config.color}`}>
+                    {config.label}
+                  </p>
+                  {items.map((result) => {
+                    const globalIdx = results.indexOf(result);
+                    return (
+                      <button
+                        key={result.id}
+                        onClick={() => navigate(result)}
+                        className={`flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-colors ${
+                          globalIdx === selectedIndex
+                            ? 'bg-teal-500/20 text-white'
+                            : 'text-zinc-300 hover:bg-zinc-800'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${config.color}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{result.title}</p>
+                          {result.subtitle && (
+                            <p className="text-xs text-zinc-500 truncate">{result.subtitle}</p>
+                          )}
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-600">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400 font-mono">↑↓</kbd> navigate</span>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400 font-mono">↵</kbd> open</span>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400 font-mono">esc</kbd> close</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

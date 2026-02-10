@@ -326,6 +326,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     idempotent: false,
   });
 
+  // Auto-increment brand's videos_this_month quota counter (non-blocking)
+  try {
+    const { data: videoWithProduct } = await supabaseAdmin
+      .from("videos")
+      .select("product_id")
+      .eq("id", videoId)
+      .single();
+
+    if (videoWithProduct?.product_id) {
+      const { data: product } = await supabaseAdmin
+        .from("products")
+        .select("brand_id")
+        .eq("id", videoWithProduct.product_id)
+        .single();
+
+      if (product?.brand_id) {
+        const { data: brand } = await supabaseAdmin
+          .from("brands")
+          .select("id, videos_this_month, monthly_video_quota")
+          .eq("id", product.brand_id)
+          .single();
+
+        if (brand && brand.monthly_video_quota > 0) {
+          await supabaseAdmin
+            .from("brands")
+            .update({ videos_this_month: (brand.videos_this_month || 0) + 1 })
+            .eq("id", brand.id);
+        }
+      }
+    }
+  } catch (quotaErr) {
+    console.error("Failed to increment brand quota counter:", quotaErr);
+    // Non-blocking — don't fail the mark-posted operation
+  }
+
   return NextResponse.json({
     ok: true,
     data: {

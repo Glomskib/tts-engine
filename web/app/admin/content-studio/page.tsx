@@ -382,6 +382,9 @@ export default function ContentStudioPage() {
     reason: string;
   } | null>(null);
 
+  // Auto-add to Winners Bank state
+  const [autoAddedToWinners, setAutoAddedToWinners] = useState(false);
+
   // AI Chat state
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [chatInput, setChatInput] = useState('');
@@ -950,6 +953,40 @@ export default function ContentStudioPage() {
         setSavedToLibrary(true);
         setSaveModalOpen(false);
         setTimeout(() => setSavedToLibrary(false), 3000);
+
+        // Auto-add to Winners Bank if AI score >= 8
+        const currentAiScore = result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score;
+        if (currentAiScore && currentAiScore.overall_score >= 8) {
+          const currentSk = result.variations?.[selectedVariationIndex]?.skit || result.skit;
+          const fullScript = currentSk ? [
+            `HOOK: ${currentSk.hook_line}`,
+            ...currentSk.beats.map((b) => {
+              let t = `[${b.t}] ${b.action}`;
+              if (b.dialogue) t += `\n   "${b.dialogue}"`;
+              return t;
+            }),
+            `CTA: ${currentSk.cta_line}`,
+          ].join('\n') : '';
+
+          fetch('/api/winners', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              source_type: 'generated',
+              hook: currentSk?.hook_line || '',
+              full_script: fullScript,
+              content_format: selectedContentTypeId || null,
+              product_category: selectedProductId
+                ? products.find(p => p.id === selectedProductId)?.category
+                : null,
+              notes: `Auto-added (AI score: ${currentAiScore.overall_score}/10)`,
+            }),
+          }).then(() => {
+            setAutoAddedToWinners(true);
+            setTimeout(() => setAutoAddedToWinners(false), 4000);
+          }).catch(() => { /* non-blocking */ });
+        }
       }
     } catch (err) {
       console.error('Failed to save:', err);
@@ -2919,7 +2956,67 @@ export default function ContentStudioPage() {
                   >
                     <Download size={14} /> .txt
                   </button>
+
+                  <button type="button"
+                    onClick={async () => {
+                      const { generateDocx } = await import('@/lib/docx-export');
+                      const productName = selectedProductId
+                        ? products.find(p => p.id === selectedProductId)?.name
+                        : manualProductName;
+                      const brandName = selectedProductId
+                        ? products.find(p => p.id === selectedProductId)?.brand
+                        : manualBrandName;
+                      const blob = await generateDocx({
+                        skit: currentSkit,
+                        aiScore: currentAiScore,
+                        title: `${productName || 'Script'} - ${selectedContentType?.name || 'Content'}`,
+                        productName: productName || undefined,
+                        brandName: brandName || undefined,
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `script-${currentSkit.hook_line.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.docx`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{
+                      padding: '10px 14px',
+                      backgroundColor: '#374151',
+                      border: '1px solid #4B5563',
+                      borderRadius: '10px',
+                      color: '#E5E7EB',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Download size={14} /> .docx
+                  </button>
                 </div>
+
+                {/* Auto-added to Winners Bank feedback */}
+                {autoAddedToWinners && (
+                  <div style={{
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: '10px',
+                    color: '#f59e0b',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}>
+                    <Star size={14} /> Added to Winners Bank (AI Score 8+)
+                  </div>
+                )}
 
                 {/* Save as Template */}
                 <button type="button"

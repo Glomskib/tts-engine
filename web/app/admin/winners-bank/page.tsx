@@ -21,9 +21,11 @@ import {
   Check,
   Package,
   Download,
+  Calendar,
 } from 'lucide-react';
 import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
+import { HOOK_TYPE_OPTIONS, CONTENT_FORMAT_OPTIONS } from '@/lib/winners';
 import { WinnerCard } from '@/components/WinnerCard';
 import { WinnerDetailModal } from '@/components/WinnerDetailModal';
 import { MarkAsWinnerModal } from '@/components/MarkAsWinnerModal';
@@ -56,6 +58,10 @@ export default function WinnersBankPage() {
   const [sortBy, setSortBy] = useState<SortOption>('performance_score');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [hookTypeFilter, setHookTypeFilter] = useState('');
+  const [contentFormatFilter, setContentFormatFilter] = useState('');
+  const [dateRangeFilter, setDateRangeFilter] = useState('');
+  const [scoreRangeFilter, setScoreRangeFilter] = useState('');
 
   // View toggle
   const [activeView, setActiveView] = useState<ActiveView>('winners');
@@ -310,17 +316,58 @@ export default function WinnersBankPage() {
     }
   };
 
-  // Filter winners by search query
+  // Filter winners by all active filters
   const filteredWinners = winners.filter(winner => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      winner.hook?.toLowerCase().includes(query) ||
-      winner.product_category?.toLowerCase().includes(query) ||
-      winner.content_format?.toLowerCase().includes(query) ||
-      winner.notes?.toLowerCase().includes(query)
-    );
+    // Search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        winner.hook?.toLowerCase().includes(query) ||
+        winner.product_category?.toLowerCase().includes(query) ||
+        winner.content_format?.toLowerCase().includes(query) ||
+        winner.notes?.toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+    }
+
+    // Hook type filter
+    if (hookTypeFilter && winner.hook_type !== hookTypeFilter) return false;
+
+    // Content format filter
+    if (contentFormatFilter && winner.content_format !== contentFormatFilter) return false;
+
+    // Date range filter
+    if (dateRangeFilter) {
+      const createdAt = new Date(winner.created_at).getTime();
+      const now = Date.now();
+      const days = dateRangeFilter === '7d' ? 7 : dateRangeFilter === '30d' ? 30 : dateRangeFilter === '90d' ? 90 : 0;
+      if (days > 0 && createdAt < now - days * 86400000) return false;
+    }
+
+    // Score range filter
+    if (scoreRangeFilter && winner.performance_score != null) {
+      const score = winner.performance_score;
+      if (scoreRangeFilter === '0-3' && (score < 0 || score > 3)) return false;
+      if (scoreRangeFilter === '3-6' && (score < 3 || score > 6)) return false;
+      if (scoreRangeFilter === '6-8' && (score < 6 || score > 8)) return false;
+      if (scoreRangeFilter === '8-10' && score < 8) return false;
+    } else if (scoreRangeFilter && winner.performance_score == null) {
+      return false;
+    }
+
+    return true;
   });
+
+  const hasActiveFilters = !!(searchQuery || categoryFilter || hookTypeFilter || contentFormatFilter || dateRangeFilter || scoreRangeFilter || sourceFilter !== 'all');
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('');
+    setHookTypeFilter('');
+    setContentFormatFilter('');
+    setDateRangeFilter('');
+    setScoreRangeFilter('');
+    setSourceFilter('all');
+  };
 
   // Get unique categories from winners
   const categories = [...new Set(winners.filter(w => w.product_category).map(w => w.product_category!))];
@@ -555,6 +602,65 @@ export default function WinnersBankPage() {
             </div>
           )}
 
+          {/* Hook Type Filter */}
+          <div className="relative">
+            <select
+              value={hookTypeFilter}
+              onChange={(e) => setHookTypeFilter(e.target.value)}
+              className="pl-3 pr-8 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none"
+            >
+              <option value="">All Hook Types</option>
+              {HOOK_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Content Format Filter */}
+          <div className="relative">
+            <select
+              value={contentFormatFilter}
+              onChange={(e) => setContentFormatFilter(e.target.value)}
+              className="pl-3 pr-8 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none"
+            >
+              <option value="">All Formats</option>
+              {CONTENT_FORMAT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date Range Filter */}
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <select
+              value={dateRangeFilter}
+              onChange={(e) => setDateRangeFilter(e.target.value)}
+              className="pl-10 pr-8 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none"
+            >
+              <option value="">All Time</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+            </select>
+          </div>
+
+          {/* Score Range Filter */}
+          <div className="relative">
+            <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <select
+              value={scoreRangeFilter}
+              onChange={(e) => setScoreRangeFilter(e.target.value)}
+              className="pl-10 pr-8 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none"
+            >
+              <option value="">All Scores</option>
+              <option value="8-10">Top (8-10)</option>
+              <option value="6-8">Good (6-8)</option>
+              <option value="3-6">Average (3-6)</option>
+              <option value="0-3">Low (0-3)</option>
+            </select>
+          </div>
+
           {/* Sort */}
           <div className="relative">
             <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
@@ -569,6 +675,17 @@ export default function WinnersBankPage() {
               <option value="recent">Most Recent</option>
             </select>
           </div>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <button type="button"
+              onClick={clearAllFilters}
+              className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium flex items-center gap-1.5"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear
+            </button>
+          )}
 
           {/* Refresh */}
           <button type="button"
@@ -600,16 +717,22 @@ export default function WinnersBankPage() {
           <div className="text-center py-20">
             <Trophy className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-zinc-300 mb-2">
-              {searchQuery || categoryFilter
+              {hasActiveFilters
                 ? 'No winners found'
                 : 'Start Building Your Winners Bank'}
             </h2>
             <p className="text-zinc-500 mb-6 max-w-md mx-auto">
-              {searchQuery || categoryFilter
+              {hasActiveFilters
                 ? 'Try adjusting your search or filters.'
                 : 'Add your best-performing scripts and reference videos to help AI generate better content.'}
             </p>
-            {!searchQuery && !categoryFilter && (
+            {hasActiveFilters && (
+              <button type="button" onClick={clearAllFilters}
+                className="mb-6 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-colors">
+                Clear All Filters
+              </button>
+            )}
+            {!hasActiveFilters && (
               <div className="flex items-center justify-center gap-3">
                 <button type="button"
                   onClick={() => setShowMarkWinner(true)}

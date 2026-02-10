@@ -34,6 +34,8 @@ interface Product {
 interface BrandEntity {
   id: string;
   name: string;
+  monthly_video_quota?: number | null;
+  videos_this_month?: number | null;
 }
 
 interface ProductStats extends Product {
@@ -209,12 +211,17 @@ export default function ProductsPage() {
   useEffect(() => {
     if (!authLoading && authUser) {
       fetchProductStats();
-      // Fetch brand entities for linking
+      // Fetch brand entities for linking (includes quota fields)
       fetch('/api/brands')
         .then(res => res.json())
         .then(data => {
           if (data.ok && data.data) {
-            setBrandEntities(data.data);
+            setBrandEntities(data.data.map((b: Record<string, unknown>) => ({
+              id: b.id as string,
+              name: b.name as string,
+              monthly_video_quota: (b.monthly_video_quota as number) ?? null,
+              videos_this_month: (b.videos_this_month as number) ?? null,
+            })));
           }
         })
         .catch(err => console.error('Failed to fetch brands:', err));
@@ -648,6 +655,37 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* Brand Quotas Summary */}
+      {(() => {
+        const brandsWithQuota = brandEntities.filter(b => b.monthly_video_quota && b.monthly_video_quota > 0);
+        if (brandsWithQuota.length === 0) return null;
+        return (
+          <AdminCard>
+            <div className="mb-2 text-sm font-semibold text-zinc-300">Brand Quotas</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {brandsWithQuota.map(brand => {
+                const used = brand.videos_this_month ?? 0;
+                const quota = brand.monthly_video_quota!;
+                const pct = Math.min((used / quota) * 100, 100);
+                const barColor = pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : 'bg-teal-500';
+                const textColor = pct >= 100 ? 'text-red-400' : pct >= 80 ? 'text-amber-400' : 'text-teal-400';
+                return (
+                  <div key={brand.id} className="p-3 bg-zinc-800/50 border border-white/5 rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-zinc-200 truncate">{brand.name}</span>
+                      <span className={`text-xs font-semibold ${textColor}`}>{used}/{quota}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                      <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </AdminCard>
+        );
+      })()}
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
           Error: {error}
@@ -724,6 +762,21 @@ export default function ProductsPage() {
                         <span className="px-2 py-0.5 bg-zinc-700/50 text-zinc-300 rounded text-xs font-medium">
                           {product.brand}
                         </span>
+                        {(() => {
+                          const brandEntity = product.brand_id
+                            ? brandEntities.find(b => b.id === product.brand_id)
+                            : null;
+                          if (!brandEntity?.monthly_video_quota || brandEntity.monthly_video_quota <= 0) return null;
+                          const used = brandEntity.videos_this_month ?? 0;
+                          const quota = brandEntity.monthly_video_quota;
+                          if (used >= quota) {
+                            return <span className="ml-1.5 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-semibold">Over quota</span>;
+                          }
+                          if (used >= quota * 0.8) {
+                            return <span className="ml-1.5 px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px] font-semibold">Near quota</span>;
+                          }
+                          return null;
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-zinc-400">
                         {product.category}

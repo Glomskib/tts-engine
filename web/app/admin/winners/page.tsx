@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trophy, Wand2 } from "lucide-react";
+import { Trophy, Wand2, Upload } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -1151,6 +1151,15 @@ export default function WinnersPage() {
             </div>
           </div>
         )}
+
+        {/* Quick Import Floating Action Button */}
+        <Link
+          href="/admin/winners/import"
+          className="fixed bottom-20 right-6 lg:bottom-8 lg:right-8 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-indigo-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-10"
+          title="Quick Import TikTok Winner"
+        >
+          <Upload className="w-6 h-6 text-white" />
+        </Link>
       </div>
     </PullToRefresh>
   );

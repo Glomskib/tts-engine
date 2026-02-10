@@ -55,3 +55,97 @@ INSTRUCTIONS:
 4. Verify build succeeds and Vercel deploys tts-engine successfully
 
 Brandon will authenticate Tailscale from his phone using the URL. Mac Mini will get a Tailscale IP (100.x.x.x) for remote access.
+
+---
+[2026-02-10 07:52:00 PST] CRITICAL FEATURE: TikTok Winner Import System
+INSTRUCTION: Build the complete TikTok → Winners Bank → Pipeline workflow. This is a core feature that will become Brandon's primary content discovery method.
+
+PART 1: TikTok URL Scraper API Endpoint
+Create: web/app/api/winners/import-tiktok/route.ts
+POST /api/winners/import-tiktok
+Body: { url: string, brand_name?: string, product_name?: string }
+
+Steps:
+1. Extract video ID from TikTok URL (handle multiple formats: tiktok.com/@user/video/123, vm.tiktok.com/xxxxx, etc.)
+2. Fetch metadata via TikTok oEmbed: https://www.tiktok.com/oembed?url={encoded_url}
+   Returns: title, author_name, author_url, thumbnail_url
+3. If brand_name provided: lookup or create brand in products table
+4. If product_name provided: lookup or create product
+5. Create winner entry in winners/saved_hooks:
+   - hook: extracted from title/description
+   - source_type: "tiktok_import"
+   - source_url: the TikTok URL
+   - creator: author_name
+   - notes: "Imported from TikTok"
+6. Return: { winner_id, brand, product, title, author, hook }
+
+PART 2: Transcription Endpoint
+Create: web/app/api/ai/transcribe/route.ts
+POST /api/ai/transcribe
+Body: { tiktok_url: string, use_title_as_script?: boolean }
+
+Transcription strategy:
+- Use Anthropic API (Claude 3.5) with TikTok title + description as context
+- Ask Claude to generate a likely video script/hook based on the content, style, and title
+- If use_title_as_script=true, use title as the hook directly
+- Return: { transcript: string, hook: string, scenes: [], summary: string }
+
+PART 3: Auto-Pipeline Entry Creation
+Create: web/app/api/pipeline/from-winner/route.ts
+POST /api/pipeline/from-winner
+Body: { winner_id: string, transcript?: string }
+
+Steps:
+1. Fetch winner record by ID
+2. Parse transcript into script structure (hook, scenes, CTA)
+3. Create video entry with:
+   - status: "SCRIPTED"
+   - script_content: generated script from transcript
+   - source: "winner_import"
+   - notes: "Auto-generated from TikTok winner"
+   - assigned_to: null (unassigned, ready for VA)
+4. Return: { video_id, status, hook, product, brand }
+
+PART 4: Admin Import Page
+Create: web/app/admin/winners/import/page.tsx
+Features:
+- URL input (paste TikTok link)
+- Brand dropdown with "+ Create New" option
+- Product dropdown with "+ Create New" option
+- "Fetch & Preview" button
+- Shows: video metadata, extracted hook, thumbnail
+- "Confirm & Add" button triggers both API calls
+- Success toast: "✅ Added to Winners + Pipeline"
+
+Also add "Quick Import" floating button on /admin/winners/bank:
+- Floating action button (bottom right)
+- Opens modal with just URL field
+- Minimal, rapid-fire import
+
+PART 5: Bolt Skill Command
+Create/update: ~/.openclaw/workspace/skills/flashflow/import-tiktok.md
+Expose command: "add winner [URL]" or "import [URL]"
+Flow:
+1. Extract URL from message
+2. POST /api/winners/import-tiktok (without brand/product first)
+3. If no brand in response, ask: "Brand name? (or skip to use creator name)"
+4. If no product, ask: "Product name? (or skip)"
+5. Re-call endpoint with brand/product if provided
+6. POST /api/pipeline/from-winner with winner_id
+7. Return: "✅ Added! Hook: [text] | Winner ID: [id] | Pipeline: [video_id]"
+
+AUTHENTICATION & DEPENDENCIES:
+- Use existing API key auth pattern from other endpoints
+- Verify replicate & anthropic deps are in package.json
+- Handle errors: invalid URL, brand/product creation failures, API rate limits
+
+COMMIT PATTERN:
+- Part 1: "feat: TikTok winner import scraper endpoint"
+- Part 2: "feat: Transcription endpoint with AI script generation"
+- Part 3: "feat: Auto-pipeline entry creation from winners"
+- Part 4: "feat: Admin UI for TikTok winner import"
+- Part 5: "feat: Bolt skill for quick winner import command"
+
+Final: git push origin master and notify Brandon once all 5 parts deployed to Vercel.
+
+ACKNOWLEDGE and begin Part 1 immediately.

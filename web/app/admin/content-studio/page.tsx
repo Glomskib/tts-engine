@@ -340,6 +340,10 @@ export default function ContentStudioPage() {
   const [saveTitle, setSaveTitle] = useState('');
   const [saveStatus, setSaveStatus] = useState<SkitStatus>('draft');
   const [savingToLibrary, setSavingToLibrary] = useState(false);
+
+  // Save as template state
+  const [savingAsTemplate, setSavingAsTemplate] = useState(false);
+  const [savedAsTemplate, setSavedAsTemplate] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
 
   // Approve & pipeline state
@@ -951,6 +955,42 @@ export default function ContentStudioPage() {
       console.error('Failed to save:', err);
     } finally {
       setSavingToLibrary(false);
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!result) return;
+    setSavingAsTemplate(true);
+    try {
+      const currentSkit = result.variations?.[selectedVariationIndex]?.skit || result.skit;
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Template';
+      const res = await postJson('/api/script-templates', {
+        name: `${productName} - ${selectedContentTypeId} Template`,
+        category: selectedContentTypeId,
+        tags: [selectedContentTypeId, selectedPresentationStyleId, riskTier.toLowerCase()],
+        template_json: {
+          skit_data: currentSkit,
+          generation_config: {
+            content_type: selectedContentTypeId,
+            content_subtype: selectedSubtypeId,
+            presentation_style: selectedPresentationStyleId,
+            target_length: selectedLengthId,
+            humor_level: selectedHumorId,
+            risk_tier: riskTier,
+          },
+          strategy_metadata: result.strategy_metadata || null,
+        },
+      });
+      if (!isApiError(res)) {
+        setSavedAsTemplate(true);
+        setTimeout(() => setSavedAsTemplate(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save template:', err);
+    } finally {
+      setSavingAsTemplate(false);
     }
   };
 
@@ -2880,6 +2920,35 @@ export default function ContentStudioPage() {
                     <Download size={14} /> .txt
                   </button>
                 </div>
+
+                {/* Save as Template */}
+                <button type="button"
+                  onClick={handleSaveAsTemplate}
+                  disabled={savingAsTemplate || savedAsTemplate}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: savedAsTemplate ? 'rgba(16, 185, 129, 0.15)' : 'rgba(139, 92, 246, 0.1)',
+                    border: `1px solid ${savedAsTemplate ? 'rgba(16, 185, 129, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
+                    borderRadius: '10px',
+                    color: savedAsTemplate ? '#10b981' : '#a78bfa',
+                    cursor: savingAsTemplate || savedAsTemplate ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {savedAsTemplate ? (
+                    <><Check size={14} /> Saved as Template</>
+                  ) : savingAsTemplate ? (
+                    <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                  ) : (
+                    <><Bookmark size={14} /> Save as Template</>
+                  )}
+                </button>
               </div>
 
               {/* AI Chat Section */}

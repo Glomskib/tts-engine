@@ -153,6 +153,9 @@ export default function SkitLibraryPage() {
   const [aiScoreMax, setAiScoreMax] = useState<string>("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
+  // Brand filter
+  const [brandFilter, setBrandFilter] = useState<string>("");
+
   // Duplicate
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
@@ -250,6 +253,13 @@ export default function SkitLibraryPage() {
         });
       }
 
+      // Client-side brand filtering
+      if (brandFilter) {
+        fetchedSkits = fetchedSkits.filter((s: SavedSkit) =>
+          s.product_brand?.toLowerCase() === brandFilter.toLowerCase()
+        );
+      }
+
       setSkits(fetchedSkits);
       setPagination(data.pagination || null);
     } catch (err) {
@@ -258,7 +268,7 @@ export default function SkitLibraryPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly]);
+  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly, brandFilter]);
 
   useEffect(() => {
     fetchSkits();
@@ -641,6 +651,13 @@ export default function SkitLibraryPage() {
   const totalPages = pagination ? Math.ceil(pagination.total / ITEMS_PER_PAGE) : 1;
   const totalCount = pagination?.total || 0;
 
+  // Unique brands for filter dropdown (computed from all fetched skits)
+  const uniqueBrands = useMemo(() => {
+    const brands = new Set<string>();
+    skits.forEach(s => { if (s.product_brand) brands.add(s.product_brand); });
+    return Array.from(brands).sort();
+  }, [skits]);
+
   // Library stats calculations (memoized)
   const stats = useMemo(() => ({
     total: skits.length,
@@ -860,6 +877,21 @@ export default function SkitLibraryPage() {
               </option>
             ))}
           </select>
+
+          {/* Brand Filter */}
+          {uniqueBrands.length > 0 && (
+            <select
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+              style={{ ...inputStyle, minWidth: "140px" }}
+              aria-label="Filter by brand"
+            >
+              <option value="">All Brands</option>
+              {uniqueBrands.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          )}
 
           {/* Winners Filter */}
           <label style={{

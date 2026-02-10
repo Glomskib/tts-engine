@@ -85,6 +85,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
+      { name: 'Quality', href: '/admin/quality', icon: FlaskConical },
       { name: 'Competitors', href: '/admin/competitors', icon: Search },
     ],
   },

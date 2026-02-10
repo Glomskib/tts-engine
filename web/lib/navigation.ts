@@ -71,6 +71,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
+      { name: 'Compare', href: '/admin/compare', icon: FileText },
       { name: 'Import', href: '/admin/winners/import', icon: Upload },
     ],
   },

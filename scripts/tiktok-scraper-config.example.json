@@ -1,0 +1,6 @@
+{
+  "flashflow_api_url": "https://web-pied-delta-30.vercel.app/api",
+  "flashflow_api_key": "ff_ak_your_api_key_here",
+  "scrape_interval_hours": 6,
+  "delay_between_scrapes": 3
+}

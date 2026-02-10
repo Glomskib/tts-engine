@@ -118,6 +118,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SETTINGS',
     items: [
       { name: 'Account', href: '/admin/settings', icon: Settings },
+      { name: 'Help', href: '/admin/help', icon: HelpCircle },
     ],
   },
   {

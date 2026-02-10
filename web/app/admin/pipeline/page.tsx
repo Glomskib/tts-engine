@@ -10,14 +10,13 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
 import { FilterSheet } from '@/components/FilterSheet';
-import { Filter, Film, Download } from 'lucide-react';
+import { Filter, Film, Download, LayoutGrid, List } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
-// Board view components available but simplified approach used instead
-// import BoardView from './components/BoardView';
-// import type { BoardFilters } from './types';
+import BoardView from './components/BoardView';
+import type { BoardFilters } from './types';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -121,6 +120,7 @@ const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
 const VA_MODE_KEY = 'pipeline_va_mode';
 const SIMPLE_MODE_KEY = 'pipeline_simple_mode';
 const FILTER_STATE_KEY = 'pipeline_filter_state';
+const VIEW_MODE_KEY = 'pipeline_view_mode';
 
 // Auth user info type
 interface AuthUser {
@@ -364,6 +364,9 @@ export default function AdminPipelinePage() {
 
   // View mode state (simple vs advanced) - simple is default for VA usability
   const [simpleView, setSimpleView] = useState(true);
+  // Board vs list view
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [boardFilters, setBoardFilters] = useState<BoardFilters>({ brand: '', product: '', account: '' });
 
   // Drawer state - which video is open in the details drawer
   const [drawerVideo, setDrawerVideo] = useState<QueueVideo | null>(null);
@@ -613,6 +616,12 @@ export default function AdminPipelinePage() {
         const savedSimpleView = localStorage.getItem(SIMPLE_MODE_KEY);
         if (savedSimpleView === 'false') {
           setSimpleView(false);
+        }
+
+        // Load view mode preference
+        const savedViewMode = localStorage.getItem(VIEW_MODE_KEY);
+        if (savedViewMode === 'board') {
+          setViewMode('board');
         }
 
         // Restore filter state from localStorage
@@ -1540,6 +1549,46 @@ export default function AdminPipelinePage() {
             </button>
           )}
 
+          {/* View Toggle */}
+          <div style={{
+            display: 'flex',
+            backgroundColor: colors.surface,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            overflow: 'hidden',
+          }}>
+            <button type="button"
+              onClick={() => { setViewMode('list'); localStorage.setItem(VIEW_MODE_KEY, 'list'); }}
+              style={{
+                padding: '7px 10px',
+                backgroundColor: viewMode === 'list' ? colors.accent : 'transparent',
+                color: viewMode === 'list' ? 'white' : colors.textMuted,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="List view"
+            >
+              <List size={15} />
+            </button>
+            <button type="button"
+              onClick={() => { setViewMode('board'); localStorage.setItem(VIEW_MODE_KEY, 'board'); }}
+              style={{
+                padding: '7px 10px',
+                backgroundColor: viewMode === 'board' ? colors.accent : 'transparent',
+                color: viewMode === 'board' ? 'white' : colors.textMuted,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Board view"
+            >
+              <LayoutGrid size={15} />
+            </button>
+          </div>
+
           {/* Export CSV */}
           {isAdminMode && (
             <button type="button"
@@ -2154,7 +2203,33 @@ export default function AdminPipelinePage() {
         )}
       </div>
 
+      {/* Desktop: Board View */}
+      {viewMode === 'board' && (
+        <div className="hidden lg:block">
+          <BoardView
+            videos={getIntentFilteredVideos()}
+            simpleMode={simpleView}
+            activeUser={activeUser}
+            isAdmin={isAdminMode}
+            onClaimVideo={claimVideo}
+            onReleaseVideo={releaseVideo}
+            onExecuteTransition={executeTransition}
+            onOpenAttachModal={openAttachModal}
+            onOpenPostModal={openPostModal}
+            onOpenHandoffModal={isAdminMode ? openHandoffModal : undefined}
+            onRefresh={fetchQueueVideos}
+            filters={boardFilters}
+            onFiltersChange={setBoardFilters}
+            brands={brands}
+            products={products}
+            accounts={accounts}
+            onShowToast={showToast}
+          />
+        </div>
+      )}
+
       {/* Desktop: Quiet, Scannable Table */}
+      {viewMode === 'list' && (
       <div className="hidden lg:block">
       {getIntentFilteredVideos().length > 0 ? (
         <table style={tableStyle}>
@@ -2312,6 +2387,7 @@ export default function AdminPipelinePage() {
         </div>
       )}
       </div>
+      )}
 
       {/* Mobile Video Detail Sheet */}
       <VideoDetailSheet

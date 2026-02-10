@@ -61,6 +61,37 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Set page title based on pathname
+  useEffect(() => {
+    const PAGE_TITLES: Record<string, string> = {
+      '/admin': 'Dashboard',
+      '/admin/content-studio': 'Content Studio',
+      '/admin/skit-library': 'Script Library',
+      '/admin/pipeline': 'Pipeline',
+      '/admin/calendar': 'Calendar',
+      '/admin/posting-queue': 'Posting Queue',
+      '/admin/analytics': 'Analytics',
+      '/admin/revenue': 'Revenue',
+      '/admin/winners-bank': 'Winners Bank',
+      '/admin/winners': 'Winners',
+      '/admin/competitors': 'Competitors',
+      '/admin/ab-tests': 'A/B Tests',
+      '/admin/trends': 'Trends',
+      '/admin/products': 'Products',
+      '/admin/accounts': 'Accounts',
+      '/admin/automation': 'Automation',
+      '/admin/templates': 'Templates',
+      '/admin/settings': 'Settings',
+      '/admin/notifications': 'Notifications',
+      '/admin/activity': 'Activity',
+      '/admin/onboarding': 'Getting Started',
+      '/admin/help': 'Help',
+      '/admin/api-docs': 'API Docs',
+    };
+    const title = PAGE_TITLES[pathname] || 'Admin';
+    document.title = `${title} | FlashFlow AI`;
+  }, [pathname]);
+
   // Detect screen size with JavaScript
   useEffect(() => {
     const checkMobile = () => {

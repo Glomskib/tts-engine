@@ -29,6 +29,7 @@ import {
   Clapperboard,
   FlaskConical,
   Zap,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -134,6 +135,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'ADMIN',
     showFor: ['admin'],
     items: [
+      { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen },
       { name: 'System Health', href: '/admin/ops', icon: Server },
       { name: 'Automation', href: '/admin/automation', icon: Zap },
       { name: 'Team Members', href: '/admin/users', icon: Users },

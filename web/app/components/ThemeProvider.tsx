@@ -15,16 +15,14 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_KEY = 'tts-theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
-  // Initialize theme from localStorage or system preference
+  // Initialize theme from localStorage (default dark)
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY) as Theme | null;
     if (stored === 'light' || stored === 'dark') {
       setTheme(stored);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
     }
     setMounted(true);
   }, []);

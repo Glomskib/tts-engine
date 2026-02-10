@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, ChevronDown, User, LogOut, Zap, Bell, Search } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Bell, Search, Sun, Moon } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic';
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
 import { LowCreditBanner } from '@/components/LowCreditBanner';
 import { CommandPalette } from '@/components/CommandPalette';
+import { ThemeProvider, useTheme } from '@/app/components/ThemeProvider';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthState {
@@ -27,6 +28,19 @@ interface AuthState {
   userId: string | null;
   userEmail: string | null;
   isAdmin: boolean;
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme, isDark } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+    >
+      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
+  );
 }
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -228,6 +242,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   );
 
   return (
+    <ThemeProvider>
     <ToastProvider>
     <OfflineIndicator />
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -411,6 +426,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   <span className="hidden xl:inline">Search...</span>
                   <kbd className="hidden xl:inline ml-2 px-1.5 py-0.5 text-[10px] bg-zinc-800 border border-zinc-700 rounded font-mono">⌘K</kbd>
                 </button>
+                <ThemeToggle />
                 <ClawbotStatus compact />
                 <CreditsBadge />
 
@@ -484,5 +500,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <CommandPalette />
     <KeyboardShortcutsModal />
     </ToastProvider>
+    </ThemeProvider>
   );
 }

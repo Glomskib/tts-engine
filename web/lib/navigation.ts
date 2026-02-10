@@ -88,6 +88,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Video Performance', href: '/admin/videos', icon: Play },
       { name: 'Quality', href: '/admin/quality', icon: FlaskConical },
       { name: 'Competitors', href: '/admin/competitors', icon: Search },
+      { name: 'A/B Tests', href: '/admin/ab-tests', icon: FlaskConical },
     ],
   },
   {

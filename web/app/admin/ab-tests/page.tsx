@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FlaskConical, Plus, Trophy, Archive, Clock, ChevronDown } from 'lucide-react';
+import { FlaskConical, Plus, Trophy, Archive, Clock, ChevronDown, Eye, Heart, Share2, BarChart, DollarSign } from 'lucide-react';
 
 interface ABTest {
   id: string;
@@ -16,9 +16,43 @@ interface ABTest {
   variant_b: { id: string; title: string } | null;
   product: { id: string; name: string; brand: string } | null;
   notes: string | null;
-  metrics: Record<string, unknown>;
+  metrics: {
+    variant_a?: { views?: number; likes?: number; shares?: number; engagement_rate?: number; revenue?: number };
+    variant_b?: { views?: number; likes?: number; shares?: number; engagement_rate?: number; revenue?: number };
+    [key: string]: unknown;
+  };
+  duration_days?: number;
   created_at: string;
   completed_at: string | null;
+}
+
+function formatNum(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function MetricBar({ label, icon: Icon, valA, valB }: { label: string; icon: React.ComponentType<{ className?: string }>; valA: number; valB: number }) {
+  const max = Math.max(valA, valB, 1);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1 text-[10px] text-zinc-500"><Icon className="w-3 h-3" />{label}</div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-teal-500 rounded-full transition-all" style={{ width: `${(valA / max) * 100}%` }} />
+          </div>
+          <span className="text-[10px] text-zinc-400">{formatNum(valA)}</span>
+        </div>
+        <div className="flex-1">
+          <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${(valB / max) * 100}%` }} />
+          </div>
+          <span className="text-[10px] text-zinc-400">{formatNum(valB)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 type TabKey = 'active' | 'completed' | 'archived';
@@ -287,6 +321,27 @@ export default function ABTestsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Performance Comparison */}
+              {test.metrics?.variant_a && test.metrics?.variant_b && (
+                <div className="mb-3 p-3 bg-zinc-800/30 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BarChart className="w-3 h-3 text-zinc-500" />
+                    <span className="text-xs font-medium text-zinc-400">Performance Comparison</span>
+                  </div>
+                  <div className="flex items-center gap-4 mb-1 text-[10px]">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-500" />{test.variant_a_label}</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500" />{test.variant_b_label}</span>
+                  </div>
+                  <MetricBar label="Views" icon={Eye} valA={test.metrics.variant_a.views || 0} valB={test.metrics.variant_b.views || 0} />
+                  <MetricBar label="Likes" icon={Heart} valA={test.metrics.variant_a.likes || 0} valB={test.metrics.variant_b.likes || 0} />
+                  <MetricBar label="Shares" icon={Share2} valA={test.metrics.variant_a.shares || 0} valB={test.metrics.variant_b.shares || 0} />
+                  <MetricBar label="Engagement %" icon={BarChart} valA={test.metrics.variant_a.engagement_rate || 0} valB={test.metrics.variant_b.engagement_rate || 0} />
+                  {((test.metrics.variant_a.revenue || 0) > 0 || (test.metrics.variant_b.revenue || 0) > 0) && (
+                    <MetricBar label="Revenue" icon={DollarSign} valA={test.metrics.variant_a.revenue || 0} valB={test.metrics.variant_b.revenue || 0} />
+                  )}
+                </div>
+              )}
 
               {/* Winner reason */}
               {test.winner_reason && (

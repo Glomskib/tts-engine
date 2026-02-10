@@ -106,6 +106,7 @@ export default function AdminDashboard() {
   const [recentSkits, setRecentSkits] = useState<RecentSkit[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -127,6 +128,16 @@ export default function AdminDashboard() {
 
           // Get 5 most recent
           setRecentSkits(skits.slice(0, 5));
+        }
+
+        // Check if onboarding is needed
+        const onboardingDone = localStorage.getItem('ff-onboarding-completed');
+        const onboardingDismissed = localStorage.getItem('ff-onboarding-dismissed');
+        if (!onboardingDismissed) {
+          const completed = onboardingDone ? JSON.parse(onboardingDone) : [];
+          if (completed.length < 5) {
+            setShowOnboarding(true);
+          }
         }
 
         // Fetch recent activity
@@ -170,6 +181,33 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Onboarding CTA */}
+        {showOnboarding && (
+          <div className="mb-6 p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-blue-400">New here? Get started in 5 easy steps</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Set up products, generate scripts, and track winners.</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                href="/admin/onboarding"
+                className="px-3 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Start Setup
+              </Link>
+              <button
+                onClick={() => {
+                  setShowOnboarding(false);
+                  localStorage.setItem('ff-onboarding-dismissed', 'true');
+                }}
+                className="px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

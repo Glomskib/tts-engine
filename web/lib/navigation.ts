@@ -30,6 +30,8 @@ import {
   FlaskConical,
   Zap,
   BookOpen,
+  Mic,
+  Search,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -42,6 +44,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Feature key for gating (optional) */
   featureKey?: string;
+  /** External link (opens in same tab but not under admin layout) */
+  external?: boolean;
 }
 
 export interface NavSection {
@@ -58,35 +62,50 @@ export const NAV_SECTIONS: NavSection[] = [
   // SAAS SECTIONS
   // ========================
   {
-    title: 'CREATE',
+    title: 'CONTENT',
     subscriptionType: 'saas',
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
-      { name: 'Templates', href: '/admin/templates', icon: LayoutTemplate },
-      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, featureKey: 'winners_bank' },
+      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
+      { name: 'Import', href: '/admin/winners/import', icon: Upload },
     ],
   },
   {
-    title: 'CATALOG',
+    title: 'PIPELINE',
+    subscriptionType: 'saas',
+    items: [
+      { name: 'Video Pipeline', href: '/admin/pipeline', icon: Video },
+      { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar },
+      { name: 'VA Dashboard', href: '/va', icon: Users, external: true },
+    ],
+  },
+  {
+    title: 'ANALYTICS',
+    subscriptionType: 'saas',
+    items: [
+      { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
+      { name: 'Competitors', href: '/admin/competitors', icon: Search },
+    ],
+  },
+  {
+    title: 'MANAGEMENT',
     subscriptionType: 'saas',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
-      { name: 'Brands', href: '/admin/brands', icon: Building },
-      { name: 'Personas', href: '/admin/audience', icon: Users, featureKey: 'audience_intelligence' },
+      { name: 'Accounts', href: '/admin/accounts', icon: Building },
+      { name: 'Audiences', href: '/admin/audience', icon: Users, featureKey: 'audience_intelligence' },
     ],
   },
   {
-    title: 'PRODUCTION',
+    title: 'SYSTEM',
     subscriptionType: 'saas',
     showFor: ['agency', 'admin'],
     items: [
-      { name: 'Video Pipeline', href: '/admin/pipeline', icon: Video },
-      { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
-      { name: 'A/B Tests', href: '/admin/ab-tests', icon: FlaskConical },
-      { name: 'Accounts', href: '/admin/accounts', icon: Users },
-      { name: 'Performance', href: '/admin/analytics', icon: BarChart },
-      { name: 'Activity Log', href: '/admin/activity', icon: Activity },
+      { name: 'Automation', href: '/admin/automation', icon: Zap },
+      { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen },
+      { name: 'Voice Agent', href: '/admin/voice', icon: Mic },
+      { name: 'Settings', href: '/admin/settings', icon: Settings },
     ],
   },
   // ========================
@@ -101,7 +120,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'My Videos', href: '/client/videos', icon: Play },
       { name: 'All Requests', href: '/client/requests', icon: FileText },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
-      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
+      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
     ],
   },
   {
@@ -116,30 +135,12 @@ export const NAV_SECTIONS: NavSection[] = [
   // SHARED SECTIONS
   // ========================
   {
-    title: 'SETTINGS',
-    items: [
-      { name: 'Account', href: '/admin/settings', icon: Settings },
-      { name: 'Help', href: '/admin/help', icon: HelpCircle },
-    ],
-  },
-  {
     title: 'CLIENT SERVICES',
     showFor: ['admin'],
     items: [
       { name: 'Video Editing Queue', href: '/admin/video-editing', icon: Clapperboard },
       { name: 'Client Management', href: '/admin/clients', icon: Building },
       { name: 'Editor Management', href: '/admin/client-management', icon: Users },
-    ],
-  },
-  {
-    title: 'ADMIN',
-    showFor: ['admin'],
-    items: [
-      { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen },
-      { name: 'System Health', href: '/admin/ops', icon: Server },
-      { name: 'Automation', href: '/admin/automation', icon: Zap },
-      { name: 'Team Members', href: '/admin/users', icon: Users },
-      { name: 'System Settings', href: '/admin/status', icon: Shield },
     ],
   },
 ];
@@ -197,6 +198,8 @@ export function isNavItemActive(pathname: string, href: string): boolean {
   if (href === '/admin/skit-generator') {
     return pathname === '/admin/skit-generator';
   }
+  // Exact match for short paths
+  if (href === '/va') return pathname === '/va';
   return pathname === href || pathname.startsWith(href + '/');
 }
 
@@ -230,6 +233,8 @@ export const Icons = {
   Wallet,
   Clapperboard,
   FlaskConical,
+  Mic,
+  Search,
 };
 
 // Constants

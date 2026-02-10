@@ -204,7 +204,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           href="/admin/notifications"
           onClick={onItemClick}
           className={`
-            flex items-center gap-4 px-4 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors
+            flex items-center gap-4 px-4 rounded-xl transition-colors
+            ${isNavItemActive(pathname, '/admin/notifications')
+              ? 'bg-teal-500/20 text-teal-400'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }
             ${isMobile ? 'py-4 text-[17px] min-h-[52px]' : 'py-2.5 text-sm'}
           `}
         >

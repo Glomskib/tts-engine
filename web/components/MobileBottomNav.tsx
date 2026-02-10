@@ -3,18 +3,18 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LayoutGrid,
-  Film,
-  Users,
+  Video,
+  Upload,
+  Calendar,
   Bell,
   Menu
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/admin/pipeline', icon: LayoutGrid, label: 'Queue' },
-  { href: '/admin/content-studio', icon: Film, label: 'Studio' },
-  { href: '/admin/winners', icon: Users, label: 'Winners' },
-  { href: '/admin/notifications', icon: Bell, label: 'Activity' },
+  { href: '/admin/pipeline', icon: Video, label: 'Pipeline' },
+  { href: '/admin/winners/import', icon: Upload, label: 'Import' },
+  { href: '/admin/calendar', icon: Calendar, label: 'Calendar' },
+  { href: '/admin/notifications', icon: Bell, label: 'Alerts' },
   { href: '#more', icon: Menu, label: 'More', isDrawerTrigger: true },
 ];
 

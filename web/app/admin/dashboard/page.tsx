@@ -5,11 +5,24 @@ import {
   Video, Upload, Calendar, Bell, Sparkles,
   ArrowRight, TrendingUp, TrendingDown, Activity,
   AlertTriangle, Clock, Eye, FileText, Users, Trophy,
-  CheckCircle
+  CheckCircle, Lightbulb, RefreshCw, Zap
 } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+
+interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  priority: number;
+  product_id?: string;
+  product_name?: string;
+  content_type?: string;
+  hook_suggestion?: string;
+  studio_params: Record<string, string>;
+}
 
 interface DashboardData {
   postedThisWeek: number;
@@ -121,6 +134,8 @@ function getActivityIcon(type: string) {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recsLoading, setRecsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -136,7 +151,22 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchRecommendations = useCallback(async () => {
+    setRecsLoading(true);
+    try {
+      const response = await fetch('/api/ai/recommend-content');
+      if (response.ok) {
+        const json = await response.json();
+        setRecommendations(json.data?.recommendations || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch recommendations:', error);
+    } finally {
+      setRecsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); fetchRecommendations(); }, [fetchData, fetchRecommendations]);
 
   const activeStatuses = ['SCRIPT_READY', 'RECORDING', 'EDITING', 'REVIEW', 'SCHEDULED', 'READY_TO_POST'];
   const totalActive = data ? activeStatuses.reduce((sum, s) => sum + (data.pipelineByStatus[s] || 0), 0) : 0;
@@ -251,6 +281,84 @@ export default function DashboardPage() {
               </Link>
             );
           })}
+        </div>
+
+        {/* AI Recommendations */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-semibold text-white">AI Recommendations</h2>
+            </div>
+            <button
+              onClick={fetchRecommendations}
+              disabled={recsLoading}
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-teal-400 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${recsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          {recsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/50">
+                  <Skeleton width={36} height={36} />
+                  <div className="flex-1">
+                    <Skeleton height={14} width="70%" className="mb-1" />
+                    <Skeleton height={12} width="90%" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : recommendations.length > 0 ? (
+            <div className="space-y-2">
+              {recommendations.slice(0, 3).map((rec) => {
+                const studioUrl = `/admin/content-studio?${new URLSearchParams(rec.studio_params).toString()}`;
+                const typeColors: Record<string, string> = {
+                  underserved_product: 'bg-red-500/20 text-red-400',
+                  winner_remix: 'bg-amber-500/20 text-amber-400',
+                  trending_hook: 'bg-blue-500/20 text-blue-400',
+                  gap_fill: 'bg-purple-500/20 text-purple-400',
+                  content_type_diversify: 'bg-teal-500/20 text-teal-400',
+                };
+                const typeIcons: Record<string, typeof Sparkles> = {
+                  underserved_product: AlertTriangle,
+                  winner_remix: Trophy,
+                  trending_hook: TrendingUp,
+                  gap_fill: Calendar,
+                  content_type_diversify: Zap,
+                };
+                const Icon = typeIcons[rec.type] || Lightbulb;
+                const colorClass = typeColors[rec.type] || 'bg-zinc-700/50 text-zinc-400';
+
+                return (
+                  <div key={rec.id} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/70 transition-colors">
+                    <div className={`w-9 h-9 rounded-lg ${colorClass} flex items-center justify-center shrink-0`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white font-medium leading-snug">{rec.title}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{rec.description}</p>
+                    </div>
+                    <Link
+                      href={studioUrl}
+                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors min-h-[36px]"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Generate
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <Lightbulb className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
+              <p className="text-sm text-zinc-500">Add products and winners to get AI recommendations</p>
+            </div>
+          )}
         </div>
 
         {/* Pipeline Health + Calendar Row */}

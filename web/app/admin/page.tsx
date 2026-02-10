@@ -19,6 +19,14 @@ interface RecentSkit {
   created_at: string;
 }
 
+interface ActivityItem {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_name: string | null;
+  created_at: string;
+}
+
 const quickAccessCards = [
   {
     title: 'Script Generator',
@@ -96,6 +104,7 @@ export default function AdminDashboard() {
   const { credits, subscription, isLoading: creditsLoading } = useCredits();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentSkits, setRecentSkits] = useState<RecentSkit[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -118,6 +127,13 @@ export default function AdminDashboard() {
 
           // Get 5 most recent
           setRecentSkits(skits.slice(0, 5));
+        }
+
+        // Fetch recent activity
+        const actRes = await fetch('/api/activity?limit=8');
+        if (actRes.ok) {
+          const actData = await actRes.json();
+          setRecentActivity(actData.data || []);
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -286,6 +302,35 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Recent Activity */}
+        <div className="flex items-center justify-between mb-4 mt-8">
+          <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
+          <Link href="/admin/activity" className="text-sm text-zinc-400 hover:text-white transition-colors">
+            View all →
+          </Link>
+        </div>
+
+        {recentActivity.length === 0 ? (
+          <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/30 text-center text-zinc-500 text-sm">
+            No recent activity
+          </div>
+        ) : (
+          <div className="rounded-xl border border-white/10 bg-zinc-900/30 divide-y divide-white/5">
+            {recentActivity.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-zinc-300">{item.action.replace(/_/g, ' ')}</span>
+                  {item.entity_name && (
+                    <span className="text-sm text-zinc-500 ml-1">— {item.entity_name}</span>
+                  )}
+                </div>
+                <span className="text-xs text-zinc-600 flex-shrink-0">{formatTimeAgo(item.created_at)}</span>
+              </div>
+            ))}
           </div>
         )}
 

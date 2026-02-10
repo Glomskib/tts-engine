@@ -1,118 +1,117 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { NextRequest, NextResponse } from 'next/server';
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { z } from 'zod';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
-export async function GET(request: Request) {
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+const CreateAccountSchema = z.object({
+  name: z.string().min(1).max(200),
+  handle: z.string().min(1).max(100),
+  type: z.enum(['affiliate', 'pod']),
+  category_focus: z.string().max(100).optional(),
+  posting_frequency: z.enum(['daily', 'twice_daily', 'every_other_day', 'weekly']).default('daily'),
+  notes: z.string().max(2000).optional(),
+});
 
-  // Auth check - user must be logged in
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
-  }
+/**
+ * GET /api/accounts
+ * List all TikTok accounts with stats
+ */
+export async function GET(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   try {
-    let query = supabaseAdmin
-      .from("accounts")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    // Filter by user_id if the table has one (admins see all)
-    if (!authContext.isAdmin) {
-      query = query.eq("user_id", authContext.user.id);
+    const authContext = await getApiAuthContext(request);
+    if (!authContext.user) {
+      return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
     }
 
-    const { data, error } = await query;
+    const { data: accounts, error } = await supabaseAdmin
+      .from('tiktok_accounts')
+      .select('*')
+      .eq('user_id', authContext.user.id)
+      .order('created_at', { ascending: true });
 
     if (error) {
-      console.error("GET /api/accounts Supabase error:", error);
-      return NextResponse.json(
-        { ok: false, error: error.message, correlation_id: correlationId },
-        { status: 500 }
-      );
+      console.error(`[${correlationId}] Error fetching accounts:`, error);
+      return createApiErrorResponse('DB_ERROR', 'Failed to fetch accounts', 500, correlationId);
     }
 
-    return NextResponse.json({ ok: true, data, correlation_id: correlationId });
-
-  } catch (err) {
-    console.error("GET /api/accounts error:", err);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error", correlation_id: correlationId },
-      { status: 500 }
+    const response = NextResponse.json({
+      ok: true,
+      data: accounts || [],
+      correlation_id: correlationId,
+    });
+    response.headers.set('x-correlation-id', correlationId);
+    return response;
+  } catch (error) {
+    console.error(`[${correlationId}] Accounts GET error:`, error);
+    return createApiErrorResponse(
+      'INTERNAL',
+      error instanceof Error ? error.message : 'Internal server error',
+      500,
+      correlationId
     );
   }
 }
 
-export async function POST(request: Request) {
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
-
-  // Auth check - user must be logged in
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON", correlation_id: correlationId },
-      { status: 400 }
-    );
-  }
-
-  const { name, platform } = body as Record<string, unknown>;
-
-  // Validate name is required
-  if (typeof name !== "string" || name.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "name is required and must be a non-empty string", correlation_id: correlationId },
-      { status: 400 }
-    );
-  }
-
-  // Validate platform if provided
-  if (platform !== undefined && typeof platform !== "string") {
-    return NextResponse.json(
-      { ok: false, error: "platform must be a string", correlation_id: correlationId },
-      { status: 400 }
-    );
-  }
+/**
+ * POST /api/accounts
+ * Create a new TikTok account
+ */
+export async function POST(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   try {
-    const insertPayload: Record<string, unknown> = {
-      name: name.trim(),
-      platform: platform || "tiktok",
-      user_id: authContext.user.id,  // Set user_id on insert
-    };
+    const authContext = await getApiAuthContext(request);
+    if (!authContext.user) {
+      return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
+    }
 
-    const { data, error } = await supabaseAdmin
-      .from("accounts")
-      .insert(insertPayload)
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON body', 400, correlationId);
+    }
+
+    const parsed = CreateAccountSchema.safeParse(body);
+    if (!parsed.success) {
+      return createApiErrorResponse('VALIDATION_ERROR', 'Invalid input', 400, correlationId, {
+        issues: parsed.error.issues,
+      });
+    }
+
+    const { data: account, error } = await supabaseAdmin
+      .from('tiktok_accounts')
+      .insert({
+        user_id: authContext.user.id,
+        ...parsed.data,
+      })
       .select()
       .single();
 
     if (error) {
-      console.error("POST /api/accounts Supabase error:", error);
-      console.error("POST /api/accounts insert payload:", insertPayload);
-
-      return NextResponse.json(
-        { ok: false, error: error.message, correlation_id: correlationId },
-        { status: 500 }
-      );
+      console.error(`[${correlationId}] Error creating account:`, error);
+      return createApiErrorResponse('DB_ERROR', 'Failed to create account', 500, correlationId);
     }
 
-    return NextResponse.json({ ok: true, data, correlation_id: correlationId });
-
-  } catch (err) {
-    console.error("POST /api/accounts error:", err);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error", correlation_id: correlationId },
-      { status: 500 }
+    const response = NextResponse.json({
+      ok: true,
+      data: account,
+      correlation_id: correlationId,
+    });
+    response.headers.set('x-correlation-id', correlationId);
+    return response;
+  } catch (error) {
+    console.error(`[${correlationId}] Accounts POST error:`, error);
+    return createApiErrorResponse(
+      'INTERNAL',
+      error instanceof Error ? error.message : 'Internal server error',
+      500,
+      correlationId
     );
   }
 }

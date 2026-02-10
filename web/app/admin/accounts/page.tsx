@@ -1,426 +1,332 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { Plus, ToggleLeft, ToggleRight, BarChart3, Users, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Check, X, TrendingUp, Video, Eye, Heart } from 'lucide-react';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-interface PostingAccount {
+interface TikTokAccount {
   id: string;
-  display_name: string;
-  account_code: string;
-  platform: string;
-  is_active: boolean;
-}
-
-interface AccountStats {
-  account_id: string;
   name: string;
   handle: string;
-  videos: number;
-  posted: number;
-  views: number;
-  likes: number;
-  revenue: number;
+  type: 'affiliate' | 'pod';
+  category_focus: string | null;
+  total_videos: number;
+  total_views: number;
+  total_likes: number;
   avg_engagement: number;
+  posting_frequency: string;
+  last_posted_at: string | null;
+  status: 'active' | 'paused' | 'flagged' | 'banned';
+  status_reason: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
-export default function AdminAccountsPage() {
-  const router = useRouter();
-  const [authLoading, setAuthLoading] = useState(true);
-  const [accounts, setAccounts] = useState<PostingAccount[]>([]);
-  const [stats, setStats] = useState<AccountStats[]>([]);
+export default function AccountsPage() {
+  const [accounts, setAccounts] = useState<TikTokAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newCode, setNewCode] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    handle: '',
+    type: 'affiliate' as 'affiliate' | 'pod',
+    category_focus: '',
+    posting_frequency: 'daily',
+    notes: '',
+  });
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) { router.push('/login'); return; }
-        const roleRes = await fetch('/api/auth/me');
-        const roleData = await roleRes.json();
-        if (roleData.role !== 'admin') { router.push('/admin/pipeline'); return; }
-      } catch {
-        router.push('/login');
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    checkAuth();
-  }, [router]);
+    fetchAccounts();
+  }, []);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchAccounts = async () => {
     try {
-      const [acctRes, statsRes] = await Promise.all([
-        fetch('/api/posting-accounts?include_inactive=true', { credentials: 'include' }),
-        fetch('/api/analytics?type=accounts', { credentials: 'include' }),
-      ]);
-      const acctData = await acctRes.json();
-      const statsData = await statsRes.json();
-      if (acctData.ok) setAccounts(acctData.data || []);
-      if (statsData.ok) setStats(statsData.data?.accounts || []);
-    } catch (err) {
-      console.error('Failed to load accounts:', err);
+      const res = await fetch('/api/accounts');
+      const data = await res.json();
+      if (data.ok) {
+        setAccounts(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch accounts:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading) fetchData();
-  }, [authLoading, fetchData]);
+  };
 
   const handleCreate = async () => {
-    if (!newName.trim() || !newCode.trim()) return;
-    setCreating(true);
-    setMessage(null);
     try {
-      const res = await fetch('/api/posting-accounts', {
+      const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ display_name: newName.trim(), account_code: newCode.trim().toUpperCase() }),
+        body: JSON.stringify(formData),
       });
       const data = await res.json();
       if (data.ok) {
-        setMessage({ type: 'success', text: `Account "${newName}" created!` });
-        setNewName('');
-        setNewCode('');
-        setShowAddForm(false);
-        fetchData();
-      } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to create account' });
+        setAccounts([...accounts, data.data]);
+        setShowNewForm(false);
+        resetForm();
       }
-    } catch {
-      setMessage({ type: 'error', text: 'Network error' });
-    } finally {
-      setCreating(false);
+    } catch (error) {
+      console.error('Failed to create account:', error);
     }
   };
 
-  const toggleActive = async (account: PostingAccount) => {
+  const handleUpdate = async (id: string, updates: Partial<TikTokAccount>) => {
     try {
-      const res = await fetch(`/api/posting-accounts/${account.id}`, {
+      const res = await fetch(`/api/accounts/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ is_active: !account.is_active }),
+        body: JSON.stringify(updates),
       });
-      if (res.ok) fetchData();
-    } catch (err) {
-      console.error('Toggle failed:', err);
+      const data = await res.json();
+      if (data.ok) {
+        setAccounts(accounts.map(a => a.id === id ? data.data : a));
+      }
+    } catch (error) {
+      console.error('Failed to update account:', error);
     }
   };
 
-  const getStatsForAccount = (accountId: string): AccountStats | undefined => {
-    return stats.find(s => s.account_id === accountId);
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this account? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAccounts(accounts.filter(a => a.id !== id));
+      }
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+    }
   };
 
-  if (authLoading) return <div style={{ padding: '20px', color: '#a1a1aa' }}>Checking access...</div>;
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      handle: '',
+      type: 'affiliate',
+      category_focus: '',
+      posting_frequency: 'daily',
+      notes: '',
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'paused': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'flagged': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'banned': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      default: return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30';
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    return type === 'affiliate'
+      ? 'bg-violet-500/20 text-violet-400 border-violet-500/30'
+      : 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 p-6 flex items-center justify-center">
+        <div className="text-zinc-400">Loading accounts...</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ margin: '0 0 4px 0', fontSize: '24px', color: '#fff' }}>Posting Accounts</h1>
-          <p style={{ margin: 0, fontSize: '14px', color: '#71717a' }}>
-            Manage TikTok posting accounts and view performance
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowAddForm(!showAddForm)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#3b82f6',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <Plus size={16} />
-          Add Account
-        </button>
-      </div>
-
-      {/* Messages */}
-      {message && (
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          fontSize: '13px',
-          backgroundColor: message.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-          color: message.type === 'success' ? '#4ade80' : '#f87171',
-        }}>
-          {message.text}
-        </div>
-      )}
-
-      {/* Add Form */}
-      {showAddForm && (
-        <div style={{
-          backgroundColor: '#18181b',
-          border: '1px solid #27272a',
-          borderRadius: '8px',
-          padding: '20px',
-          marginBottom: '20px',
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#e4e4e7' }}>New Posting Account</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Display Name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. BKAdventures0"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  backgroundColor: '#09090b',
-                  border: '1px solid #27272a',
-                  borderRadius: '6px',
-                  color: '#e4e4e7',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Account Code</label>
-              <input
-                type="text"
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                placeholder="e.g. BKADV0"
-                maxLength={8}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  backgroundColor: '#09090b',
-                  border: '1px solid #27272a',
-                  borderRadius: '6px',
-                  color: '#e4e4e7',
-                  fontSize: '14px',
-                  textTransform: 'uppercase',
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={creating || !newName.trim() || !newCode.trim()}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: creating ? '#1e40af' : '#3b82f6',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: creating ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                opacity: creating || !newName.trim() || !newCode.trim() ? 0.6 : 1,
-              }}
-            >
-              {creating ? 'Creating...' : 'Create'}
-            </button>
+    <div className="min-h-screen bg-zinc-950 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white">TikTok Accounts</h1>
+            <p className="text-sm text-zinc-400 mt-1">
+              Manage your {accounts.length} TikTok accounts
+            </p>
           </div>
+          <button
+            onClick={() => setShowNewForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Account
+          </button>
         </div>
-      )}
 
-      {/* Loading */}
-      {loading && (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#a1a1aa' }}>
-          Loading accounts...
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      {!loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px', padding: '16px' }}>
-            <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Total Accounts</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#3b82f6' }}>{accounts.length}</div>
-            <div style={{ fontSize: '11px', color: '#52525b' }}>{accounts.filter(a => a.is_active).length} active</div>
-          </div>
-          <div style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px', padding: '16px' }}>
-            <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Total Videos</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#a855f7' }}>
-              {stats.reduce((sum, s) => sum + s.videos, 0)}
+        {/* New Account Form */}
+        {showNewForm && (
+          <div className="mb-6 p-6 bg-zinc-900 border border-zinc-800 rounded-xl">
+            <h3 className="text-lg font-semibold text-white mb-4">New Account</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
+                  placeholder="Main Wellness"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Handle</label>
+                <input
+                  type="text"
+                  value={formData.handle}
+                  onChange={e => setFormData({...formData, handle: e.target.value})}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
+                  placeholder="@wellnessvibes_"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Type</label>
+                <select
+                  value={formData.type}
+                  onChange={e => setFormData({...formData, type: e.target.value as any})}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
+                >
+                  <option value="affiliate">Affiliate</option>
+                  <option value="pod">Print on Demand</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Category Focus</label>
+                <input
+                  type="text"
+                  value={formData.category_focus}
+                  onChange={e => setFormData({...formData, category_focus: e.target.value})}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
+                  placeholder="Health & Wellness"
+                />
+              </div>
             </div>
-            <div style={{ fontSize: '11px', color: '#52525b' }}>{stats.reduce((sum, s) => sum + s.posted, 0)} posted</div>
-          </div>
-          <div style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px', padding: '16px' }}>
-            <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Total Views</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#22c55e' }}>
-              {stats.reduce((sum, s) => sum + s.views, 0).toLocaleString()}
-            </div>
-          </div>
-          <div style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px', padding: '16px' }}>
-            <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px' }}>Total Revenue</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#f59e0b' }}>
-              ${stats.reduce((sum, s) => sum + s.revenue, 0).toLocaleString()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Accounts Grid */}
-      {!loading && accounts.length === 0 && (
-        <div style={{
-          padding: '60px 20px',
-          textAlign: 'center',
-          backgroundColor: '#18181b',
-          border: '1px solid #27272a',
-          borderRadius: '8px',
-        }}>
-          <Users size={40} style={{ color: '#52525b', margin: '0 auto 12px' }} />
-          <p style={{ color: '#a1a1aa', margin: '0 0 4px 0', fontSize: '16px' }}>No posting accounts</p>
-          <p style={{ color: '#71717a', margin: 0, fontSize: '13px' }}>Add your first TikTok account to get started.</p>
-        </div>
-      )}
-
-      {!loading && accounts.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
-          {accounts.map((account) => {
-            const acctStats = getStatsForAccount(account.id);
-            return (
-              <div
-                key={account.id}
-                style={{
-                  backgroundColor: '#18181b',
-                  border: `1px solid ${account.is_active ? '#27272a' : '#1c1917'}`,
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  opacity: account.is_active ? 1 : 0.6,
-                }}
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleCreate}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg"
               >
-                {/* Account Header */}
-                <div style={{
-                  padding: '16px',
-                  borderBottom: '1px solid #27272a',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}>
-                  <div>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#e4e4e7' }}>
-                      {account.display_name}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
-                      {account.account_code} &bull; {account.platform}
-                    </div>
-                  </div>
+                Create
+              </button>
+              <button
+                onClick={() => { setShowNewForm(false); resetForm(); }}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Accounts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {accounts.map(account => (
+            <div
+              key={account.id}
+              className="p-5 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-zinc-700 transition-colors"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white">{account.name}</h3>
+                  <p className="text-sm text-zinc-400">{account.handle}</p>
+                </div>
+                <div className="flex gap-2">
                   <button
-                    type="button"
-                    onClick={() => toggleActive(account)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: account.is_active ? '#22c55e' : '#71717a',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '12px',
-                    }}
-                    title={account.is_active ? 'Deactivate' : 'Activate'}
+                    onClick={() => handleUpdate(account.id, {
+                      status: account.status === 'active' ? 'paused' : 'active'
+                    })}
+                    className="p-1.5 hover:bg-zinc-800 rounded"
+                    title={`${account.status === 'active' ? 'Pause' : 'Activate'}`}
                   >
-                    {account.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                    {account.is_active ? 'Active' : 'Inactive'}
+                    {account.status === 'active' ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <X className="w-4 h-4 text-zinc-500" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(account.id)}
+                    className="p-1.5 hover:bg-zinc-800 rounded"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
+              </div>
 
-                {/* Stats */}
-                <div style={{ padding: '16px' }}>
-                  {acctStats ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                      <div>
-                        <div style={{ fontSize: '11px', color: '#71717a' }}>Videos</div>
-                        <div style={{ fontSize: '18px', fontWeight: 600, color: '#e4e4e7' }}>{acctStats.videos}</div>
-                        <div style={{ fontSize: '10px', color: '#52525b' }}>{acctStats.posted} posted</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '11px', color: '#71717a' }}>Views</div>
-                        <div style={{ fontSize: '18px', fontWeight: 600, color: '#22c55e' }}>
-                          {acctStats.views >= 1000 ? `${(acctStats.views / 1000).toFixed(1)}K` : acctStats.views}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#52525b' }}>{acctStats.avg_engagement}% eng</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '11px', color: '#71717a' }}>Revenue</div>
-                        <div style={{ fontSize: '18px', fontWeight: 600, color: '#f59e0b' }}>${acctStats.revenue}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '13px', color: '#52525b', textAlign: 'center', padding: '8px 0' }}>
-                      No performance data yet
-                    </div>
-                  )}
+              {/* Badges */}
+              <div className="flex gap-2 mb-4">
+                <span className={`px-2 py-1 text-xs rounded border ${getTypeColor(account.type)}`}>
+                  {account.type === 'affiliate' ? 'Affiliate' : 'POD'}
+                </span>
+                <span className={`px-2 py-1 text-xs rounded border ${getStatusColor(account.status)}`}>
+                  {account.status}
+                </span>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <Video className="w-4 h-4 text-zinc-500" />
+                  <div>
+                    <div className="text-lg font-semibold text-white">{account.total_videos}</div>
+                    <div className="text-xs text-zinc-500">Videos</div>
+                  </div>
                 </div>
-
-                {/* Actions */}
-                <div style={{
-                  padding: '12px 16px',
-                  borderTop: '1px solid #27272a',
-                  display: 'flex',
-                  gap: '8px',
-                }}>
-                  <a
-                    href={`/accounts/${account.id}/pipeline`}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#27272a',
-                      color: '#a1a1aa',
-                      borderRadius: '6px',
-                      textDecoration: 'none',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <BarChart3 size={12} />
-                    Pipeline
-                  </a>
-                  <a
-                    href={`/accounts/${account.id}/performance`}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#27272a',
-                      color: '#a1a1aa',
-                      borderRadius: '6px',
-                      textDecoration: 'none',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <ExternalLink size={12} />
-                    Performance
-                  </a>
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-zinc-500" />
+                  <div>
+                    <div className="text-lg font-semibold text-white">
+                      {(account.total_views / 1000).toFixed(1)}K
+                    </div>
+                    <div className="text-xs text-zinc-500">Views</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-zinc-500" />
+                  <div>
+                    <div className="text-lg font-semibold text-white">
+                      {(account.total_likes / 1000).toFixed(1)}K
+                    </div>
+                    <div className="text-xs text-zinc-500">Likes</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-zinc-500" />
+                  <div>
+                    <div className="text-lg font-semibold text-white">
+                      {account.avg_engagement.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-zinc-500">Engagement</div>
+                  </div>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Category */}
+              {account.category_focus && (
+                <div className="text-xs text-zinc-500 mt-2 pt-2 border-t border-zinc-800">
+                  Focus: {account.category_focus}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-      )}
+
+        {accounts.length === 0 && !showNewForm && (
+          <div className="text-center py-12">
+            <div className="text-zinc-500 mb-4">No accounts yet</div>
+            <button
+              onClick={() => setShowNewForm(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg"
+            >
+              Add Your First Account
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */

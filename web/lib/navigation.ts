@@ -122,6 +122,8 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Submit Video', href: '/client/requests/new', icon: Upload },
       { name: 'My Videos', href: '/client/videos', icon: Play },
       { name: 'All Requests', href: '/client/requests', icon: FileText },
+      { name: 'Review', href: '/client/review', icon: Shield },
+      { name: 'Analytics', href: '/client/analytics', icon: BarChart },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
     ],

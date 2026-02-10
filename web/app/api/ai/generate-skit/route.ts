@@ -115,7 +115,7 @@ const GenerateSkitInputSchema = z.object({
   preset_id: z.string().max(50).optional(),
   chaos_level: z.number().min(0).max(100).optional(), // Deprecated, use plot_style
   plot_style: z.number().min(0).max(100).optional(),
-  creative_direction: z.string().max(500).optional(),
+  creative_direction: z.string().max(5000).optional(),
   actor_type: ActorTypeSchema.optional(),
   target_duration: TargetDurationSchema.optional(),
   content_format: ContentFormatSchema.optional(),

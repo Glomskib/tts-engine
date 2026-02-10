@@ -60,7 +60,7 @@ const GenerateContentInputSchema = z.object({
   persona: PersonaSchema.optional(),
   intensity: z.number().min(0).max(100).optional(),
   chaos_level: z.number().min(0).max(100).optional(),
-  creative_direction: z.string().max(500).optional(),
+  creative_direction: z.string().max(5000).optional(),
   actor_type: ActorTypeSchema.optional(),
   target_duration: TargetDurationSchema.optional(),
   product_context: z.string().max(2000).optional(),

@@ -7,4 +7,4 @@ Disallow: /login
 Disallow: /signup
 Disallow: /reset-password
 
-Sitemap: https://web-pied-delta-30.vercel.app/sitemap.xml
+Sitemap: https://flashflowai.com/sitemap.xml

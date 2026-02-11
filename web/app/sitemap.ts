@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://web-pied-delta-30.vercel.app';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com';
 
   return [
     { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },

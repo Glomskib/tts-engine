@@ -185,7 +185,7 @@ async function sendPipelineEmails(
   const actionLabel = getActionLabel(to_status);
   const subject = `Action needed: ${actionLabel} (${label})`;
 
-  const pipelineUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://app.tts-engine.com"}/admin/pipeline?video=${video_id}`;
+  const pipelineUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com"}/admin/pipeline?video=${video_id}`;
 
   const html = `
     <p>A video needs your attention:</p>

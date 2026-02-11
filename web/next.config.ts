@@ -61,6 +61,17 @@ const nextConfig: NextConfig = {
         hostname: '*.cloudflare.com',
         pathname: '/**',
       },
+      // FlashFlow production domain
+      {
+        protocol: 'https',
+        hostname: 'flashflowai.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.flashflowai.com',
+        pathname: '/**',
+      },
     ],
   },
   async headers() {

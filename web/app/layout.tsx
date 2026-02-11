@@ -23,7 +23,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://web-pied-delta-30.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com"),
   title: {
     default: "FlashFlow AI - AI-Powered Video Script Generator",
     template: "%s | FlashFlow AI",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "FlashFlow AI - AI-Powered Video Script Generator",
     description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
-    url: "https://web-pied-delta-30.vercel.app",
+    url: process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com",
     siteName: "FlashFlow AI",
     type: "website",
     locale: "en_US",

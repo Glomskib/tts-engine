@@ -16,9 +16,25 @@ import {
   Star,
   ChevronRight,
   Loader2,
+  Camera,
+  MessageSquare,
+  Film,
+  User,
 } from "lucide-react";
 
 // --- Types ---
+
+interface FullScript {
+  hook: string;
+  setup: string;
+  body: string;
+  cta: string;
+  on_screen_text: string[];
+  filming_notes: string;
+  persona: string;
+  sales_approach: string;
+  estimated_length: string;
+}
 
 interface PackageItem {
   id: string;
@@ -28,6 +44,7 @@ interface PackageItem {
   content_type: string;
   hook: string;
   script_body: string;
+  full_script: FullScript | null;
   score: number;
   kept: boolean;
   added_to_pipeline: boolean;
@@ -301,11 +318,28 @@ export default function ScriptOfTheDayPage() {
                     {scriptOfTheDay.brand || "Product"}
                   </span>
                   <h2 className="text-xl font-bold mt-1">{scriptOfTheDay.product_name}</h2>
-                  <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-white/5">
-                    {getContentTypeName(scriptOfTheDay.content_type)}
-                  </span>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-white/5">
+                      {getContentTypeName(scriptOfTheDay.content_type)}
+                    </span>
+                    {scriptOfTheDay.full_script?.persona && (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-violet-500/15 text-violet-300 border border-violet-500/20">
+                        <User className="w-3 h-3 inline mr-1" />{scriptOfTheDay.full_script.persona}
+                      </span>
+                    )}
+                    {scriptOfTheDay.full_script?.sales_approach && (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                        {scriptOfTheDay.full_script.sales_approach}
+                      </span>
+                    )}
+                    {scriptOfTheDay.full_script?.estimated_length && (
+                      <span className="px-2 py-0.5 rounded text-xs text-zinc-500">
+                        {scriptOfTheDay.full_script.estimated_length}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className={`px-3 py-2 rounded-xl border text-center ${getScoreBg(scriptOfTheDay.score)}`}>
+                <div className={`px-3 py-2 rounded-xl border text-center shrink-0 ${getScoreBg(scriptOfTheDay.score)}`}>
                   {scriptOfTheDay.score >= 8 && <Star className="w-4 h-4 mx-auto mb-0.5 text-amber-300" />}
                   <div className={`text-2xl font-bold ${getScoreColor(scriptOfTheDay.score)}`}>
                     {scriptOfTheDay.score}
@@ -314,21 +348,98 @@ export default function ScriptOfTheDayPage() {
                 </div>
               </div>
 
-              {/* The Hook */}
-              <div className="bg-zinc-800 rounded-lg p-5 mb-4">
-                <span className="text-xs uppercase tracking-wider text-amber-400 font-medium mb-2 block">
-                  Hook Line
-                </span>
-                <p className="text-lg md:text-xl font-semibold leading-relaxed">
-                  &quot;{scriptOfTheDay.hook}&quot;
-                </p>
-              </div>
+              {/* Full Script — shown when AI-expanded */}
+              {scriptOfTheDay.full_script ? (
+                <div className="space-y-3">
+                  {/* Hook */}
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                    <span className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-1.5 block">
+                      Hook — First 3 Seconds
+                    </span>
+                    <p className="text-lg font-bold leading-snug">
+                      &quot;{scriptOfTheDay.full_script.hook}&quot;
+                    </p>
+                  </div>
 
-              {/* Script Direction */}
-              {scriptOfTheDay.script_body && (
-                <div className="bg-zinc-800/50 rounded-lg p-4 mb-4 text-sm text-zinc-300 whitespace-pre-line leading-relaxed">
-                  {scriptOfTheDay.script_body}
+                  {/* Setup */}
+                  <div className="bg-zinc-800 rounded-lg p-4">
+                    <span className="text-xs uppercase tracking-wider text-teal-400 font-semibold mb-1.5 block">
+                      Setup — The Context
+                    </span>
+                    <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">
+                      {scriptOfTheDay.full_script.setup}
+                    </p>
+                  </div>
+
+                  {/* Body */}
+                  <div className="bg-zinc-800 rounded-lg p-4">
+                    <span className="text-xs uppercase tracking-wider text-blue-400 font-semibold mb-1.5 block">
+                      Body — The Pitch
+                    </span>
+                    <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">
+                      {scriptOfTheDay.full_script.body}
+                    </p>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
+                    <span className="text-xs uppercase tracking-wider text-emerald-400 font-semibold mb-1.5 block">
+                      Call to Action
+                    </span>
+                    <p className="text-sm text-zinc-200 leading-relaxed">
+                      {scriptOfTheDay.full_script.cta}
+                    </p>
+                  </div>
+
+                  {/* On-Screen Text + Filming Notes row */}
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {/* On-Screen Text */}
+                    {scriptOfTheDay.full_script.on_screen_text?.length > 0 && (
+                      <div className="bg-zinc-800/60 rounded-lg p-4">
+                        <span className="text-xs uppercase tracking-wider text-violet-400 font-semibold mb-2 flex items-center gap-1.5">
+                          <MessageSquare className="w-3 h-3" /> On-Screen Text
+                        </span>
+                        <ul className="space-y-1.5">
+                          {scriptOfTheDay.full_script.on_screen_text.map((text, i) => (
+                            <li key={i} className="text-xs text-zinc-300 flex items-start gap-2">
+                              <span className="text-violet-400/60 mt-0.5">&#x2022;</span>
+                              {text}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Filming Notes */}
+                    {scriptOfTheDay.full_script.filming_notes && (
+                      <div className="bg-zinc-800/60 rounded-lg p-4">
+                        <span className="text-xs uppercase tracking-wider text-orange-400 font-semibold mb-2 flex items-center gap-1.5">
+                          <Camera className="w-3 h-3" /> Filming Notes
+                        </span>
+                        <p className="text-xs text-zinc-300 leading-relaxed">
+                          {scriptOfTheDay.full_script.filming_notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* Fallback: show brief when no full script */}
+                  <div className="bg-zinc-800 rounded-lg p-5 mb-4">
+                    <span className="text-xs uppercase tracking-wider text-amber-400 font-medium mb-2 block">
+                      Hook Line
+                    </span>
+                    <p className="text-lg md:text-xl font-semibold leading-relaxed">
+                      &quot;{scriptOfTheDay.hook}&quot;
+                    </p>
+                  </div>
+                  {scriptOfTheDay.script_body && (
+                    <div className="bg-zinc-800/50 rounded-lg p-4 mb-4 text-sm text-zinc-300 whitespace-pre-line leading-relaxed">
+                      {scriptOfTheDay.script_body}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Actions */}
@@ -347,7 +458,7 @@ export default function ScriptOfTheDayPage() {
                   ) : addingToPipeline.has(scriptOfTheDay.id) ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Adding...</>
                   ) : (
-                    <><Plus className="w-4 h-4" /> Film This — Add to Pipeline</>
+                    <><Film className="w-4 h-4" /> Film This — Add to Pipeline</>
                   )}
                 </button>
               </div>
@@ -382,11 +493,21 @@ export default function ScriptOfTheDayPage() {
                       </div>
                     </div>
 
-                    <div className="bg-zinc-800 rounded-lg p-3 mb-4">
+                    {item.full_script?.persona && (
+                      <span className="inline-block mb-2 px-2 py-0.5 rounded text-[11px] font-medium bg-violet-500/15 text-violet-300">
+                        {item.full_script.persona}
+                      </span>
+                    )}
+                    <div className="bg-zinc-800 rounded-lg p-3 mb-2">
                       <p className="text-sm font-medium leading-relaxed">
-                        &quot;{item.hook}&quot;
+                        &quot;{item.full_script?.hook || item.hook}&quot;
                       </p>
                     </div>
+                    {item.full_script?.setup && (
+                      <p className="text-xs text-zinc-400 leading-relaxed mb-3 line-clamp-3">
+                        {item.full_script.setup}
+                      </p>
+                    )}
 
                     <button
                       onClick={() => addToPipeline(item)}

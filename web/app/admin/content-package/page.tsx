@@ -14,12 +14,25 @@ function getContentTypeName(id: string): string {
 
 // --- Types ---
 
+interface FullScript {
+  hook: string;
+  setup: string;
+  body: string;
+  cta: string;
+  on_screen_text: string[];
+  filming_notes: string;
+  persona: string;
+  sales_approach: string;
+  estimated_length: string;
+}
+
 interface PackageItem {
   id: string;
   product_name: string;
   brand: string;
   content_type: string;
   hook: string;
+  full_script: FullScript | null;
   score: number;
   kept: boolean;
   added_to_pipeline: boolean;
@@ -697,16 +710,26 @@ export default function ContentPackagePage() {
                       )}
                     </div>
 
-                    {/* Content Type */}
-                    <div className="mb-3">
+                    {/* Content Type + Full Script Badge */}
+                    <div className="mb-3 flex items-center gap-1.5 flex-wrap">
                       <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-white/5">
                         {getContentTypeName(item.content_type)}
                       </span>
+                      {item.full_script && (
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/20">
+                          Full Script
+                        </span>
+                      )}
+                      {item.full_script?.persona && (
+                        <span className="text-[11px] text-zinc-500">
+                          {item.full_script.persona}
+                        </span>
+                      )}
                     </div>
 
                     {/* Hook Text */}
                     <p className="text-sm text-zinc-300 leading-relaxed mb-4 line-clamp-3">
-                      &ldquo;{item.hook}&rdquo;
+                      &ldquo;{item.full_script?.hook || item.hook}&rdquo;
                     </p>
 
                     {/* Actions */}

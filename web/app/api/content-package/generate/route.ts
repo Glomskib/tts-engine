@@ -6,6 +6,10 @@ import {
   createApiErrorResponse,
 } from "@/lib/api-errors";
 import { CONTENT_TYPES } from "@/lib/content-types";
+import {
+  expandBriefToScript, pickPersona, pickSalesApproach,
+  type ScriptBrief,
+} from "@/lib/script-expander";
 
 export const runtime = "nodejs";
 
@@ -329,6 +333,97 @@ export async function POST(request: Request) {
       );
     }
     insertedCount = items.length;
+  }
+
+  // 6b. Expand top items into full AI-generated scripts -----------------------
+  // Only expand the top 5 by score (one per product) to keep cost/latency down.
+  // Failures here are non-blocking — items still exist with their briefs.
+  if (insertedCount > 0 && process.env.ANTHROPIC_API_KEY) {
+    try {
+      // Fetch the inserted items with IDs
+      const { data: insertedItems } = await supabaseAdmin
+        .from("content_package_items")
+        .select("id, product_id, product_name, brand, content_type, hook, score")
+        .eq("package_id", pkg.id)
+        .order("score", { ascending: false });
+
+      if (insertedItems && insertedItems.length > 0) {
+        // Pick top 5, one per product
+        const seen = new Set<string>();
+        const topItems: typeof insertedItems = [];
+        for (const item of insertedItems) {
+          if (!seen.has(item.product_name)) {
+            seen.add(item.product_name);
+            topItems.push(item);
+            if (topItems.length >= 5) break;
+          }
+        }
+
+        // Fetch product details for enriched prompts
+        const productIds = [...new Set(topItems.map(i => i.product_id))];
+        const { data: productDetails } = await supabaseAdmin
+          .from("products")
+          .select("id, name, brand, category, notes, pain_points")
+          .in("id", productIds);
+        const productMap = new Map(
+          (productDetails || []).map(p => [p.id, p])
+        );
+
+        // Expand each top item with persona/approach rotation
+        const usedPersonas: string[] = [];
+        const usedApproaches: string[] = [];
+
+        const expansionPromises = topItems.map(async (item) => {
+          try {
+            const persona = pickPersona(usedPersonas);
+            const approach = pickSalesApproach(item.content_type, usedApproaches);
+            usedPersonas.push(persona.id);
+            usedApproaches.push(approach.id);
+
+            const product = productMap.get(item.product_id);
+            const ct = CONTENT_TYPES.find(c => c.id === item.content_type);
+
+            const brief: ScriptBrief = {
+              hook: item.hook,
+              content_type: item.content_type,
+              content_type_name: ct?.name || item.content_type,
+              product_name: item.product_name,
+              brand: item.brand,
+              product_notes: product?.notes || null,
+              product_category: product?.category || null,
+              pain_points: Array.isArray(product?.pain_points)
+                ? product.pain_points.map((pp: { point?: string }) =>
+                    typeof pp === 'string' ? pp : pp.point || ''
+                  ).filter(Boolean)
+                : null,
+            };
+
+            const fullScript = await expandBriefToScript(brief, persona, approach);
+
+            // Store the full script on the item
+            await supabaseAdmin
+              .from("content_package_items")
+              .update({ full_script: fullScript })
+              .eq("id", item.id);
+
+          } catch (err) {
+            console.error(
+              `[${correlationId}] expand script failed for item ${item.id}:`,
+              err
+            );
+            // Non-blocking — item keeps its brief
+          }
+        });
+
+        await Promise.all(expansionPromises);
+      }
+    } catch (err) {
+      console.error(
+        `[${correlationId}] content-package/generate expansion error:`,
+        err
+      );
+      // Non-blocking — package is still valid with briefs only
+    }
   }
 
   // 7. Update package status to complete --------------------------------------

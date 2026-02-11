@@ -35,6 +35,7 @@ import {
   Hash,
   DollarSign,
   Send,
+  Sun,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -68,6 +69,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CONTENT',
     subscriptionType: 'saas',
     items: [
+      { name: 'Script of the Day', href: '/admin/script-of-the-day', icon: Sun },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },

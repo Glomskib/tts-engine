@@ -3,6 +3,7 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { auditLogAsync } from "@/lib/audit";
 import { z } from "zod";
 import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
@@ -209,9 +210,9 @@ export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
 
   try {
-    // Auth check
-    const authContext = await getApiAuthContext(request);
-    if (!authContext?.user) {
+    // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+    const auth = await validateApiAccess(request);
+    if (!auth) {
       return createApiErrorResponse(
         "UNAUTHORIZED",
         "Authentication required",
@@ -219,10 +220,14 @@ export async function POST(request: Request) {
         correlationId
       );
     }
+    const userId = auth.userId;
+
+    // Get full auth context for role/admin checks
+    const authContext = await getApiAuthContext(request);
 
     // Rate limiting (heavy AI generation - 5 req/min)
     const rateLimitResponse = enforceRateLimits(
-      { userId: authContext.user.id, ...extractRateLimitContext(request) },
+      { userId: userId, ...extractRateLimitContext(request) },
       correlationId,
       { userLimit: 5 }
     );
@@ -254,7 +259,7 @@ export async function POST(request: Request) {
     const input = parsed.data;
 
     // Credit check (admins bypass)
-    const creditError = await requireCredits(authContext.user.id, authContext.isAdmin);
+    const creditError = await requireCredits(userId, authContext.isAdmin);
     if (creditError) {
       return NextResponse.json({
         ok: false,
@@ -337,7 +342,7 @@ export async function POST(request: Request) {
     let creditsRemaining: number | undefined;
     if (!authContext.isAdmin) {
       const { data: deductResult } = await supabaseAdmin.rpc("add_credits", {
-        p_user_id: authContext.user.id,
+        p_user_id: userId,
         p_amount: -creditCost,
         p_type: "generation",
         p_description: `${input.content_type} generation`,
@@ -351,7 +356,7 @@ export async function POST(request: Request) {
       event_type: "content.generated",
       entity_type: "content",
       entity_id: product?.id || null,
-      actor: authContext.user.id,
+      actor: userId,
       summary: `Generated ${input.content_type} content for ${product?.name || "unknown product"}`,
       details: {
         content_type: input.content_type,

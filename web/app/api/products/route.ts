@@ -2,22 +2,24 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  // Auth check - user must be logged in
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
+  // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+  const auth = await validateApiAccess(request);
+  if (!auth) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
+  const userId = auth.userId;
 
   const { data, error } = await supabaseAdmin
     .from("products")
     .select("*")
-    .eq("user_id", authContext.user.id)  // Filter by user_id
+    .eq("user_id", userId)  // Filter by user_id
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -35,11 +37,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  // Auth check - user must be logged in
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
+  // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+  const auth = await validateApiAccess(request);
+  if (!auth) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
+  const userId = auth.userId;
 
   let body: unknown;
   try {
@@ -78,7 +81,7 @@ export async function POST(request: Request) {
     name: name.trim(),
     brand: brand.trim(),
     category: category.trim(),
-    user_id: authContext.user.id,  // Set user_id on insert
+    user_id: userId,  // Set user_id on insert
   };
   if (category_risk !== undefined) insertPayload.category_risk = category_risk;
   if (notes !== undefined) insertPayload.notes = notes;

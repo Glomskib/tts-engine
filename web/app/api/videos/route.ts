@@ -4,6 +4,7 @@ import { isValidStatus, QUEUE_STATUSES, type VideoStatus } from "@/lib/video-pip
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 
 export const runtime = "nodejs";
 
@@ -36,11 +37,12 @@ const DEFAULT_INITIAL_STATUS: VideoStatus = "needs_edit";
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
+
+  // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+  const auth = await validateApiAccess(request);
+  if (!auth) {
     return NextResponse.json({ ok: false, error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
   }
-  const user = authContext.user;
 
   const { searchParams } = new URL(request.url);
   const account_id = searchParams.get("account_id");
@@ -93,14 +95,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const user = authContext.user;
-
   // Generate or read correlation ID
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+  const auth = await validateApiAccess(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
+  }
+  const userId = auth.userId;
 
   let body: unknown;
   try {

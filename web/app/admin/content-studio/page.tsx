@@ -394,8 +394,17 @@ export default function ContentStudioPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Simple Mode — hides advanced fields for non-power-users
+  const [simpleMode, setSimpleMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ff-simple-mode');
+      return saved !== null ? saved === 'true' : true; // Default to simple
+    }
+    return true;
+  });
+
   // Quick Generate state
-  const [showQuickGenerate, setShowQuickGenerate] = useState(false);
+  const [showQuickGenerate, setShowQuickGenerate] = useState(true);
   const [quickGenProductId, setQuickGenProductId] = useState('');
   const [quickGenBatchMode, setQuickGenBatchMode] = useState(false);
   const [quickGenSelectedPresets, setQuickGenSelectedPresets] = useState<string[]>([]);
@@ -1390,6 +1399,13 @@ export default function ContentStudioPage() {
           {/* Action buttons - horizontal scroll on mobile */}
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
             <Link
+              href="/admin/script-of-the-day"
+              className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"
+            >
+              <Sparkles size={16} />
+              What should I film today?
+            </Link>
+            <Link
               href="/admin/skit-library"
               className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
             >
@@ -1557,8 +1573,8 @@ export default function ContentStudioPage() {
         </div>
       </div>
 
-      {/* Content Type Filter Bar */}
-      <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
+      {/* Content Type Filter Bar (hidden in Simple Mode) */}
+      {!simpleMode && <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
         <div style={{
           padding: '12px 16px',
           backgroundColor: 'rgba(59, 130, 246, 0.05)',
@@ -1594,12 +1610,34 @@ export default function ContentStudioPage() {
             <p className="mt-2 text-xs text-zinc-500 italic">{selectedMainTab.funnelHint}</p>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Main Grid - stacks on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Configuration */}
         <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6">
+          {/* Simple/Advanced Mode Toggle */}
+          <div className="flex items-center justify-between mb-5 pb-4 border-b border-zinc-800">
+            <span className="text-sm text-zinc-400">
+              {simpleMode ? 'Simple Mode' : 'Advanced Mode'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !simpleMode;
+                setSimpleMode(next);
+                localStorage.setItem('ff-simple-mode', String(next));
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                simpleMode ? 'bg-teal-600' : 'bg-zinc-600'
+              }`}
+              title={simpleMode ? 'Switch to Advanced Mode for more options' : 'Switch to Simple Mode — just pick a product and generate'}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                simpleMode ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
           {loadingData ? (
             <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
               <Loader2 className="animate-spin" style={{ margin: '0 auto 12px' }} size={24} />
@@ -1610,9 +1648,10 @@ export default function ContentStudioPage() {
               {/* STEP 1: Content Type - Compact pills */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>1</span>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>{simpleMode ? '2' : '1'}</span>
                   Content Type
                 </div>
+                {simpleMode && <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '10px', marginTop: '-8px' }}>What style of TikTok video do you want? (Skit = comedy, Testimonial = review style, etc.)</p>}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {filteredContentTypes.map((type) => {
                     const Icon = CONTENT_TYPE_ICONS[type.icon];
@@ -1664,8 +1703,8 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
-              {/* STEP 2: Content Format */}
-              {selectedContentType && (
+              {/* STEP 2: Content Format (hidden in Simple Mode) */}
+              {!simpleMode && selectedContentType && (
                 <div style={sectionStyle}>
                   <div style={sectionTitleStyle}>
                     <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>2</span>
@@ -1707,9 +1746,10 @@ export default function ContentStudioPage() {
               {/* STEP 3: Product */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>3</span>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>{simpleMode ? '1' : '3'}</span>
                   Product
                 </div>
+                {simpleMode && <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '10px', marginTop: '-8px' }}>Pick the product you want to create a TikTok script for</p>}
                 {products.length > 0 ? (
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                     <select
@@ -1853,8 +1893,8 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
-              {/* STEP 4: Target Audience */}
-              <div style={sectionStyle}>
+              {/* STEP 4: Target Audience (hidden in Simple Mode) */}
+              {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4</span>
                   Target Audience
@@ -1914,10 +1954,10 @@ export default function ContentStudioPage() {
                     />
                   </div>
                 )}
-              </div>
+              </div>}
 
-              {/* STEP 5: Presentation Style */}
-              <div style={sectionStyle}>
+              {/* STEP 5: Presentation Style (hidden in Simple Mode) */}
+              {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>5</span>
                   Presentation Style
@@ -1981,10 +2021,10 @@ export default function ContentStudioPage() {
                     </p>
                   </div>
                 )}
-              </div>
+              </div>}
 
-              {/* STEP 6: Length & Tone */}
-              <div style={sectionStyle}>
+              {/* STEP 6: Length & Tone (hidden in Simple Mode) */}
+              {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>6</span>
                   Length & Tone
@@ -2089,10 +2129,10 @@ export default function ContentStudioPage() {
                     })}
                   </div>
                 </div>
-              </div>
+              </div>}
 
-              {/* STEP 7: Advanced Options */}
-              <div style={sectionStyle}>
+              {/* STEP 7: Advanced Options (hidden in Simple Mode) */}
+              {!simpleMode && <div style={sectionStyle}>
                 <button type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
                   style={{
@@ -2215,9 +2255,10 @@ export default function ContentStudioPage() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div>}
 
-              {/* A/B Test Mode Toggle */}
+              {/* A/B Test Mode Toggle (hidden in Simple Mode) */}
+              {!simpleMode &&
               <label className="flex items-center gap-3 mt-4 p-3 rounded-lg border border-white/5 bg-zinc-800/30 cursor-pointer hover:bg-zinc-800/50 transition-colors">
                 <input
                   type="checkbox"
@@ -2232,7 +2273,7 @@ export default function ContentStudioPage() {
                   </span>
                   <span className="text-xs text-zinc-500 block">Generate 2 variations for side-by-side comparison</span>
                 </div>
-              </label>
+              </label>}
 
               {/* Generate Button - Sticky on mobile */}
               <div className="sticky bottom-4 lg:static lg:bottom-auto mt-6">

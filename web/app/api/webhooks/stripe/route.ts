@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
+import { recordReferralConversion } from "@/lib/referrals";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -195,6 +196,22 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
 
   if (creditError) {
     console.error(`[${correlationId}] Failed to initialize credits:`, creditError);
+  }
+
+  // Process referral conversion — credit the referrer if this user was referred
+  try {
+    const { data: userSub } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("referred_by")
+      .eq("user_id", userId)
+      .single();
+
+    if (userSub?.referred_by) {
+      await recordReferralConversion(userId);
+      console.info(`[${correlationId}] Referral conversion recorded for user ${userId}`);
+    }
+  } catch (refErr) {
+    console.error(`[${correlationId}] Referral conversion error (non-fatal):`, refErr);
   }
 }
 

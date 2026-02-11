@@ -13,6 +13,8 @@ function LoginForm() {
   const redirect = searchParams.get('redirect') || '/admin/skit-generator';
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
   const urlError = searchParams.get('error');
+  const refCode = searchParams.get('ref') || '';
+  const promoCodeParam = searchParams.get('promo') || '';
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
@@ -32,7 +34,7 @@ function LoginForm() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}${refCode ? `&ref=${encodeURIComponent(refCode)}` : ''}${promoCodeParam ? `&promo=${encodeURIComponent(promoCodeParam)}` : ''}`,
         },
       });
 

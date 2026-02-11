@@ -15,11 +15,36 @@ export default function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [contactOpen, setContactOpen] = useState(false);
+  const [referralBanner, setReferralBanner] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Capture referral and promo codes from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    const promo = params.get('promo');
+
+    if (ref) {
+      localStorage.setItem('ff_ref', ref);
+      document.cookie = `ff_ref=${ref}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
+      setReferralBanner(true);
+      // Record click
+      fetch('/api/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referral_code: ref }),
+      }).catch(() => {});
+    }
+
+    if (promo) {
+      localStorage.setItem('ff_promo', promo);
+      document.cookie = `ff_promo=${promo}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
+    }
   }, []);
 
   return (

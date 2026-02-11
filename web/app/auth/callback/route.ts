@@ -1,10 +1,12 @@
 /**
  * Auth Callback Route
  * Handles OAuth redirects from providers like Google.
+ * Also processes referral codes (?ref=) and promo codes (?promo=) from signup.
  */
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { recordReferralSignup } from '@/lib/referrals';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -12,6 +14,8 @@ export async function GET(request: Request) {
   const next = searchParams.get('redirect') ?? '/admin/content-studio';
   const error = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
+  const referralCode = searchParams.get('ref');
+  const promoCode = searchParams.get('promo');
 
   // Log for debugging (server-side only)
   if (process.env.NODE_ENV === 'development') {
@@ -86,6 +90,31 @@ export async function GET(request: Request) {
       } catch (e) {
         // Log but don't fail - user is authenticated
         console.error('Error initializing user data (non-fatal):', e);
+      }
+
+      // Process referral code if present (non-fatal)
+      if (referralCode) {
+        try {
+          await recordReferralSignup(referralCode, data.user.id);
+        } catch (e) {
+          console.error('Referral signup recording error (non-fatal):', e);
+        }
+      }
+
+      // Process promo code if present (non-fatal)
+      if (promoCode) {
+        try {
+          await fetch(`${origin}/api/promo-codes/redeem`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              cookie: request.headers.get('cookie') || '',
+            },
+            body: JSON.stringify({ code: promoCode }),
+          });
+        } catch (e) {
+          console.error('Promo code redemption error (non-fatal):', e);
+        }
       }
 
       // Successfully authenticated - redirect to destination

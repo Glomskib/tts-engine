@@ -38,6 +38,8 @@ import {
   Sun,
   Camera,
   UserCheck,
+  Link2,
+  Ticket,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -118,6 +120,14 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Import Products', href: '/admin/products/import', icon: Upload },
       { name: 'Accounts', href: '/admin/accounts', icon: Building },
       { name: 'Audiences', href: '/admin/audience', icon: Users, featureKey: 'audience_intelligence' },
+    ],
+  },
+  {
+    title: 'GROWTH',
+    subscriptionType: 'saas',
+    items: [
+      { name: 'Referrals', href: '/admin/referrals', icon: Link2 },
+      { name: 'Promo Codes', href: '/admin/promo-codes', icon: Ticket, adminOnly: true },
     ],
   },
   {

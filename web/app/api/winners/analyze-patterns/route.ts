@@ -280,14 +280,34 @@ Rules:
       // Still return the analysis even if save fails
     }
 
-    // 8. Return the analysis
+    // 8. Return the analysis shaped to match frontend expectations
+    const analyzedAt = saved?.analyzed_at || new Date().toISOString();
+    const responseData = {
+      id: saved?.id || null,
+      winning_formula: analysis.winning_formula || "",
+      top_hook_types: analysis.top_hook_types || [],
+      best_formats: (analysis.top_formats || []).map((f) => ({
+        format: f.format,
+        count: f.count,
+        win_rate: Math.round(f.avg_engagement || 0),
+      })),
+      common_phrases: (analysis.common_phrases || []).map((p) =>
+        typeof p === "string" ? p : p.phrase
+      ),
+      top_categories: (analysis.top_categories || []).map((c) => ({
+        category: c.category,
+        wins: c.count,
+        total: c.count > 0 ? Math.round(c.count / ((c.win_rate || 1) / 100)) : 0,
+        win_rate: c.win_rate,
+      })),
+      recommendations: analysis.recommendations || [],
+      analyzed_at: analyzedAt,
+      winners_analyzed: winnerCount + videoCount,
+    };
+
     const response = NextResponse.json({
       ok: true,
-      analysis,
-      analysis_id: saved?.id || null,
-      winner_count: winnerCount,
-      video_count: videoCount,
-      analyzed_at: saved?.analyzed_at || new Date().toISOString(),
+      data: responseData,
       correlation_id: correlationId,
     });
     response.headers.set("x-correlation-id", correlationId);
@@ -337,8 +357,7 @@ export async function GET(request: NextRequest) {
     if (error?.code === "PGRST116") {
       const response = NextResponse.json({
         ok: true,
-        analysis: null,
-        message: "No pattern analysis found. Run a POST to generate one.",
+        data: null,
         correlation_id: correlationId,
       });
       response.headers.set("x-correlation-id", correlationId);
@@ -357,16 +376,34 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Shape data to match frontend PatternAnalysis interface
+  const savedAnalysis = latest.analysis || {};
+  const responseData = {
+    id: latest.id,
+    winning_formula: latest.winning_formula || savedAnalysis.winning_formula || "",
+    top_hook_types: latest.top_hook_types || savedAnalysis.top_hook_types || [],
+    best_formats: ((latest.top_formats || savedAnalysis.top_formats || []) as Array<{ format: string; count: number; avg_engagement?: number; win_rate?: number }>).map((f) => ({
+      format: f.format,
+      count: f.count,
+      win_rate: Math.round(f.win_rate ?? f.avg_engagement ?? 0),
+    })),
+    common_phrases: ((savedAnalysis.common_phrases || []) as Array<string | { phrase: string }>).map((p: string | { phrase: string }) =>
+      typeof p === "string" ? p : p.phrase
+    ),
+    top_categories: ((latest.top_categories || savedAnalysis.top_categories || []) as Array<{ category: string; count: number; win_rate: number; wins?: number; total?: number }>).map((c) => ({
+      category: c.category,
+      wins: c.wins ?? c.count,
+      total: c.total ?? (c.count > 0 ? Math.round(c.count / ((c.win_rate || 1) / 100)) : 0),
+      win_rate: c.win_rate,
+    })),
+    recommendations: savedAnalysis.recommendations || [],
+    analyzed_at: latest.analyzed_at,
+    winners_analyzed: latest.winner_count || 0,
+  };
+
   const response = NextResponse.json({
     ok: true,
-    analysis_id: latest.id,
-    analysis: latest.analysis,
-    winner_count: latest.winner_count,
-    top_hook_types: latest.top_hook_types,
-    top_formats: latest.top_formats,
-    top_categories: latest.top_categories,
-    winning_formula: latest.winning_formula,
-    analyzed_at: latest.analyzed_at,
+    data: responseData,
     correlation_id: correlationId,
   });
   response.headers.set("x-correlation-id", correlationId);

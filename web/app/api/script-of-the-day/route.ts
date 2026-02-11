@@ -105,6 +105,27 @@ export async function POST(request: NextRequest) {
   const userId = authContext.user.id;
 
   try {
+    const body = await request.json();
+
+    // -----------------------------------------------------------------------
+    // Handle status update action (e.g., "accepted" after adding to pipeline)
+    // -----------------------------------------------------------------------
+    if (body.action === "update_status" && body.id && body.status) {
+      const { error: updateError } = await supabaseAdmin
+        .from("script_of_the_day")
+        .update({ status: body.status })
+        .eq("id", body.id)
+        .eq("user_id", userId);
+
+      if (updateError) {
+        return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
+      }
+
+      const res = NextResponse.json({ ok: true, correlation_id: correlationId });
+      res.headers.set("x-correlation-id", correlationId);
+      return res;
+    }
+
     // -----------------------------------------------------------------------
     // 1. Fetch products sorted by rotation need
     // -----------------------------------------------------------------------
@@ -275,11 +296,7 @@ export async function POST(request: NextRequest) {
     // -----------------------------------------------------------------------
     // 7. Call the AI generation endpoint internally
     // -----------------------------------------------------------------------
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
+    const baseUrl = new URL(request.url).origin;
 
     const genResponse = await fetch(`${baseUrl}/api/ai/generate-skit`, {
       method: "POST",
@@ -335,11 +352,14 @@ export async function POST(request: NextRequest) {
     // -----------------------------------------------------------------------
     const { data: accounts } = await supabaseAdmin
       .from("tiktok_accounts")
-      .select("id, account_name, niche")
+      .select("id, name, category_focus")
       .eq("user_id", userId)
+      .eq("status", "active")
       .limit(5);
 
-    const suggestedAccount = accounts?.[0] || null;
+    const suggestedAccount = accounts?.[0]
+      ? { id: accounts[0].id, account_name: accounts[0].name }
+      : null;
 
     // -----------------------------------------------------------------------
     // 10. Save to database

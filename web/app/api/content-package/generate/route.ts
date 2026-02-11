@@ -32,7 +32,8 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/** Score based on coverage gap, winner hooks, content diversity, and quality jitter. */
+/** Score based on coverage gap, winner hooks, content diversity, and quality jitter.
+ *  Typical output range: 4-9 (see clamp at end). */
 function scoreItem(
   videosForProduct: number,
   maxVideos: number,
@@ -40,25 +41,26 @@ function scoreItem(
   rotationScore: number,
   contentTypeVariety: number
 ): number {
-  // Base: inverse coverage (0-4 points)
+  // Base: inverse coverage (0-2 points)
   const coverageBase = maxVideos > 0
-    ? (1 - videosForProduct / maxVideos) * 4
-    : 2;
+    ? (1 - videosForProduct / maxVideos) * 2
+    : 1;
 
-  // Rotation need from product (0-3 points, normalized from 0-100)
-  const rotationFactor = Math.min(3, (rotationScore / 100) * 3);
+  // Rotation need from product (0-2 points, normalized from 0-100)
+  const rotationFactor = Math.min(2, (rotationScore / 100) * 2);
 
-  // Winner hook bonus (0-1.5 points)
+  // Winner hook bonus (0 or 1.5)
   const hookBonus = hasWinnerHook ? 1.5 : 0;
 
-  // Content diversity penalty: if product already has many content types, lower score (0-1)
-  const diversityFactor = Math.max(0, 1 - contentTypeVariety * 0.15);
+  // Content diversity penalty: more items for same product → lower score
+  const diversityPenalty = Math.min(1.5, contentTypeVariety * 0.5);
 
-  // Quality jitter: small random factor for natural variation (-0.5 to +0.5)
-  const jitter = (Math.random() - 0.5);
+  // Quality jitter for natural variation (-0.7 to +0.7)
+  const jitter = (Math.random() - 0.5) * 1.4;
 
-  const raw = coverageBase + rotationFactor + hookBonus + diversityFactor + jitter;
-  return Math.min(10, Math.max(1, Math.round(raw)));
+  // Base of 5 + modifiers = typical range of 4-9
+  const raw = 5 + coverageBase + rotationFactor + hookBonus - diversityPenalty + jitter;
+  return Math.min(9, Math.max(4, Math.round(raw)));
 }
 
 /** Build a lightweight script body (metadata, not AI-generated prose). */
@@ -284,8 +286,8 @@ export async function POST(request: Request) {
     const existingItemsForProduct = items.filter(i => i.product_id === product.id).length;
     const score = scoreItem(videosForProduct, maxVideos, usedWinnerHook, rotationScore, existingItemsForProduct);
 
-    // Only keep scripts scoring >= 7
-    if (score >= 7) {
+    // Include all generated items (scores range 4-9)
+    {
       items.push({
         package_id: pkg.id,
         product_id: product.id,

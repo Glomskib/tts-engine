@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminPageLayout, { AdminCard, AdminButton } from '../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
-import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star } from 'lucide-react';
+import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star, Trash2, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
 // --- Helpers ---
@@ -83,6 +83,88 @@ export default function ContentPackagePage() {
   const [generating, setGenerating] = useState(false);
   const [addingToPipeline, setAddingToPipeline] = useState<Set<string>>(new Set());
   const [bulkAdding, setBulkAdding] = useState(false);
+  const [discardedIds, setDiscardedIds] = useState<Set<string>>(new Set());
+
+  // Sort & Filter
+  const [sortBy, setSortBy] = useState<'score' | 'product' | 'content_type'>('score');
+  const [filterProduct, setFilterProduct] = useState<string>('all');
+  const [filterContentType, setFilterContentType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'kept' | 'discarded'>('all');
+
+  // Derived filter options
+  const filterOptions = useMemo(() => {
+    if (!pkg?.items) return { products: [] as string[], contentTypes: [] as string[] };
+    const products = [...new Set(pkg.items.map(i => i.product_name))].sort();
+    const contentTypes = [...new Set(pkg.items.map(i => i.content_type))].sort();
+    return { products, contentTypes };
+  }, [pkg?.items]);
+
+  // Filtered and sorted items
+  const displayItems = useMemo(() => {
+    if (!pkg?.items) return [];
+    let items = [...pkg.items];
+
+    // Mark discarded
+    items = items.map(item => ({
+      ...item,
+      kept: discardedIds.has(item.id) ? false : item.kept,
+    }));
+
+    // Filter by product
+    if (filterProduct !== 'all') {
+      items = items.filter(i => i.product_name === filterProduct);
+    }
+
+    // Filter by content type
+    if (filterContentType !== 'all') {
+      items = items.filter(i => i.content_type === filterContentType);
+    }
+
+    // Filter by status
+    if (filterStatus === 'kept') {
+      items = items.filter(i => i.kept && !discardedIds.has(i.id));
+    } else if (filterStatus === 'discarded') {
+      items = items.filter(i => discardedIds.has(i.id));
+    }
+
+    // Sort
+    switch (sortBy) {
+      case 'score':
+        items.sort((a, b) => b.score - a.score);
+        break;
+      case 'product':
+        items.sort((a, b) => a.product_name.localeCompare(b.product_name));
+        break;
+      case 'content_type':
+        items.sort((a, b) => a.content_type.localeCompare(b.content_type));
+        break;
+    }
+
+    return items;
+  }, [pkg?.items, sortBy, filterProduct, filterContentType, filterStatus, discardedIds]);
+
+  // Discard handler
+  const discardItem = useCallback((itemId: string) => {
+    setDiscardedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+    // Also mark as not-kept locally
+    setPkg(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: prev.items.map(item =>
+          item.id === itemId ? { ...item, kept: false } : item
+        ),
+      };
+    });
+  }, []);
 
   // Fetch latest package
   const fetchPackage = useCallback(async () => {
@@ -503,17 +585,89 @@ export default function ContentPackagePage() {
             </AdminCard>
           )}
 
-          {/* Package Items Grid */}
+          {/* Sort & Filter Bar */}
           {pkg.status === 'complete' && pkg.items && pkg.items.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 p-3 bg-zinc-900/50 rounded-xl border border-white/10">
+              <SlidersHorizontal className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+
+              {/* Sort */}
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'score' | 'product' | 'content_type')}
+                  className="appearance-none bg-zinc-800 text-zinc-300 text-xs font-medium pl-2.5 pr-7 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                >
+                  <option value="score">Sort: Score</option>
+                  <option value="product">Sort: Product</option>
+                  <option value="content_type">Sort: Type</option>
+                </select>
+                <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Filter: Product */}
+              <div className="relative">
+                <select
+                  value={filterProduct}
+                  onChange={(e) => setFilterProduct(e.target.value)}
+                  className="appearance-none bg-zinc-800 text-zinc-300 text-xs font-medium pl-2.5 pr-7 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-1 focus:ring-violet-500/50 max-w-[140px]"
+                >
+                  <option value="all">All Products</option>
+                  {filterOptions.products.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Filter: Content Type */}
+              <div className="relative">
+                <select
+                  value={filterContentType}
+                  onChange={(e) => setFilterContentType(e.target.value)}
+                  className="appearance-none bg-zinc-800 text-zinc-300 text-xs font-medium pl-2.5 pr-7 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-1 focus:ring-violet-500/50 max-w-[160px]"
+                >
+                  <option value="all">All Types</option>
+                  {filterOptions.contentTypes.map(ct => (
+                    <option key={ct} value={ct}>{getContentTypeName(ct)}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Filter: Status */}
+              <div className="relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'kept' | 'discarded')}
+                  className="appearance-none bg-zinc-800 text-zinc-300 text-xs font-medium pl-2.5 pr-7 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                >
+                  <option value="all">All Status</option>
+                  <option value="kept">Kept Only</option>
+                  <option value="discarded">Discarded</option>
+                </select>
+                <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Count */}
+              <span className="text-xs text-zinc-500 ml-auto">
+                {displayItems.length} of {pkg.items.length}
+              </span>
+            </div>
+          )}
+
+          {/* Package Items Grid */}
+          {pkg.status === 'complete' && displayItems.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {pkg.items.map((item) => (
+              {displayItems.map((item) => (
                 <div
                   key={item.id}
                   className={`
                     relative rounded-xl border overflow-hidden transition-all duration-200
-                    ${item.kept
-                      ? 'bg-zinc-900/80 border-violet-500/30 shadow-lg shadow-violet-500/5'
-                      : 'bg-zinc-900/30 border-white/5 opacity-60 hover:opacity-80'
+                    ${discardedIds.has(item.id)
+                      ? 'bg-zinc-900/20 border-red-500/15 opacity-40 hover:opacity-60'
+                      : item.kept
+                        ? 'bg-zinc-900/80 border-violet-500/30 shadow-lg shadow-violet-500/5'
+                        : 'bg-zinc-900/30 border-white/5 opacity-60 hover:opacity-80'
                     }
                     ${item.added_to_pipeline ? 'ring-1 ring-emerald-500/30' : ''}
                   `}
@@ -582,8 +736,26 @@ export default function ContentPackagePage() {
                         )}
                       </button>
 
-                      {/* Add to Pipeline */}
+                      {/* Discard Toggle */}
                       {!item.added_to_pipeline && (
+                        <button
+                          type="button"
+                          onClick={() => discardItem(item.id)}
+                          className={`
+                            flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+                            ${discardedIds.has(item.id)
+                              ? 'bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30'
+                              : 'bg-zinc-800 text-zinc-500 border border-white/5 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
+                            }
+                          `}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {discardedIds.has(item.id) ? 'Discarded' : 'Discard'}
+                        </button>
+                      )}
+
+                      {/* Add to Pipeline */}
+                      {!item.added_to_pipeline && !discardedIds.has(item.id) && (
                         <button
                           type="button"
                           onClick={() => addToPipeline(item)}
@@ -608,6 +780,23 @@ export default function ContentPackagePage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* No results for current filter */}
+          {pkg.status === 'complete' && pkg.items && pkg.items.length > 0 && displayItems.length === 0 && (
+            <AdminCard>
+              <div className="py-10 text-center">
+                <SlidersHorizontal className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+                <p className="text-sm text-zinc-400 mb-3">No items match the current filters.</p>
+                <button
+                  type="button"
+                  onClick={() => { setFilterProduct('all'); setFilterContentType('all'); setFilterStatus('all'); }}
+                  className="text-sm text-violet-400 hover:text-violet-300 underline"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            </AdminCard>
           )}
 
           {/* Complete but empty */}

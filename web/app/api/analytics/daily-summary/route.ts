@@ -114,7 +114,8 @@ export async function POST(request: Request) {
     let bestVideo: Record<string, unknown> | null = null;
     if (bestVideoResult.data && bestVideoResult.data.length > 0) {
       const bv = bestVideoResult.data[0];
-      const product = bv.product as { id: string; name: string; brand: string } | null;
+      const productRaw = bv.product;
+      const product = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; brand: string } | null;
       bestVideoId = bv.id;
       bestVideo = {
         id: bv.id,
@@ -142,7 +143,8 @@ export async function POST(request: Request) {
     const brandBreakdown: Record<string, number> = {};
     if (brandResult.data) {
       for (const v of brandResult.data) {
-        const product = v.product as { id: string; name: string; brand: string } | null;
+        const productRaw = v.product;
+        const product = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; brand: string } | null;
         const brand = product?.brand || "Unbranded";
         brandBreakdown[brand] = (brandBreakdown[brand] || 0) + 1;
       }

@@ -219,7 +219,8 @@ export async function GET(request: Request) {
       }
 
       // Flatten product join into top-level fields
-      const productJoin = video.product as { id: string; name: string; brand: string } | null;
+      const productRaw = video.product;
+      const productJoin = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; brand: string } | null;
       const brand_name = productJoin?.brand || null;
       const product_name = productJoin?.name || null;
       const product_sku: string | null = null;

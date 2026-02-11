@@ -1316,7 +1316,7 @@ export default function ContentStudioPage() {
       if (isApiError(resp)) {
         setError(resp);
       } else {
-        setResult(resp);
+        setResult(resp.data);
         showSuccess(`Generated "${preset.name}" script!`);
         refetchCredits();
       }

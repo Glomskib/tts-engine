@@ -207,7 +207,8 @@ export async function POST(request: Request) {
     }
 
     // Flatten the product join
-    const product = video.product as { id: string; name: string; brand: string } | null;
+    const productRaw = video.product;
+    const product = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; brand: string } | null;
     const productName = product?.name || null;
     const productBrand = product?.brand || null;
     const productId = product?.id || video.product_id;

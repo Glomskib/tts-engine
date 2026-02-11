@@ -399,7 +399,28 @@ export default function ScriptsLibraryPage() {
             {loading ? (
               <p>Loading scripts...</p>
             ) : filteredScripts.length === 0 ? (
-              <p style={{ color: '#666' }}>No scripts found.</p>
+              <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#e4e4e7', marginBottom: 4 }}>
+                  {scripts.length === 0 ? 'No scripts yet' : 'No matching scripts'}
+                </h3>
+                <p style={{ fontSize: '14px', color: '#71717a', marginBottom: 16, maxWidth: 320, margin: '0 auto 16px' }}>
+                  {scripts.length === 0
+                    ? 'Your AI-generated scripts will appear here. Head to Content Studio to create your first one.'
+                    : 'Try adjusting your search or status filter.'}
+                </p>
+                {scripts.length === 0 && (
+                  <a
+                    href="/admin/content-studio"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#0d9488', color: 'white', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18"/><path d="M5 12h14"/></svg>
+                    Generate Scripts
+                  </a>
+                )}
+              </div>
             ) : (
               <table style={tableStyle}>
                 <thead>
@@ -548,7 +569,25 @@ export default function ScriptsLibraryPage() {
             {loading ? (
               <p>Loading templates...</p>
             ) : filteredTemplates.length === 0 ? (
-              <p style={{ color: '#666' }}>No templates found.</p>
+              <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#e4e4e7', marginBottom: 4 }}>
+                  {templates.length === 0 ? 'No templates yet' : 'No matching templates'}
+                </h3>
+                <p style={{ fontSize: '14px', color: '#71717a', maxWidth: 320, margin: '0 auto 16px' }}>
+                  {templates.length === 0
+                    ? 'Save reusable script structures as templates to speed up content creation.'
+                    : 'Try adjusting your search or category filter.'}
+                </p>
+                {templates.length === 0 && (
+                  <button type="button" onClick={() => setShowCreateTemplate(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#0d9488', color: 'white', borderRadius: 8, fontSize: 14, fontWeight: 500, border: 'none', cursor: 'pointer' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18"/><path d="M5 12h14"/></svg>
+                    Create Template
+                  </button>
+                )}
+              </div>
             ) : (
               <table style={tableStyle}>
                 <thead>

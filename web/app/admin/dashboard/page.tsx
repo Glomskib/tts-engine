@@ -16,6 +16,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
 const WeeklyChart = dynamic(() => import('./WeeklyChart'), { ssr: false });
+const SetupChecklist = dynamic(() => import('./SetupChecklist'), { ssr: false });
 
 function getContentTypeName(id: string): string {
   const ct = CONTENT_TYPES.find(c => c.id === id);
@@ -266,6 +267,12 @@ export default function DashboardPage() {
   const activeStatuses = ['SCRIPT_READY', 'RECORDING', 'EDITING', 'REVIEW', 'SCHEDULED', 'READY_TO_POST'];
   const totalActive = data ? activeStatuses.reduce((sum, s) => sum + (data.pipelineByStatus[s] || 0), 0) : 0;
 
+  // New user = zero content across all metrics (show welcome card instead of empty charts)
+  const isNewUser = !loading && data !== null &&
+    (data.totalVideos || 0) === 0 &&
+    (data.scriptsCount || 0) === 0 &&
+    (data.winnersCount || 0) === 0;
+
   return (
     <PullToRefresh onRefresh={fetchData}>
       <div className="px-4 py-6 pb-24 lg:pb-8 space-y-6 max-w-7xl mx-auto">
@@ -274,6 +281,53 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-zinc-400 text-sm">Your content operations at a glance</p>
         </div>
+
+        {/* Welcome Card — shown to new users with zero content */}
+        {isNewUser && (
+          <div className="bg-gradient-to-br from-teal-500/10 via-zinc-900 to-violet-500/10 border border-teal-500/20 rounded-xl p-6 sm:p-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-violet-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Welcome to FlashFlow</h2>
+                <p className="text-sm text-zinc-400">Let&apos;s get your first video script created in 3 steps</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+              <Link href="/admin/products" className="group flex items-start gap-3 p-4 bg-zinc-800/60 border border-zinc-700/50 rounded-lg hover:border-teal-500/30 transition-all">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 text-sm font-bold">1</div>
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-teal-400 transition-colors">Add a Product</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Tell FlashFlow what you sell so AI can write about it</p>
+                </div>
+              </Link>
+              <Link href="/admin/content-studio" className="group flex items-start gap-3 p-4 bg-zinc-800/60 border border-zinc-700/50 rounded-lg hover:border-teal-500/30 transition-all">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center shrink-0 text-sm font-bold">2</div>
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-teal-400 transition-colors">Generate a Script</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">AI writes scroll-stopping hooks and full video scripts</p>
+                </div>
+              </Link>
+              <Link href="/admin/pipeline" className="group flex items-start gap-3 p-4 bg-zinc-800/60 border border-zinc-700/50 rounded-lg hover:border-teal-500/30 transition-all">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-sm font-bold">3</div>
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-teal-400 transition-colors">Film &amp; Post</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Track your videos from script to TikTok</p>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Setup Checklist — shown until all steps done or user dismisses */}
+        {!loading && data && (
+          <SetupChecklist
+            scriptsCount={data.scriptsCount || 0}
+            totalVideos={data.totalVideos || 0}
+            winnersCount={data.winnersCount || 0}
+          />
+        )}
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

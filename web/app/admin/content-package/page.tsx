@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminPageLayout, { AdminCard, AdminButton } from '../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
 import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star } from 'lucide-react';
+import { CONTENT_TYPES } from '@/lib/content-types';
+
+// --- Helpers ---
+function getContentTypeName(id: string): string {
+  const ct = CONTENT_TYPES.find(c => c.id === id);
+  return ct?.name || id;
+}
 
 // --- Types ---
 
@@ -12,7 +19,7 @@ interface PackageItem {
   product_name: string;
   brand: string;
   content_type: string;
-  hook_text: string;
+  hook: string;
   score: number;
   kept: boolean;
   added_to_pipeline: boolean;
@@ -178,7 +185,7 @@ export default function ContentPackagePage() {
           product_name: item.product_name,
           brand: item.brand,
           content_type: item.content_type,
-          hook_text: item.hook_text,
+          hook_text: item.hook,
           score: item.score,
           source: 'content_package',
           package_id: pkg?.id,
@@ -239,7 +246,7 @@ export default function ContentPackagePage() {
             product_name: item.product_name,
             brand: item.brand,
             content_type: item.content_type,
-            hook_text: item.hook_text,
+            hook_text: item.hook,
             score: item.score,
             source: 'content_package',
             package_id: pkg.id,
@@ -539,13 +546,13 @@ export default function ContentPackagePage() {
                     {/* Content Type */}
                     <div className="mb-3">
                       <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-white/5">
-                        {item.content_type}
+                        {getContentTypeName(item.content_type)}
                       </span>
                     </div>
 
                     {/* Hook Text */}
                     <p className="text-sm text-zinc-300 leading-relaxed mb-4 line-clamp-3">
-                      &ldquo;{item.hook_text}&rdquo;
+                      &ldquo;{item.hook}&rdquo;
                     </p>
 
                     {/* Actions */}

@@ -32,22 +32,33 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/** Deterministic-ish score: products with fewer videos score higher. */
+/** Score based on coverage gap, winner hooks, content diversity, and quality jitter. */
 function scoreItem(
   videosForProduct: number,
   maxVideos: number,
-  hasWinnerHook: boolean
+  hasWinnerHook: boolean,
+  rotationScore: number,
+  contentTypeVariety: number
 ): number {
-  // Base: inverse coverage — 10 for 0 videos, 1 for maxVideos
-  const coverageScore =
-    maxVideos > 0
-      ? Math.round(10 - (videosForProduct / maxVideos) * 9)
-      : 10;
+  // Base: inverse coverage (0-4 points)
+  const coverageBase = maxVideos > 0
+    ? (1 - videosForProduct / maxVideos) * 4
+    : 2;
 
-  // Bonus for using a proven winner hook pattern
-  const hookBonus = hasWinnerHook ? 1 : 0;
+  // Rotation need from product (0-3 points, normalized from 0-100)
+  const rotationFactor = Math.min(3, (rotationScore / 100) * 3);
 
-  return Math.min(10, Math.max(1, coverageScore + hookBonus));
+  // Winner hook bonus (0-1.5 points)
+  const hookBonus = hasWinnerHook ? 1.5 : 0;
+
+  // Content diversity penalty: if product already has many content types, lower score (0-1)
+  const diversityFactor = Math.max(0, 1 - contentTypeVariety * 0.15);
+
+  // Quality jitter: small random factor for natural variation (-0.5 to +0.5)
+  const jitter = (Math.random() - 0.5);
+
+  const raw = coverageBase + rotationFactor + hookBonus + diversityFactor + jitter;
+  return Math.min(10, Math.max(1, Math.round(raw)));
 }
 
 /** Build a lightweight script body (metadata, not AI-generated prose). */
@@ -107,7 +118,7 @@ export async function POST(request: Request) {
   // 3a. Get products sorted by content coverage (fewest videos first) ---------
   const { data: products, error: productsError } = await supabaseAdmin
     .from("products")
-    .select("id, name, brand, category")
+    .select("id, name, brand, category, rotation_score")
     .eq("user_id", authContext.user.id)
     .order("name", { ascending: true });
 
@@ -268,7 +279,10 @@ export async function POST(request: Request) {
     );
 
     const videosForProduct = videoCountMap[product.id] || 0;
-    const score = scoreItem(videosForProduct, maxVideos, usedWinnerHook);
+    const rotationScore = Number(product.rotation_score) || 50;
+    // Count how many items already generated for this product (content diversity)
+    const existingItemsForProduct = items.filter(i => i.product_id === product.id).length;
+    const score = scoreItem(videosForProduct, maxVideos, usedWinnerHook, rotationScore, existingItemsForProduct);
 
     // Only keep scripts scoring >= 7
     if (score >= 7) {

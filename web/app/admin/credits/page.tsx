@@ -5,6 +5,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { Coins, Zap, TrendingUp, Package, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { SkeletonForm } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface CreditPackage {
   id: string;
@@ -27,6 +28,7 @@ interface Transaction {
 
 export default function CreditsPage() {
   const { credits, subscription, isLoading } = useCredits();
+  const { showError } = useToast();
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
@@ -81,11 +83,11 @@ export default function CreditsPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error || 'Failed to start purchase');
+        showError(data.error || 'Failed to start purchase');
       }
     } catch (err) {
       console.error('Purchase error:', err);
-      alert('Failed to start purchase');
+      showError('Failed to start purchase');
     } finally {
       setPurchasing(null);
     }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { EmptyState } from '../components/AdminPageLayout';
+import { useToast } from '@/contexts/ToastContext';
 
 interface OrgInvoicePreview {
   org_id: string;
@@ -61,6 +62,7 @@ function getMonthOptions(): { year: number; month: number; label: string }[] {
 
 export default function AdminBillingPage() {
   const router = useRouter();
+  const { showError } = useToast();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -150,10 +152,10 @@ export default function AdminBillingPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        alert('Export failed');
+        showError('Export failed');
       }
     } catch {
-      alert('Export error');
+      showError('Export error');
     } finally {
       setExporting(false);
     }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
+import { useToast } from '@/contexts/ToastContext';
 import { EmptyState } from '../components/AdminPageLayout';
 import dynamic from 'next/dynamic';
 import SimpleBarChart from './components/SimpleBarChart';
@@ -488,6 +489,7 @@ function ClawbotMonthlyInsights() {
 export default function AdminAnalyticsPage() {
   const router = useRouter();
   const hydrated = useHydrated();
+  const { showError } = useToast();
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [windowDays, setWindowDays] = useState(7);
@@ -615,10 +617,10 @@ export default function AdminAnalyticsPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        alert('Export failed');
+        showError('Export failed');
       }
     } catch {
-      alert('Export error');
+      showError('Export error');
     } finally {
       setExporting(null);
     }
@@ -654,10 +656,10 @@ export default function AdminAnalyticsPage() {
         window.URL.revokeObjectURL(blobUrl);
         document.body.removeChild(a);
       } else {
-        alert('Export failed');
+        showError('Export failed');
       }
     } catch {
-      alert('Export error');
+      showError('Export error');
     } finally {
       setContentExporting(null);
     }
@@ -852,7 +854,7 @@ export default function AdminAnalyticsPage() {
           {/* Content Summary Cards */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
             gap: '15px',
             marginBottom: '20px',
           }}>
@@ -1488,7 +1490,7 @@ export default function AdminAnalyticsPage() {
           {/* Throughput Summary */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
             gap: '15px',
             marginBottom: '20px',
           }}>

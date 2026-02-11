@@ -160,7 +160,7 @@ export default function CompetitorsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        alert('Added to Winners Bank!');
+        showSuccess('Added to Winners Bank!');
       }
     } catch (e) { console.error(e); }
   };

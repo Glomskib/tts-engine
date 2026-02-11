@@ -7,6 +7,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, getTimeAgo } from '@/lib/useHydrated';
 import UploaderDrawer from './components/UploaderDrawer';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { useToast } from '@/contexts/ToastContext';
 
 interface AuthUser {
   id: string;
@@ -75,6 +76,7 @@ export default function UploaderPage() {
   const hydrated = useHydrated();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
+  const { showError } = useToast();
 
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -216,11 +218,11 @@ export default function UploaderPage() {
           )
         );
       } else {
-        alert(data.error || 'Failed to update checklist');
+        showError(data.error || 'Failed to update checklist');
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to update checklist');
+      showError('Failed to update checklist');
     } finally {
       setActionLoading(null);
     }

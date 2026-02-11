@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
+import { useToast } from '@/contexts/ToastContext';
 import {
   getRequestSLAStatus,
   SLAStatus,
@@ -101,6 +102,7 @@ function formatAge(ms: number): string {
 
 export default function AdminRequestsPage() {
   const hydrated = useHydrated();
+  const { showError, showSuccess } = useToast();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [requests, setRequests] = useState<ClientRequest[]>([]);
@@ -256,11 +258,11 @@ export default function AdminRequestsPage() {
         setRejectingId(null);
         setRejectReason('');
       } else {
-        alert(data.message || 'Failed to update status');
+        showError(data.message || 'Failed to update status');
       }
     } catch (err) {
       console.error('Status update error:', err);
-      alert('Network error');
+      showError('Network error');
     } finally {
       setActionLoading(null);
     }
@@ -287,11 +289,11 @@ export default function AdminRequestsPage() {
           )
         );
       } else {
-        alert(data.message || 'Failed to update priority');
+        showError(data.message || 'Failed to update priority');
       }
     } catch (err) {
       console.error('Priority update error:', err);
-      alert('Network error');
+      showError('Network error');
     } finally {
       setActionLoading(null);
     }
@@ -320,13 +322,13 @@ export default function AdminRequestsPage() {
               : r
           )
         );
-        alert(`Video created: ${data.data.video_id}`);
+        showSuccess(`Video created: ${data.data.video_id}`);
       } else {
-        alert(data.message || 'Failed to convert');
+        showError(data.message || 'Failed to convert');
       }
     } catch (err) {
       console.error('Convert error:', err);
-      alert('Network error');
+      showError('Network error');
     } finally {
       setActionLoading(null);
     }

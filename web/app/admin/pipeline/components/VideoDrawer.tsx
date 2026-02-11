@@ -6,6 +6,7 @@ import type { QueueVideo } from '../types';
 import { getStatusBadgeColor, getSlaColor, getPrimaryAction } from '../types';
 import { formatDateString, getTimeAgo, useHydrated } from '@/lib/useHydrated';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Product {
   id: string;
@@ -118,6 +119,7 @@ export default function VideoDrawer({
   const hydrated = useHydrated();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
+  const { showError } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('brief');
   const [details, setDetails] = useState<VideoDetails | null>(null);
@@ -3159,10 +3161,10 @@ export default function VideoDrawer({
                           onClose();
                         } else {
                           const err = await res.json().catch(() => ({}));
-                          alert(err.message || 'Failed to delete video');
+                          showError(err.message || 'Failed to delete video');
                         }
                       } catch {
-                        alert('Network error deleting video');
+                        showError('Network error deleting video');
                       } finally {
                         setLoading(false);
                       }

@@ -1109,7 +1109,7 @@ export default function ContentStudioPage() {
         // Show success
         setAbTestMode(false);
         // Brief notification
-        alert('A/B Test created! View it in the A/B Tests page.');
+        showSuccess('A/B Test created! View it in the A/B Tests page.');
       }
     } catch (err) {
       console.error('Failed to save A/B test:', err);
@@ -2063,7 +2063,7 @@ export default function ContentStudioPage() {
                     <Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />
                     Target Length
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px' }}>
                     {TARGET_LENGTHS.map((length) => {
                       const isSelected = selectedLengthId === length.id;
                       return (
@@ -2094,7 +2094,7 @@ export default function ContentStudioPage() {
                     <Smile size={12} style={{ display: 'inline', marginRight: '4px' }} />
                     Humor Level
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px' }}>
                     {HUMOR_LEVELS.map((humor) => {
                       const isSelected = selectedHumorId === humor.id;
                       return (

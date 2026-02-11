@@ -8,6 +8,7 @@ import {
   CheckCircle2, RotateCcw, Clock, Calendar,
   FileText, AlertTriangle
 } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 type RequestStatus = 'pending' | 'assigned' | 'in_progress' | 'review' | 'revision' | 'completed' | 'cancelled';
 
@@ -41,6 +42,7 @@ export default function ClientVideoReviewPage() {
   const params = useParams();
   const requestId = params.id as string;
 
+  const { showError, showInfo } = useToast();
   const [request, setRequest] = useState<VideoRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,11 +92,11 @@ export default function ClientVideoReviewPage() {
       if (data.ok) {
         setRequest(data.data);
       } else {
-        alert(data.error || 'Failed to approve');
+        showError(data.error || 'Failed to approve');
       }
     } catch (err) {
       console.error('Approve error:', err);
-      alert('Failed to approve video');
+      showError('Failed to approve video');
     } finally {
       setSubmitting(false);
     }
@@ -102,7 +104,7 @@ export default function ClientVideoReviewPage() {
 
   const handleRevision = async () => {
     if (!revisionNotes.trim()) {
-      alert('Please describe the changes you need');
+      showInfo('Please describe the changes you need');
       return;
     }
 
@@ -121,11 +123,11 @@ export default function ClientVideoReviewPage() {
         setShowRevisionForm(false);
         setRevisionNotes('');
       } else {
-        alert(data.error || 'Failed to request revision');
+        showError(data.error || 'Failed to request revision');
       }
     } catch (err) {
       console.error('Revision error:', err);
-      alert('Failed to request revision');
+      showError('Failed to request revision');
     } finally {
       setSubmitting(false);
     }

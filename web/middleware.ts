@@ -34,7 +34,12 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refresh session if needed
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Redirect authenticated users from landing page to admin dashboard
+  if (user && request.nextUrl.pathname === '/') {
+    return NextResponse.redirect(new URL('/admin', request.url))
+  }
 
   return response
 }

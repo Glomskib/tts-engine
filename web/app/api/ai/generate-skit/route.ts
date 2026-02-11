@@ -1130,11 +1130,26 @@ export async function POST(request: Request) {
       }
 
       // Fetch product using SERVICE ROLE client (bypasses RLS)
+      // Use a two-step approach: first fetch core columns (always exist),
+      // then try demographic columns (may not exist if migration 105 not applied)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand, brand_id, category, notes, pain_points, primary_gender, primary_age_range, primary_location, demographic_data")
+        .select("id, name, brand, brand_id, category, notes, pain_points")
         .eq("id", productIdTrimmed)
         .single();
+
+      // Try to fetch demographic columns separately (graceful if columns don't exist)
+      let demographicData: Record<string, unknown> | null = null;
+      if (dbProduct && !productError) {
+        const { data: demoData } = await supabaseAdmin
+          .from("products")
+          .select("primary_gender, primary_age_range, primary_location, demographic_data")
+          .eq("id", productIdTrimmed)
+          .single();
+        if (demoData) {
+          demographicData = demoData;
+        }
+      }
 
       // Add query result to debug info
       productLookupDebug.query_result = {
@@ -1191,7 +1206,7 @@ export async function POST(request: Request) {
         );
       }
 
-      product = dbProduct;
+      product = { ...dbProduct, ...demographicData };
     } else {
       // No product_id - use product_name fallback (standalone tool mode)
       // product_name is validated by Zod (min length 3)

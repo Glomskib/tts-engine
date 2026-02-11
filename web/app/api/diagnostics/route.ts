@@ -14,27 +14,43 @@ interface DiagnosticCheck {
 
 // Environment variables to check: [name, required]
 const ENV_VARS: [string, boolean][] = [
+  // Required
   ["NEXT_PUBLIC_SUPABASE_URL", true],
   ["SUPABASE_SERVICE_ROLE_KEY", true],
   ["NEXT_PUBLIC_SUPABASE_ANON_KEY", true],
   ["ANTHROPIC_API_KEY", true],
+  ["NEXT_PUBLIC_APP_URL", true],
+  ["ADMIN_USERS", true],
+  // Optional AI
   ["OPENAI_API_KEY", false],
   ["REPLICATE_API_TOKEN", false],
-  ["ADMIN_USERS", true],
+  ["ELEVENLABS_API_KEY", false],
+  // Optional payments
+  ["STRIPE_SECRET_KEY", false],
+  ["STRIPE_WEBHOOK_SECRET", false],
+  // Optional notifications
   ["TELEGRAM_BOT_TOKEN", false],
   ["TELEGRAM_CHAT_ID", false],
-  ["STRIPE_SECRET_KEY", false],
+  ["SENDGRID_API_KEY", false],
+  ["SLACK_WEBHOOK_URL", false],
+  // Optional deployment
+  ["VERCEL_DEPLOY_HOOK", false],
+  ["CRON_SECRET", false],
 ];
 
 const REQUIRED_TABLES = [
   "products",
   "videos",
-  "scripts",
-  "posting_accounts",
+  "saved_skits",
+  "tiktok_accounts",
   "winners_bank",
-  "api_keys",
-  "team_members",
   "audience_personas",
+  "content_packages",
+  "script_of_the_day",
+  "daily_summaries",
+  "va_briefs",
+  "winner_pattern_analyses",
+  "script_presets",
 ];
 
 export async function GET(request: Request) {

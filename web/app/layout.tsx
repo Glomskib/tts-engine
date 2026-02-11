@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
@@ -13,7 +13,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#14b8a6",
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://web-pied-delta-30.vercel.app"),
   title: {
     default: "FlashFlow AI - AI-Powered Video Script Generator",
     template: "%s | FlashFlow AI",
@@ -37,7 +47,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "FlashFlow AI - AI-Powered Video Script Generator",
     description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
-    url: "https://app.flashflow.ai",
+    url: "https://web-pied-delta-30.vercel.app",
     siteName: "FlashFlow AI",
     type: "website",
     locale: "en_US",
@@ -56,14 +66,6 @@ export const metadata: Metadata = {
     description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
     images: ["/FFAI.png"],
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: "cover",
-  },
-  themeColor: "#14b8a6",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

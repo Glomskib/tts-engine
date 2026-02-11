@@ -259,6 +259,8 @@ export default function ImportProductsPage() {
           tiktok_showcase_url: tiktokUrl.trim(),
           notes: notesLines.join('\n'),
           price: scrapedData.price,
+          product_image_url: scrapedData.images[0] || null,  // Use first image as hero
+          images: scrapedData.images,  // Save all images to gallery
         }),
       });
 

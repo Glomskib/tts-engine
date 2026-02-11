@@ -12,6 +12,8 @@ interface Product {
   description?: string | null;
   notes?: string | null;
   price?: number | null;
+  product_image_url?: string | null;
+  images?: string[];
 }
 
 interface EnrichedProductData {

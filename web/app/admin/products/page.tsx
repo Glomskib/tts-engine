@@ -30,6 +30,8 @@ interface Product {
   slug?: string | null;
   category_risk?: 'low' | 'medium' | 'high' | null;
   pain_points?: PainPoint[] | null;
+  product_image_url?: string | null;  // Primary hero image for video generation
+  images?: string[];                   // Additional product images gallery
   created_at?: string;
 }
 
@@ -83,6 +85,10 @@ export default function ProductsPage() {
   const [addForm, setAddForm] = useState<Partial<Product>>({});
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // Image upload state
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
@@ -247,6 +253,8 @@ export default function ProductsPage() {
       slug: product.slug || '',
       category_risk: product.category_risk || null,
       pain_points: product.pain_points || [],
+      product_image_url: product.product_image_url || '',
+      images: product.images || [],
     });
     setSaveError(null);
     setOpsWarnings([]);
@@ -499,6 +507,51 @@ export default function ProductsPage() {
       ...prev,
       pain_points: prev.pain_points?.filter((_, i) => i !== index) || [],
     }));
+  };
+
+  // Handle image file upload
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setImageUploadError('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageUploadError('Image must be smaller than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    setImageUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'product-images');
+
+      const res = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      // Set the uploaded image URL as the product_image_url
+      setEditForm(prev => ({
+        ...prev,
+        product_image_url: data.data.url,
+      }));
+
+      showSuccess('Image uploaded successfully!');
+    } catch (err) {
+      setImageUploadError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   // Detect potential duplicates
@@ -1058,6 +1111,97 @@ export default function ProductsPage() {
                   placeholder="product-slug"
                   className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
+              </div>
+
+              {/* Product Image */}
+              <div className="pt-4 border-t border-white/10">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Product Image
+                  <span className="text-zinc-500 font-normal ml-1">(for Bolt AI video generation)</span>
+                </label>
+
+                {/* Current Image Preview */}
+                {editForm.product_image_url && (
+                  <div className="mb-3 relative group">
+                    <img
+                      src={editForm.product_image_url}
+                      alt="Product"
+                      className="w-full max-w-xs h-48 object-cover rounded-lg border border-white/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, product_image_url: '' })}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Remove image"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Image URL Input */}
+                <div className="mb-2">
+                  <input
+                    type="url"
+                    value={editForm.product_image_url || ''}
+                    onChange={(e) => setEditForm({ ...editForm, product_image_url: e.target.value })}
+                    placeholder="https://example.com/product-image.jpg"
+                    className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <p className="text-xs text-zinc-500 mt-1">Paste image URL from Amazon, TikTok, or brand website</p>
+                </div>
+
+                {/* OR Divider */}
+                <div className="flex items-center gap-3 my-3">
+                  <div className="flex-1 h-px bg-white/10"></div>
+                  <span className="text-xs text-zinc-500 uppercase">or</span>
+                  <div className="flex-1 h-px bg-white/10"></div>
+                </div>
+
+                {/* File Upload */}
+                <div>
+                  <label className="block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                      disabled={uploadingImage}
+                      className="hidden"
+                      id="product-image-upload"
+                    />
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800/50 border border-white/10 text-zinc-100 text-sm font-medium rounded-md cursor-pointer transition-colors">
+                      {uploadingImage ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          Upload Image File
+                        </>
+                      )}
+                    </span>
+                  </label>
+                  <p className="text-xs text-zinc-500 mt-1">Max 5MB • JPG, PNG, WebP</p>
+                </div>
+
+                {/* Upload Error */}
+                {imageUploadError && (
+                  <div className="mt-2 p-2 text-xs bg-red-900/50 border border-red-500/50 text-red-200 rounded">
+                    {imageUploadError}
+                  </div>
+                )}
               </div>
 
               {/* Notes */}

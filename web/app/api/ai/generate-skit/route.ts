@@ -1089,7 +1089,7 @@ export async function POST(request: Request) {
 
   try {
     // Fetch product info if product_id provided, otherwise use fallback product_name
-    let product: { id: string | null; name: string; brand: string | null; brand_id: string | null; category: string | null; notes: string | null; pain_points: PainPoint[] | null } | null = null;
+    let product: { id: string | null; name: string; brand: string | null; brand_id: string | null; category: string | null; notes: string | null; pain_points: PainPoint[] | null; primary_gender?: string | null; primary_age_range?: string | null; primary_location?: string | null; demographic_data?: Record<string, unknown> | null } | null = null;
 
     // Debug info collected during product lookup
     let productLookupDebug: Record<string, unknown> | null = null;
@@ -1132,7 +1132,7 @@ export async function POST(request: Request) {
       // Fetch product using SERVICE ROLE client (bypasses RLS)
       const { data: dbProduct, error: productError } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand, brand_id, category, notes, pain_points")
+        .select("id, name, brand, brand_id, category, notes, pain_points, primary_gender, primary_age_range, primary_location, demographic_data")
         .eq("id", productIdTrimmed)
         .single();
 
@@ -1339,6 +1339,50 @@ export async function POST(request: Request) {
       effectiveDuration = input.target_duration ?? "extended";
     }
 
+    // Build demographic-aware prompt section if product has data
+    let demographicPrompt = '';
+    if (product.primary_gender || product.primary_age_range || product.demographic_data) {
+      const parts: string[] = ['\n=== PRODUCT AUDIENCE DATA (from real analytics) ==='];
+      if (product.primary_gender) parts.push(`Primary audience gender: ${product.primary_gender}`);
+      if (product.primary_age_range) parts.push(`Primary age range: ${product.primary_age_range}`);
+      if (product.primary_location) parts.push(`Primary location: ${product.primary_location}`);
+
+      const demo = product.demographic_data as Record<string, unknown> | null;
+      if (demo?.gender_breakdown) parts.push(`Gender split: ${JSON.stringify(demo.gender_breakdown)}`);
+      if (demo?.age_breakdown) parts.push(`Age distribution: ${JSON.stringify(demo.age_breakdown)}`);
+
+      // Age-based tone guidance
+      const age = product.primary_age_range || '';
+      if (age.includes('45') || age.includes('55') || age.includes('65')) {
+        parts.push('\nAUDIENCE TONE ADJUSTMENT (older audience 45+):');
+        parts.push('- Use relatable, practical language — avoid trendy slang');
+        parts.push('- Focus on real benefits and problem-solving');
+        parts.push('- Speak clearly and directly, no rapid-fire delivery');
+        parts.push('- Emphasize value, quality, and trustworthiness');
+      } else if (age.includes('18') || age.includes('25')) {
+        parts.push('\nAUDIENCE TONE ADJUSTMENT (younger audience 18-34):');
+        parts.push('- Use trend-aware hooks and current references');
+        parts.push('- Fast pacing, punchy delivery, social proof');
+        parts.push('- "No way this actually works" energy');
+        parts.push('- Casual, friend-to-friend tone');
+      }
+
+      // Gender-based guidance
+      const gender = (product.primary_gender || '').toLowerCase();
+      if (gender.includes('male') && !gender.includes('female')) {
+        parts.push('\nGENDER TONE: Male-skewed audience');
+        parts.push('- Direct benefits, problem-solution format');
+        parts.push('- Focus on results and performance');
+      } else if (gender.includes('female')) {
+        parts.push('\nGENDER TONE: Female-skewed audience');
+        parts.push('- Emotional connection, lifestyle integration');
+        parts.push('- Community feeling, shared experience');
+      }
+
+      parts.push('===\n');
+      demographicPrompt = parts.join('\n');
+    }
+
     const prompt = buildSkitPrompt({
       productName,
       brandName: product.brand || "",
@@ -1372,6 +1416,7 @@ export async function POST(request: Request) {
       painPointsPrompt,
       contentTypeId: input.content_type_id || null,
       contentSubtypeId: input.content_subtype_id || null,
+      demographicPrompt,
     });
 
     // Determine variation count (default 3)
@@ -1581,10 +1626,12 @@ interface PromptParams {
   // Content type identification (drives prompt framing)
   contentTypeId: string | null;
   contentSubtypeId: string | null;
+  // Product demographic data
+  demographicPrompt: string;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt } = params;
 
   // Get content-type-aware prompt config (defaults to skit if unset)
   const formatConfig = getOutputFormatConfig(contentTypeId, contentSubtypeId);
@@ -1635,6 +1682,7 @@ ${creativeDirectionSection}
 ${winnerVariationSection}
 ${winnersContext}
 ${audienceContext}
+${demographicPrompt}
 ${brandContextPrompt}
 ${painPointsPrompt}
 ${contentFormatGuideline}

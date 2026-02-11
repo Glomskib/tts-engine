@@ -36,6 +36,8 @@ import {
   DollarSign,
   Send,
   Sun,
+  Camera,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -83,6 +85,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Video Pipeline', href: '/admin/pipeline', icon: Video },
+      { name: 'Upload Video', href: '/admin/upload', icon: Upload },
       { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar },
       { name: 'Content Package', href: '/admin/content-package', icon: Package },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send },
@@ -94,6 +97,8 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
+      { name: 'Screenshot Reader', href: '/admin/analytics/upload', icon: Camera },
+      { name: 'Demographics', href: '/admin/demographics', icon: UserCheck },
       { name: 'Daily Summary', href: '/admin/analytics/daily', icon: Calendar },
       { name: 'Video Performance', href: '/admin/videos', icon: Play },
       { name: 'Quality', href: '/admin/quality', icon: FlaskConical },

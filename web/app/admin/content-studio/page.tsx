@@ -112,6 +112,9 @@ interface Product {
   category: string;
   description?: string;
   notes?: string;
+  primary_gender?: string | null;
+  primary_age_range?: string | null;
+  primary_location?: string | null;
 }
 
 interface AudiencePersona {
@@ -1801,6 +1804,30 @@ export default function ContentStudioPage() {
                     </Link>
                   </div>
                 )}
+                {/* Demographic badge when product has data */}
+                {(() => {
+                  const sp = products.find(p => p.id === selectedProductId);
+                  if (sp?.primary_age_range || sp?.primary_gender) {
+                    return (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginBottom: '8px',
+                        padding: '6px 10px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                        border: '1px solid rgba(20, 184, 166, 0.2)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: '#5eead4',
+                      }}>
+                        <Users size={13} />
+                        <span>Audience: {[sp.primary_age_range, sp.primary_gender, sp.primary_location].filter(Boolean).join(', ')}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
                   Or enter manually:
                 </div>

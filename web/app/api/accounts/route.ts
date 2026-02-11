@@ -12,7 +12,7 @@ const CreateAccountSchema = z.object({
   type: z.enum(['affiliate', 'pod']),
   category_focus: z.string().max(100).optional(),
   posting_frequency: z.enum(['daily', 'twice_daily', 'every_other_day', 'weekly']).default('daily'),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 /**

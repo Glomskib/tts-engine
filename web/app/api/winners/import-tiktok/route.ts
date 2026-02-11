@@ -18,7 +18,7 @@ const ImportTikTokSchema = z.object({
   brand_name: z.string().max(200).optional(),
   product_name: z.string().max(200).optional(),
   product_category: z.string().max(100).optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 function isValidTikTokUrl(url: string): boolean {

@@ -10,7 +10,7 @@ const UpdateCompetitorSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   tiktok_handle: z.string().min(1).max(100).optional(),
   category: z.string().max(100).optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 export async function GET(

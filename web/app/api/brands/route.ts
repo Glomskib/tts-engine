@@ -10,10 +10,10 @@ const CreateBrandSchema = z.object({
   name: z.string().min(1).max(255),
   logo_url: z.string().url().optional().nullable(),
   website: z.string().url().optional().nullable(),
-  description: z.string().max(2000).optional().nullable(),
+  description: z.string().max(5000).optional().nullable(),
   colors: z.array(z.string()).optional().default([]),
-  tone_of_voice: z.string().max(1000).optional().nullable(),
-  target_audience: z.string().max(1000).optional().nullable(),
+  tone_of_voice: z.string().max(5000).optional().nullable(),
+  target_audience: z.string().max(5000).optional().nullable(),
   guidelines: z.string().max(5000).optional().nullable(),
   monthly_video_quota: z.number().int().min(0).optional().default(0),
 });

@@ -13,7 +13,7 @@ const hashtagSchema = z.object({
   view_count: z.number().int().min(0).optional(),
   video_count: z.number().int().min(0).optional(),
   growth_rate: z.number().optional(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 const soundSchema = z.object({
@@ -23,7 +23,7 @@ const soundSchema = z.object({
   creator: z.string().max(100).optional(),
   video_count: z.number().int().min(0).optional(),
   growth_rate: z.number().optional(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 /**

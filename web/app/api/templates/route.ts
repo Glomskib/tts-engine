@@ -8,11 +8,11 @@ export const runtime = 'nodejs';
 
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
+  description: z.string().max(5000).optional(),
   category: z.string().min(1).max(50),
-  hook_template: z.string().max(500).optional(),
-  body_template: z.string().max(5000).optional(),
-  cta_template: z.string().max(500).optional(),
+  hook_template: z.string().max(5000).optional(),
+  body_template: z.string().max(10000).optional(),
+  cta_template: z.string().max(5000).optional(),
   variables: z.array(z.string()).optional(),
   structure: z.record(z.string(), z.unknown()).optional(),
   tags: z.array(z.string()).optional(),

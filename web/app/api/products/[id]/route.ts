@@ -28,8 +28,8 @@ const UpdateProductSchema = z.object({
   brand_id: z.string().uuid().optional().nullable(),
   category: z.string().min(1).max(100).optional(),
   category_risk: z.enum(["low", "medium", "high"]).optional().nullable(),
-  notes: z.string().max(2000).optional().nullable(),
-  description: z.string().max(2000).optional().nullable(),
+  notes: z.string().max(5000).optional().nullable(),
+  description: z.string().max(5000).optional().nullable(),
   primary_link: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.string().url().max(500).optional().nullable()

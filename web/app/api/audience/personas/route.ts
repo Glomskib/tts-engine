@@ -17,7 +17,7 @@ const PainPointSchema = z.object({
 const CreatePersonaSchema = z.object({
   // Core Identity
   name: z.string().min(1).max(100),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(5000).optional(),
   avatar_type: z.string().max(50).optional(),
 
   // Demographics

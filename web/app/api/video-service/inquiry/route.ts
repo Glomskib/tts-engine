@@ -15,7 +15,7 @@ const InquirySchema = z.object({
   videos_per_month: z.string().max(50).optional(),
   budget_range: z.string().max(50).optional(),
   content_types: z.array(z.string()).optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(5000).optional(),
   source: z.string().max(50).optional(),
 });
 

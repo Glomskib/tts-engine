@@ -44,10 +44,10 @@ export const signupSchema = z.object({
 
 export const productInfoSchema = z.object({
   productName: z.string().min(1, 'Product name is required').max(100),
-  productDescription: z.string().max(2000).optional(),
+  productDescription: z.string().max(5000).optional(),
   productUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
-  targetAudience: z.string().max(500).optional(),
-  brandVoice: z.string().max(500).optional(),
+  targetAudience: z.string().max(5000).optional(),
+  brandVoice: z.string().max(5000).optional(),
 });
 
 export const scriptSettingsSchema = z.object({
@@ -70,8 +70,8 @@ export const googleDriveLinkSchema = z
   .regex(googleDrivePattern, 'Please enter a valid Google Drive link');
 
 export const videoRequestSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200),
-  description: z.string().max(1000).optional(),
+  title: z.string().min(1, 'Title is required').max(500),
+  description: z.string().max(5000).optional(),
   source_drive_link: googleDriveLinkSchema,
   script_id: z.string().uuid().optional(),
   content_type: z.enum(['scripted', 'ugc', 'b-roll', 'other']),

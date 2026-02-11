@@ -14,7 +14,7 @@ const UpdateAccountSchema = z.object({
   posting_frequency: z.enum(['daily', 'twice_daily', 'every_other_day', 'weekly']).optional(),
   status: z.enum(['active', 'paused', 'flagged', 'banned']).optional(),
   status_reason: z.string().max(500).optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(5000).optional(),
 });
 
 /**

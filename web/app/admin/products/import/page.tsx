@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import AdminPageLayout, { AdminCard, AdminButton } from '../../components/AdminPageLayout';
 import {
-  Upload,
-  Link as LinkIcon,
-  Plus,
-  Check,
-  AlertTriangle,
-  Loader2,
   Package,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
   ExternalLink,
-  Trash2,
+  Sparkles,
+  Plus,
+  Brain,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -20,34 +21,52 @@ import { useToast } from '@/contexts/ToastContext';
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface ImportResultItem {
-  url: string;
-  status: 'created' | 'exists' | 'error';
-  product?: {
-    id: string;
-    name: string;
-    brand: string;
-    category: string;
-  };
-  error?: string;
+interface ScrapedProductData {
+  name: string;
+  brand: string;
+  category: string;
+  description: string | null;
+  price: number | null;
+  original_price: number | null;
+  discount: string | null;
+  sold_count: number | null;
+  seller_location: string | null;
+  images: string[];
+  variants: string[];
+  tiktok_product_id: string | null;
 }
 
-interface ImportResponse {
-  ok: boolean;
-  data: {
-    results: ImportResultItem[];
-    summary: {
-      created: number;
-      exists: number;
-      errors: number;
-    };
-  };
-  error?: string;
+interface BrandEntity {
+  id: string;
+  name: string;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
+interface ProductEnrichment {
+  benefits: string[];
+  unique_selling_points: string[];
+  target_audiences: {
+    segment: string;
+    demographics: string;
+    psychographics: string;
+    why_this_product: string;
+  }[];
+  hook_angles: {
+    angle: string;
+    example_opening: string;
+    best_for_audience: string;
+  }[];
+  objections: {
+    objection: string;
+    handler: string;
+  }[];
+  differentiators: string[];
+  cta_suggestions: string[];
+  content_angles: string[];
+  recommended_price_positioning: string;
+  urgency_triggers: string[];
+}
+
+type TabType = 'tiktok' | 'manual';
 
 const CATEGORY_OPTIONS = [
   'Beauty',
@@ -63,13 +82,6 @@ const CATEGORY_OPTIONS = [
   'Other',
 ];
 
-function parseUrls(raw: string): string[] {
-  return raw
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
 /* ------------------------------------------------------------------ */
 /*  Page Component                                                     */
 /* ------------------------------------------------------------------ */
@@ -77,154 +89,345 @@ function parseUrls(raw: string): string[] {
 export default function ImportProductsPage() {
   const { showSuccess, showError } = useToast();
 
-  // Form state
-  const [urlText, setUrlText] = useState('');
-  const [brand, setBrand] = useState('');
-  const [category, setCategory] = useState('');
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('tiktok');
 
-  // Import state
-  const [importing, setImporting] = useState(false);
-  const [results, setResults] = useState<ImportResultItem[]>([]);
-  const [summary, setSummary] = useState<{ created: number; exists: number; errors: number } | null>(null);
+  // TikTok scraping state
+  const [tiktokUrl, setTiktokUrl] = useState('');
+  const [scraping, setScraping] = useState(false);
+  const [scrapedData, setScrapedData] = useState<ScrapedProductData | null>(null);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [savingScraped, setSavingScraped] = useState(false);
 
-  // Update state for individual "exists" items
-  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  // Manual entry state
+  const [manualForm, setManualForm] = useState({
+    name: '',
+    brand_id: '',
+    category: '',
+    description: '',
+    price: '',
+    notes: '',
+  });
+  const [savingManual, setSavingManual] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
 
-  const urls = parseUrls(urlText);
-  const hasUrls = urls.length > 0;
+  // Brand entities for linking
+  const [brandEntities, setBrandEntities] = useState<BrandEntity[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+
+  // Quick brand creation
+  const [showQuickBrand, setShowQuickBrand] = useState(false);
+  const [quickBrandName, setQuickBrandName] = useState('');
+  const [creatingBrand, setCreatingBrand] = useState(false);
+
+  // AI Enrichment state
+  const [enrichmentData, setEnrichmentData] = useState<ProductEnrichment | null>(null);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichmentError, setEnrichmentError] = useState<string | null>(null);
+  const [showEnrichment, setShowEnrichment] = useState(false);
+
+  // Fetch brand entities on mount
+  useEffect(() => {
+    fetch('/api/brands')
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.data) {
+          setBrandEntities(data.data.map((b: Record<string, unknown>) => ({
+            id: b.id as string,
+            name: b.name as string,
+          })));
+        }
+      })
+      .catch(err => console.error('Failed to fetch brands:', err))
+      .finally(() => setBrandsLoading(false));
+  }, []);
 
   /* ---------------------------------------------------------------- */
-  /*  Import handler                                                   */
+  /*  TikTok Scraping Handlers                                        */
   /* ---------------------------------------------------------------- */
 
-  const handleImport = useCallback(async () => {
-    if (!hasUrls) return;
+  const handleScrape = useCallback(async () => {
+    if (!tiktokUrl.trim()) {
+      setScrapeError('Please enter a TikTok Shop product URL');
+      return;
+    }
 
-    setImporting(true);
-    setResults([]);
-    setSummary(null);
+    setScraping(true);
+    setScrapeError(null);
+    setScrapedData(null);
 
     try {
-      const res = await fetch('/api/products/import-urls', {
+      const res = await fetch('/api/products/scrape-tiktok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          urls,
-          brand: brand || undefined,
-          category: category || undefined,
-        }),
+        body: JSON.stringify({ url: tiktokUrl.trim() }),
       });
 
-      const data: ImportResponse = await res.json();
+      const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        showError(data.error || 'Import failed. Please check the URLs and try again.');
+        setScrapeError(data.error || 'Failed to scrape product data. Please check the URL and try again.');
         return;
       }
 
-      setResults(data.data.results);
-      setSummary(data.data.summary);
-
-      if (data.data.summary.created > 0) {
-        showSuccess(`Successfully imported ${data.data.summary.created} product${data.data.summary.created > 1 ? 's' : ''}`);
-      }
+      setScrapedData(data.data.product);
+      showSuccess('Product data scraped successfully!');
     } catch (err) {
-      showError('Network error. Please check your connection and try again.');
+      setScrapeError('Network error. Please check your connection and try again.');
     } finally {
-      setImporting(false);
+      setScraping(false);
     }
-  }, [hasUrls, urls, brand, category, showSuccess, showError]);
+  }, [tiktokUrl, showSuccess]);
 
-  /* ---------------------------------------------------------------- */
-  /*  Update existing product handler                                  */
-  /* ---------------------------------------------------------------- */
+  const handleSaveScraped = useCallback(async () => {
+    if (!scrapedData) return;
 
-  const handleUpdate = useCallback(
-    async (item: ImportResultItem) => {
-      if (!item.product) return;
+    // Find or create brand
+    let brandId: string | null = null;
+    const existingBrand = brandEntities.find(b => b.name.toLowerCase() === scrapedData.brand.toLowerCase());
 
-      setUpdatingIds((prev) => new Set(prev).add(item.product!.id));
-
+    if (existingBrand) {
+      brandId = existingBrand.id;
+    } else {
+      // Create new brand
       try {
-        const res = await fetch('/api/products/import-urls', {
+        const brandRes = await fetch('/api/brands', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            urls: [item.url],
-            brand: brand || undefined,
-            category: category || undefined,
-            forceUpdate: true,
-          }),
+          body: JSON.stringify({ name: scrapedData.brand }),
         });
+        const brandData = await brandRes.json();
+        if (brandData.ok && brandData.data) {
+          brandId = brandData.data.id;
+          setBrandEntities(prev => [...prev, { id: brandId!, name: scrapedData.brand }]);
+        }
+      } catch {
+        // If brand creation fails, continue without brand_id
+        console.error('Failed to create brand');
+      }
+    }
 
-        const data: ImportResponse = await res.json();
+    setSavingScraped(true);
 
-        if (!res.ok || !data.ok) {
-          showError(data.error || 'Failed to update product.');
-          return;
+    try {
+      // Build notes with scraped data + enrichment if available
+      const notesLines: string[] = [
+        scrapedData.sold_count ? `Sold: ${scrapedData.sold_count.toLocaleString()} units` : null,
+        scrapedData.seller_location ? `Location: ${scrapedData.seller_location}` : null,
+        scrapedData.variants.length > 0 ? `Variants: ${scrapedData.variants.join('; ')}` : null,
+        scrapedData.discount ? `Discount: ${scrapedData.discount}` : null,
+      ].filter(Boolean) as string[];
+
+      // Add enrichment data if available
+      if (enrichmentData) {
+        notesLines.push('', '=== AI ENRICHMENT ===');
+
+        if (enrichmentData.benefits.length > 0) {
+          notesLines.push('', 'BENEFITS:');
+          enrichmentData.benefits.forEach(b => notesLines.push(`• ${b}`));
         }
 
-        // Update the item in results
-        setResults((prev) =>
-          prev.map((r) =>
-            r.url === item.url && data.data.results[0]
-              ? { ...data.data.results[0], status: 'created' as const }
-              : r
-          )
-        );
+        if (enrichmentData.unique_selling_points.length > 0) {
+          notesLines.push('', 'UNIQUE SELLING POINTS:');
+          enrichmentData.unique_selling_points.forEach(u => notesLines.push(`• ${u}`));
+        }
 
-        // Update summary
-        setSummary((prev) =>
-          prev
-            ? {
-                created: prev.created + 1,
-                exists: Math.max(0, prev.exists - 1),
-                errors: prev.errors,
-              }
-            : prev
-        );
-
-        showSuccess(`Updated "${item.product.name}"`);
-      } catch {
-        showError('Network error while updating product.');
-      } finally {
-        setUpdatingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(item.product!.id);
-          return next;
-        });
+        if (enrichmentData.recommended_price_positioning) {
+          notesLines.push('', `PRICE POSITIONING: ${enrichmentData.recommended_price_positioning}`);
+        }
       }
-    },
-    [brand, category, showSuccess, showError]
-  );
+
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: scrapedData.name,
+          brand: scrapedData.brand,
+          brand_id: brandId,
+          category: scrapedData.category,
+          description: scrapedData.description,
+          primary_link: tiktokUrl.trim(),
+          tiktok_showcase_url: tiktokUrl.trim(),
+          notes: notesLines.join('\n'),
+          price: scrapedData.price,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        showError(data.error || 'Failed to save product');
+        return;
+      }
+
+      showSuccess(`Product "${scrapedData.name}" saved successfully!`);
+
+      // Reset form
+      setTiktokUrl('');
+      setScrapedData(null);
+      setScrapeError(null);
+      setEnrichmentData(null);
+      setEnrichmentError(null);
+      setShowEnrichment(false);
+    } catch (err) {
+      showError('Network error while saving product');
+    } finally {
+      setSavingScraped(false);
+    }
+  }, [scrapedData, tiktokUrl, brandEntities, showSuccess, showError]);
 
   /* ---------------------------------------------------------------- */
-  /*  Remove URL from text area                                        */
+  /*  Manual Entry Handlers                                           */
   /* ---------------------------------------------------------------- */
 
-  const removeUrl = useCallback(
-    (urlToRemove: string) => {
-      const remaining = urls.filter((u) => u !== urlToRemove);
-      setUrlText(remaining.join('\n'));
-    },
-    [urls]
-  );
+  const handleQuickBrandCreate = useCallback(async () => {
+    if (!quickBrandName.trim()) return;
+
+    setCreatingBrand(true);
+    try {
+      const res = await fetch('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: quickBrandName.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setManualError(data.error?.message || data.error || 'Failed to create brand');
+        return;
+      }
+      const newBrand = data.data;
+      setBrandEntities(prev => [...prev, { id: newBrand.id, name: newBrand.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      setManualForm(prev => ({ ...prev, brand_id: newBrand.id }));
+      setShowQuickBrand(false);
+      setQuickBrandName('');
+      showSuccess(`Brand "${newBrand.name}" created!`);
+    } catch {
+      setManualError('Failed to create brand');
+    } finally {
+      setCreatingBrand(false);
+    }
+  }, [quickBrandName, showSuccess]);
+
+  const handleSaveManual = useCallback(async () => {
+    // Validation
+    if (!manualForm.name.trim()) {
+      setManualError('Product name is required');
+      return;
+    }
+    if (!manualForm.brand_id) {
+      setManualError('Brand is required');
+      return;
+    }
+    if (!manualForm.category.trim()) {
+      setManualError('Category is required');
+      return;
+    }
+
+    setSavingManual(true);
+    setManualError(null);
+
+    try {
+      // Get brand name from selected brand
+      const selectedBrand = brandEntities.find(b => b.id === manualForm.brand_id);
+      const brandName = selectedBrand?.name || '';
+
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: manualForm.name.trim(),
+          brand: brandName,
+          brand_id: manualForm.brand_id,
+          category: manualForm.category.trim(),
+          description: manualForm.description.trim() || null,
+          notes: manualForm.notes.trim() || null,
+          price: manualForm.price ? parseFloat(manualForm.price) : null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        setManualError(data.error || 'Failed to create product');
+        return;
+      }
+
+      showSuccess(`Product "${manualForm.name}" created successfully!`);
+
+      // Reset form
+      setManualForm({
+        name: '',
+        brand_id: '',
+        category: '',
+        description: '',
+        price: '',
+        notes: '',
+      });
+    } catch (err) {
+      setManualError('Network error while creating product');
+    } finally {
+      setSavingManual(false);
+    }
+  }, [manualForm, brandEntities, showSuccess]);
 
   /* ---------------------------------------------------------------- */
-  /*  Derived data                                                     */
+  /*  AI Enrichment Handler                                           */
   /* ---------------------------------------------------------------- */
 
-  const createdProducts = results.filter((r) => r.status === 'created' && r.product);
-  const createdIds = createdProducts.map((r) => r.product!.id);
+  const handleEnrich = useCallback(async (productData: {
+    name: string;
+    brand: string;
+    category: string;
+    description?: string | null;
+    price?: number | null;
+    sold_count?: number | null;
+    seller_location?: string | null;
+    variants?: string[];
+  }) => {
+    setEnriching(true);
+    setEnrichmentError(null);
+
+    try {
+      const res = await fetch('/api/products/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: productData.name,
+          brand: productData.brand,
+          category: productData.category,
+          description: productData.description || null,
+          price: productData.price || null,
+          sold_count: productData.sold_count || null,
+          seller_location: productData.seller_location || null,
+          variants: productData.variants || [],
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setEnrichmentError(data.message || 'Failed to generate AI enrichment');
+        return;
+      }
+
+      setEnrichmentData(data.data.enrichment);
+      setShowEnrichment(true);
+      showSuccess('AI enrichment generated successfully!');
+    } catch (err) {
+      setEnrichmentError('Network error while generating enrichment');
+    } finally {
+      setEnriching(false);
+    }
+  }, [showSuccess]);
 
   /* ---------------------------------------------------------------- */
-  /*  Render                                                           */
+  /*  Render                                                          */
   /* ---------------------------------------------------------------- */
 
   return (
     <AdminPageLayout
       title="Import Products"
-      subtitle="Import products from TikTok Shop URLs or paste product details"
+      subtitle="Import products from TikTok Shop or add manually"
       headerActions={
         <Link href="/admin/products">
           <AdminButton variant="secondary" size="sm">
@@ -234,275 +437,588 @@ export default function ImportProductsPage() {
         </Link>
       }
     >
-      {/* ---------------------------------------------------------- */}
-      {/*  URL Input Section                                          */}
-      {/* ---------------------------------------------------------- */}
-      <AdminCard title="Paste Multiple URLs" subtitle="Add one TikTok Shop product URL per line">
-        <div className="space-y-4">
-          {/* URL textarea */}
-          <div>
-            <label htmlFor="urls" className="block text-sm font-medium text-zinc-300 mb-1.5">
-              <LinkIcon size={14} className="inline mr-1.5 -mt-0.5" />
-              Product URLs
-            </label>
-            <textarea
-              id="urls"
-              value={urlText}
-              onChange={(e) => setUrlText(e.target.value)}
-              placeholder={
-                'https://www.tiktok.com/@shop/product/12345\nhttps://www.tiktok.com/@shop/product/67890\nhttps://shop.tiktok.com/view/product/12345'
-              }
-              rows={6}
-              className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-y font-mono"
-            />
-            {hasUrls && (
-              <p className="mt-1.5 text-xs text-zinc-500">
-                {urls.length} URL{urls.length !== 1 ? 's' : ''} detected
-              </p>
-            )}
-          </div>
+      {/* Tab Navigation */}
+      <div className="flex gap-2 border-b border-white/10 mb-6">
+        <button
+          type="button"
+          onClick={() => setActiveTab('tiktok')}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+            activeTab === 'tiktok'
+              ? 'text-violet-400'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Sparkles size={16} />
+            TikTok Shop
+          </span>
+          {activeTab === 'tiktok' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('manual')}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+            activeTab === 'manual'
+              ? 'text-violet-400'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Plus size={16} />
+            Manual Entry
+          </span>
+          {activeTab === 'manual' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />
+          )}
+        </button>
+      </div>
 
-          {/* Brand & Category row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="brand" className="block text-sm font-medium text-zinc-300 mb-1.5">
-                Brand (optional)
-              </label>
-              <input
-                id="brand"
-                type="text"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                placeholder="e.g. GlowUp Skincare"
-                className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-zinc-300 mb-1.5">
-                Category (optional)
-              </label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              >
-                <option value="">Select category...</option>
-                {CATEGORY_OPTIONS.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* URL preview chips */}
-          {hasUrls && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">URLs to import</p>
-              <div className="flex flex-wrap gap-2">
-                {urls.map((url, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 border border-white/5 px-3 py-1 text-xs text-zinc-300 max-w-[320px]"
-                  >
-                    <LinkIcon size={12} className="shrink-0 text-zinc-500" />
-                    <span className="truncate">{url}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeUrl(url)}
-                      className="shrink-0 text-zinc-500 hover:text-red-400 transition-colors"
-                      aria-label={`Remove ${url}`}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </span>
-                ))}
+      {/* TikTok Shop Tab */}
+      {activeTab === 'tiktok' && (
+        <div className="space-y-6">
+          <AdminCard
+            title="Scrape TikTok Shop Product"
+            subtitle="Paste a TikTok Shop product URL and we'll automatically extract all the details"
+          >
+            <div className="space-y-4">
+              {/* URL Input */}
+              <div>
+                <label htmlFor="tiktok-url" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                  TikTok Shop Product URL
+                </label>
+                <input
+                  id="tiktok-url"
+                  type="url"
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder="https://www.tiktok.com/shop/pdp/product-name/1234567890"
+                  className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleScrape();
+                  }}
+                />
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  Supports: tiktok.com/shop/pdp/..., shop.tiktok.com/view/product/..., or tiktok.com/t/... (short links)
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* Import button */}
-          <div className="flex items-center gap-3 pt-2">
-            <AdminButton onClick={handleImport} disabled={!hasUrls || importing}>
-              {importing ? (
-                <>
-                  <Loader2 size={16} className="mr-1.5 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <Upload size={16} className="mr-1.5" />
-                  Import {hasUrls ? `${urls.length} Product${urls.length !== 1 ? 's' : ''}` : 'Products'}
-                </>
+              {/* Scrape Error */}
+              {scrapeError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3">
+                  <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+                  <div className="text-sm text-red-300">{scrapeError}</div>
+                </div>
               )}
-            </AdminButton>
-            {importing && (
-              <span className="text-xs text-zinc-500">This may take a moment...</span>
-            )}
-          </div>
-        </div>
-      </AdminCard>
 
-      {/* ---------------------------------------------------------- */}
-      {/*  Summary Bar                                                */}
-      {/* ---------------------------------------------------------- */}
-      {summary && (
-        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-white/10 bg-zinc-900/50 px-5 py-3">
-          <span className="text-sm font-medium text-zinc-300">Import Results:</span>
-          {summary.created > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-emerald-400">
-              <Check size={14} />
-              {summary.created} imported
-            </span>
-          )}
-          {summary.exists > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-amber-400">
-              <AlertTriangle size={14} />
-              {summary.exists} already exist{summary.exists !== 1 ? '' : 's'}
-            </span>
-          )}
-          {summary.errors > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-red-400">
-              <AlertTriangle size={14} />
-              {summary.errors} error{summary.errors !== 1 ? 's' : ''}
-            </span>
+              {/* Scrape Button */}
+              <AdminButton onClick={handleScrape} disabled={!tiktokUrl.trim() || scraping}>
+                {scraping ? (
+                  <>
+                    <Loader2 size={16} className="mr-1.5 animate-spin" />
+                    Scraping...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} className="mr-1.5" />
+                    Scrape Product Data
+                  </>
+                )}
+              </AdminButton>
+            </div>
+          </AdminCard>
+
+          {/* Scraped Data Preview */}
+          {scrapedData && (
+            <AdminCard
+              title="Product Preview"
+              subtitle="Review the scraped data before saving"
+            >
+              <div className="space-y-4">
+                {/* Product Images */}
+                {scrapedData.images.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {scrapedData.images.slice(0, 5).map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`Product ${idx + 1}`}
+                        className="w-20 h-20 rounded-lg border border-white/10 object-cover shrink-0"
+                      />
+                    ))}
+                    {scrapedData.images.length > 5 && (
+                      <div className="w-20 h-20 rounded-lg border border-white/10 bg-zinc-800/50 flex items-center justify-center text-xs text-zinc-500 shrink-0">
+                        +{scrapedData.images.length - 5}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Product Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1">Product Name</label>
+                    <p className="text-sm text-zinc-100">{scrapedData.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1">Brand</label>
+                    <p className="text-sm text-zinc-100">{scrapedData.brand}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1">Category</label>
+                    <p className="text-sm text-zinc-100">{scrapedData.category}</p>
+                  </div>
+                  {scrapedData.price && (
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-500 mb-1">Price</label>
+                      <p className="text-sm text-zinc-100">
+                        ${scrapedData.price.toFixed(2)}
+                        {scrapedData.original_price && scrapedData.original_price !== scrapedData.price && (
+                          <span className="ml-2 text-xs text-zinc-500 line-through">
+                            ${scrapedData.original_price.toFixed(2)}
+                          </span>
+                        )}
+                        {scrapedData.discount && (
+                          <span className="ml-2 text-xs text-emerald-400">{scrapedData.discount}</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {scrapedData.sold_count && (
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-500 mb-1">Units Sold</label>
+                      <p className="text-sm text-zinc-100">{scrapedData.sold_count.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {scrapedData.seller_location && (
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-500 mb-1">Seller Location</label>
+                      <p className="text-sm text-zinc-100">{scrapedData.seller_location}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                {scrapedData.description && (
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1">Description</label>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{scrapedData.description}</p>
+                  </div>
+                )}
+
+                {/* Variants */}
+                {scrapedData.variants.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1">Variants</label>
+                    <div className="flex flex-wrap gap-2">
+                      {scrapedData.variants.map((variant, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 bg-zinc-800/50 border border-white/10 rounded text-xs text-zinc-300"
+                        >
+                          {variant}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Enrichment Section */}
+                <div className="border-t border-white/10 pt-4">
+                  {enrichmentError && (
+                    <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 mb-4">
+                      <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+                      <div className="text-sm text-red-300">{enrichmentError}</div>
+                    </div>
+                  )}
+
+                  {!enrichmentData && !enriching && (
+                    <div className="flex items-center gap-3">
+                      <AdminButton
+                        variant="secondary"
+                        onClick={() => handleEnrich({
+                          name: scrapedData.name,
+                          brand: scrapedData.brand,
+                          category: scrapedData.category,
+                          description: scrapedData.description,
+                          price: scrapedData.price,
+                          sold_count: scrapedData.sold_count,
+                          seller_location: scrapedData.seller_location,
+                          variants: scrapedData.variants,
+                        })}
+                      >
+                        <Brain size={16} className="mr-1.5" />
+                        AI Enrich Product Data
+                      </AdminButton>
+                      <span className="text-xs text-zinc-500">
+                        Generate selling points, hooks, and target audiences
+                      </span>
+                    </div>
+                  )}
+
+                  {enriching && (
+                    <div className="flex items-center gap-2 text-sm text-zinc-400">
+                      <Loader2 size={16} className="animate-spin" />
+                      Generating AI enrichment... This may take 10-15 seconds
+                    </div>
+                  )}
+
+                  {enrichmentData && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                            <CheckCircle size={14} className="text-emerald-400" />
+                          </div>
+                          <span className="text-sm font-medium text-zinc-200">AI Enrichment Complete</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowEnrichment(!showEnrichment)}
+                          className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"
+                        >
+                          {showEnrichment ? (
+                            <>
+                              <ChevronUp size={14} />
+                              Hide Details
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown size={14} />
+                              Show Details
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {showEnrichment && (
+                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-4">
+                          {/* Benefits */}
+                          {enrichmentData.benefits.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide mb-2">
+                                Key Benefits ({enrichmentData.benefits.length})
+                              </h4>
+                              <ul className="space-y-1">
+                                {enrichmentData.benefits.map((benefit, idx) => (
+                                  <li key={idx} className="text-xs text-zinc-400 flex gap-2">
+                                    <span className="text-emerald-400">✓</span>
+                                    <span>{benefit}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* USPs */}
+                          {enrichmentData.unique_selling_points.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide mb-2">
+                                Unique Selling Points ({enrichmentData.unique_selling_points.length})
+                              </h4>
+                              <ul className="space-y-1">
+                                {enrichmentData.unique_selling_points.map((usp, idx) => (
+                                  <li key={idx} className="text-xs text-zinc-400 flex gap-2">
+                                    <span className="text-violet-400">★</span>
+                                    <span>{usp}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Target Audiences */}
+                          {enrichmentData.target_audiences.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide mb-2">
+                                Target Audiences ({enrichmentData.target_audiences.length})
+                              </h4>
+                              <div className="space-y-2">
+                                {enrichmentData.target_audiences.slice(0, 2).map((audience, idx) => (
+                                  <div key={idx} className="text-xs bg-zinc-800/50 rounded p-2">
+                                    <p className="font-medium text-zinc-200 mb-1">{audience.segment}</p>
+                                    <p className="text-zinc-500">{audience.why_this_product}</p>
+                                  </div>
+                                ))}
+                                {enrichmentData.target_audiences.length > 2 && (
+                                  <p className="text-xs text-zinc-600">
+                                    + {enrichmentData.target_audiences.length - 2} more audience segments
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Hook Angles */}
+                          {enrichmentData.hook_angles.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide mb-2">
+                                Hook Angles ({enrichmentData.hook_angles.length})
+                              </h4>
+                              <div className="space-y-1.5">
+                                {enrichmentData.hook_angles.slice(0, 3).map((hook, idx) => (
+                                  <div key={idx} className="text-xs bg-zinc-800/50 rounded px-2 py-1.5">
+                                    <p className="text-zinc-300">&quot;{hook.example_opening}&quot;</p>
+                                  </div>
+                                ))}
+                                {enrichmentData.hook_angles.length > 3 && (
+                                  <p className="text-xs text-zinc-600">
+                                    + {enrichmentData.hook_angles.length - 3} more hook angles
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Save Button */}
+                <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+                  <AdminButton onClick={handleSaveScraped} disabled={savingScraped}>
+                    {savingScraped ? (
+                      <>
+                        <Loader2 size={16} className="mr-1.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} className="mr-1.5" />
+                        Save Product
+                      </>
+                    )}
+                  </AdminButton>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScrapedData(null);
+                      setScrapeError(null);
+                    }}
+                    className="text-sm text-zinc-500 hover:text-zinc-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </AdminCard>
           )}
         </div>
       )}
 
-      {/* ---------------------------------------------------------- */}
-      {/*  Results List                                                */}
-      {/* ---------------------------------------------------------- */}
-      {results.length > 0 && (
-        <AdminCard title="Import Details">
-          <div className="divide-y divide-white/5">
-            {results.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex flex-col sm:flex-row items-start sm:items-center gap-3 py-3 first:pt-0 last:pb-0"
-              >
-                {/* Status icon */}
-                <div className="shrink-0">
-                  {item.status === 'created' && (
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                      <Check size={14} className="text-emerald-400" />
-                    </div>
-                  )}
-                  {item.status === 'exists' && (
-                    <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center">
-                      <AlertTriangle size={14} className="text-amber-400" />
-                    </div>
-                  )}
-                  {item.status === 'error' && (
-                    <div className="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center">
-                      <AlertTriangle size={14} className="text-red-400" />
-                    </div>
-                  )}
-                </div>
+      {/* Manual Entry Tab */}
+      {activeTab === 'manual' && (
+        <AdminCard
+          title="Add Product Manually"
+          subtitle="Fill in the product details manually (useful for non-TikTok products)"
+        >
+          <div className="space-y-4">
+            {/* Error Message */}
+            {manualError && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3">
+                <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+                <div className="text-sm text-red-300">{manualError}</div>
+              </div>
+            )}
 
-                {/* Product info */}
-                <div className="flex-1 min-w-0">
-                  {item.product ? (
-                    <>
-                      <p className="text-sm font-medium text-zinc-100 truncate">
-                        {item.product.name}
-                      </p>
-                      <p className="text-xs text-zinc-500 mt-0.5">
-                        {item.product.brand && (
-                          <span className="mr-2">{item.product.brand}</span>
-                        )}
-                        {item.product.category && (
-                          <span className="text-zinc-600">{item.product.category}</span>
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-zinc-400 truncate font-mono">{item.url}</p>
-                  )}
-                  {item.error && (
-                    <p className="text-xs text-red-400 mt-0.5">{item.error}</p>
-                  )}
-                </div>
+            {/* Product Name */}
+            <div>
+              <label htmlFor="manual-name" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Product Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="manual-name"
+                type="text"
+                value={manualForm.name}
+                onChange={(e) => setManualForm({ ...manualForm, name: e.target.value })}
+                placeholder="e.g., Vitamin D3 Gummies"
+                className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              />
+            </div>
 
-                {/* Status label + actions */}
-                <div className="shrink-0 flex items-center gap-2">
-                  {item.status === 'created' && (
-                    <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-                      Imported
-                    </span>
-                  )}
-                  {item.status === 'exists' && (
-                    <>
-                      <span className="text-xs font-medium text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full">
-                        Already Exists
-                      </span>
+            {/* Brand */}
+            <div>
+              <label htmlFor="manual-brand" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Brand <span className="text-red-500">*</span>
+              </label>
+              {brandsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                  <Loader2 size={14} className="animate-spin" />
+                  Loading brands...
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <select
+                      id="manual-brand"
+                      value={manualForm.brand_id}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') {
+                          setShowQuickBrand(true);
+                        } else {
+                          setManualForm({ ...manualForm, brand_id: e.target.value });
+                        }
+                      }}
+                      className="flex-1 rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    >
+                      <option value="">Select a brand...</option>
+                      {brandEntities.map(brand => (
+                        <option key={brand.id} value={brand.id}>{brand.name}</option>
+                      ))}
+                      <option value="__new__">+ Create New Brand</option>
+                    </select>
+                  </div>
+                  {showQuickBrand && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={quickBrandName}
+                        onChange={(e) => setQuickBrandName(e.target.value)}
+                        placeholder="New brand name..."
+                        className="flex-1 rounded-lg border border-teal-500/50 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleQuickBrandCreate(); }}
+                        autoFocus
+                      />
                       <button
                         type="button"
-                        onClick={() => handleUpdate(item)}
-                        disabled={!!(item.product && updatingIds.has(item.product.id))}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-2.5 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleQuickBrandCreate}
+                        disabled={creatingBrand || !quickBrandName.trim()}
+                        className="px-4 py-2.5 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {item.product && updatingIds.has(item.product.id) ? (
-                          <>
-                            <Loader2 size={12} className="animate-spin" />
-                            Updating...
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={12} />
-                            Update
-                          </>
-                        )}
+                        {creatingBrand ? <Loader2 size={14} className="animate-spin" /> : 'Add'}
                       </button>
-                    </>
+                      <button
+                        type="button"
+                        onClick={() => { setShowQuickBrand(false); setQuickBrandName(''); }}
+                        className="px-4 py-2.5 text-sm text-zinc-400 hover:text-zinc-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   )}
-                  {item.status === 'error' && (
-                    <span className="text-xs font-medium text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full">
-                      Failed
-                    </span>
-                  )}
+                </>
+              )}
+            </div>
 
-                  {/* Link to product page */}
-                  {item.product && (
-                    <Link
-                      href={`/admin/products`}
-                      className="text-zinc-500 hover:text-zinc-300 transition-colors"
-                      title="View product"
-                    >
-                      <ExternalLink size={14} />
-                    </Link>
-                  )}
-                </div>
+            {/* Category */}
+            <div>
+              <label htmlFor="manual-category" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Category <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="manual-category"
+                value={manualForm.category}
+                onChange={(e) => setManualForm({ ...manualForm, category: e.target.value })}
+                className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              >
+                <option value="">Select category...</option>
+                {CATEGORY_OPTIONS.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Price */}
+            <div>
+              <label htmlFor="manual-price" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Price (optional)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+                <input
+                  id="manual-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={manualForm.price}
+                  onChange={(e) => setManualForm({ ...manualForm, price: e.target.value })}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-white/10 bg-zinc-800/60 pl-8 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
               </div>
-            ))}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label htmlFor="manual-description" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Description (optional)
+              </label>
+              <textarea
+                id="manual-description"
+                value={manualForm.description}
+                onChange={(e) => setManualForm({ ...manualForm, description: e.target.value })}
+                rows={3}
+                placeholder="Product description..."
+                className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-y"
+              />
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label htmlFor="manual-notes" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Notes (optional)
+              </label>
+              <textarea
+                id="manual-notes"
+                value={manualForm.notes}
+                onChange={(e) => setManualForm({ ...manualForm, notes: e.target.value })}
+                rows={2}
+                placeholder="Internal notes, talking points, compliance warnings..."
+                className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-y"
+              />
+            </div>
+
+            {/* Save Button */}
+            <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+              <AdminButton onClick={handleSaveManual} disabled={savingManual}>
+                {savingManual ? (
+                  <>
+                    <Loader2 size={16} className="mr-1.5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus size={16} className="mr-1.5" />
+                    Create Product
+                  </>
+                )}
+              </AdminButton>
+              <Link
+                href="/admin/products"
+                className="text-sm text-zinc-500 hover:text-zinc-300"
+              >
+                Cancel
+              </Link>
+            </div>
           </div>
         </AdminCard>
       )}
 
-      {/* ---------------------------------------------------------- */}
-      {/*  Generate Scripts CTA                                        */}
-      {/* ---------------------------------------------------------- */}
-      {createdIds.length > 0 && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-zinc-100">
-              Ready to create content?
-            </p>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Generate scripts for your {createdIds.length} newly imported product{createdIds.length !== 1 ? 's' : ''}.
+      {/* Help Card */}
+      <div className="rounded-xl border border-white/10 bg-zinc-900/50 px-5 py-4">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-violet-500/15 flex items-center justify-center shrink-0">
+            <ExternalLink size={16} className="text-violet-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-zinc-100 mb-1">Need your ScrapeCreators API key?</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              The TikTok Shop scraper requires a ScrapeCreators API key. Get yours at{' '}
+              <a
+                href="https://scrapecreators.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-violet-400 hover:text-violet-300 underline"
+              >
+                scrapecreators.com
+              </a>
+              , then add <code className="px-1.5 py-0.5 bg-zinc-800 rounded text-xs">SCRAPECREATORS_API_KEY</code> to your environment variables.
             </p>
           </div>
-          <Link
-            href={`/admin/content-studio?products=${createdIds.join(',')}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 text-white px-4 py-2 text-sm font-medium hover:bg-violet-700 transition-colors"
-          >
-            <Package size={16} />
-            Generate {createdIds.length > 5 ? 5 : createdIds.length} Script{createdIds.length !== 1 ? 's' : ''} for These Products?
-          </Link>
         </div>
-      )}
+      </div>
     </AdminPageLayout>
   );
 }

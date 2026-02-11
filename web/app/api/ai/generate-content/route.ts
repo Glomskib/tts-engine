@@ -7,6 +7,7 @@ import { auditLogAsync } from "@/lib/audit";
 import { z } from "zod";
 import { TONE_PROMPT_GUIDES, HUMOR_PROMPT_GUIDES } from "@/lib/persona-options";
 import { requireCredits } from "@/lib/credits";
+import { getProductEnrichment, buildEnrichedProductContext } from "@/lib/ai/productEnrichmentHelper";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -123,6 +124,9 @@ interface Product {
   tagline?: string;
   key_benefits?: string[];
   target_audience?: string;
+  description?: string | null;
+  notes?: string | null;
+  price?: number | null;
 }
 
 // --- Prompt Builders ---
@@ -269,7 +273,7 @@ export async function POST(request: Request) {
     if (input.product_id) {
       const { data: productData } = await supabaseAdmin
         .from("products")
-        .select("id, name, brand, category, tagline, key_benefits, target_audience")
+        .select("id, name, brand, category, tagline, key_benefits, target_audience, description, notes, price")
         .eq("id", input.product_id)
         .single();
 
@@ -290,6 +294,9 @@ export async function POST(request: Request) {
       };
     }
 
+    // Get product enrichment data (from notes or generate on-demand)
+    const enrichment = product ? getProductEnrichment(product) : null;
+
     // Fetch audience persona if provided
     let audiencePersona: AudiencePersona | null = null;
     if (input.audience_persona_id) {
@@ -304,8 +311,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // Build context
-    const productContext = product ? buildProductContext(product) : "";
+    // Build context - use enriched context if available, otherwise fallback to basic
+    const productContext = product
+      ? (enrichment
+          ? buildEnrichedProductContext(product, enrichment)
+          : buildProductContext(product))
+      : "";
     const audienceContext = buildAudienceContext(
       audiencePersona,
       input.pain_point_focus || []

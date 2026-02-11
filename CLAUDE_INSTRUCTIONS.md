@@ -149,3 +149,28 @@ COMMIT PATTERN:
 Final: git push origin master and notify Brandon once all 5 parts deployed to Vercel.
 
 ACKNOWLEDGE and begin Part 1 immediately.
+
+---
+[2026-02-11 06:08:00 PST] TASK: Analytics Screenshot Reader
+INSTRUCTION: Build analytics extraction system for TikTok video stats. This enables bulk screenshot uploads to auto-populate video metrics + winner detection.
+
+TASK OVERVIEW:
+1. /api/analytics/screenshot endpoint — accepts image upload
+2. Sends to Claude Vision API with prompt: "Extract all analytics data from this TikTok screenshot: views, likes, comments, shares, gender %, age brackets %, locations %, follower vs non-follower ratio"
+3. Returns structured JSON with all extracted data
+4. Auto-matches to a video in pipeline (by user selection or fuzzy match on title)
+5. Updates video stats in database
+6. If engagement > threshold, auto-add to Winners Bank
+7. Creates/updates product demographic profile from the data
+8. /admin/analytics/upload page — drag and drop screenshots
+9. Bolt skill: user sends screenshot on Telegram → same processing
+10. Batch upload: drop 10 screenshots, process all at once
+
+PARTS:
+- Part 1: API endpoint with Claude Vision integration
+- Part 2: Video matching logic (user selection + fuzzy match fallback)
+- Part 3: Admin upload UI (single + batch)
+- Part 4: Bolt skill for Telegram screenshot relay
+- Part 5: Auto-winner detection threshold + Winners Bank insertion
+
+Add to queue when weekly limit resets. Not urgent, but high-value for scaling content production.

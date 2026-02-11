@@ -36,6 +36,7 @@ const OPTIONAL_ENV_KEYS: { key: string; notes?: string }[] = [
   { key: "SLACK_WEBHOOK_URL", notes: "Required for Slack notifications" },
   { key: "OPS_EMAIL_TO", notes: "Ops team email for alerts" },
   { key: "DEFAULT_ADMIN_EMAIL", notes: "Default admin email for bootstrapping" },
+  { key: "SCRAPECREATORS_API_KEY", notes: "Required for TikTok Shop product scraping" },
 ];
 
 /**

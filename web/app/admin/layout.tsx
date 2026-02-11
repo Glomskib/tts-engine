@@ -15,6 +15,8 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { InstallBanner } from '@/components/PWAProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { SkipLink } from '@/components/ui/SkipLink';
+import { AriaLiveProvider } from '@/components/ui/AriaLive';
 import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
@@ -38,6 +40,7 @@ function ThemeToggle() {
       onClick={toggleTheme}
       className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
       {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
@@ -206,7 +209,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // Sidebar content (shared between mobile and desktop)
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <nav className="flex-1 overflow-y-auto py-4">
+    <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-4">
       {navSections.map((section, idx) => (
         <div key={idx} className="mb-8">
           {/* Section headers - bigger on mobile */}
@@ -276,6 +279,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
     <ToastProvider>
+    <AriaLiveProvider>
+    <SkipLink />
     <OfflineIndicator />
     <div className="min-h-screen bg-zinc-950 text-white">
 
@@ -301,6 +306,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               {/* User avatar - tap to open menu */}
               <button type="button"
                 onClick={() => setUserMenuOpen(true)}
+                aria-label="Open user menu"
                 className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
               >
                 {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
@@ -310,7 +316,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Mobile Sidebar Overlay */}
           {sidebarOpen && (
-            <div className="fixed inset-0 z-50">
+            <div className="fixed inset-0 z-50" role="dialog" aria-label="Navigation menu">
               {/* Backdrop */}
               <div
                 className="absolute inset-0 bg-black/80"
@@ -362,7 +368,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Mobile User Menu - Larger touch targets */}
           {userMenuOpen && (
-            <div className="fixed inset-0 z-50">
+            <div className="fixed inset-0 z-50" role="dialog" aria-label="User menu">
               <div className="absolute inset-0 bg-black/80" onClick={() => setUserMenuOpen(false)} />
               <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl p-6 pb-12 safe-bottom">
                 <div className="w-14 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
@@ -407,7 +413,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           )}
 
           {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
-          <main className="pt-16 pb-24 min-h-screen overflow-x-hidden">
+          <main id="main-content" className="pt-16 pb-24 min-h-screen overflow-x-hidden">
             <div className="px-4 max-w-full overflow-hidden">
               <LowCreditBanner className="mb-4" />
               <ErrorBoundary>{children}</ErrorBoundary>
@@ -452,6 +458,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 {/* Search trigger */}
                 <button
                   onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+                  aria-label="Search (Cmd+K)"
                   className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg transition-colors"
                 >
                   <Search className="w-4 h-4" />
@@ -466,6 +473,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <div className="relative">
                   <button type="button"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    aria-label="User menu"
+                    aria-expanded={userMenuOpen}
                     className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
@@ -519,7 +528,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </header>
 
           {/* Desktop Main Content - Offset by sidebar */}
-          <main className="ml-72 pt-16 min-h-screen">
+          <main id="main-content" className="ml-72 pt-16 min-h-screen">
             <div className="p-6">
               <LowCreditBanner className="mb-6" />
               <ErrorBoundary>{children}</ErrorBoundary>
@@ -531,6 +540,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </div>
     <CommandPalette />
     <KeyboardShortcutsModal />
+    </AriaLiveProvider>
     </ToastProvider>
     </ThemeProvider>
   );

@@ -6,7 +6,8 @@ import {
   ArrowRight, TrendingUp, TrendingDown, Activity,
   AlertTriangle, Clock, Eye, FileText, Users, Trophy,
   CheckCircle, Lightbulb, RefreshCw, Zap, Star, Plus,
-  ChevronRight, Package, Loader2
+  ChevronRight, ChevronDown, ChevronUp, Package, Loader2,
+  Copy, User, Camera, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -23,6 +24,18 @@ function getContentTypeName(id: string): string {
   return ct?.name || id;
 }
 
+interface FullScript {
+  hook: string;
+  setup: string;
+  body: string;
+  cta: string;
+  on_screen_text: string[];
+  filming_notes: string;
+  persona: string;
+  sales_approach: string;
+  estimated_length: string;
+}
+
 interface SOTDItem {
   id: string;
   product_id: string;
@@ -31,6 +44,7 @@ interface SOTDItem {
   content_type: string;
   hook: string;
   script_body: string;
+  full_script?: FullScript | null;
   score: number;
   added_to_pipeline: boolean;
 }
@@ -180,6 +194,8 @@ export default function DashboardPage() {
   const [sotdLoading, setSotdLoading] = useState(true);
   const [addingToPipeline, setAddingToPipeline] = useState(false);
   const [weeklyData, setWeeklyData] = useState<Array<{ day: string; scripts: number; posted: number }>>([]);
+  const [sotdExpanded, setSotdExpanded] = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -272,6 +288,18 @@ export default function DashboardPage() {
     (data.totalVideos || 0) === 0 &&
     (data.scriptsCount || 0) === 0 &&
     (data.winnersCount || 0) === 0;
+
+  // Copy script to clipboard
+  const handleCopyScript = useCallback((script: FullScript) => {
+    const text = `${script.hook}\n\n${script.setup}\n\n${script.body}\n\n${script.cta}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setScriptCopied(true);
+      showSuccess('Script copied to clipboard!');
+      setTimeout(() => setScriptCopied(false), 2000);
+    }).catch(() => {
+      showError('Failed to copy script');
+    });
+  }, [showSuccess, showError]);
 
   return (
     <PullToRefresh onRefresh={fetchData}>
@@ -420,52 +448,188 @@ export default function DashboardPage() {
             <Skeleton height={60} width="100%" />
           </div>
         ) : sotd ? (
-          <div className="bg-gradient-to-r from-amber-500/5 via-zinc-900 to-zinc-900 border border-amber-500/20 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-amber-400" />
-                <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
-              </div>
-              <Link href="/admin/content-package" className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1">
-                See all scripts <ChevronRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 bg-zinc-800/50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-medium bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
-                    Score {sotd.score}/9
-                  </span>
-                  <span className="text-xs text-zinc-500">{getContentTypeName(sotd.content_type)}</span>
+          <div className="bg-gradient-to-r from-amber-500/5 via-zinc-900 to-zinc-900 border border-amber-500/20 rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="p-5 pb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-400" />
+                  <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
                 </div>
-                <p className="text-white font-medium text-sm leading-snug mb-2">&ldquo;{sotd.hook}&rdquo;</p>
-                <p className="text-xs text-zinc-400">{sotd.product_name} &middot; {sotd.brand}</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <Link
-                    href={`/admin/content-studio?product=${encodeURIComponent(sotd.product_name)}&hook=${encodeURIComponent(sotd.hook)}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors min-h-[36px]"
-                  >
-                    <Sparkles className="w-3 h-3" /> Film This
-                  </Link>
-                  <Link
-                    href="/admin/script-of-the-day"
-                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                  >
-                    More picks &rarr;
-                  </Link>
-                </div>
+                <Link href="/admin/script-of-the-day" className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1">
+                  See all <ChevronRight className="w-3 h-3" />
+                </Link>
               </div>
-              {sotdRunnerUp && (
-                <div className="sm:w-48 bg-zinc-800/30 rounded-lg p-3 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">Runner Up</span>
-                    <p className="text-white text-xs font-medium mt-1 leading-snug line-clamp-2">&ldquo;{sotdRunnerUp.hook}&rdquo;</p>
-                    <p className="text-[11px] text-zinc-500 mt-1">{sotdRunnerUp.product_name}</p>
+
+              {/* Product Info */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-white">{sotd.product_name}</h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">{sotd.brand}</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-xs font-medium bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                      Score {sotd.score}/9
+                    </span>
+                    <span className="text-xs text-zinc-500">{getContentTypeName(sotd.content_type)}</span>
+                    {sotd.full_script?.persona && (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-violet-500/15 text-violet-300 border border-violet-500/20">
+                        <User className="w-3 h-3 inline mr-1" />{sotd.full_script.persona}
+                      </span>
+                    )}
+                    {sotd.full_script?.sales_approach && (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                        {sotd.full_script.sales_approach}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[10px] text-zinc-600 mt-2">{getContentTypeName(sotdRunnerUp.content_type)} &middot; Score {sotdRunnerUp.score}/9</span>
                 </div>
+              </div>
+
+              {/* Full Script or Hook */}
+              {sotd.full_script ? (
+                <div className="space-y-2">
+                  {/* Hook */}
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    <span className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold block mb-1">
+                      Hook — First 3 Seconds
+                    </span>
+                    <p className="text-sm font-bold leading-snug text-white">
+                      &quot;{sotd.full_script.hook}&quot;
+                    </p>
+                  </div>
+
+                  {/* Expandable Full Script */}
+                  {sotdExpanded && (
+                    <>
+                      {/* Setup */}
+                      <div className="bg-zinc-800 rounded-lg p-3">
+                        <span className="text-[10px] uppercase tracking-wider text-teal-400 font-semibold block mb-1">
+                          Setup — The Context
+                        </span>
+                        <p className="text-xs text-zinc-200 leading-relaxed whitespace-pre-line">
+                          {sotd.full_script.setup}
+                        </p>
+                      </div>
+
+                      {/* Body */}
+                      <div className="bg-zinc-800 rounded-lg p-3">
+                        <span className="text-[10px] uppercase tracking-wider text-blue-400 font-semibold block mb-1">
+                          Body — The Pitch
+                        </span>
+                        <p className="text-xs text-zinc-200 leading-relaxed whitespace-pre-line">
+                          {sotd.full_script.body}
+                        </p>
+                      </div>
+
+                      {/* CTA */}
+                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                        <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold block mb-1">
+                          Call to Action
+                        </span>
+                        <p className="text-xs text-zinc-200 leading-relaxed">
+                          {sotd.full_script.cta}
+                        </p>
+                      </div>
+
+                      {/* On-Screen Text + Filming Notes */}
+                      <div className="grid md:grid-cols-2 gap-2">
+                        {sotd.full_script.on_screen_text?.length > 0 && (
+                          <div className="bg-zinc-800/60 rounded-lg p-3">
+                            <span className="text-[10px] uppercase tracking-wider text-violet-400 font-semibold block mb-2">
+                              <MessageSquare className="w-3 h-3 inline mr-1" /> On-Screen Text
+                            </span>
+                            <ul className="space-y-1">
+                              {sotd.full_script.on_screen_text.map((text, i) => (
+                                <li key={i} className="text-xs text-zinc-300 flex items-start gap-2">
+                                  <span className="text-violet-400/60 mt-0.5">&#x2022;</span>
+                                  {text}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {sotd.full_script.filming_notes && (
+                          <div className="bg-zinc-800/60 rounded-lg p-3">
+                            <span className="text-[10px] uppercase tracking-wider text-orange-400 font-semibold block mb-2">
+                              <Camera className="w-3 h-3 inline mr-1" /> Filming Notes
+                            </span>
+                            <p className="text-xs text-zinc-300 leading-relaxed">
+                              {sotd.full_script.filming_notes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Expand/Collapse + Actions */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => setSotdExpanded(!sotdExpanded)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      {sotdExpanded ? (
+                        <><ChevronUp className="w-3 h-3" /> Collapse</>
+                      ) : (
+                        <><ChevronDown className="w-3 h-3" /> Full Script</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleCopyScript(sotd.full_script!)}
+                      disabled={scriptCopied}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      {scriptCopied ? (
+                        <><CheckCircle className="w-3 h-3" /> Copied!</>
+                      ) : (
+                        <><Copy className="w-3 h-3" /> Copy Script</>
+                      )}
+                    </button>
+                    <Link
+                      href={`/admin/content-studio?product=${sotd.product_id}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors"
+                    >
+                      <Sparkles className="w-3 h-3" /> Film This
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Fallback: Just the hook */}
+                  <div className="bg-zinc-800/50 rounded-lg p-3 mb-3">
+                    <p className="text-white font-medium text-sm leading-snug">&ldquo;{sotd.hook}&rdquo;</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/content-studio?product=${sotd.product_id}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors"
+                    >
+                      <Sparkles className="w-3 h-3" /> Film This
+                    </Link>
+                  </div>
+                </>
               )}
             </div>
+
+            {/* Runner-Up (if exists) */}
+            {sotdRunnerUp && (
+              <div className="bg-zinc-800/30 border-t border-zinc-800 px-5 py-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">Runner Up</span>
+                    <p className="text-white text-xs font-medium mt-1 leading-snug">&ldquo;{sotdRunnerUp.full_script?.hook || sotdRunnerUp.hook}&rdquo;</p>
+                    <p className="text-[11px] text-zinc-500 mt-1">{sotdRunnerUp.product_name} · {sotdRunnerUp.brand}</p>
+                  </div>
+                  <Link
+                    href="/admin/script-of-the-day"
+                    className="text-xs text-teal-400 hover:text-teal-300 whitespace-nowrap ml-3"
+                  >
+                    View all →
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">

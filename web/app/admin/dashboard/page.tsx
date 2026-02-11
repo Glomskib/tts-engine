@@ -5,11 +5,34 @@ import {
   Video, Upload, Calendar, Bell, Sparkles,
   ArrowRight, TrendingUp, TrendingDown, Activity,
   AlertTriangle, Clock, Eye, FileText, Users, Trophy,
-  CheckCircle, Lightbulb, RefreshCw, Zap
+  CheckCircle, Lightbulb, RefreshCw, Zap, Star, Plus,
+  ChevronRight, Package, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { useToast } from '@/contexts/ToastContext';
+import { CONTENT_TYPES } from '@/lib/content-types';
+
+const WeeklyChart = dynamic(() => import('./WeeklyChart'), { ssr: false });
+
+function getContentTypeName(id: string): string {
+  const ct = CONTENT_TYPES.find(c => c.id === id);
+  return ct?.name || id;
+}
+
+interface SOTDItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  brand: string;
+  content_type: string;
+  hook: string;
+  script_body: string;
+  score: number;
+  added_to_pipeline: boolean;
+}
 
 interface Recommendation {
   id: string;
@@ -55,17 +78,24 @@ interface DashboardData {
 
 const QUICK_ACTIONS = [
   {
-    label: 'Content Studio',
+    label: 'Generate Scripts',
     href: '/admin/content-studio',
     icon: Sparkles,
     color: 'bg-blue-500/20 text-blue-400',
-    description: 'Generate scripts with AI',
+    description: 'AI content studio',
   },
   {
-    label: 'Import Winners',
-    href: '/admin/winners/import',
+    label: 'Upload Video',
+    href: '/admin/upload',
     icon: Upload,
     color: 'bg-amber-500/20 text-amber-400',
+    description: 'Upload raw or edited video',
+  },
+  {
+    label: 'Import Winner',
+    href: '/admin/winners/import',
+    icon: Trophy,
+    color: 'bg-yellow-500/20 text-yellow-400',
     description: 'Add winning TikTok videos',
   },
   {
@@ -80,7 +110,14 @@ const QUICK_ACTIONS = [
     href: '/admin/calendar',
     icon: Calendar,
     color: 'bg-teal-500/20 text-teal-400',
-    description: 'Plan your posting schedule',
+    description: 'Plan posting schedule',
+  },
+  {
+    label: 'Content Package',
+    href: '/admin/content-package',
+    icon: Package,
+    color: 'bg-violet-500/20 text-violet-400',
+    description: 'Daily AI script batches',
   },
 ];
 
@@ -132,10 +169,16 @@ function getActivityIcon(type: string) {
 }
 
 export default function DashboardPage() {
+  const { showSuccess, showError } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(true);
+  const [sotd, setSotd] = useState<SOTDItem | null>(null);
+  const [sotdRunnerUp, setSotdRunnerUp] = useState<SOTDItem | null>(null);
+  const [sotdLoading, setSotdLoading] = useState(true);
+  const [addingToPipeline, setAddingToPipeline] = useState(false);
+  const [weeklyData, setWeeklyData] = useState<Array<{ day: string; scripts: number; posted: number }>>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -166,7 +209,59 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); fetchRecommendations(); }, [fetchData, fetchRecommendations]);
+  const fetchSOTD = useCallback(async () => {
+    setSotdLoading(true);
+    try {
+      const response = await fetch('/api/content-package/generate');
+      if (response.ok) {
+        const json = await response.json();
+        const items: SOTDItem[] = json.data?.items || [];
+        if (items.length > 0) {
+          const sorted = [...items].sort((a, b) => b.score - a.score);
+          const seen = new Set<string>();
+          const topPicks: SOTDItem[] = [];
+          for (const item of sorted) {
+            if (!seen.has(item.product_name)) {
+              seen.add(item.product_name);
+              topPicks.push(item);
+              if (topPicks.length >= 2) break;
+            }
+          }
+          setSotd(topPicks[0] || null);
+          setSotdRunnerUp(topPicks[1] || null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch SOTD:', error);
+    } finally {
+      setSotdLoading(false);
+    }
+  }, []);
+
+  const fetchWeeklyData = useCallback(async () => {
+    try {
+      const response = await fetch('/api/analytics?type=throughput&days=7');
+      if (response.ok) {
+        const json = await response.json();
+        const throughput: Record<string, unknown>[] = json.data?.throughput || [];
+        const mapped = throughput.map((d) => {
+          const date = new Date(d.date as string);
+          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+          const posted = Number(d.POSTED || 0) + Number(d.LIVE || 0);
+          const total = Object.entries(d).reduce((sum, [key, val]) => {
+            if (key === 'date') return sum;
+            return sum + Number(val || 0);
+          }, 0);
+          return { day: dayName, scripts: total, posted };
+        });
+        setWeeklyData(mapped);
+      }
+    } catch (error) {
+      console.error('Failed to fetch weekly data:', error);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); fetchRecommendations(); fetchSOTD(); fetchWeeklyData(); }, [fetchData, fetchRecommendations, fetchSOTD, fetchWeeklyData]);
 
   const activeStatuses = ['SCRIPT_READY', 'RECORDING', 'EDITING', 'REVIEW', 'SCHEDULED', 'READY_TO_POST'];
   const totalActive = data ? activeStatuses.reduce((sum, s) => sum + (data.pipelineByStatus[s] || 0), 0) : 0;
@@ -260,6 +355,81 @@ export default function DashboardPage() {
             </>
           )}
         </div>
+
+        {/* Script of the Day */}
+        {sotdLoading ? (
+          <div className="bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
+            </div>
+            <Skeleton height={60} width="100%" />
+          </div>
+        ) : sotd ? (
+          <div className="bg-gradient-to-r from-amber-500/5 via-zinc-900 to-zinc-900 border border-amber-500/20 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-400" />
+                <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
+              </div>
+              <Link href="/admin/content-package" className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1">
+                See all scripts <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 bg-zinc-800/50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-medium bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                    Score {sotd.score}/9
+                  </span>
+                  <span className="text-xs text-zinc-500">{getContentTypeName(sotd.content_type)}</span>
+                </div>
+                <p className="text-white font-medium text-sm leading-snug mb-2">&ldquo;{sotd.hook}&rdquo;</p>
+                <p className="text-xs text-zinc-400">{sotd.product_name} &middot; {sotd.brand}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <Link
+                    href={`/admin/content-studio?product=${encodeURIComponent(sotd.product_name)}&hook=${encodeURIComponent(sotd.hook)}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors min-h-[36px]"
+                  >
+                    <Sparkles className="w-3 h-3" /> Film This
+                  </Link>
+                  <Link
+                    href="/admin/script-of-the-day"
+                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    More picks &rarr;
+                  </Link>
+                </div>
+              </div>
+              {sotdRunnerUp && (
+                <div className="sm:w-48 bg-zinc-800/30 rounded-lg p-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">Runner Up</span>
+                    <p className="text-white text-xs font-medium mt-1 leading-snug line-clamp-2">&ldquo;{sotdRunnerUp.hook}&rdquo;</p>
+                    <p className="text-[11px] text-zinc-500 mt-1">{sotdRunnerUp.product_name}</p>
+                  </div>
+                  <span className="text-[10px] text-zinc-600 mt-2">{getContentTypeName(sotdRunnerUp.content_type)} &middot; Score {sotdRunnerUp.score}/9</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="w-4 h-4 text-zinc-600" />
+              <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
+            </div>
+            <div className="text-center py-4">
+              <p className="text-sm text-zinc-500 mb-3">Generate today&apos;s content package to see top picks</p>
+              <Link
+                href="/admin/content-package"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500/20 text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-500/30 transition-colors"
+              >
+                <Package className="w-4 h-4" /> Generate Package
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -490,6 +660,24 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Weekly Activity Chart */}
+        {weeklyData.length > 0 && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-teal-400" />
+                <h2 className="text-sm font-semibold text-white">This Week&apos;s Activity</h2>
+              </div>
+              <Link href="/admin/analytics" className="text-xs text-teal-400 hover:text-teal-300">
+                Full analytics
+              </Link>
+            </div>
+            <div className="h-48">
+              <WeeklyChart data={weeklyData} />
+            </div>
+          </div>
+        )}
 
         {/* Recent Activity */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">

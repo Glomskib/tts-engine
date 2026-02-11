@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, AdminButton } from '../../components/AdminPageLayout';
 import {
   Package,
@@ -14,6 +15,9 @@ import {
   Brain,
   ChevronDown,
   ChevronUp,
+  ArrowRight,
+  RotateCcw,
+  List,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -88,9 +92,14 @@ const CATEGORY_OPTIONS = [
 
 export default function ImportProductsPage() {
   const { showSuccess, showError } = useToast();
+  const router = useRouter();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('tiktok');
+
+  // Success state (track saved product for post-save actions)
+  const [savedProductId, setSavedProductId] = useState<string | null>(null);
+  const [savedProductName, setSavedProductName] = useState<string | null>(null);
 
   // TikTok scraping state
   const [tiktokUrl, setTiktokUrl] = useState('');
@@ -262,6 +271,10 @@ export default function ImportProductsPage() {
 
       showSuccess(`Product "${scrapedData.name}" saved successfully!`);
 
+      // Capture saved product for post-save actions
+      setSavedProductId(data.data.id);
+      setSavedProductName(scrapedData.name);
+
       // Reset form
       setTiktokUrl('');
       setScrapedData(null);
@@ -354,6 +367,10 @@ export default function ImportProductsPage() {
 
       showSuccess(`Product "${manualForm.name}" created successfully!`);
 
+      // Capture saved product for post-save actions
+      setSavedProductId(data.data.id);
+      setSavedProductName(manualForm.name);
+
       // Reset form
       setManualForm({
         name: '',
@@ -421,6 +438,25 @@ export default function ImportProductsPage() {
   }, [showSuccess]);
 
   /* ---------------------------------------------------------------- */
+  /*  Post-Save Action Handlers                                       */
+  /* ---------------------------------------------------------------- */
+
+  const handleGenerateScripts = useCallback(() => {
+    if (!savedProductId) return;
+    router.push(`/admin/content-studio?product=${savedProductId}`);
+  }, [savedProductId, router]);
+
+  const handleImportAnother = useCallback(() => {
+    setSavedProductId(null);
+    setSavedProductName(null);
+    // Form is already reset in save handlers
+  }, []);
+
+  const handleViewAllProducts = useCallback(() => {
+    router.push('/admin/products');
+  }, [router]);
+
+  /* ---------------------------------------------------------------- */
   /*  Render                                                          */
   /* ---------------------------------------------------------------- */
 
@@ -474,6 +510,57 @@ export default function ImportProductsPage() {
           )}
         </button>
       </div>
+
+      {/* Success Card - Post-Save Actions */}
+      {savedProductId && savedProductName && (
+        <div className="mb-6">
+          <AdminCard>
+            <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle size={24} className="text-green-400 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-lg font-semibold text-zinc-100">
+                  Product Saved Successfully!
+                </h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  "{savedProductName}" has been added to your products library. What would you like to do next?
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleGenerateScripts}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-violet-500 hover:bg-violet-600 text-white font-medium text-sm transition-colors"
+              >
+                <Sparkles size={16} />
+                Generate Scripts
+                <ArrowRight size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleImportAnother}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-white/10 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-100 font-medium text-sm transition-colors"
+              >
+                <RotateCcw size={16} />
+                Import Another
+              </button>
+
+              <button
+                type="button"
+                onClick={handleViewAllProducts}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-white/10 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-100 font-medium text-sm transition-colors"
+              >
+                <List size={16} />
+                View All Products
+              </button>
+            </div>
+          </div>
+          </AdminCard>
+        </div>
+      )}
 
       {/* TikTok Shop Tab */}
       {activeTab === 'tiktok' && (

@@ -61,6 +61,17 @@ const nextConfig: NextConfig = {
         hostname: '*.cloudflare.com',
         pathname: '/**',
       },
+      // TikTok Shop product images (via ScrapeCreators)
+      {
+        protocol: 'https',
+        hostname: '*.ttcdn-us.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.tiktokcdn-us.com',
+        pathname: '/**',
+      },
       // FlashFlow production domain
       {
         protocol: 'https',

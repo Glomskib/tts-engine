@@ -175,7 +175,7 @@ export default function ImportProductsPage() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setScrapeError(data.error || 'Failed to scrape product data. Please check the URL and try again.');
+        setScrapeError(data.message || data.error || 'Failed to scrape product data. Please check the URL and try again.');
         return;
       }
 

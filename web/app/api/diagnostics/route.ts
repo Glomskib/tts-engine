@@ -33,6 +33,8 @@ const ENV_VARS: [string, boolean][] = [
   ["TELEGRAM_CHAT_ID", false],
   ["SENDGRID_API_KEY", false],
   ["SLACK_WEBHOOK_URL", false],
+  // Optional scraping
+  ["SCRAPECREATORS_API_KEY", false],
   // Optional deployment
   ["VERCEL_DEPLOY_HOOK", false],
   ["CRON_SECRET", false],

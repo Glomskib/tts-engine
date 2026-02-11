@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 
@@ -9,7 +8,7 @@ const TIKTOK_URL_PATTERNS = [
   /tiktok\.com\/shop\/pdp\//i,
   /shop\.tiktok\.com\/view\/product\//i,
   /tiktok\.com\/@.*\/product\//i,
-  /tiktok\.com\/t\//i,  // short links
+  /tiktok\.com\/t\//i, // short links
 ];
 
 /**
@@ -19,47 +18,58 @@ function isTikTokShopUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
 
-    // Must be tiktok.com or shop.tiktok.com
-    if (!parsed.hostname.includes('tiktok.com')) {
+    if (!parsed.hostname.includes("tiktok.com")) {
       return false;
     }
 
-    // Check if it matches any of our known patterns
-    return TIKTOK_URL_PATTERNS.some(pattern => pattern.test(url));
+    return TIKTOK_URL_PATTERNS.some((pattern) => pattern.test(url));
   } catch {
     return false;
   }
 }
 
+// ---------------------------------------------------------------------------
+// ScrapeCreators actual response types (top-level, NOT nested in product_info)
+// ---------------------------------------------------------------------------
+
+interface ScrapeCreatorsImageObj {
+  height?: number;
+  width?: number;
+  uri?: string;
+  url_list?: string[];
+  thumb_url_list?: string[];
+}
+
 interface ScrapeCreatorsResponse {
   success: boolean;
-  sale_region?: string;
-  product_info?: {
-    product_id?: string;
-    seller?: {
-      name?: string;
-      seller_location?: string;
-      tiktok_url?: string;
-    };
-    product_base?: {
-      title?: string;
-      sold_count?: number;
-      price?: {
-        original_price?: string;
-        real_price?: string;
-        discount?: string;
-        currency?: string;
-      };
-      images?: string[];
-      description?: string;
-    };
-    sale_props?: Array<{
-      prop_name?: string;
-      prop_values?: Array<{ name?: string }>;
-    }>;
-    categories?: string[];
+  credits_remaining?: number;
+  product_id?: string;
+  seller?: {
+    name?: string;
+    seller_location?: string;
+    seller_id?: string;
   };
+  product_base?: {
+    title?: string;
+    sold_count?: number;
+    category_name?: string;
+    price?: {
+      original_price?: string;
+      real_price?: string;
+      discount?: string;
+      currency?: string;
+    };
+    images?: ScrapeCreatorsImageObj[];
+    description?: string;
+    desc_detailv3?: string;
+  };
+  sale_props?: Array<{
+    prop_name?: string;
+    prop_values?: Array<{ name?: string }>;
+  }>;
+  // Error responses
   error?: string;
+  errorStatus?: number;
   message?: string;
 }
 
@@ -85,11 +95,28 @@ interface ScrapedProductData {
 function parsePrice(priceStr: string | undefined): number | null {
   if (!priceStr) return null;
 
-  // Remove currency symbols and extract number
-  const cleaned = priceStr.replace(/[^0-9.]/g, '');
+  const cleaned = priceStr.replace(/[^0-9.]/g, "");
   const num = parseFloat(cleaned);
 
   return !isNaN(num) && num > 0 ? num : null;
+}
+
+/**
+ * Extract usable image URLs from the ScrapeCreators image objects.
+ * Each image is an object with url_list / thumb_url_list arrays.
+ */
+function extractImageUrls(images: ScrapeCreatorsImageObj[] | undefined): string[] {
+  if (!images || !Array.isArray(images)) return [];
+
+  const urls: string[] = [];
+  for (const img of images) {
+    // Prefer full-size url_list, fall back to thumb_url_list
+    const urlList = img.url_list || img.thumb_url_list;
+    if (urlList && urlList.length > 0) {
+      urls.push(urlList[0]);
+    }
+  }
+  return urls;
 }
 
 /**
@@ -102,17 +129,18 @@ function parsePrice(priceStr: string | undefined): number | null {
  * Returns: Structured product data ready for preview/save
  */
 export async function POST(request: Request) {
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+  const correlationId =
+    request.headers.get("x-correlation-id") || generateCorrelationId();
 
   try {
-    // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+    // Auth check — supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
     const auth = await validateApiAccess(request);
     if (!auth) {
       return createApiErrorResponse(
         "UNAUTHORIZED",
         "Authentication required",
         401,
-        correlationId
+        correlationId,
       );
     }
 
@@ -125,7 +153,7 @@ export async function POST(request: Request) {
         "BAD_REQUEST",
         "Invalid JSON body",
         400,
-        correlationId
+        correlationId,
       );
     }
 
@@ -135,7 +163,7 @@ export async function POST(request: Request) {
         "BAD_REQUEST",
         "url is required and must be a non-empty string",
         400,
-        correlationId
+        correlationId,
       );
     }
 
@@ -147,7 +175,7 @@ export async function POST(request: Request) {
         "BAD_REQUEST",
         "URL must be a valid TikTok Shop product URL (e.g., tiktok.com/shop/pdp/..., shop.tiktok.com/view/product/..., or tiktok.com/t/...)",
         400,
-        correlationId
+        correlationId,
       );
     }
 
@@ -158,7 +186,7 @@ export async function POST(request: Request) {
         "CONFIG_ERROR",
         "SCRAPECREATORS_API_KEY is not configured. Please add your ScrapeCreators API key to the environment variables.",
         500,
-        correlationId
+        correlationId,
       );
     }
 
@@ -171,65 +199,80 @@ export async function POST(request: Request) {
         method: "GET",
         headers: {
           "x-api-key": apiKey,
-          "Content-Type": "application/json",
         },
-        signal: AbortSignal.timeout(30000), // 30 second timeout
+        signal: AbortSignal.timeout(30000),
       });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      const errorMessage =
+        err instanceof Error ? err.message : "Unknown error";
       return createApiErrorResponse(
         "INTERNAL",
         `Failed to fetch from ScrapeCreators API: ${errorMessage}`,
         500,
-        correlationId
+        correlationId,
       );
     }
 
     // Parse response
     let data: ScrapeCreatorsResponse;
     try {
-      data = await scrapeResponse.json() as ScrapeCreatorsResponse;
+      data = (await scrapeResponse.json()) as ScrapeCreatorsResponse;
     } catch {
       return createApiErrorResponse(
         "INTERNAL",
         "Failed to parse ScrapeCreators API response",
         500,
-        correlationId
+        correlationId,
       );
     }
 
-    // Check if scraping was successful
-    if (!data.success || !data.product_info) {
-      const errorMsg = data.error || data.message || "Product data not found";
+    // Check for API-level errors first (error/message fields appear on failures)
+    if (data.error && data.error !== "not_found") {
+      return createApiErrorResponse(
+        "INTERNAL",
+        `ScrapeCreators API error: ${data.message || data.error}`,
+        500,
+        correlationId,
+      );
+    }
+
+    // Check if scraping was successful — product_base at top level, not nested
+    if (!data.success || !data.product_base) {
+      const errorMsg =
+        data.message || data.error || "Product data not found";
       return createApiErrorResponse(
         "NOT_FOUND",
-        `TikTok product scraping failed: ${errorMsg}. The URL may be invalid or the product may not be available.`,
+        `TikTok product scraping failed: ${errorMsg}. The URL may be invalid or the product may not be available in the US region.`,
         400,
-        correlationId
+        correlationId,
       );
     }
 
-    const productInfo = data.product_info;
-    const productBase = productInfo.product_base || {};
-    const seller = productInfo.seller || {};
+    // Data is at TOP LEVEL (not nested in product_info)
+    const productBase = data.product_base;
+    const seller = data.seller || {};
     const price = productBase.price || {};
 
     // Extract and normalize product data
     const scrapedData: ScrapedProductData = {
       name: (productBase.title || "Unknown Product").substring(0, 255),
       brand: (seller.name || "TikTok Shop").substring(0, 100),
-      category: productInfo.categories?.[0] || "General",
+      category: productBase.category_name || "General",
       description: productBase.description || null,
       price: parsePrice(price.real_price),
       original_price: parsePrice(price.original_price),
       discount: price.discount || null,
       sold_count: productBase.sold_count || null,
       seller_location: seller.seller_location || null,
-      images: productBase.images || [],
-      variants: (productInfo.sale_props || [])
-        .map(prop => `${prop.prop_name || ''}: ${(prop.prop_values || []).map(v => v.name).join(', ')}`)
-        .filter(v => v.length > 2),
-      tiktok_product_id: productInfo.product_id || null,
+      // Images are objects with url_list arrays, not plain strings
+      images: extractImageUrls(productBase.images),
+      variants: (data.sale_props || [])
+        .map(
+          (prop) =>
+            `${prop.prop_name || ""}: ${(prop.prop_values || []).map((v) => v.name).join(", ")}`,
+        )
+        .filter((v) => v.length > 2),
+      tiktok_product_id: data.product_id || null,
     };
 
     // Return structured data for preview
@@ -240,23 +283,21 @@ export async function POST(request: Request) {
         product: scrapedData,
         raw_api_response: {
           success: data.success,
-          sale_region: data.sale_region,
-          // Include limited raw data for debugging
-          product_id: productInfo.product_id,
+          product_id: data.product_id,
           sold_count: productBase.sold_count,
+          credits_remaining: data.credits_remaining,
         },
       },
     });
 
     response.headers.set("x-correlation-id", correlationId);
     return response;
-
   } catch (err) {
     return createApiErrorResponse(
       "INTERNAL",
       `Unexpected error: ${(err as Error).message}`,
       500,
-      correlationId
+      correlationId,
     );
   }
 }

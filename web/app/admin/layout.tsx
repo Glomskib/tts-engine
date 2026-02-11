@@ -14,6 +14,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { InstallBanner } from '@/components/PWAProvider';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
@@ -409,7 +410,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main className="pt-16 pb-24 min-h-screen overflow-x-hidden">
             <div className="px-4 max-w-full overflow-hidden">
               <LowCreditBanner className="mb-4" />
-              {children}
+              <ErrorBoundary>{children}</ErrorBoundary>
             </div>
           </main>
 
@@ -521,7 +522,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main className="ml-72 pt-16 min-h-screen">
             <div className="p-6">
               <LowCreditBanner className="mb-6" />
-              {children}
+              <ErrorBoundary>{children}</ErrorBoundary>
             </div>
           </main>
         </>

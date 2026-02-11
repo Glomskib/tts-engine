@@ -98,6 +98,10 @@ export default function ProductsPage() {
   const [generatingPainPoints, setGeneratingPainPoints] = useState(false);
   const [painPointsError, setPainPointsError] = useState<string | null>(null);
 
+  // Image modal state
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
+
   // Bulk selection state
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -782,6 +786,7 @@ export default function ProductsPage() {
                       />
                     </th>
                   )}
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400 w-16">Image</th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('name')}>Product<SortIndicator col="name" /></th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('brand')}>Brand<SortIndicator col="brand" /></th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Category</th>
@@ -807,6 +812,29 @@ export default function ProductsPage() {
                           />
                         </td>
                       )}
+                      <td className="px-4 py-3 text-center">
+                        {product.product_image_url ? (
+                          <button
+                            onClick={() => {
+                              setImageModalUrl(product.product_image_url || null);
+                              setImageModalOpen(true);
+                            }}
+                            className="inline-block overflow-hidden rounded border border-white/10 hover:border-teal-500/50 transition-colors"
+                          >
+                            <img
+                              src={product.product_image_url}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-12 h-12 rounded border border-white/10 bg-zinc-800 flex items-center justify-center text-zinc-600">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div>
                           <span className="font-medium text-zinc-100">{product.name}</span>
@@ -1483,6 +1511,33 @@ export default function ProductsPage() {
                 {addSaving ? 'Creating...' : 'Create Product'}
               </AdminButton>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Modal */}
+      {imageModalOpen && imageModalUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setImageModalOpen(false)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setImageModalOpen(false)}
+              className="absolute top-2 right-2 z-10 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={imageModalUrl}
+              alt="Product image"
+              className="max-w-full max-h-[90vh] object-contain"
+            />
           </div>
         </div>
       )}

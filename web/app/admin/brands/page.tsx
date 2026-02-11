@@ -14,6 +14,7 @@ interface Brand {
   id: string;
   name: string;
   logo_url?: string | null;
+  brand_image_url?: string | null;  // Brand logo/image for video generation
   website?: string | null;
   description?: string | null;
   colors?: string[];
@@ -399,11 +400,11 @@ export default function BrandsPage() {
               <div key={brand.id} className="bg-zinc-800/50 border border-white/10 rounded-xl p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    {brand.logo_url ? (
+                    {(brand.brand_image_url || brand.logo_url) ? (
                       <img
-                        src={brand.logo_url}
+                        src={(brand.brand_image_url || brand.logo_url)!}
                         alt={brand.name}
-                        className="w-10 h-10 rounded-lg object-cover"
+                        className="w-10 h-10 rounded-lg object-cover border border-white/10"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center">
@@ -526,6 +527,7 @@ function BrandEditModal({
   const [formData, setFormData] = useState({
     name: brand?.name || '',
     logo_url: brand?.logo_url || '',
+    brand_image_url: brand?.brand_image_url || '',
     website: brand?.website || '',
     description: brand?.description || '',
     colors: brand?.colors || [],
@@ -537,6 +539,8 @@ function BrandEditModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newColor, setNewColor] = useState('#10b981');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -550,6 +554,7 @@ function BrandEditModal({
       const payload = {
         name: formData.name,
         logo_url: formData.logo_url || null,
+        brand_image_url: formData.brand_image_url || null,
         website: formData.website || null,
         description: formData.description || null,
         colors: formData.colors,
@@ -577,6 +582,34 @@ function BrandEditModal({
       setError('Failed to save brand');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true);
+    setImageUploadError(null);
+
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append('file', file);
+
+      const res = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formDataObj,
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      setFormData({ ...formData, brand_image_url: data.data.url });
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      setImageUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -630,6 +663,53 @@ function BrandEditModal({
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                 placeholder="https://..."
               />
+            </div>
+
+            {/* Brand Image Upload */}
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Brand Image (for video generation)</label>
+
+              {formData.brand_image_url && (
+                <div className="mb-2">
+                  <img
+                    src={formData.brand_image_url}
+                    alt="Brand preview"
+                    className="w-32 h-32 object-cover rounded-lg border border-zinc-700"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <input
+                  type="url"
+                  value={formData.brand_image_url}
+                  onChange={(e) => setFormData({ ...formData, brand_image_url: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Paste image URL or upload file below..."
+                />
+
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                      disabled={uploadingImage}
+                    />
+                    <div className="w-full bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-lg px-3 py-2 text-center transition-colors">
+                      {uploadingImage ? 'Uploading...' : 'Upload File'}
+                    </div>
+                  </label>
+                </div>
+
+                {imageUploadError && (
+                  <p className="text-xs text-red-400">{imageUploadError}</p>
+                )}
+              </div>
             </div>
 
             <div>

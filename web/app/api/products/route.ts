@@ -6,6 +6,30 @@ import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 
 export const runtime = "nodejs";
 
+/**
+ * GET /api/products
+ *
+ * List all products for the authenticated user with optional filtering and pagination
+ *
+ * Query params:
+ * - brand: Filter by brand name (case-insensitive exact match)
+ * - brand_id: Filter by brand ID (UUID)
+ * - limit: Max results to return (default: 100, max: 100)
+ * - offset: Skip N results (default: 0)
+ *
+ * Auth: Bearer SERVICE_API_KEY (for Bolt) OR Supabase session (for FlashFlow UI)
+ *
+ * Response:
+ * {
+ *   ok: true,
+ *   data: {
+ *     products: [...],
+ *     total: number,
+ *     limit: number,
+ *     offset: number
+ *   }
+ * }
+ */
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
@@ -16,22 +40,65 @@ export async function GET(request: Request) {
   }
   const userId = auth.userId;
 
-  const { data, error } = await supabaseAdmin
-    .from("products")
-    .select("*")
-    .eq("user_id", userId)  // Filter by user_id
-    .order("created_at", { ascending: false });
+  // Parse query params
+  const { searchParams } = new URL(request.url);
+  const brandName = searchParams.get("brand");
+  const brandId = searchParams.get("brand_id");
+  const limitParam = searchParams.get("limit");
+  const offsetParam = searchParams.get("offset");
 
-  if (error) {
-    return NextResponse.json(
-      { ok: false, error: error.message, correlation_id: correlationId },
-      { status: 500 }
+  const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 100;
+  const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+
+  try {
+    // Build query with optional filters
+    let query = supabaseAdmin
+      .from("products")
+      .select(`
+        *,
+        brand_entity:brands(id, name, brand_image_url)
+      `, { count: "exact" })
+      .eq("user_id", userId);
+
+    // Apply brand filters
+    if (brandName) {
+      query = query.ilike("brand", brandName);
+    }
+    if (brandId) {
+      query = query.eq("brand_id", brandId);
+    }
+
+    // Get total count and paginated data
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error(`[${correlationId}] Error fetching products:`, error);
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
+    }
+
+    const response = NextResponse.json({
+      ok: true,
+      data: {
+        products: data || [],
+        total: count || 0,
+        limit,
+        offset,
+      },
+      correlation_id: correlationId,
+    });
+    response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
+    return response;
+  } catch (err) {
+    console.error(`[${correlationId}] Unexpected error:`, err);
+    return createApiErrorResponse(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Internal server error",
+      500,
+      correlationId
     );
   }
-
-  const response = NextResponse.json({ ok: true, data, correlation_id: correlationId });
-  response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
-  return response;
 }
 
 export async function POST(request: Request) {

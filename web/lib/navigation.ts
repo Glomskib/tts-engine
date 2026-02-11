@@ -73,6 +73,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
       { name: 'Compare', href: '/admin/compare', icon: FileText },
       { name: 'Import', href: '/admin/winners/import', icon: Upload },
+      { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity },
     ],
   },
   {
@@ -81,6 +82,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Video Pipeline', href: '/admin/pipeline', icon: Video },
       { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar },
+      { name: 'Content Package', href: '/admin/content-package', icon: Package },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send },
       { name: 'VA Dashboard', href: '/va', icon: Users, external: true },
     ],
@@ -90,6 +92,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
+      { name: 'Daily Summary', href: '/admin/analytics/daily', icon: Calendar },
       { name: 'Video Performance', href: '/admin/videos', icon: Play },
       { name: 'Quality', href: '/admin/quality', icon: FlaskConical },
       { name: 'Competitors', href: '/admin/competitors', icon: Search },
@@ -103,6 +106,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
+      { name: 'Import Products', href: '/admin/products/import', icon: Upload },
       { name: 'Accounts', href: '/admin/accounts', icon: Building },
       { name: 'Audiences', href: '/admin/audience', icon: Users, featureKey: 'audience_intelligence' },
     ],

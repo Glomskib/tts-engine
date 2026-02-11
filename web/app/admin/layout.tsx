@@ -31,7 +31,27 @@ interface AuthState {
   userId: string | null;
   userEmail: string | null;
   isAdmin: boolean;
+  role: string | null;
 }
+
+// Pages only accessible to admin users — non-admins get redirected to /admin
+const ADMIN_ONLY_ROUTES = [
+  '/admin/automation',
+  '/admin/monitoring',
+  '/admin/second-brain',
+  '/admin/voice',
+  '/admin/api-docs',
+  '/admin/compare',
+  '/admin/winners/patterns',
+  '/admin/video-editing',
+  '/admin/clients',
+  '/admin/client-management',
+  '/admin/ingestion',
+  '/admin/hook-suggestions',
+  '/admin/status',
+  '/admin/users',
+  '/admin/upgrade-requests',
+];
 
 function ThemeToggle() {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -58,6 +78,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     userId: null,
     userEmail: null,
     isAdmin: false,
+    role: null,
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -110,6 +131,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Block non-admin users from admin-only routes
+  useEffect(() => {
+    if (!auth.loading && auth.authenticated && !auth.isAdmin) {
+      const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some(
+        (route) => pathname === route || pathname.startsWith(route + '/')
+      );
+      if (isAdminOnlyRoute) {
+        router.replace('/admin');
+      }
+    }
+  }, [pathname, auth.loading, auth.authenticated, auth.isAdmin, router]);
+
   // Close sidebar on route change
   useEffect(() => {
     setSidebarOpen(false);
@@ -142,17 +175,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               userId: data.user.id,
               userEmail: data.user.email || null,
               isAdmin: data.isAdmin || false,
+              role: data.role || 'creator',
             });
           } else {
-            setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false });
+            setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false, role: null });
             router.replace('/login');
           }
         } else {
-          setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false });
+          setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false, role: null });
           router.replace('/login');
         }
       } catch {
-        setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false });
+        setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false, role: null });
       }
     };
     fetchAuth();

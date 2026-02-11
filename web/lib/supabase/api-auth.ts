@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyApiKeyFromRequest } from '@/lib/api-keys';
 
-export type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader';
+export type UserRole = 'admin' | 'creator' | 'recorder' | 'editor' | 'uploader' | 'va' | 'bot';
 
 export interface AuthContext {
   user: {
@@ -86,6 +86,11 @@ async function resolveUserRole(
     if (uploaderEmails.has(userEmail)) {
       role = 'uploader';
     }
+  }
+
+  // Default to 'creator' if no role found
+  if (!role) {
+    role = 'creator';
   }
 
   return {

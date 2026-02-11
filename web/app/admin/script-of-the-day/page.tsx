@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fetchJson, postJson, isApiError } from "@/lib/http/fetchJson";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Sparkles,
   RefreshCw,
@@ -94,6 +95,8 @@ export default function ScriptOfTheDayPage() {
   const [pipelineAdded, setPipelineAdded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { showError, showSuccess } = useToast();
 
   const fetchToday = useCallback(async () => {
     setLoading(true);
@@ -119,10 +122,24 @@ export default function ScriptOfTheDayPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     setPipelineAdded(false);
-    const resp = await postJson<ScriptOfTheDay>("/api/script-of-the-day", {});
-    if (!isApiError(resp) && resp.data) {
-      setTodayScript(resp.data);
-      fetchHistory();
+    setErrorMsg(null);
+    try {
+      const resp = await postJson<ScriptOfTheDay>("/api/script-of-the-day", {});
+      if (isApiError(resp)) {
+        const msg = resp.message || "Failed to generate script. Please try again.";
+        setErrorMsg(msg);
+        showError(msg);
+      } else if (resp.data) {
+        setTodayScript(resp.data);
+        showSuccess("Script generated!");
+        fetchHistory();
+      } else {
+        setErrorMsg("No script returned. Try again.");
+        showError("No script returned. Try again.");
+      }
+    } catch {
+      setErrorMsg("AI is busy, try again in a moment.");
+      showError("AI is busy, try again in a moment.");
     }
     setGenerating(false);
   };
@@ -144,12 +161,15 @@ export default function ScriptOfTheDayPage() {
 
     if (!isApiError(resp)) {
       setPipelineAdded(true);
+      showSuccess("Added to pipeline!");
       // Update status in DB
       await postJson("/api/script-of-the-day", {
         action: "update_status",
         id: todayScript.id,
         status: "accepted",
       });
+    } else {
+      showError(resp.message || "Failed to add to pipeline. Try again.");
     }
     setAddingToPipeline(false);
   };
@@ -203,6 +223,14 @@ export default function ScriptOfTheDayPage() {
       {loading && (
         <div className="flex items-center justify-center py-20">
           <RefreshCw className="w-8 h-8 animate-spin text-zinc-500" />
+        </div>
+      )}
+
+      {/* Error banner */}
+      {errorMsg && !generating && (
+        <div className="mb-6 p-4 bg-red-900/30 border border-red-700/40 rounded-xl flex items-start gap-3">
+          <span className="text-red-400 text-sm flex-1">{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} className="text-red-500 hover:text-red-300 text-xs">dismiss</button>
         </div>
       )}
 

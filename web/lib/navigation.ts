@@ -52,6 +52,8 @@ export interface NavItem {
   featureKey?: string;
   /** External link (opens in same tab but not under admin layout) */
   external?: boolean;
+  /** Only visible to admin users */
+  adminOnly?: boolean;
 }
 
 export interface NavSection {
@@ -75,9 +77,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
-      { name: 'Compare', href: '/admin/compare', icon: FileText },
+      { name: 'Compare', href: '/admin/compare', icon: FileText, adminOnly: true },
       { name: 'Import', href: '/admin/winners/import', icon: Upload },
-      { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity },
+      { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, adminOnly: true },
     ],
   },
   {
@@ -191,22 +193,30 @@ export function getFilteredNavSections(options: {
     else if (planId.includes('starter') || planId.includes('video_starter')) userTier = 'starter';
   }
 
-  return NAV_SECTIONS.filter((section) => {
-    // Admin sees everything
-    if (isAdmin) return true;
+  return NAV_SECTIONS
+    .filter((section) => {
+      // Admin sees everything
+      if (isAdmin) return true;
 
-    // Check subscription type filter
-    if (section.subscriptionType && section.subscriptionType !== subscriptionType) {
-      return false;
-    }
+      // Check subscription type filter
+      if (section.subscriptionType && section.subscriptionType !== subscriptionType) {
+        return false;
+      }
 
-    // Check plan tier filter
-    if (section.showFor && !section.showFor.includes(userTier)) {
-      return false;
-    }
+      // Check plan tier filter
+      if (section.showFor && !section.showFor.includes(userTier)) {
+        return false;
+      }
 
-    return true;
-  });
+      return true;
+    })
+    .map((section) => {
+      // Filter out adminOnly items for non-admin users
+      if (isAdmin) return section;
+      const filteredItems = section.items.filter((item) => !item.adminOnly);
+      return { ...section, items: filteredItems };
+    })
+    .filter((section) => section.items.length > 0);
 }
 
 // Get navigation for video editing clients

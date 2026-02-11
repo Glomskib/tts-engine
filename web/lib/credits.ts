@@ -44,8 +44,6 @@ export async function ensureUserCredits(userId: string): Promise<{ credits_remai
 
   // If no credits row exists, create default records
   if (!userCredits) {
-    console.log(`[Credits] Creating missing credit records for user ${userId}`);
-
     // Create subscription record (free plan)
     await supabaseAdmin
       .from("user_subscriptions")

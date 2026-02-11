@@ -472,7 +472,6 @@ export async function createVideoFromProduct(
           break;
         } else if (codeError.code === "23505") {
           // Unique constraint violation, retry with next sequence
-          console.log(`[${correlationId}] Video code conflict, retrying with next sequence`);
           continue;
         } else {
           console.error(`[${correlationId}] Failed to set video_code:`, codeError);
@@ -524,7 +523,6 @@ export async function createVideoFromProduct(
     // If script_path is "generate", mark for AI generation processing
     // Videos with recording_status=GENERATING_SCRIPT are picked up by /api/jobs/generate-scripts
     if (script_path === "generate") {
-      console.log(`[${correlationId}] Video ${video.id} queued for AI script generation`);
       await supabaseAdmin.from("video_events").insert({
         video_id: video.id,
         event_type: "script_generation_queued",

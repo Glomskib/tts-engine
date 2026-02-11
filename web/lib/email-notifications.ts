@@ -105,7 +105,6 @@ export async function sendAssignmentEmail(
   // Check cooldown to prevent duplicate emails
   const inCooldown = await checkEmailCooldown(supabaseAdmin, eventType, videoId, recipientEmail, 60);
   if (inCooldown) {
-    console.log(`Email cooldown active for ${eventType} on video ${videoId} to ${recipientEmail}`);
     return;
   }
 

@@ -5,6 +5,8 @@ import {
   BookOpen, ChevronDown, ChevronRight, Play, Copy, Check,
   Lock, Unlock, Package, FileText, Video, Trophy, BarChart3,
   Users, Zap, Activity, Eye, CreditCard, Bot, Webhook,
+  Tag, Layers, Bell, Calendar, Search, TrendingUp, Swords,
+  FolderOpen, Upload, Inbox,
 } from 'lucide-react';
 
 interface Endpoint {
@@ -30,6 +32,17 @@ const METHOD_COLORS: Record<string, string> = {
 
 const API_SECTIONS: ApiSection[] = [
   {
+    name: 'Brands',
+    icon: Tag,
+    endpoints: [
+      { method: 'GET', path: '/api/brands', description: 'List all brands', auth: true },
+      { method: 'POST', path: '/api/brands', description: 'Create a brand', auth: true },
+      { method: 'GET', path: '/api/brands/[id]', description: 'Get brand by ID', auth: true },
+      { method: 'PATCH', path: '/api/brands/[id]', description: 'Update a brand', auth: true },
+      { method: 'DELETE', path: '/api/brands/[id]', description: 'Delete a brand', auth: true },
+    ],
+  },
+  {
     name: 'Products',
     icon: Package,
     endpoints: [
@@ -38,6 +51,9 @@ const API_SECTIONS: ApiSection[] = [
       { method: 'GET', path: '/api/products/[id]', description: 'Get product by ID', auth: true },
       { method: 'PATCH', path: '/api/products/[id]', description: 'Update a product', auth: true },
       { method: 'DELETE', path: '/api/products/[id]', description: 'Delete a product', auth: true },
+      { method: 'POST', path: '/api/products/bulk-delete', description: 'Bulk delete products', auth: true },
+      { method: 'POST', path: '/api/products/generate-pain-points', description: 'AI generate pain points', auth: true },
+      { method: 'POST', path: '/api/products/import', description: 'Import products from CSV', auth: true },
     ],
   },
   {
@@ -160,12 +176,114 @@ const API_SECTIONS: ApiSection[] = [
     ],
   },
   {
+    name: 'Skits',
+    icon: Layers,
+    endpoints: [
+      { method: 'GET', path: '/api/skits', description: 'List saved skits', auth: true },
+      { method: 'POST', path: '/api/skits', description: 'Save a skit', auth: true },
+      { method: 'GET', path: '/api/skits/[id]', description: 'Get skit by ID', auth: true },
+      { method: 'PATCH', path: '/api/skits/[id]', description: 'Update a skit', auth: true },
+      { method: 'DELETE', path: '/api/skits/[id]', description: 'Delete a skit', auth: true },
+      { method: 'POST', path: '/api/skits/[id]/send-to-video', description: 'Send skit to pipeline', auth: true },
+    ],
+  },
+  {
+    name: 'Variants & A/B Tests',
+    icon: Swords,
+    endpoints: [
+      { method: 'GET', path: '/api/variants', description: 'List all variants', auth: true },
+      { method: 'POST', path: '/api/variants', description: 'Create a variant', auth: true },
+      { method: 'POST', path: '/api/variants/generate', description: 'AI generate variants', auth: true },
+      { method: 'POST', path: '/api/variants/promote', description: 'Promote winning variant', auth: true },
+      { method: 'GET', path: '/api/ab-tests', description: 'List A/B tests', auth: true },
+      { method: 'POST', path: '/api/ab-tests', description: 'Create A/B test', auth: true },
+      { method: 'PATCH', path: '/api/ab-tests/[id]', description: 'Update A/B test', auth: true },
+    ],
+  },
+  {
+    name: 'Competitors',
+    icon: TrendingUp,
+    endpoints: [
+      { method: 'GET', path: '/api/competitors', description: 'List competitors', auth: true },
+      { method: 'POST', path: '/api/competitors', description: 'Add competitor', auth: true },
+      { method: 'PATCH', path: '/api/competitors/[id]', description: 'Update competitor', auth: true },
+      { method: 'DELETE', path: '/api/competitors/[id]', description: 'Delete competitor', auth: true },
+      { method: 'GET', path: '/api/competitors/[id]/analysis', description: 'Get competitor analysis', auth: true },
+      { method: 'GET', path: '/api/trends', description: 'List trends', auth: true },
+      { method: 'POST', path: '/api/trends', description: 'Add trend', auth: true },
+    ],
+  },
+  {
+    name: 'Collections',
+    icon: FolderOpen,
+    endpoints: [
+      { method: 'GET', path: '/api/collections', description: 'List all collections', auth: true },
+      { method: 'POST', path: '/api/collections', description: 'Create a collection', auth: true },
+    ],
+  },
+  {
+    name: 'Notifications',
+    icon: Bell,
+    endpoints: [
+      { method: 'GET', path: '/api/notifications', description: 'List notifications', auth: true },
+      { method: 'POST', path: '/api/notifications', description: 'Create notification', auth: true },
+      { method: 'PATCH', path: '/api/notifications/[id]/read', description: 'Mark as read', auth: true },
+      { method: 'POST', path: '/api/notifications/mark-read', description: 'Mark all as read', auth: true },
+      { method: 'GET', path: '/api/notifications/digest', description: 'Get notification digest', auth: true },
+      { method: 'GET', path: '/api/notifications/preferences', description: 'Get preferences', auth: true },
+      { method: 'PUT', path: '/api/notifications/preferences', description: 'Update preferences', auth: true },
+    ],
+  },
+  {
+    name: 'Posting & Scheduling',
+    icon: Calendar,
+    endpoints: [
+      { method: 'GET', path: '/api/posting-queue', description: 'Get posting queue', auth: true },
+      { method: 'GET', path: '/api/scheduled-posts', description: 'List scheduled posts', auth: true },
+      { method: 'POST', path: '/api/scheduled-posts', description: 'Schedule a post', auth: true },
+      { method: 'PATCH', path: '/api/scheduled-posts/[id]', description: 'Update scheduled post', auth: true },
+      { method: 'DELETE', path: '/api/scheduled-posts/[id]', description: 'Cancel scheduled post', auth: true },
+      { method: 'POST', path: '/api/schedule/auto', description: 'Auto-schedule videos', auth: true },
+      { method: 'GET', path: '/api/calendar', description: 'Get calendar events', auth: true },
+    ],
+  },
+  {
+    name: 'Audience & Personas',
+    icon: Search,
+    endpoints: [
+      { method: 'GET', path: '/api/audience/personas', description: 'List personas', auth: true },
+      { method: 'POST', path: '/api/audience/personas', description: 'Create persona', auth: true },
+      { method: 'GET', path: '/api/audience/pain-points', description: 'List pain points', auth: true },
+      { method: 'POST', path: '/api/audience/pain-points', description: 'Create pain point', auth: true },
+      { method: 'POST', path: '/api/audience/extract-from-reviews', description: 'Extract from reviews', auth: true },
+    ],
+  },
+  {
+    name: 'VA Dashboard',
+    icon: Inbox,
+    endpoints: [
+      { method: 'GET', path: '/api/va/videos', description: 'Get VA assigned videos', auth: false },
+      { method: 'POST', path: '/api/va/videos/[id]/status', description: 'Update video status', auth: false },
+    ],
+  },
+  {
+    name: 'Data Import/Export',
+    icon: Upload,
+    endpoints: [
+      { method: 'POST', path: '/api/import', description: 'Import data', auth: true },
+      { method: 'GET', path: '/api/export', description: 'Export data', auth: true },
+      { method: 'POST', path: '/api/ingestion/csv', description: 'Ingest CSV data', auth: true },
+      { method: 'POST', path: '/api/ingestion/tiktok', description: 'Ingest TikTok data', auth: true },
+      { method: 'GET', path: '/api/winners/export', description: 'Export winners', auth: true },
+    ],
+  },
+  {
     name: 'Webhooks & External',
     icon: Webhook,
     endpoints: [
-      { method: 'GET', path: '/api/admin/webhooks', description: 'List webhooks', auth: true },
-      { method: 'POST', path: '/api/admin/webhooks', description: 'Create webhook', auth: true },
-      { method: 'POST', path: '/api/admin/webhooks/test', description: 'Test a webhook', auth: true },
+      { method: 'GET', path: '/api/webhooks', description: 'List webhooks', auth: true },
+      { method: 'POST', path: '/api/webhooks', description: 'Create webhook', auth: true },
+      { method: 'POST', path: '/api/webhooks/test', description: 'Test a webhook', auth: true },
       { method: 'GET', path: '/api/health', description: 'Health check', auth: false },
     ],
   },

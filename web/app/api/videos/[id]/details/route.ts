@@ -62,7 +62,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           id,
           name,
           brand,
-          sku,
           product_url
         ),
         account:account_id (
@@ -200,7 +199,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // Denormalized for convenience
         brand_name: video.product?.brand || null,
         product_name: video.product?.name || null,
-        product_sku: video.product?.sku || null,
+        product_url: video.product?.product_url || null,
         account_name: video.account?.name || null,
         account_platform: video.account?.platform || null,
         // Posting account

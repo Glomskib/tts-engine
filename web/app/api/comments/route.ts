@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { generateCorrelationId } from '@/lib/api-errors';
+
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   try {
-    const supabase = await createServerSupabaseClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const { user } = await getApiAuthContext(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
     }
 
@@ -24,16 +21,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'skit_id is required', correlation_id: correlationId }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('script_comments')
-      .select(`
-        *,
-        user:auth.users(id, email),
-        replies:script_comments(
-          *,
-          user:auth.users(id, email)
-        )
-      `)
+      .select('*')
       .eq('skit_id', skitId)
       .is('parent_id', null)
       .order('created_at', { ascending: true });
@@ -53,18 +43,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
-  const supabase = await createServerSupabaseClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
-  }
-
   try {
+    const { user } = await getApiAuthContext(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
+    }
+
     const body = await request.json();
     const { skit_id, content, parent_id, beat_index, selection_start, selection_end } = body;
 
@@ -75,31 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user has access to the skit
-    const { data: skit } = await supabase
-      .from('saved_skits')
-      .select('id, user_id, is_public')
-      .eq('id', skit_id)
-      .single();
-
-    if (!skit) {
-      return NextResponse.json({ error: 'Skit not found', correlation_id: correlationId }, { status: 404 });
-    }
-
-    if (skit.user_id !== user.id && !skit.is_public) {
-      // Check if admin
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-      if (profile?.role !== 'admin') {
-        return NextResponse.json({ error: 'Not authorized', correlation_id: correlationId }, { status: 403 });
-      }
-    }
-
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('script_comments')
       .insert({
         skit_id,

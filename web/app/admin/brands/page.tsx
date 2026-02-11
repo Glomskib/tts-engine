@@ -7,6 +7,8 @@ import {
   TrendingUp, Video, Trophy, Target, AlertCircle, CheckCircle,
 } from 'lucide-react';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
+import { SkeletonAuthCheck, SkeletonTable } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Brand {
   id: string;
@@ -145,6 +147,7 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
   // Analytics data
   const [brandStats, setBrandStats] = useState<BrandStats[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -263,12 +266,13 @@ export default function BrandsPage() {
 
       if (data.ok) {
         fetchBrands();
+        showSuccess('Brand deleted');
       } else {
-        alert(data.message || 'Failed to delete brand');
+        showError('Failed to delete brand');
       }
     } catch (err) {
       console.error('Delete error:', err);
-      alert('Failed to delete brand');
+      showError('Failed to delete brand');
     } finally {
       setDeleting(null);
     }
@@ -278,12 +282,13 @@ export default function BrandsPage() {
     setIsModalOpen(false);
     setEditingBrand(null);
     fetchBrands();
+    showSuccess('Brand saved');
   };
 
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <div className="text-zinc-500">Checking access...</div>
+        <SkeletonAuthCheck />
       </div>
     );
   }
@@ -375,7 +380,7 @@ export default function BrandsPage() {
 
       <AdminCard noPadding>
         {loading ? (
-          <div className="p-8 text-center text-zinc-400">Loading brands...</div>
+          <SkeletonTable rows={4} cols={4} />
         ) : brands.length === 0 ? (
           <EmptyState
             icon={<Building2 className="w-6 h-6" />}

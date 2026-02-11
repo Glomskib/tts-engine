@@ -6,6 +6,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
 import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle, Zap, Send, ToggleLeft, ToggleRight, Download, Upload } from 'lucide-react';
+import { SkeletonForm, SkeletonPageHeader } from '@/components/ui/Skeleton';
 
 interface UserProfile {
   id: string;
@@ -428,10 +429,8 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 w-32 bg-zinc-800 rounded"></div>
-          <div className="h-48 bg-zinc-800/50 rounded-xl"></div>
-        </div>
+        <SkeletonPageHeader />
+        <SkeletonForm fields={4} />
       </div>
     );
   }

@@ -5,6 +5,7 @@ import {
   Activity, RefreshCw, CheckCircle, AlertTriangle, XCircle,
   Clock, Server, Database, Cpu, Wifi
 } from 'lucide-react';
+import { SkeletonStats, SkeletonCard } from '@/components/ui/Skeleton';
 
 interface HealthCheck {
   name: string;
@@ -99,16 +100,10 @@ export default function SystemHealthPage() {
 
   if (loading) {
     return (
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 w-48 bg-zinc-800 rounded" />
-          <div className="h-32 bg-zinc-800/50 rounded-xl" />
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-24 bg-zinc-800/50 rounded-xl" />
-            ))}
-          </div>
-        </div>
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     );
   }

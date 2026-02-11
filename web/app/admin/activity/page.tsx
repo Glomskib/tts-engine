@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { SkeletonContent } from '@/components/ui/Skeleton';
 
 interface ActivityItem {
   id: string;
@@ -274,17 +275,7 @@ export default function ActivityPage() {
 
         {/* Activity Timeline */}
         {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="flex gap-4 animate-pulse">
-                <div className="w-10 h-10 rounded-full bg-zinc-800" />
-                <div className="flex-1">
-                  <div className="h-4 w-48 bg-zinc-800 rounded mb-2" />
-                  <div className="h-3 w-24 bg-zinc-800 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <SkeletonContent rows={5} />
         ) : activities.length === 0 ? (
           <div className="text-center py-16">
             <svg className="w-16 h-16 mx-auto text-zinc-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

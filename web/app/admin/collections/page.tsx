@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { SkeletonCard } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Collection {
   id: string;
@@ -31,6 +33,7 @@ export default function CollectionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCollection, setNewCollection] = useState({ name: '', description: '', color: '#8B5CF6' });
   const [creating, setCreating] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     fetchCollections();
@@ -65,9 +68,13 @@ export default function CollectionsPage() {
         setShowCreateModal(false);
         setNewCollection({ name: '', description: '', color: '#8B5CF6' });
         fetchCollections();
+        showSuccess('Collection created');
+      } else {
+        showError('Failed to create collection');
       }
     } catch (err) {
       console.error('Failed to create collection:', err);
+      showError('Failed to create collection');
     } finally {
       setCreating(false);
     }
@@ -80,9 +87,13 @@ export default function CollectionsPage() {
       const res = await fetch(`/api/collections/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setCollections(collections.filter(c => c.id !== id));
+        showSuccess('Collection deleted');
+      } else {
+        showError('Failed to delete collection');
       }
     } catch (err) {
       console.error('Failed to delete collection:', err);
+      showError('Failed to delete collection');
     }
   };
 
@@ -108,12 +119,8 @@ export default function CollectionsPage() {
         {/* Loading State */}
         {loading ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="p-5 rounded-xl border border-white/10 bg-zinc-900/50 animate-pulse">
-                <div className="w-10 h-10 bg-zinc-800 rounded-lg mb-4" />
-                <div className="h-5 w-32 bg-zinc-800 rounded mb-2" />
-                <div className="h-4 w-full bg-zinc-800 rounded" />
-              </div>
+            {Array.from({length:6}).map((_,i) => (
+              <SkeletonCard key={i} />
             ))}
           </div>
         ) : collections.length === 0 ? (

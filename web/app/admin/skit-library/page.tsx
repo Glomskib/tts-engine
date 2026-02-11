@@ -10,6 +10,7 @@ import { VideoCreationSheet } from "@/components/VideoCreationSheet";
 
 const MarkAsWinnerModal = dynamic(() => import("@/components/MarkAsWinnerModal").then(m => ({ default: m.MarkAsWinnerModal })), { ssr: false });
 import { Toast } from "@/components/Toast";
+import { useToast } from '@/contexts/ToastContext';
 
 // --- Types ---
 
@@ -177,6 +178,7 @@ export default function SkitLibraryPage() {
 
   // Toast notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const { showSuccess, showError } = useToast();
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -320,11 +322,14 @@ export default function SkitLibraryPage() {
           setExpandedId(null);
           setExpandedSkit(null);
         }
+        showSuccess('Script deleted');
       } else {
         setError(data.error || "Failed to delete script");
+        showError('Failed to delete script');
       }
     } catch {
       setError("Failed to delete script");
+      showError('Failed to delete script');
     } finally {
       setDeletingId(null);
     }

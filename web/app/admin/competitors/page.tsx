@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Eye, Search, Brain, Upload, Video, TrendingUp, X, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { SkeletonCard, SkeletonPageHeader } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Competitor {
   id: string;
@@ -59,6 +61,7 @@ export default function CompetitorsPage() {
   // Track video form
   const [trackUrl, setTrackUrl] = useState('');
   const [tracking, setTracking] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => { fetchCompetitors(); }, []);
 
@@ -84,17 +87,25 @@ export default function CompetitorsPage() {
         setCompetitors([data.data, ...competitors]);
         setShowAdd(false);
         setNewName(''); setNewHandle(''); setNewCategory('');
+        showSuccess('Competitor saved');
+      } else {
+        showError('Failed to save competitor');
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showError('Failed to save competitor'); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this competitor and all tracked videos?')) return;
     try {
-      await fetch(`/api/competitors/${id}`, { method: 'DELETE' });
-      setCompetitors(competitors.filter(c => c.id !== id));
-      if (selectedId === id) { setSelectedId(null); setSelectedVideos([]); setAnalysis(null); }
-    } catch (e) { console.error(e); }
+      const res = await fetch(`/api/competitors/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setCompetitors(competitors.filter(c => c.id !== id));
+        if (selectedId === id) { setSelectedId(null); setSelectedVideos([]); setAnalysis(null); }
+        showSuccess('Competitor deleted');
+      } else {
+        showError('Failed to delete competitor');
+      }
+    } catch (e) { console.error(e); showError('Failed to delete competitor'); }
   };
 
   const selectCompetitor = async (id: string) => {
@@ -163,10 +174,10 @@ export default function CompetitorsPage() {
   if (loading) {
     return (
       <div className="px-4 py-6 space-y-4">
-        <div className="h-8 w-56 bg-zinc-800 rounded animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-32 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
+        <SkeletonPageHeader />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({length:6}).map((_,i) => (
+            <SkeletonCard key={i} />
           ))}
         </div>
       </div>

@@ -5,6 +5,7 @@ import {
   Webhook, Plus, Trash2, Play, Check, X, AlertCircle,
   Loader2, ChevronDown, ExternalLink, RefreshCw,
 } from 'lucide-react';
+import { SkeletonContent } from '@/components/ui/Skeleton';
 
 interface WebhookEntry {
   id: string;
@@ -217,7 +218,7 @@ export default function IntegrationsPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-zinc-500 text-sm">Loading...</div>
+          <SkeletonContent rows={4} />
         ) : webhooks.length === 0 ? (
           <div className="text-center py-16 bg-zinc-900/50 border border-zinc-800 rounded-xl">
             <Webhook className="w-10 h-10 mx-auto mb-3 text-zinc-700" />

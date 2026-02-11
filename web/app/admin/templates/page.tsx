@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_TEMPLATES, TEMPLATE_CATEGORIES, ContentTemplate } from '@/lib/templates';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { useToast } from '@/contexts/ToastContext';
 
 interface CustomTemplate {
   id: string;
@@ -64,6 +65,7 @@ export default function TemplatesPage() {
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CustomTemplate | null>(null);
   const [saving, setSaving] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   // Editor form state
   const [formName, setFormName] = useState('');
@@ -167,9 +169,13 @@ export default function TemplatesPage() {
       if (res.ok) {
         setShowEditor(false);
         fetchCustomTemplates();
+        showSuccess('Template saved');
+      } else {
+        showError('Failed to save template');
       }
     } catch (err) {
       console.error('Save template failed:', err);
+      showError('Failed to save template');
     } finally {
       setSaving(false);
     }
@@ -177,10 +183,16 @@ export default function TemplatesPage() {
 
   const deleteTemplate = async (id: string) => {
     try {
-      await fetch(`/api/templates?id=${id}`, { method: 'DELETE' });
-      fetchCustomTemplates();
+      const res = await fetch(`/api/templates?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchCustomTemplates();
+        showSuccess('Template deleted');
+      } else {
+        showError('Failed to delete template');
+      }
     } catch (err) {
       console.error('Delete template failed:', err);
+      showError('Failed to delete template');
     }
   };
 

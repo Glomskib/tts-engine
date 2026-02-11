@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Users, UserPlus, Mail, Trash2, RefreshCw } from 'lucide-react';
+import { SkeletonContent } from '@/components/ui/Skeleton';
 
 interface Editor {
   id: string;
@@ -170,7 +171,7 @@ export default function ClientManagementPage() {
           </div>
 
           {loading ? (
-            <p className="text-zinc-400">Loading...</p>
+            <SkeletonContent rows={4} />
           ) : editors.length === 0 ? (
             <div className="text-center py-8 bg-zinc-900 rounded-lg border border-zinc-800">
               <Users className="w-10 h-10 text-zinc-600 mx-auto mb-2" />

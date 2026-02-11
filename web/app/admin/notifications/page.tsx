@@ -8,7 +8,8 @@ import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { Skeleton, SkeletonAuthCheck } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Notification {
   id: string;
@@ -104,6 +105,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [markingIds, setMarkingIds] = useState<Set<string>>(new Set());
+  const { showSuccess } = useToast();
 
   // Fetch authenticated user
   useEffect(() => {
@@ -205,6 +207,7 @@ export default function NotificationsPage() {
         prev.map(n => ({ ...n, is_read: true, read: true, read_at: n.read_at || new Date().toISOString() }))
       );
       setUnreadCount(0);
+      showSuccess('All notifications marked as read');
     } catch (err) {
       console.error('Failed to mark all as read:', err);
     }
@@ -212,7 +215,7 @@ export default function NotificationsPage() {
 
   // Loading states
   if (authLoading) {
-    return <div className="py-10 text-center text-zinc-500">Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!authUser) {

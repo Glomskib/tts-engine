@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Check, X, TrendingUp, Video, Eye, Heart } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { SkeletonCard, SkeletonPageHeader } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface TikTokAccount {
   id: string;
@@ -26,6 +28,7 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<TikTokAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewForm, setShowNewForm] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -67,9 +70,13 @@ export default function AccountsPage() {
         setAccounts([...accounts, data.data]);
         setShowNewForm(false);
         resetForm();
+        showSuccess('Account saved');
+      } else {
+        showError('Failed to save account');
       }
     } catch (error) {
       console.error('Failed to create account:', error);
+      showError('Failed to save account');
     }
   };
 
@@ -83,9 +90,13 @@ export default function AccountsPage() {
       const data = await res.json();
       if (data.ok) {
         setAccounts(accounts.map(a => a.id === id ? data.data : a));
+        showSuccess('Account saved');
+      } else {
+        showError('Failed to save account');
       }
     } catch (error) {
       console.error('Failed to update account:', error);
+      showError('Failed to save account');
     }
   };
 
@@ -95,9 +106,13 @@ export default function AccountsPage() {
       const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setAccounts(accounts.filter(a => a.id !== id));
+        showSuccess('Account deleted');
+      } else {
+        showError('Failed to delete account');
       }
     } catch (error) {
       console.error('Failed to delete account:', error);
+      showError('Failed to delete account');
     }
   };
 
@@ -135,10 +150,10 @@ export default function AccountsPage() {
   if (loading) {
     return (
       <div className="px-4 py-6 space-y-4">
-        <div className="h-8 w-48 bg-zinc-800 rounded animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-40 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
+        <SkeletonPageHeader />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({length:6}).map((_,i) => (
+            <SkeletonCard key={i} />
           ))}
         </div>
       </div>

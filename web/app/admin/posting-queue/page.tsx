@@ -7,6 +7,7 @@ import {
   Filter, RefreshCw
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { SkeletonVideoList } from '@/components/ui/Skeleton';
 
 interface QueueItem {
   id: string;
@@ -387,11 +388,7 @@ export default function PostingQueuePage() {
 
         {/* Loading */}
         {loading && (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
-            ))}
-          </div>
+          <SkeletonVideoList count={5} />
         )}
       </div>
     </PullToRefresh>

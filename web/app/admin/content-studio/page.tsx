@@ -8,6 +8,7 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
+import { useToast } from '@/contexts/ToastContext';
 import {
   Megaphone,
   Search,
@@ -274,6 +275,7 @@ export default function ContentStudioPage() {
   // Credits state
   const { hasCredits, refetch: refetchCredits } = useCredits();
   const noCreditsModal = useNoCreditsModal();
+  const { showSuccess, showError } = useToast();
 
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
@@ -953,6 +955,7 @@ export default function ContentStudioPage() {
         setSavedToLibrary(true);
         setSaveModalOpen(false);
         setTimeout(() => setSavedToLibrary(false), 3000);
+        showSuccess('Script saved to library');
 
         // Auto-add to Winners Bank if AI score >= 8
         const currentAiScore = result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score;
@@ -990,6 +993,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Failed to save:', err);
+      showError('Failed to save script');
     } finally {
       setSavingToLibrary(false);
     }

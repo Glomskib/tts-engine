@@ -29,6 +29,7 @@ import { useHydrated } from '@/lib/useHydrated';
 import type { Winner } from '@/lib/winners';
 import { HOOK_TYPE_OPTIONS, CONTENT_FORMAT_OPTIONS } from '@/lib/winners';
 import { WinnerCard } from '@/components/WinnerCard';
+import { useToast } from '@/contexts/ToastContext';
 
 const WinnerDetailModal = dynamic(() => import('@/components/WinnerDetailModal').then(m => ({ default: m.WinnerDetailModal })), { ssr: false });
 const MarkAsWinnerModal = dynamic(() => import('@/components/MarkAsWinnerModal').then(m => ({ default: m.MarkAsWinnerModal })), { ssr: false });
@@ -82,6 +83,7 @@ export default function WinnersBankPage() {
   const [quickImportUrl, setQuickImportUrl] = useState('');
   const [quickImporting, setQuickImporting] = useState(false);
   const [quickImportSuccess, setQuickImportSuccess] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   // Generate Like This state
   const [generateLikeModal, setGenerateLikeModal] = useState<{
@@ -164,9 +166,13 @@ export default function WinnersBankPage() {
       if (res.ok) {
         setWinners(prev => prev.filter(w => w.id !== id));
         setSelectedWinner(null);
+        showSuccess('Winner deleted');
+      } else {
+        showError('Failed to delete winner');
       }
     } catch (err) {
       console.error('Failed to delete winner:', err);
+      showError('Failed to delete winner');
     }
   };
 
@@ -950,6 +956,7 @@ export default function WinnersBankPage() {
         onSuccess={() => {
           fetchWinners();
           setShowAddExternal(false);
+          showSuccess('Winner saved');
         }}
       />
 

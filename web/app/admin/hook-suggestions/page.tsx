@@ -7,6 +7,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '../components/ApiErrorPanel';
+import { SkeletonContent } from '@/components/ui/Skeleton';
 
 interface AuthUser {
   id: string;
@@ -220,7 +221,7 @@ export default function HookSuggestionsPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-zinc-400">Checking admin access...</div>
+        <SkeletonContent rows={5} />
       </div>
     );
   }

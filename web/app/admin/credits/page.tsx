@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useCredits } from '@/hooks/useCredits';
 import { Coins, Zap, TrendingUp, Package, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { SkeletonForm } from '@/components/ui/Skeleton';
 
 interface CreditPackage {
   id: string;
@@ -123,7 +124,7 @@ export default function CreditsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-zinc-500">Loading...</div>
+        <SkeletonForm fields={3} />
       </div>
     );
   }

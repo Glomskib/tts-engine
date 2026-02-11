@@ -8,6 +8,7 @@ import {
 import Link from 'next/link';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/contexts/ToastContext';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 
 interface Client {
   id: string;
@@ -182,12 +183,9 @@ export default function ClientsPage() {
 
         {/* Client List */}
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 animate-pulse">
-                <div className="h-5 bg-zinc-800 rounded w-1/3 mb-2" />
-                <div className="h-4 bg-zinc-800 rounded w-1/2" />
-              </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({length:6}).map((_,i) => (
+              <SkeletonCard key={i} />
             ))}
           </div>
         ) : filteredClients.length === 0 ? (

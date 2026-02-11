@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 import { patchJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import ApiErrorPanel from '../components/ApiErrorPanel';
+import { SkeletonAuthCheck, SkeletonTable } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface PainPoint {
   point: string;
@@ -106,6 +108,7 @@ export default function ProductsPage() {
   // Sort state
   const [sortBy, setSortBy] = useState<'name' | 'brand' | 'posted' | 'this_month' | 'in_queue'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const { showSuccess, showError } = useToast();
 
   // Fetch auth user
   useEffect(() => {
@@ -375,6 +378,7 @@ export default function ProductsPage() {
 
     if (isApiError(result)) {
       setSaveError(result);
+      showError('Failed to update product');
       return;
     }
 
@@ -383,6 +387,7 @@ export default function ProductsPage() {
       prev.map(p => p.id === editingProduct.id ? { ...p, ...result.data } : p)
     );
 
+    showSuccess('Product updated');
     handleCloseDrawer();
   };
 
@@ -513,7 +518,7 @@ export default function ProductsPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <div className="text-zinc-500">Checking access...</div>
+        <SkeletonAuthCheck />
       </div>
     );
   }
@@ -694,7 +699,7 @@ export default function ProductsPage() {
 
       <AdminCard noPadding>
         {loading ? (
-          <div className="p-8 text-center text-zinc-400">Loading product statistics...</div>
+          <SkeletonTable rows={5} cols={5} />
         ) : filteredProducts.length === 0 ? (
           <EmptyState
             title={productStats.length === 0 ? "No products yet" : "No matches"}

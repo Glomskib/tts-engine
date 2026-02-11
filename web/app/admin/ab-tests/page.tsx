@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FlaskConical, Plus, Trophy, Archive, Clock, ChevronDown, Eye, Heart, Share2, BarChart, DollarSign } from 'lucide-react';
+import { SkeletonCard } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ABTest {
   id: string;
@@ -62,6 +64,7 @@ export default function ABTestsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('active');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const { showSuccess, showError } = useToast();
 
   // Create modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -117,6 +120,7 @@ export default function ABTestsPage() {
       });
       if (res.ok) {
         showToast('Test created');
+        showSuccess('A/B test created');
         setShowCreateModal(false);
         setCreateName('');
         setCreateHypothesis('');
@@ -124,9 +128,11 @@ export default function ABTestsPage() {
       } else {
         const data = await res.json().catch(() => ({}));
         showToast(data.message || 'Failed to create test', 'error');
+        showError(data.message || 'Failed to create test');
       }
     } catch {
       showToast('Network error', 'error');
+      showError('Failed to create test');
     } finally {
       setCreating(false);
     }
@@ -232,9 +238,9 @@ export default function ABTestsPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-32 rounded-xl bg-zinc-900 border border-white/5 animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Array.from({length:4}).map((_,i) => (
+            <SkeletonCard key={i} />
           ))}
         </div>
       ) : tests.length === 0 ? (

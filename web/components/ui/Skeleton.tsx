@@ -169,6 +169,80 @@ export function SkeletonNotification({ className = '' }: { className?: string })
   );
 }
 
+// Full page skeleton for initial data loads
+export function SkeletonPage({ className = '' }: { className?: string }) {
+  return (
+    <div className={`space-y-6 ${className}`}>
+      <SkeletonPageHeader />
+      <SkeletonStats count={4} />
+      <SkeletonTable rows={5} cols={4} />
+    </div>
+  );
+}
+
+// Auth checking skeleton — replaces "Checking access..." text
+export function SkeletonAuthCheck({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center min-h-[60vh] ${className}`}>
+      <div className="flex items-center gap-3 text-zinc-500">
+        <div className="w-5 h-5 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
+        <span className="text-sm">Verifying access...</span>
+      </div>
+    </div>
+  );
+}
+
+// Content loading skeleton — replaces "Loading..." text in cards
+export function SkeletonContent({ rows = 3, className = '' }: { rows?: number; className?: string }) {
+  return (
+    <div className={`p-6 space-y-3 ${className}`}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-3 items-center">
+          <Skeleton variant="circular" width={40} height={40} />
+          <div className="flex-1 space-y-2">
+            <Skeleton height={14} width={`${70 - i * 10}%`} />
+            <Skeleton height={12} width={`${50 - i * 5}%`} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Chart skeleton
+export function SkeletonChart({ height = 300, className = '' }: { height?: number; className?: string }) {
+  return (
+    <div className={`rounded-xl border border-white/10 bg-zinc-900/30 p-6 ${className}`}>
+      <Skeleton height={16} width="30%" className="mb-4" />
+      <div className="flex items-end gap-2" style={{ height }}>
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            width="100%"
+            height={`${20 + Math.random() * 80}%`}
+            className="flex-1 rounded-t"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Form skeleton
+export function SkeletonForm({ fields = 4, className = '' }: { fields?: number; className?: string }) {
+  return (
+    <div className={`space-y-5 ${className}`}>
+      {Array.from({ length: fields }).map((_, i) => (
+        <div key={i}>
+          <Skeleton height={14} width={`${20 + Math.random() * 20}%`} className="mb-2" />
+          <Skeleton height={48} width="100%" className="rounded-xl" />
+        </div>
+      ))}
+      <Skeleton height={44} width={120} className="rounded-xl mt-4" />
+    </div>
+  );
+}
+
 // Winner card skeleton
 export function SkeletonWinnerCard({ className = '' }: { className?: string }) {
   return (

@@ -6,6 +6,7 @@ import {
   ArrowUpRight, Video, Percent
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { SkeletonStats, SkeletonChart } from '@/components/ui/Skeleton';
 
 interface Summary {
   total_revenue: number;
@@ -141,11 +142,7 @@ export default function RevenuePage() {
 
         {/* Summary Cards */}
         {loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-24 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
-            ))}
-          </div>
+          <><SkeletonStats count={4} /><SkeletonChart /></>
         ) : summary && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">

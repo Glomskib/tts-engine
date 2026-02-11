@@ -7,6 +7,7 @@ import {
   Package, Sparkles, Users, Video, Trophy, Check, ArrowRight, ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
+import { SkeletonPage } from '@/components/ui/Skeleton';
 
 interface OnboardingStep {
   id: string;
@@ -113,7 +114,7 @@ export default function OnboardingPage() {
   const Icon = step.icon;
 
   if (checking) {
-    return <div style={{ padding: '40px', textAlign: 'center', color: '#a1a1aa' }}>Loading...</div>;
+    return <div style={{ padding: '40px' }}><SkeletonPage /></div>;
   }
 
   return (

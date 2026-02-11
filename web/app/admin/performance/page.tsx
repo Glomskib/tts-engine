@@ -6,6 +6,7 @@ import {
   Clock, AlertTriangle,
   TrendingUp, Users, Video, RefreshCw, ArrowRight
 } from 'lucide-react';
+import { SkeletonStats, SkeletonChart } from '@/components/ui/Skeleton';
 
 interface PerformanceStats {
   totalVideos: number;
@@ -119,16 +120,9 @@ export default function PerformancePage() {
 
   if (loading) {
     return (
-      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 w-48 bg-zinc-800 rounded" />
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="h-28 bg-zinc-800/50 rounded-xl" />
-            ))}
-          </div>
-          <div className="h-40 bg-zinc-800/50 rounded-xl" />
-        </div>
+      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonChart />
       </div>
     );
   }

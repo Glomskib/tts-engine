@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { SkeletonTable } from '@/components/ui/Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Hashtag {
   id: string;
@@ -71,6 +73,7 @@ export default function TrendsPage() {
   const [addCreator, setAddCreator] = useState('');
   const [addNotes, setAddNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -122,7 +125,13 @@ export default function TrendsPage() {
         resetForm();
         setShowAdd(false);
         fetchData();
+        showSuccess('Trend saved');
+      } else {
+        showError('Failed to save trend');
       }
+    } catch (err) {
+      console.error('Failed to save trend:', err);
+      showError('Failed to save trend');
     } finally {
       setSaving(false);
     }
@@ -130,8 +139,18 @@ export default function TrendsPage() {
 
   const handleDelete = async (id: string, type: 'hashtag' | 'sound') => {
     if (!confirm('Delete this item?')) return;
-    await fetch(`/api/trends?id=${id}&type=${type}`, { method: 'DELETE' });
-    fetchData();
+    try {
+      const res = await fetch(`/api/trends?id=${id}&type=${type}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+        showSuccess('Trend deleted');
+      } else {
+        showError('Failed to delete trend');
+      }
+    } catch (err) {
+      console.error('Failed to delete trend:', err);
+      showError('Failed to delete trend');
+    }
   };
 
   const resetForm = () => {
@@ -176,11 +195,7 @@ export default function TrendsPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse" />
-            ))}
-          </div>
+          <SkeletonTable rows={5} cols={4} />
         ) : tab === 'hashtags' ? (
           hashtags.length === 0 ? (
             <div className="text-center py-16">

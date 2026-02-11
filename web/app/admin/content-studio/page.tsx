@@ -394,6 +394,13 @@ export default function ContentStudioPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Quick Generate state
+  const [showQuickGenerate, setShowQuickGenerate] = useState(false);
+  const [quickGenProductId, setQuickGenProductId] = useState('');
+  const [quickGenBatchMode, setQuickGenBatchMode] = useState(false);
+  const [quickGenSelectedPresets, setQuickGenSelectedPresets] = useState<string[]>([]);
+  const [quickGenerating, setQuickGenerating] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // --- Computed Values ---
@@ -1218,6 +1225,129 @@ export default function ContentStudioPage() {
     minHeight: '48px',
   };
 
+  // --- Quick Generate Presets ---
+  const QUICK_PRESETS = [
+    {
+      name: 'Trending Hook',
+      config: {
+        content_type_id: 'tof', subtype: 'hook_teaser', presentation: 'talking_head',
+        target_length: 'short', humor: 'light', risk_tier: 'BALANCED' as RiskTier,
+        creative_direction: 'Start with a trending hook pattern, showcase product benefits, end with strong CTA',
+      },
+    },
+    {
+      name: 'Pain Point Skit',
+      config: {
+        content_type_id: 'skit', subtype: 'dialogue_skit', presentation: 'human_actor',
+        target_length: 'medium', humor: 'moderate', risk_tier: 'BALANCED' as RiskTier,
+        creative_direction: 'Open with relatable pain point, comedic escalation, product saves the day',
+      },
+    },
+    {
+      name: 'Before/After',
+      config: {
+        content_type_id: 'testimonial', subtype: 'before_after', presentation: 'ugc_style',
+        target_length: 'short', humor: 'none', risk_tier: 'SAFE' as RiskTier,
+        creative_direction: 'Show the problem state, dramatic transition moment, amazing result with product',
+      },
+    },
+    {
+      name: 'Testimonial',
+      config: {
+        content_type_id: 'testimonial', subtype: 'customer_story', presentation: 'ugc_style',
+        target_length: 'short', humor: 'none', risk_tier: 'SAFE' as RiskTier,
+        creative_direction: 'Real customer voice, specific results, emotional transformation story',
+      },
+    },
+    {
+      name: 'Unboxing',
+      config: {
+        content_type_id: 'tof', subtype: 'viral_moment', presentation: 'ugc_style',
+        target_length: 'micro', humor: 'light', risk_tier: 'SAFE' as RiskTier,
+        creative_direction: 'Genuine first reaction, highlight packaging and product quality, shareworthy moment',
+      },
+    },
+    {
+      name: 'Day in Life',
+      config: {
+        content_type_id: 'story', subtype: 'personal_story', presentation: 'voiceover',
+        target_length: 'medium', humor: 'light', risk_tier: 'SAFE' as RiskTier,
+        creative_direction: 'Morning routine or daily life, natural product integration, aspirational lifestyle',
+      },
+    },
+  ];
+
+  const handleQuickGenerate = async (preset: typeof QUICK_PRESETS[0]) => {
+    const productId = quickGenProductId || selectedProductId;
+    if (!productId) {
+      showError('Select a product first');
+      return;
+    }
+    if (!hasCredits) { noCreditsModal.open(); return; }
+
+    setQuickGenerating(true);
+    setError(null);
+    setResult(null);
+
+    const actorTypeMap: Record<string, string> = {
+      'talking_head': 'human', 'human_actor': 'human', 'ai_avatar': 'ai_avatar',
+      'voiceover': 'voiceover', 'text_overlay': 'voiceover', 'ugc_style': 'human', 'mixed': 'mixed',
+    };
+    const durationMap: Record<string, string> = {
+      'micro': 'quick', 'short': 'quick', 'medium': 'standard', 'long': 'extended',
+    };
+    const intensityMap: Record<string, number> = { 'none': 10, 'light': 30, 'moderate': 50, 'heavy': 80 };
+
+    try {
+      const resp = await postJson<GenerationResult>('/api/skits/generate', {
+        product_id: productId,
+        content_type_id: preset.config.content_type_id,
+        content_subtype_id: preset.config.subtype,
+        content_format: preset.config.content_type_id === 'skit' ? 'skit_dialogue' : 'pov_story',
+        actor_type: actorTypeMap[preset.config.presentation] || 'human',
+        target_duration: durationMap[preset.config.target_length] || 'standard',
+        intensity: intensityMap[preset.config.humor] || 30,
+        chaos_level: intensityMap[preset.config.humor] || 30,
+        risk_tier: preset.config.risk_tier,
+        persona: 'NONE',
+        variation_count: 1,
+        creative_direction: preset.config.creative_direction,
+      });
+      if (isApiError(resp)) {
+        setError(resp);
+      } else {
+        setResult(resp);
+        showSuccess(`Generated "${preset.name}" script!`);
+        refetchCredits();
+      }
+    } catch {
+      showError('Generation failed');
+    } finally {
+      setQuickGenerating(false);
+    }
+  };
+
+  const handleBatchQuickGenerate = async () => {
+    const productId = quickGenProductId || selectedProductId;
+    if (!productId || quickGenSelectedPresets.length === 0) return;
+
+    setQuickGenerating(true);
+    let successCount = 0;
+    for (const presetName of quickGenSelectedPresets) {
+      const preset = QUICK_PRESETS.find(p => p.name === presetName);
+      if (preset) {
+        await handleQuickGenerate(preset);
+        successCount++;
+      }
+    }
+    setQuickGenerating(false);
+    if (successCount > 0) {
+      showSuccess(`Batch generated ${successCount} scripts!`);
+    }
+    setQuickGenBatchMode(false);
+    setQuickGenSelectedPresets([]);
+  };
+
   // --- Loading state ---
   if (authLoading) {
     return (
@@ -1319,6 +1449,113 @@ export default function ContentStudioPage() {
           </div>
         </div>
       )}
+
+      {/* Quick Generate Panel (Presets) */}
+      <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
+        <div style={{
+          padding: '16px',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.08))',
+          border: '1px solid rgba(16, 185, 129, 0.2)',
+          borderRadius: '14px',
+        }}>
+          <button
+            type="button"
+            onClick={() => setShowQuickGenerate(!showQuickGenerate)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Zap size={16} className="text-emerald-400" />
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Quick Generate — One-Click Presets
+              </span>
+            </div>
+            {showQuickGenerate ? <ChevronUp size={16} className="text-zinc-400" /> : <ChevronDown size={16} className="text-zinc-400" />}
+          </button>
+          {showQuickGenerate && (
+            <div className="mt-4 space-y-4">
+              {/* Product selector for quick generate */}
+              {products.length > 0 && (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <select
+                    value={quickGenProductId}
+                    onChange={(e) => setQuickGenProductId(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm"
+                  >
+                    <option value="">Select product...</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.brand} — {p.name}</option>
+                    ))}
+                  </select>
+                  {quickGenBatchMode && (
+                    <span className="text-xs text-amber-400 flex items-center gap-1">
+                      <AlertTriangle size={12} />
+                      Batch: generates {quickGenSelectedPresets.length} scripts
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Preset buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {QUICK_PRESETS.map((preset) => {
+                  const isSelected = quickGenBatchMode && quickGenSelectedPresets.includes(preset.name);
+                  return (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        if (quickGenBatchMode) {
+                          setQuickGenSelectedPresets(prev =>
+                            prev.includes(preset.name) ? prev.filter(n => n !== preset.name) : [...prev, preset.name]
+                          );
+                        } else {
+                          handleQuickGenerate(preset);
+                        }
+                      }}
+                      disabled={quickGenerating}
+                      className={`px-3 py-3 rounded-lg text-xs font-medium transition-all text-left ${
+                        isSelected
+                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                          : 'bg-zinc-800/80 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/80 hover:text-white'
+                      } border`}
+                    >
+                      <div className="font-semibold mb-1">{preset.name}</div>
+                      <div className="text-[10px] text-zinc-500">{preset.config.creative_direction.slice(0, 50)}...</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Batch mode toggle + generate */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickGenBatchMode(!quickGenBatchMode);
+                    setQuickGenSelectedPresets([]);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    quickGenBatchMode
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {quickGenBatchMode ? 'Cancel Batch' : 'Generate Batch'}
+                </button>
+                {quickGenBatchMode && quickGenSelectedPresets.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBatchQuickGenerate}
+                    disabled={!quickGenProductId || quickGenerating}
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {quickGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                    Generate {quickGenSelectedPresets.length} Scripts
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Content Type Filter Bar */}
       <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">

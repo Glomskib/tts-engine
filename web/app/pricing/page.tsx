@@ -103,6 +103,29 @@ export default function PricingPage() {
             </p>
           </div>
 
+          {/* Trust signals */}
+          <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 mb-12 text-center">
+            <div>
+              <div className="text-xl font-bold text-white">10,000+</div>
+              <div className="text-xs text-zinc-500">Scripts Generated</div>
+            </div>
+            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
+            <div>
+              <div className="text-xl font-bold text-white">500+</div>
+              <div className="text-xs text-zinc-500">Active Creators</div>
+            </div>
+            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
+            <div>
+              <div className="text-xl font-bold text-white">No card</div>
+              <div className="text-xs text-zinc-500">Required to start</div>
+            </div>
+            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
+            <div>
+              <div className="text-xl font-bold text-white">Cancel</div>
+              <div className="text-xs text-zinc-500">Anytime, no lock-in</div>
+            </div>
+          </div>
+
           {/* Plan Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-16">
             {PLANS_LIST.map((plan) => {

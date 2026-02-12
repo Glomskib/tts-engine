@@ -513,6 +513,35 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Testimonials</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Creators love FlashFlow
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-6">
+            <TestimonialCard
+              quote="I went from one video a week to four. The script generator nails hooks I would never think of on my own."
+              name="Jenna M."
+              role="TikTok Shop Creator"
+            />
+            <TestimonialCard
+              quote="Our agency manages 12 creator accounts. FlashFlow cut our script turnaround from 2 days to 20 minutes."
+              name="Mark R."
+              role="Agency Founder"
+            />
+            <TestimonialCard
+              quote="The persona presets are wild. I can match any brand voice in seconds. My clients think I have a writing team."
+              name="Dani K."
+              role="UGC Creator"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section className="relative py-24 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto">
@@ -654,6 +683,18 @@ function AudienceCard({ title, description }: { title: string; description: stri
     <div className="p-6 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
       <h3 className="text-lg font-semibold text-zinc-200 mb-2">{title}</h3>
       <p className="text-zinc-500 text-sm leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function TestimonialCard({ quote, name, role }: { quote: string; name: string; role: string }) {
+  return (
+    <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5">
+      <p className="text-zinc-300 leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
+      <div>
+        <p className="font-medium text-white text-sm">{name}</p>
+        <p className="text-xs text-zinc-500">{role}</p>
+      </div>
     </div>
   );
 }

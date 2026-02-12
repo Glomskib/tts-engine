@@ -36,10 +36,17 @@ export async function shotstackRequest(path: string, options: RequestInit = {}) 
   return response.json();
 }
 
-export async function renderVideo(timeline: object) {
+const DEFAULT_OUTPUT = {
+  format: 'mp4',
+  resolution: 'sd',
+  aspectRatio: '9:16',
+  fps: 30,
+};
+
+export async function renderVideo(timeline: object, output: object = DEFAULT_OUTPUT) {
   return shotstackRequest('/render', {
     method: 'POST',
-    body: JSON.stringify({ timeline }),
+    body: JSON.stringify({ timeline, output }),
   });
 }
 

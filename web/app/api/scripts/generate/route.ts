@@ -430,18 +430,29 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
       throw new Error("Invalid script format returned from AI");
     }
 
+    // Get next version number for this concept
+    const { data: maxVersionRow } = await supabaseAdmin
+      .from("scripts")
+      .select("version")
+      .eq("concept_id", concept_id.trim())
+      .order("version", { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextVersion = (maxVersionRow?.version ?? 0) + 1;
+
     // Insert script into database using existing schema columns
     const insertPayload: Record<string, unknown> = {
       concept_id: concept_id.trim(),
-      on_screen_text: Array.isArray(generatedScript.on_screen_text) 
-        ? generatedScript.on_screen_text.join(" | ") 
+      on_screen_text: Array.isArray(generatedScript.on_screen_text)
+        ? generatedScript.on_screen_text.join(" | ")
         : String(generatedScript.on_screen_text || ""),
       caption: String(generatedScript.caption || "Generated caption"),
-      hashtags: Array.isArray(generatedScript.hashtags) 
-        ? generatedScript.hashtags.join(" ") 
+      hashtags: Array.isArray(generatedScript.hashtags)
+        ? generatedScript.hashtags.join(" ")
         : String(generatedScript.hashtags || "#content"),
       cta: String(generatedScript.cta || "Check it out!"),
-      version: 1, // Required NOT NULL column
+      version: nextVersion,
       spoken_script: String(generatedScript.script_v1 || "Generated script"), // Required NOT NULL column
     };
 

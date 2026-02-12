@@ -12,3 +12,4 @@ supabase/.temp
 # Windows reserved filenames (can't be deleted)
 nul
 
+.env*.local

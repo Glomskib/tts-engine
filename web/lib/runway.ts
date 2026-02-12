@@ -1,7 +1,7 @@
 const RUNWAY_BASE_URL = 'https://api.dev.runwayml.com';
 const RUNWAY_API_VERSION = '2024-11-06';
 
-export type RunwayModel = 'gen4_turbo' | 'gen3a_turbo';
+export type RunwayModel = 'gen3a_turbo' | 'gen4.5' | 'veo3' | 'veo3.1' | 'veo3.1_fast';
 
 export function getRunwayConfig() {
   const apiKey = process.env.RUNWAY_API_KEY;
@@ -33,7 +33,7 @@ export async function runwayRequest(path: string, options: RequestInit = {}) {
 
 export async function createTextToVideo(
   prompt: string,
-  model: RunwayModel = 'gen4_turbo',
+  model: RunwayModel = 'gen3a_turbo',
   duration?: number
 ) {
   const body: Record<string, unknown> = {
@@ -51,7 +51,7 @@ export async function createTextToVideo(
 export async function createImageToVideo(
   imageUrl: string,
   prompt: string,
-  model: RunwayModel = 'gen4_turbo',
+  model: RunwayModel = 'gen3a_turbo',
   duration?: number
 ) {
   const body: Record<string, unknown> = {

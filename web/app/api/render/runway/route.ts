@@ -12,7 +12,7 @@ const VALID_RATIOS = ["1280:720", "720:1280", "1104:832", "832:1104", "960:960",
 const RunwaySchema = z.object({
   promptText: z.string().min(1).max(2000),
   promptImageUrl: z.string().url().optional(),
-  model: z.string().optional().default("gen4_turbo"),
+  model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional().default("gen3a_turbo"),
   duration: z.enum(["5", "10"]).optional().default("10"),
   ratio: z.enum(VALID_RATIOS).optional().default("720:1280"),
 });

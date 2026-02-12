@@ -20,7 +20,7 @@ const runwayRequestSchema = z.object({
   provider: z.literal("runway"),
   prompt: z.string().min(1).max(2000),
   imageUrl: z.string().url().optional(),
-  model: z.enum(["gen4_turbo", "gen3a_turbo"]).optional(),
+  model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional(),
   duration: z.number().min(5).max(10).optional(),
 });
 
@@ -52,7 +52,7 @@ async function executeShotstackRequest(
 async function executeRunwayRequest(
   req: z.infer<typeof runwayRequestSchema>
 ): Promise<{ provider: "runway"; task_id: string }> {
-  const model: RunwayModel = req.model ?? "gen4_turbo";
+  const model: RunwayModel = req.model ?? "gen3a_turbo";
   let result;
   if (req.imageUrl) {
     result = await createImageToVideo(req.imageUrl, req.prompt, model, req.duration);

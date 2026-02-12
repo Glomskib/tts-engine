@@ -11,7 +11,7 @@ import { requireCredits } from "@/lib/credits";
 import { getProductEnrichment, buildEnrichedProductContext } from "@/lib/ai/productEnrichmentHelper";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // --- Input Validation Schema ---
 

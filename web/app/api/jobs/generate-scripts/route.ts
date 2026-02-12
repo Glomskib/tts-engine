@@ -14,7 +14,7 @@ import { generateCorrelationId } from "@/lib/api-errors";
 import { notifyPipelineTransition } from "@/lib/pipeline-notifications";
 
 export const runtime = "nodejs";
-export const maxDuration = 120; // Allow up to 2 minutes for batch processing
+export const maxDuration = 300; // Allow up to 5 minutes for batch processing
 
 // Safe JSON parser (same as scripts/generate)
 function safeParseJSON(content: string): { success: boolean; data: Record<string, unknown> } {

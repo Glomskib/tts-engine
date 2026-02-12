@@ -12,7 +12,7 @@ import { processEmailQueue } from '@/lib/email/scheduler';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   // Verify cron secret to prevent unauthorized access

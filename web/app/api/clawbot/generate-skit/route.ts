@@ -17,7 +17,7 @@ import {
 import type { StrategyRequest, StrategyResponse } from "@/lib/clawbot";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();

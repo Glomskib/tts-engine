@@ -47,3 +47,73 @@ export async function renderVideo(timeline: object) {
 export async function getRenderStatus(renderId: string) {
   return shotstackRequest(`/render/${renderId}`);
 }
+
+/**
+ * Build a simple timeline from high-level params and submit a render.
+ * Bolt can call this instead of constructing raw Shotstack timelines.
+ */
+export async function createSimpleRender(params: {
+  imageUrl?: string;
+  text?: string;
+  duration?: number;
+  background?: string;
+}) {
+  const duration = params.duration ?? 5;
+  const clips: object[] = [];
+
+  // Background color clip
+  if (params.background) {
+    clips.push({
+      asset: {
+        type: 'html',
+        html: `<div style="width:100%;height:100%;background:${params.background}"></div>`,
+        width: 1080,
+        height: 1920,
+      },
+      start: 0,
+      length: duration,
+    });
+  }
+
+  // Image clip
+  if (params.imageUrl) {
+    clips.push({
+      asset: {
+        type: 'image',
+        src: params.imageUrl,
+      },
+      start: 0,
+      length: duration,
+      fit: 'contain',
+      position: 'center',
+    });
+  }
+
+  // Text overlay
+  if (params.text) {
+    clips.push({
+      asset: {
+        type: 'html',
+        html: `<div style="font-family:Arial;font-size:48px;color:#fff;text-align:center;padding:40px;text-shadow:2px 2px 4px rgba(0,0,0,0.8)">${params.text}</div>`,
+        width: 1080,
+        height: 400,
+      },
+      start: 0,
+      length: duration,
+      position: 'bottom',
+      offset: { y: 0.1 },
+    });
+  }
+
+  // Need at least one clip
+  if (clips.length === 0) {
+    throw new Error('At least one of imageUrl, text, or background is required');
+  }
+
+  const timeline = {
+    background: params.background || '#000000',
+    tracks: [{ clips }],
+  };
+
+  return renderVideo(timeline);
+}

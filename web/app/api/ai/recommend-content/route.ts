@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 interface Recommendation {
   id: string;

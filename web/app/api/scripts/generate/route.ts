@@ -6,6 +6,7 @@ import { enforceRateLimits } from '@/lib/rate-limit';
 import { generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 interface GeneratedScriptContent {
   spoken_hook?: string;
@@ -300,28 +301,43 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
     let generatedScript: GeneratedScriptContent = {};
 
     if (anthropicKey) {
-      // Use Anthropic Claude
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 3000,
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-        }),
-      });
+      // Use Anthropic Claude — 120s timeout (Vercel Pro allows 300s)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120_000);
+
+      let response: Response;
+      try {
+        response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": anthropicKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 3000,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+          }),
+          signal: controller.signal,
+        });
+      } catch (err: unknown) {
+        clearTimeout(timeout);
+        if (err instanceof Error && err.name === "AbortError") {
+          throw new Error("Anthropic API timed out after 120 seconds");
+        }
+        throw err;
+      }
+      clearTimeout(timeout);
 
       if (!response.ok) {
-        throw new Error(`Anthropic API error: ${response.status}`);
+        const errorBody = await response.text().catch(() => "");
+        throw new Error(`Anthropic API error: ${response.status} ${errorBody}`);
       }
 
       const anthropicResult = await response.json();
@@ -347,28 +363,43 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
       generatedScript = parseResult.data;
 
     } else if (openaiKey) {
-      // Use OpenAI
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          max_tokens: 3000,
-          temperature: 0.7,
-        }),
-      });
+      // Use OpenAI — 120s timeout (Vercel Pro allows 300s)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120_000);
+
+      let response: Response;
+      try {
+        response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            max_tokens: 3000,
+            temperature: 0.7,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err: unknown) {
+        clearTimeout(timeout);
+        if (err instanceof Error && err.name === "AbortError") {
+          throw new Error("OpenAI API timed out after 120 seconds");
+        }
+        throw err;
+      }
+      clearTimeout(timeout);
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const errorBody = await response.text().catch(() => "");
+        throw new Error(`OpenAI API error: ${response.status} ${errorBody}`);
       }
 
       const openaiResult = await response.json();

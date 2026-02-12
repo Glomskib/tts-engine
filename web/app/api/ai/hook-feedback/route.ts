@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 interface HookFeedbackInput {
   brand_name: string;

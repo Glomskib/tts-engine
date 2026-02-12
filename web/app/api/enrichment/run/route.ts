@@ -29,7 +29,7 @@ import { runEnrichment } from "@/lib/enrichment";
 export const runtime = "nodejs";
 
 // Allow longer execution for batch processing
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;

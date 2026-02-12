@@ -20,7 +20,7 @@ import {
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const DEBUG = process.env.DEBUG_AI === "true";
 

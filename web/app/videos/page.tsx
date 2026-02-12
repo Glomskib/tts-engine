@@ -60,9 +60,10 @@ export default function VideosPage() {
   if (loading) return <div className="p-5 text-gray-700 dark:text-gray-300">Loading...</div>;
 
   return (
-    <div className="p-5">
+    <div className="p-4 sm:p-5 max-w-full overflow-hidden">
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Videos Ready for Upload</h1>
-      <table className="w-full border-collapse">
+      <div className="overflow-x-auto rounded-lg">
+      <table className="w-full border-collapse min-w-[640px]">
         <thead>
           <tr>
             <th className="border border-gray-300 dark:border-gray-600 p-2 text-left bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">ID</th>
@@ -104,6 +105,7 @@ export default function VideosPage() {
           ))}
         </tbody>
       </table>
+      </div>
       {videos.length === 0 && <p className="mt-4 text-gray-600 dark:text-gray-400">No videos ready for upload.</p>}
     </div>
   );

@@ -98,7 +98,7 @@ export function PublicHeader() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className="block text-sm text-zinc-300 hover:text-white py-2"
+                className="block text-sm text-zinc-300 hover:text-white py-3"
               >
                 {link.name}
               </Link>
@@ -147,12 +147,12 @@ export function PublicFooter() {
               <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
                 {col.title}
               </h4>
-              <ul className="space-y-2">
+              <ul className="space-y-1">
                 {col.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+                      className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors inline-flex items-center min-h-[44px]"
                     >
                       {link.name}
                     </Link>

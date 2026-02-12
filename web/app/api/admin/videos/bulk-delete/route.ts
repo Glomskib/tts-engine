@@ -9,7 +9,7 @@ const MAX_BATCH_SIZE = 50;
 
 /**
  * POST /api/admin/videos/bulk-delete
- * Delete (archive) multiple videos.
+ * Delete (archive) multiple videos atomically via RPC.
  * Body: { video_ids: string[] }
  */
 export async function POST(request: Request) {
@@ -39,33 +39,21 @@ export async function POST(request: Request) {
     return createApiErrorResponse("VALIDATION_ERROR", `Maximum ${MAX_BATCH_SIZE} videos per request`, 400, correlationId);
   }
 
-  // Soft-delete by setting status to ARCHIVED
-  const { data, error } = await supabaseAdmin
-    .from("videos")
-    .update({ status: 'ARCHIVED', last_status_changed_at: new Date().toISOString() })
-    .in("id", video_ids)
-    .select("id");
+  const { data, error } = await supabaseAdmin.rpc("bulk_archive_videos", {
+    p_video_ids: video_ids,
+    p_actor: authContext.user.id,
+    p_correlation_id: correlationId,
+  });
 
   if (error) {
     return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
-  // Log bulk event
-  try {
-    await supabaseAdmin.from("video_events").insert(
-      video_ids.map(vid => ({
-        video_id: vid,
-        event_type: "archived",
-        correlation_id: correlationId,
-        actor: authContext.user!.id,
-        details: { bulk_operation: true },
-      }))
-    );
-  } catch { /* non-fatal */ }
+  const archivedCount = data?.[0]?.archived_count ?? 0;
 
   return NextResponse.json({
     ok: true,
     correlation_id: correlationId,
-    data: { archived: data?.length || 0 },
+    data: { archived: archivedCount },
   });
 }

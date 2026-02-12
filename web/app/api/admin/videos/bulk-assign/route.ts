@@ -9,7 +9,7 @@ const MAX_BATCH_SIZE = 50;
 
 /**
  * POST /api/admin/videos/bulk-assign
- * Assign multiple videos to a user.
+ * Assign multiple videos to a user atomically via RPC.
  * Body: { video_ids: string[], assignee_user_id: string }
  */
 export async function POST(request: Request) {
@@ -42,37 +42,22 @@ export async function POST(request: Request) {
     return createApiErrorResponse("VALIDATION_ERROR", "assignee_user_id is required", 400, correlationId);
   }
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabaseAdmin
-    .from("videos")
-    .update({
-      assigned_to: assignee_user_id,
-      assigned_at: now,
-      assigned_by: authContext.user.id,
-    })
-    .in("id", video_ids)
-    .select("id");
+  const { data, error } = await supabaseAdmin.rpc("bulk_assign_videos", {
+    p_video_ids: video_ids,
+    p_assignee_user_id: assignee_user_id,
+    p_assigned_by: authContext.user.id,
+    p_correlation_id: correlationId,
+  });
 
   if (error) {
     return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
-  // Log bulk event
-  try {
-    await supabaseAdmin.from("video_events").insert(
-      video_ids.map(vid => ({
-        video_id: vid,
-        event_type: "assigned",
-        correlation_id: correlationId,
-        actor: authContext.user!.id,
-        details: { assignee_user_id, bulk_operation: true },
-      }))
-    );
-  } catch { /* non-fatal */ }
+  const assignedCount = data?.[0]?.assigned_count ?? 0;
 
   return NextResponse.json({
     ok: true,
     correlation_id: correlationId,
-    data: { assigned: data?.length || 0, assignee_user_id },
+    data: { assigned: assignedCount, assignee_user_id },
   });
 }

@@ -99,25 +99,27 @@ export async function POST(request: Request) {
 
     const planId = migrateOldPlanId(sub?.plan_id || 'free');
 
-    // Count scripts generated this calendar month
+    // Count scripts generated this calendar month for the user
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const { count: scriptsThisMonth } = await supabaseAdmin
-      .from('scripts')
-      .select('id', { count: 'exact', head: true })
-      .eq('concept_id', '')  // any concept
-      .gte('created_at', monthStart.toISOString());
+    // Get user's concept IDs, then count scripts in those concepts this month
+    const { data: userConcepts } = await supabaseAdmin
+      .from('concepts')
+      .select('id')
+      .eq('user_id', user.id);
 
-    // Fallback: count via a looser query scoped to the user's concepts
-    const { count: userScriptsMonth } = await supabaseAdmin
-      .rpc('count_user_scripts_this_month', { p_user_id: user.id })
-      .single()
-      .then(r => ({ count: r.data as number | null }))
-      .catch(() => ({ count: scriptsThisMonth ?? 0 }));
-
-    const usage = userScriptsMonth ?? scriptsThisMonth ?? 0;
+    const conceptIds = (userConcepts || []).map(c => c.id);
+    let usage = 0;
+    if (conceptIds.length > 0) {
+      const { count } = await supabaseAdmin
+        .from('scripts')
+        .select('id', { count: 'exact', head: true })
+        .in('concept_id', conceptIds)
+        .gte('created_at', monthStart.toISOString());
+      usage = count ?? 0;
+    }
 
     if (!isWithinLimit(planId, 'scriptsPerMonth', usage)) {
       return NextResponse.json(

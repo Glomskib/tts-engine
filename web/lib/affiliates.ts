@@ -143,11 +143,14 @@ export async function recordCommission(
   });
 
   // 5. Update affiliate balance + total earned
-  await supabaseAdmin.rpc('increment_affiliate_balance', {
-    p_affiliate_id: affiliate.id,
-    p_amount: commissionAmount,
-  }).catch(async () => {
-    // Fallback if RPC doesn't exist yet
+  try {
+    const { error: rpcError } = await supabaseAdmin.rpc('increment_affiliate_balance', {
+      p_affiliate_id: affiliate.id,
+      p_amount: commissionAmount,
+    });
+    if (rpcError) throw rpcError;
+  } catch {
+    // Fallback if RPC doesn't exist yet — do manual update
     const { data: acct } = await supabaseAdmin
       .from('affiliate_accounts')
       .select('balance, total_earned')
@@ -164,7 +167,7 @@ export async function recordCommission(
         })
         .eq('id', affiliate.id);
     }
-  });
+  }
 
   // 6. Check for milestone bonuses
   await checkMilestones(affiliate.id);

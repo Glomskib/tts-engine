@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 
 interface VideoPerf {
   id: string;
@@ -70,6 +71,7 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<VideoPerf[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('posted_date');
   const [sortAsc, setSortAsc] = useState(false);
   const [filterTier, setFilterTier] = useState<string>('all');
@@ -79,15 +81,20 @@ export default function VideosPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/videos/performance?days=${days}&limit=200`);
       if (res.ok) {
         const json = await res.json();
         setVideos(json.data?.videos || []);
         setSummary(json.data?.summary || null);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to load video performance data');
       }
     } catch (err) {
       console.error('Failed to fetch video performance:', err);
+      setError('Failed to load video performance data');
     } finally {
       setLoading(false);
     }
@@ -137,6 +144,16 @@ export default function VideosPage() {
       )}
     </button>
   );
+
+  if (error && !loading) {
+    return (
+      <PullToRefresh onRefresh={fetchData}>
+        <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
+          <PageErrorState message={error} onRetry={fetchData} />
+        </div>
+      </PullToRefresh>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={fetchData}>

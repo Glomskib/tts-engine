@@ -19,6 +19,7 @@ import { VideoLengthChart } from '@/components/analytics/VideoLengthChart';
 import { TrendsChart } from '@/components/analytics/TrendsChart';
 import { RecommendationCard } from '@/components/analytics/RecommendationCard';
 import { WinnersEmptyState } from '@/components/analytics/WinnersEmptyState';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 
 interface StageStats {
   stage: string;
@@ -823,16 +824,8 @@ export default function AdminAnalyticsPage() {
         </div>
       )}
 
-      {error && (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          borderRadius: '4px',
-          color: '#721c24',
-          marginBottom: '20px',
-        }}>
-          {error}
-        </div>
+      {error && !loading && (
+        <PageErrorState message={error} onRetry={() => fetchData(windowDays)} />
       )}
 
       {/* Content Performance Tab - No Data */}

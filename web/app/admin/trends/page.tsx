@@ -8,6 +8,7 @@ import {
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 import { useToast } from '@/contexts/ToastContext';
 
 interface Hashtag {
@@ -60,6 +61,7 @@ export default function TrendsPage() {
   const [hashtags, setHashtags] = useState<Hashtag[]>([]);
   const [sounds, setSounds] = useState<Sound[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
   // Add form
@@ -77,15 +79,20 @@ export default function TrendsPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/trends');
       if (res.ok) {
         const json = await res.json();
         setHashtags(json.data?.hashtags || []);
         setSounds(json.data?.sounds || []);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to load trends data');
       }
     } catch (err) {
       console.error('Failed to fetch trends:', err);
+      setError('Failed to load trends data');
     } finally {
       setLoading(false);
     }
@@ -158,6 +165,16 @@ export default function TrendsPage() {
     setAddVideoCount(''); setAddGrowth(''); setAddSoundName('');
     setAddSoundUrl(''); setAddCreator(''); setAddNotes('');
   };
+
+  if (error && !loading) {
+    return (
+      <PullToRefresh onRefresh={fetchData}>
+        <div className="px-4 py-6 pb-24 lg:pb-8 max-w-5xl mx-auto">
+          <PageErrorState message={error} onRetry={fetchData} />
+        </div>
+      </PullToRefresh>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={fetchData}>

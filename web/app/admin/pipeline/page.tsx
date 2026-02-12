@@ -15,6 +15,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 import BoardView from './components/BoardView';
 import type { BoardFilters } from './types';
 
@@ -1352,6 +1353,14 @@ export default function AdminPipelinePage() {
 
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading observability data...</div>;
+  }
+
+  if (error && !loading) {
+    return (
+      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+        <PageErrorState message={error} onRetry={fetchData} />
+      </div>
+    );
   }
 
   // Table styles using theme colors

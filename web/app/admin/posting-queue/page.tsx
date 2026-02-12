@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 
 interface QueueItem {
   id: string;
@@ -88,12 +89,14 @@ export default function PostingQueuePage() {
   const [optimalTimes, setOptimalTimes] = useState<OptimalTime[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState('');
   const [daysAhead, setDaysAhead] = useState(7);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         days: daysAhead.toString(),
@@ -109,9 +112,13 @@ export default function PostingQueuePage() {
         setAccounts(json.data?.accounts || []);
         setOptimalTimes(json.data?.optimal_times || []);
         setConflicts(json.data?.conflicts || []);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to load posting queue');
       }
     } catch (err) {
       console.error('Failed to fetch posting queue:', err);
+      setError('Failed to load posting queue');
     } finally {
       setLoading(false);
     }
@@ -122,6 +129,16 @@ export default function PostingQueuePage() {
   const readyItems = queue.filter(q => q.type === 'ready');
   const scheduledItems = queue.filter(q => q.type === 'scheduled');
   const postedItems = queue.filter(q => q.type === 'posted');
+
+  if (error && !loading) {
+    return (
+      <PullToRefresh onRefresh={fetchData}>
+        <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
+          <PageErrorState message={error} onRetry={fetchData} />
+        </div>
+      </PullToRefresh>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={fetchData}>

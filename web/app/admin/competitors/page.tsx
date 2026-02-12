@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Eye, Search, Brain, Upload, Video, TrendingUp, X, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonCard, SkeletonPageHeader } from '@/components/ui/Skeleton';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 import { useToast } from '@/contexts/ToastContext';
 
 interface Competitor {
@@ -46,6 +47,7 @@ interface AnalysisResult {
 export default function CompetitorsPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedVideos, setSelectedVideos] = useState<CompetitorVideo[]>([]);
@@ -66,12 +68,21 @@ export default function CompetitorsPage() {
   useEffect(() => { fetchCompetitors(); }, []);
 
   const fetchCompetitors = async () => {
+    setError(null);
     try {
       const res = await fetch('/api/competitors');
       const data = await res.json();
-      if (data.ok) setCompetitors(data.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      if (data.ok) {
+        setCompetitors(data.data);
+      } else {
+        setError(data.error || 'Failed to load competitors');
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Failed to load competitors');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAdd = async () => {
@@ -180,6 +191,14 @@ export default function CompetitorsPage() {
             <SkeletonCard key={i} />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error && !loading) {
+    return (
+      <div className="px-4 py-6 pb-24 lg:pb-6">
+        <PageErrorState message={error} onRetry={fetchCompetitors} />
       </div>
     );
   }

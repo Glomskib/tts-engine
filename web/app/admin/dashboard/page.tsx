@@ -13,6 +13,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 import { useToast } from '@/contexts/ToastContext';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
@@ -187,6 +188,7 @@ export default function DashboardPage() {
   const { showSuccess, showError } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(true);
   const [sotd, setSotd] = useState<SOTDItem | null>(null);
@@ -199,13 +201,18 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      setError(null);
       const response = await fetch('/api/dashboard/stats');
       if (response.ok) {
         const json = await response.json();
         setData(json.data || json);
+      } else {
+        const json = await response.json().catch(() => ({}));
+        setError(json.error || 'Failed to load dashboard data');
       }
     } catch (error) {
       console.error('Failed to fetch dashboard:', error);
+      setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -300,6 +307,16 @@ export default function DashboardPage() {
       showError('Failed to copy script');
     });
   }, [showSuccess, showError]);
+
+  if (error && !loading) {
+    return (
+      <PullToRefresh onRefresh={fetchData}>
+        <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
+          <PageErrorState message={error} onRetry={fetchData} />
+        </div>
+      </PullToRefresh>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={fetchData}>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonStats, SkeletonChart } from '@/components/ui/Skeleton';
+import { PageErrorState } from '@/components/ui/PageErrorState';
 
 interface Summary {
   total_revenue: number;
@@ -83,10 +84,12 @@ export default function RevenuePage() {
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
   const [topVideos, setTopVideos] = useState<TopVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(30);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/revenue?days=${days}`);
       if (res.ok) {
@@ -96,9 +99,13 @@ export default function RevenuePage() {
         setByAccount(json.data?.by_account || []);
         setTimeline(json.data?.timeline || []);
         setTopVideos(json.data?.top_videos || []);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to load revenue data');
       }
     } catch (err) {
       console.error('Failed to fetch revenue:', err);
+      setError('Failed to load revenue data');
     } finally {
       setLoading(false);
     }
@@ -118,6 +125,16 @@ export default function RevenuePage() {
     const y = chartHeight - (t.revenue / maxDailyRev) * (chartHeight - 10) - 5;
     return `${x},${y}`;
   }).join(' ');
+
+  if (error && !loading) {
+    return (
+      <PullToRefresh onRefresh={fetchData}>
+        <div className="px-4 py-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
+          <PageErrorState message={error} onRetry={fetchData} />
+        </div>
+      </PullToRefresh>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={fetchData}>

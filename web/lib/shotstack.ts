@@ -1,18 +1,17 @@
-const SHOTSTACK_CONFIG = {
-  sandbox: {
-    baseUrl: 'https://api.shotstack.io/edit/stage',
-    apiKey: process.env.SHOTSTACK_SANDBOX_KEY,
-  },
-  production: {
-    baseUrl: 'https://api.shotstack.io/edit/v1',
-    apiKey: process.env.SHOTSTACK_PRODUCTION_KEY,
-  },
-};
-
 export function getShotstackConfig() {
   const env = (process.env.SHOTSTACK_ENV || 'sandbox') as 'sandbox' | 'production';
-  const config = SHOTSTACK_CONFIG[env];
-  if (!config.apiKey) throw new Error(`Missing Shotstack ${env} API key`);
+  const configs = {
+    sandbox: {
+      baseUrl: 'https://api.shotstack.io/edit/stage',
+      apiKey: process.env.SHOTSTACK_SANDBOX_KEY,
+    },
+    production: {
+      baseUrl: 'https://api.shotstack.io/edit/v1',
+      apiKey: process.env.SHOTSTACK_PRODUCTION_KEY,
+    },
+  };
+  const config = configs[env];
+  if (!config?.apiKey) throw new Error(`Missing SHOTSTACK_${env.toUpperCase()}_KEY env var`);
   return { ...config, env };
 }
 

@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
+import { extractRateLimitContext, enforceRateLimits } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,11 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
 
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
+
+  // Rate limit: 10 requests per minute per IP
+  const rateLimitCtx = extractRateLimitContext(request);
+  const rateLimited = enforceRateLimits(rateLimitCtx, correlationId, { userLimit: 10 });
+  if (rateLimited) return rateLimited;
 
   let body: { code?: string };
   try {

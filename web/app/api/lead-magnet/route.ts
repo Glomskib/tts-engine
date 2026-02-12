@@ -9,9 +9,17 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { queueEmailSequence } from '@/lib/email/scheduler';
 import { NextResponse } from 'next/server';
+import { extractRateLimitContext, enforceRateLimits } from '@/lib/rate-limit';
+import { generateCorrelationId } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit: 5 requests per minute per IP
+    const correlationId = generateCorrelationId();
+    const rateLimitCtx = extractRateLimitContext(request);
+    const rateLimited = enforceRateLimits(rateLimitCtx, correlationId, { userLimit: 5 });
+    if (rateLimited) return rateLimited;
+
     const { email, name } = await request.json();
 
     if (!email || typeof email !== 'string' || !email.includes('@')) {

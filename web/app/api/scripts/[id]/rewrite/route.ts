@@ -288,8 +288,8 @@ Please fix and return ONLY valid JSON. ${basePrompt}`;
         console.error("Failed to insert failed rewrite record:", failedInsertError);
       }
 
+      console.error(`[rewrite] AI response parse failed (${attempt} attempts). Preview: ${generatedContent.slice(0, 500)}`);
       const err = apiError("AI_ERROR", `Rewrite failed after ${attempt} attempts: ${errorReason}`, 500, {
-        rawPreview: generatedContent.slice(0, 500),
         attempts: attempt,
       });
       return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });

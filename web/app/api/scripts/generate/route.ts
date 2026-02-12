@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { isWithinLimit, migrateOldPlanId } from '@/lib/plans';
+import { enforceRateLimits } from '@/lib/rate-limit';
+import { generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = "nodejs";
 
@@ -73,6 +75,11 @@ export async function POST(request: Request) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // Rate limit: 10 script generations per minute per user
+  const correlationId = generateCorrelationId();
+  const rateLimited = enforceRateLimits({ userId: user.id }, correlationId, { userLimit: 10 });
+  if (rateLimited) return rateLimited;
 
   let body: unknown;
   try {

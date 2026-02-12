@@ -85,6 +85,18 @@ export async function GET(
     return createApiErrorResponse('BAD_REQUEST', 'Authentication required', 401, correlationId);
   }
 
+  // Verify user owns this brand
+  const { data: brand } = await supabaseAdmin
+    .from('brands')
+    .select('id')
+    .eq('id', brandId)
+    .eq('user_id', authContext.user.id)
+    .single();
+
+  if (!brand) {
+    return createApiErrorResponse('NOT_FOUND', 'Brand not found', 404, correlationId);
+  }
+
   const { data: invites, error } = await supabaseAdmin
     .from('brand_invites')
     .select('*')

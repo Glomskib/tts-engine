@@ -9,15 +9,18 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export async function GET(request: Request, { params }: RouteParams) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
   }
 
   const { id } = await params;
@@ -59,14 +62,16 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ videos: formattedVideos });
   } catch (error) {
     console.error('Error fetching editor videos:', error);
-    return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch videos', 500, correlationId);
   }
 }
 
 export async function DELETE(request: Request, { params }: RouteParams) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
   }
 
   const { id } = await params;
@@ -75,12 +80,12 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId);
   }
 
   const videoId = typeof body.video_id === 'string' ? body.video_id : '';
   if (!videoId) {
-    return NextResponse.json({ error: 'video_id required' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'video_id required', 400, correlationId);
   }
 
   try {
@@ -95,6 +100,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Error unassigning video:', error);
-    return NextResponse.json({ error: 'Failed to unassign video' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to unassign video', 500, correlationId);
   }
 }

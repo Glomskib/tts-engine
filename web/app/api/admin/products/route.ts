@@ -15,12 +15,14 @@ const VALID_CATEGORIES = ["supplements", "beauty", "fitness", "health", "other"]
  * - brand: string (optional) - Filter by brand name
  */
 export async function GET(request: Request) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   const { searchParams } = new URL(request.url);
@@ -39,10 +41,7 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: error.message },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data });
@@ -61,15 +60,15 @@ export async function GET(request: Request) {
  * - notes: string (optional) - Additional notes
  */
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;
   try {
@@ -88,26 +87,17 @@ export async function POST(request: Request) {
 
   // Validate name
   if (!name || typeof name !== "string" || name.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Product name is required", error_code: "VALIDATION_ERROR", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Product name is required", 400, correlationId);
   }
 
   // Validate brand
   if (!brand || typeof brand !== "string" || brand.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Brand is required", error_code: "VALIDATION_ERROR", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Brand is required", 400, correlationId);
   }
 
   // Validate category
   if (!category || typeof category !== "string" || !VALID_CATEGORIES.includes(category.trim().toLowerCase())) {
-    return NextResponse.json(
-      { ok: false, error: `Category must be one of: ${VALID_CATEGORIES.join(", ")}`, error_code: "VALIDATION_ERROR", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", `Category must be one of: ${VALID_CATEGORIES.join(", ")}`, 400, correlationId);
   }
 
   const brandName = brand.trim();
@@ -122,17 +112,11 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (brandCheckError) {
-    return NextResponse.json(
-      { ok: false, error: brandCheckError.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", brandCheckError.message, 500, correlationId);
   }
 
   if (!existingBrandProducts || existingBrandProducts.length === 0) {
-    return NextResponse.json(
-      { ok: false, error: `Brand "${brandName}" does not exist. Create the brand first.`, error_code: "NOT_FOUND", correlation_id: correlationId },
-      { status: 404 }
-    );
+    return createApiErrorResponse("NOT_FOUND", `Brand "${brandName}" does not exist. Create the brand first.`, 404, correlationId);
   }
 
   // Check for duplicate product name under this brand
@@ -144,17 +128,11 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (dupCheckError) {
-    return NextResponse.json(
-      { ok: false, error: dupCheckError.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", dupCheckError.message, 500, correlationId);
   }
 
   if (existingProduct && existingProduct.length > 0) {
-    return NextResponse.json(
-      { ok: false, error: `Product "${productName}" already exists under brand "${brandName}"`, error_code: "DUPLICATE", correlation_id: correlationId },
-      { status: 409 }
-    );
+    return createApiErrorResponse("CONFLICT", `Product "${productName}" already exists under brand "${brandName}"`, 409, correlationId);
   }
 
   // Create the product
@@ -180,10 +158,7 @@ export async function POST(request: Request) {
 
   if (insertError) {
     console.error("POST /api/admin/products Supabase error:", insertError);
-    return NextResponse.json(
-      { ok: false, error: insertError.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", insertError.message, 500, correlationId);
   }
 
   return NextResponse.json({

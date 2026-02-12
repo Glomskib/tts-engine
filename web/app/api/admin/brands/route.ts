@@ -11,12 +11,14 @@ export const runtime = "nodejs";
  * Returns all unique brands from the products table.
  */
 export async function GET(request: Request) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   const { data, error } = await supabaseAdmin
@@ -25,10 +27,7 @@ export async function GET(request: Request) {
     .order("brand", { ascending: true });
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: error.message },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   // Extract unique brands
@@ -47,15 +46,15 @@ export async function GET(request: Request) {
  * - name: string (required) - The brand name
  */
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;
   try {
@@ -68,10 +67,7 @@ export async function POST(request: Request) {
 
   // Validate brand name
   if (!name || typeof name !== "string" || name.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "Brand name is required", error_code: "VALIDATION_ERROR", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Brand name is required", 400, correlationId);
   }
 
   const brandName = name.trim();
@@ -84,17 +80,11 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (checkError) {
-    return NextResponse.json(
-      { ok: false, error: checkError.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", checkError.message, 500, correlationId);
   }
 
   if (existingProducts && existingProducts.length > 0) {
-    return NextResponse.json(
-      { ok: false, error: `Brand "${brandName}" already exists`, error_code: "DUPLICATE", correlation_id: correlationId },
-      { status: 409 }
-    );
+    return createApiErrorResponse("CONFLICT", `Brand "${brandName}" already exists`, 409, correlationId);
   }
 
   // Create a placeholder product to establish the brand
@@ -110,10 +100,7 @@ export async function POST(request: Request) {
 
   if (insertError) {
     console.error("POST /api/admin/brands Supabase error:", insertError);
-    return NextResponse.json(
-      { ok: false, error: insertError.message, correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("DB_ERROR", insertError.message, 500, correlationId);
   }
 
   return NextResponse.json({

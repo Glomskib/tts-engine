@@ -22,13 +22,14 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const { id } = await params;
-  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   // Fetch the winner directly (no auth check since this is internal/async)
   const { data: winner, error: fetchError } = await supabaseAdmin
@@ -106,13 +107,14 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const { id } = await params;
-  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   const { data: winner, error } = await supabaseAdmin
     .from('winners_bank')

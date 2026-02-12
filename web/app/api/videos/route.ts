@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
   const auth = await validateApiAccess(request);
   if (!auth) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const { searchParams } = new URL(request.url);
@@ -51,10 +51,7 @@ export async function GET(request: Request) {
 
   // account_id is required for portal pages
   if (!account_id) {
-    return NextResponse.json(
-      { ok: false, error: "account_id is required", correlation_id: correlationId },
-      { status: 400 }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "account_id is required", 400, correlationId);
   }
 
   try {
@@ -77,20 +74,14 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error(`[${correlationId}] GET /api/videos Supabase error:`, error);
-      return NextResponse.json(
-        { ok: false, error: "Failed to fetch videos", correlation_id: correlationId },
-        { status: 500 }
-      );
+      return createApiErrorResponse("DB_ERROR", "Failed to fetch videos", 500, correlationId);
     }
 
     return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 
   } catch (err) {
     console.error(`[${correlationId}] GET /api/videos error:`, err);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error", correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("INTERNAL", "Internal server error", 500, correlationId);
   }
 }
 
@@ -101,7 +92,7 @@ export async function POST(request: Request) {
   // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
   const auth = await validateApiAccess(request);
   if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
   const userId = auth.userId;
 

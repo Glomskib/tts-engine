@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import { generateSlug, generateAccountSlug, formatDateForVideoCode } from "@/lib/createVideoFromProduct";
@@ -139,15 +139,15 @@ function extractAccountName(
  * - limit=N: Process only N videos (default: 100, max: 1000)
  */
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 
   const dryRun = searchParams.get("dry_run") === "true";
@@ -178,10 +178,7 @@ export async function POST(request: Request) {
 
     if (fetchError) {
       console.error(`[${correlationId}] Failed to fetch videos:`, fetchError);
-      return NextResponse.json(
-        { ok: false, error: "Failed to fetch videos", correlation_id: correlationId },
-        { status: 500 }
-      );
+      return createApiErrorResponse("DB_ERROR", "Failed to fetch videos", 500, correlationId);
     }
 
     if (!videos || videos.length === 0) {
@@ -268,10 +265,7 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error(`[${correlationId}] Backfill error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Backfill failed", correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("INTERNAL", "Backfill failed", 500, correlationId);
   }
 }
 
@@ -281,15 +275,15 @@ export async function POST(request: Request) {
  * Check how many videos need backfilling.
  */
 export async function GET(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   try {
     const { count, error } = await supabaseAdmin
@@ -298,10 +292,7 @@ export async function GET(request: Request) {
       .is("video_code", null);
 
     if (error) {
-      return NextResponse.json(
-        { ok: false, error: "Failed to count videos", correlation_id: correlationId },
-        { status: 500 }
-      );
+      return createApiErrorResponse("DB_ERROR", "Failed to count videos", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -312,9 +303,6 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error(`[${correlationId}] Count error:`, error);
-    return NextResponse.json(
-      { ok: false, error: "Count failed", correlation_id: correlationId },
-      { status: 500 }
-    );
+    return createApiErrorResponse("INTERNAL", "Count failed", 500, correlationId);
   }
 }

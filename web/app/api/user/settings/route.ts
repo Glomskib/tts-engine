@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createClient } from '@supabase/supabase-js';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
@@ -40,14 +41,16 @@ function getSupabaseClient() {
 }
 
 export async function GET(request: Request) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Server configuration error', 500, correlationId);
   }
 
   const user = authContext.user;
@@ -74,14 +77,16 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Server configuration error', 500, correlationId);
   }
 
   const user = authContext.user;
@@ -107,7 +112,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Failed to update settings:', error);
-      return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+      return createApiErrorResponse('DB_ERROR', 'Failed to save settings', 500, correlationId);
     }
 
     return NextResponse.json({
@@ -116,7 +121,7 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error('Settings update error:', error);
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid request', 400, correlationId);
   }
 }
 

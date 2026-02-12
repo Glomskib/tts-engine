@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
 const TIKTOK_URL_PATTERN = /^https?:\/\/(www\.|vm\.)?tiktok\.com\//;
 
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
 
   const url = request.nextUrl.searchParams.get('url');
 
   if (!url) {
-    return NextResponse.json({ error: 'URL required' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'URL required', 400, correlationId);
   }
 
   if (!TIKTOK_URL_PATTERN.test(url)) {
-    return NextResponse.json({ error: 'Invalid TikTok URL' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid TikTok URL', 400, correlationId);
   }
 
   try {
@@ -28,16 +31,13 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: 'TikTok API error' },
-        { status: response.status }
-      );
+      return createApiErrorResponse('INTERNAL', 'TikTok API error', response.status, correlationId);
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('TikTok oEmbed error:', error);
-    return NextResponse.json({ error: 'Failed to fetch video data' }, { status: 502 });
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch video data', 502, correlationId);
   }
 }

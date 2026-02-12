@@ -7,11 +7,14 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export async function GET(request: Request) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
   }
 
   try {
@@ -63,6 +66,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ editors });
   } catch (error) {
     console.error('Error fetching managed editors:', error);
-    return NextResponse.json({ error: 'Failed to fetch editors' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch editors', 500, correlationId);
   }
 }

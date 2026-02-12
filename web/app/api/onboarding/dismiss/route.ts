@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
+  const correlationId = generateCorrelationId();
+
   try {
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const userId = authContext.user.id;
@@ -31,6 +34,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Dismiss onboarding error:', error);
-    return NextResponse.json({ error: 'Failed to dismiss' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to dismiss', 500, correlationId);
   }
 }

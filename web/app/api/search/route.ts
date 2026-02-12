@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createClient } from '@supabase/supabase-js';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
@@ -14,16 +15,18 @@ interface SearchResult {
 }
 
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Server configuration error', 500, correlationId);
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -121,6 +124,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Search error:', error);
-    return NextResponse.json({ error: 'Search failed' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Search failed', 500, correlationId);
   }
 }

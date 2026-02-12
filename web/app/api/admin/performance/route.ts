@@ -2,15 +2,18 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
+  const correlationId = generateCorrelationId();
+
   try {
     // Authenticate
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const now = new Date();
@@ -150,9 +153,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Performance API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch performance metrics' },
-      { status: 500 }
-    );
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch performance metrics', 500, correlationId);
   }
 }

@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export async function GET(request: Request) {
+  const correlationId = generateCorrelationId();
+
   try {
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const userId = authContext.user.id;

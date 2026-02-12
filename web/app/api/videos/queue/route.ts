@@ -20,13 +20,13 @@ const VIDEO_SELECT_ASSIGNMENT = ",assigned_to,assigned_at,assigned_expires_at,as
 const VALID_CLAIM_ROLES = ["recorder", "editor", "uploader", "admin"] as const;
 
 export async function GET(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
   const user = authContext.user;
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 
   const statusParam = searchParams.get("status");

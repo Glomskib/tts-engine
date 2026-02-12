@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { generateCorrelationId } from '@/lib/api-errors';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
-      return NextResponse.json({ error: 'Unauthorized', correlation_id: correlationId }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     // Date helpers
@@ -166,6 +166,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error(`[${correlationId}] Dashboard stats error:`, error);
-    return NextResponse.json({ error: 'Failed to fetch stats', correlation_id: correlationId }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch stats', 500, correlationId);
   }
 }

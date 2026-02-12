@@ -12,12 +12,12 @@ export const runtime = "nodejs";
  * This is the main entrypoint for creating videos from the pipeline UI.
  */
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;
   try {

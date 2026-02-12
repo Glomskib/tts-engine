@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const status = request.nextUrl.searchParams.get('status');
@@ -53,27 +56,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ clients: clientsWithStats });
   } catch (error) {
     console.error('Clients fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch clients', 500, correlationId);
   }
 }
 
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const body = await request.json();
 
     // Validate required fields
     if (!body.company_name || !body.contact_name || !body.email) {
-      return NextResponse.json(
-        { error: 'Company name, contact name, and email are required' },
-        { status: 400 }
-      );
+      return createApiErrorResponse('BAD_REQUEST', 'Company name, contact name, and email are required', 400, correlationId);
     }
 
     const { data, error } = await supabase
@@ -98,6 +100,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ client: data });
   } catch (error) {
     console.error('Client create error:', error);
-    return NextResponse.json({ error: 'Failed to create client' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to create client', 500, correlationId);
   }
 }

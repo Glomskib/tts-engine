@@ -6,21 +6,24 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export async function DELETE(request: Request, { params }: RouteParams) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
   }
 
   const { id } = await params;
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-    return NextResponse.json({ error: 'Invalid editor ID' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid editor ID', 400, correlationId);
   }
 
   try {
@@ -41,6 +44,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Error removing editor:', error);
-    return NextResponse.json({ error: 'Failed to remove editor' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to remove editor', 500, correlationId);
   }
 }

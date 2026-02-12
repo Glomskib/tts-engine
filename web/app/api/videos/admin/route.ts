@@ -14,15 +14,15 @@ export const runtime = "nodejs";
  * This endpoint is admin-only and should be protected by middleware.
  */
 export async function POST(request: Request) {
+  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return createApiErrorResponse("UNAUTHORIZED", "Not authenticated", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
-
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   let body: unknown;
   try {

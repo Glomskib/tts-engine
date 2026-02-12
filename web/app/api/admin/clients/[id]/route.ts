@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = generateCorrelationId();
+
   try {
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const { data: client, error } = await supabase
@@ -22,7 +25,7 @@ export async function GET(
       .single();
 
     if (error || !client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      return createApiErrorResponse('NOT_FOUND', 'Client not found', 404, correlationId);
     }
 
     // Get recent activity
@@ -39,7 +42,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('Client fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch client' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to fetch client', 500, correlationId);
   }
 }
 
@@ -47,13 +50,15 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = generateCorrelationId();
+
   try {
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     const body = await request.json();
@@ -67,7 +72,7 @@ export async function PATCH(
       .single();
 
     if (!existing) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      return createApiErrorResponse('NOT_FOUND', 'Client not found', 404, correlationId);
     }
 
     const updateData: Record<string, unknown> = {};
@@ -94,7 +99,7 @@ export async function PATCH(
     return NextResponse.json({ client: data });
   } catch (error) {
     console.error('Client update error:', error);
-    return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to update client', 500, correlationId);
   }
 }
 
@@ -102,13 +107,15 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = generateCorrelationId();
+
   try {
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
 
     // Verify ownership before delete
@@ -120,7 +127,7 @@ export async function DELETE(
       .single();
 
     if (!existing) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      return createApiErrorResponse('NOT_FOUND', 'Client not found', 404, correlationId);
     }
 
     const { error } = await supabase
@@ -133,6 +140,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Client delete error:', error);
-    return NextResponse.json({ error: 'Failed to delete client' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to delete client', 500, correlationId);
   }
 }

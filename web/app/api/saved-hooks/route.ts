@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { generateCorrelationId } from '@/lib/api-errors';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const { searchParams } = new URL(request.url);
@@ -38,19 +38,19 @@ export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId);
   }
 
   const hookText = typeof body.hook_text === 'string' ? body.hook_text.trim() : '';
   if (!hookText) {
-    return NextResponse.json({ error: 'hook_text is required' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'hook_text is required', 400, correlationId);
   }
 
   const payload: Record<string, unknown> = {
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error(`[${correlationId}] Saved Hooks POST error:`, error);
-    return NextResponse.json({ error: 'Failed to save hook' }, { status: 500 });
+    return createApiErrorResponse('DB_ERROR', 'Failed to save hook', 500, correlationId);
   }
 
   return NextResponse.json({ hook: data });

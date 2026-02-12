@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 
@@ -8,9 +9,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
   const { id } = await params;
@@ -22,8 +25,8 @@ export async function DELETE(
     .eq('user_id', authContext.user.id);
 
   if (error) {
-    console.error('[Saved Hooks DELETE] Error:', error);
-    return NextResponse.json({ error: 'Failed to delete hook' }, { status: 500 });
+    console.error(`[${correlationId}] Saved Hooks DELETE error:`, error);
+    return createApiErrorResponse('DB_ERROR', 'Failed to delete hook', 500, correlationId);
   }
 
   return NextResponse.json({ success: true });

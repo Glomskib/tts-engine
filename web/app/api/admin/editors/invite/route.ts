@@ -6,23 +6,26 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
+  const correlationId = generateCorrelationId();
+
   const authContext = await getApiAuthContext(request);
   if (!authContext.user || !authContext.isAdmin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
   }
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId);
   }
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!email || !email.includes('@')) {
-    return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
+    return createApiErrorResponse('BAD_REQUEST', 'Valid email required', 400, correlationId);
   }
 
   try {
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
           );
           return NextResponse.json({ ok: true, user_id: existingUser.id, existing: true });
         }
-        return NextResponse.json({ error: 'User exists but could not be found' }, { status: 400 });
+        return createApiErrorResponse('BAD_REQUEST', 'User exists but could not be found', 400, correlationId);
       }
       throw error;
     }
@@ -60,6 +63,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, user_id: data.user?.id });
   } catch (error) {
     console.error('Error inviting editor:', error);
-    return NextResponse.json({ error: 'Failed to invite editor' }, { status: 500 });
+    return createApiErrorResponse('INTERNAL', 'Failed to invite editor', 500, correlationId);
   }
 }

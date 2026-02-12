@@ -352,17 +352,27 @@ export async function POST(request: Request) {
   // 6b. Expand ALL items into full AI-generated scripts ----------------------
   // Uses concurrency limit of 5 to avoid rate limits.
   // Failures are non-blocking — items still exist with their briefs.
+  // Track expansion results for debugging
+  const _expansionDebug: { entered: boolean; itemCount: number; expanded: number; errors: string[] } = {
+    entered: false, itemCount: 0, expanded: 0, errors: [],
+  };
+
   if (insertedCount > 0 && process.env.ANTHROPIC_API_KEY) {
+    _expansionDebug.entered = true;
     try {
-      // Fetch the inserted items with IDs
-      const { data: insertedItems } = await supabaseAdmin
+      const { data: insertedItems, error: fetchItemsErr } = await supabaseAdmin
         .from("content_package_items")
         .select("id, product_id, product_name, brand, content_type, hook, score")
         .eq("package_id", pkg.id)
         .order("score", { ascending: false });
 
+      if (fetchItemsErr) {
+        _expansionDebug.errors.push(`fetch items: ${fetchItemsErr.message}`);
+      }
+
+      _expansionDebug.itemCount = insertedItems?.length ?? 0;
+
       if (insertedItems && insertedItems.length > 0) {
-        // Fetch product details for enriched prompts
         const productIds = [...new Set(insertedItems.map(i => i.product_id))];
         const { data: productDetails } = await supabaseAdmin
           .from("products")
@@ -372,12 +382,10 @@ export async function POST(request: Request) {
           (productDetails || []).map(p => [p.id, p])
         );
 
-        // Expand ALL items with persona/approach rotation, concurrency-limited
         const usedPersonas: string[] = [];
         const usedApproaches: string[] = [];
         const CONCURRENCY = 5;
 
-        // Process in batches of CONCURRENCY
         for (let i = 0; i < insertedItems.length; i += CONCURRENCY) {
           const batch = insertedItems.slice(i, i + CONCURRENCY);
           const batchPromises = batch.map(async (item) => {
@@ -407,18 +415,21 @@ export async function POST(request: Request) {
 
               const fullScript = await expandBriefToScript(brief, persona, approach);
 
-              // Store the full script on the item
-              await supabaseAdmin
+              const { error: updateErr } = await supabaseAdmin
                 .from("content_package_items")
                 .update({ full_script: fullScript })
                 .eq("id", item.id);
 
+              if (updateErr) {
+                _expansionDebug.errors.push(`db update ${item.id}: ${updateErr.message}`);
+              } else {
+                _expansionDebug.expanded++;
+              }
+
             } catch (err) {
-              console.error(
-                `[${correlationId}] expand script failed for item ${item.id}:`,
-                err
+              _expansionDebug.errors.push(
+                `expand ${item.id}: ${err instanceof Error ? err.message : String(err)}`
               );
-              // Non-blocking — item keeps its brief
             }
           });
 
@@ -426,12 +437,12 @@ export async function POST(request: Request) {
         }
       }
     } catch (err) {
-      console.error(
-        `[${correlationId}] content-package/generate expansion error:`,
-        err
+      _expansionDebug.errors.push(
+        `outer: ${err instanceof Error ? err.message : String(err)}`
       );
-      // Non-blocking — package is still valid with briefs only
     }
+  } else {
+    _expansionDebug.errors.push(`skipped: insertedCount=${insertedCount}, hasKey=${!!process.env.ANTHROPIC_API_KEY}`);
   }
 
   // 7. Update package status to complete --------------------------------------
@@ -474,6 +485,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     data: fullPackage,
+    _debug: _expansionDebug,
     correlation_id: correlationId,
   });
 }

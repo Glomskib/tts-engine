@@ -3,7 +3,6 @@ import { getVideosColumns } from "@/lib/videosSchema";
 import { isValidStatus, QUEUE_STATUSES, type VideoStatus } from "@/lib/video-pipeline";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 
 export const runtime = "nodejs";
@@ -89,98 +88,116 @@ export async function POST(request: Request) {
   // Generate or read correlation ID
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
-  const auth = await validateApiAccess(request);
-  if (!auth) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
-  }
-  const userId = auth.userId;
-
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
-  }
-
-  const {
-    variant_id,
-    google_drive_url,
-    final_video_url,
-    account_id,
-    product_id,
-    caption_used,
-    hashtags_used,
-    status
-  } = body as Record<string, unknown>;
-
-  // Validate variant_id
-  if (typeof variant_id !== "string" || variant_id.trim() === "") {
-    return createApiErrorResponse("BAD_REQUEST", "variant_id is required and must be a non-empty string", 400, correlationId);
-  }
-
-  // Accept google_drive_url or final_video_url (map final_video_url -> google_drive_url if google_drive_url missing)
-  const google_drive_url_value = google_drive_url ?? final_video_url;
-
-  // Validate google_drive_url_value is a non-empty string
-  if (typeof google_drive_url_value !== "string" || google_drive_url_value.trim() === "") {
-    return createApiErrorResponse("BAD_REQUEST", "google_drive_url or final_video_url is required and must be a non-empty string", 400, correlationId);
-  }
-
-  // Validate account_id if provided (must be a non-empty string)
-  const accountIdValue = (typeof account_id === "string" && account_id.trim() !== "") ? account_id.trim() : null;
-
-  // Validate status if provided
-  if (status !== undefined) {
-    if (typeof status !== "string" || !isValidStatus(status)) {
-      return createApiErrorResponse("INVALID_STATUS", "Invalid status value", 400, correlationId, { provided: status });
+    // Auth check - supports SESSION, API KEY (ff_ak_*), or SERVICE_API_KEY
+    const auth = await validateApiAccess(request);
+    if (!auth) {
+      return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
-  }
 
-  // Determine effective status (default to needs_edit)
-  const effectiveStatus: VideoStatus = (status as VideoStatus) || DEFAULT_INITIAL_STATUS;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
+    }
 
-  // Check for existing queue video with same variant+account (idempotency)
-  // Only check dedup when account_id is provided (variant_id + account_id is the unique key)
-  if (accountIdValue && QUEUE_STATUSES.includes(effectiveStatus as typeof QUEUE_STATUSES[number])) {
-    const { data: existing } = await supabaseAdmin
-      .from("videos")
-      .select("id,status")
-      .eq("variant_id", variant_id.trim())
-      .eq("account_id", accountIdValue)
-      .in("status", [...QUEUE_STATUSES])
-      .limit(1)
-      .single();
+    const {
+      variant_id,
+      google_drive_url,
+      final_video_url,
+      account_id,
+      product_id,
+      caption_used,
+      hashtags_used,
+      status
+    } = body as Record<string, unknown>;
 
-    if (existing) {
-      // Return existing record instead of creating duplicate
-      const { data: fullRecord } = await supabaseAdmin
-        .from("videos")
-        .select("*")
-        .eq("id", existing.id)
+    // Validate variant_id
+    if (typeof variant_id !== "string" || variant_id.trim() === "") {
+      return createApiErrorResponse("BAD_REQUEST", "variant_id is required and must be a non-empty string", 400, correlationId);
+    }
+
+    // Accept google_drive_url or final_video_url (map final_video_url -> google_drive_url if google_drive_url missing)
+    const google_drive_url_value = google_drive_url ?? final_video_url;
+
+    // Validate google_drive_url_value is a non-empty string
+    if (typeof google_drive_url_value !== "string" || google_drive_url_value.trim() === "") {
+      return createApiErrorResponse("BAD_REQUEST", "google_drive_url or final_video_url is required and must be a non-empty string", 400, correlationId);
+    }
+
+    // Validate account_id if provided (must be a non-empty string)
+    const accountIdValue = (typeof account_id === "string" && account_id.trim() !== "") ? account_id.trim() : null;
+
+    // Validate account_id FK: if provided, must exist in tiktok_accounts
+    if (accountIdValue) {
+      const { data: acctRow, error: acctErr } = await supabaseAdmin
+        .from("tiktok_accounts")
+        .select("id")
+        .eq("id", accountIdValue)
+        .limit(1)
         .single();
 
-      // Write audit event for dedupe
-      await writeVideoEvent(
-        existing.id,
-        "dedupe_return_existing",
-        correlationId,
-        "api",
-        null,
-        existing.status,
-        { variant_id, account_id: accountIdValue, status: effectiveStatus }
-      );
-
-      return NextResponse.json({
-        ok: true,
-        data: fullRecord,
-        existing: true,
-        correlation_id: correlationId
-      });
+      if (acctErr || !acctRow) {
+        return createApiErrorResponse(
+          "BAD_REQUEST",
+          `account_id "${accountIdValue}" not found in tiktok_accounts`,
+          400,
+          correlationId
+        );
+      }
     }
-  }
 
-  try {
+    // Validate status if provided
+    if (status !== undefined) {
+      if (typeof status !== "string" || !isValidStatus(status)) {
+        return createApiErrorResponse("INVALID_STATUS", "Invalid status value", 400, correlationId, { provided: status });
+      }
+    }
+
+    // Determine effective status (default to needs_edit)
+    const effectiveStatus: VideoStatus = (status as VideoStatus) || DEFAULT_INITIAL_STATUS;
+
+    // Check for existing queue video with same variant+account (idempotency)
+    // Only check dedup when account_id is provided (variant_id + account_id is the unique key)
+    if (accountIdValue && QUEUE_STATUSES.includes(effectiveStatus as typeof QUEUE_STATUSES[number])) {
+      const { data: existing } = await supabaseAdmin
+        .from("videos")
+        .select("id,status")
+        .eq("variant_id", variant_id.trim())
+        .eq("account_id", accountIdValue)
+        .in("status", [...QUEUE_STATUSES])
+        .limit(1)
+        .single();
+
+      if (existing) {
+        // Return existing record instead of creating duplicate
+        const { data: fullRecord } = await supabaseAdmin
+          .from("videos")
+          .select("*")
+          .eq("id", existing.id)
+          .single();
+
+        // Write audit event for dedupe
+        await writeVideoEvent(
+          existing.id,
+          "dedupe_return_existing",
+          correlationId,
+          "api",
+          null,
+          existing.status,
+          { variant_id, account_id: accountIdValue, status: effectiveStatus }
+        );
+
+        return NextResponse.json({
+          ok: true,
+          data: fullRecord,
+          existing: true,
+          correlation_id: correlationId
+        });
+      }
+    }
+
     // Get existing columns from schema
     const existingColumns = await getVideosColumns();
 
@@ -212,6 +229,8 @@ export async function POST(request: Request) {
       insertPayload.final_video_url = google_drive_url_value.trim();
     }
 
+    console.log(`[${correlationId}] VIDEO INSERT payload:`, JSON.stringify(insertPayload));
+
     const { data, error } = await supabaseAdmin
       .from("videos")
       .insert(insertPayload)
@@ -219,10 +238,16 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error("POST /api/videos Supabase error:", error);
-      console.error("POST /api/videos insert payload:", insertPayload);
+      console.error(`[${correlationId}] VIDEO INSERT ERROR:`, JSON.stringify(error));
+      console.error(`[${correlationId}] VIDEO INSERT payload:`, JSON.stringify(insertPayload));
 
-      return createApiErrorResponse("DB_ERROR", `Failed to create video: ${error.message}`, 500, correlationId);
+      return createApiErrorResponse(
+        "DB_ERROR",
+        `Failed to create video: ${error.message}`,
+        500,
+        correlationId,
+        { supabase_code: error.code, supabase_details: error.details, supabase_hint: error.hint }
+      );
     }
 
     // Write audit event for create
@@ -234,15 +259,17 @@ export async function POST(request: Request) {
         "api",
         null,
         effectiveStatus,
-        { variant_id, account_id }
+        { variant_id, account_id: accountIdValue }
       );
     }
 
     return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 
   } catch (err) {
-    console.error("POST /api/videos error:", err);
-    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error(`[${correlationId}] POST /api/videos UNCAUGHT:`, message, stack);
+    return createApiErrorResponse("DB_ERROR", `Internal server error: ${message}`, 500, correlationId);
   }
 }
 

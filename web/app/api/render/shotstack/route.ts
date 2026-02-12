@@ -40,28 +40,57 @@ export async function POST(request: Request) {
 
   const { productImageUrl, spokenText, onScreenText, cta, duration = 30 } = parsed.data;
 
-  // Build Shotstack timeline
-  const clips: Record<string, unknown>[] = [
-    {
-      asset: { type: "image", src: productImageUrl },
-      start: 0,
-      length: duration,
-      fit: "contain",
-    },
-  ];
+  // Pre-validate image URL — Shotstack servers must be able to fetch it.
+  // Amazon CDN (m.media-amazon.com) blocks external server requests.
+  try {
+    const headResp = await fetch(productImageUrl, { method: "HEAD", redirect: "follow" });
+    if (!headResp.ok) {
+      return createApiErrorResponse(
+        "BAD_REQUEST",
+        `Image URL not accessible (HTTP ${headResp.status}). Shotstack requires a publicly accessible image URL. Amazon product images are blocked — use a re-hosted copy instead.`,
+        400,
+        correlationId
+      );
+    }
+  } catch {
+    return createApiErrorResponse(
+      "BAD_REQUEST",
+      "Image URL not accessible. Shotstack requires a publicly accessible image URL. Amazon product images are blocked — use a re-hosted copy instead.",
+      400,
+      correlationId
+    );
+  }
 
-  const tracks: Record<string, unknown>[] = [{ clips }];
+  // Build Shotstack timeline — image track on bottom, overlays on top
+  const tracks: Record<string, unknown>[] = [];
+
+  // CTA overlay at the end (top track = renders on top)
+  if (cta) {
+    tracks.push({
+      clips: [
+        {
+          asset: {
+            type: "title",
+            text: cta,
+            style: "blockbuster",
+          },
+          start: Math.max(0, duration - 5),
+          length: 5,
+          position: "center",
+        },
+      ],
+    });
+  }
 
   // On-screen text overlay
   if (onScreenText) {
-    tracks.unshift({
+    tracks.push({
       clips: [
         {
           asset: {
             type: "title",
             text: onScreenText,
             style: "subtitle",
-            size: "medium",
           },
           start: 0,
           length: Math.min(duration, 10),
@@ -71,24 +100,17 @@ export async function POST(request: Request) {
     });
   }
 
-  // CTA overlay at the end
-  if (cta) {
-    tracks.unshift({
-      clips: [
-        {
-          asset: {
-            type: "title",
-            text: cta,
-            style: "blockbuster",
-            size: "large",
-          },
-          start: Math.max(0, duration - 5),
-          length: 5,
-          position: "center",
-        },
-      ],
-    });
-  }
+  // Product image (bottom track = renders behind overlays)
+  tracks.push({
+    clips: [
+      {
+        asset: { type: "image", src: productImageUrl },
+        start: 0,
+        length: duration,
+        fit: "contain",
+      },
+    ],
+  });
 
   const timeline = {
     background: "#000000",

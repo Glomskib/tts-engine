@@ -11,7 +11,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { atomicRenewClaim } from "@/lib/video-claim";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { getAssignmentTtlMinutes } from "@/lib/settings";
@@ -28,14 +28,12 @@ export async function POST(
 
   // Validate video ID
   if (!id || typeof id !== "string") {
-    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
 
   // Parse request body
@@ -43,8 +41,7 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { ttl_minutes } = body as Record<string, unknown>;
@@ -56,12 +53,11 @@ export async function POST(
   const actor = authContext.user?.id;
 
   if (!actor) {
-    const err = apiError(
+    return createApiErrorResponse(
       "MISSING_ACTOR",
       "Authentication required. Please sign in to renew claims.",
       401
-    );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    , correlationId);
   }
 
   // Incident mode read-only check (admin bypass)
@@ -107,8 +103,7 @@ export async function POST(
       };
 
       const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-      const err = apiError(errorInfo.code, result.message, errorInfo.status);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse(errorInfo.code, result.message, errorInfo.status, correlationId);
     }
 
     // Fetch full video data for response
@@ -131,7 +126,6 @@ export async function POST(
 
   } catch (err) {
     console.error("POST /api/videos/[id]/renew error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

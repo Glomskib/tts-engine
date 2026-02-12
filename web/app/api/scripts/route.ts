@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { isWithinLimit, migrateOldPlanId } from '@/lib/plans';
@@ -13,8 +13,7 @@ export async function GET(request: Request) {
   // Auth check - user must be logged in
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   const { searchParams } = new URL(request.url);
@@ -52,8 +51,7 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
@@ -65,8 +63,7 @@ export async function POST(request: Request) {
   // Auth check - user must be logged in
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // H4: Enforce plan script limits (same logic as scripts/generate)
@@ -92,8 +89,7 @@ export async function POST(request: Request) {
     const usage = count ?? 0;
 
     if (!isWithinLimit(planId, 'scriptsPerMonth', usage)) {
-      const err = apiError("PLAN_LIMIT", "Monthly script limit reached. Upgrade your plan for more scripts.", 403);
-      return NextResponse.json({ ...err.body, upgrade: true, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("PLAN_LIMIT", "Monthly script limit reached. Upgrade your plan for more scripts.", 403, correlationId, { upgrade: true });
     }
   }
 
@@ -101,8 +97,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const {
@@ -151,8 +146,7 @@ export async function POST(request: Request) {
   if (script_json !== undefined && script_json !== null) {
     const validation = validateScriptJson(script_json);
     if (!validation.valid) {
-      const err = apiError("INVALID_SCRIPT_JSON", `Invalid script_json: ${validation.errors.join(", ")}`, 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("INVALID_SCRIPT_JSON", `Invalid script_json: ${validation.errors.join(", ")}`, 400, correlationId);
     }
     insertPayload.script_json = script_json;
     const renderedText = renderScriptText(script_json as Parameters<typeof renderScriptText>[0]);
@@ -184,8 +178,7 @@ export async function POST(request: Request) {
   if (error) {
     console.error("POST /api/scripts Supabase error:", error);
     console.error("POST /api/scripts insert payload:", insertPayload);
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });

@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser, getOrgVideos } from "@/lib/client-org";
 import { getOrgVideoProjectMappings, listProjectVideos } from "@/lib/client-projects";
 
@@ -17,8 +17,7 @@ export async function GET(request: Request) {
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Get user's primary organization
@@ -83,8 +82,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("[client/videos] Query error:", error);
-      const err = apiError("DB_ERROR", "Failed to fetch videos", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to fetch videos", 500, correlationId);
     }
 
     // Map to client-safe shape with project_id
@@ -111,7 +109,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("[client/videos] Unexpected error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

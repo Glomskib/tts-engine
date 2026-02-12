@@ -23,7 +23,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   listIngestionJobs,
@@ -42,11 +42,7 @@ export async function GET(request: NextRequest) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for ingestion", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for ingestion", 403, correlationId);
   }
 
   try {
@@ -62,14 +58,11 @@ export async function GET(request: NextRequest) {
     let source: IngestionSource | undefined;
     if (sourceParam) {
       if (!INGESTION_SOURCES.includes(sourceParam as IngestionSource)) {
-        const err = apiError(
+        return createApiErrorResponse(
           "BAD_REQUEST",
           `Invalid source. Must be one of: ${INGESTION_SOURCES.join(", ")}`,
-          400
-        );
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
+          400,
+          correlationId
         );
       }
       source = sourceParam as IngestionSource;
@@ -79,14 +72,11 @@ export async function GET(request: NextRequest) {
     let status: JobStatus | undefined;
     if (statusParam) {
       if (!JOB_STATUSES.includes(statusParam as JobStatus)) {
-        const err = apiError(
+        return createApiErrorResponse(
           "BAD_REQUEST",
           `Invalid status. Must be one of: ${JOB_STATUSES.join(", ")}`,
-          400
-        );
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
+          400,
+          correlationId
         );
       }
       status = statusParam as JobStatus;
@@ -105,11 +95,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!result.ok) {
-      const err = apiError("DB_ERROR", result.error || "Failed to fetch jobs", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("DB_ERROR", result.error || "Failed to fetch jobs", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -124,10 +110,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/ingestion/jobs error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

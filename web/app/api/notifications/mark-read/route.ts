@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
@@ -17,8 +17,7 @@ export async function POST(request: Request) {
   const authContext = await getApiAuthContext(request);
 
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   const userId = authContext.user.id;
@@ -27,16 +26,14 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { ids, all } = body as { ids?: string[]; all?: boolean };
 
   // Validate input
   if (!all && (!ids || !Array.isArray(ids) || ids.length === 0)) {
-    const err = apiError("BAD_REQUEST", "Must provide 'ids' array or 'all: true'", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Must provide 'ids' array or 'all: true'", 400, correlationId);
   }
 
   try {
@@ -52,8 +49,7 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("Mark all read error:", error);
-        const err = apiError("DB_ERROR", error.message, 500);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
       }
 
       return NextResponse.json({
@@ -72,8 +68,7 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("Mark read error:", error);
-        const err = apiError("DB_ERROR", error.message, 500);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
       }
 
       return NextResponse.json({
@@ -85,7 +80,6 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     console.error("POST /api/notifications/mark-read error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

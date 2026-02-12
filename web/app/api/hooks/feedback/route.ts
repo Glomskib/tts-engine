@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -56,8 +56,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const {
@@ -73,14 +72,12 @@ export async function POST(request: Request) {
 
   // Validate required fields
   if (!hook_id || !brand_name || !outcome) {
-    const err = apiError("BAD_REQUEST", "hook_id, brand_name, and outcome are required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "hook_id, brand_name, and outcome are required", 400, correlationId);
   }
 
   const validOutcomes: FeedbackOutcome[] = ["winner", "underperform", "rejected"];
   if (!validOutcomes.includes(outcome)) {
-    const err = apiError("BAD_REQUEST", `outcome must be one of: ${validOutcomes.join(", ")}`, 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `outcome must be one of: ${validOutcomes.join(", ")}`, 400, correlationId);
   }
 
   try {
@@ -92,8 +89,7 @@ export async function POST(request: Request) {
       .single();
 
     if (hookError || !hook) {
-      const err = apiError("NOT_FOUND", "Hook not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Hook not found", 404, correlationId);
     }
 
     // Insert feedback record
@@ -114,8 +110,7 @@ export async function POST(request: Request) {
 
     if (feedbackError) {
       console.error("Failed to insert hook feedback:", feedbackError);
-      const err = apiError("DB_ERROR", feedbackError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", feedbackError.message, 500, correlationId);
     }
 
     // Increment the corresponding count on proven_hooks
@@ -152,8 +147,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("Hook feedback error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }
 
@@ -212,8 +206,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Failed to fetch hook feedback:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -227,7 +220,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("Hook feedback fetch error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

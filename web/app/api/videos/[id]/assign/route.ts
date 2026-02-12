@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { triggerEmailNotification } from "@/lib/email-notifications";
@@ -63,38 +63,33 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get auth context
   const authContext = await getApiAuthContext(request);
 
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only endpoint
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Only admins can assign videos", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Only admins can assign videos", 403, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { assignee_user_id, notes } = body as { assignee_user_id?: string; notes?: string };
 
   // Validate assignee_user_id
   if (!assignee_user_id || !uuidRegex.test(assignee_user_id)) {
-    const err = apiError("BAD_REQUEST", "assignee_user_id is required and must be a valid UUID", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "assignee_user_id is required and must be a valid UUID", 400, correlationId);
   }
 
   try {
@@ -103,8 +98,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const hasAssignmentColumns = existingColumns.has("assigned_to") && existingColumns.has("assigned_at");
 
     if (!hasAssignmentColumns) {
-      const err = apiError("NOT_AVAILABLE", "Assignment feature requires migration 018_video_assignment.sql", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_AVAILABLE", "Assignment feature requires migration 018_video_assignment.sql", 400, correlationId);
     }
 
     // Verify video exists
@@ -116,11 +110,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (fetchError) {
       if (fetchError.code === "PGRST116") {
-        const err = apiError("NOT_FOUND", "Video not found", 404);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
       }
-      const err = apiError("DB_ERROR", fetchError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", fetchError.message, 500, correlationId);
     }
 
     const previousAssignee = video.assigned_to;
@@ -140,8 +132,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (updateError) {
       console.error("Failed to assign video:", updateError);
-      const err = apiError("DB_ERROR", updateError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
     }
 
     // Write audit event
@@ -175,7 +166,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
   } catch (err) {
     console.error("POST /api/videos/[id]/assign error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

@@ -81,6 +81,7 @@ export interface ApiErrorResponse {
   details?: Record<string, unknown>;
 }
 
+/** @deprecated Use createApiErrorResponse() instead */
 export function apiError(
   code: ApiErrorCode,
   message: string,

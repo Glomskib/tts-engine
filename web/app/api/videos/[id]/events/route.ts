@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
@@ -20,15 +20,13 @@ export async function GET(
   const { id } = await params;
 
   if (!id || typeof id !== "string") {
-    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
 
   try {
@@ -40,8 +38,7 @@ export async function GET(
       .single();
 
     if (videoError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId, { video_id: id });
     }
 
     // Fetch events for this video
@@ -61,8 +58,7 @@ export async function GET(
         });
       }
       console.error("GET /api/videos/[id]/events Supabase error:", eventsError);
-      const err = apiError("DB_ERROR", eventsError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", eventsError.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -73,7 +69,6 @@ export async function GET(
 
   } catch (err) {
     console.error("GET /api/videos/[id]/events error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

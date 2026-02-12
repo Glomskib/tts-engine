@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
 import { computeOrgInvoicePreview } from "@/lib/billing";
 
@@ -21,8 +21,7 @@ export async function GET(request: Request) {
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Get user's primary organization
@@ -48,12 +47,10 @@ export async function GET(request: Request) {
 
     // Validate year and month
     if (isNaN(year) || year < 2020 || year > 2100) {
-      const err = apiError("BAD_REQUEST", "Invalid year parameter", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Invalid year parameter", 400, correlationId);
     }
     if (isNaN(month) || month < 1 || month > 12) {
-      const err = apiError("BAD_REQUEST", "Invalid month parameter", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Invalid month parameter", 400, correlationId);
     }
 
     // Compute invoice preview
@@ -70,7 +67,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("[client/billing/summary] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

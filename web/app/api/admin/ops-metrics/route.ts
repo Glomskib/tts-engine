@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
@@ -105,8 +105,7 @@ export async function GET(request: Request) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for ops metrics", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for ops metrics", 403, correlationId);
   }
 
   try {
@@ -141,8 +140,7 @@ export async function GET(request: Request) {
 
     if (videosError) {
       console.error("GET /api/admin/ops-metrics videos error:", videosError);
-      const err = apiError("DB_ERROR", videosError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", videosError.message, 500, correlationId);
     }
 
     const videos = (videosData || []) as unknown as VideoRow[];
@@ -380,7 +378,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("GET /api/admin/ops-metrics error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

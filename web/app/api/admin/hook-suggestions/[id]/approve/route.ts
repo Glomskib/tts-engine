@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import crypto from "crypto";
@@ -32,20 +32,17 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid suggestion ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid suggestion ID format", 400, correlationId);
   }
 
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Optional request body for review note
@@ -66,14 +63,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       .single();
 
     if (fetchError || !suggestion) {
-      const err = apiError("NOT_FOUND", "Suggestion not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Suggestion not found", 404, correlationId);
     }
 
     // Check if already processed
     if (suggestion.status !== "pending") {
-      const err = apiError("CONFLICT", `Suggestion already ${suggestion.status}`, 409);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("CONFLICT", `Suggestion already ${suggestion.status}`, 409, correlationId);
     }
 
     const now = new Date().toISOString();
@@ -91,8 +86,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (updateError) {
       console.error("Failed to update suggestion:", updateError);
-      const err = apiError("DB_ERROR", updateError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
     }
 
     // Upsert into proven_hooks
@@ -224,7 +218,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
   } catch (err) {
     console.error("POST /api/admin/hook-suggestions/[id]/approve error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

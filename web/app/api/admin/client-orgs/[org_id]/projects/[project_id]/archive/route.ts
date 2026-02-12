@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { PROJECT_EVENT_TYPES, getProjectById } from "@/lib/client-projects";
 
 export const runtime = "nodejs";
@@ -20,33 +20,28 @@ export async function POST(
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Check admin role
   if (authContext.role !== "admin") {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Validate UUIDs
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!orgId || !uuidRegex.test(orgId)) {
-    const err = apiError("BAD_REQUEST", "Invalid organization ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid organization ID format", 400, correlationId);
   }
   if (!projectId || !uuidRegex.test(projectId)) {
-    const err = apiError("BAD_REQUEST", "Invalid project ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid project ID format", 400, correlationId);
   }
 
   try {
     // Verify project exists and belongs to org
     const project = await getProjectById(supabaseAdmin, orgId, projectId);
     if (!project) {
-      const err = apiError("NOT_FOUND", "Project not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Project not found", 404, correlationId);
     }
 
     if (project.is_archived) {
@@ -75,8 +70,7 @@ export async function POST(
 
     if (eventError) {
       console.error("[admin/projects/archive] Event insert error:", eventError);
-      const err = apiError("DB_ERROR", "Failed to archive project", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to archive project", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -88,7 +82,6 @@ export async function POST(
     });
   } catch (err) {
     console.error("[admin/projects/archive] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

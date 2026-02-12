@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
 import { listClientRequestsForOrg, RequestStatus } from "@/lib/client-requests";
 
@@ -18,8 +18,7 @@ export async function GET(request: Request) {
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Get user's primary organization
@@ -42,8 +41,7 @@ export async function GET(request: Request) {
     // Validate status if provided
     const validStatuses: RequestStatus[] = ["SUBMITTED", "IN_REVIEW", "APPROVED", "REJECTED", "CONVERTED"];
     if (status && !validStatuses.includes(status)) {
-      const err = apiError("BAD_REQUEST", "Invalid status parameter", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Invalid status parameter", 400, correlationId);
     }
 
     // Get requests
@@ -75,7 +73,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("[client/requests] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

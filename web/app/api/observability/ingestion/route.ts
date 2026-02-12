@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { getIngestionMetrics } from "@/lib/ingestion";
 import { getEnrichmentMetrics } from "@/lib/enrichment";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
@@ -33,15 +33,11 @@ export async function GET(request: NextRequest) {
     const result = await getIngestionMetrics(supabaseAdmin);
 
     if (!result.ok) {
-      const err = apiError(
+      return createApiErrorResponse(
         "DB_ERROR",
         result.error || "Failed to compute ingestion metrics",
         500
-      );
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      , correlationId);
     }
 
     // Get enrichment metrics (non-blocking)
@@ -67,10 +63,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/observability/ingestion error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

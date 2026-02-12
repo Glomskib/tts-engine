@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   getCompletePostingMeta,
@@ -47,8 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Check video exists and get status
@@ -59,16 +58,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (videoError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   // Get complete posting metadata
   const result = await getCompletePostingMeta(supabaseAdmin, videoId);
 
   if (!result.ok) {
-    const err = apiError("DB_ERROR", result.error || "Failed to fetch posting metadata", 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", result.error || "Failed to fetch posting metadata", 500, correlationId);
   }
 
   // Validate completeness
@@ -114,8 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get auth context
@@ -127,8 +123,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   // Extract fields
@@ -143,16 +138,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Validate fields
   const fieldValidation = validatePostingMetaFields(updates);
   if (!fieldValidation.ok) {
-    const err = apiError("VALIDATION_ERROR", "Invalid field values", 400, {
+    return createApiErrorResponse("VALIDATION_ERROR", "Invalid field values", 400, correlationId, {
       errors: fieldValidation.errors,
     });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Check if any updates provided
   if (Object.keys(updates).length === 0) {
-    const err = apiError("BAD_REQUEST", "No fields to update. Provide target_account or uploader_checklist_completed_at.", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "No fields to update. Provide target_account or uploader_checklist_completed_at.", 400, correlationId);
   }
 
   // Update posting meta
@@ -168,8 +161,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       "Video not found": { code: "NOT_FOUND", status: 404 },
     };
     const errorInfo = errorMap[updateResult.error || ""] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-    const err = apiError(errorInfo.code, updateResult.error || "Failed to update posting metadata", errorInfo.status);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse(errorInfo.code, updateResult.error || "Failed to update posting metadata", errorInfo.status, correlationId);
   }
 
   // Get complete posting metadata to check readiness

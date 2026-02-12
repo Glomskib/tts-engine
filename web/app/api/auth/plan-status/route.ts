@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { getUserPlan, isSubscriptionGatingEnabled } from "@/lib/subscription";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -15,8 +15,7 @@ export async function GET(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   const userId = authContext.user.id;
@@ -37,7 +36,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("GET /api/auth/plan-status error:", err);
-    const error = apiError("DB_ERROR", "Failed to get plan status", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Failed to get plan status", 500, correlationId);
   }
 }

@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
 import { createClientRequest, RequestType } from "@/lib/client-requests";
 
@@ -26,8 +26,7 @@ export async function POST(request: Request) {
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Get user's primary organization
@@ -48,44 +47,37 @@ export async function POST(request: Request) {
     // Validate request_type
     const validTypes: RequestType[] = ["AI_CONTENT", "UGC_EDIT"];
     if (!request_type || !validTypes.includes(request_type)) {
-      const err = apiError("BAD_REQUEST", "request_type must be 'AI_CONTENT' or 'UGC_EDIT'", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "request_type must be 'AI_CONTENT' or 'UGC_EDIT'", 400, correlationId);
     }
 
     // Validate title
     if (!title || typeof title !== "string" || title.trim().length === 0) {
-      const err = apiError("BAD_REQUEST", "title is required", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "title is required", 400, correlationId);
     }
     const trimmedTitle = title.trim();
     if (trimmedTitle.length > 200) {
-      const err = apiError("BAD_REQUEST", "title must be 200 characters or less", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "title must be 200 characters or less", 400, correlationId);
     }
 
     // Validate brief
     if (!brief || typeof brief !== "string" || brief.trim().length === 0) {
-      const err = apiError("BAD_REQUEST", "brief is required", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "brief is required", 400, correlationId);
     }
     const trimmedBrief = brief.trim();
     if (trimmedBrief.length > 5000) {
-      const err = apiError("BAD_REQUEST", "brief must be 5000 characters or less", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "brief must be 5000 characters or less", 400, correlationId);
     }
 
     // Validate UGC_EDIT specific requirements
     if (request_type === "UGC_EDIT") {
       if (!ugc_links || !Array.isArray(ugc_links) || ugc_links.length === 0) {
-        const err = apiError("BAD_REQUEST", "ugc_links is required for UGC_EDIT requests (at least one link)", 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", "ugc_links is required for UGC_EDIT requests (at least one link)", 400, correlationId);
       }
 
       // Validate each link is a non-empty string
       for (let i = 0; i < ugc_links.length; i++) {
         if (typeof ugc_links[i] !== "string" || ugc_links[i].trim().length === 0) {
-          const err = apiError("BAD_REQUEST", `ugc_links[${i}] must be a non-empty string`, 400);
-          return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+          return createApiErrorResponse("BAD_REQUEST", `ugc_links[${i}] must be a non-empty string`, 400, correlationId);
         }
       }
     }
@@ -112,7 +104,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("[client/requests/create] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

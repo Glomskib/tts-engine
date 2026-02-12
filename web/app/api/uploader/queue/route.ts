@@ -23,7 +23,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { type VideoStatus } from "@/lib/video-pipeline";
 import { validatePostingMetaCompleteness, type CompletePostingMeta } from "@/lib/posting-meta";
@@ -62,8 +62,7 @@ export async function GET(request: NextRequest) {
   // Access control: admin or uploader
   const authContext = await getApiAuthContext(request);
   if (!authContext.isUploader) {
-    const err = apiError("FORBIDDEN", "Uploader or admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Uploader or admin access required", 403, correlationId);
   }
 
   // Parse query params
@@ -77,8 +76,7 @@ export async function GET(request: NextRequest) {
 
   // Validate status
   if (!VALID_STATUSES.includes(statusParam as QueueStatus)) {
-    const err = apiError("BAD_REQUEST", `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`, 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`, 400, correlationId);
   }
   const status = statusParam as QueueStatus;
 
@@ -109,8 +107,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (videosError) {
-      const err = apiError("DB_ERROR", `Failed to fetch videos: ${videosError.message}`, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", `Failed to fetch videos: ${videosError.message}`, 500, correlationId);
     }
 
     if (!videos || videos.length === 0) {
@@ -270,7 +267,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/uploader/queue error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

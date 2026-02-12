@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { computeSlaInfo } from "@/lib/execution-stages";
@@ -39,13 +39,11 @@ export async function GET(request: Request) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Parse query params
@@ -112,8 +110,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("GET /api/admin/assignments error:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     const rows = (data || []) as unknown as AssignmentRow[];
@@ -158,7 +155,6 @@ export async function GET(request: Request) {
 
   } catch (err) {
     console.error("GET /api/admin/assignments error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

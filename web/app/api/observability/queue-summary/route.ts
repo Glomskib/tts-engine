@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { VIDEO_STATUSES, isQueueStatus } from "@/lib/video-pipeline";
-import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -46,7 +46,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("GET /api/observability/queue-summary error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

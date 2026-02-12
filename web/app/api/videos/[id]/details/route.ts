@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
@@ -29,8 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   try {
@@ -79,8 +78,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (videoError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
 
     // Fetch script if there's a locked script
@@ -215,7 +213,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (err) {
     console.error("GET /api/videos/[id]/details error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

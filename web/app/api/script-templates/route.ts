@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
@@ -32,8 +32,7 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
@@ -51,27 +50,23 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { name, category, tags, template_json, created_by } = body as Record<string, unknown>;
 
   // Validate required fields
   if (typeof name !== "string" || name.trim() === "") {
-    const err = apiError("BAD_REQUEST", "name is required and must be a non-empty string", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "name is required and must be a non-empty string", 400, correlationId);
   }
 
   if (template_json === undefined || template_json === null || typeof template_json !== "object") {
-    const err = apiError("BAD_REQUEST", "template_json is required and must be an object", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "template_json is required and must be an object", 400, correlationId);
   }
 
   // Validate tags if provided
   if (tags !== undefined && !Array.isArray(tags)) {
-    const err = apiError("BAD_REQUEST", "tags must be an array of strings", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "tags must be an array of strings", 400, correlationId);
   }
 
   const insertPayload: Record<string, unknown> = {
@@ -99,8 +94,7 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("POST /api/script-templates error:", error);
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
@@ -21,8 +21,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid template ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid template ID format", 400, correlationId);
   }
 
   const { data, error } = await supabaseAdmin
@@ -33,11 +32,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   if (error) {
     if (error.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Template not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Template not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
@@ -55,16 +52,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid template ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid template ID format", 400, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { name, category, tags, template_json } = body as Record<string, unknown>;
@@ -102,12 +97,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   if (error) {
     if (error.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Template not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Template not found", 404, correlationId);
     }
     console.error("PUT /api/script-templates/[id] error:", error);
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });

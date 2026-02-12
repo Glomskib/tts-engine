@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -59,22 +59,19 @@ export async function POST(
   const { id } = await params;
 
   if (!id || typeof id !== "string") {
-    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
   const idUuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!idUuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { from_user, to_user, to_user_id, to_role, ttl_minutes, force, notes } = body as Record<string, unknown>;
@@ -89,13 +86,13 @@ export async function POST(
     : (typeof from_user === "string" && from_user.trim() !== "" ? from_user.trim() : null);
 
   if (!actor) {
-    const err = apiError(
+    return createApiErrorResponse(
       "MISSING_ACTOR",
       "Authentication required. Please sign in to handoff videos.",
       401,
+      correlationId,
       { hint: "Sign in or provide from_user in request body for test mode" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Validate to_user_id (preferred when authenticated) or to_user (legacy)
@@ -103,8 +100,7 @@ export async function POST(
   const hasToUser = typeof to_user === "string" && to_user.trim() !== "";
 
   if (!hasToUserId && !hasToUser) {
-    const err = apiError("BAD_REQUEST", "to_user_id (UUID) or to_user (string) is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "to_user_id (UUID) or to_user (string) is required", 400, correlationId);
   }
 
   // Use to_user_id if provided, otherwise fall back to to_user
@@ -113,8 +109,7 @@ export async function POST(
 
   // Validate to_role
   if (!VALID_CLAIM_ROLES.includes(to_role as ClaimRole)) {
-    const err = apiError("INVALID_ROLE", `to_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: to_role });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_ROLE", `to_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, correlationId, { provided: to_role });
   }
 
   const ttl = typeof ttl_minutes === "number" && ttl_minutes > 0 ? ttl_minutes : 120;
@@ -124,13 +119,13 @@ export async function POST(
 
   // Force is only allowed for admin users
   if (forceRequested && !isAdmin) {
-    const err = apiError(
+    return createApiErrorResponse(
       "FORBIDDEN",
       "force=true is only allowed for admin users",
       403,
+      correlationId,
       { from_user: actor, hint: "Only authenticated admin users can use force" }
     );
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   try {
@@ -140,8 +135,7 @@ export async function POST(
     const hasAssignmentColumns = existingColumns.has("assigned_to") && existingColumns.has("assigned_at");
 
     if (!hasClaimColumns) {
-      const err = apiError("BAD_REQUEST", "Handoff requires claim columns (migrations 010 and 015)", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Handoff requires claim columns (migrations 010 and 015)", 400, correlationId);
     }
 
     // Build dynamic select
@@ -158,8 +152,7 @@ export async function POST(
       .single();
 
     if (fetchError || !videoData) {
-      const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId, { video_id: id });
     }
 
     const video = videoData as unknown as Record<string, unknown>;
@@ -176,16 +169,14 @@ export async function POST(
     // Admin with force can bypass ownership checks
     if (!(forceRequested && isAdmin)) {
       if (!hasValidClaim) {
-        const err = apiError("NOT_CLAIMED", "Video is not currently claimed", 409, {
+        return createApiErrorResponse("NOT_CLAIMED", "Video is not currently claimed", 409, correlationId, {
           claimed_by: video.claimed_by || null,
           claim_expires_at: video.claim_expires_at || null,
         });
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
       }
 
       if (video.claimed_by !== actor) {
-        const err = apiError("NOT_CLAIM_OWNER", "You do not have a claim on this video", 403);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("NOT_CLAIM_OWNER", "You do not have a claim on this video", 403, correlationId);
       }
     }
 
@@ -215,8 +206,7 @@ export async function POST(
       .single();
 
     if (updateError || !updatedData) {
-      const err = apiError("DB_ERROR", "Failed to perform handoff", 500, { video_id: id });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to perform handoff", 500, correlationId, { video_id: id });
     }
 
     const updated = updatedData as unknown as Record<string, unknown>;
@@ -258,7 +248,6 @@ export async function POST(
 
   } catch (err) {
     console.error("POST /api/videos/[id]/handoff error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

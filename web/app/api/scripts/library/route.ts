@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
@@ -26,8 +26,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const {
@@ -57,8 +56,7 @@ export async function POST(request: Request) {
   };
 
   if (!brand_name || !script_text) {
-    const err = apiError("BAD_REQUEST", "brand_name and script_text are required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "brand_name and script_text are required", 400, correlationId);
   }
 
   const scriptHash = hashText(script_text);
@@ -118,8 +116,7 @@ export async function POST(request: Request) {
       }
 
       console.error("Failed to save script:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -130,8 +127,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("Script library save error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }
 
@@ -177,8 +173,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Failed to fetch scripts:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -188,7 +183,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("Script library fetch error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

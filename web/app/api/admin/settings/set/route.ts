@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { isAllowedSettingKey, setSystemSetting, type SettingKey, type SettingValue } from "@/lib/settings";
 import { notify } from "@/lib/notify";
 
@@ -18,35 +18,30 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON body", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const { key, value } = body as Record<string, unknown>;
 
   // Validate key
   if (!key || typeof key !== "string") {
-    const err = apiError("BAD_REQUEST", "key is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "key is required", 400, correlationId);
   }
 
   if (!isAllowedSettingKey(key)) {
-    const err = apiError("BAD_REQUEST", `Invalid setting key: ${key}. Allowed keys: SUBSCRIPTION_GATING_ENABLED, EMAIL_ENABLED, SLACK_ENABLED, ASSIGNMENT_TTL_MINUTES, SLACK_OPS_EVENTS, ANALYTICS_DEFAULT_WINDOW_DAYS`, 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `Invalid setting key: ${key}. Allowed keys: SUBSCRIPTION_GATING_ENABLED, EMAIL_ENABLED, SLACK_ENABLED, ASSIGNMENT_TTL_MINUTES, SLACK_OPS_EVENTS, ANALYTICS_DEFAULT_WINDOW_DAYS`, 400, correlationId);
   }
 
   // Validate value based on key type
@@ -58,32 +53,28 @@ export async function POST(request: Request) {
     case "EMAIL_ENABLED":
     case "SLACK_ENABLED":
       if (typeof value !== "boolean") {
-        const err = apiError("BAD_REQUEST", `${key} must be a boolean`, 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", `${key} must be a boolean`, 400, correlationId);
       }
       settingValue = value;
       break;
 
     case "ASSIGNMENT_TTL_MINUTES":
       if (typeof value !== "number" || value < 1 || value > 10080) {
-        const err = apiError("BAD_REQUEST", `${key} must be a number between 1 and 10080 (7 days)`, 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", `${key} must be a number between 1 and 10080 (7 days)`, 400, correlationId);
       }
       settingValue = value;
       break;
 
     case "SLACK_OPS_EVENTS":
       if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
-        const err = apiError("BAD_REQUEST", `${key} must be an array of strings`, 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", `${key} must be an array of strings`, 400, correlationId);
       }
       settingValue = value;
       break;
 
     case "ANALYTICS_DEFAULT_WINDOW_DAYS":
       if (typeof value !== "number" || ![7, 14, 30].includes(value)) {
-        const err = apiError("BAD_REQUEST", `${key} must be 7, 14, or 30`, 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", `${key} must be 7, 14, or 30`, 400, correlationId);
       }
       settingValue = value;
       break;
@@ -101,8 +92,7 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      const err = apiError("DB_ERROR", result.error || "Failed to set setting", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", result.error || "Failed to set setting", 500, correlationId);
     }
 
     // Notify ops (optional, fail-safe)
@@ -126,7 +116,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/admin/settings/set error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

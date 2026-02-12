@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { QUEUE_STATUSES } from "@/lib/video-pipeline";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { computeStageInfo, computeSlaInfo, RECORDING_STATUSES, type VideoForValidation } from "@/lib/execution-stages";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
@@ -42,33 +42,28 @@ export async function GET(request: Request) {
 
   // Validate pipeline status if provided
   if (statusParam && !QUEUE_STATUSES.includes(statusParam as typeof QUEUE_STATUSES[number])) {
-    const err = apiError("BAD_REQUEST", `status must be one of: ${QUEUE_STATUSES.join(", ")}`, 400, { provided: statusParam });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `status must be one of: ${QUEUE_STATUSES.join(", ")}`, 400, correlationId, { provided: statusParam });
   }
 
   // Validate recording_status if provided
   if (recordingStatusParam && !RECORDING_STATUSES.includes(recordingStatusParam as typeof RECORDING_STATUSES[number])) {
-    const err = apiError("BAD_REQUEST", `recording_status must be one of: ${RECORDING_STATUSES.join(", ")}`, 400, { provided: recordingStatusParam });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `recording_status must be one of: ${RECORDING_STATUSES.join(", ")}`, 400, correlationId, { provided: recordingStatusParam });
   }
 
   // Validate claimed param
   const validClaimedValues = ["unclaimed", "claimed", "any"];
   if (!validClaimedValues.includes(claimedParam)) {
-    const err = apiError("BAD_REQUEST", `claimed must be one of: ${validClaimedValues.join(", ")}`, 400, { provided: claimedParam });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `claimed must be one of: ${validClaimedValues.join(", ")}`, 400, correlationId, { provided: claimedParam });
   }
 
   // Validate claim_role param if provided
   if (claimRoleParam && !VALID_CLAIM_ROLES.includes(claimRoleParam as typeof VALID_CLAIM_ROLES[number])) {
-    const err = apiError("BAD_REQUEST", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, { provided: claimRoleParam });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `claim_role must be one of: ${VALID_CLAIM_ROLES.join(", ")}`, 400, correlationId, { provided: claimRoleParam });
   }
 
   // Validate sort param if provided
   if (sortParam && !VALID_SORT_VALUES.includes(sortParam)) {
-    const err = apiError("BAD_REQUEST", `sort must be one of: ${VALID_SORT_VALUES.join(", ")}`, 400, { provided: sortParam });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `sort must be one of: ${VALID_SORT_VALUES.join(", ")}`, 400, correlationId, { provided: sortParam });
   }
 
   // Parse and validate limit
@@ -76,8 +71,7 @@ export async function GET(request: Request) {
   if (limitParam) {
     const parsedLimit = parseInt(limitParam, 10);
     if (isNaN(parsedLimit) || parsedLimit < 1) {
-      const err = apiError("BAD_REQUEST", "limit must be a positive integer", 400, { provided: limitParam });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "limit must be a positive integer", 400, correlationId, { provided: limitParam });
     }
     limit = Math.min(parsedLimit, 200);
   }
@@ -169,8 +163,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("GET /api/videos/queue Supabase error:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     // Compute stage info and SLA info for each video
@@ -281,7 +274,6 @@ export async function GET(request: Request) {
 
   } catch (err) {
     console.error("GET /api/videos/queue error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

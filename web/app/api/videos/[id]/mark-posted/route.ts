@@ -21,7 +21,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { transitionVideoStatusAtomic } from "@/lib/video-status-machine";
 import { type VideoStatus } from "@/lib/video-pipeline";
@@ -103,15 +103,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get auth context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   const actor = authContext.user.id;
@@ -121,8 +119,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Access control: admin OR uploader
   if (!isAdmin && !isUploader) {
-    const err = apiError("FORBIDDEN", "Admin or uploader access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin or uploader access required", 403, correlationId);
   }
 
   // Parse body
@@ -130,19 +127,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   // Validate posted_url
   if (!body.posted_url || typeof body.posted_url !== "string") {
-    const err = apiError("BAD_REQUEST", "posted_url is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "posted_url is required", 400, correlationId);
   }
 
   if (!isValidUrl(body.posted_url)) {
-    const err = apiError("BAD_REQUEST", "posted_url must be a valid HTTP/HTTPS URL", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "posted_url must be a valid HTTP/HTTPS URL", 400, correlationId);
   }
 
   // Validate platform
@@ -161,8 +155,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (fetchError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   const currentStatus = video.status as VideoStatus;
@@ -210,11 +203,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Different URL - only admin can update
     if (!isAdmin) {
-      const err = apiError("CONFLICT", "Video already posted with a different URL. Only admins can update the posted URL.", 409, {
+      return createApiErrorResponse("CONFLICT", "Video already posted with a different URL. Only admins can update the posted URL.", 409, correlationId, {
         existing_posted_url: existingUrl,
         requested_posted_url: body.posted_url,
       });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     // Admin updating posted URL
@@ -232,8 +224,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .eq("id", videoId);
 
     if (updateError) {
-      const err = apiError("DB_ERROR", `Failed to update posting metadata: ${updateError.message}`, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", `Failed to update posting metadata: ${updateError.message}`, 500, correlationId);
     }
 
     await writeMarkPostedEvent({
@@ -304,12 +295,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     };
 
     const errorInfo = errorMap[transitionResult.error_code || ""] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-    const err = apiError(errorInfo.code, transitionResult.message, errorInfo.status, {
+    return createApiErrorResponse(errorInfo.code, transitionResult.message, errorInfo.status, correlationId, {
       current_status: transitionResult.current_status,
       allowed_next: transitionResult.allowed_next,
       error_code: transitionResult.error_code,
     });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Write the video_mark_posted event (status_change already written by transitionVideoStatusAtomic)

@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
 
@@ -10,10 +10,9 @@ interface RouteParams {
 }
 
 export async function GET(request: Request, { params }: RouteParams) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { id } = await params;
@@ -22,8 +21,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid script ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid script ID format", 400, correlationId);
   }
 
   // Fetch rewrite history for this script
@@ -35,8 +33,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     .limit(50);
 
   if (error) {
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({

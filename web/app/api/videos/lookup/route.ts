@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
@@ -12,11 +12,7 @@ export async function GET(request: Request) {
   // Auth check
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   const { searchParams } = new URL(request.url);
@@ -25,15 +21,11 @@ export async function GET(request: Request) {
   const postedUrl = searchParams.get("posted_url");
 
   if (!tiktokUrl && !title && !postedUrl) {
-    const err = apiError(
+    return createApiErrorResponse(
       "BAD_REQUEST",
       "Provide tiktok_url, posted_url, or title query parameter",
       400
-    );
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    , correlationId);
   }
 
   let query = supabaseAdmin
@@ -54,11 +46,7 @@ export async function GET(request: Request) {
 
   if (error) {
     console.error(`[${correlationId}] GET /api/videos/lookup error:`, error);
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({

@@ -37,7 +37,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   createIngestionJob,
@@ -58,11 +58,7 @@ export async function POST(request: NextRequest) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for ingestion", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for ingestion", 403, correlationId);
   }
 
   const actor = authContext.user?.id || "admin";
@@ -72,40 +68,26 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   // Validate urls
   if (!body.urls || !Array.isArray(body.urls)) {
-    const err = apiError("BAD_REQUEST", "urls must be an array of strings", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "urls must be an array of strings", 400, correlationId);
   }
 
   const urls = body.urls.filter((u): u is string => typeof u === "string");
   if (urls.length === 0) {
-    const err = apiError("BAD_REQUEST", "urls array is empty", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "urls array is empty", 400, correlationId);
   }
 
   if (urls.length > MAX_URLS_PER_CHUNK) {
-    const err = apiError(
+    return createApiErrorResponse(
       "BAD_REQUEST",
       `Maximum ${MAX_URLS_PER_CHUNK} URLs per request. Use chunked upload for larger datasets.`,
-      400
-    );
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId, max_urls_per_chunk: MAX_URLS_PER_CHUNK },
-      { status: err.status }
+      400,
+      correlationId,
+      { max_urls_per_chunk: MAX_URLS_PER_CHUNK }
     );
   }
 
@@ -129,11 +111,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (!appendResult.ok || !appendResult.job) {
-        const err = apiError("DB_ERROR", appendResult.error || "Failed to append URLs", 500);
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
-        );
+        return createApiErrorResponse("DB_ERROR", appendResult.error || "Failed to append URLs", 500, correlationId);
       }
 
       jobId = existingJobId;
@@ -148,11 +126,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (!createResult.ok || !createResult.job) {
-        const err = apiError("DB_ERROR", createResult.error || "Failed to create job", 500);
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
-        );
+        return createApiErrorResponse("DB_ERROR", createResult.error || "Failed to create job", 500, correlationId);
       }
 
       jobId = createResult.job.id;
@@ -166,11 +140,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!validateResult.ok) {
-      const err = apiError("DB_ERROR", validateResult.error || "Failed to validate job", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("DB_ERROR", validateResult.error || "Failed to validate job", 500, correlationId);
     }
 
     // If validate_only, return now
@@ -235,10 +205,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("POST /api/ingestion/tiktok error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

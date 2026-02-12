@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isValidStatus, VideoStatus } from "@/lib/video-pipeline";
 import { transitionVideoStatusAtomic } from "@/lib/video-status-machine";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { auditLogAsync, AuditEventTypes, EntityTypes } from "@/lib/audit";
@@ -18,8 +18,7 @@ export async function GET(
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId);
   }
 
   const { data, error } = await supabaseAdmin
@@ -30,11 +29,9 @@ export async function GET(
 
   if (error) {
     if (error.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
@@ -48,23 +45,20 @@ export async function PATCH(
   const { id } = await params;
 
   if (!id || typeof id !== "string") {
-    const err = apiError("BAD_REQUEST", "Video ID is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400, { provided: id });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const {
@@ -90,8 +84,7 @@ export async function PATCH(
   // Validate status if provided
   if (status !== undefined) {
     if (typeof status !== "string" || !isValidStatus(status)) {
-      const err = apiError("INVALID_STATUS", "Invalid status value", 400, { provided: status });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("INVALID_STATUS", "Invalid status value", 400, correlationId, { provided: status });
     }
   }
 
@@ -135,12 +128,11 @@ export async function PATCH(
       };
 
       const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-      const err = apiError(errorInfo.code, result.message, errorInfo.status, {
+      return createApiErrorResponse(errorInfo.code, result.message, errorInfo.status, correlationId, {
         current_status: result.current_status,
         previous_status: result.previous_status,
         allowed_next: result.allowed_next,
       });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     // Fetch full updated video for response
@@ -212,8 +204,7 @@ export async function PATCH(
   }
 
   if (Object.keys(updatePayload).length === 0) {
-    const err = apiError("BAD_REQUEST", "No valid fields provided for update", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "No valid fields provided for update", 400, correlationId);
   }
 
   try {
@@ -226,19 +217,16 @@ export async function PATCH(
 
     if (error) {
       if (error.code === "PGRST116") {
-        const err = apiError("NOT_FOUND", "Video not found", 404, { video_id: id });
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId, { video_id: id });
       }
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 
   } catch (err) {
     console.error("PATCH /api/videos/[id] error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }
 
@@ -252,19 +240,16 @@ export async function DELETE(
   // Auth check - admin only
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Validate UUID
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Video ID must be a valid UUID", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId);
   }
 
   try {
@@ -276,8 +261,7 @@ export async function DELETE(
       .single();
 
     if (fetchError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
 
     // Delete related records first (video_events, scheduled_posts referencing this video)
@@ -292,8 +276,7 @@ export async function DELETE(
 
     if (deleteError) {
       console.error("DELETE /api/videos/[id] error:", deleteError);
-      const err = apiError("DB_ERROR", deleteError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", deleteError.message, 500, correlationId);
     }
 
     auditLogAsync({
@@ -309,7 +292,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true, deleted: id, correlation_id: correlationId });
   } catch (err) {
     console.error("DELETE /api/videos/[id] error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

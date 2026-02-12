@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
@@ -71,8 +71,7 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required for dispatch", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required for dispatch", 401, correlationId);
   }
 
   const userId = authContext.user.id;
@@ -119,26 +118,22 @@ export async function POST(request: Request) {
 
   if (requestedRole && typeof requestedRole === "string") {
     if (!VALID_DISPATCH_ROLES.includes(requestedRole as DispatchRole)) {
-      const err = apiError("BAD_REQUEST", `role must be one of: ${VALID_DISPATCH_ROLES.join(", ")}`, 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", `role must be one of: ${VALID_DISPATCH_ROLES.join(", ")}`, 400, correlationId);
     }
     // Non-admin can only dispatch for their own role
     if (!isAdmin && userRole !== requestedRole && userRole !== "admin") {
-      const err = apiError("FORBIDDEN", `You can only dispatch for your own role: ${userRole}`, 403);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("FORBIDDEN", `You can only dispatch for your own role: ${userRole}`, 403, correlationId);
     }
     dispatchRole = requestedRole as DispatchRole;
   } else if (userRole && VALID_DISPATCH_ROLES.includes(userRole as DispatchRole)) {
     dispatchRole = userRole as DispatchRole;
   } else {
-    const err = apiError("BAD_REQUEST", "role is required for admin users or users without a dispatch role", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "role is required for admin users or users without a dispatch role", 400, correlationId);
   }
 
   // Force is admin-only
   if (force === true && !isAdmin) {
-    const err = apiError("FORBIDDEN", "force=true is only allowed for admin users", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "force=true is only allowed for admin users", 403, correlationId);
   }
 
   try {
@@ -147,8 +142,7 @@ export async function POST(request: Request) {
     const hasClaimColumns = existingColumns.has("claimed_by") && existingColumns.has("claim_expires_at");
 
     if (!hasWorkPackageColumns) {
-      const err = apiError("BAD_REQUEST", "Dispatch requires work package columns (migration 019)", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Dispatch requires work package columns (migration 019)", 400, correlationId);
     }
 
     const laneConfig = LANE_CONFIG[dispatchRole];
@@ -179,13 +173,11 @@ export async function POST(request: Request) {
 
     if (fetchError) {
       console.error("Dispatch query error:", fetchError);
-      const err = apiError("DB_ERROR", fetchError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", fetchError.message, 500, correlationId);
     }
 
     if (!candidates || candidates.length === 0) {
-      const err = apiError("NO_WORK_AVAILABLE", `No work available for ${dispatchRole} lane`, 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NO_WORK_AVAILABLE", `No work available for ${dispatchRole} lane`, 404, correlationId);
     }
 
     // Filter and score candidates
@@ -244,8 +236,7 @@ export async function POST(request: Request) {
     }
 
     if (scoredCandidates.length === 0) {
-      const err = apiError("NO_WORK_AVAILABLE", `No actionable work available for ${dispatchRole} lane`, 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NO_WORK_AVAILABLE", `No actionable work available for ${dispatchRole} lane`, 404, correlationId);
     }
 
     // Sort by priority (highest first) and then by overdue/due_soon status
@@ -288,8 +279,7 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error("Dispatch update error:", updateError);
-      const err = apiError("DB_ERROR", "Failed to assign video", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to assign video", 500, correlationId);
     }
 
     // Write event
@@ -330,7 +320,6 @@ export async function POST(request: Request) {
 
   } catch (err) {
     console.error("POST /api/videos/dispatch error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

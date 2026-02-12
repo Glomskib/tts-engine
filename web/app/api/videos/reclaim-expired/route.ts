@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -34,8 +34,7 @@ export async function POST(request: Request) {
   // Admin-only endpoint
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for reclaim-expired", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for reclaim-expired", 403, correlationId);
   }
 
   const actor = authContext.user?.id || "admin";
@@ -45,8 +44,7 @@ export async function POST(request: Request) {
     const hasWorkPackageColumns = existingColumns.has("assignment_state") && existingColumns.has("assigned_expires_at");
 
     if (!hasWorkPackageColumns) {
-      const err = apiError("BAD_REQUEST", "Reclaim requires work package columns (migration 019)", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Reclaim requires work package columns (migration 019)", 400, correlationId);
     }
 
     const now = new Date().toISOString();
@@ -60,8 +58,7 @@ export async function POST(request: Request) {
 
     if (fetchError) {
       console.error("Reclaim fetch error:", fetchError);
-      const err = apiError("DB_ERROR", fetchError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", fetchError.message, 500, correlationId);
     }
 
     if (!expired || expired.length === 0) {
@@ -86,8 +83,7 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error("Reclaim update error:", updateError);
-      const err = apiError("DB_ERROR", "Failed to reclaim expired assignments", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to reclaim expired assignments", 500, correlationId);
     }
 
     // Write events for each reclaimed video
@@ -110,7 +106,6 @@ export async function POST(request: Request) {
 
   } catch (err) {
     console.error("POST /api/videos/reclaim-expired error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

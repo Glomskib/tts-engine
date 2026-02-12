@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
-import { apiError, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, isAdminUser } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -39,8 +39,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get authentication context
@@ -59,13 +58,11 @@ export async function POST(request: Request, { params }: RouteParams) {
   const isAdmin = authContext.isAdmin || isAdminUser(actor);
 
   if (!actor) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (forceRequested && !isAdmin) {
-    const err = apiError("FORBIDDEN", "force=true is only allowed for admin users", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "force=true is only allowed for admin users", 403, correlationId);
   }
 
   try {
@@ -73,8 +70,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const hasAssignmentColumns = existingColumns.has("assignment_state") && existingColumns.has("assigned_expires_at");
 
     if (!hasAssignmentColumns) {
-      const err = apiError("BAD_REQUEST", "Assignment columns not available (migration 019)", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Assignment columns not available (migration 019)", 400, correlationId);
     }
 
     // Fetch current video
@@ -85,28 +81,22 @@ export async function POST(request: Request, { params }: RouteParams) {
       .single();
 
     if (fetchError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
 
     // Check if caller is assigned (or admin with force)
     if (video.assigned_to !== actor && !(forceRequested && isAdmin)) {
-      const err = apiError(
+      return createApiErrorResponse(
         "NOT_ASSIGNED_TO_YOU",
         "Only the assigned user can complete an assignment",
         403,
+        correlationId,
         { assigned_to: video.assigned_to, actor }
       );
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     if (video.assignment_state !== "ASSIGNED") {
-      const err = apiError(
-        "BAD_REQUEST",
-        `Assignment is not active (current state: ${video.assignment_state})`,
-        400
-      );
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", `Assignment is not active (current state: ${video.assignment_state})`, 400, correlationId);
     }
 
     const now = new Date().toISOString();
@@ -124,8 +114,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (updateError) {
       console.error("Complete assignment update error:", updateError);
-      const err = apiError("DB_ERROR", "Failed to complete assignment", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to complete assignment", 500, correlationId);
     }
 
     // Write event
@@ -143,7 +132,6 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   } catch (err) {
     console.error("POST /api/videos/[id]/complete-assignment error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

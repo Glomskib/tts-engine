@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
@@ -17,22 +17,14 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Auth check
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Validate UUID format
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Parse body
@@ -40,11 +32,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     body = (await request.json()) as Record<string, unknown>;
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   // Validate and build update payload
@@ -68,15 +56,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (body[inputKey] !== undefined) {
       const val = Number(body[inputKey]);
       if (isNaN(val) || val < 0) {
-        const err = apiError(
+        return createApiErrorResponse(
           "BAD_REQUEST",
           `${inputKey} must be a non-negative number`,
           400
-        );
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
-        );
+        , correlationId);
       }
       updatePayload[dbColumn] = val;
       hasMetrics = true;
@@ -84,15 +68,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   if (!hasMetrics) {
-    const err = apiError(
-      "BAD_REQUEST",
-      "At least one metric is required (views, likes, comments, shares, saves, sales_count, revenue, clicks)",
-      400
-    );
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "At least one metric is required (views, likes, comments, shares, saves, sales_count, revenue, clicks)", 400, correlationId);
   }
 
   // If tiktok_url provided, set it
@@ -128,18 +104,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (error) {
     if (error.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
     console.error(`[${correlationId}] POST /api/videos/[id]/stats error:`, error);
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });

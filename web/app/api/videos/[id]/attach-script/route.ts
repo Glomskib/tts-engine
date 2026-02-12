@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { renderScriptText, ScriptJson } from "@/lib/script-renderer";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
@@ -22,23 +22,20 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { script_id, force } = body as Record<string, unknown>;
 
   if (typeof script_id !== "string" || !uuidRegex.test(script_id)) {
-    const err = apiError("BAD_REQUEST", "script_id is required and must be a valid UUID", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "script_id is required and must be a valid UUID", 400, correlationId);
   }
 
   // Fetch the video
@@ -50,11 +47,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (videoError) {
     if (videoError.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", videoError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", videoError.message, 500, correlationId);
   }
 
   // Check if video already has a locked script (unless force=true)
@@ -67,12 +62,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   } : null;
 
   if (hadPreviousScript && force !== true) {
-    const err = apiError("SCRIPT_ALREADY_LOCKED", "Video already has a locked script. Use force=true to override.", 409);
-    return NextResponse.json({
-      ...err.body,
-      correlation_id: correlationId,
-      previous_locked_script: previousLockedScript,
-    }, { status: err.status });
+    return createApiErrorResponse("SCRIPT_ALREADY_LOCKED", "Video already has a locked script. Use force=true to override.", 409, correlationId, { previous_locked_script: previousLockedScript });
   }
 
   // Fetch the script
@@ -84,17 +74,14 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (scriptError) {
     if (scriptError.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Script not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", scriptError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", scriptError.message, 500, correlationId);
   }
 
   // Check if script is approved (optional - can be enforced or just warned)
   if (script.status !== "APPROVED" && force !== true) {
-    const err = apiError("SCRIPT_NOT_APPROVED", `Script status is '${script.status}', not APPROVED. Use force=true to attach anyway.`, 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("SCRIPT_NOT_APPROVED", `Script status is '${script.status}', not APPROVED. Use force=true to attach anyway.`, 400, correlationId);
   }
 
   // Prepare the locked content
@@ -132,8 +119,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (updateError) {
     console.error("Failed to attach script to video:", updateError);
-    const err = apiError("DB_ERROR", updateError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
   }
 
   // Log video_event if this was a force overwrite

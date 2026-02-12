@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   setClientRequestPriority,
@@ -22,20 +22,12 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   try {
@@ -44,34 +36,22 @@ export async function POST(request: Request) {
 
     // Validate request_id
     if (!request_id || typeof request_id !== "string") {
-      const err = apiError("BAD_REQUEST", "request_id is required", 400);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("BAD_REQUEST", "request_id is required", 400, correlationId);
     }
 
     // Validate org_id
     if (!org_id || typeof org_id !== "string") {
-      const err = apiError("BAD_REQUEST", "org_id is required", 400);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("BAD_REQUEST", "org_id is required", 400, correlationId);
     }
 
     // Validate priority
     const validPriorities: RequestPriority[] = ["LOW", "NORMAL", "HIGH"];
     if (!priority || !validPriorities.includes(priority)) {
-      const err = apiError(
+      return createApiErrorResponse(
         "BAD_REQUEST",
         "priority must be 'LOW', 'NORMAL', or 'HIGH'",
         400
-      );
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      , correlationId);
     }
 
     // Verify request exists
@@ -80,11 +60,7 @@ export async function POST(request: Request) {
       request_id
     );
     if (!existingRequest || existingRequest.org_id !== org_id) {
-      const err = apiError("NOT_FOUND", "Request not found", 404);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("NOT_FOUND", "Request not found", 404, correlationId);
     }
 
     // Set priority
@@ -105,10 +81,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/admin/client-requests/priority error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

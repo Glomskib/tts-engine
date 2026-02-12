@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser, isVideoInUserOrg } from "@/lib/client-org";
 
 export const runtime = "nodejs";
@@ -22,14 +22,12 @@ export async function GET(
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Validate video ID format
   if (!videoId || !videoId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-    const err = apiError("BAD_REQUEST", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid video ID format", 400, correlationId);
   }
 
   // Get user's primary organization
@@ -47,8 +45,7 @@ export async function GET(
   const videoInOrg = await isVideoInUserOrg(supabaseAdmin, authContext.user.id, videoId);
   if (!videoInOrg) {
     // Return 404 to avoid information leakage about video existence
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   try {
@@ -60,8 +57,7 @@ export async function GET(
       .single();
 
     if (videoError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
 
     // Fetch timeline events (client-safe types only, no actor info)
@@ -107,7 +103,6 @@ export async function GET(
     });
   } catch (err) {
     console.error("[client/videos/[id]] Unexpected error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

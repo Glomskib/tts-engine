@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { ORG_PLAN_EVENT_TYPES, OrgPlanType } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -22,20 +22,17 @@ export async function POST(
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Check admin role
   if (authContext.role !== "admin") {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Validate org_id format
   if (!orgId || !orgId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-    const err = apiError("BAD_REQUEST", "Invalid organization ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid organization ID format", 400, correlationId);
   }
 
   try {
@@ -44,8 +41,7 @@ export async function POST(
 
     // Validate plan
     if (!plan || !VALID_PLANS.includes(plan)) {
-      const err = apiError("BAD_REQUEST", `Invalid plan. Must be one of: ${VALID_PLANS.join(", ")}`, 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", `Invalid plan. Must be one of: ${VALID_PLANS.join(", ")}`, 400, correlationId);
     }
 
     // Insert plan event in events_log
@@ -64,8 +60,7 @@ export async function POST(
 
     if (eventError) {
       console.error("[admin/client-orgs/plan/set] Event insert error:", eventError);
-      const err = apiError("DB_ERROR", "Failed to set organization plan", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to set organization plan", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -77,7 +72,6 @@ export async function POST(
     });
   } catch (err) {
     console.error("[admin/client-orgs/plan/set] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -19,13 +19,11 @@ export async function GET(request: Request) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   const { searchParams } = new URL(request.url);
@@ -35,8 +33,7 @@ export async function GET(request: Request) {
   // Validate status
   const validStatuses = ["pending", "approved", "rejected"];
   if (!validStatuses.includes(status)) {
-    const err = apiError("BAD_REQUEST", `status must be one of: ${validStatuses.join(", ")}`, 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", `status must be one of: ${validStatuses.join(", ")}`, 400, correlationId);
   }
 
   try {
@@ -62,8 +59,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Failed to fetch hook suggestions:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -77,7 +73,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("GET /api/admin/hook-suggestions error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
 import { getProjectById, listProjectVideos } from "@/lib/client-projects";
 
@@ -24,14 +24,12 @@ export async function GET(
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Validate project ID format
   if (!projectId || !projectId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-    const err = apiError("BAD_REQUEST", "Invalid project ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid project ID format", 400, correlationId);
   }
 
   // Get user's primary organization
@@ -49,8 +47,7 @@ export async function GET(
     // Get project (verifies it belongs to org)
     const project = await getProjectById(supabaseAdmin, membership.org_id, projectId);
     if (!project) {
-      const err = apiError("NOT_FOUND", "Project not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Project not found", 404, correlationId);
     }
 
     // Get video IDs in this project
@@ -100,7 +97,6 @@ export async function GET(
     });
   } catch (err) {
     console.error("[client/projects/[id]] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

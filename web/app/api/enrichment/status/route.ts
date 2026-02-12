@@ -28,7 +28,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { getEnrichmentStatus } from "@/lib/enrichment";
 
@@ -41,22 +41,14 @@ export async function GET(request: NextRequest) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for enrichment status", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for enrichment status", 403, correlationId);
   }
 
   try {
     const result = await getEnrichmentStatus(supabaseAdmin);
 
     if (!result.ok) {
-      const err = apiError("DB_ERROR", result.error || "Failed to get enrichment status", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("DB_ERROR", result.error || "Failed to get enrichment status", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -71,10 +63,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/enrichment/status error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

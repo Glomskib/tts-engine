@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { setClientRequestStatus, getClientRequestByIdAdmin } from "@/lib/client-requests";
 import { getClientOrgById } from "@/lib/client-org";
@@ -19,14 +19,12 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   try {
@@ -35,34 +33,29 @@ export async function POST(request: Request) {
 
     // Validate request_id
     if (!request_id || typeof request_id !== "string") {
-      const err = apiError("BAD_REQUEST", "request_id is required", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "request_id is required", 400, correlationId);
     }
 
     // Validate org_id
     if (!org_id || typeof org_id !== "string") {
-      const err = apiError("BAD_REQUEST", "org_id is required", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "org_id is required", 400, correlationId);
     }
 
     // Validate status
     const validStatuses = ["IN_REVIEW", "APPROVED", "REJECTED"];
     if (!status || !validStatuses.includes(status)) {
-      const err = apiError("BAD_REQUEST", "status must be 'IN_REVIEW', 'APPROVED', or 'REJECTED'", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "status must be 'IN_REVIEW', 'APPROVED', or 'REJECTED'", 400, correlationId);
     }
 
     // Verify request exists
     const existingRequest = await getClientRequestByIdAdmin(supabaseAdmin, request_id);
     if (!existingRequest || existingRequest.org_id !== org_id) {
-      const err = apiError("NOT_FOUND", "Request not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Request not found", 404, correlationId);
     }
 
     // Check if already converted
     if (existingRequest.status === "CONVERTED") {
-      const err = apiError("CONFLICT", "Cannot change status of converted request", 409);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("CONFLICT", "Cannot change status of converted request", 409, correlationId);
     }
 
     // Set status
@@ -106,7 +99,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/admin/client-requests/status error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

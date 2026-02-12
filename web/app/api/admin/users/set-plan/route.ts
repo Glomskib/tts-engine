@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
 import { logEvent } from "@/lib/events-log";
 import type { PlanType } from "@/lib/subscription";
@@ -21,37 +21,32 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON body", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const { user_id, plan, is_active } = body as Record<string, unknown>;
 
   // Validate user_id
   if (!user_id || typeof user_id !== "string") {
-    const err = apiError("BAD_REQUEST", "user_id is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "user_id is required", 400, correlationId);
   }
 
   // Validate plan
   const validPlans: PlanType[] = ["free", "pro"];
   if (!plan || !validPlans.includes(plan as PlanType)) {
-    const err = apiError("BAD_REQUEST", "plan must be 'free' or 'pro'", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "plan must be 'free' or 'pro'", 400, correlationId);
   }
 
   const normalizedUserId = user_id.toLowerCase();
@@ -91,7 +86,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/admin/users/set-plan error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { deleteVideoAsset, getAssetById } from "@/lib/video-assets";
 
@@ -30,27 +30,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUIDs
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   if (!UUID_REGEX.test(assetId)) {
-    const err = apiError("INVALID_UUID", "Invalid asset ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid asset ID format", 400, correlationId);
   }
 
   // Get asset
   const result = await getAssetById(supabaseAdmin, assetId);
 
   if (!result.ok || !result.asset) {
-    const err = apiError("NOT_FOUND", result.error || "Asset not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", result.error || "Asset not found", 404, correlationId);
   }
 
   // Verify asset belongs to video
   if (result.asset.video_id !== videoId) {
-    const err = apiError("NOT_FOUND", "Asset not found for this video", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Asset not found for this video", 404, correlationId);
   }
 
   return NextResponse.json({
@@ -73,13 +69,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUIDs
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   if (!UUID_REGEX.test(assetId)) {
-    const err = apiError("INVALID_UUID", "Invalid asset ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid asset ID format", 400, correlationId);
   }
 
   // Get auth context
@@ -95,8 +89,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (videoError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   // Delete the asset
@@ -115,8 +108,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     };
 
     const errorInfo = errorMap[result.error || ""] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-    const err = apiError(errorInfo.code, result.error || "Failed to delete asset", errorInfo.status);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse(errorInfo.code, result.error || "Failed to delete asset", errorInfo.status, correlationId);
   }
 
   return NextResponse.json({

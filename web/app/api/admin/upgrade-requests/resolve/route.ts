@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
 import { logEvent, logEventSafe } from "@/lib/events-log";
 
@@ -20,37 +20,32 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON body", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
   const { request_event_id, decision, note } = body as Record<string, unknown>;
 
   // Validate request_event_id
   if (!request_event_id || typeof request_event_id !== "string") {
-    const err = apiError("BAD_REQUEST", "request_event_id is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "request_event_id is required", 400, correlationId);
   }
 
   // Validate decision
   const validDecisions = ["approved", "denied"];
   if (!decision || !validDecisions.includes(decision as string)) {
-    const err = apiError("BAD_REQUEST", "decision must be 'approved' or 'denied'", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "decision must be 'approved' or 'denied'", 400, correlationId);
   }
 
   const decisionValue = decision as "approved" | "denied";
@@ -66,15 +61,13 @@ export async function POST(request: Request) {
       .single();
 
     if (fetchError || !requestEvent) {
-      const err = apiError("NOT_FOUND", "Upgrade request not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Upgrade request not found", 404, correlationId);
     }
 
     const targetUserId = requestEvent.entity_id;
 
     if (!targetUserId) {
-      const err = apiError("BAD_REQUEST", "Request has no user_id", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Request has no user_id", 400, correlationId);
     }
 
     // Check if already resolved
@@ -87,8 +80,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existingResolution && existingResolution.length > 0) {
-      const err = apiError("BAD_REQUEST", "This request has already been resolved", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "This request has already been resolved", 400, correlationId);
     }
 
     // Create resolution event in events_log
@@ -107,8 +99,7 @@ export async function POST(request: Request) {
       });
     } catch (resolutionError) {
       console.error("Failed to create resolution event:", resolutionError);
-      const err = apiError("DB_ERROR", "Failed to resolve request", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to resolve request", 500, correlationId);
     }
 
     // If approved, set user plan to Pro (same logic as set-plan endpoint)
@@ -165,7 +156,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/admin/upgrade-requests/resolve error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

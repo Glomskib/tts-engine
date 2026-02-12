@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { computeStuckVideos } from "@/lib/ops-metrics";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -34,21 +34,13 @@ export async function GET(request: NextRequest) {
     const limit = limitParam ? parseInt(limitParam, 10) : 100;
 
     if (isNaN(limit) || limit < 1 || limit > 1000) {
-      const err = apiError("BAD_REQUEST", "limit must be between 1 and 1000", 400);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("BAD_REQUEST", "limit must be between 1 and 1000", 400, correlationId);
     }
 
     const result = await computeStuckVideos(supabaseAdmin, { limit });
 
     if (!result.ok) {
-      const err = apiError("DB_ERROR", result.error || "Failed to compute stuck videos", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("DB_ERROR", result.error || "Failed to compute stuck videos", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -58,10 +50,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/observability/stuck error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

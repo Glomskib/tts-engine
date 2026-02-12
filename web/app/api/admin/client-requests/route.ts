@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { listAllClientRequests, RequestStatus, RequestType } from "@/lib/client-requests";
 import { getClientOrgById } from "@/lib/client-org";
@@ -18,14 +18,12 @@ export async function GET(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Admin-only
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   try {
@@ -38,15 +36,13 @@ export async function GET(request: Request) {
     // Validate status if provided
     const validStatuses: RequestStatus[] = ["SUBMITTED", "IN_REVIEW", "APPROVED", "REJECTED", "CONVERTED"];
     if (status && !validStatuses.includes(status)) {
-      const err = apiError("BAD_REQUEST", "Invalid status parameter", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Invalid status parameter", 400, correlationId);
     }
 
     // Validate request_type if provided
     const validTypes: RequestType[] = ["AI_CONTENT", "UGC_EDIT"];
     if (requestType && !validTypes.includes(requestType)) {
-      const err = apiError("BAD_REQUEST", "Invalid request_type parameter", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Invalid request_type parameter", 400, correlationId);
     }
 
     // Get requests
@@ -96,7 +92,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("GET /api/admin/client-requests error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

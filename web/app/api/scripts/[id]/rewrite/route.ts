@@ -1,8 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, normalizeScriptJson, renderScriptText, ScriptJson } from "@/lib/script-renderer";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
 
@@ -110,10 +110,9 @@ async function callAI(
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { id } = await params;
@@ -122,23 +121,20 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid script ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid script ID format", 400, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { product_context, rewrite_prompt, created_by } = body as Record<string, unknown>;
 
   if (typeof rewrite_prompt !== "string" || rewrite_prompt.trim() === "") {
-    const err = apiError("BAD_REQUEST", "rewrite_prompt is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "rewrite_prompt is required", 400, correlationId);
   }
 
   // Fetch current script
@@ -150,11 +146,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (scriptError) {
     if (scriptError.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Script not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", scriptError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", scriptError.message, 500, correlationId);
   }
 
   // Check for AI API key
@@ -162,8 +156,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   const openaiKey = process.env.OPENAI_API_KEY;
 
   if (!anthropicKey && !openaiKey) {
-    const err = apiError("AI_ERROR", "No AI API key configured", 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("AI_ERROR", "No AI API key configured", 500, correlationId);
   }
 
   try {
@@ -289,10 +282,9 @@ Please fix and return ONLY valid JSON. ${basePrompt}`;
       }
 
       console.error(`[rewrite] AI response parse failed (${attempt} attempts). Preview: ${generatedContent.slice(0, 500)}`);
-      const err = apiError("AI_ERROR", `Rewrite failed after ${attempt} attempts: ${errorReason}`, 500, {
+      return createApiErrorResponse("AI_ERROR", `Rewrite failed after ${attempt} attempts: ${errorReason}`, 500, correlationId, {
         attempts: attempt,
       });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
 
     const rewriteResultJson = normalizedData!;
@@ -329,8 +321,7 @@ Please fix and return ONLY valid JSON. ${basePrompt}`;
 
     if (updateError) {
       console.error("Failed to update script:", updateError);
-      const err = apiError("DB_ERROR", updateError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -346,7 +337,6 @@ Please fix and return ONLY valid JSON. ${basePrompt}`;
     });
   } catch (error) {
     console.error("Script rewrite error:", error);
-    const err = apiError("AI_ERROR", `Script rewrite failed: ${String(error)}`, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("AI_ERROR", `Script rewrite failed: ${String(error)}`, 500, correlationId);
   }
 }

@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { unlockCurrentVersion } from "@/lib/video-script-versions";
 
@@ -27,8 +27,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get auth context - must be admin
@@ -37,8 +36,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const isAdmin = authContext.isAdmin;
 
   if (!isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin privileges required to unlock script versions", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin privileges required to unlock script versions", 403, correlationId);
   }
 
   // Check video exists
@@ -49,8 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (videoError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   // Unlock the current version
@@ -69,8 +66,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     };
 
     const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-    const err = apiError(errorInfo.code, result.message, errorInfo.status);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse(errorInfo.code, result.message, errorInfo.status, correlationId);
   }
 
   return NextResponse.json({

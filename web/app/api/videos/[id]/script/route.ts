@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId, type ApiErrorCode } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   getCurrentScriptVersion,
@@ -45,8 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Check video exists
@@ -57,8 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (videoError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   // Get current script info
@@ -125,8 +123,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get auth context
@@ -138,8 +135,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const {
@@ -166,8 +162,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const hasContent = Object.values(content).some((v) => v !== null && (typeof v !== "object" || (v as string[]).length > 0));
   if (!hasContent) {
-    const err = apiError("BAD_REQUEST", "At least one content field is required", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "At least one content field is required", 400, correlationId);
   }
 
   // Optionally run compliance lint before saving
@@ -186,10 +181,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // If lint blocks, reject the save
     if (compliance.severity === "block") {
-      const err = apiError("VALIDATION_ERROR", "Content blocked by compliance linter", 400, {
+      return createApiErrorResponse("VALIDATION_ERROR", "Content blocked by compliance linter", 400, correlationId, {
         compliance,
       });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
     }
   }
 
@@ -210,8 +204,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     };
 
     const errorInfo = errorMap[result.error_code || "DB_ERROR"] || { code: "DB_ERROR" as ApiErrorCode, status: 500 };
-    const err = apiError(errorInfo.code, result.message, errorInfo.status);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse(errorInfo.code, result.message, errorInfo.status, correlationId);
   }
 
   return NextResponse.json({

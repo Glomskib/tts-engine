@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { detectWinner } from "@/lib/winner-detection";
 
@@ -13,18 +13,10 @@ export async function POST(request: Request) {
   // Auth check — admin only
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Get all posted videos with TikTok stats that haven't been marked as winners
@@ -40,11 +32,7 @@ export async function POST(request: Request) {
       `[${correlationId}] POST /api/videos/detect-winners error:`,
       error
     );
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   const results = {

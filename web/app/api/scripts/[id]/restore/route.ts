@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
 
@@ -10,10 +10,9 @@ interface RouteParams {
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { id } = await params;
@@ -22,23 +21,20 @@ export async function POST(request: Request, { params }: RouteParams) {
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid script ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid script ID format", 400, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { rewrite_id } = body as Record<string, unknown>;
 
   if (typeof rewrite_id !== "string" || !uuidRegex.test(rewrite_id)) {
-    const err = apiError("BAD_REQUEST", "rewrite_id is required and must be a valid UUID", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "rewrite_id is required and must be a valid UUID", 400, correlationId);
   }
 
   // Fetch the rewrite record
@@ -51,17 +47,14 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (rewriteError) {
     if (rewriteError.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Rewrite record not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Rewrite record not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", rewriteError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", rewriteError.message, 500, correlationId);
   }
 
   // Check if rewrite has valid content (not a failed rewrite)
   if (!rewrite.rewrite_result_json) {
-    const err = apiError("BAD_REQUEST", "Cannot restore from a failed rewrite (no valid content)", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Cannot restore from a failed rewrite (no valid content)", 400, correlationId);
   }
 
   // Fetch current script to get version
@@ -73,11 +66,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (scriptError) {
     if (scriptError.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Script not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", scriptError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", scriptError.message, 500, correlationId);
   }
 
   // Update the script with restored content and increment version
@@ -95,8 +86,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   if (updateError) {
     console.error("Failed to restore script:", updateError);
-    const err = apiError("DB_ERROR", updateError.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", updateError.message, 500, correlationId);
   }
 
   return NextResponse.json({

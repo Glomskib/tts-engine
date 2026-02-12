@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -17,15 +17,13 @@ export async function GET(request: Request, { params }: RouteParams) {
   // Auth check - user must be logged in
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid script ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid script ID format", 400, correlationId);
   }
 
   // Build query - filter by created_by (admins can see all)
@@ -42,11 +40,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   if (error) {
     if (error.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Script not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
     }
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
@@ -59,15 +55,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
   // Auth check - user must be logged in
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    const err = apiError("INVALID_UUID", "Invalid script ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid script ID format", 400, correlationId);
   }
 
   // Verify ownership first (admins can update any)
@@ -83,16 +77,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const { data: existing, error: existError } = await ownershipQuery.single();
 
   if (existError || !existing) {
-    const err = apiError("NOT_FOUND", "Script not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const {
@@ -119,8 +111,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   if (typeof scriptStatus === "string") {
     const validStatuses = ["DRAFT", "REVIEW", "APPROVED", "ARCHIVED"];
     if (!validStatuses.includes(scriptStatus)) {
-      const err = apiError("INVALID_STATUS", `status must be one of: ${validStatuses.join(", ")}`, 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("INVALID_STATUS", `status must be one of: ${validStatuses.join(", ")}`, 400, correlationId);
     }
     updatePayload.status = scriptStatus;
   }
@@ -133,8 +124,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     } else {
       const validation = validateScriptJson(script_json);
       if (!validation.valid) {
-        const err = apiError("INVALID_SCRIPT_JSON", `Invalid script_json: ${validation.errors.join(", ")}`, 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("INVALID_SCRIPT_JSON", `Invalid script_json: ${validation.errors.join(", ")}`, 400, correlationId);
       }
       updatePayload.script_json = script_json;
       updatePayload.script_text = renderScriptText(script_json as Parameters<typeof renderScriptText>[0]);
@@ -159,11 +149,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     if (fetchError) {
       if (fetchError.code === "PGRST116") {
-        const err = apiError("NOT_FOUND", "Script not found", 404);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
       }
-      const err = apiError("DB_ERROR", fetchError.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", fetchError.message, 500, correlationId);
     }
 
     updatePayload.version = (current.version || 1) + 1;
@@ -178,12 +166,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   if (error) {
     if (error.code === "PGRST116") {
-      const err = apiError("NOT_FOUND", "Script not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Script not found", 404, correlationId);
     }
     console.error("PUT /api/scripts/[id] error:", error);
-    const err = apiError("DB_ERROR", error.message, 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });

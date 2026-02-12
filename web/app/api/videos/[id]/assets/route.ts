@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   getVideoAssets,
@@ -46,8 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Check video exists
@@ -58,16 +57,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (videoError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   // Get assets
   const result = await getVideoAssets(supabaseAdmin, videoId);
 
   if (!result.ok) {
-    const err = apiError("DB_ERROR", result.error || "Failed to fetch assets", 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", result.error || "Failed to fetch assets", 500, correlationId);
   }
 
   // Validate for posting readiness
@@ -112,8 +109,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(videoId)) {
-    const err = apiError("INVALID_UUID", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("INVALID_UUID", "Invalid video ID format", 400, correlationId);
   }
 
   // Get auth context
@@ -125,8 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   // Check video exists and get identifiers for naming
@@ -137,8 +132,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (videoError || !video) {
-    const err = apiError("NOT_FOUND", "Video not found", 404);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
   }
 
   // Build input
@@ -155,10 +149,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Validate input
   const validation = validateAssetInput(input);
   if (!validation.ok) {
-    const err = apiError("VALIDATION_ERROR", "Invalid asset data", 400, {
+    return createApiErrorResponse("VALIDATION_ERROR", "Invalid asset data", 400, correlationId, {
       errors: validation.errors,
     });
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
   }
 
   // Generate canonical name if requested
@@ -192,8 +185,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   });
 
   if (!result.ok) {
-    const err = apiError("DB_ERROR", result.error || "Failed to save asset", 500);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("DB_ERROR", result.error || "Failed to save asset", 500, correlationId);
   }
 
   return NextResponse.json({

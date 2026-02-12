@@ -1,7 +1,7 @@
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { PROJECT_EVENT_TYPES, getProjectById } from "@/lib/client-projects";
 import { getVideoOrgId } from "@/lib/client-org";
 
@@ -21,21 +21,18 @@ export async function POST(
   // Require authentication
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   // Check admin role
   if (authContext.role !== "admin") {
-    const err = apiError("FORBIDDEN", "Admin access required", 403);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 
   // Validate video_id format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!videoId || !uuidRegex.test(videoId)) {
-    const err = apiError("BAD_REQUEST", "Invalid video ID format", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid video ID format", 400, correlationId);
   }
 
   try {
@@ -45,8 +42,7 @@ export async function POST(
     // project_id can be null to unassign
     if (projectId !== null && projectId !== undefined) {
       if (typeof projectId !== "string" || !uuidRegex.test(projectId)) {
-        const err = apiError("BAD_REQUEST", "Invalid project_id format", 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", "Invalid project_id format", 400, correlationId);
       }
     }
 
@@ -58,28 +54,24 @@ export async function POST(
       .single();
 
     if (videoError || !video) {
-      const err = apiError("NOT_FOUND", "Video not found", 404);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId);
     }
 
     // Get video's org
     const orgId = await getVideoOrgId(supabaseAdmin, videoId);
     if (!orgId) {
-      const err = apiError("BAD_REQUEST", "Video is not assigned to an organization", 400);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "Video is not assigned to an organization", 400, correlationId);
     }
 
     // If assigning to a project, verify the project exists and belongs to same org
     if (projectId) {
       const project = await getProjectById(supabaseAdmin, orgId, projectId);
       if (!project) {
-        const err = apiError("NOT_FOUND", "Project not found or does not belong to the video's organization", 404);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("NOT_FOUND", "Project not found or does not belong to the video's organization", 404, correlationId);
       }
 
       if (project.is_archived) {
-        const err = apiError("BAD_REQUEST", "Cannot assign video to an archived project", 400);
-        return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+        return createApiErrorResponse("BAD_REQUEST", "Cannot assign video to an archived project", 400, correlationId);
       }
     }
 
@@ -99,8 +91,7 @@ export async function POST(
 
     if (eventError) {
       console.error("[admin/videos/set-project] Event insert error:", eventError);
-      const err = apiError("DB_ERROR", "Failed to set video project", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to set video project", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -113,7 +104,6 @@ export async function POST(
     });
   } catch (err) {
     console.error("[admin/videos/set-project] Error:", err);
-    const apiErr = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...apiErr.body, correlation_id: correlationId }, { status: apiErr.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

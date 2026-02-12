@@ -22,7 +22,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { runEnrichment } from "@/lib/enrichment";
 
@@ -41,11 +41,7 @@ export async function POST(request: NextRequest) {
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for enrichment", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for enrichment", 403, correlationId);
   }
 
   try {
@@ -61,11 +57,7 @@ export async function POST(request: NextRequest) {
     const result = await runEnrichment(supabaseAdmin, limit);
 
     if (!result.ok) {
-      const err = apiError("DB_ERROR", result.error || "Failed to run enrichment", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("DB_ERROR", result.error || "Failed to run enrichment", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -81,10 +73,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("POST /api/enrichment/run error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

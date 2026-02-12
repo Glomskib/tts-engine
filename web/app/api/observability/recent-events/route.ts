@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -24,8 +24,7 @@ export async function GET(request: Request) {
   if (limitParam) {
     const parsed = parseInt(limitParam, 10);
     if (isNaN(parsed) || parsed < 1) {
-      const err = apiError("BAD_REQUEST", "limit must be a positive integer", 400, { provided: limitParam });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("BAD_REQUEST", "limit must be a positive integer", 400, correlationId, { provided: limitParam });
     }
     limit = Math.min(parsed, MAX_LIMIT);
   }
@@ -48,8 +47,7 @@ export async function GET(request: Request) {
         });
       }
       console.error("GET /api/observability/recent-events Supabase error:", error);
-      const err = apiError("DB_ERROR", error.message, 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
     }
 
     return NextResponse.json({
@@ -59,7 +57,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("GET /api/observability/recent-events error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

@@ -31,7 +31,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import {
   getIngestionJob,
@@ -58,21 +58,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(jobId)) {
-    const err = apiError("INVALID_UUID", "Invalid job ID format", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("INVALID_UUID", "Invalid job ID format", 400, correlationId);
   }
 
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for ingestion", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for ingestion", 403, correlationId);
   }
 
   try {
@@ -90,11 +82,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const reportResult = await getReconciliationReport(supabaseAdmin, jobId);
 
       if (!reportResult.ok) {
-        const err = apiError("NOT_FOUND", reportResult.error || "Job not found", 404);
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
-        );
+        return createApiErrorResponse("NOT_FOUND", reportResult.error || "Job not found", 404, correlationId);
       }
 
       return NextResponse.json({
@@ -110,11 +98,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const jobResult = await getIngestionJob(supabaseAdmin, jobId);
 
     if (!jobResult.ok || !jobResult.job) {
-      const err = apiError("NOT_FOUND", jobResult.error || "Job not found", 404);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("NOT_FOUND", jobResult.error || "Job not found", 404, correlationId);
     }
 
     // Optionally fetch rows
@@ -126,14 +110,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       let rowStatus: RowStatus | undefined;
       if (rowStatusParam) {
         if (!ROW_STATUSES.includes(rowStatusParam as RowStatus)) {
-          const err = apiError(
+          return createApiErrorResponse(
             "BAD_REQUEST",
             `Invalid row_status. Must be one of: ${ROW_STATUSES.join(", ")}`,
-            400
-          );
-          return NextResponse.json(
-            { ...err.body, correlation_id: correlationId },
-            { status: err.status }
+            400,
+            correlationId
           );
         }
         rowStatus = rowStatusParam as RowStatus;
@@ -166,11 +147,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (err) {
     console.error("GET /api/ingestion/jobs/[id] error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }
 
@@ -181,21 +158,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Validate UUID
   if (!UUID_REGEX.test(jobId)) {
-    const err = apiError("INVALID_UUID", "Invalid job ID format", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("INVALID_UUID", "Invalid job ID format", 400, correlationId);
   }
 
   // Admin-only check
   const authContext = await getApiAuthContext(request);
   if (!authContext.isAdmin) {
-    const err = apiError("FORBIDDEN", "Admin access required for ingestion", 403);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("FORBIDDEN", "Admin access required for ingestion", 403, correlationId);
   }
 
   const actor = authContext.user?.id || "admin";
@@ -205,25 +174,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   // Validate action
   const action = body.action;
   if (!action || !["validate", "commit", "retry"].includes(action)) {
-    const err = apiError(
+    return createApiErrorResponse(
       "BAD_REQUEST",
       "action must be one of: validate, commit, retry",
       400
-    );
-    return NextResponse.json(
-      { ...err.body, correlation_id: correlationId },
-      { status: err.status }
-    );
+    , correlationId);
   }
 
   try {
@@ -231,11 +192,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const jobResult = await getIngestionJob(supabaseAdmin, jobId);
 
     if (!jobResult.ok || !jobResult.job) {
-      const err = apiError("NOT_FOUND", jobResult.error || "Job not found", 404);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("NOT_FOUND", jobResult.error || "Job not found", 404, correlationId);
     }
 
     const job = jobResult.job;
@@ -243,15 +200,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     switch (action) {
       case "validate": {
         if (job.status !== "pending") {
-          const err = apiError(
+          return createApiErrorResponse(
             "PRECONDITION_FAILED",
             `Cannot validate job in status '${job.status}'`,
             409
-          );
-          return NextResponse.json(
-            { ...err.body, correlation_id: correlationId },
-            { status: err.status }
-          );
+          , correlationId);
         }
 
         const validateResult = await validateIngestionJob(supabaseAdmin, {
@@ -274,15 +227,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       case "commit": {
         if (job.status !== "validated") {
-          const err = apiError(
+          return createApiErrorResponse(
             "PRECONDITION_FAILED",
             `Cannot commit job in status '${job.status}'`,
             409
-          );
-          return NextResponse.json(
-            { ...err.body, correlation_id: correlationId },
-            { status: err.status }
-          );
+          , correlationId);
         }
 
         const commitResult = await commitIngestionJob(supabaseAdmin, {
@@ -306,15 +255,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       case "retry": {
         // Retry is only allowed for failed jobs
         if (job.status !== "failed" && job.status !== "partial") {
-          const err = apiError(
+          return createApiErrorResponse(
             "PRECONDITION_FAILED",
             `Cannot retry job in status '${job.status}'`,
             409
-          );
-          return NextResponse.json(
-            { ...err.body, correlation_id: correlationId },
-            { status: err.status }
-          );
+          , correlationId);
         }
 
         // Reset failed rows to pending and re-validate
@@ -376,19 +321,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       default: {
-        const err = apiError("BAD_REQUEST", "Unknown action", 400);
-        return NextResponse.json(
-          { ...err.body, correlation_id: correlationId },
-          { status: err.status }
-        );
+        return createApiErrorResponse("BAD_REQUEST", "Unknown action", 400, correlationId);
       }
     }
   } catch (err) {
     console.error("POST /api/ingestion/jobs/[id] error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

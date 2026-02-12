@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
 import { getUserPlan } from "@/lib/subscription";
 
@@ -20,8 +20,7 @@ export async function POST(request: Request) {
   // Get authentication context
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
-    const err = apiError("UNAUTHORIZED", "Authentication required", 401);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
   const userId = authContext.user.id;
@@ -111,8 +110,7 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error("Failed to create upgrade request:", insertError);
-      const err = apiError("DB_ERROR", "Failed to submit request", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to submit request", 500, correlationId);
     }
 
     // Notify ops (Slack/email if configured)
@@ -131,7 +129,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/auth/upgrade-request error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

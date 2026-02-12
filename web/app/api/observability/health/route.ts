@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { apiError, generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { performHealthCheck } from "@/lib/ops-metrics";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 
@@ -35,11 +35,7 @@ export async function GET(request: NextRequest) {
     const result = await performHealthCheck(supabaseAdmin);
 
     if (!result.ok) {
-      const err = apiError("DB_ERROR", result.error || "Failed to perform health check", 500);
-      return NextResponse.json(
-        { ...err.body, correlation_id: correlationId },
-        { status: err.status }
-      );
+      return createApiErrorResponse("DB_ERROR", result.error || "Failed to perform health check", 500, correlationId);
     }
 
     return NextResponse.json({
@@ -49,10 +45,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/observability/health error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json(
-      { ...error.body, correlation_id: correlationId },
-      { status: error.status }
-    );
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }

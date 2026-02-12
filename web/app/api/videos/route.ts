@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getVideosColumns } from "@/lib/videosSchema";
 import { isValidStatus, QUEUE_STATUSES, type VideoStatus } from "@/lib/video-pipeline";
-import { apiError, generateCorrelationId } from "@/lib/api-errors";
+import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
@@ -109,8 +109,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    const err = apiError("BAD_REQUEST", "Invalid JSON", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
   const { 
@@ -125,8 +124,7 @@ export async function POST(request: Request) {
 
   // Validate variant_id
   if (typeof variant_id !== "string" || variant_id.trim() === "") {
-    const err = apiError("BAD_REQUEST", "variant_id is required and must be a non-empty string", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "variant_id is required and must be a non-empty string", 400, correlationId);
   }
 
   // Accept google_drive_url or final_video_url (map final_video_url -> google_drive_url if google_drive_url missing)
@@ -134,15 +132,13 @@ export async function POST(request: Request) {
 
   // Validate google_drive_url_value is a non-empty string
   if (typeof google_drive_url_value !== "string" || google_drive_url_value.trim() === "") {
-    const err = apiError("BAD_REQUEST", "google_drive_url or final_video_url is required and must be a non-empty string", 400);
-    return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+    return createApiErrorResponse("BAD_REQUEST", "google_drive_url or final_video_url is required and must be a non-empty string", 400, correlationId);
   }
 
   // Validate status if provided
   if (status !== undefined) {
     if (typeof status !== "string" || !isValidStatus(status)) {
-      const err = apiError("INVALID_STATUS", "Invalid status value", 400, { provided: status });
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("INVALID_STATUS", "Invalid status value", 400, correlationId, { provided: status });
     }
   }
 
@@ -224,8 +220,7 @@ export async function POST(request: Request) {
       console.error("POST /api/videos Supabase error:", error);
       console.error("POST /api/videos insert payload:", insertPayload);
 
-      const err = apiError("DB_ERROR", "Failed to create video", 500);
-      return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+      return createApiErrorResponse("DB_ERROR", "Failed to create video", 500, correlationId);
     }
 
     // Write audit event for create
@@ -245,8 +240,7 @@ export async function POST(request: Request) {
 
   } catch (err) {
     console.error("POST /api/videos error:", err);
-    const error = apiError("DB_ERROR", "Internal server error", 500);
-    return NextResponse.json({ ...error.body, correlation_id: correlationId }, { status: error.status });
+    return createApiErrorResponse("DB_ERROR", "Internal server error", 500, correlationId);
   }
 }
 

@@ -19,12 +19,14 @@ export async function sendEmail({
   html,
   replyTo,
   tags,
+  headers,
 }: {
   to: string;
   subject: string;
   html: string;
   replyTo?: string;
   tags?: { name: string; value: string }[];
+  headers?: Record<string, string>;
 }) {
   const resend = getResend();
 
@@ -41,6 +43,7 @@ export async function sendEmail({
       html,
       replyTo: replyTo || 'support@flashflowai.com',
       tags,
+      headers,
     });
     if (error) {
       console.error('[email] Resend error:', error);

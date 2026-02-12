@@ -1,6 +1,6 @@
-import { emailWrapper } from './base';
+import { emailWrapper, type BaseEmailData } from './base';
 
-export interface OnboardingEmailData {
+export interface OnboardingEmailData extends BaseEmailData {
   userName: string;
   creditsUsed?: number;
   creditsTotal?: number;
@@ -20,7 +20,7 @@ export const onboardingEmails = [
       <p>That's it. Your script is ready to film.</p>
       <a href="https://flashflowai.com/admin/content-studio" class="btn">Generate Your First Script</a>
       <p>Most creators generate their first script in under 2 minutes.</p>
-    `, 'Your first AI script is 30 seconds away'),
+    `, 'Your first AI script is 30 seconds away', data.unsubscribeUrl),
   },
   {
     delay: 2,
@@ -35,7 +35,7 @@ export const onboardingEmails = [
       <p><strong>CTA</strong> &mdash; Drive the sale. "Link in bio. Trust me, your future self will thank you."</p>
       <p>FlashFlow builds this structure into every script automatically. You just pick the persona and product &mdash; the formula is baked in.</p>
       <a href="https://flashflowai.com/admin/content-studio" class="btn">Try It Now</a>
-    `, 'Hook, Setup, Body, CTA: the formula that works'),
+    `, 'Hook, Setup, Body, CTA: the formula that works', data.unsubscribeUrl),
   },
   {
     delay: 4,
@@ -49,7 +49,7 @@ export const onboardingEmails = [
       <p><strong>Content Packages:</strong> Getting daily bundles of 5 scripts tailored to their specific products, ready to film</p>
       <p>The creators seeing the best results aren't just generating one script. They're generating 5-10, picking the best hooks, and filming those.</p>
       <a href="https://flashflowai.com/admin/content-package" class="btn">Try Content Packages</a>
-    `, 'How top creators batch-produce a week of content in 15 minutes'),
+    `, 'How top creators batch-produce a week of content in 15 minutes', data.unsubscribeUrl),
   },
   {
     delay: 6,
@@ -70,7 +70,7 @@ export const onboardingEmails = [
       <p>Each script you generate gets better as FlashFlow learns your products' selling angles.</p>
       <p>Pro users get <strong>unlimited scripts</strong>, <strong>Script of the Day</strong>, and <strong>Content Packages</strong> &mdash; all for less than the cost of one freelance script.</p>
       <a href="https://flashflowai.com/upgrade" class="btn">See Pro Features</a>
-    `, "Here's what you've created so far"),
+    `, "Here's what you've created so far", data.unsubscribeUrl),
   },
   {
     delay: 7,
@@ -85,6 +85,6 @@ export const onboardingEmails = [
       <p>The creators who win on TikTok Shop aren't the most talented. They're the most consistent.</p>
       <a href="https://flashflowai.com/upgrade" class="btn">Upgrade to Pro &mdash; $29/mo</a>
       <p style="font-size: 13px; color: #71717A;">Cancel anytime. No contracts. No commitment.</p>
-    `, 'One viral video pays for 17 months of FlashFlow'),
+    `, 'One viral video pays for 17 months of FlashFlow', data.unsubscribeUrl),
   },
 ];

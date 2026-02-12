@@ -1,6 +1,6 @@
-import { emailWrapper } from './base';
+import { emailWrapper, type BaseEmailData } from './base';
 
-export interface LeadMagnetEmailData {
+export interface LeadMagnetEmailData extends BaseEmailData {
   userName: string;
   downloadUrl?: string;
 }
@@ -19,7 +19,7 @@ export const leadMagnetEmails = [
       <p>&bull; 10 complete script templates ready to film</p>
       <p>&bull; The Hook &rarr; Setup &rarr; Body &rarr; CTA formula breakdown</p>
       <p>These hooks have generated millions in TikTok Shop sales. Use them wisely.</p>
-    `, '50 proven hooks + 10 script templates inside'),
+    `, '50 proven hooks + 10 script templates inside', data.unsubscribeUrl),
   },
   {
     delay: 3,
@@ -36,7 +36,7 @@ export const leadMagnetEmails = [
       <p>4. Film them all in one batch session</p>
       <p>20 scripts. 10 minutes. Zero creative burnout.</p>
       <a href="https://flashflowai.com/login?mode=signup&ref=email-nurture" class="btn">Try FlashFlow Free &mdash; 5 Scripts On Me</a>
-    `, 'The template vault is powerful. This is next level.'),
+    `, 'The template vault is powerful. This is next level.', data.unsubscribeUrl),
   },
   {
     delay: 7,
@@ -54,7 +54,7 @@ export const leadMagnetEmails = [
       <p>&bull; <strong>Storyteller</strong> for lifestyle products</p>
       <p>FlashFlow has 7 personas built in. Each one writes differently. Your content stays fresh without you having to reinvent the wheel.</p>
       <a href="https://flashflowai.com/login?mode=signup&ref=email-nurture" class="btn">Generate Your First Script Free</a>
-    `, 'This one mistake is killing your TikTok engagement'),
+    `, 'This one mistake is killing your TikTok engagement', data.unsubscribeUrl),
   },
   {
     delay: 10,
@@ -67,6 +67,6 @@ export const leadMagnetEmails = [
       <p>5 scripts free. No credit card. No catch.</p>
       <a href="https://flashflowai.com/login?mode=signup&ref=email-nurture" class="btn">Try FlashFlow Free</a>
       <p style="font-size: 13px; color: #71717A;">If FlashFlow isn't for you, no hard feelings. But I think you'll be surprised.</p>
-    `, '5 free AI scripts. No credit card needed.'),
+    `, '5 free AI scripts. No credit card needed.', data.unsubscribeUrl),
   },
 ];

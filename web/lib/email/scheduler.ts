@@ -7,9 +7,12 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail } from './resend';
+import { isSubscribed, buildUnsubscribeUrl } from './unsubscribe';
 import { onboardingEmails } from './templates/onboarding';
 import { leadMagnetEmails } from './templates/lead-magnet';
 import { winbackEmails } from './templates/winback';
+import { weeklyDigestEmails } from './templates/weekly-digest';
+import { upgradeNudgeEmails } from './templates/upgrade-nudge';
 
 export type EmailSequence = 'onboarding' | 'lead_magnet' | 'winback' | 'weekly_digest' | 'upgrade_nudge';
 
@@ -17,6 +20,8 @@ const SEQUENCE_MAP = {
   onboarding: onboardingEmails,
   lead_magnet: leadMagnetEmails,
   winback: winbackEmails,
+  weekly_digest: weeklyDigestEmails,
+  upgrade_nudge: upgradeNudgeEmails,
 } as const;
 
 export async function queueEmailSequence(
@@ -72,6 +77,16 @@ export async function processEmailQueue(): Promise<{ sent: number; errors: numbe
 
   for (const item of pending) {
     try {
+      // Check if subscriber is still subscribed
+      const subscribed = await isSubscribed(item.user_email);
+      if (!subscribed) {
+        await supabaseAdmin
+          .from('email_queue')
+          .update({ sent: true, error: 'Unsubscribed' })
+          .eq('id', item.id);
+        continue;
+      }
+
       const emails = SEQUENCE_MAP[item.sequence as keyof typeof SEQUENCE_MAP];
       if (!emails || !emails[item.step]) {
         // Mark as sent to avoid infinite retries on invalid sequences
@@ -83,13 +98,24 @@ export async function processEmailQueue(): Promise<{ sent: number; errors: numbe
         continue;
       }
 
+      // Generate unsubscribe URL for this subscriber
+      const unsubscribeUrl = await buildUnsubscribeUrl(item.user_email);
+
       const template = emails[item.step];
       const templateData = {
         userName: item.user_name || item.user_email.split('@')[0],
         ...(item.metadata || {}),
+        unsubscribeUrl: unsubscribeUrl || undefined,
       };
 
       const html = template.getHtml(templateData as never);
+
+      // Build List-Unsubscribe header for email clients
+      const emailHeaders: Record<string, string> = {};
+      if (unsubscribeUrl) {
+        emailHeaders['List-Unsubscribe'] = `<${unsubscribeUrl}>`;
+        emailHeaders['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+      }
 
       const result = await sendEmail({
         to: item.user_email,
@@ -99,6 +125,7 @@ export async function processEmailQueue(): Promise<{ sent: number; errors: numbe
           { name: 'sequence', value: item.sequence },
           { name: 'step', value: String(item.step) },
         ],
+        headers: Object.keys(emailHeaders).length > 0 ? emailHeaders : undefined,
       });
 
       if (result.success) {

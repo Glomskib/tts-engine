@@ -1,4 +1,12 @@
-export function emailWrapper(content: string, preheader?: string): string {
+export interface BaseEmailData {
+  unsubscribeUrl?: string;
+}
+
+export function emailWrapper(content: string, preheader?: string, unsubscribeUrl?: string): string {
+  const unsubscribeHtml = unsubscribeUrl
+    ? `<p><a href="${unsubscribeUrl}" style="color: #52525B;">Unsubscribe</a></p>`
+    : '';
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -35,6 +43,7 @@ export function emailWrapper(content: string, preheader?: string): string {
     <div class="footer">
       <p>FlashFlow AI &mdash; AI-powered scripts for TikTok Shop creators</p>
       <p><a href="https://flashflowai.com">flashflowai.com</a> | <a href="mailto:support@flashflowai.com">support@flashflowai.com</a></p>
+      ${unsubscribeHtml}
     </div>
   </div>
 </body>

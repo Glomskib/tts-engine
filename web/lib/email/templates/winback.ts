@@ -1,6 +1,6 @@
-import { emailWrapper } from './base';
+import { emailWrapper, type BaseEmailData } from './base';
 
-export interface WinbackEmailData {
+export interface WinbackEmailData extends BaseEmailData {
   userName: string;
   discountCode?: string;
 }
@@ -17,7 +17,7 @@ export const winbackEmails = [
       <p><strong>7 Creator Personas</strong> &mdash; Every script sounds different. No more cookie-cutter content.</p>
       <p>Your account and all your products are still here. One click to pick up where you left off.</p>
       <a href="https://flashflowai.com/admin/content-studio" class="btn">See What's New</a>
-    `, '3 major updates you missed'),
+    `, '3 major updates you missed', data.unsubscribeUrl),
   },
   {
     delay: 14,
@@ -28,7 +28,7 @@ export const winbackEmails = [
       <p>Your products, your scripts, your content history &mdash; it's all still saved in FlashFlow.</p>
       <p>One click and you're back to generating.</p>
       <a href="https://flashflowai.com/admin/content-studio" class="btn">Pick Up Where You Left Off</a>
-    `, 'Your FlashFlow account is waiting'),
+    `, 'Your FlashFlow account is waiting', data.unsubscribeUrl),
   },
   {
     delay: 30,
@@ -39,6 +39,6 @@ export const winbackEmails = [
       <p>I'd love to have you back. Use code <strong>${data.discountCode || 'COMEBACK50'}</strong> for 50% off your next month.</p>
       <a href="https://flashflowai.com/upgrade?promo=${data.discountCode || 'COMEBACK50'}" class="btn">Reactivate at 50% Off</a>
       <p style="font-size: 13px; color: #71717A;">This code expires in 7 days.</p>
-    `, '50% off your next month of FlashFlow'),
+    `, '50% off your next month of FlashFlow', data.unsubscribeUrl),
   },
 ];

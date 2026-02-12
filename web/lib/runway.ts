@@ -34,11 +34,13 @@ export async function runwayRequest(path: string, options: RequestInit = {}) {
 export async function createTextToVideo(
   prompt: string,
   model: RunwayModel = 'gen3a_turbo',
-  duration?: number
+  duration?: number,
+  ratio = '768:1280'
 ) {
   const body: Record<string, unknown> = {
     model,
     promptText: prompt,
+    ratio,
   };
   if (duration) body.duration = duration;
 
@@ -52,12 +54,14 @@ export async function createImageToVideo(
   imageUrl: string,
   prompt: string,
   model: RunwayModel = 'gen3a_turbo',
-  duration?: number
+  duration?: number,
+  ratio = '768:1280'
 ) {
   const body: Record<string, unknown> = {
     model,
     promptImage: imageUrl,
     promptText: prompt,
+    ratio,
   };
   if (duration) body.duration = duration;
 

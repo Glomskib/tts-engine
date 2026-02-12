@@ -6,6 +6,7 @@ import { renderVideo, createSimpleRender } from "@/lib/shotstack";
 import { createTextToVideo, createImageToVideo, type RunwayModel } from "@/lib/runway";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const shotstackRequestSchema = z.object({
   provider: z.literal("shotstack"),
@@ -22,6 +23,7 @@ const runwayRequestSchema = z.object({
   imageUrl: z.string().url().optional(),
   model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional(),
   duration: z.number().min(5).max(10).optional(),
+  ratio: z.string().optional(),
 });
 
 const renderRequestSchema = z.discriminatedUnion("provider", [
@@ -53,11 +55,12 @@ async function executeRunwayRequest(
   req: z.infer<typeof runwayRequestSchema>
 ): Promise<{ provider: "runway"; task_id: string }> {
   const model: RunwayModel = req.model ?? "gen3a_turbo";
+  const ratio = req.ratio ?? "768:1280";
   let result;
   if (req.imageUrl) {
-    result = await createImageToVideo(req.imageUrl, req.prompt, model, req.duration);
+    result = await createImageToVideo(req.imageUrl, req.prompt, model, req.duration, ratio);
   } else {
-    result = await createTextToVideo(req.prompt, model, req.duration);
+    result = await createTextToVideo(req.prompt, model, req.duration, ratio);
   }
   return { provider: "runway", task_id: result.id };
 }

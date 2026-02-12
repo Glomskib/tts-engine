@@ -98,6 +98,7 @@ export async function POST(request: Request) {
   const output = {
     format: "mp4",
     resolution: "hd",
+    aspectRatio: "9:16",
     fps: 30,
   };
 

@@ -7,11 +7,14 @@ import { z } from "zod";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const VALID_RATIOS = ["1280:720", "720:1280", "1104:832", "832:1104", "960:960", "1584:672"] as const;
+
 const RunwaySchema = z.object({
   promptText: z.string().min(1).max(2000),
   promptImageUrl: z.string().url().optional(),
   model: z.string().optional().default("gen4_turbo"),
   duration: z.enum(["5", "10"]).optional().default("10"),
+  ratio: z.enum(VALID_RATIOS).optional().default("720:1280"),
 });
 
 export async function POST(request: Request) {
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const { promptText, promptImageUrl, model, duration } = parsed.data;
+  const { promptText, promptImageUrl, model, duration, ratio } = parsed.data;
 
   try {
     let response: Record<string, unknown>;
@@ -50,6 +53,7 @@ export async function POST(request: Request) {
           promptImage: promptImageUrl,
           promptText,
           duration: parseInt(duration),
+          ratio,
         }),
       });
     } else {
@@ -59,6 +63,7 @@ export async function POST(request: Request) {
           model,
           promptText,
           duration: parseInt(duration),
+          ratio,
         }),
       });
     }

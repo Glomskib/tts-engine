@@ -21,6 +21,7 @@ import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
 import { LowCreditBanner } from '@/components/LowCreditBanner';
+import { CreditMilestoneBanner, ReferralPromptBanner } from '@/components/UpgradePrompts';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ThemeProvider, useTheme } from '@/app/components/ThemeProvider';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
@@ -450,9 +451,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main id="main-content" className="pt-16 pb-24 min-h-screen overflow-x-hidden">
             <div className="px-4 max-w-full overflow-hidden">
               <LowCreditBanner className="mb-4" />
+              <ReferralPromptBanner />
               <ErrorBoundary>{children}</ErrorBoundary>
             </div>
           </main>
+          <CreditMilestoneBanner />
 
           {/* Mobile Bottom Navigation */}
           <MobileBottomNav
@@ -565,9 +568,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main id="main-content" className="ml-72 pt-16 min-h-screen">
             <div className="p-6">
               <LowCreditBanner className="mb-6" />
+              <ReferralPromptBanner />
               <ErrorBoundary>{children}</ErrorBoundary>
             </div>
           </main>
+          <CreditMilestoneBanner />
         </>
       )}
 

@@ -430,6 +430,23 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
             >
               View All Plans
             </Link>
+            <Link
+              href="/admin/referrals"
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: `1px solid ${colors.border}`,
+                backgroundColor: 'transparent',
+                color: colors.accent,
+                fontWeight: 500,
+                textAlign: 'center',
+                textDecoration: 'none',
+              }}
+            >
+              Share FlashFlow &amp; Earn Free Credits
+            </Link>
             <button type="button"
               onClick={onClose}
               style={{
@@ -437,7 +454,7 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
                 width: '100%',
                 padding: '12px',
                 borderRadius: '8px',
-                border: `1px solid ${colors.border}`,
+                border: 'none',
                 backgroundColor: 'transparent',
                 color: colors.textMuted,
                 fontWeight: 500,

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminPageLayout, { AdminCard, AdminButton } from '../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
+import { celebrate } from '@/lib/celebrations';
 import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star, Trash2, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
@@ -306,6 +307,7 @@ export default function ContentPackagePage() {
       });
 
       showSuccess(`"${item.product_name}" added to pipeline`);
+      celebrate('first-pipeline', showSuccess);
     } catch (err) {
       console.error('Add to pipeline error:', err);
       showError('Network error adding to pipeline');

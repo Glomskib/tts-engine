@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/contexts/ToastContext";
+import { celebrate } from "@/lib/celebrations";
 import Link from "next/link";
 import { CONTENT_TYPES } from "@/lib/content-types";
 import {
@@ -195,6 +196,7 @@ export default function ScriptOfTheDayPage() {
       const data = await res.json();
       if (res.ok && data.ok) {
         showSuccess(`"${item.product_name}" added to pipeline`);
+        celebrate("first-pipeline", showSuccess);
         setPkg((prev) => {
           if (!prev) return prev;
           return {

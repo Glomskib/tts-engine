@@ -9,6 +9,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 import { useToast } from '@/contexts/ToastContext';
+import { celebrate } from '@/lib/celebrations';
 import {
   Megaphone,
   Search,
@@ -975,6 +976,7 @@ export default function ContentStudioPage() {
         setSaveModalOpen(false);
         setTimeout(() => setSavedToLibrary(false), 3000);
         showSuccess('Script saved to library');
+        celebrate('first-script', showSuccess);
 
         // Auto-add to Winners Bank if AI score >= 8
         const currentAiScore = result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score;

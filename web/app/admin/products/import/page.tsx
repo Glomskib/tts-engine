@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { celebrate } from '@/lib/celebrations';
 import AdminPageLayout, { AdminCard, AdminButton } from '../../components/AdminPageLayout';
 import {
   Package,
@@ -272,6 +273,7 @@ export default function ImportProductsPage() {
       }
 
       showSuccess(`Product "${scrapedData.name}" saved successfully!`);
+      celebrate('first-product', showSuccess);
 
       // Capture saved product for post-save actions
       setSavedProductId(data.data.id);
@@ -368,6 +370,7 @@ export default function ImportProductsPage() {
       }
 
       showSuccess(`Product "${manualForm.name}" created successfully!`);
+      celebrate('first-product', showSuccess);
 
       // Capture saved product for post-save actions
       setSavedProductId(data.data.id);

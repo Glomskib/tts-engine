@@ -296,6 +296,17 @@ export default function DashboardPage() {
     (data.scriptsCount || 0) === 0 &&
     (data.winnersCount || 0) === 0;
 
+  // Allow users to dismiss the welcome/onboarding card
+  const [onboardingDismissed, setOnboardingDismissed] = useState(true);
+  useEffect(() => {
+    setOnboardingDismissed(localStorage.getItem('ff-onboarding-dismissed') === 'true');
+  }, []);
+  const dismissOnboarding = () => {
+    localStorage.setItem('ff-onboarding-dismissed', 'true');
+    setOnboardingDismissed(true);
+  };
+  const showWelcome = isNewUser && !onboardingDismissed;
+
   // Copy script to clipboard
   const handleCopyScript = useCallback((script: FullScript) => {
     const text = `${script.hook}\n\n${script.setup}\n\n${script.body}\n\n${script.cta}`;
@@ -327,19 +338,35 @@ export default function DashboardPage() {
           <p className="text-zinc-400 text-sm">Your content operations at a glance</p>
         </div>
 
-        {/* Welcome Card — shown to new users with zero content */}
-        {isNewUser && (
+        {/* Welcome Card — shown to new users with zero content, dismissible */}
+        {showWelcome && (
           <div className="bg-gradient-to-br from-teal-500/10 via-zinc-900 to-violet-500/10 border border-teal-500/20 rounded-xl p-6 sm:p-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-violet-600 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-violet-600 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Welcome to FlashFlow</h2>
+                  <p className="text-sm text-zinc-400">Let&apos;s get your first video script created in 3 steps</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Welcome to FlashFlow</h2>
-                <p className="text-sm text-zinc-400">Let&apos;s get your first video script created in 3 steps</p>
-              </div>
+              <button
+                type="button"
+                onClick={dismissOnboarding}
+                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap ml-4 mt-1"
+              >
+                Skip tour
+              </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            {/* Progress bar: 0/3 */}
+            <div className="flex items-center gap-2 mb-6">
+              <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-full bg-teal-500 rounded-full transition-all duration-500" style={{ width: '0%' }} />
+              </div>
+              <span className="text-xs text-zinc-500">0/3 complete</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Link href="/admin/products" className="group flex items-start gap-3 p-4 bg-zinc-800/60 border border-zinc-700/50 rounded-lg hover:border-teal-500/30 transition-all">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 text-sm font-bold">1</div>
                 <div>

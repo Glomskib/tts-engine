@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { recordReferralConversion } from "@/lib/referrals";
+import { recordCommission } from "@/lib/affiliates";
 import { queueEmailSequence } from "@/lib/email/scheduler";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -86,6 +87,13 @@ export async function POST(request: Request) {
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         await handlePaymentFailed(correlationId, invoice);
+        break;
+      }
+
+      case "account.updated": {
+        // Stripe Connect onboarding completion
+        const account = event.data.object as Stripe.Account;
+        await handleAccountUpdated(correlationId, account);
         break;
       }
 
@@ -393,6 +401,46 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
     type: "credit",
     description: `Monthly credits - ${planId} plan`,
   });
+
+  // Record affiliate commission if this user was referred
+  try {
+    const amountPaid = (invoice as unknown as { amount_paid?: number }).amount_paid;
+    if (amountPaid && amountPaid > 0) {
+      await recordCommission(
+        subscription.user_id,
+        invoice.id,
+        amountPaid / 100, // Convert cents to dollars
+      );
+      console.info(`[${correlationId}] Affiliate commission check completed for user ${subscription.user_id}`);
+    }
+  } catch (commErr) {
+    console.error(`[${correlationId}] Affiliate commission error (non-fatal):`, commErr);
+  }
+}
+
+async function handleAccountUpdated(correlationId: string, account: Stripe.Account) {
+  // Check if this is a Stripe Connect Express account completing onboarding
+  if (!account.id.startsWith('acct_')) return;
+
+  const chargesEnabled = account.charges_enabled;
+  const payoutsEnabled = account.payouts_enabled;
+
+  if (chargesEnabled && payoutsEnabled) {
+    // Mark affiliate as onboarded
+    const { error } = await supabaseAdmin
+      .from('affiliate_accounts')
+      .update({
+        stripe_connect_onboarded: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('stripe_connect_id', account.id);
+
+    if (error) {
+      console.error(`[${correlationId}] Failed to update affiliate onboarding status:`, error);
+    } else {
+      console.info(`[${correlationId}] Stripe Connect onboarding complete for ${account.id}`);
+    }
+  }
 }
 
 async function handlePaymentFailed(correlationId: string, invoice: Stripe.Invoice) {

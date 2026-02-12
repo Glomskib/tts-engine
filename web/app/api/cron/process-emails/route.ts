@@ -5,7 +5,7 @@
  * Processes the email_queue table and sends due emails via Resend.
  *
  * Vercel cron config (vercel.json):
- * { "crons": [{ "path": "/api/cron/process-emails", "schedule": "0 */6 * * *" }] }
+ * { "crons": [{ "path": "/api/cron/process-emails", "schedule": "0 0,6,12,18 * * *" }] }
  */
 
 import { processEmailQueue } from '@/lib/email/scheduler';

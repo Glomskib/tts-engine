@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createApiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 
 function generateInviteCode(): string {
   const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -23,22 +24,25 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: brandId } = await params;
+  const correlationId = crypto.randomUUID();
   const authContext = await getApiAuthContext();
 
-  if (!authContext?.userId) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401);
+  if (!authContext?.user?.id) {
+    return createApiErrorResponse('BAD_REQUEST', 'Authentication required', 401, correlationId);
   }
+
+  const userId = authContext.user.id;
 
   // Verify user owns this brand
   const { data: brand } = await supabaseAdmin
     .from('brands')
     .select('id, name')
     .eq('id', brandId)
-    .eq('user_id', authContext.userId)
+    .eq('user_id', userId)
     .single();
 
   if (!brand) {
-    return createApiErrorResponse('NOT_FOUND', 'Brand not found', 404);
+    return createApiErrorResponse('NOT_FOUND', 'Brand not found', 404, correlationId);
   }
 
   const inviteCode = generateInviteCode();
@@ -48,14 +52,14 @@ export async function POST(
     .insert({
       brand_id: brandId,
       invite_code: inviteCode,
-      created_by: authContext.userId,
+      created_by: userId,
     })
     .select()
     .single();
 
   if (error) {
     console.error('[brand-invites] Create error:', error);
-    return createApiErrorResponse('INTERNAL_ERROR', 'Failed to create invite', 500);
+    return createApiErrorResponse('DB_ERROR', 'Failed to create invite', 500, correlationId);
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com';
@@ -74,10 +78,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: brandId } = await params;
+  const correlationId = crypto.randomUUID();
   const authContext = await getApiAuthContext();
 
-  if (!authContext?.userId) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401);
+  if (!authContext?.user?.id) {
+    return createApiErrorResponse('BAD_REQUEST', 'Authentication required', 401, correlationId);
   }
 
   const { data: invites, error } = await supabaseAdmin
@@ -88,7 +93,7 @@ export async function GET(
 
   if (error) {
     console.error('[brand-invites] List error:', error);
-    return createApiErrorResponse('INTERNAL_ERROR', 'Failed to list invites', 500);
+    return createApiErrorResponse('DB_ERROR', 'Failed to list invites', 500, correlationId);
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com';

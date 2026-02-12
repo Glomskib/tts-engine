@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | null = null;
+
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+}
 
 // Use resend.dev domain until custom domain is verified
 export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'FlashFlow AI <onboarding@resend.dev>';
@@ -18,7 +26,9 @@ export async function sendEmail({
   replyTo?: string;
   tags?: { name: string; value: string }[];
 }) {
-  if (!process.env.RESEND_API_KEY) {
+  const resend = getResend();
+
+  if (!resend) {
     console.warn('[email] RESEND_API_KEY not configured, skipping send');
     return { success: false, error: 'RESEND_API_KEY not configured' };
   }

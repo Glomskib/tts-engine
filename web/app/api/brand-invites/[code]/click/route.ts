@@ -13,15 +13,17 @@ export async function POST(
 ) {
   const { code } = await params;
 
-  await supabaseAdmin.rpc('increment_brand_invite_clicks', {
-    p_invite_code: code,
-  }).catch(() => {
-    // Fallback: manual increment if RPC doesn't exist
-    supabaseAdmin
+  try {
+    await supabaseAdmin.rpc('increment_brand_invite_clicks', {
+      p_invite_code: code,
+    });
+  } catch {
+    // Fallback: manual increment if RPC doesn't exist yet
+    await supabaseAdmin
       .from('brand_invites')
-      .update({ click_count: supabaseAdmin.rpc ? undefined : 0 })
+      .update({ click_count: 1 })
       .eq('invite_code', code);
-  });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -18,11 +18,10 @@ export function CreditMilestoneBanner() {
     if (!isFreeUser) return;
 
     const remaining = credits?.remaining ?? 5;
-    const total = credits?.total ?? 5;
-    const used = total - remaining;
+    const freeUsed = credits?.freeCreditsUsed ?? 0;
 
     // Show when user has used 3 of 5 free credits (halfway milestone)
-    if (used >= 3 && remaining > 0 && remaining <= 2) {
+    if (freeUsed >= 3 && remaining > 0 && remaining <= 2) {
       const key = 'ff_milestone_shown';
       if (!sessionStorage.getItem(key)) {
         sessionStorage.setItem(key, '1');

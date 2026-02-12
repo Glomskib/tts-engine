@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 /**
  * API endpoint to generate a safer/compliant rewrite of a script
  * Uses AI to remove risky language and make scripts more TikTok-compliant

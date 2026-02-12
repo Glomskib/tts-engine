@@ -4,7 +4,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const runtime = 'nodejs';
-
+export const maxDuration = 300;
 interface RemixRequest {
   source_type: 'winner' | 'script' | 'competitor';
   source_id?: string;

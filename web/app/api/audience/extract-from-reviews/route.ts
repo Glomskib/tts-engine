@@ -5,7 +5,7 @@ import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 const ExtractReviewsSchema = z.object({
   text: z.string().min(50, "Please paste at least 50 characters of review content").max(30000),
   source_url: z.string().url().optional(),

@@ -5,7 +5,7 @@ import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 /**
  * Input schema for product enrichment
  */

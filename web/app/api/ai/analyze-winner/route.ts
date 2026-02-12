@@ -6,7 +6,7 @@ import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // --- Validation ---
 

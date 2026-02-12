@@ -4,7 +4,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 interface DiagnosticCheck {
   name: string;
   status: "green" | "yellow" | "red";

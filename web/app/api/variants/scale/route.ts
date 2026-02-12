@@ -5,7 +5,7 @@ import { getIterationGroupsColumns, VALID_CHANGE_TYPES, ChangeType } from '@/lib
 import { generateCorrelationId } from '@/lib/safe-schema';
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 // Minimal types for scaling function parameters
 interface WinnerVariantInput {
   status: string;

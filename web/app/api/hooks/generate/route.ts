@@ -3,7 +3,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 export async function POST(request: Request) {
   const auth = await getApiAuthContext(request);
   if (!auth.user) {

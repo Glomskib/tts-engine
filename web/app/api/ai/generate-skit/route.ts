@@ -55,7 +55,7 @@ import {
 import type { PainPoint } from "@/lib/ai/painPointGenerator";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 // --- Input Validation Schema (Zod Strict) ---
 

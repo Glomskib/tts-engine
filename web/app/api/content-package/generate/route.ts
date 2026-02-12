@@ -12,7 +12,7 @@ import {
 } from "@/lib/script-expander";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 // ---------------------------------------------------------------------------
 // Hook templates used when no winner patterns are available
 // ---------------------------------------------------------------------------

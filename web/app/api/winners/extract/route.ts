@@ -4,7 +4,7 @@ import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 interface ExtractRequest {
   reference_video_id: string;

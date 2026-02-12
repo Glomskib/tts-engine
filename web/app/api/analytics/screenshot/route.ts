@@ -7,7 +7,7 @@ import {
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 const ALLOWED_IMAGE_TYPES = [
   "image/png",
   "image/jpeg",

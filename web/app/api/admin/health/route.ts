@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
-
+export const maxDuration = 300;
 interface HealthCheck {
   name: string;
   status: 'healthy' | 'degraded' | 'unhealthy';

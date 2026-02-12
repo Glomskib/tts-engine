@@ -7,7 +7,7 @@ import {
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 /**
  * Analysis result shape returned by Claude
  */

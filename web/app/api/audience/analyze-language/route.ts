@@ -5,7 +5,7 @@ import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-
+export const maxDuration = 300;
 const AnalyzeLanguageSchema = z.object({
   text: z.string().min(10).max(10000),
   context: z.enum(["review", "comment", "transcript", "social_post"]).optional(),

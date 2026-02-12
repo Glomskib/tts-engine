@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { createTextToVideo, createImageToVideo, type RunwayModel } from "@/lib/runway";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { runwayRequest } from "@/lib/runway";
+import { z } from "zod";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
-const requestSchema = z.object({
-  prompt: z.string().min(1).max(2000),
-  imageUrl: z.string().url().optional(),
-  model: z.enum(["gen4_turbo", "gen3a_turbo"]).optional(),
-  duration: z.number().min(5).max(10).optional(),
+const RunwaySchema = z.object({
+  promptText: z.string().min(1).max(2000),
+  promptImageUrl: z.string().url().optional(),
+  model: z.string().optional().default("gen4_turbo"),
+  duration: z.enum(["5", "10"]).optional().default("10"),
 });
 
 export async function POST(request: Request) {
@@ -29,44 +30,53 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
-  const parsed = requestSchema.safeParse(body);
+  const parsed = RunwaySchema.safeParse(body);
   if (!parsed.success) {
-    return createApiErrorResponse(
-      "BAD_REQUEST",
-      "Invalid request body",
-      400,
-      correlationId,
-      { errors: parsed.error.flatten().fieldErrors }
-    );
+    return createApiErrorResponse("VALIDATION_ERROR", "Invalid input", 400, correlationId, {
+      issues: parsed.error.issues,
+    });
   }
 
-  const { prompt, imageUrl, model, duration } = parsed.data;
-  const selectedModel: RunwayModel = model ?? "gen4_turbo";
+  const { promptText, promptImageUrl, model, duration } = parsed.data;
 
   try {
-    let result;
-    if (imageUrl) {
-      result = await createImageToVideo(imageUrl, prompt, selectedModel, duration);
+    let response: Record<string, unknown>;
+
+    if (promptImageUrl) {
+      response = await runwayRequest("/v1/image_to_video", {
+        method: "POST",
+        body: JSON.stringify({
+          model,
+          promptImage: promptImageUrl,
+          promptText,
+          duration: parseInt(duration),
+        }),
+      });
     } else {
-      result = await createTextToVideo(prompt, selectedModel, duration);
+      response = await runwayRequest("/v1/text_to_video", {
+        method: "POST",
+        body: JSON.stringify({
+          model,
+          promptText,
+          duration: parseInt(duration),
+        }),
+      });
     }
 
     return NextResponse.json({
       ok: true,
-      data: {
-        task_id: result.id,
-        provider: "runway",
-      },
+      taskId: response.id,
+      provider: "runway",
+      status: "queued",
       correlation_id: correlationId,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Runway generation failed";
-    console.error(`[${correlationId}] Runway error:`, err);
-
-    if (message.includes("402") || message.includes("insufficient")) {
-      return createApiErrorResponse("INSUFFICIENT_CREDITS", message, 402, correlationId);
-    }
-
-    return createApiErrorResponse("AI_ERROR", message, 502, correlationId);
+    console.error(`[${correlationId}] Runway render error:`, err);
+    return createApiErrorResponse(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Runway render failed",
+      500,
+      correlationId
+    );
   }
 }

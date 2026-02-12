@@ -1,44 +1,14 @@
-import { NextResponse } from "next/server";
-import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { getRenderStatus } from "@/lib/shotstack";
-import { getTaskStatus } from "@/lib/runway";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { shotstackRequest } from "@/lib/shotstack";
+import { runwayRequest } from "@/lib/runway";
 
 export const runtime = "nodejs";
-
-type NormalizedStatus = "queued" | "processing" | "done" | "failed";
-
-function normalizeShotstackStatus(status: string): NormalizedStatus {
-  switch (status) {
-    case "queued":
-    case "fetching":
-      return "queued";
-    case "rendering":
-    case "saving":
-      return "processing";
-    case "done":
-      return "done";
-    default:
-      return "failed";
-  }
-}
-
-function normalizeRunwayStatus(status: string): NormalizedStatus {
-  switch (status) {
-    case "PENDING":
-    case "THROTTLED":
-      return "queued";
-    case "RUNNING":
-      return "processing";
-    case "SUCCEEDED":
-      return "done";
-    default:
-      return "failed";
-  }
-}
+export const maxDuration = 60;
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const correlationId =
@@ -50,13 +20,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const provider = searchParams.get("provider");
+  const provider = request.nextUrl.searchParams.get("provider");
 
   if (!provider || !["shotstack", "runway"].includes(provider)) {
     return createApiErrorResponse(
       "BAD_REQUEST",
-      "Query param 'provider' required: shotstack or runway",
+      "Query param ?provider=shotstack|runway is required",
       400,
       correlationId
     );
@@ -64,41 +33,39 @@ export async function GET(
 
   try {
     if (provider === "shotstack") {
-      const result = await getRenderStatus(id);
-      const render = result.response;
+      const response = await shotstackRequest(`/render/${id}`);
+      const render = response.response;
+
       return NextResponse.json({
         ok: true,
-        data: {
-          id,
-          provider: "shotstack",
-          status: normalizeShotstackStatus(render.status),
-          raw_status: render.status,
-          output_url: render.url || null,
-          progress: null,
-          error: render.error || null,
-        },
+        provider: "shotstack",
+        id,
+        status: render?.status || "unknown",
+        url: render?.url || null,
+        poster: render?.poster || null,
+        correlation_id: correlationId,
+      });
+    } else {
+      const response = await runwayRequest(`/v1/tasks/${id}`) as Record<string, unknown>;
+      const output = response.output as string[] | undefined;
+
+      return NextResponse.json({
+        ok: true,
+        provider: "runway",
+        id,
+        status: response.status || "unknown",
+        url: output?.[0] || null,
+        progress: response.progress || null,
         correlation_id: correlationId,
       });
     }
-
-    // Runway
-    const result = await getTaskStatus(id);
-    return NextResponse.json({
-      ok: true,
-      data: {
-        id,
-        provider: "runway",
-        status: normalizeRunwayStatus(result.status),
-        raw_status: result.status,
-        output_url: result.output?.[0] || null,
-        progress: result.progress ?? null,
-        error: result.failure || null,
-      },
-      correlation_id: correlationId,
-    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Status check failed";
-    console.error(`[${correlationId}] Render status error (${provider}/${id}):`, err);
-    return createApiErrorResponse("AI_ERROR", message, 502, correlationId);
+    console.error(`[${correlationId}] Render status error (${provider}):`, err);
+    return createApiErrorResponse(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Failed to check render status",
+      500,
+      correlationId
+    );
   }
 }

@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { renderVideo, createSimpleRender } from "@/lib/shotstack";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { shotstackRequest } from "@/lib/shotstack";
+import { z } from "zod";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
-const rawTimelineSchema = z.object({
-  timeline: z.record(z.string(), z.unknown()),
-  output: z.record(z.string(), z.unknown()).optional(),
-});
-
-const simpleParamsSchema = z.object({
-  imageUrl: z.string().url().optional(),
-  text: z.string().optional(),
-  duration: z.number().min(1).max(60).optional(),
-  background: z.string().optional(),
+const RenderSchema = z.object({
+  productImageUrl: z.string().url(),
+  spokenText: z.string().min(1).max(5000),
+  onScreenText: z.string().max(500).optional(),
+  cta: z.string().max(200).optional(),
+  duration: z.number().min(5).max(120).optional(),
 });
 
 export async function POST(request: Request) {
@@ -34,61 +31,96 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON body", 400, correlationId);
   }
 
-  // Try raw timeline first, then simplified params
-  const rawParse = rawTimelineSchema.safeParse(body);
-  if (rawParse.success) {
-    try {
-      const timeline = rawParse.data.timeline;
-      const result = await renderVideo(timeline);
-      return NextResponse.json({
-        ok: true,
-        data: {
-          render_id: result.response?.id,
-          provider: "shotstack",
+  const parsed = RenderSchema.safeParse(body);
+  if (!parsed.success) {
+    return createApiErrorResponse("VALIDATION_ERROR", "Invalid input", 400, correlationId, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const { productImageUrl, spokenText, onScreenText, cta, duration = 30 } = parsed.data;
+
+  // Build Shotstack timeline
+  const clips: Record<string, unknown>[] = [
+    {
+      asset: { type: "image", src: productImageUrl },
+      start: 0,
+      length: duration,
+      fit: "contain",
+    },
+  ];
+
+  const tracks: Record<string, unknown>[] = [{ clips }];
+
+  // On-screen text overlay
+  if (onScreenText) {
+    tracks.unshift({
+      clips: [
+        {
+          asset: {
+            type: "title",
+            text: onScreenText,
+            style: "subtitle",
+            size: "medium",
+          },
+          start: 0,
+          length: Math.min(duration, 10),
+          position: "bottom",
         },
-        correlation_id: correlationId,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Shotstack render failed";
-      console.error(`[${correlationId}] Shotstack raw render error:`, err);
-      return createApiErrorResponse("AI_ERROR", message, 502, correlationId);
-    }
+      ],
+    });
   }
 
-  const simpleParse = simpleParamsSchema.safeParse(body);
-  if (!simpleParse.success) {
-    return createApiErrorResponse(
-      "BAD_REQUEST",
-      "Provide either { timeline } or { imageUrl, text, duration, background }",
-      400,
-      correlationId,
-      { errors: simpleParse.error.flatten().fieldErrors }
-    );
+  // CTA overlay at the end
+  if (cta) {
+    tracks.unshift({
+      clips: [
+        {
+          asset: {
+            type: "title",
+            text: cta,
+            style: "blockbuster",
+            size: "large",
+          },
+          start: Math.max(0, duration - 5),
+          length: 5,
+          position: "center",
+        },
+      ],
+    });
   }
 
-  const { imageUrl, text, duration, background } = simpleParse.data;
-  if (!imageUrl && !text && !background) {
-    return createApiErrorResponse(
-      "BAD_REQUEST",
-      "At least one of imageUrl, text, or background is required",
-      400,
-      correlationId
-    );
-  }
+  const timeline = {
+    background: "#000000",
+    tracks,
+  };
+
+  const output = {
+    format: "mp4",
+    resolution: "hd",
+    fps: 30,
+  };
 
   try {
-    const result = await createSimpleRender({ imageUrl, text, duration, background });
+    const response = await shotstackRequest("/render", {
+      method: "POST",
+      body: JSON.stringify({ timeline, output }),
+    });
+
     return NextResponse.json({
       ok: true,
-      data: {
-        render_id: result.response?.id,
-        provider: "shotstack",
-      },
+      renderId: response.response?.id || response.id,
+      provider: "shotstack",
+      status: "queued",
       correlation_id: correlationId,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Shotstack render failed";
-    console.error(`[${correlationId}] Shotstack simple render error:`, err);
-    return createApiErrorResponse("AI_ERROR", message, 502, correlationId);
+    console.error(`[${correlationId}] Shotstack render error:`, err);
+    return createApiErrorResponse(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Shotstack render failed",
+      500,
+      correlationId
+    );
   }
 }

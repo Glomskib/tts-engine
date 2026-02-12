@@ -285,7 +285,7 @@ export function generateWeeklyDigestHtml(data: WeeklyDigestData): string {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td align="center" style="padding: 16px 0;">
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.flashflow.ai'}/admin/analytics"
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com'}/admin/analytics"
                        style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #14b8a6 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; border-radius: 8px;">
                       View Full Analytics
                     </a>
@@ -308,7 +308,7 @@ export function generateWeeklyDigestHtml(data: WeeklyDigestData): string {
                     </p>
                   </td>
                   <td align="right">
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.flashflow.ai'}/settings/notifications"
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com'}/settings/notifications"
                        style="font-size: 12px; color: #14b8a6; text-decoration: none;">
                       Manage preferences
                     </a>
@@ -397,10 +397,10 @@ ${data.actionItems.map(item => `- ${item.text}${item.link ? ` (${item.link})` : 
 
   text += `
 ---
-View full analytics: ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.flashflow.ai'}/admin/analytics
+View full analytics: ${process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com'}/admin/analytics
 
 FlashFlow AI
-To manage your email preferences, visit: ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.flashflow.ai'}/settings/notifications
+To manage your email preferences, visit: ${process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com'}/settings/notifications
 `;
 
   return text;

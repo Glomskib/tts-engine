@@ -36,9 +36,7 @@ export async function POST(request: Request) {
     }
 
     // Create portal session
-    const returnUrl = process.env.NEXT_PUBLIC_APP_URL
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/admin/settings`
-      : 'http://localhost:3000/admin/settings';
+    const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com'}/admin/settings`;
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,

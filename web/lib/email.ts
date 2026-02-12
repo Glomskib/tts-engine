@@ -61,7 +61,7 @@ export function getEmailConfigSync(): {
   return {
     enabled,
     apiKey,
-    from: process.env.EMAIL_FROM || "no-reply@tts-engine.local",
+    from: process.env.EMAIL_FROM || "no-reply@flashflowai.com",
     opsEmail: process.env.OPS_EMAIL_TO || null,
     defaultAdminEmail: process.env.DEFAULT_ADMIN_EMAIL || null,
   };
@@ -97,7 +97,7 @@ export async function getEmailConfig(): Promise<{
   return {
     enabled,
     apiKey,
-    from: process.env.EMAIL_FROM || "no-reply@tts-engine.local",
+    from: process.env.EMAIL_FROM || "no-reply@flashflowai.com",
     opsEmail: process.env.OPS_EMAIL_TO || null,
     defaultAdminEmail: process.env.DEFAULT_ADMIN_EMAIL || null,
   };

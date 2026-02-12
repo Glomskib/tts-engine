@@ -152,7 +152,7 @@ export function exportToMarkdown(skit: SavedSkit, includeMetadata = false): stri
   }
 
   lines.push('---');
-  lines.push(`*Generated with [FlashFlow AI](https://flashflow.ai) on ${new Date(skit.created_at).toLocaleDateString()}*`);
+  lines.push(`*Generated with [FlashFlow AI](https://flashflowai.com) on ${new Date(skit.created_at).toLocaleDateString()}*`);
 
   return lines.join('\n');
 }

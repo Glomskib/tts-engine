@@ -251,9 +251,8 @@ async function triggerExtraction(
 ): Promise<void> {
   try {
     // Call the extract endpoint internally
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://flashflowai.com");
 
     const res = await fetch(`${baseUrl}/api/winners/extract`, {
       method: "POST",

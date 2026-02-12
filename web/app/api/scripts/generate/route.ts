@@ -198,22 +198,71 @@ export async function POST(request: Request) {
   }
 
   try {
-    let prompt = `Generate a complete TikTok Shop script for this concept and hook:
+    // ── Variety engine — randomize hook style, CTA, tone, and length ──
+    const HOOK_STYLES = [
+      'question',     // "Did you know...?" / "Why does nobody talk about...?"
+      'statement',    // Bold claim: "This changed everything."
+      'command',      // "Stop scrolling." / "Listen."
+      'statistic',    // "87% of people don't know this..."
+      'story_opener', // "So this happened to me last week..."
+      'controversy',  // "This product is overhyped. Or is it?"
+      'confession',   // "I was wrong about this..."
+      'challenge',    // "I tried this for 30 days. Here's what happened."
+      'urgency',      // "This is selling out. Here's why."
+      'comparison',   // "I tested the $10 vs the $50 version..."
+    ];
 
-Concept Title: ${concept.concept_title || concept.title}
+    const CTA_STYLES = [
+      'Tap the yellow basket to grab yours',
+      'Comment LINK and I\'ll send it to you',
+      'I linked it below — go check it out',
+      'The link is right there in the shop tab',
+      'Don\'t wait on this one — yellow basket, go',
+      'Grab it before it sells out again',
+      'Follow me and tap the link to get yours',
+      'Add it to your cart right now, you\'ll thank me later',
+    ];
+
+    const TONE_OPTIONS = ['high_energy', 'calm_confident', 'conversational', 'storytelling', 'educational'];
+    const LENGTH_OPTIONS = ['15_sec', '30_sec', '60_sec'];
+
+    // Randomly pick variety parameters for this generation
+    const hookStyle = HOOK_STYLES[Math.floor(Math.random() * HOOK_STYLES.length)];
+    const ctaStyle = CTA_STYLES[Math.floor(Math.random() * CTA_STYLES.length)];
+    const toneChoice = TONE_OPTIONS[Math.floor(Math.random() * TONE_OPTIONS.length)];
+    const lengthChoice = LENGTH_OPTIONS[Math.floor(Math.random() * LENGTH_OPTIONS.length)];
+
+    let prompt = `=== SCRIPT GENERATION TASK ===
+Generate a TikTok Shop script for this concept.
+
+=== PRODUCT / CONCEPT ===
+Title: ${concept.concept_title || concept.title}
 Core Angle: ${concept.core_angle}
 Hook: ${finalHookText}
 Category: ${category_risk || "general"}
-Style: ${style_preset || "engaging"}
 
-Requirements:
-- Create engaging script for TikTok Shop video
+=== CREATIVE PARAMETERS ===
+Hook Style: ${hookStyle} (use this approach for the opening line)
+Tone: ${toneChoice}
+Target Length: ${lengthChoice}
+CTA Approach: "${ctaStyle}"
+Style Preset: ${style_preset || "engaging"}
+
+=== VOICE RULES ===
+- Sound like a real person, not a commercial
+- Never start with "I" — lead with the product, a hook question, or a command
+- Vary sentence length — mix short punchy lines with longer descriptive ones
+- Include natural filler words occasionally ("like", "honestly", "look")
+- The script should feel like someone talking to their phone, not reading a teleprompter
+
+=== COMPLIANCE RULES ===
 - For supplements: NO medical claims, avoid "cure", "treat", "diagnose", "guaranteed"
 - Use conservative, compliant language
 - Focus on lifestyle benefits, not medical outcomes
 - Include clear call-to-action for TikTok Shop
 
-CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not include literal newlines in JSON strings - use \\n instead. Make script_v1 a SINGLE LINE string with explicit \\n characters for line breaks.`;
+=== OUTPUT REQUIREMENTS ===
+CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not include literal newlines in JSON strings — use \\n instead. Make script_v1 a SINGLE LINE string with explicit \\n characters for line breaks.`;
 
     // Add controlled change instructions for A/B testing
     if (change_focus && variant_number) {
@@ -222,7 +271,7 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
         "caption": "VARIANT FOCUS: Generate a DIFFERENT caption style/tone. Keep script_v1, on_screen_text, hashtags, cta identical to standard format, but create a unique caption approach.",
         "on_screen_text": "VARIANT FOCUS: Generate DIFFERENT on-screen text overlays. Keep script_v1, caption, hashtags, cta identical to standard format, but create unique text overlay variations."
       };
-      
+
       const instruction = variantInstructions[change_focus as string];
       if (instruction) {
         prompt += `\n\n${instruction} This is variant #${variant_number}.`;
@@ -236,7 +285,7 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
   "on_screen_text": ["Text overlay 1", "Text overlay 2", "Text overlay 3"],
   "caption": "Complete caption with emojis and description",
   "hashtags": ["#supplement", "#health", "#tiktokmademebuyit", "#fyp"],
-  "cta": "Shop now on TikTok Shop!",
+  "cta": "${ctaStyle}",
   "editor_notes": ["Note about pacing", "Note about visuals"]
 }`;
 

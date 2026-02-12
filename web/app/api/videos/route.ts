@@ -103,13 +103,14 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
   }
 
-  const { 
-    variant_id, 
+  const {
+    variant_id,
     google_drive_url,
-    final_video_url, 
+    final_video_url,
     account_id,
-    caption_used, 
-    hashtags_used, 
+    product_id,
+    caption_used,
+    hashtags_used,
     status
   } = body as Record<string, unknown>;
 
@@ -126,6 +127,9 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "google_drive_url or final_video_url is required and must be a non-empty string", 400, correlationId);
   }
 
+  // Validate account_id if provided (must be a non-empty string)
+  const accountIdValue = (typeof account_id === "string" && account_id.trim() !== "") ? account_id.trim() : null;
+
   // Validate status if provided
   if (status !== undefined) {
     if (typeof status !== "string" || !isValidStatus(status)) {
@@ -137,12 +141,13 @@ export async function POST(request: Request) {
   const effectiveStatus: VideoStatus = (status as VideoStatus) || DEFAULT_INITIAL_STATUS;
 
   // Check for existing queue video with same variant+account (idempotency)
-  if (QUEUE_STATUSES.includes(effectiveStatus as typeof QUEUE_STATUSES[number])) {
+  // Only check dedup when account_id is provided (variant_id + account_id is the unique key)
+  if (accountIdValue && QUEUE_STATUSES.includes(effectiveStatus as typeof QUEUE_STATUSES[number])) {
     const { data: existing } = await supabaseAdmin
       .from("videos")
       .select("id,status")
-      .eq("variant_id", (variant_id as string).trim())
-      .eq("account_id", (account_id as string).trim())
+      .eq("variant_id", variant_id.trim())
+      .eq("account_id", accountIdValue)
       .in("status", [...QUEUE_STATUSES])
       .limit(1)
       .single();
@@ -163,11 +168,11 @@ export async function POST(request: Request) {
         "api",
         null,
         existing.status,
-        { variant_id, account_id, status: effectiveStatus }
+        { variant_id, account_id: accountIdValue, status: effectiveStatus }
       );
 
-      return NextResponse.json({ 
-        ok: true, 
+      return NextResponse.json({
+        ok: true,
         data: fullRecord,
         existing: true,
         correlation_id: correlationId
@@ -181,16 +186,22 @@ export async function POST(request: Request) {
 
     // Build insert payload - only use columns that exist in DB
     const insertPayload: Record<string, unknown> = {
-      account_id: (account_id as string).trim(),
-      variant_id: (variant_id as string).trim(),
+      variant_id: variant_id.trim(),
       google_drive_url: google_drive_url_value.trim(),
       status: effectiveStatus,
     };
 
-    // Add optional fields only if they exist in schema
-    if (account_id !== undefined && existingColumns.has("account_id")) {
-      insertPayload.account_id = account_id;
+    // account_id is optional — FK references tiktok_accounts(id), allows NULL
+    if (accountIdValue) {
+      insertPayload.account_id = accountIdValue;
     }
+
+    // product_id is optional
+    if (typeof product_id === "string" && product_id.trim() !== "" && existingColumns.has("product_id")) {
+      insertPayload.product_id = product_id.trim();
+    }
+
+    // Add optional fields only if they exist in schema
     if (caption_used !== undefined && existingColumns.has("caption_used")) {
       insertPayload.caption_used = caption_used;
     }
@@ -211,7 +222,7 @@ export async function POST(request: Request) {
       console.error("POST /api/videos Supabase error:", error);
       console.error("POST /api/videos insert payload:", insertPayload);
 
-      return createApiErrorResponse("DB_ERROR", "Failed to create video", 500, correlationId);
+      return createApiErrorResponse("DB_ERROR", `Failed to create video: ${error.message}`, 500, correlationId);
     }
 
     // Write audit event for create

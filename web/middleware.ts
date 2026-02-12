@@ -11,7 +11,7 @@ const CORS_HEADERS = {
 export async function middleware(request: NextRequest) {
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
-  // Handle CORS preflight for API routes
+  // Handle CORS preflight for API routes (no session needed)
   if (isApiRoute && request.method === 'OPTIONS') {
     return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
   }
@@ -22,14 +22,7 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // Add CORS headers to all API responses
-  if (isApiRoute) {
-    for (const [key, value] of Object.entries(CORS_HEADERS)) {
-      response.headers.set(key, value)
-    }
-    return response
-  }
-
+  // Session refresh for ALL routes (including /api/auth/me which uses cookies)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -57,6 +50,14 @@ export async function middleware(request: NextRequest) {
 
   // Refresh session if needed
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Add CORS headers to API responses (after session refresh so cookies are set)
+  if (isApiRoute) {
+    for (const [key, value] of Object.entries(CORS_HEADERS)) {
+      response.headers.set(key, value)
+    }
+    return response
+  }
 
   // Redirect authenticated users from landing page to their role-appropriate dashboard
   if (user && request.nextUrl.pathname === '/') {

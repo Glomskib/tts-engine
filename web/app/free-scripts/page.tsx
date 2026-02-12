@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { FreeScriptsForm } from './FreeScriptsForm';
+import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
   title: 'Free UGC Script Vault — 50 TikTok Hooks + 10 Script Templates | FlashFlow AI',
@@ -21,20 +22,10 @@ const SAMPLE_HOOKS = [
 
 export default function FreeScriptsPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100">
-      {/* Background effects */}
-      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+    <PublicLayout>
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-teal-500/10 via-emerald-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between max-w-5xl mx-auto px-6 py-6">
-        <Link href="/" className="text-xl font-bold text-teal-400">FlashFlow AI</Link>
-        <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
-          Sign In
-        </Link>
-      </header>
-
-      <main className="relative z-10 max-w-5xl mx-auto px-6 pb-20">
+      <div className="max-w-5xl mx-auto px-6 pb-20">
         {/* Hero */}
         <div className="text-center pt-12 pb-16">
           <div className="inline-block px-4 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-full text-sm text-teal-400 mb-6">
@@ -100,15 +91,7 @@ export default function FreeScriptsPage() {
             <FreeScriptsForm />
           </div>
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 py-8 text-center">
-        <p className="text-xs text-zinc-600">
-          Powered by <Link href="/" className="text-teal-400/60 hover:text-teal-400">FlashFlow AI</Link>
-          {' '}&mdash; AI-powered scripts for TikTok Shop creators
-        </p>
-      </footer>
-    </div>
+      </div>
+    </PublicLayout>
   );
 }

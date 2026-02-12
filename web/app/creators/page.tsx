@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
   title: 'FlashFlow AI for Creators — AI TikTok Scripts in 30 Seconds',
@@ -23,22 +24,10 @@ const PERSONAS = [
 
 export default function CreatorsPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100">
-      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+    <PublicLayout>
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-teal-500/10 via-emerald-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between max-w-6xl mx-auto px-6 py-6">
-        <Link href="/" className="text-xl font-bold text-teal-400">FlashFlow AI</Link>
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Login</Link>
-          <Link href="/login?mode=signup" className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors font-medium">
-            Try Free
-          </Link>
-        </div>
-      </header>
-
-      <main className="relative z-10 max-w-6xl mx-auto px-6 pb-20">
+      <div className="max-w-6xl mx-auto px-6 pb-20">
         {/* Hero */}
         <section className="text-center pt-16 pb-20">
           <div className="inline-block px-4 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-full text-sm text-teal-400 mb-6">
@@ -138,13 +127,7 @@ export default function CreatorsPage() {
             Generate Your First Script Free
           </Link>
         </section>
-      </main>
-
-      <footer className="relative z-10 border-t border-white/5 py-8 text-center">
-        <p className="text-xs text-zinc-600">
-          &copy; 2026 FlashFlow AI by Making Miles Matter INC
-        </p>
-      </footer>
-    </div>
+      </div>
+    </PublicLayout>
   );
 }

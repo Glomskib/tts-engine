@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { blogPosts } from '@/content/blog/posts';
+import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
   title: 'Blog — TikTok Shop Script Tips & Strategies | FlashFlow AI',
@@ -14,21 +15,8 @@ export const metadata: Metadata = {
 
 export default function BlogIndexPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100">
-      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between max-w-4xl mx-auto px-6 py-6">
-        <Link href="/" className="text-xl font-bold text-teal-400">FlashFlow AI</Link>
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Login</Link>
-          <Link href="/login?mode=signup" className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors font-medium">
-            Try Free
-          </Link>
-        </div>
-      </header>
-
-      <main className="relative z-10 max-w-4xl mx-auto px-6 pb-20">
+    <PublicLayout>
+      <div className="max-w-4xl mx-auto px-6 pb-20">
         <section className="pt-12 pb-8">
           <h1 className="text-4xl font-bold mb-3">Blog</h1>
           <p className="text-zinc-400">
@@ -75,13 +63,7 @@ export default function BlogIndexPage() {
             Download Free Script Vault
           </Link>
         </div>
-      </main>
-
-      <footer className="relative z-10 border-t border-white/5 py-8 text-center">
-        <p className="text-xs text-zinc-600">
-          &copy; 2026 FlashFlow AI by Making Miles Matter INC
-        </p>
-      </footer>
-    </div>
+      </div>
+    </PublicLayout>
   );
 }

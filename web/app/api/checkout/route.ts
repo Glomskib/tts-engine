@@ -17,23 +17,45 @@ function getStripe(): Stripe {
 }
 
 const CheckoutSchema = z.object({
-  planId: z.enum(["starter", "pro", "team"]),
+  planId: z.enum([
+    "creator_lite", "creator_pro", "brand", "agency",
+    // Legacy IDs still accepted for backwards compat
+    "starter", "pro", "team",
+  ]),
   billingPeriod: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 
-// Price ID mapping - set these in your environment
+// Price ID mapping — new 5-tier model + legacy fallbacks
 const PRICE_IDS: Record<string, Record<string, string>> = {
+  // New tiers (monthly only for now, yearly can be added later)
+  creator_lite: {
+    monthly: process.env.STRIPE_PRICE_CREATOR_LITE || "",
+    yearly: process.env.STRIPE_PRICE_CREATOR_LITE || "",
+  },
+  creator_pro: {
+    monthly: process.env.STRIPE_PRICE_CREATOR_PRO || "",
+    yearly: process.env.STRIPE_PRICE_CREATOR_PRO || "",
+  },
+  brand: {
+    monthly: process.env.STRIPE_PRICE_BRAND || "",
+    yearly: process.env.STRIPE_PRICE_BRAND || "",
+  },
+  agency: {
+    monthly: process.env.STRIPE_PRICE_AGENCY || "",
+    yearly: process.env.STRIPE_PRICE_AGENCY || "",
+  },
+  // Legacy plan IDs map to new tiers
   starter: {
-    monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || "",
-    yearly: process.env.STRIPE_PRICE_STARTER_YEARLY || "",
+    monthly: process.env.STRIPE_PRICE_CREATOR_LITE || process.env.STRIPE_PRICE_STARTER_MONTHLY || "",
+    yearly: process.env.STRIPE_PRICE_CREATOR_LITE || process.env.STRIPE_PRICE_STARTER_YEARLY || "",
   },
   pro: {
-    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || "",
-    yearly: process.env.STRIPE_PRICE_PRO_YEARLY || "",
+    monthly: process.env.STRIPE_PRICE_CREATOR_PRO || process.env.STRIPE_PRICE_PRO_MONTHLY || "",
+    yearly: process.env.STRIPE_PRICE_CREATOR_PRO || process.env.STRIPE_PRICE_PRO_YEARLY || "",
   },
   team: {
-    monthly: process.env.STRIPE_PRICE_TEAM_MONTHLY || "",
-    yearly: process.env.STRIPE_PRICE_TEAM_YEARLY || "",
+    monthly: process.env.STRIPE_PRICE_BRAND || process.env.STRIPE_PRICE_TEAM_MONTHLY || "",
+    yearly: process.env.STRIPE_PRICE_BRAND || process.env.STRIPE_PRICE_TEAM_YEARLY || "",
   },
 };
 

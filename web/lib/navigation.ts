@@ -127,6 +127,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Referrals', href: '/admin/referrals', icon: Link2 },
+      { name: 'Affiliates', href: '/admin/affiliates', icon: DollarSign, adminOnly: true },
       { name: 'Promo Codes', href: '/admin/promo-codes', icon: Ticket, adminOnly: true },
     ],
   },

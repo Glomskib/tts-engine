@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { isWithinLimit, migrateOldPlanId } from '@/lib/plans';
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,55 @@ export async function POST(request: Request) {
       { ok: false, error: "Invalid JSON" },
       { status: 400 }
     );
+  }
+
+  // ── Plan limit check ──
+  // Admin users bypass limits; for everyone else, count scripts generated this
+  // calendar month and compare against their plan's scriptsPerMonth limit.
+  const adminUsers = (process.env.ADMIN_USERS || '').split(',').map(s => s.trim());
+  const isAdmin = adminUsers.includes(user.email || '') || adminUsers.includes(user.id);
+
+  if (!isAdmin) {
+    const { data: sub } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('plan_id')
+      .eq('user_id', user.id)
+      .single();
+
+    const planId = migrateOldPlanId(sub?.plan_id || 'free');
+
+    // Count scripts generated this calendar month
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const { count: scriptsThisMonth } = await supabaseAdmin
+      .from('scripts')
+      .select('id', { count: 'exact', head: true })
+      .eq('concept_id', '')  // any concept
+      .gte('created_at', monthStart.toISOString());
+
+    // Fallback: count via a looser query scoped to the user's concepts
+    const { count: userScriptsMonth } = await supabaseAdmin
+      .rpc('count_user_scripts_this_month', { p_user_id: user.id })
+      .single()
+      .then(r => ({ count: r.data as number | null }))
+      .catch(() => ({ count: scriptsThisMonth ?? 0 }));
+
+    const usage = userScriptsMonth ?? scriptsThisMonth ?? 0;
+
+    if (!isWithinLimit(planId, 'scriptsPerMonth', usage)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Monthly script limit reached. Upgrade your plan for more scripts.',
+          upgrade: true,
+          currentUsage: usage,
+          planId,
+        },
+        { status: 403 }
+      );
+    }
   }
 
   const { concept_id, hook_id, hook_text, style_preset, category_risk, change_focus, variant_number } = body as Record<string, unknown>;

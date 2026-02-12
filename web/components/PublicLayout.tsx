@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { name: 'Creators', href: '/creators' },
   { name: 'Agencies', href: '/agencies' },
   { name: 'Brands', href: '/brands' },
-  { name: 'Examples', href: '/examples' },
+  { name: 'Pricing', href: '/pricing' },
   { name: 'Blog', href: '/blog' },
 ];
 

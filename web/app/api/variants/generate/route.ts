@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -26,10 +26,9 @@ function getBaseUrl(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   let body: unknown;

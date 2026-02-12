@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -18,10 +18,9 @@ function getStripe(): Stripe {
  * Creates or retrieves a Stripe Connect Express account and returns the onboarding URL.
  */
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -32,7 +31,7 @@ export async function POST(request: Request) {
   const { data: affiliate } = await supabaseAdmin
     .from('affiliate_accounts')
     .select('id, status, stripe_connect_id, stripe_connect_onboarded')
-    .eq('user_id', user.id)
+    .eq('user_id', auth.user.id)
     .single();
 
   if (!affiliate || affiliate.status !== 'approved') {
@@ -56,9 +55,9 @@ export async function POST(request: Request) {
     if (!connectId) {
       const account = await getStripe().accounts.create({
         type: 'express',
-        email: user.email || undefined,
+        email: auth.user.email || undefined,
         metadata: {
-          user_id: user.id,
+          user_id: auth.user.id,
           affiliate_id: affiliate.id,
         },
         capabilities: {

@@ -1,3 +1,20 @@
+/**
+ * @module api-auth
+ *
+ * Canonical server-side auth module for all API routes.
+ *
+ * Usage:
+ *   import { getApiAuthContext } from '@/lib/supabase/api-auth';
+ *   const auth = await getApiAuthContext(request);
+ *   if (!auth.user) return createApiErrorResponse('UNAUTHORIZED', ...);
+ *
+ * `getApiAuthContext()` supports:
+ *   - Cookie-based session auth (default)
+ *   - API key auth (Bearer ff_ak_* tokens)
+ *
+ * All API routes should use this function instead of calling
+ * `createServerSupabaseClient()` or parsing Bearer tokens directly.
+ */
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 
@@ -13,10 +13,9 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { id } = await params;
@@ -26,7 +25,7 @@ export async function GET(
     .from("concepts")
     .select("*")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", auth.user.id)
     .single();
 
   if (error) {
@@ -48,10 +47,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { id } = await params;
@@ -105,7 +103,7 @@ export async function PATCH(
     .from("concepts")
     .update(updatePayload)
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", auth.user.id)
     .select()
     .single();
 
@@ -127,10 +125,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { id } = await params;
@@ -140,7 +137,7 @@ export async function DELETE(
     .from("concepts")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", auth.user.id);
 
   if (error) {
     return NextResponse.json(

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -17,11 +17,10 @@ async function isAdminUser(userId: string): Promise<boolean> {
  * GET /api/admin/affiliates
  * List all affiliate accounts with user emails.
  */
-export async function GET() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !(await isAdminUser(user.id))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function GET(request: Request) {
+  const auth = await getApiAuthContext(request);
+  if (!auth.user || !(await isAdminUser(auth.user.id))) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const { data: affiliates, error } = await supabaseAdmin
@@ -49,10 +48,9 @@ export async function GET() {
  * Approve, reject, or suspend an affiliate.
  */
 export async function PATCH(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !(await isAdminUser(user.id))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user || !(await isAdminUser(auth.user.id))) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   let body: { affiliateId: string; action: 'approve' | 'reject' | 'suspend' };
@@ -80,7 +78,7 @@ export async function PATCH(request: Request) {
 
   if (body.action === 'approve') {
     updateData.approved_at = new Date().toISOString();
-    updateData.approved_by = user.id;
+    updateData.approved_by = auth.user.id;
   }
 
   const { error } = await supabaseAdmin

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { getApiAuthContext } from '@/lib/supabase/api-auth'
 import { acceptOrgInvite, getInviteByToken } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
@@ -13,17 +14,9 @@ import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 export async function POST(request: NextRequest) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
-  // Check auth - derive actor from session
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
+  const auth = await getApiAuthContext(request)
+  if (!auth.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
-  }
-
-  const userToken = authHeader.replace('Bearer ', '')
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(userToken)
-
-  if (authError || !user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   try {
@@ -49,7 +42,7 @@ export async function POST(request: NextRequest) {
     // Accept the invite (emits events for membership)
     const result = await acceptOrgInvite(supabaseAdmin, {
       token,
-      user_id: user.id,
+      user_id: auth.user.id,
     })
 
     if (!result.success) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
@@ -9,25 +9,14 @@ export const runtime = 'nodejs';
  * This is a placeholder that returns a message about manual deployment.
  * In production, you'd set up a Vercel Deploy Hook URL and POST to it.
  */
-export async function POST() {
+export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const auth = await getApiAuthContext(request);
+    if (!auth.user) {
       return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
     }
-
-    // Check admin
-    const roleRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/get_user_role`, {
-      method: 'POST',
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        'Content-Type': 'application/json',
-      },
-    });
 
     // For now, any authenticated user can trigger (admin layout already gates access)
     const deployHook = process.env.VERCEL_DEPLOY_HOOK;

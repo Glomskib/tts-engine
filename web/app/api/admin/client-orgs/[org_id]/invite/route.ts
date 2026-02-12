@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { getApiAuthContext } from '@/lib/supabase/api-auth'
 import { createOrgInvite, listPendingOrgInvites, InviteRole } from '@/lib/org-invites'
 import { getClientOrgById } from '@/lib/client-org'
 import { sendInviteEmail } from '@/lib/client-email-notifications'
@@ -18,24 +19,16 @@ export async function GET(
   const { org_id } = await params
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
-  // Check auth
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
+  const auth = await getApiAuthContext(request)
+  if (!auth.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
-  }
-
-  const token = authHeader.replace('Bearer ', '')
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-  if (authError || !user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   // Check admin role
   const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', auth.user.id)
     .single()
 
   if (profile?.role !== 'admin') {
@@ -92,24 +85,16 @@ export async function POST(
   const { org_id } = await params
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId()
 
-  // Check auth
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
+  const auth = await getApiAuthContext(request)
+  if (!auth.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId)
-  }
-
-  const token = authHeader.replace('Bearer ', '')
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-  if (authError || !user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or expired token', 401, correlationId)
   }
 
   // Check admin role
   const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', auth.user.id)
     .single()
 
   if (profile?.role !== 'admin') {
@@ -163,7 +148,7 @@ export async function POST(
       org_id,
       email,
       role,
-      actor_user_id: user.id,
+      actor_user_id: auth.user.id,
     })
 
     // Build invite URL
@@ -176,7 +161,7 @@ export async function POST(
       orgName: org.org_name,
       role,
       inviteUrl,
-      invitedByEmail: user.email || undefined,
+      invitedByEmail: auth.user.email || undefined,
     })
 
     const response = NextResponse.json({

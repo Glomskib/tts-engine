@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 
@@ -13,9 +13,8 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const auth = await getApiAuthContext(request);
+    if (!auth.user) {
       return createApiErrorResponse('UNAUTHORIZED' as any, 'Authentication required', 401, correlationId);
     }
 

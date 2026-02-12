@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { isWithinLimit, migrateOldPlanId } from '@/lib/plans';
 import { enforceRateLimits } from '@/lib/rate-limit';
 import { generateCorrelationId } from '@/lib/api-errors';
@@ -70,15 +70,14 @@ function safeParseJSON(content: string): { success: boolean; data: any; strategy
 }
 
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   // Rate limit: 10 script generations per minute per user
   const correlationId = generateCorrelationId();
-  const rateLimited = enforceRateLimits({ userId: user.id }, correlationId, { userLimit: 10 });
+  const rateLimited = enforceRateLimits({ userId: auth.user.id }, correlationId, { userLimit: 10 });
   if (rateLimited) return rateLimited;
 
   let body: unknown;
@@ -95,13 +94,13 @@ export async function POST(request: Request) {
   // Admin users bypass limits; for everyone else, count scripts generated this
   // calendar month and compare against their plan's scriptsPerMonth limit.
   const adminUsers = (process.env.ADMIN_USERS || '').split(',').map(s => s.trim());
-  const isAdmin = adminUsers.includes(user.email || '') || adminUsers.includes(user.id);
+  const isAdmin = adminUsers.includes(auth.user.email || '') || adminUsers.includes(auth.user.id);
 
   if (!isAdmin) {
     const { data: sub } = await supabaseAdmin
       .from('user_subscriptions')
       .select('plan_id')
-      .eq('user_id', user.id)
+      .eq('user_id', auth.user.id)
       .single();
 
     const planId = migrateOldPlanId(sub?.plan_id || 'free');
@@ -115,7 +114,7 @@ export async function POST(request: Request) {
     const { data: userConcepts } = await supabaseAdmin
       .from('concepts')
       .select('id')
-      .eq('user_id', user.id);
+      .eq('user_id', auth.user.id);
 
     const conceptIds = (userConcepts || []).map(c => c.id);
     let usage = 0;

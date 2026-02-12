@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { singleFlight, generateFlightKey, createConflictResponse, SingleFlightConflictError } from "@/lib/single-flight";
@@ -1304,17 +1304,16 @@ If you want to try it, link's in my bio - ${brand} is on TikTok Shop!`;
  * Uses nonce-based no-repeat logic and logs all generations.
  */
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
+    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
 
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Rate limiting
   const rateLimitResponse = enforceRateLimits(
-    { userId: user.id, ...extractRateLimitContext(request) },
+    { userId: auth.user.id, ...extractRateLimitContext(request) },
     correlationId
   );
   if (rateLimitResponse) return rateLimitResponse;

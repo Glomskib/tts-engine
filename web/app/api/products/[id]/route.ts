@@ -7,13 +7,14 @@ import { z } from "zod";
 
 export const runtime = "nodejs";
 
+// Only include columns that exist in the products table.
+// `description` does NOT exist — the frontend sends it but we must strip it.
 const UpdateProductSchema = z.object({
   name: z.string().min(1).max(500).optional(),
   brand: z.string().max(255).optional(),
   brand_id: z.string().uuid().optional().nullable(),
   category: z.string().max(255).optional(),
   product_display_name: z.string().max(30).optional().nullable(),
-  description: z.string().max(10000).optional().nullable(),
   notes: z.string().max(10000).optional().nullable(),
   primary_link: z.string().max(2000).optional().nullable(),
   tiktok_showcase_url: z.string().max(2000).optional().nullable(),

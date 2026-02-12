@@ -8,12 +8,23 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 /**
  * GET /api/va/videos?va_name=<name>
- * Public VA endpoint — returns videos assigned to a specific VA.
+ * VA endpoint — returns videos assigned to a specific VA.
  * Looks up the VA by display_name in team_members, then queries videos.
- * No auth required.
+ * Requires VA_ACCESS_TOKEN for authentication.
  */
 export async function GET(request: Request) {
   const correlationId = generateCorrelationId();
+
+  // H7: Verify VA access token to prevent unauthorized access
+  const vaToken = process.env.VA_ACCESS_TOKEN;
+  const authHeader = request.headers.get("x-va-token") || new URL(request.url).searchParams.get("token");
+  if (vaToken && authHeader !== vaToken) {
+    return NextResponse.json(
+      { ok: false, error: "Unauthorized — invalid VA access token", correlation_id: correlationId },
+      { status: 401 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const vaName = searchParams.get("va_name");
 

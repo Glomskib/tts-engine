@@ -1,40 +1,48 @@
 /**
  * Subscription management utilities for FlashFlow AI.
- * Handles both SaaS and video editing subscription types.
+ * Derives all plan data from the canonical source: lib/plans.ts
  */
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
-  PRICING,
-  STRIPE_PRICE_IDS,
-  VIDEO_QUOTAS,
-  CREDIT_ALLOCATIONS,
-  type SaaSPlanId,
-  type VideoPlanId,
-  type PlanId,
-  getPlanById,
-  getStripePriceId,
+  PLANS,
+  PLANS_LIST,
+  VIDEO_PLANS,
+  VIDEO_PLANS_LIST,
+  EDITING_ADDONS,
+  getPlanByStringId,
+  getVideoPlanByStringId,
+  migrateOldPlanId,
   isVideoPlan,
   getPlanCredits,
   getPlanVideos,
-} from './pricing';
+  type PlanKey,
+  type PlanLimitKey,
+  type VideoPlanKey,
+} from './plans';
 
-// Re-export pricing utilities
+// Re-export plan utilities and data
 export {
-  PRICING,
-  STRIPE_PRICE_IDS,
-  VIDEO_QUOTAS,
-  CREDIT_ALLOCATIONS,
-  getPlanById,
-  getStripePriceId,
+  PLANS,
+  PLANS_LIST,
+  VIDEO_PLANS,
+  VIDEO_PLANS_LIST,
+  EDITING_ADDONS,
+  getPlanByStringId,
+  getVideoPlanByStringId,
+  migrateOldPlanId,
   isVideoPlan,
   getPlanCredits,
   getPlanVideos,
 };
 
-export type SaaSPlan = SaaSPlanId;
-export type VideoPlan = VideoPlanId;
-export type PlanName = PlanId;
+// ─────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────
+
+export type SaaSPlanId = typeof PLANS[PlanKey]['id'];
+export type VideoPlanId = typeof VIDEO_PLANS[VideoPlanKey]['id'];
+export type PlanName = SaaSPlanId | VideoPlanId;
 export type SubscriptionType = 'saas' | 'video_editing';
 
 export interface UserSubscription {
@@ -53,91 +61,90 @@ export interface UserSubscription {
 }
 
 export interface PlanDetails {
-  id: PlanName;
+  id: string;
   name: string;
   price: number; // in cents
   type: SubscriptionType;
   credits: number;
   videos?: number;
-  stripePriceId?: string;
+  stripePriceId?: string | null;
 }
 
-// Build PLAN_DETAILS from centralized pricing config
-export const PLAN_DETAILS: Record<PlanName, PlanDetails> = {
-  // SaaS Plans
-  free: {
-    id: 'free',
-    name: PRICING.saas.free.name,
-    price: PRICING.saas.free.price * 100,
-    type: 'saas',
-    credits: PRICING.saas.free.credits,
-  },
-  starter: {
-    id: 'starter',
-    name: PRICING.saas.starter.name,
-    price: PRICING.saas.starter.price * 100,
-    type: 'saas',
-    credits: PRICING.saas.starter.credits,
-    stripePriceId: STRIPE_PRICE_IDS.starter,
-  },
-  creator: {
-    id: 'creator',
-    name: PRICING.saas.creator.name,
-    price: PRICING.saas.creator.price * 100,
-    type: 'saas',
-    credits: PRICING.saas.creator.credits,
-    stripePriceId: STRIPE_PRICE_IDS.creator,
-  },
-  business: {
-    id: 'business',
-    name: PRICING.saas.business.name,
-    price: PRICING.saas.business.price * 100,
-    type: 'saas',
-    credits: PRICING.saas.business.credits,
-    stripePriceId: STRIPE_PRICE_IDS.business,
-  },
-  // Video Editing Plans
-  video_starter: {
-    id: 'video_starter',
-    name: 'Video ' + PRICING.video.video_starter.name,
-    price: PRICING.video.video_starter.price * 100,
-    type: 'video_editing',
-    videos: PRICING.video.video_starter.videos,
-    credits: PRICING.video.video_starter.credits,
-    stripePriceId: STRIPE_PRICE_IDS.video_starter,
-  },
-  video_growth: {
-    id: 'video_growth',
-    name: 'Video ' + PRICING.video.video_growth.name,
-    price: PRICING.video.video_growth.price * 100,
-    type: 'video_editing',
-    videos: PRICING.video.video_growth.videos,
-    credits: PRICING.video.video_growth.credits,
-    stripePriceId: STRIPE_PRICE_IDS.video_growth,
-  },
-  video_scale: {
-    id: 'video_scale',
-    name: 'Video ' + PRICING.video.video_scale.name,
-    price: PRICING.video.video_scale.price * 100,
-    type: 'video_editing',
-    videos: PRICING.video.video_scale.videos,
-    credits: PRICING.video.video_scale.credits,
-    stripePriceId: STRIPE_PRICE_IDS.video_scale,
-  },
-  video_agency: {
-    id: 'video_agency',
-    name: 'Video ' + PRICING.video.video_agency.name,
-    price: PRICING.video.video_agency.price * 100,
-    type: 'video_editing',
-    videos: PRICING.video.video_agency.videos,
-    credits: PRICING.video.video_agency.credits,
-    stripePriceId: STRIPE_PRICE_IDS.video_agency,
-  },
-};
+// ─────────────────────────────────────────────────────
+// Derived constants (built from plans.ts)
+// ─────────────────────────────────────────────────────
 
-/**
- * Get user's subscription
- */
+/** Plan details keyed by plan ID — used by webhook, checkout, status routes */
+export const PLAN_DETAILS: Record<string, PlanDetails> = {};
+
+/** Stripe price IDs keyed by plan ID */
+export const STRIPE_PRICE_IDS: Record<string, string> = {};
+
+/** Credit allocations keyed by plan ID */
+export const CREDIT_ALLOCATIONS: Record<string, number> = {};
+
+/** Video quotas keyed by plan ID */
+export const VIDEO_QUOTAS: Record<string, number> = {};
+
+// Build from SaaS plans
+for (const plan of PLANS_LIST) {
+  PLAN_DETAILS[plan.id] = {
+    id: plan.id,
+    name: plan.name,
+    price: plan.price * 100,
+    type: 'saas',
+    credits: plan.credits,
+    stripePriceId: plan.stripePriceId,
+  };
+  if (plan.stripePriceId) {
+    STRIPE_PRICE_IDS[plan.id] = plan.stripePriceId;
+  }
+  CREDIT_ALLOCATIONS[plan.id] = plan.credits;
+}
+
+// Build from video plans
+for (const plan of VIDEO_PLANS_LIST) {
+  PLAN_DETAILS[plan.id] = {
+    id: plan.id,
+    name: 'Video ' + plan.name,
+    price: plan.price * 100,
+    type: 'video_editing',
+    credits: plan.credits,
+    videos: plan.videos,
+    stripePriceId: plan.stripePriceId,
+  };
+  if (plan.stripePriceId) {
+    STRIPE_PRICE_IDS[plan.id] = plan.stripePriceId;
+  }
+  CREDIT_ALLOCATIONS[plan.id] = plan.credits;
+  VIDEO_QUOTAS[plan.id] = plan.videos;
+}
+
+// Legacy aliases — existing DB records may use old plan IDs
+PLAN_DETAILS['starter'] = PLAN_DETAILS['creator_lite'];
+PLAN_DETAILS['creator'] = PLAN_DETAILS['creator_pro'];
+PLAN_DETAILS['business'] = PLAN_DETAILS['brand'];
+CREDIT_ALLOCATIONS['starter'] = CREDIT_ALLOCATIONS['creator_lite'];
+CREDIT_ALLOCATIONS['creator'] = CREDIT_ALLOCATIONS['creator_pro'];
+CREDIT_ALLOCATIONS['business'] = CREDIT_ALLOCATIONS['brand'];
+
+// ─────────────────────────────────────────────────────
+// PRICING — backwards-compatible nested object for upgrade page
+// ─────────────────────────────────────────────────────
+
+export const PRICING = {
+  saas: Object.fromEntries(
+    PLANS_LIST.map(p => [p.id, { ...p, period: p.price === 0 ? 'forever' : '/month' }])
+  ) as Record<string, typeof PLANS_LIST[number] & { period: string }>,
+  video: Object.fromEntries(
+    VIDEO_PLANS_LIST.map(p => [p.id, p])
+  ) as Record<string, typeof VIDEO_PLANS_LIST[number]>,
+} as const;
+
+// ─────────────────────────────────────────────────────
+// Subscription management functions
+// ─────────────────────────────────────────────────────
+
 export async function getUserSubscription(userId: string): Promise<UserSubscription | null> {
   const { data, error } = await supabaseAdmin
     .from('user_subscriptions')
@@ -149,14 +156,10 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
   return data as UserSubscription;
 }
 
-/**
- * Check if user has access to a specific feature
- */
 export async function checkFeatureAccess(
   userId: string,
   featureKey: string
 ): Promise<{ allowed: boolean; limit?: number }> {
-  // Get user's plan
   const { data: subscription } = await supabaseAdmin
     .from('user_subscriptions')
     .select('plan_id, status')
@@ -167,7 +170,6 @@ export async function checkFeatureAccess(
     return { allowed: false };
   }
 
-  // Check feature access for plan
   const { data: feature } = await supabaseAdmin
     .from('plan_features')
     .select('is_enabled, limit_value')
@@ -185,25 +187,16 @@ export async function checkFeatureAccess(
   };
 }
 
-/**
- * Check if user is a video editing client
- */
 export async function isVideoClient(userId: string): Promise<boolean> {
   const subscription = await getUserSubscription(userId);
   return subscription?.subscription_type === 'video_editing';
 }
 
-/**
- * Get remaining videos for video client
- */
 export async function getVideosRemaining(userId: string): Promise<number> {
   const subscription = await getUserSubscription(userId);
   return subscription?.videos_remaining ?? 0;
 }
 
-/**
- * Deduct a video from user's monthly allocation
- */
 export async function deductVideo(userId: string): Promise<{ success: boolean; remaining: number; error?: string }> {
   const { data, error } = await supabaseAdmin.rpc('deduct_video', {
     p_user_id: userId,
@@ -221,13 +214,10 @@ export async function deductVideo(userId: string): Promise<{ success: boolean; r
   };
 }
 
-/**
- * Update user's subscription (for webhook use)
- */
 export async function updateSubscription(
   userId: string,
   updates: Partial<{
-    plan_id: PlanName;
+    plan_id: string;
     subscription_type: SubscriptionType;
     status: string;
     stripe_subscription_id: string;
@@ -249,9 +239,6 @@ export async function updateSubscription(
   return !error;
 }
 
-/**
- * Create or update subscription for a user
- */
 export async function upsertSubscription(
   userId: string,
   data: Partial<UserSubscription>
@@ -269,10 +256,7 @@ export async function upsertSubscription(
   return !error;
 }
 
-/**
- * Get all features for a plan
- */
-export async function getPlanFeatures(planName: PlanName): Promise<Record<string, { enabled: boolean; limit?: number }>> {
+export async function getPlanFeatures(planName: string): Promise<Record<string, { enabled: boolean; limit?: number }>> {
   const { data } = await supabaseAdmin
     .from('plan_features')
     .select('feature_key, is_enabled, limit_value')

@@ -24,6 +24,18 @@ export async function POST(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const correlationId = generateCorrelationId();
 
+  // H7: Verify VA access token
+  const vaToken = process.env.VA_ACCESS_TOKEN;
+  if (vaToken) {
+    const authToken = request.headers.get("x-va-token");
+    if (authToken !== vaToken) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized", correlation_id: correlationId },
+        { status: 401 }
+      );
+    }
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();

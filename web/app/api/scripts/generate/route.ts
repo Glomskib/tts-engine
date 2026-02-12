@@ -339,7 +339,7 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
           { 
             ok: false, 
             error: "Failed to parse AI response", 
-            rawPreview: content.slice(0, 500) 
+            parseStrategy: "failed"
           },
           { status: 500 }
         );
@@ -386,7 +386,7 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
           { 
             ok: false, 
             error: "Failed to parse AI response", 
-            rawPreview: content.slice(0, 500) 
+            parseStrategy: "failed"
           },
           { status: 500 }
         );

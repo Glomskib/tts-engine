@@ -7,7 +7,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useSubscription } from '@/hooks/useFeatureAccess';
 import { Check, X, Sparkles, Video } from 'lucide-react';
-import { PRICING, PLAN_DETAILS, type PlanName } from '@/lib/subscriptions';
+import { PRICING, PLAN_DETAILS, migrateOldPlanId, type PlanName } from '@/lib/subscriptions';
 
 interface AuthUser {
   id: string;
@@ -20,18 +20,20 @@ const SAAS_PLANS = Object.values(PRICING.saas);
 // Video Editing Plans from centralized pricing
 const VIDEO_PLANS = Object.values(PRICING.video);
 
-// SaaS Features
+// SaaS Features — 5-tier model
 const SAAS_FEATURES = [
-  { name: 'AI Credits/month', free: '5', starter: '75', creator: '300', business: '1,000' },
-  { name: 'Skit Generator', free: true, starter: true, creator: true, business: true },
-  { name: 'Character Presets', free: 'Basic', starter: 'All', creator: 'All', business: 'All' },
-  { name: 'Save Scripts', free: '3', starter: 'Unlimited', creator: 'Unlimited', business: 'Unlimited' },
-  { name: 'Product Catalog', free: false, starter: '5 products', creator: 'Unlimited', business: 'Unlimited' },
-  { name: 'Audience Intelligence', free: false, starter: false, creator: true, business: true },
-  { name: 'Winners Bank', free: false, starter: false, creator: true, business: true },
-  { name: 'Pain Point Analysis', free: false, starter: false, creator: true, business: true },
-  { name: 'Team Members', free: '1', starter: '1', creator: '1', business: '5' },
-  { name: 'Support', free: 'Community', starter: 'Email', creator: 'Priority', business: 'Dedicated' },
+  { name: 'Scripts/month', values: ['5', '25', 'Unlimited', 'Unlimited', 'Unlimited'] },
+  { name: 'AI Credits/month', values: ['5', '75', '300', '1,000', 'Unlimited'] },
+  { name: 'AI Video Edits', values: ['0', '5', '25', '50', 'Unlimited'] },
+  { name: 'Creator Personas', values: ['3', '5', 'All 7+', 'All', 'All'] },
+  { name: 'Products', values: ['3', '10', '50', 'Unlimited', 'Unlimited'] },
+  { name: 'Brands', values: ['1', '1', '3', '5', 'Unlimited'] },
+  { name: 'Content Packages', values: [false, false, true, true, true] },
+  { name: 'Script of the Day', values: [false, true, true, true, true] },
+  { name: 'Creator Invite Links', values: [false, false, false, true, true] },
+  { name: 'Content Approval', values: [false, false, false, true, true] },
+  { name: 'Affiliate Program', values: [false, true, true, true, true] },
+  { name: 'Support', values: ['Community', 'Email', 'Priority', 'Priority', 'Dedicated'] },
 ];
 
 // Video Features - Updated with final pricing
@@ -192,7 +194,7 @@ export default function UpgradePage() {
   }
 
   const isUnlimited = credits?.remaining === -1 || (credits as { isUnlimited?: boolean })?.isUnlimited;
-  const currentPlan = planId || 'free';
+  const currentPlan = migrateOldPlanId(planId || 'free');
   const creditsRemaining = isUnlimited ? 'Unlimited' : (credits?.remaining ?? 5);
 
   return (
@@ -284,7 +286,7 @@ export default function UpgradePage() {
         {/* SaaS Plans */}
         {activeTab === 'saas' && (
           <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-5 mb-10">
               {SAAS_PLANS.map((plan) => {
                 const isCurrentPlan = currentPlan === plan.id;
                 const isPopular = 'popular' in plan && plan.popular;
@@ -313,7 +315,7 @@ export default function UpgradePage() {
                       </div>
                     </div>
 
-                    <div className="text-sm text-blue-400 mb-4">{plan.credits} credits{plan.id === 'free' ? ' (one-time)' : '/month'}</div>
+                    <div className="text-sm text-blue-400 mb-4">{plan.credits === -1 ? 'Unlimited' : plan.credits} credits{plan.id === 'free' ? ' (one-time)' : '/month'}</div>
 
                     {isCurrentPlan ? (
                       <div className="text-center text-sm text-emerald-400 py-2.5 font-medium border border-emerald-500/30 rounded-lg bg-emerald-500/10">
@@ -345,20 +347,26 @@ export default function UpgradePage() {
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
-                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Free</th>
-                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Starter</th>
-                    <th className="text-center py-4 px-4 text-sm font-medium text-blue-400">Creator</th>
-                    <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Business</th>
+                    {SAAS_PLANS.map((plan) => (
+                      <th key={plan.id} className={`text-center py-4 px-3 text-sm font-medium ${
+                        plan.id === 'creator_pro' ? 'text-blue-400' : 'text-zinc-400'
+                      }`}>
+                        {plan.name}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {SAAS_FEATURES.map((feature, index) => (
                     <tr key={feature.name} className={index % 2 === 0 ? 'bg-zinc-900/30' : ''}>
                       <td className="py-3 px-4 text-sm text-zinc-300">{feature.name}</td>
-                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.free)}</td>
-                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.starter)}</td>
-                      <td className="py-3 px-4 text-center bg-blue-500/5">{renderFeatureValue(feature.creator)}</td>
-                      <td className="py-3 px-4 text-center">{renderFeatureValue(feature.business)}</td>
+                      {feature.values.map((val, i) => (
+                        <td key={i} className={`py-3 px-3 text-center ${
+                          SAAS_PLANS[i]?.id === 'creator_pro' ? 'bg-blue-500/5' : ''
+                        }`}>
+                          {renderFeatureValue(val)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

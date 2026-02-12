@@ -23,6 +23,7 @@ import {
   PLAN_DETAILS,
   CREDIT_ALLOCATIONS,
   VIDEO_QUOTAS,
+  migrateOldPlanId,
   type PlanName,
   type SubscriptionType
 } from "@/lib/subscriptions";
@@ -97,6 +98,30 @@ export async function POST(request: Request) {
         break;
       }
 
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        await handleChargeRefunded(correlationId, charge);
+        break;
+      }
+
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute;
+        await handleDisputeCreated(correlationId, dispute);
+        break;
+      }
+
+      case "customer.subscription.trial_will_end": {
+        const subscription = event.data.object as Stripe.Subscription;
+        console.info(`[${correlationId}] Trial ending soon for subscription ${subscription.id}`);
+        break;
+      }
+
+      case "customer.deleted": {
+        const customer = event.data.object as Stripe.Customer;
+        console.info(`[${correlationId}] Stripe customer deleted: ${customer.id}`);
+        break;
+      }
+
       default:
         console.info(`[${correlationId}] Unhandled event type: ${event.type}`);
     }
@@ -148,8 +173,9 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     return;
   }
 
-  // Handle subscription checkout
-  const planId = session.metadata?.plan_id as PlanName | undefined;
+  // Handle subscription checkout — normalize old plan IDs
+  const rawPlanId = session.metadata?.plan_id;
+  const planId = rawPlanId ? migrateOldPlanId(rawPlanId) as PlanName : undefined;
   const subscriptionType = (session.metadata?.subscription_type || 'saas') as SubscriptionType;
 
   if (!planId) {
@@ -242,7 +268,7 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
     userId = existingSub.user_id;
   }
 
-  const planId = (subscription.metadata?.plan_id || "starter") as PlanName;
+  const planId = migrateOldPlanId(subscription.metadata?.plan_id || "free") as PlanName;
   const subscriptionType = (subscription.metadata?.subscription_type || 'saas') as SubscriptionType;
   const status = subscription.status === "active" ? "active" : subscription.status;
 
@@ -287,18 +313,42 @@ async function handleSubscriptionCancelled(correlationId: string, subscription: 
   console.info(`[${correlationId}] Subscription cancelled: ${subscription.id}`);
 
   // Downgrade to free plan
-  const { error } = await supabaseAdmin
+  const { data: cancelledSub, error } = await supabaseAdmin
     .from("user_subscriptions")
     .update({
       plan_id: "free",
+      subscription_type: "saas",
       status: "cancelled",
       stripe_subscription_id: null,
+      videos_per_month: 0,
+      videos_remaining: 0,
+      videos_used_this_month: 0,
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_subscription_id", subscription.id);
+    .eq("stripe_subscription_id", subscription.id)
+    .select("user_id")
+    .single();
 
   if (error) {
     console.error(`[${correlationId}] Failed to cancel subscription:`, error);
+  }
+
+  // H8: Reset credits to free tier amount (5 credits)
+  if (cancelledSub?.user_id) {
+    const { error: creditError } = await supabaseAdmin
+      .from("user_credits")
+      .update({
+        credits_remaining: 5,
+        credits_used_this_period: 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", cancelledSub.user_id);
+
+    if (creditError) {
+      console.error(`[${correlationId}] Failed to reset credits on cancellation:`, creditError);
+    } else {
+      console.info(`[${correlationId}] Credits reset to free tier for user ${cancelledSub.user_id}`);
+    }
   }
 
   // Queue winback email sequence for churned users (non-fatal)
@@ -439,6 +489,53 @@ async function handleAccountUpdated(correlationId: string, account: Stripe.Accou
       console.error(`[${correlationId}] Failed to update affiliate onboarding status:`, error);
     } else {
       console.info(`[${correlationId}] Stripe Connect onboarding complete for ${account.id}`);
+    }
+  }
+}
+
+async function handleChargeRefunded(correlationId: string, charge: Stripe.Charge) {
+  const customerId = typeof charge.customer === 'string' ? charge.customer : charge.customer?.id;
+  if (!customerId) return;
+
+  console.info(`[${correlationId}] Charge refunded: ${charge.id}, customer: ${customerId}`);
+
+  // Find the user by stripe customer ID
+  const { data: sub } = await supabaseAdmin
+    .from("user_subscriptions")
+    .select("user_id, plan_id")
+    .eq("stripe_customer_id", customerId)
+    .single();
+
+  if (sub) {
+    // Log the refund event for audit purposes
+    await supabaseAdmin.from("credit_transactions").insert({
+      user_id: sub.user_id,
+      amount: 0,
+      type: "refund",
+      description: `Charge refunded: ${charge.id}`,
+    });
+    console.info(`[${correlationId}] Refund logged for user ${sub.user_id}`);
+  }
+}
+
+async function handleDisputeCreated(correlationId: string, dispute: Stripe.Dispute) {
+  const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+  console.warn(`[${correlationId}] Dispute created for charge ${chargeId}, reason: ${dispute.reason}`);
+
+  // Find user via the payment intent or charge
+  const customerId = typeof dispute.charge === 'object' && dispute.charge
+    ? (typeof dispute.charge.customer === 'string' ? dispute.charge.customer : undefined)
+    : undefined;
+
+  if (customerId) {
+    const { data: sub } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", customerId)
+      .single();
+
+    if (sub) {
+      console.warn(`[${correlationId}] Dispute for user ${sub.user_id} — manual review needed`);
     }
   }
 }

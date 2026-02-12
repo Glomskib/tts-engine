@@ -250,6 +250,19 @@ export async function processMonthlyPayouts(): Promise<{
   const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const periodEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
+  // H10: Idempotency check — skip if payouts were already processed this month
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const { data: existingPayouts } = await supabaseAdmin
+    .from('affiliate_payouts')
+    .select('id')
+    .gte('created_at', new Date(now.getFullYear(), now.getMonth(), 1).toISOString())
+    .limit(1);
+
+  if (existingPayouts && existingPayouts.length > 0) {
+    console.info(`[process-payouts] Payouts already processed for ${monthKey}, skipping`);
+    return results;
+  }
+
   // Lazy Stripe import
   let stripe: import('stripe').default | null = null;
   if (process.env.STRIPE_SECRET_KEY) {

@@ -199,15 +199,16 @@ export async function POST(request: NextRequest) {
 
       if (deductError) {
         console.error("Credit deduction error:", deductError);
-        // Fallback: try direct update if RPC fails
-        const { data: fallbackUpdate, error: fallbackError } = await supabaseAdmin
-          .from("user_credits")
-          .update({
-            credits_remaining: currentCredits - creditCost,
-          })
-          .eq("user_id", authContext.user.id)
-          .select("credits_remaining")
-          .single();
+        // H6: Fallback uses atomic SQL decrement to avoid race conditions
+        const { data: fallbackUpdate, error: fallbackError } = await supabaseAdmin.rpc(
+          'add_credits',
+          {
+            p_user_id: authContext.user.id,
+            p_amount: -creditCost,
+            p_type: 'generation',
+            p_description: `Image generation fallback (${input.model}, ${input.num_outputs} images)`,
+          }
+        );
 
         if (fallbackError) {
           console.error("Fallback credit deduction also failed:", fallbackError);
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
             correlationId
           );
         }
-        creditsRemaining = fallbackUpdate?.credits_remaining;
+        creditsRemaining = fallbackUpdate?.[0]?.credits_remaining;
       } else {
         const result = deductResult?.[0];
         creditsRemaining = result?.credits_remaining;

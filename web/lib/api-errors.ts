@@ -55,7 +55,8 @@ export type ApiErrorCode =
   | 'CONFIG_ERROR'
   | 'INSUFFICIENT_CREDITS'
   | 'STORAGE_LIMIT'
-  | 'STORAGE_ERROR';
+  | 'STORAGE_ERROR'
+  | 'PLAN_LIMIT';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

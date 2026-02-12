@@ -12,6 +12,7 @@ export const PLANS = {
     id: 'free',
     name: 'Free',
     price: 0,
+    credits: 5,
     stripePriceId: null,
     limits: {
       scriptsPerMonth: 5,
@@ -38,6 +39,7 @@ export const PLANS = {
     id: 'creator_lite',
     name: 'Creator Lite',
     price: 9,
+    credits: 75,
     stripePriceId: process.env.STRIPE_PRICE_CREATOR_LITE || null,
     limits: {
       scriptsPerMonth: 25,
@@ -66,6 +68,8 @@ export const PLANS = {
     id: 'creator_pro',
     name: 'Creator Pro',
     price: 29,
+    credits: 300,
+    popular: true,
     stripePriceId: process.env.STRIPE_PRICE_CREATOR_PRO || null,
     limits: {
       scriptsPerMonth: -1, // unlimited
@@ -96,6 +100,7 @@ export const PLANS = {
     id: 'brand',
     name: 'Brand',
     price: 49,
+    credits: 1000,
     stripePriceId: process.env.STRIPE_PRICE_BRAND || null,
     limits: {
       scriptsPerMonth: -1,
@@ -127,6 +132,7 @@ export const PLANS = {
     id: 'agency',
     name: 'Agency',
     price: 149,
+    credits: -1, // unlimited
     stripePriceId: process.env.STRIPE_PRICE_AGENCY || null,
     limits: {
       scriptsPerMonth: -1,
@@ -255,7 +261,109 @@ export function migrateOldPlanId(oldPlanId: string): string {
     'starter': 'creator_lite',
     'creator': 'creator_pro',
     'business': 'brand',
-    // Video plans stay as-is for now
   };
   return mapping[oldPlanId] || oldPlanId;
+}
+
+/**
+ * Get credits allocation for a plan (handles both old and new IDs).
+ */
+export function getPlanCredits(planId: string): number {
+  const migrated = migrateOldPlanId(planId);
+  const plan = getPlanByStringId(migrated);
+  if (plan) return plan.credits;
+  // Check video plans
+  const videoPlan = getVideoPlanByStringId(planId);
+  if (videoPlan) return videoPlan.credits;
+  return 0;
+}
+
+// ─────────────────────────────────────────────────────
+// Video Editing Service Plans
+// ─────────────────────────────────────────────────────
+
+export const VIDEO_PLANS = {
+  VIDEO_STARTER: {
+    id: 'video_starter' as const,
+    name: 'Starter',
+    type: 'video_editing' as const,
+    price: 89,
+    videos: 45,
+    credits: 300,
+    perVideo: '$1.98',
+    tagline: '~1-2 videos/day',
+    aiIncluded: 'Creator tier (300 credits)',
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_STARTER || null,
+  },
+  VIDEO_GROWTH: {
+    id: 'video_growth' as const,
+    name: 'Growth',
+    type: 'video_editing' as const,
+    price: 199,
+    videos: 120,
+    credits: 1000,
+    perVideo: '$1.66',
+    tagline: '~4 videos/day',
+    aiIncluded: 'Business tier (1,000 credits)',
+    popular: true as const,
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_GROWTH || null,
+  },
+  VIDEO_SCALE: {
+    id: 'video_scale' as const,
+    name: 'Scale',
+    type: 'video_editing' as const,
+    price: 499,
+    videos: 350,
+    credits: -1,
+    perVideo: '$1.43',
+    tagline: '~12 videos/day',
+    aiIncluded: 'Unlimited AI credits',
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_SCALE || null,
+  },
+  VIDEO_AGENCY: {
+    id: 'video_agency' as const,
+    name: 'Agency',
+    type: 'video_editing' as const,
+    price: 1150,
+    videos: 1000,
+    credits: -1,
+    perVideo: '$1.15',
+    tagline: 'Full production team',
+    aiIncluded: 'Unlimited AI credits',
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_AGENCY || null,
+  },
+} as const;
+
+export type VideoPlanKey = keyof typeof VIDEO_PLANS;
+
+export const VIDEO_PLANS_LIST = [
+  VIDEO_PLANS.VIDEO_STARTER,
+  VIDEO_PLANS.VIDEO_GROWTH,
+  VIDEO_PLANS.VIDEO_SCALE,
+  VIDEO_PLANS.VIDEO_AGENCY,
+] as const;
+
+/**
+ * Look up a video plan by its string id (e.g. 'video_growth').
+ */
+export function getVideoPlanByStringId(planId: string) {
+  const key = Object.keys(VIDEO_PLANS).find(
+    k => VIDEO_PLANS[k as VideoPlanKey].id === planId
+  ) as VideoPlanKey | undefined;
+  return key ? VIDEO_PLANS[key] : undefined;
+}
+
+/**
+ * Check if a plan ID belongs to a video editing plan.
+ */
+export function isVideoPlan(planId: string): boolean {
+  return planId.startsWith('video_');
+}
+
+/**
+ * Get video quota for a plan.
+ */
+export function getPlanVideos(planId: string): number {
+  const plan = getVideoPlanByStringId(planId);
+  return plan?.videos ?? 0;
 }

@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { PLAN_DETAILS, type PlanName } from '@/lib/subscriptions';
+import { PLAN_DETAILS, migrateOldPlanId, type PlanName } from '@/lib/subscriptions';
 
 export async function GET(request: Request) {
   const authContext = await getApiAuthContext(request);
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     .eq('user_id', userId)
     .single();
 
-  const planId = (subscription?.plan_id || 'free') as PlanName;
+  const planId = migrateOldPlanId(subscription?.plan_id || 'free') as PlanName;
   const plan = PLAN_DETAILS[planId];
 
   return NextResponse.json({

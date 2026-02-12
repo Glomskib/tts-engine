@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { apiError, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, renderScriptText } from "@/lib/script-renderer";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { isWithinLimit, migrateOldPlanId } from '@/lib/plans';
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,34 @@ export async function POST(request: Request) {
   if (!authContext.user) {
     const err = apiError("UNAUTHORIZED", "Authentication required", 401);
     return NextResponse.json({ ...err.body, correlation_id: correlationId }, { status: err.status });
+  }
+
+  // H4: Enforce plan script limits (same logic as scripts/generate)
+  if (!authContext.isAdmin) {
+    const { data: sub } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('plan_id')
+      .eq('user_id', authContext.user.id)
+      .single();
+
+    const planId = migrateOldPlanId(sub?.plan_id || 'free');
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const { count } = await supabaseAdmin
+      .from('scripts')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', authContext.user.id)
+      .gte('created_at', monthStart.toISOString());
+
+    const usage = count ?? 0;
+
+    if (!isWithinLimit(planId, 'scriptsPerMonth', usage)) {
+      const err = apiError("PLAN_LIMIT", "Monthly script limit reached. Upgrade your plan for more scripts.", 403);
+      return NextResponse.json({ ...err.body, upgrade: true, correlation_id: correlationId }, { status: err.status });
+    }
   }
 
   let body: unknown;

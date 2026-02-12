@@ -173,9 +173,10 @@ function VideoCard({
       if (postedUrl) payload.posted_url = postedUrl;
       if (action.nextStatus === "POSTED") payload.posted_platform = "tiktok";
 
+      const vaToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('token') || '' : '';
       const res = await fetch(`/api/va/videos/${video.id}/status`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-va-token": vaToken },
         body: JSON.stringify(payload),
       });
 
@@ -393,7 +394,8 @@ export default function VADashboard() {
     if (!vaName) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/va/videos?va_name=${encodeURIComponent(vaName)}`);
+      const vaToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('token') || '' : '';
+      const res = await fetch(`/api/va/videos?va_name=${encodeURIComponent(vaName)}&token=${encodeURIComponent(vaToken)}`);
       const data = await res.json();
       if (data.ok) {
         setVideos(data.data || []);

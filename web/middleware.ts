@@ -1,12 +1,34 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-correlation-id, x-api-key',
+  'Access-Control-Max-Age': '86400',
+}
+
 export async function middleware(request: NextRequest) {
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+
+  // Handle CORS preflight for API routes
+  if (isApiRoute && request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
+
+  // Add CORS headers to all API responses
+  if (isApiRoute) {
+    for (const [key, value] of Object.entries(CORS_HEADERS)) {
+      response.headers.set(key, value)
+    }
+    return response
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

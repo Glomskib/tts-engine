@@ -6,30 +6,23 @@ import { useCredits } from '@/hooks/useCredits';
 import { SIDEBAR_WIDTH, SIDEBAR_STORAGE_KEY, MOBILE_BREAKPOINT } from '@/lib/navigation';
 import { AppSidebar } from '@/components/AppSidebar';
 import { AppHeader } from '@/components/AppHeader';
-
-type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
-
-interface AuthState {
-  loading: boolean;
-  authenticated: boolean;
-  role: UserRole;
-  userId: string | null;
-  userEmail: string | null;
-  isAdmin: boolean;
-}
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { subscription } = useCredits();
-  const [auth, setAuth] = useState<AuthState>({
-    loading: true,
-    authenticated: false,
-    role: null,
-    userId: null,
-    userEmail: null,
-    isAdmin: false,
-  });
+  const { loading: authLoading, authenticated, user, role, isAdmin } = useAuth();
+
+  const auth = {
+    loading: authLoading,
+    authenticated,
+    role: role as 'admin' | 'recorder' | 'editor' | 'uploader' | null,
+    userId: user?.id || null,
+    userEmail: user?.email || null,
+    isAdmin,
+  };
+
   const [unreadCount, setUnreadCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -58,42 +51,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [sidebarOpen, isMobile]);
 
+  // Redirect to login if not authenticated, or to /my-tasks for non-admins on root
   useEffect(() => {
-    const fetchAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok && data.user) {
-            setAuth({
-              loading: false,
-              authenticated: true,
-              role: data.role || null,
-              userId: data.user.id,
-              userEmail: data.user.email || null,
-              isAdmin: data.isAdmin || false,
-            });
-
-            // Redirect non-admin to /my-tasks if on root
-            if (data.role !== 'admin' && pathname === '/') {
-              router.replace('/my-tasks');
-            }
-          } else {
-            setAuth({ loading: false, authenticated: false, role: null, userId: null, userEmail: null, isAdmin: false });
-            router.replace('/login');
-          }
-        } else {
-          setAuth({ loading: false, authenticated: false, role: null, userId: null, userEmail: null, isAdmin: false });
-          router.replace('/login');
-        }
-      } catch (err) {
-        console.error('Auth check failed:', err);
-        setAuth({ loading: false, authenticated: false, role: null, userId: null, userEmail: null, isAdmin: false });
-      }
-    };
-
-    fetchAuth();
-  }, [pathname, router]);
+    if (auth.loading) return;
+    if (!auth.authenticated) {
+      router.replace('/login');
+      return;
+    }
+    if (auth.role !== 'admin' && pathname === '/') {
+      router.replace('/my-tasks');
+    }
+  }, [auth.loading, auth.authenticated, auth.role, pathname, router]);
 
   // Fetch notifications count
   useEffect(() => {

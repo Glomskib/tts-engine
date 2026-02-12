@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { ThemeProvider } from '@/app/components/ThemeProvider';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import PWAProvider, { InstallBanner } from './PWAProvider';
 import { OfflineIndicator } from './ui/OfflineIndicator';
@@ -15,6 +16,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <ErrorBoundary>
       <ThemeProvider>
+        <AuthProvider>
         <ToastProvider>
           <PWAProvider>
             <OfflineIndicator />
@@ -22,6 +24,7 @@ export function Providers({ children }: ProvidersProps) {
             <InstallBanner />
           </PWAProvider>
         </ToastProvider>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

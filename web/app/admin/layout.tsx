@@ -25,34 +25,7 @@ import { CreditMilestoneBanner, ReferralPromptBanner } from '@/components/Upgrad
 import { CommandPalette } from '@/components/CommandPalette';
 import { ThemeProvider, useTheme } from '@/app/components/ThemeProvider';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-
-interface AuthState {
-  loading: boolean;
-  authenticated: boolean;
-  userId: string | null;
-  userEmail: string | null;
-  isAdmin: boolean;
-  role: string | null;
-}
-
-// Pages only accessible to admin users — non-admins get redirected to /admin
-const ADMIN_ONLY_ROUTES = [
-  '/admin/automation',
-  '/admin/monitoring',
-  '/admin/second-brain',
-  '/admin/voice',
-  '/admin/api-docs',
-  '/admin/compare',
-  '/admin/winners/patterns',
-  '/admin/video-editing',
-  '/admin/clients',
-  '/admin/client-management',
-  '/admin/ingestion',
-  '/admin/hook-suggestions',
-  '/admin/status',
-  '/admin/users',
-  '/admin/upgrade-requests',
-];
+import { useAuth } from '@/contexts/AuthContext';
 
 function ThemeToggle() {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -72,15 +45,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { subscription } = useCredits();
+  const { loading: authLoading, authenticated, user, isAdmin, role } = useAuth();
 
-  const [auth, setAuth] = useState<AuthState>({
-    loading: true,
-    authenticated: false,
-    userId: null,
-    userEmail: null,
-    isAdmin: false,
-    role: null,
-  });
+  const auth = {
+    loading: authLoading,
+    authenticated,
+    userId: user?.id || null,
+    userEmail: user?.email || null,
+    isAdmin,
+    role: role || null,
+  };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -132,17 +106,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Block non-admin users from admin-only routes
+  // Block non-admin users from all admin routes
   useEffect(() => {
     if (!auth.loading && auth.authenticated && !auth.isAdmin) {
-      const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some(
-        (route) => pathname === route || pathname.startsWith(route + '/')
-      );
-      if (isAdminOnlyRoute) {
-        router.replace('/admin');
-      }
+      router.replace('/');
     }
-  }, [pathname, auth.loading, auth.authenticated, auth.isAdmin, router]);
+  }, [auth.loading, auth.authenticated, auth.isAdmin, router]);
 
   // Close sidebar on route change
   useEffect(() => {
@@ -162,36 +131,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
   }, [sidebarOpen, isMobile]);
 
-  // Auth check
+  // Redirect to login if not authenticated
   useEffect(() => {
-    const fetchAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok && data.user) {
-            setAuth({
-              loading: false,
-              authenticated: true,
-              userId: data.user.id,
-              userEmail: data.user.email || null,
-              isAdmin: data.isAdmin || false,
-              role: data.role || 'creator',
-            });
-          } else {
-            setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false, role: null });
-            router.replace('/login');
-          }
-        } else {
-          setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false, role: null });
-          router.replace('/login');
-        }
-      } catch {
-        setAuth({ loading: false, authenticated: false, userId: null, userEmail: null, isAdmin: false, role: null });
-      }
-    };
-    fetchAuth();
-  }, [router]);
+    if (!auth.loading && !auth.authenticated) {
+      router.replace('/login');
+    }
+  }, [auth.loading, auth.authenticated, router]);
 
   // Fetch notifications
   useEffect(() => {

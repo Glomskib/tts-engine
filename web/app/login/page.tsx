@@ -10,7 +10,7 @@ import { BRAND } from '@/lib/brand';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/admin/skit-generator';
+  const redirect = searchParams.get('redirect') || '';
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
   const urlError = searchParams.get('error');
   const refCode = searchParams.get('ref') || '';
@@ -34,7 +34,7 @@ function LoginForm() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}${refCode ? `&ref=${encodeURIComponent(refCode)}` : ''}${promoCodeParam ? `&promo=${encodeURIComponent(promoCodeParam)}` : ''}`,
+          redirectTo: `${window.location.origin}/auth/callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}${refCode ? `${redirect ? '&' : '?'}ref=${encodeURIComponent(refCode)}` : ''}${promoCodeParam ? `${redirect || refCode ? '&' : '?'}promo=${encodeURIComponent(promoCodeParam)}` : ''}`,
         },
       });
 
@@ -112,11 +112,11 @@ function LoginForm() {
 
           if (roleData.ok) {
             if (roleData.isAdmin) {
-              router.push('/admin/skit-generator');
+              router.push('/admin/dashboard');
             } else if (roleData.isUploader) {
               router.push('/uploader');
             } else {
-              router.push('/admin/skit-generator');
+              router.push('/my-tasks');
             }
             router.refresh();
             return;
@@ -125,7 +125,7 @@ function LoginForm() {
           // Fallback if role check fails
         }
 
-        router.push('/admin/skit-generator');
+        router.push('/my-tasks');
         router.refresh();
       }
     } catch (err) {

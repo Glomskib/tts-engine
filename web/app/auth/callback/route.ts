@@ -12,7 +12,7 @@ import { queueEmailSequence } from '@/lib/email/scheduler';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('redirect') ?? '/admin/content-studio';
+  const explicitRedirect = searchParams.get('redirect');
   const error = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
   const referralCode = searchParams.get('ref');
@@ -129,7 +129,22 @@ export async function GET(request: Request) {
       }
 
       // Successfully authenticated - redirect to destination
-      return NextResponse.redirect(`${origin}${next}`);
+      if (explicitRedirect) {
+        return NextResponse.redirect(`${origin}${explicitRedirect}`);
+      }
+
+      // Role-aware default redirect
+      const adminEmails = (process.env.ADMIN_USERS || '').split(',').map(e => e.trim().toLowerCase());
+      const uploaderEmails = (process.env.UPLOADER_USERS || '').split(',').map(e => e.trim().toLowerCase());
+      const userEmail = data.user.email?.toLowerCase() || '';
+
+      if (adminEmails.includes(userEmail)) {
+        return NextResponse.redirect(`${origin}/admin/dashboard`);
+      } else if (uploaderEmails.includes(userEmail)) {
+        return NextResponse.redirect(`${origin}/uploader`);
+      } else {
+        return NextResponse.redirect(`${origin}/my-tasks`);
+      }
     }
   }
 

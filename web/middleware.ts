@@ -36,9 +36,13 @@ export async function middleware(request: NextRequest) {
   // Refresh session if needed
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Redirect authenticated users from landing page to admin dashboard
+  // Redirect authenticated users from landing page to their role-appropriate dashboard
   if (user && request.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/admin', request.url))
+    const adminEmails = (process.env.ADMIN_USERS || '').split(',').map(e => e.trim().toLowerCase())
+    if (user.email && adminEmails.includes(user.email.toLowerCase())) {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+    }
+    return NextResponse.redirect(new URL('/my-tasks', request.url))
   }
 
   return response

@@ -1,15 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { generateCorrelationId } from "@/lib/api-errors";
+import { ALLOWED_RECORDING_TRANSITIONS, isValidRecordingStatus, type RecordingStatus } from "@/lib/video-pipeline";
 
 export const runtime = "nodejs";
-
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  NOT_RECORDED: ["RECORDED"],
-  RECORDED: ["EDITED"],
-  EDITED: ["READY_TO_POST"],
-  READY_TO_POST: ["POSTED"],
-};
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -105,9 +99,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Validate transition
-    const currentStatus = video.recording_status;
-    const allowed = VALID_TRANSITIONS[currentStatus] || [];
-    if (!allowed.includes(recording_status)) {
+    const currentStatus = video.recording_status as RecordingStatus;
+    const allowed = ALLOWED_RECORDING_TRANSITIONS[currentStatus] || [];
+    if (!isValidRecordingStatus(recording_status) || !allowed.includes(recording_status as RecordingStatus)) {
       return NextResponse.json(
         {
           ok: false,

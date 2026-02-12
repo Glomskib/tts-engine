@@ -111,3 +111,47 @@ export function assertVideoTransition(from: VideoStatus, to: VideoStatus): void 
     throw new Error(`Invalid video status transition: ${from} -> ${to}`);
   }
 }
+
+// ============================================================================
+// RECORDING STATUS DEFINITIONS (VA workflow)
+// ============================================================================
+
+/**
+ * All valid recording_status values for the VA recording workflow.
+ * These track the physical production lifecycle of a video.
+ */
+export const RECORDING_STATUSES = [
+  "NOT_RECORDED",
+  "RECORDED",
+  "EDITED",
+  "READY_TO_POST",
+  "POSTED",
+  "REJECTED",
+] as const;
+
+export type RecordingStatus = (typeof RECORDING_STATUSES)[number];
+
+/**
+ * Allowed recording_status transitions.
+ * Key: current recording_status, Value: array of allowed next statuses.
+ */
+export const ALLOWED_RECORDING_TRANSITIONS: Record<RecordingStatus, readonly RecordingStatus[]> = {
+  NOT_RECORDED: ["RECORDED", "REJECTED"],
+  RECORDED: ["EDITED", "REJECTED"],
+  EDITED: ["READY_TO_POST", "REJECTED"],
+  READY_TO_POST: ["POSTED", "REJECTED"],
+  POSTED: [], // Terminal
+  REJECTED: ["NOT_RECORDED"], // Can restart from rejected
+};
+
+export function isValidRecordingStatus(v: string): v is RecordingStatus {
+  return RECORDING_STATUSES.includes(v as RecordingStatus);
+}
+
+/**
+ * Check if a recording_status transition is allowed.
+ */
+export function canTransitionRecording(from: RecordingStatus, to: RecordingStatus): boolean {
+  const allowed = ALLOWED_RECORDING_TRANSITIONS[from];
+  return allowed ? allowed.includes(to) : false;
+}

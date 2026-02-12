@@ -2,21 +2,18 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { transitionVideoStatusAtomic } from "@/lib/video-status-machine";
+import { isValidStatus, type VideoStatus } from "@/lib/video-pipeline";
 
 export const runtime = "nodejs";
 
 const MAX_BATCH_SIZE = 50;
 
-const VALID_STATUSES = [
-  'DRAFT', 'SCRIPTED', 'READY_TO_FILM', 'RECORDING', 'FILMED',
-  'EDITING', 'EDITED', 'REVIEW', 'APPROVED', 'READY_TO_POST',
-  'POSTED', 'ARCHIVED', 'REJECTED',
-];
-
 /**
  * POST /api/admin/videos/bulk-status
- * Change status for multiple videos at once.
+ * Change status for multiple videos at once using per-item atomic transitions.
  * Body: { video_ids: string[], status: string }
+ * Returns partial results: { success_count, error_count, results[] }
  */
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -44,37 +41,41 @@ export async function POST(request: Request) {
   if (video_ids.length > MAX_BATCH_SIZE) {
     return createApiErrorResponse("VALIDATION_ERROR", `Maximum ${MAX_BATCH_SIZE} videos per request`, 400, correlationId);
   }
-  if (!status || !VALID_STATUSES.includes(status)) {
-    return createApiErrorResponse("VALIDATION_ERROR", `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`, 400, correlationId);
+  if (!status || !isValidStatus(status)) {
+    return createApiErrorResponse("VALIDATION_ERROR", `Invalid status. Must be a valid video status`, 400, correlationId);
   }
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabaseAdmin
-    .from("videos")
-    .update({ status, last_status_changed_at: now })
-    .in("id", video_ids)
-    .select("id");
+  // Process each video individually through the state machine
+  const results: Array<{ video_id: string; ok: boolean; action: string; message: string }> = [];
+  let success_count = 0;
+  let error_count = 0;
 
-  if (error) {
-    return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
+  for (const video_id of video_ids) {
+    const result = await transitionVideoStatusAtomic(supabaseAdmin, {
+      video_id,
+      actor: authContext.user!.id,
+      target_status: status as VideoStatus,
+      correlation_id: correlationId,
+      force: true, // Admin bulk operations bypass claim checks
+    });
+
+    results.push({
+      video_id,
+      ok: result.ok,
+      action: result.action,
+      message: result.message,
+    });
+
+    if (result.ok) {
+      success_count++;
+    } else {
+      error_count++;
+    }
   }
-
-  // Log bulk event
-  try {
-    await supabaseAdmin.from("video_events").insert(
-      video_ids.map(vid => ({
-        video_id: vid,
-        event_type: "status_changed",
-        correlation_id: correlationId,
-        actor: authContext.user!.id,
-        details: { new_status: status, bulk_operation: true },
-      }))
-    );
-  } catch { /* non-fatal */ }
 
   return NextResponse.json({
-    ok: true,
+    ok: error_count === 0,
     correlation_id: correlationId,
-    data: { updated: data?.length || 0, status },
+    data: { success_count, error_count, results },
   });
 }

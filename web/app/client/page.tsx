@@ -1,16 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import ClientNav from './components/ClientNav';
 import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
-
-interface AuthUser {
-  id: string;
-  email: string | null;
-}
 
 interface RecentVideo {
   id: string;
@@ -20,9 +14,10 @@ interface RecentVideo {
 }
 
 export default function ClientPortalPage() {
-  const router = useRouter();
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user } = useAuth();
+  // Layout guarantees authenticated — user is always non-null here
+  const authUser = { id: user?.id || '', email: user?.email || null };
+
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const [orgRequired, setOrgRequired] = useState(false);
@@ -39,33 +34,6 @@ export default function ClientPortalPage() {
       window.history.replaceState({}, '', '/client');
     }
   }, []);
-
-  // Fetch authenticated user
-  useEffect(() => {
-    const fetchAuthUser = async () => {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
-
-        if (error || !user) {
-          router.push('/login?redirect=/client');
-          return;
-        }
-
-        setAuthUser({
-          id: user.id,
-          email: user.email || null,
-        });
-      } catch (err) {
-        console.error('Auth error:', err);
-        router.push('/login?redirect=/client');
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    fetchAuthUser();
-  }, [router]);
 
   // Fetch branding
   useEffect(() => {
@@ -115,22 +83,6 @@ export default function ClientPortalPage() {
 
     fetchRecentVideos();
   }, [authUser]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking access...</div>
-      </div>
-    );
-  }
-
-  if (!authUser) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Redirecting to login...</div>
-      </div>
-    );
-  }
 
   // Get accent classes for styling
   const accentText = branding?.accent_text_class || 'text-slate-800';

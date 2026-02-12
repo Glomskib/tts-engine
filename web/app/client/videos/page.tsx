@@ -1,17 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import ClientNav from '../components/ClientNav';
 import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
-
-interface AuthUser {
-  id: string;
-  email: string | null;
-}
 
 interface Video {
   id: string;
@@ -31,42 +25,15 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function ClientVideosPage() {
-  const router = useRouter();
+  const { user } = useAuth();
+  // Layout guarantees authenticated — user is always non-null here
+  const authUser = { id: user?.id || '', email: user?.email || null };
   const hydrated = useHydrated();
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [orgRequired, setOrgRequired] = useState(false);
   const [branding, setBranding] = useState<EffectiveOrgBranding | null>(null);
-
-  // Fetch authenticated user
-  useEffect(() => {
-    const fetchAuthUser = async () => {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
-
-        if (error || !user) {
-          router.push('/login?redirect=/client/videos');
-          return;
-        }
-
-        setAuthUser({
-          id: user.id,
-          email: user.email || null,
-        });
-      } catch (err) {
-        console.error('Auth error:', err);
-        router.push('/login?redirect=/client/videos');
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    fetchAuthUser();
-  }, [router]);
 
   // Fetch branding
   useEffect(() => {
@@ -123,22 +90,6 @@ export default function ClientVideosPage() {
     if (!hydrated) return formatDateString(dateStr);
     return getTimeAgo(dateStr);
   };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Checking access...</div>
-      </div>
-    );
-  }
-
-  if (!authUser) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Redirecting to login...</div>
-      </div>
-    );
-  }
 
   // Get accent classes for styling
   const accentText = branding?.accent_text_class || 'text-slate-800';

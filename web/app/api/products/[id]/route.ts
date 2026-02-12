@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { z } from "zod";
 
 export const runtime = "nodejs";
+
+const UpdateProductSchema = z.object({
+  name: z.string().min(1).max(500).optional(),
+  brand: z.string().max(255).optional(),
+  brand_id: z.string().uuid().optional().nullable(),
+  category: z.string().max(255).optional(),
+  product_display_name: z.string().max(30).optional().nullable(),
+  description: z.string().max(10000).optional().nullable(),
+  notes: z.string().max(10000).optional().nullable(),
+  primary_link: z.string().max(2000).optional().nullable(),
+  tiktok_showcase_url: z.string().max(2000).optional().nullable(),
+  slug: z.string().max(255).optional().nullable(),
+  category_risk: z.enum(["low", "medium", "high"]).optional().nullable(),
+  product_image_url: z.string().max(2000).optional().nullable(),
+  images: z.array(z.string()).optional(),
+  pain_points: z.array(z.object({
+    point: z.string(),
+    category: z.enum(["emotional", "practical", "social", "financial"]),
+    intensity: z.enum(["mild", "moderate", "severe"]),
+    hook_angle: z.string(),
+  })).optional().nullable(),
+});
 
 /**
  * GET /api/products/[id]
@@ -104,6 +128,122 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       data: response,
+      correlation_id: correlationId,
+    });
+  } catch (err) {
+    console.error(`[${correlationId}] Unexpected error:`, err);
+    return createApiErrorResponse(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Internal server error",
+      500,
+      correlationId
+    );
+  }
+}
+
+/**
+ * PATCH /api/products/[id]
+ *
+ * Update a product. Ownership is verified via user_id.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const correlationId =
+    request.headers.get("x-correlation-id") || generateCorrelationId();
+  const { id: productId } = await params;
+
+  if (!productId) {
+    return createApiErrorResponse(
+      "BAD_REQUEST",
+      "Product ID is required",
+      400,
+      correlationId
+    );
+  }
+
+  // Auth — session-based ownership check
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
+    return createApiErrorResponse(
+      "UNAUTHORIZED",
+      "Authentication required",
+      401,
+      correlationId
+    );
+  }
+
+  // Parse & validate body
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return createApiErrorResponse(
+      "BAD_REQUEST",
+      "Invalid JSON body",
+      400,
+      correlationId
+    );
+  }
+
+  const parsed = UpdateProductSchema.safeParse(body);
+  if (!parsed.success) {
+    return createApiErrorResponse(
+      "VALIDATION_ERROR",
+      "Invalid input",
+      400,
+      correlationId,
+      { issues: parsed.error.issues }
+    );
+  }
+
+  const updates = parsed.data;
+
+  if (Object.keys(updates).length === 0) {
+    return createApiErrorResponse(
+      "BAD_REQUEST",
+      "No fields to update",
+      400,
+      correlationId
+    );
+  }
+
+  try {
+    // Verify ownership
+    const { data: existing } = await supabaseAdmin
+      .from("products")
+      .select("id")
+      .eq("id", productId)
+      .eq("user_id", authContext.user.id)
+      .single();
+
+    if (!existing) {
+      return createApiErrorResponse(
+        "NOT_FOUND",
+        "Product not found",
+        404,
+        correlationId
+      );
+    }
+
+    // Perform update
+    const { data: updated, error } = await supabaseAdmin
+      .from("products")
+      .update(updates)
+      .eq("id", productId)
+      .eq("user_id", authContext.user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error(`[${correlationId}] PATCH /api/products/[id] error:`, error);
+      return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      data: updated,
       correlation_id: correlationId,
     });
   } catch (err) {

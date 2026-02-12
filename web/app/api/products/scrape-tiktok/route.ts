@@ -4,25 +4,14 @@ import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 
 export const runtime = "nodejs";
 
-const TIKTOK_URL_PATTERNS = [
-  /tiktok\.com\/shop\/pdp\//i,
-  /shop\.tiktok\.com\/view\/product\//i,
-  /tiktok\.com\/@.*\/product\//i,
-  /tiktok\.com\/t\//i, // short links
-];
-
 /**
- * Validate if a URL is a TikTok Shop product URL
+ * Validate if a URL is any kind of TikTok URL we can attempt to scrape.
+ * Accepts shop URLs, video URLs, short links, and @username links.
  */
-function isTikTokShopUrl(url: string): boolean {
+function isTikTokUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-
-    if (!parsed.hostname.includes("tiktok.com")) {
-      return false;
-    }
-
-    return TIKTOK_URL_PATTERNS.some((pattern) => pattern.test(url));
+    return parsed.hostname.includes("tiktok.com");
   } catch {
     return false;
   }
@@ -170,12 +159,12 @@ export async function POST(request: Request) {
     // Strip zero-width / non-breaking unicode chars that sneak in from pasted URLs
     const url = body.url.trim().replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
 
-    // Validate it's a TikTok Shop URL (normalize mobile m.tiktok.com → www.tiktok.com)
+    // Normalize mobile m.tiktok.com → www.tiktok.com
     const normalizedUrl = url.replace(/^(https?:\/\/)m\.tiktok\.com/, '$1www.tiktok.com');
-    if (!isTikTokShopUrl(normalizedUrl)) {
+    if (!isTikTokUrl(normalizedUrl)) {
       return createApiErrorResponse(
         "BAD_REQUEST",
-        "URL must be a valid TikTok Shop product URL (e.g., tiktok.com/shop/pdp/..., shop.tiktok.com/view/product/..., or tiktok.com/t/...)",
+        "URL must be a TikTok URL (e.g., tiktok.com/shop/pdp/..., tiktok.com/@user/video/..., or tiktok.com/t/...)",
         400,
         correlationId,
       );

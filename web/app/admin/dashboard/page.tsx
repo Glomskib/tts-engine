@@ -512,7 +512,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-zinc-400 mt-0.5">{sotd.brand}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className="text-xs font-medium bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
-                      Score {sotd.score}/9
+                      Score {Math.min(sotd.score, 10)}/10
                     </span>
                     <span className="text-xs text-zinc-500">{getContentTypeName(sotd.content_type)}</span>
                     {sotd.full_script?.persona && (
@@ -640,11 +640,30 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <>
-                  {/* Fallback: Just the hook */}
-                  <div className="bg-zinc-800/50 rounded-lg p-3 mb-3">
+                  {/* Fallback: Hook + script body preview */}
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-3">
+                    <span className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold block mb-1">
+                      Hook
+                    </span>
                     <p className="text-white font-medium text-sm leading-snug">&ldquo;{sotd.hook}&rdquo;</p>
                   </div>
+                  {sotd.script_body && (
+                    <div className="bg-zinc-800/50 rounded-lg p-3 mb-3">
+                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">
+                        Script Brief
+                      </span>
+                      <p className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed line-clamp-3">
+                        {sotd.script_body}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
+                    <Link
+                      href="/admin/script-of-the-day"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium hover:bg-zinc-700 transition-colors"
+                    >
+                      View Full Script
+                    </Link>
                     <Link
                       href={`/admin/content-studio?product=${sotd.product_id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors"

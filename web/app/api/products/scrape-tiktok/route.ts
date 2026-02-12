@@ -167,10 +167,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const url = body.url.trim();
+    // Strip zero-width / non-breaking unicode chars that sneak in from pasted URLs
+    const url = body.url.trim().replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
 
-    // Validate it's a TikTok Shop URL
-    if (!isTikTokShopUrl(url)) {
+    // Validate it's a TikTok Shop URL (normalize mobile m.tiktok.com → www.tiktok.com)
+    const normalizedUrl = url.replace(/^(https?:\/\/)m\.tiktok\.com/, '$1www.tiktok.com');
+    if (!isTikTokShopUrl(normalizedUrl)) {
       return createApiErrorResponse(
         "BAD_REQUEST",
         "URL must be a valid TikTok Shop product URL (e.g., tiktok.com/shop/pdp/..., shop.tiktok.com/view/product/..., or tiktok.com/t/...)",
@@ -191,7 +193,7 @@ export async function POST(request: Request) {
     }
 
     // Call ScrapeCreators API
-    const scrapeUrl = `https://api.scrapecreators.com/v1/tiktok/product?url=${encodeURIComponent(url)}&get_related_videos=false&region=US`;
+    const scrapeUrl = `https://api.scrapecreators.com/v1/tiktok/product?url=${encodeURIComponent(normalizedUrl)}&get_related_videos=false&region=US`;
 
     let scrapeResponse: Response;
     try {

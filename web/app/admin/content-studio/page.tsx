@@ -487,7 +487,7 @@ export default function ContentStudioPage() {
 
         if (productsRes.ok) {
           const data = await productsRes.json();
-          const productsList = data.data || [];
+          const productsList = data.data?.products || [];
           setProducts(productsList);
           const uniqueBrands = [...new Set(productsList.map((p: Product) => p.brand).filter(Boolean))] as string[];
           setBrands(uniqueBrands.sort());

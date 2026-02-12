@@ -36,35 +36,36 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/** Score based on coverage gap, winner hooks, content diversity, and quality jitter.
- *  Typical output range: 4-9 (see clamp at end). */
+/** Score based on coverage gap, rotation need, winner hooks, content type
+ *  freshness, and quality jitter.  No high base — scores build from 0.
+ *  Output range: 1-10 (clamped). */
 function scoreItem(
   videosForProduct: number,
   maxVideos: number,
   hasWinnerHook: boolean,
   rotationScore: number,
-  contentTypeVariety: number
+  contentTypeFreshness: number // 0 = content type already used for this product, 1 = fresh
 ): number {
-  // Base: inverse coverage (0-2 points)
-  const coverageBase = maxVideos > 0
-    ? (1 - videosForProduct / maxVideos) * 2
-    : 1;
+  // Coverage gap: products with fewer videos score higher (0-3 pts)
+  const coverageGap = maxVideos > 0
+    ? (1 - videosForProduct / maxVideos) * 3
+    : 3;
 
-  // Rotation need from product (0-2 points, normalized from 0-100)
-  const rotationFactor = Math.min(2, (rotationScore / 100) * 2);
+  // Rotation need from product rotation_score field (0-2 pts, from 0-100)
+  const rotationNeed = Math.min(2, (rotationScore / 100) * 2);
 
-  // Winner hook bonus (0 or 1.5)
-  const hookBonus = hasWinnerHook ? 1.5 : 0;
+  // Winner hook bonus: proven hooks score higher (0-2 pts)
+  const hookBonus = hasWinnerHook ? 2 : 0;
 
-  // Content diversity penalty: more items for same product → lower score
-  const diversityPenalty = Math.min(1.5, contentTypeVariety * 0.5);
+  // Content type freshness: using a content type not recently used for this product (0-2 pts)
+  const freshness = contentTypeFreshness * 2;
 
-  // Quality jitter for natural variation (-0.7 to +0.7)
-  const jitter = (Math.random() - 0.5) * 1.4;
+  // Small jitter for natural variation (-0.5 to +0.5)
+  const jitter = (Math.random() - 0.5) * 1;
 
-  // Base of 5 + modifiers = typical range of 4-9
-  const raw = 5 + coverageBase + rotationFactor + hookBonus - diversityPenalty + jitter;
-  return Math.min(9, Math.max(4, Math.round(raw)));
+  // Build from 0: max theoretical = 3 + 2 + 2 + 2 + 0.5 = 9.5
+  const raw = coverageGap + rotationNeed + hookBonus + freshness + jitter;
+  return Math.min(10, Math.max(1, Math.round(raw)));
 }
 
 /** Build a lightweight script body (metadata, not AI-generated prose). */
@@ -254,22 +255,40 @@ export async function POST(request: Request) {
     added_to_pipeline: boolean;
   }> = [];
 
+  // Track content types assigned per product for diversity
+  const contentTypesPerProduct: Record<string, Set<string>> = {};
+  const itemsPerProduct: Record<string, number> = {};
+  const maxItemsPerProduct = Math.ceil(targetCount / sortedProducts.length) + 1;
+
   let productIndex = 0;
   let generated = 0;
 
   // Round-robin across sorted products (lowest coverage first)
+  // Ensure at least 1 item per product before cycling
   while (items.length < targetCount && generated < targetCount * 3) {
     const product = sortedProducts[productIndex % sortedProducts.length];
     productIndex++;
     generated++;
 
-    const contentType = pickRandom(CONTENT_TYPE_IDS);
+    // Skip if this product already hit its max allocation
+    const currentCount = itemsPerProduct[product.id] || 0;
+    if (currentCount >= maxItemsPerProduct) continue;
+
+    // Pick a content type, preferring ones not yet used for this product
+    const usedTypes = contentTypesPerProduct[product.id] || new Set<string>();
+    const freshTypes = CONTENT_TYPE_IDS.filter(ct => !usedTypes.has(ct));
+    const contentType = freshTypes.length > 0 ? pickRandom(freshTypes) : pickRandom(CONTENT_TYPE_IDS);
+    const isFreshContentType = freshTypes.length > 0 && freshTypes.includes(contentType) ? 1 : 0;
+
+    // Track assignments
+    if (!contentTypesPerProduct[product.id]) contentTypesPerProduct[product.id] = new Set();
+    contentTypesPerProduct[product.id].add(contentType);
+    itemsPerProduct[product.id] = currentCount + 1;
 
     // Choose hook: prefer winner hooks, fall back to templates
     let hook: string;
     let usedWinnerHook = false;
     if (winnerHooks.length > 0 && Math.random() < 0.6) {
-      // 60% chance to use a proven winner hook pattern (adapted with product name)
       const winnerHook = pickRandom(winnerHooks);
       hook = winnerHook;
       usedWinnerHook = true;
@@ -286,25 +305,20 @@ export async function POST(request: Request) {
 
     const videosForProduct = videoCountMap[product.id] || 0;
     const rotationScore = Number(product.rotation_score) || 50;
-    // Count how many items already generated for this product (content diversity)
-    const existingItemsForProduct = items.filter(i => i.product_id === product.id).length;
-    const score = scoreItem(videosForProduct, maxVideos, usedWinnerHook, rotationScore, existingItemsForProduct);
+    const score = scoreItem(videosForProduct, maxVideos, usedWinnerHook, rotationScore, isFreshContentType);
 
-    // Include all generated items (scores range 4-9)
-    {
-      items.push({
-        package_id: pkg.id,
-        product_id: product.id,
-        product_name: product.name,
-        brand: product.brand,
-        content_type: contentType,
-        hook,
-        script_body: scriptBody,
-        score,
-        kept: true,
-        added_to_pipeline: false,
-      });
-    }
+    items.push({
+      package_id: pkg.id,
+      product_id: product.id,
+      product_name: product.name,
+      brand: product.brand,
+      content_type: contentType,
+      hook,
+      script_body: scriptBody,
+      score,
+      kept: true,
+      added_to_pipeline: false,
+    });
   }
 
   // 6. Insert items -----------------------------------------------------------
@@ -335,9 +349,9 @@ export async function POST(request: Request) {
     insertedCount = items.length;
   }
 
-  // 6b. Expand top items into full AI-generated scripts -----------------------
-  // Only expand the top 5 by score (one per product) to keep cost/latency down.
-  // Failures here are non-blocking — items still exist with their briefs.
+  // 6b. Expand ALL items into full AI-generated scripts ----------------------
+  // Uses concurrency limit of 5 to avoid rate limits.
+  // Failures are non-blocking — items still exist with their briefs.
   if (insertedCount > 0 && process.env.ANTHROPIC_API_KEY) {
     try {
       // Fetch the inserted items with IDs
@@ -348,19 +362,8 @@ export async function POST(request: Request) {
         .order("score", { ascending: false });
 
       if (insertedItems && insertedItems.length > 0) {
-        // Pick top 5, one per product
-        const seen = new Set<string>();
-        const topItems: typeof insertedItems = [];
-        for (const item of insertedItems) {
-          if (!seen.has(item.product_name)) {
-            seen.add(item.product_name);
-            topItems.push(item);
-            if (topItems.length >= 5) break;
-          }
-        }
-
         // Fetch product details for enriched prompts
-        const productIds = [...new Set(topItems.map(i => i.product_id))];
+        const productIds = [...new Set(insertedItems.map(i => i.product_id))];
         const { data: productDetails } = await supabaseAdmin
           .from("products")
           .select("id, name, brand, category, notes, pain_points")
@@ -369,53 +372,58 @@ export async function POST(request: Request) {
           (productDetails || []).map(p => [p.id, p])
         );
 
-        // Expand each top item with persona/approach rotation
+        // Expand ALL items with persona/approach rotation, concurrency-limited
         const usedPersonas: string[] = [];
         const usedApproaches: string[] = [];
+        const CONCURRENCY = 5;
 
-        const expansionPromises = topItems.map(async (item) => {
-          try {
-            const persona = pickPersona(usedPersonas);
-            const approach = pickSalesApproach(item.content_type, usedApproaches);
-            usedPersonas.push(persona.id);
-            usedApproaches.push(approach.id);
+        // Process in batches of CONCURRENCY
+        for (let i = 0; i < insertedItems.length; i += CONCURRENCY) {
+          const batch = insertedItems.slice(i, i + CONCURRENCY);
+          const batchPromises = batch.map(async (item) => {
+            try {
+              const persona = pickPersona(usedPersonas);
+              const approach = pickSalesApproach(item.content_type, usedApproaches);
+              usedPersonas.push(persona.id);
+              usedApproaches.push(approach.id);
 
-            const product = productMap.get(item.product_id);
-            const ct = CONTENT_TYPES.find(c => c.id === item.content_type);
+              const product = productMap.get(item.product_id);
+              const ct = CONTENT_TYPES.find(c => c.id === item.content_type);
 
-            const brief: ScriptBrief = {
-              hook: item.hook,
-              content_type: item.content_type,
-              content_type_name: ct?.name || item.content_type,
-              product_name: item.product_name,
-              brand: item.brand,
-              product_notes: product?.notes || null,
-              product_category: product?.category || null,
-              pain_points: Array.isArray(product?.pain_points)
-                ? product.pain_points.map((pp: { point?: string }) =>
-                    typeof pp === 'string' ? pp : pp.point || ''
-                  ).filter(Boolean)
-                : null,
-            };
+              const brief: ScriptBrief = {
+                hook: item.hook,
+                content_type: item.content_type,
+                content_type_name: ct?.name || item.content_type,
+                product_name: item.product_name,
+                brand: item.brand,
+                product_notes: product?.notes || null,
+                product_category: product?.category || null,
+                pain_points: Array.isArray(product?.pain_points)
+                  ? product.pain_points.map((pp: { point?: string }) =>
+                      typeof pp === 'string' ? pp : pp.point || ''
+                    ).filter(Boolean)
+                  : null,
+              };
 
-            const fullScript = await expandBriefToScript(brief, persona, approach);
+              const fullScript = await expandBriefToScript(brief, persona, approach);
 
-            // Store the full script on the item
-            await supabaseAdmin
-              .from("content_package_items")
-              .update({ full_script: fullScript })
-              .eq("id", item.id);
+              // Store the full script on the item
+              await supabaseAdmin
+                .from("content_package_items")
+                .update({ full_script: fullScript })
+                .eq("id", item.id);
 
-          } catch (err) {
-            console.error(
-              `[${correlationId}] expand script failed for item ${item.id}:`,
-              err
-            );
-            // Non-blocking — item keeps its brief
-          }
-        });
+            } catch (err) {
+              console.error(
+                `[${correlationId}] expand script failed for item ${item.id}:`,
+                err
+              );
+              // Non-blocking — item keeps its brief
+            }
+          });
 
-        await Promise.all(expansionPromises);
+          await Promise.all(batchPromises);
+        }
       }
     } catch (err) {
       console.error(

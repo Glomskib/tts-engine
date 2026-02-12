@@ -376,7 +376,7 @@ export default function VideoDrawer({
         const res = await fetch('/api/products');
         const data = await res.json();
         if (data.ok) {
-          setProducts(data.data || []);
+          setProducts(data.data?.products || []);
         }
       } catch (err) {
         console.error('Failed to fetch products:', err);

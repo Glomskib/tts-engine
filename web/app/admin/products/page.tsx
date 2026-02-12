@@ -162,7 +162,7 @@ export default function ProductsPage() {
         throw new Error(productsData.error || 'Failed to fetch products');
       }
 
-      const products: Product[] = productsData.data || [];
+      const products: Product[] = productsData.data?.products || [];
 
       // Fetch videos (simplified - in production this would be a dedicated API)
       const videosRes = await fetch('/api/videos/queue?limit=200&claimed=any');

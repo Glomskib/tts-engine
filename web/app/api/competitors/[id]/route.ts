@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { isValidUuid } from '@/lib/validate-uuid';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -20,6 +21,10 @@ export async function GET(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   try {
     const { id } = await params;
+    if (!isValidUuid(id)) {
+      return createApiErrorResponse('BAD_REQUEST', 'Invalid competitor ID format', 400, correlationId);
+    }
+
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
@@ -56,6 +61,10 @@ export async function PATCH(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   try {
     const { id } = await params;
+    if (!isValidUuid(id)) {
+      return createApiErrorResponse('BAD_REQUEST', 'Invalid competitor ID format', 400, correlationId);
+    }
+
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
@@ -96,6 +105,10 @@ export async function DELETE(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   try {
     const { id } = await params;
+    if (!isValidUuid(id)) {
+      return createApiErrorResponse('BAD_REQUEST', 'Invalid competitor ID format', 400, correlationId);
+    }
+
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);

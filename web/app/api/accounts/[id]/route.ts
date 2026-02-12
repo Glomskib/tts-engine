@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { isValidUuid } from '@/lib/validate-uuid';
+import { auditLogAsync } from '@/lib/audit';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -29,6 +31,10 @@ export async function PATCH(
 
   try {
     const { id } = await params;
+    if (!isValidUuid(id)) {
+      return createApiErrorResponse('BAD_REQUEST', 'Invalid account ID format', 400, correlationId);
+    }
+
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
@@ -68,6 +74,16 @@ export async function PATCH(
       return createApiErrorResponse('NOT_FOUND', 'Account not found', 404, correlationId);
     }
 
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: 'ACCOUNT_UPDATED',
+      entity_type: 'ACCOUNT',
+      entity_id: id,
+      actor: authContext.user.email || authContext.user.id,
+      summary: `Account "${account.name || id}" updated`,
+      details: { fields: Object.keys(parsed.data) },
+    });
+
     const response = NextResponse.json({
       ok: true,
       data: account,
@@ -98,6 +114,10 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    if (!isValidUuid(id)) {
+      return createApiErrorResponse('BAD_REQUEST', 'Invalid account ID format', 400, correlationId);
+    }
+
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
@@ -114,6 +134,15 @@ export async function DELETE(
       console.error(`[${correlationId}] Error deleting account:`, error);
       return createApiErrorResponse('DB_ERROR', 'Failed to delete account', 500, correlationId);
     }
+
+    auditLogAsync({
+      correlation_id: correlationId,
+      event_type: 'ACCOUNT_DELETED',
+      entity_type: 'ACCOUNT',
+      entity_id: id,
+      actor: authContext.user.email || authContext.user.id,
+      summary: `Account ${id} deleted`,
+    });
 
     const response = NextResponse.json({
       ok: true,

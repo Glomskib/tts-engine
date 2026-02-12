@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId } from "@/lib/api-errors";
+import { isValidUuid } from "@/lib/validate-uuid";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -20,6 +21,10 @@ export async function GET(
 
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  if (!isValidUuid(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid concept ID format", correlation_id: correlationId }, { status: 400 });
+  }
 
   const { data, error } = await supabaseAdmin
     .from("concepts")
@@ -54,6 +59,10 @@ export async function PATCH(
 
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  if (!isValidUuid(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid concept ID format", correlation_id: correlationId }, { status: 400 });
+  }
 
   let body: unknown;
   try {
@@ -132,6 +141,10 @@ export async function DELETE(
 
   const { id } = await params;
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  if (!isValidUuid(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid concept ID format", correlation_id: correlationId }, { status: 400 });
+  }
 
   const { error } = await supabaseAdmin
     .from("concepts")

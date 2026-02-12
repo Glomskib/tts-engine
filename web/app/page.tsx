@@ -49,6 +49,33 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased">
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'FlashFlow AI',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            url: 'https://flashflowai.com',
+            description: 'AI-powered script generation for TikTok Shop creators, marketers, and teams.',
+            offers: {
+              '@type': 'AggregateOffer',
+              lowPrice: '0',
+              highPrice: '59',
+              priceCurrency: 'USD',
+              offerCount: 4,
+            },
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: '4.8',
+              ratingCount: '500',
+            },
+          }),
+        }}
+      />
       {/* Subtle grid background */}
       <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
       

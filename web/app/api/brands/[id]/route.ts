@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { isValidUuid } from '@/lib/validate-uuid';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -29,6 +30,10 @@ export async function GET(
 ) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
+
+  if (!isValidUuid(id)) {
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid brand ID format', 400, correlationId);
+  }
 
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
@@ -65,6 +70,10 @@ export async function PATCH(
 ) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
+
+  if (!isValidUuid(id)) {
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid brand ID format', 400, correlationId);
+  }
 
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
@@ -155,6 +164,10 @@ export async function DELETE(
 ) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
+
+  if (!isValidUuid(id)) {
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid brand ID format', 400, correlationId);
+  }
 
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {

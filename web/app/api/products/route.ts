@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
+import { auditLogAsync } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -178,6 +179,16 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+
+  auditLogAsync({
+    correlation_id: correlationId,
+    event_type: "PRODUCT_CREATED",
+    entity_type: "PRODUCT",
+    entity_id: data.id,
+    actor: userId,
+    summary: `Product "${name}" created`,
+    details: { name, brand, category_risk },
+  });
 
   return NextResponse.json({ ok: true, data, correlation_id: correlationId });
 }

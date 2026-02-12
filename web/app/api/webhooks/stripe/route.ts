@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { recordReferralConversion } from "@/lib/referrals";
+import { queueEmailSequence } from "@/lib/email/scheduler";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -290,6 +291,31 @@ async function handleSubscriptionCancelled(correlationId: string, subscription: 
 
   if (error) {
     console.error(`[${correlationId}] Failed to cancel subscription:`, error);
+  }
+
+  // Queue winback email sequence for churned users (non-fatal)
+  try {
+    const { data: userSub } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", subscription.customer as string)
+      .single();
+
+    if (userSub) {
+      // Look up user email from Supabase auth
+      const stripe = getStripe();
+      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const email = (customer as Stripe.Customer).email;
+
+      if (email) {
+        await queueEmailSequence(email, email.split("@")[0], "winback", {
+          discountCode: "COMEBACK50",
+        });
+        console.info(`[${correlationId}] Winback sequence queued for ${email}`);
+      }
+    }
+  } catch (winbackErr) {
+    console.error(`[${correlationId}] Winback email queue error (non-fatal):`, winbackErr);
   }
 }
 

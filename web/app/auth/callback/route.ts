@@ -7,6 +7,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { recordReferralSignup } from '@/lib/referrals';
+import { queueEmailSequence } from '@/lib/email/scheduler';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -115,6 +116,16 @@ export async function GET(request: Request) {
         } catch (e) {
           console.error('Promo code redemption error (non-fatal):', e);
         }
+      }
+
+      // Queue onboarding email sequence for new users (non-fatal)
+      try {
+        const userName = data.user.user_metadata?.full_name
+          || data.user.email?.split('@')[0]
+          || 'there';
+        await queueEmailSequence(data.user.email!, userName, 'onboarding');
+      } catch (e) {
+        console.error('Onboarding email queue error (non-fatal):', e);
       }
 
       // Successfully authenticated - redirect to destination

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { renderVideo, createSimpleRender } from "@/lib/shotstack";
 import { createTextToVideo, createImageToVideo, type RunwayModel } from "@/lib/runway";
 import { runPreflight } from "@/app/api/render/preflight/[videoId]/route";
@@ -65,6 +66,15 @@ async function executeRunwayRequest(
   } else {
     result = await createTextToVideo(req.prompt, model, req.duration, ratio);
   }
+
+  // Save prompt to video record if videoId provided
+  if (req.videoId && result.id) {
+    await supabaseAdmin
+      .from("videos")
+      .update({ render_prompt: req.prompt, render_task_id: String(result.id), render_provider: "runway" })
+      .eq("id", req.videoId);
+  }
+
   return { provider: "runway", task_id: result.id };
 }
 

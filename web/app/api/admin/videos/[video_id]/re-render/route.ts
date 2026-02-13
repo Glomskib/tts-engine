@@ -250,12 +250,13 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // 7. Update video: new render_task_id, clear old compose data, set AI_RENDERING
+    // 7. Update video: new render_task_id, prompt, clear old compose data, set AI_RENDERING
     const { error: updateErr } = await supabaseAdmin
       .from("videos")
       .update({
         render_task_id: renderTaskId,
         render_provider: "runway",
+        render_prompt: runwayPrompt,
         compose_render_id: null,
         runway_video_url: null,
         final_video_url: null,

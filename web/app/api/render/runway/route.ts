@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { runwayRequest } from "@/lib/runway";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -13,6 +14,7 @@ const RunwaySchema = z.object({
   model: z.enum(["gen3a_turbo", "gen4_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional().default("gen4.5"),
   duration: z.union([z.literal(5), z.literal(10), z.literal("5"), z.literal("10")]).optional().default(10),
   ratio: z.string().optional().default("720:1280"),
+  videoId: z.string().uuid().optional(),
 });
 
 export async function POST(request: Request) {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const { promptText, promptImageUrl, duration, ratio } = parsed.data;
+  const { promptText, promptImageUrl, duration, ratio, videoId } = parsed.data;
   // Map legacy/alias model names to available Runway models
   const modelAliases: Record<string, string> = {
     gen4_turbo: "gen4.5",
@@ -70,6 +72,14 @@ export async function POST(request: Request) {
           ratio,
         }),
       });
+    }
+
+    // Save prompt to video record if videoId provided
+    if (videoId && response.id) {
+      await supabaseAdmin
+        .from("videos")
+        .update({ render_prompt: promptText, render_task_id: String(response.id), render_provider: "runway" })
+        .eq("id", videoId);
     }
 
     return NextResponse.json({

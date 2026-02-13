@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createVideoFromProduct, CreateVideoParams } from "@/lib/createVideoFromProduct";
 import { createImageToVideo, createTextToVideo } from "@/lib/runway";
+import { buildRunwayPrompt } from "@/lib/runway-prompt-builder";
 import { logVideoActivity } from "@/lib/videoActivity";
 import { z } from "zod";
 
@@ -204,31 +205,43 @@ export async function POST(
         // Fetch product details for image and name
         const { data: product } = await supabaseAdmin
           .from("products")
-          .select("product_image_url, name")
+          .select("product_image_url, name, brand, category, notes, pain_points, product_display_name")
           .eq("id", skit.product_id)
           .single();
 
-        // Build Runway prompt from beats[].action
-        const sceneDescriptions = skitData.beats
-          .map((b) => b.action)
-          .filter(Boolean)
-          .join(" ");
-
-        const productName = product?.name || "the product";
+        const productName = product?.product_display_name || product?.name || "the product";
         let productImageUrl = product?.product_image_url;
 
-        // Build the Runway prompt — stronger product visibility
-        let runwayPrompt: string;
-        if (productImageUrl) {
-          runwayPrompt = `Product-focused vertical video, 9:16 aspect ratio. ${productName} must be prominently visible and centered in frame throughout the entire video. Person holds product at chest height, clearly showing the label and branding. Close-up product shots. Natural indoor lighting, casual setting, smartphone-shot feel. The product is the hero of every frame. ${sceneDescriptions}`;
-        } else {
-          // Fallback: no product image — use text-to-video with extra product description
-          console.warn(`[${correlationId}] No product_image_url for product ${skit.product_id} — using text-to-video with extra product description`);
-          runwayPrompt = `Product-focused vertical video, 9:16 aspect ratio. ${productName} must be prominently visible and centered in frame throughout the entire video. Person holds product at chest height, clearly showing the label and branding. Close-up product shots showing "${productName}" text/branding prominently. Natural indoor lighting, casual setting, smartphone-shot feel. The product is the hero of every frame. ${sceneDescriptions}`;
+        // Build on-screen text from skit beats
+        const ostLines: string[] = [];
+        for (const beat of skitData.beats) {
+          if (beat.on_screen_text) ostLines.push(beat.on_screen_text);
         }
+        if (skitData.cta_overlay) ostLines.push(skitData.cta_overlay);
+
+        // Build dialogue from skit beats
+        const dialogueLines: string[] = [];
+        if (skitData.hook_line) dialogueLines.push(skitData.hook_line);
+        for (const beat of skitData.beats) {
+          if (beat.dialogue) dialogueLines.push(beat.dialogue);
+        }
+        if (skitData.cta_line) dialogueLines.push(skitData.cta_line);
+
+        // Generate AI-powered Runway prompt
+        const promptResult = await buildRunwayPrompt({
+          productName,
+          brand: product?.brand || skit.product_brand || "Unknown",
+          productImageUrl,
+          productDescription: product?.notes || (product?.pain_points as string) || null,
+          category: product?.category || null,
+          scriptText: dialogueLines.join(" ") || null,
+          onScreenText: ostLines.join(" | ") || null,
+        });
+
+        const runwayPrompt = promptResult.prompt;
 
         console.log(`[${correlationId}] UGC_SHORT detected — triggering Runway render`);
-        console.log(`[${correlationId}] Runway prompt (${runwayPrompt.length} chars): ${runwayPrompt.slice(0, 200)}...`);
+        console.log(`[${correlationId}] Runway prompt (${runwayPrompt.length} chars, ai=${promptResult.aiGenerated}): ${runwayPrompt}`);
 
         // Re-host external images to Supabase to guarantee Runway compatibility
         // (avoids CDN redirects, missing Content-Type, blocked domains)
@@ -275,12 +288,13 @@ export async function POST(
         renderProvider = "runway";
 
         if (renderTaskId) {
-          // Update video record with render task ID and set recording_status to AI_RENDERING
+          // Update video record with render task ID, prompt, and set recording_status to AI_RENDERING
           const { error: renderUpdateError } = await supabaseAdmin
             .from("videos")
             .update({
               render_task_id: renderTaskId,
               render_provider: renderProvider,
+              render_prompt: runwayPrompt,
               recording_status: "AI_RENDERING",
             })
             .eq("id", videoResult.data.video.id);

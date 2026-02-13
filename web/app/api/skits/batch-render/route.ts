@@ -4,6 +4,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { createVideoFromProduct } from '@/lib/createVideoFromProduct';
 import { createImageToVideo, createTextToVideo } from '@/lib/runway';
+import { buildRunwayPrompt } from '@/lib/runway-prompt-builder';
 import { logVideoActivity } from '@/lib/videoActivity';
 
 export const runtime = 'nodejs';
@@ -187,12 +188,12 @@ export async function POST(request: NextRequest) {
       // Step 3: Fetch product image
       const { data: product } = await supabaseAdmin
         .from('products')
-        .select('product_image_url, name')
+        .select('product_image_url, name, brand, category, notes, pain_points, product_display_name')
         .eq('id', skit.product_id)
         .single();
 
       let productImageUrl = product?.product_image_url;
-      const productName = product?.name || skit.product_name || 'the product';
+      const productName = product?.product_display_name || product?.name || skit.product_name || 'the product';
 
       // --- Preflight checks (fail BEFORE spending a Runway credit) ---
       const preflightIssues: string[] = [];
@@ -266,13 +267,29 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Step 5: Build Runway prompt from beats
-      const sceneDescriptions = skitData.beats
-        .map((b) => b.action)
-        .filter(Boolean)
-        .join(' ');
+      // Step 5: Build AI-powered Runway prompt
+      const dialogueLines: string[] = [];
+      const ostLines: string[] = [];
+      if (skitData.hook_line) dialogueLines.push(skitData.hook_line);
+      for (const beat of skitData.beats) {
+        if (beat.dialogue) dialogueLines.push(beat.dialogue);
+        if (beat.on_screen_text) ostLines.push(beat.on_screen_text);
+      }
+      if (skitData.cta_line) dialogueLines.push(skitData.cta_line);
+      if (skitData.cta_overlay) ostLines.push(skitData.cta_overlay);
 
-      const runwayPrompt = `Close-up product-focused vertical video. ${productName} prominently featured in center of frame. Person holding product at chest height, clearly showing label. ${sceneDescriptions} Natural indoor lighting, casual setting. Smartphone-shot feel, 9:16 vertical.`;
+      const promptResult = await buildRunwayPrompt({
+        productName,
+        brand: product?.brand || skit.product_brand || 'Unknown',
+        productImageUrl,
+        productDescription: product?.notes || (product?.pain_points as string) || null,
+        category: product?.category || null,
+        scriptText: dialogueLines.join(' ') || null,
+        onScreenText: ostLines.join(' | ') || null,
+      });
+
+      const runwayPrompt = promptResult.prompt;
+      console.log(`[${correlationId}] Prompt (${runwayPrompt.length} chars, ai=${promptResult.aiGenerated}): ${runwayPrompt}`);
 
       // Step 6: Trigger Runway render
       let runwayResult: { id?: string };
@@ -285,12 +302,13 @@ export async function POST(request: NextRequest) {
       const renderTaskId = runwayResult.id ? String(runwayResult.id) : null;
 
       if (renderTaskId) {
-        // Step 7: Store render_task_id and set AI_RENDERING
+        // Step 7: Store render_task_id, prompt, and set AI_RENDERING
         await supabaseAdmin
           .from('videos')
           .update({
             render_task_id: renderTaskId,
             render_provider: 'runway',
+            render_prompt: runwayPrompt,
             recording_status: 'AI_RENDERING',
           })
           .eq('id', videoId);

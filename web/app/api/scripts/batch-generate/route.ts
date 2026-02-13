@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { BRAND_PERSONA_MAP } from '@/lib/product-persona-map';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -162,6 +163,19 @@ export async function POST(request: NextRequest) {
 
   for (const product of productsToProcess) {
     try {
+      // Look up brand-specific persona
+      let audiencePersonaId: string | undefined;
+      const personaName = product.brand ? BRAND_PERSONA_MAP[product.brand] : undefined;
+      if (personaName) {
+        const { data: persona } = await supabaseAdmin
+          .from('audience_personas')
+          .select('id')
+          .eq('name', personaName)
+          .limit(1)
+          .single();
+        if (persona) audiencePersonaId = persona.id;
+      }
+
       // Step 1: Generate skit
       const genRes = await fetch(`${baseUrl}/api/ai/generate-skit`, {
         method: 'POST',
@@ -176,6 +190,7 @@ export async function POST(request: NextRequest) {
           actor_type: 'human',
           target_duration: 'quick',
           hook_strength: 'strong',
+          ...(audiencePersonaId && { audience_persona_id: audiencePersonaId }),
         }),
       });
 
@@ -201,11 +216,12 @@ export async function POST(request: NextRequest) {
           generation_config: {
             content_type: 'ugc_short',
             risk_tier: 'BALANCED',
-            persona: 'NONE',
+            persona: personaName || 'NONE',
             intensity: 50,
             actor_type: 'human',
             target_duration: 'quick',
             source: 'batch_generate',
+            ...(audiencePersonaId && { audience_persona_id: audiencePersonaId }),
           },
           product_id: product.id,
           product_name: product.name,

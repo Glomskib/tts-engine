@@ -166,9 +166,10 @@ export async function POST(
     }
 
     // Log video creation activity
+    const videoId = String(videoResult.data.video.id);
     await logVideoActivity(
       supabaseAdmin,
-      videoResult.data.video.id,
+      videoId,
       "video_created_from_skit",
       null,
       "NOT_RECORDED",
@@ -290,7 +291,7 @@ export async function POST(
             console.log(`[${correlationId}] Runway task ${renderTaskId} stored on video ${videoResult.data.video.id}`);
             await logVideoActivity(
               supabaseAdmin,
-              videoResult.data.video.id,
+              videoId,
               "recording_status_changed",
               "NOT_RECORDED",
               "AI_RENDERING",

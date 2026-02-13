@@ -100,7 +100,7 @@ interface AvailableScript {
 }
 
 // Stage tabs with user-friendly labels
-type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
+type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'AI_RENDERING' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
 // VA Mode types
@@ -1882,10 +1882,11 @@ export default function AdminPipelinePage() {
           >
             <option value="ALL">All Stages</option>
             <option value="NEEDS_SCRIPT">Needs Script</option>
-            <option value="NOT_RECORDED">Not Recorded</option>
-            <option value="RECORDED">Recorded</option>
-            <option value="EDITED">Edited</option>
-            <option value="READY_TO_POST">Ready to Post</option>
+            <option value="GENERATING_SCRIPT">Generating</option>
+            <option value="NOT_RECORDED">Scripted</option>
+            <option value="AI_RENDERING">AI Rendering</option>
+            <option value="RECORDED">Ready for Review</option>
+            <option value="READY_TO_POST">Approved</option>
             <option value="POSTED">Posted</option>
             <option value="REJECTED">Rejected</option>
           </select>
@@ -2130,12 +2131,10 @@ export default function AdminPipelinePage() {
             }}
           >
             <option value="" disabled>Move to...</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SCRIPTED">Scripted</option>
-            <option value="READY_TO_FILM">Ready to Film</option>
-            <option value="FILMED">Filmed</option>
-            <option value="EDITED">Edited</option>
-            <option value="READY_TO_POST">Ready to Post</option>
+            <option value="NEEDS_SCRIPT">Needs Script</option>
+            <option value="NOT_RECORDED">Scripted</option>
+            <option value="RECORDED">Ready for Review</option>
+            <option value="READY_TO_POST">Approved</option>
             <option value="POSTED">Posted</option>
           </select>
           <button type="button"
@@ -2378,13 +2377,14 @@ export default function AdminPipelinePage() {
                         const status = video.recording_status || 'NOT_RECORDED';
                         switch (status) {
                           case 'NEEDS_SCRIPT': return 'Needs Script';
-                          case 'GENERATING_SCRIPT': return 'Writing Script';
-                          case 'NOT_RECORDED': return 'Ready to Record';
-                          case 'RECORDED': return 'Ready to Edit';
-                          case 'EDITED': return 'Needs Review';
-                          case 'READY_TO_POST': return 'Ready to Publish';
-                          case 'POSTED': return 'Published';
-                          case 'REJECTED': return 'Needs Revision';
+                          case 'GENERATING_SCRIPT': return 'Generating';
+                          case 'NOT_RECORDED': return 'Scripted';
+                          case 'AI_RENDERING': return 'AI Rendering';
+                          case 'RECORDED': return 'Ready for Review';
+                          case 'EDITED': return 'Ready for Review';
+                          case 'READY_TO_POST': return 'Approved';
+                          case 'POSTED': return 'Posted';
+                          case 'REJECTED': return 'Rejected';
                           default: return status.replace(/_/g, ' ');
                         }
                       })()}
@@ -2471,10 +2471,11 @@ export default function AdminPipelinePage() {
           }
           if (newFilters.status) {
             const statusMap: Record<string, RecordingStatusTab> = {
-              'Ready to Record': 'NOT_RECORDED',
-              'Needs Review': 'EDITED',
-              'In Progress': 'RECORDED',
+              'Scripted': 'NOT_RECORDED',
+              'AI Rendering': 'AI_RENDERING',
+              'Ready for Review': 'RECORDED',
               'Approved': 'READY_TO_POST',
+              'Posted': 'POSTED',
               'Rejected': 'REJECTED',
             };
             setWorkflowFilter(statusMap[newFilters.status] || 'ALL');

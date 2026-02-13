@@ -76,6 +76,8 @@ export function getStatusBadgeColor(status: string | null): { bg: string; border
       return { bg: '#e8d5f5', border: '#b197fc', badge: '#7950f2' };
     case 'NOT_RECORDED':
       return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
+    case 'AI_RENDERING':
+      return { bg: '#f3e8ff', border: '#c084fc', badge: '#9333ea' };
     case 'RECORDED':
       return { bg: '#e7f5ff', border: '#74c0fc', badge: '#228be6' };
     case 'EDITED':
@@ -161,22 +163,22 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // If RECORDED: primary = Upload Edit / Mark Edited
+  // If RECORDED (Ready for Review): primary = Approve
   if (video.recording_status === 'RECORDED') {
     return {
-      type: 'upload_edit',
-      label: 'Mark Edited',
-      shortLabel: 'Edited',
-      color: '#fab005',
+      type: 'approve',
+      label: 'Approve',
+      shortLabel: 'Approve',
+      color: '#40c057',
       icon: '',
     };
   }
 
-  // If EDITED: primary = Approve for Testing
+  // If EDITED (legacy): primary = Approve
   if (video.recording_status === 'EDITED') {
     return {
       type: 'approve',
-      label: 'Approve for Testing',
+      label: 'Approve',
       shortLabel: 'Approve',
       color: '#40c057',
       icon: '',

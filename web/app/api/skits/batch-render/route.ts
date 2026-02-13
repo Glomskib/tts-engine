@@ -4,6 +4,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { createVideoFromProduct } from '@/lib/createVideoFromProduct';
 import { createImageToVideo, createTextToVideo } from '@/lib/runway';
+import { logVideoActivity } from '@/lib/videoActivity';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -248,6 +249,16 @@ export async function POST(request: NextRequest) {
             recording_status: 'AI_RENDERING',
           })
           .eq('id', videoId);
+
+        await logVideoActivity(
+          supabaseAdmin,
+          videoId,
+          'recording_status_changed',
+          'NOT_RECORDED',
+          'AI_RENDERING',
+          'system',
+          `Batch render triggered (task: ${renderTaskId})`
+        );
 
         results.push({
           skit_id: skit.id,

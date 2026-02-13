@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createVideoFromProduct, CreateVideoParams } from "@/lib/createVideoFromProduct";
 import { createImageToVideo, createTextToVideo } from "@/lib/runway";
+import { logVideoActivity } from "@/lib/videoActivity";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -164,6 +165,18 @@ export async function POST(
       );
     }
 
+    // Log video creation activity
+    await logVideoActivity(
+      supabaseAdmin,
+      videoResult.data.video.id,
+      "video_created_from_skit",
+      null,
+      "NOT_RECORDED",
+      authContext.user.id,
+      `Created from skit: ${skit.title || skitId}`,
+      correlationId
+    );
+
     // Link the skit to the video and update status to "produced"
     const { error: linkError } = await supabaseAdmin
       .from("saved_skits")
@@ -275,6 +288,16 @@ export async function POST(
             console.error(`[${correlationId}] Failed to update video with render task:`, renderUpdateError);
           } else {
             console.log(`[${correlationId}] Runway task ${renderTaskId} stored on video ${videoResult.data.video.id}`);
+            await logVideoActivity(
+              supabaseAdmin,
+              videoResult.data.video.id,
+              "recording_status_changed",
+              "NOT_RECORDED",
+              "AI_RENDERING",
+              "system",
+              `Runway render triggered (task: ${renderTaskId})`,
+              correlationId
+            );
           }
         }
       } catch (renderErr) {

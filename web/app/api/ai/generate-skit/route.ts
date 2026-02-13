@@ -1340,6 +1340,42 @@ export async function POST(request: Request) {
       winnersIntelligence = await fetchWinnersIntelligence(authContext.user.id);
     }
 
+    // Fetch render pipeline winner patterns for this product
+    let renderWinnersPrompt = "";
+    if (product.id) {
+      const { data: winnerPatterns } = await supabaseAdmin
+        .from("winner_patterns")
+        .select("hook_text, full_script, persona_name, quality_score, notes")
+        .eq("product_id", product.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (winnerPatterns?.length) {
+        const lines: string[] = [
+          "\n=== PROVEN RENDER WINNERS FOR THIS PRODUCT ===",
+          `These ${winnerPatterns.length} scripts were rendered into videos that passed quality review and were approved by the client.`,
+          "Study these winning hooks and write something in the SAME STYLE but DIFFERENT content:\n",
+        ];
+        for (const wp of winnerPatterns) {
+          const qAvg = (wp.quality_score as { avg?: number } | null)?.avg;
+          lines.push(`WINNING HOOK: "${wp.hook_text || "N/A"}"`);
+          if (wp.persona_name) lines.push(`  Persona: ${wp.persona_name}`);
+          if (qAvg) lines.push(`  Quality score: ${qAvg}/10`);
+          if (wp.notes) lines.push(`  Why it won: ${wp.notes}`);
+          if (wp.full_script) {
+            const preview = wp.full_script.length > 300
+              ? wp.full_script.slice(0, 300) + "..."
+              : wp.full_script;
+            lines.push(`  Script: ${preview}`);
+          }
+          lines.push("");
+        }
+        lines.push("Use these as inspiration. Match the energy and hook style, but create FRESH content.");
+        lines.push("===\n");
+        renderWinnersPrompt = lines.join("\n");
+      }
+    }
+
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
     const ctaOverlay = input.cta_overlay || "Link in bio!";
@@ -1436,6 +1472,7 @@ export async function POST(request: Request) {
       contentTypeId: input.content_type_id || null,
       contentSubtypeId: input.content_subtype_id || null,
       demographicPrompt,
+      renderWinnersPrompt,
     });
 
     // Determine variation count (default 3)
@@ -1647,10 +1684,12 @@ interface PromptParams {
   contentSubtypeId: string | null;
   // Product demographic data
   demographicPrompt: string;
+  // Render pipeline winner patterns (from approved videos)
+  renderWinnersPrompt: string;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt, renderWinnersPrompt } = params;
 
   // Get content-type-aware prompt config (defaults to skit if unset)
   const formatConfig = getOutputFormatConfig(contentTypeId, contentSubtypeId);
@@ -1700,6 +1739,7 @@ CTA OVERLAY TO USE: "${ctaOverlay}"
 ${creativeDirectionSection}
 ${winnerVariationSection}
 ${winnersContext}
+${renderWinnersPrompt}
 ${audienceContext}
 ${demographicPrompt}
 ${brandContextPrompt}

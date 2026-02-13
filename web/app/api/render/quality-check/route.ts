@@ -174,12 +174,20 @@ async function scoreFrame(
 }
 
 async function extractFrames(videoBuffer: Buffer): Promise<string[]> {
-  // Use child_process to call ffmpeg — write video to tmp, extract frames
   const { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync } =
     await import("fs");
-  const { execSync } = await import("child_process");
+  const { execFileSync } = await import("child_process");
   const { join } = await import("path");
   const { tmpdir } = await import("os");
+
+  // Use ffmpeg-static for serverless compatibility (bundled binary)
+  let ffmpegPath: string;
+  try {
+    ffmpegPath = (await import("ffmpeg-static")).default as unknown as string;
+  } catch {
+    // Fallback to system ffmpeg
+    ffmpegPath = "ffmpeg";
+  }
 
   const workDir = join(tmpdir(), `qc_${Date.now()}`);
   mkdirSync(workDir, { recursive: true });
@@ -194,9 +202,10 @@ async function extractFrames(videoBuffer: Buffer): Promise<string[]> {
     for (const ts of timestamps) {
       const framePath = join(workDir, `frame_${ts}.jpg`);
       try {
-        execSync(
-          `ffmpeg -y -i "${videoPath}" -ss ${ts} -frames:v 1 -q:v 2 "${framePath}" 2>/dev/null`,
-          { timeout: 10000 }
+        execFileSync(
+          ffmpegPath,
+          ["-y", "-i", videoPath, "-ss", String(ts), "-frames:v", "1", "-q:v", "2", framePath],
+          { timeout: 10000, stdio: "pipe" }
         );
         if (existsSync(framePath)) {
           const frameData = readFileSync(framePath);
@@ -210,9 +219,9 @@ async function extractFrames(videoBuffer: Buffer): Promise<string[]> {
   } finally {
     // Cleanup
     try {
-      unlinkSync(videoPath);
-      const { rmdirSync } = await import("fs");
-      rmdirSync(workDir);
+      if (existsSync(videoPath)) unlinkSync(videoPath);
+      const { rmSync } = await import("fs");
+      rmSync(workDir, { recursive: true, force: true });
     } catch {
       // best effort cleanup
     }

@@ -2,7 +2,7 @@ const HEYGEN_BASE_URL = 'https://api.heygen.com';
 const DEFAULT_AVATAR_ID = 'Daisy-inskirt-20220818';
 
 export function getHeyGenConfig() {
-  const apiKey = process.env.HEYGEN_API_KEY;
+  const apiKey = process.env.HEYGEN_API_KEY?.trim();
   if (!apiKey) throw new Error('Missing HEYGEN_API_KEY environment variable');
   return { apiKey };
 }

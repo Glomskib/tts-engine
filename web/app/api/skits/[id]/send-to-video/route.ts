@@ -201,12 +201,20 @@ export async function POST(
           .join(" ");
 
         const productName = product?.name || "the product";
-        const runwayPrompt = `Close-up product-focused vertical video. ${productName} prominently featured in center of frame. Person holding product at chest height, clearly showing label. ${sceneDescriptions} Natural indoor lighting, casual setting. Smartphone-shot feel, 9:16 vertical.`;
+        let productImageUrl = product?.product_image_url;
+
+        // Build the Runway prompt — stronger product visibility
+        let runwayPrompt: string;
+        if (productImageUrl) {
+          runwayPrompt = `Product-focused vertical video, 9:16 aspect ratio. ${productName} must be prominently visible and centered in frame throughout the entire video. Person holds product at chest height, clearly showing the label and branding. Close-up product shots. Natural indoor lighting, casual setting, smartphone-shot feel. The product is the hero of every frame. ${sceneDescriptions}`;
+        } else {
+          // Fallback: no product image — use text-to-video with extra product description
+          console.warn(`[${correlationId}] No product_image_url for product ${skit.product_id} — using text-to-video with extra product description`);
+          runwayPrompt = `Product-focused vertical video, 9:16 aspect ratio. ${productName} must be prominently visible and centered in frame throughout the entire video. Person holds product at chest height, clearly showing the label and branding. Close-up product shots showing "${productName}" text/branding prominently. Natural indoor lighting, casual setting, smartphone-shot feel. The product is the hero of every frame. ${sceneDescriptions}`;
+        }
 
         console.log(`[${correlationId}] UGC_SHORT detected — triggering Runway render`);
         console.log(`[${correlationId}] Runway prompt (${runwayPrompt.length} chars): ${runwayPrompt.slice(0, 200)}...`);
-
-        let productImageUrl = product?.product_image_url;
 
         // Re-host external images to Supabase to guarantee Runway compatibility
         // (avoids CDN redirects, missing Content-Type, blocked domains)

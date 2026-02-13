@@ -4,6 +4,7 @@ import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors"
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { renderVideo, createSimpleRender } from "@/lib/shotstack";
 import { createTextToVideo, createImageToVideo, type RunwayModel } from "@/lib/runway";
+import { runPreflight } from "@/app/api/render/preflight/[videoId]/route";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -24,6 +25,7 @@ const runwayRequestSchema = z.object({
   model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional(),
   duration: z.number().min(5).max(10).optional(),
   ratio: z.string().optional(),
+  videoId: z.string().uuid().optional(),
 });
 
 const renderRequestSchema = z.discriminatedUnion("provider", [
@@ -92,26 +94,54 @@ export async function POST(request: Request) {
     );
   }
 
-  const promises = parsed.data.requests.map((req) => {
+  const results: Array<
+    | { provider: "shotstack"; render_id: string }
+    | { provider: "runway"; task_id: string }
+    | { provider: string; error: string; preflight_skipped?: boolean; checks?: Record<string, unknown> }
+  > = [];
+
+  for (const req of parsed.data.requests) {
     if (req.provider === "shotstack") {
-      return executeShotstackRequest(req);
+      try {
+        results.push(await executeShotstackRequest(req));
+      } catch (err) {
+        results.push({
+          provider: "shotstack",
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+      continue;
     }
-    return executeRunwayRequest(req);
-  });
 
-  const settled = await Promise.allSettled(promises);
-
-  const results = settled.map((result, i) => {
-    if (result.status === "fulfilled") {
-      return result.value;
+    // Runway: run preflight if videoId provided
+    if (req.videoId) {
+      const preflight = await runPreflight(req.videoId);
+      if (!preflight.ready) {
+        const failedChecks = Object.entries(preflight.checks)
+          .filter(([, v]) => !v.pass)
+          .map(([k, v]) => `${k}: ${v.detail}`);
+        results.push({
+          provider: "runway",
+          error: `Preflight failed: ${failedChecks.join("; ")}`,
+          preflight_skipped: true,
+          checks: preflight.checks,
+        });
+        continue;
+      }
     }
-    return {
-      provider: parsed.data.requests[i].provider,
-      error: result.reason instanceof Error ? result.reason.message : "Unknown error",
-    };
-  });
+
+    try {
+      results.push(await executeRunwayRequest(req));
+    } catch (err) {
+      results.push({
+        provider: "runway",
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
 
   const submitted = results.filter((r) => !("error" in r)).length;
+  const skipped = results.filter((r) => "preflight_skipped" in r).length;
   const failed = results.length - submitted;
 
   return NextResponse.json({
@@ -119,6 +149,7 @@ export async function POST(request: Request) {
     data: {
       results,
       submitted,
+      skipped,
       failed,
     },
     correlation_id: correlationId,

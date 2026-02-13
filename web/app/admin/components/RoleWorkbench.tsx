@@ -872,7 +872,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
               {/* Script accordion */}
               {video.script_locked_text && (
                 <Accordion
-                  title="Script (locked)"
+                  title="Approved Script"
                   isOpen={showScript}
                   onToggle={() => setShowScript(!showScript)}
                   badge="Read-only"

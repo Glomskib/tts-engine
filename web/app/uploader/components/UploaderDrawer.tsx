@@ -360,7 +360,7 @@ export default function UploaderDrawer({
                     <>
                       <div className="flex justify-between items-center mb-3">
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">
-                          Locked v{details.script.version || 1}
+                          Approved v{details.script.version || 1}
                         </span>
                         <button type="button"
                           onClick={() => copyToClipboard(details?.script?.text || '', 'fullScript')}
@@ -380,7 +380,7 @@ export default function UploaderDrawer({
                   ) : video.has_locked_script ? (
                     <div className="text-center py-10 text-slate-400">
                       <div className="text-3xl mb-2">📝</div>
-                      <div>Script locked but not available in details</div>
+                      <div>Approved script not available in details</div>
                     </div>
                   ) : (
                     <div className="text-center py-10 bg-amber-50 rounded-lg">

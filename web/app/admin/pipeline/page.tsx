@@ -2555,7 +2555,7 @@ export default function AdminPipelinePage() {
 
                 {attachModalVideo?.script_locked_text && (
                   <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', fontSize: '13px' }}>
-                    <span style={{ color: '#856404' }}>This video already has a locked script.</span>
+                    <span style={{ color: '#856404' }}>This video already has an approved script.</span>
                   </div>
                 )}
 

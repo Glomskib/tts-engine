@@ -2123,7 +2123,7 @@ export default function VideoDrawer({
                           backgroundColor: (video.script_locked_text || video.script_not_required) ? colors.success : colors.border,
                         }} />
                         <span style={{ fontSize: '13px', color: (video.script_locked_text || video.script_not_required) ? colors.text : colors.textMuted }}>
-                          {video.script_not_required ? 'Script not required' : 'Script locked'}
+                          {video.script_not_required ? 'Script not required' : 'Script approved'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2174,7 +2174,7 @@ export default function VideoDrawer({
                             color: '#2b8a3e',
                             fontWeight: 'bold',
                           }}>
-                            Locked v{video.script_locked_version || 1}
+                            Approved v{video.script_locked_version || 1}
                           </span>
                         </div>
                         <button type="button"

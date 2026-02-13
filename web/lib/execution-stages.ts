@@ -61,7 +61,7 @@ const NEXT_STATUS_MAP: Record<RecordingStatus, RecordingStatus | null> = {
   'GENERATING_SCRIPT': 'NOT_RECORDED',
   'NOT_RECORDED': 'RECORDED',
   'AI_RENDERING': 'READY_FOR_REVIEW',
-  'READY_FOR_REVIEW': 'EDITED',
+  'READY_FOR_REVIEW': 'READY_TO_POST',
   'RECORDED': 'EDITED',
   'EDITED': 'READY_TO_POST',
   'READY_TO_POST': 'POSTED',
@@ -75,7 +75,7 @@ const NEXT_ACTION_MAP: Record<RecordingStatus, string> = {
   'GENERATING_SCRIPT': 'Waiting for AI script',
   'NOT_RECORDED': 'Record the video',
   'AI_RENDERING': 'Waiting for AI video render',
-  'READY_FOR_REVIEW': 'Review the AI-composed video',
+  'READY_FOR_REVIEW': 'Approve or reject the video',
   'RECORDED': 'Edit the video',
   'EDITED': 'Mark ready to post',
   'READY_TO_POST': 'Post the video',
@@ -183,6 +183,7 @@ export interface StageInfo {
   can_mark_edited: boolean;
   can_mark_ready_to_post: boolean;
   can_mark_posted: boolean;
+  can_approve_review: boolean;
   // Required fields for next step
   required_fields: string[];
 }
@@ -203,9 +204,12 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
   const can_record = currentStatus === 'NOT_RECORDED' && scriptSatisfied;
   const can_mark_edited = currentStatus === 'RECORDED';
 
+  // READY_FOR_REVIEW approval (AI videos skip EDITED/RECORDED)
+  const can_approve_review = currentStatus === 'READY_FOR_REVIEW';
+
   // READY_TO_POST requires video URL
   const hasVideoUrl = !!(video.final_video_url?.trim() || video.google_drive_url?.trim());
-  const can_mark_ready_to_post = currentStatus === 'EDITED' && hasVideoUrl;
+  const can_mark_ready_to_post = (currentStatus === 'EDITED' && hasVideoUrl) || (currentStatus === 'READY_FOR_REVIEW' && hasVideoUrl);
 
   // POSTED requires posted_url and posted_platform
   const hasPostedUrl = !!video.posted_url?.trim();
@@ -234,6 +238,7 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
       can_mark_edited: false,
       can_mark_ready_to_post: false,
       can_mark_posted: false,
+      can_approve_review: false,
       required_fields: [],
     };
   }
@@ -250,6 +255,7 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
       can_mark_edited: false,
       can_mark_ready_to_post: false,
       can_mark_posted: false,
+      can_approve_review: false,
       required_fields,
     };
   }
@@ -267,6 +273,7 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
       can_mark_edited,
       can_mark_ready_to_post,
       can_mark_posted,
+      can_approve_review,
       required_fields,
     };
   }
@@ -280,6 +287,7 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
     can_mark_edited,
     can_mark_ready_to_post,
     can_mark_posted,
+    can_approve_review,
     required_fields,
   };
 }

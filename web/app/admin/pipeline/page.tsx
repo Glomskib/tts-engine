@@ -100,7 +100,7 @@ interface AvailableScript {
 }
 
 // Stage tabs with user-friendly labels
-type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'AI_RENDERING' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
+type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'AI_RENDERING' | 'READY_FOR_REVIEW' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
 // VA Mode types
@@ -137,7 +137,7 @@ interface AuthUser {
 // Colors: Script=Teal, Record=Blue, Edit=Purple, Approve=Green, Post=Orange
 // ============================================================================
 interface PrimaryAction {
-  key: 'add_script' | 'lock_script' | 'record' | 'edit' | 'approve' | 'post' | 'done' | 'rejected';
+  key: 'add_script' | 'lock_script' | 'record' | 'edit' | 'approve' | 'post' | 'done' | 'rejected' | 're_generate';
   label: string;          // Verb-only label
   icon: string;           // Emoji icon
   color: string;          // Button background color
@@ -177,6 +177,20 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
       disabledReason: video.can_record ? undefined : 'Script required',
       actionType: 'transition',
       targetStatus: 'RECORDED',
+    };
+  }
+
+  // Priority 2b: Ready for review (AI video composed)
+  if (recordingStatus === 'READY_FOR_REVIEW') {
+    return {
+      key: 'approve',
+      label: 'Approve Video',
+      icon: '',
+      color: '#059669',
+      requiredRole: 'admin',
+      disabled: false,
+      actionType: 'transition',
+      targetStatus: 'READY_TO_POST',
     };
   }
 
@@ -237,16 +251,17 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // Priority 7: Rejected
+  // Priority 7: Rejected - offer re-generate
   if (recordingStatus === 'REJECTED') {
     return {
-      key: 'rejected',
-      label: 'Rejected',
+      key: 're_generate',
+      label: 'Re-generate',
       icon: '',
-      color: '#EF4444', // Danger
+      color: '#6366f1',
       requiredRole: 'admin',
-      disabled: true,
-      actionType: 'none',
+      disabled: false,
+      actionType: 'transition',
+      targetStatus: 'NOT_RECORDED',
     };
   }
 
@@ -1885,7 +1900,8 @@ export default function AdminPipelinePage() {
             <option value="GENERATING_SCRIPT">Generating</option>
             <option value="NOT_RECORDED">Scripted</option>
             <option value="AI_RENDERING">AI Rendering</option>
-            <option value="RECORDED">Ready for Review</option>
+            <option value="READY_FOR_REVIEW">Ready for Review</option>
+            <option value="RECORDED">Recorded</option>
             <option value="READY_TO_POST">Approved</option>
             <option value="POSTED">Posted</option>
             <option value="REJECTED">Rejected</option>
@@ -2473,7 +2489,8 @@ export default function AdminPipelinePage() {
             const statusMap: Record<string, RecordingStatusTab> = {
               'Scripted': 'NOT_RECORDED',
               'AI Rendering': 'AI_RENDERING',
-              'Ready for Review': 'RECORDED',
+              'Ready for Review': 'READY_FOR_REVIEW',
+              'Recorded': 'RECORDED',
               'Approved': 'READY_TO_POST',
               'Posted': 'POSTED',
               'Rejected': 'REJECTED',

@@ -583,6 +583,11 @@ export default function VideoDrawer({
         case 'post':
           onOpenPostModal(video);
           break;
+        case 're_generate':
+          await onExecuteTransition(video.id, 'NOT_RECORDED');
+          onRefresh();
+          shouldAdvance = true;
+          break;
         default:
           break;
       }
@@ -2695,30 +2700,59 @@ export default function VideoDrawer({
                     </a>
                   )}
 
-                  {/* Final MP4 */}
-                  {(video.final_video_url || details?.assets.final_mp4_url) && (
-                    <a
-                      href={video.final_video_url || details?.assets.final_mp4_url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '12px',
-                        backgroundColor: colors.accentSubtle,
-                        borderRadius: '10px',
-                        textDecoration: 'none',
-                        marginBottom: '12px',
-                        border: `1px solid ${colors.border}`,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, color: colors.accent, fontSize: '13px' }}>Final MP4</div>
-                        <div style={{ fontSize: '11px', color: colors.textMuted }}>Ready for posting</div>
+                  {/* Final Video - embedded player or link */}
+                  {(video.final_video_url || details?.assets.final_mp4_url) && (() => {
+                    const videoUrl = video.final_video_url || details?.assets.final_mp4_url || '';
+                    const isPlayable = videoUrl.match(/\.(mp4|webm|mov)(\?|$)/i);
+                    return isPlayable ? (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: colors.accent, marginBottom: '6px', textTransform: 'uppercase' }}>
+                          Final Video
+                        </div>
+                        <video
+                          src={videoUrl}
+                          controls
+                          playsInline
+                          style={{
+                            width: '100%',
+                            maxHeight: '360px',
+                            borderRadius: '8px',
+                            backgroundColor: '#000',
+                          }}
+                        />
+                        <a
+                          href={videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '11px', color: colors.accent, marginTop: '4px', display: 'inline-block' }}
+                        >
+                          Open in new tab
+                        </a>
                       </div>
-                    </a>
-                  )}
+                    ) : (
+                      <a
+                        href={videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '12px',
+                          backgroundColor: colors.accentSubtle,
+                          borderRadius: '10px',
+                          textDecoration: 'none',
+                          marginBottom: '12px',
+                          border: `1px solid ${colors.border}`,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 600, color: colors.accent, fontSize: '13px' }}>Final MP4</div>
+                          <div style={{ fontSize: '11px', color: colors.textMuted }}>Ready for posting</div>
+                        </div>
+                      </a>
+                    );
+                  })()}
 
                   {/* Posted URL */}
                   {video.posted_url && (

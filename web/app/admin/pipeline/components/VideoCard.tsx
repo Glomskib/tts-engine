@@ -59,6 +59,9 @@ export default function VideoCard({
         case 'post':
           onOpenPostModal(video);
           break;
+        case 're_generate':
+          await onExecuteTransition(video.id, 'NOT_RECORDED');
+          break;
         case 'view_rejection':
           onClick(); // Open drawer
           break;
@@ -112,6 +115,30 @@ export default function VideoCard({
         e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
+      {/* Video Thumbnail */}
+      {video.final_video_url && (
+        <div style={{
+          marginBottom: '8px',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          backgroundColor: '#000',
+          maxHeight: '80px',
+        }}>
+          <video
+            src={video.final_video_url}
+            muted
+            playsInline
+            preload="metadata"
+            style={{
+              width: '100%',
+              height: '80px',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+        </div>
+      )}
+
       {/* Top Row: SLA Badge + Brand */}
       <div style={{
         display: 'flex',

@@ -78,6 +78,8 @@ export function getStatusBadgeColor(status: string | null): { bg: string; border
       return { bg: '#f8f9fa', border: '#dee2e6', badge: '#6c757d' };
     case 'AI_RENDERING':
       return { bg: '#f3e8ff', border: '#c084fc', badge: '#9333ea' };
+    case 'READY_FOR_REVIEW':
+      return { bg: '#ecfdf5', border: '#6ee7b7', badge: '#059669' };
     case 'RECORDED':
       return { bg: '#e7f5ff', border: '#74c0fc', badge: '#228be6' };
     case 'EDITED':
@@ -109,7 +111,7 @@ export function getSlaColor(status: SlaStatus): { bg: string; text: string; bord
 
 // Primary action determination
 export interface PrimaryAction {
-  type: 'add_script' | 'record' | 'upload_edit' | 'approve' | 'post' | 'done' | 'view_rejection';
+  type: 'add_script' | 'record' | 'upload_edit' | 'approve' | 'post' | 'done' | 'view_rejection' | 're_generate';
   label: string;
   shortLabel: string;
   color: string;
@@ -163,6 +165,17 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
+  // If READY_FOR_REVIEW (AI video composed): primary = Approve Video
+  if (video.recording_status === 'READY_FOR_REVIEW') {
+    return {
+      type: 'approve',
+      label: 'Approve Video',
+      shortLabel: 'Approve',
+      color: '#059669',
+      icon: '',
+    };
+  }
+
   // If RECORDED (Ready for Review): primary = Approve
   if (video.recording_status === 'RECORDED') {
     return {
@@ -196,13 +209,13 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // If REJECTED: view notes
+  // If REJECTED: re-generate
   if (video.recording_status === 'REJECTED') {
     return {
-      type: 'view_rejection',
-      label: 'View Notes',
-      shortLabel: 'Notes',
-      color: '#e03131',
+      type: 're_generate',
+      label: 'Re-generate',
+      shortLabel: 'Redo',
+      color: '#6366f1',
       icon: '',
     };
   }

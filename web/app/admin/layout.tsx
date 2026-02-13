@@ -391,7 +391,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
           <main id="main-content" className="pt-16 pb-24 min-h-screen overflow-x-hidden">
-            <div className="px-4 max-w-full overflow-hidden">
+            <div className="px-4 max-w-full overflow-x-hidden">
               <LowCreditBanner className="mb-4" />
               <ReferralPromptBanner />
               <ErrorBoundary>{children}</ErrorBoundary>

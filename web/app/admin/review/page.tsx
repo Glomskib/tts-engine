@@ -40,7 +40,7 @@ export default function ReviewPage() {
 
   // Reject modal state
   const [rejectVideoId, setRejectVideoId] = useState<string | null>(null);
-  const [selectedRejectCode, setSelectedRejectCode] = useState<string | null>(null);
+  const [selectedRejectCodes, setSelectedRejectCodes] = useState<Set<string>>(new Set());
   const [rejectNotes, setRejectNotes] = useState('');
 
   // Approve notes state
@@ -105,13 +105,15 @@ export default function ReviewPage() {
   }, [approveNotes, showSuccess, showError]);
 
   const handleReject = async () => {
-    if (!rejectVideoId || !selectedRejectCode) return;
+    if (!rejectVideoId || selectedRejectCodes.size === 0) return;
     setActionLoading(rejectVideoId);
     try {
-      const reasonLabel = REJECT_REASONS.find((r) => r.code === selectedRejectCode)?.label || selectedRejectCode;
-      const reason = selectedRejectCode === 'other' && rejectNotes.trim()
-        ? rejectNotes.trim()
-        : reasonLabel;
+      const reasonLabels = REJECT_REASONS
+        .filter((r) => selectedRejectCodes.has(r.code))
+        .map((r) => r.label);
+      const reason = selectedRejectCodes.has('other') && rejectNotes.trim()
+        ? [...reasonLabels.filter((l) => l !== 'Other'), rejectNotes.trim()].join(', ')
+        : reasonLabels.join(', ');
 
       const res = await fetch(`/api/admin/videos/${rejectVideoId}/review`, {
         method: 'POST',
@@ -138,7 +140,7 @@ export default function ReviewPage() {
     } finally {
       setActionLoading(null);
       setRejectVideoId(null);
-      setSelectedRejectCode(null);
+      setSelectedRejectCodes(new Set());
       setRejectNotes('');
     }
   };
@@ -189,7 +191,7 @@ export default function ReviewPage() {
       if (rejectVideoId) {
         if (e.key === 'Escape') {
           setRejectVideoId(null);
-          setSelectedRejectCode(null);
+          setSelectedRejectCodes(new Set());
           setRejectNotes('');
         }
         return;
@@ -211,7 +213,7 @@ export default function ReviewPage() {
           const video = videos[activeIndex];
           if (video) {
             setRejectVideoId(video.id);
-            setSelectedRejectCode(null);
+            setSelectedRejectCodes(new Set());
             setRejectNotes('');
           }
           break;
@@ -429,7 +431,7 @@ export default function ReviewPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setRejectVideoId(video.id);
-                        setSelectedRejectCode(null);
+                        setSelectedRejectCodes(new Set());
                         setRejectNotes('');
                       }}
                       disabled={isActioning}
@@ -508,33 +510,41 @@ export default function ReviewPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-zinc-100">Reject Video</h3>
-            <p className="text-sm text-zinc-500">Select a reason for rejecting this video:</p>
+            <p className="text-sm text-zinc-500">Select one or more reasons:</p>
 
-            {/* Reject reason tags */}
+            {/* Reject reason tags — multi-select */}
             <div className="flex flex-wrap gap-2">
-              {REJECT_REASONS.map((r) => (
-                <button
-                  key={r.code}
-                  type="button"
-                  onClick={() =>
-                    setSelectedRejectCode(r.code === selectedRejectCode ? null : r.code)
-                  }
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
-                    selectedRejectCode === r.code
-                      ? 'bg-red-500/20 text-red-400 border-red-500/40'
-                      : 'bg-white/5 text-zinc-300 border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
+              {REJECT_REASONS.map((r) => {
+                const selected = selectedRejectCodes.has(r.code);
+                return (
+                  <button
+                    key={r.code}
+                    type="button"
+                    onClick={() =>
+                      setSelectedRejectCodes((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(r.code)) next.delete(r.code);
+                        else next.add(r.code);
+                        return next;
+                      })
+                    }
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                      selected
+                        ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                        : 'bg-white/5 text-zinc-300 border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Notes textarea */}
             <div>
               <label className="block text-sm font-medium text-zinc-400 mb-1.5">
                 Notes{' '}
-                {selectedRejectCode === 'other' && <span className="text-red-400">*</span>}
+                {selectedRejectCodes.has('other') && <span className="text-red-400">*</span>}
               </label>
               <textarea
                 value={rejectNotes}
@@ -551,7 +561,7 @@ export default function ReviewPage() {
                 type="button"
                 onClick={() => {
                   setRejectVideoId(null);
-                  setSelectedRejectCode(null);
+                  setSelectedRejectCodes(new Set());
                   setRejectNotes('');
                 }}
                 className="flex-1 px-4 py-2.5 text-sm font-medium bg-zinc-800 text-zinc-300 border border-white/10 hover:bg-zinc-700 rounded-lg transition-colors"
@@ -562,9 +572,9 @@ export default function ReviewPage() {
                 type="button"
                 onClick={handleReject}
                 disabled={
-                  !selectedRejectCode ||
+                  selectedRejectCodes.size === 0 ||
                   actionLoading !== null ||
-                  (selectedRejectCode === 'other' && !rejectNotes.trim())
+                  (selectedRejectCodes.has('other') && !rejectNotes.trim())
                 }
                 className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
               >

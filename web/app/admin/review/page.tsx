@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -47,6 +47,8 @@ export default function ReviewPage() {
   const [videos, setVideos] = useState<ReviewVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Reject modal state
   const [rejectVideoId, setRejectVideoId] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export default function ReviewPage() {
     });
   }, [videos, detailsCache]);
 
-  const handleApprove = async (videoId: string) => {
+  const handleApprove = useCallback(async (videoId: string) => {
     setActionLoading(videoId);
     try {
       const res = await fetch(`/api/videos/${videoId}`, {
@@ -101,7 +103,12 @@ export default function ReviewPage() {
       });
       if (res.ok) {
         showSuccess('Video approved');
-        setVideos(prev => prev.filter(v => v.id !== videoId));
+        setVideos(prev => {
+          const next = prev.filter(v => v.id !== videoId);
+          // Auto-advance: clamp activeIndex to new list length
+          setActiveIndex(i => Math.min(i, Math.max(0, next.length - 1)));
+          return next;
+        });
       } else {
         const err = await res.json().catch(() => ({}));
         showError(err.message || 'Failed to approve');
@@ -111,7 +118,7 @@ export default function ReviewPage() {
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [showSuccess, showError]);
 
   const handleReject = async () => {
     if (!rejectVideoId) return;
@@ -130,7 +137,11 @@ export default function ReviewPage() {
       });
       if (res.ok) {
         showSuccess('Video rejected');
-        setVideos(prev => prev.filter(v => v.id !== rejectVideoId));
+        setVideos(prev => {
+          const next = prev.filter(v => v.id !== rejectVideoId);
+          setActiveIndex(i => Math.min(i, Math.max(0, next.length - 1)));
+          return next;
+        });
         setRejectVideoId(null);
         setSelectedRejectTag(null);
       } else {
@@ -153,6 +164,65 @@ export default function ReviewPage() {
     return `${Math.floor(hours / 24)}d ago`;
   };
 
+  // Scroll active card into view when activeIndex changes
+  useEffect(() => {
+    const el = cardRefs.current[activeIndex];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeIndex]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't capture when reject modal is open (except Escape)
+      if (rejectVideoId) {
+        if (e.key === 'Escape') {
+          setRejectVideoId(null);
+          setSelectedRejectTag(null);
+        }
+        return;
+      }
+      // Don't capture when typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (videos.length === 0 || actionLoading) return;
+
+      switch (e.key) {
+        case 'a':
+        case 'A': {
+          e.preventDefault();
+          const video = videos[activeIndex];
+          if (video) handleApprove(video.id);
+          break;
+        }
+        case 'r':
+        case 'R': {
+          e.preventDefault();
+          const video = videos[activeIndex];
+          if (video) {
+            setRejectVideoId(video.id);
+            setSelectedRejectTag(null);
+          }
+          break;
+        }
+        case 'ArrowUp':
+        case 'ArrowLeft': {
+          e.preventDefault();
+          setActiveIndex(i => Math.max(0, i - 1));
+          break;
+        }
+        case 'ArrowDown':
+        case 'ArrowRight': {
+          e.preventDefault();
+          setActiveIndex(i => Math.min(videos.length - 1, i + 1));
+          break;
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [videos, activeIndex, actionLoading, rejectVideoId, handleApprove]);
+
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
@@ -168,6 +238,7 @@ export default function ReviewPage() {
           </h1>
           <p style={{ fontSize: '14px', color: colors.textMuted, margin: '4px 0 0' }}>
             {videos.length} video{videos.length !== 1 ? 's' : ''} awaiting review
+            {videos.length > 0 && <span style={{ marginLeft: '8px', fontSize: '12px', opacity: 0.7 }}>• Reviewing {activeIndex + 1} of {videos.length}</span>}
           </p>
         </div>
         <button
@@ -228,21 +299,45 @@ export default function ReviewPage() {
         </div>
       )}
 
+      {/* Keyboard Hints */}
+      {videos.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '16px',
+          marginBottom: '16px',
+          fontSize: '12px',
+          color: colors.textMuted,
+          flexWrap: 'wrap',
+        }}>
+          <span><kbd style={{ padding: '2px 6px', backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', border: `1px solid ${colors.border}` }}>A</kbd> Approve</span>
+          <span><kbd style={{ padding: '2px 6px', backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', border: `1px solid ${colors.border}` }}>R</kbd> Reject</span>
+          <span><kbd style={{ padding: '2px 6px', backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', border: `1px solid ${colors.border}` }}>↑↓</kbd> Navigate</span>
+        </div>
+      )}
+
       {/* Video Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {videos.map(video => {
+        {videos.map((video, index) => {
           const details = detailsCache[video.id];
           const videoUrl = video.final_video_url || '';
           const isActioning = actionLoading === video.id;
+          const isActive = index === activeIndex;
 
           return (
             <div
               key={video.id}
+              ref={el => { cardRefs.current[index] = el; }}
+              onClick={() => setActiveIndex(index)}
               style={{
                 backgroundColor: colors.surface,
                 borderRadius: '12px',
-                border: `1px solid ${colors.border}`,
+                border: isActive
+                  ? `2px solid ${isDark ? '#34d399' : '#059669'}`
+                  : `1px solid ${colors.border}`,
                 overflow: 'hidden',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+                boxShadow: isActive ? `0 0 0 3px ${isDark ? 'rgba(52,211,153,0.15)' : 'rgba(5,150,105,0.1)'}` : 'none',
+                cursor: 'pointer',
               }}
             >
               <div style={{

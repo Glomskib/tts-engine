@@ -1617,6 +1617,40 @@ export default function AdminPipelinePage() {
       {/* Incident Mode Banner */}
       <IncidentBanner />
 
+      {/* Review Banner */}
+      {(() => {
+        const reviewCount = queueVideos.filter(v => v.recording_status === 'READY_FOR_REVIEW').length;
+        if (reviewCount === 0) return null;
+        return (
+          <a
+            href="/admin/review"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5',
+              border: `1px solid ${isDark ? 'rgba(52, 211, 153, 0.3)' : '#a7f3d0'}`,
+              borderRadius: '10px',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = isDark ? 'rgba(5, 150, 105, 0.25)' : '#d1fae5')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5')}
+          >
+            <span style={{ fontSize: '20px' }}>🎬</span>
+            <span style={{ flex: 1, fontSize: '14px', fontWeight: 600, color: isDark ? '#6ee7b7' : '#059669' }}>
+              {reviewCount} video{reviewCount !== 1 ? 's' : ''} ready for your review
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: isDark ? '#34d399' : '#059669' }}>
+              Go to Review →
+            </span>
+          </a>
+        );
+      })()}
+
       {/* Clean Header */}
       {/* Desktop Header - Hidden on mobile */}
       <div className="hidden lg:flex" style={{

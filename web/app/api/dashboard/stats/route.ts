@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     // Pipeline status counts
     const { data: allVideos } = await supabaseAdmin
       .from('videos')
-      .select('id, status, assigned_to, scheduled_date, created_at, last_status_changed_at');
+      .select('id, status, recording_status, assigned_to, scheduled_date, created_at, last_status_changed_at');
 
     const videos = allVideos || [];
     const pipelineByStatus: Record<string, number> = {};
@@ -60,6 +60,34 @@ export async function GET(request: NextRequest) {
 
       if (v.assigned_to && activeStatuses.includes(status)) {
         vaQueue++;
+      }
+    }
+
+    // Recording pipeline counts (the actual workflow statuses)
+    const recordingPipelineByStatus: Record<string, number> = {};
+    let readyForReview = 0;
+    let approvedToday = 0;
+    let videosCreatedToday = 0;
+    const todayStr = now.toISOString().slice(0, 10);
+
+    for (const v of videos) {
+      const recStatus = v.recording_status || 'NOT_RECORDED';
+      recordingPipelineByStatus[recStatus] = (recordingPipelineByStatus[recStatus] || 0) + 1;
+
+      if (recStatus === 'READY_FOR_REVIEW') {
+        readyForReview++;
+      }
+
+      // Approved today = transitioned to READY_TO_POST today
+      if (recStatus === 'READY_TO_POST' && v.last_status_changed_at) {
+        const changedDate = v.last_status_changed_at.slice(0, 10);
+        if (changedDate === todayStr) approvedToday++;
+      }
+
+      // Videos created today
+      if (v.created_at) {
+        const createdDate = v.created_at.slice(0, 10);
+        if (createdDate === todayStr) videosCreatedToday++;
       }
     }
 
@@ -161,6 +189,10 @@ export async function GET(request: NextRequest) {
         winnersCount: winnersCount || 0,
         scriptsCount: scriptsCount || 0,
         totalVideos: videos.length,
+        readyForReview,
+        approvedToday,
+        videosCreatedToday,
+        recordingPipelineByStatus,
       },
       correlation_id: correlationId,
     });

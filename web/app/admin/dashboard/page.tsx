@@ -90,6 +90,10 @@ interface DashboardData {
   winnersCount: number;
   scriptsCount: number;
   totalVideos: number;
+  readyForReview: number;
+  approvedToday: number;
+  videosCreatedToday: number;
+  recordingPipelineByStatus: Record<string, number>;
 }
 
 const QUICK_ACTIONS = [
@@ -158,6 +162,33 @@ const STATUS_LABELS: Record<string, string> = {
   READY_TO_POST: 'Ready',
   POSTED: 'Posted',
   LIVE: 'Live',
+};
+
+const REC_PIPELINE_STATUSES = [
+  'NEEDS_SCRIPT', 'GENERATING_SCRIPT', 'NOT_RECORDED', 'AI_RENDERING',
+  'READY_FOR_REVIEW', 'RECORDED', 'EDITED', 'READY_TO_POST',
+];
+
+const REC_STATUS_LABELS: Record<string, string> = {
+  NEEDS_SCRIPT: 'Needs Script',
+  GENERATING_SCRIPT: 'Generating',
+  NOT_RECORDED: 'Scripted',
+  AI_RENDERING: 'AI Rendering',
+  READY_FOR_REVIEW: 'Review',
+  RECORDED: 'Recorded',
+  EDITED: 'Edited',
+  READY_TO_POST: 'Approved',
+};
+
+const REC_STATUS_COLORS: Record<string, string> = {
+  NEEDS_SCRIPT: 'bg-orange-500',
+  GENERATING_SCRIPT: 'bg-violet-500',
+  NOT_RECORDED: 'bg-zinc-500',
+  AI_RENDERING: 'bg-purple-500',
+  READY_FOR_REVIEW: 'bg-emerald-500',
+  RECORDED: 'bg-blue-500',
+  EDITED: 'bg-amber-500',
+  READY_TO_POST: 'bg-green-500',
 };
 
 function formatTimeAgo(timestamp: string) {
@@ -337,6 +368,102 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-zinc-400 text-sm">Your content operations at a glance</p>
         </div>
+
+        {/* Morning Briefing */}
+        {!loading && data && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Videos Created Today */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
+                <Video className="w-3.5 h-3.5" />
+                <span className="text-xs">Videos Today</span>
+              </div>
+              <div className="text-2xl font-bold text-white">{data.videosCreatedToday}</div>
+              <div className="text-xs text-zinc-500 mt-0.5">created today</div>
+            </div>
+
+            {/* Ready for Review — prominent with link */}
+            <Link href="/admin/review" className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 hover:border-emerald-500/50 transition-colors group">
+              <div className="flex items-center gap-1.5 text-emerald-400 mb-1">
+                <Eye className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Ready for Review</span>
+              </div>
+              <div className="text-2xl font-bold text-white">{data.readyForReview}</div>
+              <div className="text-xs text-emerald-400 mt-0.5 flex items-center gap-1 group-hover:underline">
+                Review now <ArrowRight className="w-3 h-3" />
+              </div>
+            </Link>
+
+            {/* Approved Today */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span className="text-xs">Approved Today</span>
+              </div>
+              <div className="text-2xl font-bold text-white">{data.approvedToday}</div>
+              <div className="text-xs text-zinc-500 mt-0.5">moved to posting</div>
+            </div>
+
+            {/* Weekly Output */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span className="text-xs">Posted This Week</span>
+              </div>
+              <div className="text-2xl font-bold text-white">{data.postedThisWeek}</div>
+              <div className="flex items-center gap-1 text-xs mt-0.5">
+                {(data.postedTrend || 0) >= 0 ? (
+                  <span className="text-green-400">+{data.postedTrend || 0}%</span>
+                ) : (
+                  <span className="text-red-400">{data.postedTrend}%</span>
+                )}
+                <span className="text-zinc-500">vs last week</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recording Pipeline Status */}
+        {!loading && data && (() => {
+          const recTotal = REC_PIPELINE_STATUSES.reduce((sum, s) => sum + (data.recordingPipelineByStatus[s] || 0), 0);
+          return recTotal > 0 ? (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-teal-400" />
+                  <h2 className="text-sm font-semibold text-white">Recording Pipeline</h2>
+                  <span className="text-xs text-zinc-500">{recTotal} active</span>
+                </div>
+                <Link href="/admin/pipeline" className="text-xs text-teal-400 hover:text-teal-300">
+                  Open board
+                </Link>
+              </div>
+              <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
+                {REC_PIPELINE_STATUSES.map((status) => {
+                  const count = data.recordingPipelineByStatus[status] || 0;
+                  const isReview = status === 'READY_FOR_REVIEW';
+                  return (
+                    <div
+                      key={status}
+                      className={`text-center p-2 rounded-lg ${
+                        isReview && count > 0
+                          ? 'bg-emerald-500/15 border border-emerald-500/30'
+                          : 'bg-zinc-800/50'
+                      }`}
+                    >
+                      <div className={`text-lg font-bold ${count > 0 ? 'text-white' : 'text-zinc-600'}`}>
+                        {count}
+                      </div>
+                      <div className={`text-[10px] ${isReview && count > 0 ? 'text-emerald-400 font-medium' : 'text-zinc-500'}`}>
+                        {REC_STATUS_LABELS[status]}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null;
+        })()}
 
         {/* Welcome Card — shown to new users with zero content, dismissible */}
         {showWelcome && (

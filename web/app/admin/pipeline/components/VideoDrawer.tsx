@@ -156,6 +156,10 @@ export default function VideoDrawer({
   const [postingAccounts, setPostingAccounts] = useState<PostingAccount[]>([]);
   const [editPostingAccountId, setEditPostingAccountId] = useState<string>('');
 
+  // Assignee state
+  const [teamMembers, setTeamMembers] = useState<{ user_id: string; display_name: string; role?: string }[]>([]);
+  const [assigneeSaving, setAssigneeSaving] = useState(false);
+
   // Rejection modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRejectTag, setSelectedRejectTag] = useState<string | null>(null);
@@ -265,6 +269,22 @@ export default function VideoDrawer({
     }
   }, [isAdmin]);
 
+  // Fetch team members for assignee dropdown
+  useEffect(() => {
+    fetch('/api/admin/users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.data) {
+          setTeamMembers(data.data.map((u: { user_id: string; email?: string; display_name?: string; role?: string }) => ({
+            user_id: u.user_id,
+            display_name: u.display_name || u.email || u.user_id.slice(0, 8),
+            role: u.role,
+          })));
+        }
+      })
+      .catch(err => console.error('Failed to fetch team members:', err));
+  }, []);
+
   // Initialize posting account when video loads
   useEffect(() => {
     if (video.posting_account_id) {
@@ -286,6 +306,29 @@ export default function VideoDrawer({
       setEditScript(details.script?.text || video.script_locked_text || '');
     }
   }, [details, video]);
+
+  // Save assignee
+  const saveAssignee = async (userId: string) => {
+    setAssigneeSaving(true);
+    try {
+      const res = await fetch(`/api/videos/${video.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: userId || null }),
+      });
+      if (res.ok) {
+        setSavedToast('Assignee updated');
+        setTimeout(() => setSavedToast(null), 2000);
+        onRefresh();
+      } else {
+        showError('Failed to update assignee');
+      }
+    } catch {
+      showError('Network error updating assignee');
+    } finally {
+      setAssigneeSaving(false);
+    }
+  };
 
   // Save edits function
   const saveEdits = async (field: string, value: string | string[]) => {
@@ -1249,6 +1292,34 @@ export default function VideoDrawer({
                 }}>
                   {video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : 'ON TRACK'}
                 </span>
+              </div>
+
+              {/* Assignee dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                <span style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b' }}>Assigned to:</span>
+                <select
+                  value={video.claimed_by || ''}
+                  onChange={(e) => saveAssignee(e.target.value)}
+                  disabled={assigneeSaving}
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    backgroundColor: isDark ? '#1e293b' : '#f8f9fa',
+                    border: `1px solid ${isDark ? '#334155' : '#dee2e6'}`,
+                    borderRadius: '6px',
+                    color: isDark ? '#e2e8f0' : '#212529',
+                    cursor: assigneeSaving ? 'not-allowed' : 'pointer',
+                    opacity: assigneeSaving ? 0.5 : 1,
+                    minWidth: '140px',
+                  }}
+                >
+                  <option value="">Unassigned</option>
+                  {teamMembers.map(member => (
+                    <option key={member.user_id} value={member.user_id}>
+                      {member.display_name}{member.role ? ` (${member.role})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

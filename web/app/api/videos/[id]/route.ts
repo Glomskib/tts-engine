@@ -77,6 +77,8 @@ export async function PATCH(
     hashtags_used,
     title,
     description,
+    // Assignment
+    assigned_to,
     // Selected hook package fields
     selected_spoken_hook,
     selected_visual_hook,
@@ -221,6 +223,11 @@ export async function PATCH(
   }
   if (selected_cta_family !== undefined) {
     updatePayload.selected_cta_family = selected_cta_family;
+  }
+  if (assigned_to !== undefined) {
+    updatePayload.assigned_to = assigned_to || null;
+    updatePayload.assigned_at = assigned_to ? new Date().toISOString() : null;
+    updatePayload.assigned_by = assigned_to ? actor : null;
   }
 
   if (Object.keys(updatePayload).length === 0) {

@@ -1118,7 +1118,7 @@ export default function VideoDrawer({
           top: 0,
           right: 0,
           bottom: 0,
-          width: simpleMode ? '380px' : '480px',
+          width: simpleMode ? '380px' : '520px',
           backgroundColor: colors.surface,
           boxShadow: '-4px 0 20px rgba(0,0,0,0.15)',
           zIndex: 1000,
@@ -1683,7 +1683,9 @@ export default function VideoDrawer({
         {/* Tabs */}
         <div style={{
           display: 'flex',
-          borderBottom: '1px solid #e0e0e0',
+          borderBottom: '2px solid #e0e0e0',
+          gap: '2px',
+          padding: '0 12px',
         }}>
           {tabs.map(tab => (
             <button type="button"
@@ -1691,14 +1693,16 @@ export default function VideoDrawer({
               onClick={() => setActiveTab(tab.key)}
               style={{
                 flex: 1,
-                padding: '12px 8px',
+                padding: '14px 10px',
                 border: 'none',
-                borderBottom: activeTab === tab.key ? '2px solid #2563eb' : '2px solid transparent',
-                backgroundColor: 'transparent',
+                borderBottom: activeTab === tab.key ? '3px solid #2563eb' : '3px solid transparent',
+                backgroundColor: activeTab === tab.key ? 'rgba(37, 99, 235, 0.06)' : 'transparent',
+                borderRadius: '6px 6px 0 0',
                 cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: activeTab === tab.key ? '600' : '400',
+                fontSize: '14px',
+                fontWeight: activeTab === tab.key ? '600' : '500',
                 color: activeTab === tab.key ? '#2563eb' : '#64748b',
+                transition: 'all 0.15s ease',
               }}
             >
               {tab.label}
@@ -1707,7 +1711,7 @@ export default function VideoDrawer({
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
           {detailsLoading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#868e96' }}>
               Loading details...
@@ -2214,10 +2218,11 @@ export default function VideoDrawer({
                         </div>
                         <div style={{
                           backgroundColor: '#fff3bf',
-                          borderRadius: '6px',
-                          padding: '10px',
-                          fontSize: '13px',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '15px',
                           fontWeight: '500',
+                          lineHeight: 1.5,
                           color: '#495057',
                         }}>
                           {extractHook(video.script_locked_text || '')}
@@ -2234,13 +2239,13 @@ export default function VideoDrawer({
                               onChange={(e) => setEditScript(e.target.value)}
                               style={{
                                 width: '100%',
-                                minHeight: '250px',
-                                padding: '12px',
+                                minHeight: '300px',
+                                padding: '16px',
                                 backgroundColor: colors.input,
                                 border: `1px solid ${colors.inputBorder}`,
-                                borderRadius: '6px',
-                                fontSize: '13px',
-                                lineHeight: 1.6,
+                                borderRadius: '8px',
+                                fontSize: '15px',
+                                lineHeight: 1.7,
                                 color: colors.text,
                                 resize: 'vertical',
                                 fontFamily: 'inherit',
@@ -2268,11 +2273,11 @@ export default function VideoDrawer({
                         ) : (
                           <div style={{
                             backgroundColor: '#f8f9fa',
-                            borderRadius: '6px',
-                            padding: '12px',
-                            fontSize: '13px',
-                            lineHeight: 1.6,
-                            maxHeight: '300px',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            fontSize: '15px',
+                            lineHeight: 1.7,
+                            maxHeight: '400px',
                             overflow: 'auto',
                             whiteSpace: 'pre-wrap',
                             border: '1px solid #e9ecef',

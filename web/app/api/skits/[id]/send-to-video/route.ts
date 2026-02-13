@@ -201,7 +201,7 @@ export async function POST(
           .join(" ");
 
         const productName = product?.name || "the product";
-        const runwayPrompt = `Smartphone-shot casual UGC style 9:16 vertical video. Young person holding ${productName}, looking at camera. ${sceneDescriptions} Natural lighting, casual setting, handheld camera feel.`;
+        const runwayPrompt = `Close-up product-focused vertical video. ${productName} prominently featured in center of frame. Person holding product at chest height, clearly showing label. ${sceneDescriptions} Natural indoor lighting, casual setting. Smartphone-shot feel, 9:16 vertical.`;
 
         console.log(`[${correlationId}] UGC_SHORT detected — triggering Runway render`);
         console.log(`[${correlationId}] Runway prompt (${runwayPrompt.length} chars): ${runwayPrompt.slice(0, 200)}...`);

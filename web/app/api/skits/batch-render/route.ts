@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         .filter(Boolean)
         .join(' ');
 
-      const runwayPrompt = `Smartphone-shot casual UGC style 9:16 vertical video. Young person holding ${productName}, looking at camera. ${sceneDescriptions} Natural lighting, casual setting, handheld camera feel.`;
+      const runwayPrompt = `Close-up product-focused vertical video. ${productName} prominently featured in center of frame. Person holding product at chest height, clearly showing label. ${sceneDescriptions} Natural indoor lighting, casual setting. Smartphone-shot feel, 9:16 vertical.`;
 
       // Step 6: Trigger Runway render
       let runwayResult: { id?: string };

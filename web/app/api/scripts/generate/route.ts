@@ -233,13 +233,20 @@ export async function POST(request: Request) {
     ];
 
     const TONE_OPTIONS = ['high_energy', 'calm_confident', 'conversational', 'storytelling', 'educational'];
-    const LENGTH_OPTIONS = ['15_sec', '30_sec', '60_sec'];
+    const LENGTH_OPTIONS = ['10_sec', '15_sec', '30_sec'] as const;
+    const WORD_LIMITS: Record<string, { max: number; chars: number }> = {
+      '10_sec': { max: 30, chars: 150 },
+      '15_sec': { max: 40, chars: 200 },
+      '30_sec': { max: 80, chars: 400 },
+    };
 
     // Randomly pick variety parameters for this generation
     const hookStyle = HOOK_STYLES[Math.floor(Math.random() * HOOK_STYLES.length)];
     const ctaStyle = CTA_STYLES[Math.floor(Math.random() * CTA_STYLES.length)];
     const toneChoice = TONE_OPTIONS[Math.floor(Math.random() * TONE_OPTIONS.length)];
     const lengthChoice = LENGTH_OPTIONS[Math.floor(Math.random() * LENGTH_OPTIONS.length)];
+
+    const wordLimit = WORD_LIMITS[lengthChoice] || WORD_LIMITS['10_sec'];
 
     let prompt = `=== SCRIPT GENERATION TASK ===
 Generate a TikTok Shop script for this concept.
@@ -256,6 +263,12 @@ Tone: ${toneChoice}
 Target Length: ${lengthChoice}
 CTA Approach: "${ctaStyle}"
 Style Preset: ${style_preset || "engaging"}
+
+=== WORD LIMIT (CRITICAL) ===
+script_v1 MUST be ${wordLimit.max} words or fewer (≈${wordLimit.chars} characters max).
+This script will be read aloud as TTS over a ${lengthChoice.replace('_', ' ')} video.
+If the voiceover is too long it gets cut off — so be CONCISE.
+Every word must earn its place. Cut filler. Get to the point fast.
 
 === VOICE RULES ===
 - Sound like a real person, not a commercial

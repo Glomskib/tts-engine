@@ -1469,7 +1469,11 @@ export default function AdminPipelinePage() {
 
     // Apply assignee filter
     if (assigneeFilter) {
-      videos = videos.filter(v => v.claimed_by === assigneeFilter);
+      if (assigneeFilter === '__unassigned__') {
+        videos = videos.filter(v => !v.claimed_by);
+      } else {
+        videos = videos.filter(v => v.claimed_by === assigneeFilter);
+      }
     }
 
     // Apply priority filter
@@ -1969,6 +1973,7 @@ export default function AdminPipelinePage() {
             }}
           >
             <option value="">All Assignees</option>
+            <option value="__unassigned__">Unassigned</option>
             {Array.from(new Set(queueVideos.map(v => v.claimed_by).filter(Boolean))).map(assignee => (
               <option key={assignee} value={assignee!}>
                 {assignee === activeUser ? 'You' : (userMap[assignee!] || assignee!.slice(0, 8))}
@@ -2428,17 +2433,40 @@ export default function AdminPipelinePage() {
         onClose={() => setFilterSheetOpen(false)}
         filters={mobileFilters}
         setFilters={setMobileFilters}
+        brands={brands.map(b => ({ value: b.name, label: b.name }))}
         onApply={(newFilters) => {
           setMobileFilters(newFilters);
-          // Map mobile filters to existing filter system if needed
+          // Map mobile filters to existing filter system
+          if (newFilters.brand) {
+            setBrandFilter(newFilters.brand);
+          } else {
+            setBrandFilter('');
+          }
+          if (newFilters.assignedTo) {
+            if (newFilters.assignedTo === 'me') {
+              setFilterIntent('my_work');
+              setAssigneeFilter('');
+            } else if (newFilters.assignedTo === 'unassigned') {
+              setAssigneeFilter('__unassigned__');
+              setFilterIntent('all');
+            } else {
+              setAssigneeFilter('');
+              setFilterIntent('all');
+            }
+          } else {
+            setAssigneeFilter('');
+          }
           if (newFilters.status) {
-            const statusMap: Record<string, FilterIntent> = {
-              'Needs Review': 'needs_action',
-              'Ready to Record': 'all',
-              'Approved': 'all',
-              'Rejected': 'all',
+            const statusMap: Record<string, RecordingStatusTab> = {
+              'Ready to Record': 'NOT_RECORDED',
+              'Needs Review': 'EDITED',
+              'In Progress': 'RECORDED',
+              'Approved': 'READY_TO_POST',
+              'Rejected': 'REJECTED',
             };
-            setFilterIntent(statusMap[newFilters.status] || 'all');
+            setWorkflowFilter(statusMap[newFilters.status] || 'ALL');
+          } else {
+            setWorkflowFilter('ALL');
           }
         }}
       />

@@ -86,12 +86,20 @@ export default function BoardView({
     setSelectedVideo(null);
   };
 
+  // Apply board-level filters to videos
+  const boardFilteredVideos = videos.filter(video => {
+    if (filters.brand && video.brand_name !== filters.brand) return false;
+    if (filters.product && video.product_id !== filters.product) return false;
+    if (filters.account && video.account_id !== filters.account) return false;
+    return true;
+  });
+
   // Group videos by recording_status
   const videosByStatus: Record<string, QueueVideo[]> = {};
   RECORDING_STATUS_COLUMNS.forEach(col => {
     videosByStatus[col.key] = [];
   });
-  videos.forEach(video => {
+  boardFilteredVideos.forEach(video => {
     const status = video.recording_status || 'NOT_RECORDED';
     if (videosByStatus[status]) {
       videosByStatus[status].push(video);

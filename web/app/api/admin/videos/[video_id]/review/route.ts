@@ -182,7 +182,25 @@ export async function POST(request: Request, { params }: RouteParams) {
       } catch { /* ignore */ }
     }
     if (action === 'approve') {
-      sendTelegramNotification(`✅ Video approved: ${productLabel}`);
+      // Fetch the video URL for the Opus Clip message
+      let videoDownloadUrl = '';
+      try {
+        const { data: fullVideo } = await supabaseAdmin
+          .from('videos')
+          .select('final_video_url, google_drive_url')
+          .eq('id', video_id)
+          .single();
+        videoDownloadUrl = fullVideo?.final_video_url || fullVideo?.google_drive_url || '';
+      } catch { /* ignore */ }
+
+      const lines = [
+        `✅ Video approved: <b>${productLabel}</b> — Ready for Opus Clip`,
+      ];
+      if (videoDownloadUrl) {
+        lines.push(`🔗 Download: ${videoDownloadUrl}`);
+      }
+      lines.push(`📋 Paste this URL into opus.pro to generate clips`);
+      sendTelegramNotification(lines.join('\n'));
     } else {
       sendTelegramNotification(`🔄 Video rejected: ${productLabel} — ${reason?.trim() || 'no reason'}`);
     }

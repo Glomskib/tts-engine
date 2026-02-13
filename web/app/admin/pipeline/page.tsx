@@ -1089,7 +1089,7 @@ export default function AdminPipelinePage() {
         fetchQueueVideos();
         closeAttachModal();
       } else if (data.code === 'SCRIPT_ALREADY_LOCKED') {
-        setAttachMessage('This video already has a locked script. Check "Overwrite existing" to replace it.');
+        setAttachMessage('This video already has an approved script. Check "Overwrite existing" to replace it.');
       } else if (data.code === 'SCRIPT_NOT_APPROVED') {
         setAttachMessage(`Script is not approved (status: ${data.details?.status || 'unknown'}). Check "Force attach" to attach anyway.`);
       } else {

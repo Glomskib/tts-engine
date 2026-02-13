@@ -405,7 +405,7 @@ export default function VideoDetailPage() {
         setForceOverwrite(false);
         fetchData();
       } else if (data.code === 'SCRIPT_ALREADY_LOCKED') {
-        setAttachMessage('This video already has a locked script. Check "Overwrite existing" to replace it.');
+        setAttachMessage('This video already has an approved script. Check "Overwrite existing" to replace it.');
       } else if (data.code === 'SCRIPT_NOT_APPROVED') {
         setAttachMessage(`Script is not approved (status: ${data.details?.status || 'unknown'}). Check "Force attach" to attach anyway.`);
       } else {
@@ -1083,7 +1083,7 @@ export default function VideoDetailPage() {
               {videoDetail?.script_locked_json && (
                 <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px' }}>
                   <strong style={{ color: '#856404' }}>Warning:</strong>
-                  <span style={{ color: '#856404', marginLeft: '5px' }}>This video already has a locked script.</span>
+                  <span style={{ color: '#856404', marginLeft: '5px' }}>This video already has an approved script.</span>
                 </div>
               )}
               <div style={{ marginBottom: '15px' }}>

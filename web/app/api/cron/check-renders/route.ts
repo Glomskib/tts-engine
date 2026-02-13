@@ -244,10 +244,14 @@ async function getSkitOverlays(videoId: string): Promise<{
   const cta = skitData.cta_overlay || undefined;
 
   // Build TTS text from hook + dialogue + CTA
+  // Skip beat dialogue that duplicates or is contained in the hook_line
   const ttsLines: string[] = [];
-  if (skitData.hook_line) ttsLines.push(skitData.hook_line);
+  const hookLine = skitData.hook_line || "";
+  if (hookLine) ttsLines.push(hookLine);
   for (const beat of skitData.beats || []) {
-    if (beat.dialogue) ttsLines.push(beat.dialogue);
+    if (beat.dialogue && !hookLine.includes(beat.dialogue) && !beat.dialogue.startsWith(hookLine)) {
+      ttsLines.push(beat.dialogue);
+    }
   }
   if (skitData.cta_line) ttsLines.push(skitData.cta_line);
   const ttsText = ttsLines.length ? ttsLines.join(" ") : undefined;

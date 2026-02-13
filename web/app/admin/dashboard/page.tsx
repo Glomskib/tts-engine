@@ -119,7 +119,7 @@ const QUICK_ACTIONS = [
     description: 'Add winning TikTok videos',
   },
   {
-    label: 'Video Pipeline',
+    label: 'Production Board',
     href: '/admin/pipeline',
     icon: Video,
     color: 'bg-purple-500/20 text-purple-400',

@@ -82,7 +82,7 @@ export default function PersonaPreview({
 
         {/* Demographics */}
         {(persona.age_range || persona.gender || persona.income_level || persona.location_type || persona.life_stage) && (
-          <Section title="Demographics">
+          <Section title="Customer Archetypes">
             <div className="flex flex-wrap gap-2">
               {persona.age_range && <Tag color="blue">{persona.age_range}</Tag>}
               {persona.gender && <Tag color="blue">{persona.gender}</Tag>}

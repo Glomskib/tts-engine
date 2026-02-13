@@ -71,7 +71,7 @@ const DEFAULT_TEST_CATEGORIES: TestCategory[] = [
   },
   {
     id: 'video-pipeline',
-    name: 'Video Pipeline',
+    name: 'Production Board',
     description: 'Test the video production workflow',
     tests: [
       { id: 'vp-1', name: 'View Queue', description: 'See list of videos in queue', status: 'pending' },
@@ -123,7 +123,7 @@ const DEFAULT_TEST_CATEGORIES: TestCategory[] = [
       { id: 'nav-2', name: 'Quick Nav Links', description: 'Links between related pages work', status: 'pending' },
       { id: 'nav-3', name: 'View Library Button', description: 'Generator -> Library link works', status: 'pending' },
       { id: 'nav-4', name: 'Create New Skit', description: 'Library -> Generator link works', status: 'pending' },
-      { id: 'nav-5', name: 'Video Pipeline Link', description: 'Links to pipeline work', status: 'pending' },
+      { id: 'nav-5', name: 'Production Board Link', description: 'Links to pipeline work', status: 'pending' },
       { id: 'nav-6', name: 'View in Pipeline', description: 'Linked video opens correctly', status: 'pending' },
       { id: 'nav-7', name: 'Admin Sidebar', description: 'Skit Generator in sidebar nav', status: 'pending' },
     ],
@@ -571,7 +571,7 @@ export default function TestCenterPage() {
             Script Library
           </Link>
           <Link href="/admin/pipeline" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
-            Video Pipeline
+            Production Board
           </Link>
           <Link href="/admin/products" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
             Products

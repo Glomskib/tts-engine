@@ -200,7 +200,7 @@ export default function PersonaCard({
               {/* Demographics */}
               {(persona.age_range || persona.gender || persona.location_type) && (
                 <div>
-                  <div className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Demographics</div>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Customer Archetypes</div>
                   <div className="flex flex-wrap gap-2 text-sm text-zinc-300">
                     {persona.age_range && <span>{persona.age_range}</span>}
                     {persona.gender && <span>· {persona.gender}</span>}

@@ -792,7 +792,7 @@ export default function SkitLibraryPage() {
               fontSize: "13px",
             }}
           >
-            Video Pipeline
+            Production Board
           </Link>
         </div>
       </div>

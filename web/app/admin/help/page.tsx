@@ -40,7 +40,7 @@ const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'pipeline',
     icon: Video,
-    title: 'Video Pipeline',
+    title: 'Production Board',
     description: 'Track every video from script to posted — the production command center.',
     steps: [
       'Videos enter the pipeline when created from Content Studio or manually added',

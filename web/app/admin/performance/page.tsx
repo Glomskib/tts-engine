@@ -249,7 +249,7 @@ export default function PerformancePage() {
           className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-teal-500/30 hover:bg-zinc-800/50 transition-all group"
         >
           <div>
-            <h3 className="font-medium text-white mb-1">Video Pipeline</h3>
+            <h3 className="font-medium text-white mb-1">Production Board</h3>
             <p className="text-sm text-zinc-500">{stats.inProgress} videos in progress</p>
           </div>
           <ArrowRight className="w-5 h-5 text-zinc-600 group-hover:text-teal-400 transition-colors" />

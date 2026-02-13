@@ -1176,7 +1176,7 @@ export default function AudiencePage() {
                 {/* ===== DEMOGRAPHICS ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#3b82f6", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Demographics
+                    Customer Archetypes
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                     <div>

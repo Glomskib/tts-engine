@@ -144,6 +144,11 @@ CRITICAL: Return ONLY valid minified JSON. No markdown. No code fences. Do not i
   }
 }
 
+// GET handler for Vercel Cron (crons send GET requests)
+export async function GET() {
+  return processScriptGeneration(generateCorrelationId());
+}
+
 export async function POST(request: NextRequest) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
@@ -162,6 +167,11 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+
+  return processScriptGeneration(correlationId);
+}
+
+async function processScriptGeneration(correlationId: string) {
 
   // Fetch videos awaiting script generation (limit batch to 5)
   const { data: videos, error: fetchError } = await supabaseAdmin
@@ -254,6 +264,20 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error(`[${videoCorrelationId}] Failed to update video with script:`, updateError);
+      // Move to NEEDS_SCRIPT so the video doesn't stay stuck
+      await supabaseAdmin
+        .from("videos")
+        .update({ recording_status: "NEEDS_SCRIPT" })
+        .eq("id", video.id);
+      await supabaseAdmin.from("video_events").insert({
+        video_id: video.id,
+        event_type: "script_generation_failed",
+        correlation_id: videoCorrelationId,
+        actor: "system",
+        from_status: "GENERATING_SCRIPT",
+        to_status: "NEEDS_SCRIPT",
+        details: { error: "DB update failed: " + updateError.message },
+      });
       results.push({ video_id: video.id, ok: false, error: "DB update failed" });
       continue;
     }

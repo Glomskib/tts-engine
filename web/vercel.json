@@ -5,6 +5,10 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/jobs/generate-scripts",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/nightly-reset",
       "schedule": "5 5 * * *"
     },

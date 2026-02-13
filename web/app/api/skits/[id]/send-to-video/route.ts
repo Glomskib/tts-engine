@@ -210,10 +210,10 @@ export async function POST(
         let runwayResult: { id?: string };
         if (productImageUrl) {
           console.log(`[${correlationId}] Using image-to-video with product image`);
-          runwayResult = await createImageToVideo(productImageUrl, runwayPrompt, "gen3a_turbo", 10);
+          runwayResult = await createImageToVideo(productImageUrl, runwayPrompt, "gen4.5", 10);
         } else {
           console.log(`[${correlationId}] Using text-to-video (no product image)`);
-          runwayResult = await createTextToVideo(runwayPrompt, "gen3a_turbo", 10);
+          runwayResult = await createTextToVideo(runwayPrompt, "gen4.5", 10);
         }
 
         renderTaskId = runwayResult.id ? String(runwayResult.id) : null;
@@ -239,7 +239,6 @@ export async function POST(
       } catch (renderErr) {
         // Runway failure should NOT fail the send-to-video operation
         console.error(`[${correlationId}] Runway auto-render failed (non-blocking):`, renderErr);
-        renderProvider = "runway_error:" + (renderErr instanceof Error ? renderErr.message : String(renderErr));
       }
     }
 
@@ -251,7 +250,6 @@ export async function POST(
         video_code: videoResult.data.video.video_code,
         render_task_id: renderTaskId,
         render_provider: renderProvider,
-        render_detected: isUgcShort ? "ugc_short" : null,
         message: isUgcShort && renderTaskId
           ? "Skit sent to video queue — Runway render triggered"
           : "Skit sent to video queue successfully",

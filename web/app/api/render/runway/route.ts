@@ -10,9 +10,9 @@ export const maxDuration = 300;
 const RunwaySchema = z.object({
   promptText: z.string().min(1).max(2000),
   promptImageUrl: z.string().url().optional(),
-  model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional().default("gen3a_turbo"),
+  model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional().default("gen4.5"),
   duration: z.enum(["5", "10"]).optional().default("10"),
-  ratio: z.string().optional().default("768:1280"),
+  ratio: z.string().optional().default("720:1280"),
 });
 
 export async function POST(request: Request) {

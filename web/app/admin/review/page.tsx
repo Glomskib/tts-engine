@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import AdminPageLayout, { StatCard } from '../components/AdminPageLayout';
-import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 
 interface ReviewVideo {
   id: string;
@@ -47,13 +47,24 @@ export default function ReviewPage() {
   const [showApproveNotes, setShowApproveNotes] = useState<Record<string, boolean>>({});
   const [approveNotes, setApproveNotes] = useState<Record<string, string>>({});
 
+  // Rejected videos state
+  const [rejectedVideos, setRejectedVideos] = useState<ReviewVideo[]>([]);
+  const [regenLoading, setRegenLoading] = useState<string | null>(null);
+
   const fetchVideos = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/videos/queue?recording_status=READY_FOR_REVIEW&claimed=any&limit=50');
-      if (res.ok) {
-        const data = await res.json();
+      const [reviewRes, rejectedRes] = await Promise.all([
+        fetch('/api/videos/queue?recording_status=READY_FOR_REVIEW&claimed=any&limit=50'),
+        fetch('/api/videos/queue?recording_status=REJECTED&claimed=any&limit=20'),
+      ]);
+      if (reviewRes.ok) {
+        const data = await reviewRes.json();
         setVideos(data.data || []);
+      }
+      if (rejectedRes.ok) {
+        const data = await rejectedRes.json();
+        setRejectedVideos(data.data || []);
       }
     } catch {
       showError('Failed to load videos');
@@ -129,6 +140,28 @@ export default function ReviewPage() {
       setRejectVideoId(null);
       setSelectedRejectCode(null);
       setRejectNotes('');
+    }
+  };
+
+  const handleRegenerate = async (videoId: string) => {
+    setRegenLoading(videoId);
+    try {
+      const res = await fetch(`/api/videos/${videoId}/execution`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recording_status: 'NOT_RECORDED' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSuccess('Video queued for re-generation');
+        setRejectedVideos(prev => prev.filter(v => v.id !== videoId));
+      } else {
+        showError(data.error?.message || 'Failed to re-generate');
+      }
+    } catch {
+      showError('Network error');
+    } finally {
+      setRegenLoading(null);
     }
   };
 
@@ -410,6 +443,59 @@ export default function ReviewPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Recently Rejected */}
+      {!loading && rejectedVideos.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold text-zinc-300">
+            Recently Rejected
+            <span className="ml-2 text-sm font-normal text-zinc-500">
+              {rejectedVideos.length} video{rejectedVideos.length !== 1 ? 's' : ''}
+            </span>
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rejectedVideos.map(video => (
+              <div
+                key={video.id}
+                className="bg-zinc-900/50 border border-red-500/20 rounded-xl p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-200">
+                      {video.product_name || 'Unknown Product'}
+                    </h4>
+                    <p className="text-xs text-zinc-500">
+                      {video.brand_name || ''}
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-full">
+                    REJECTED
+                  </span>
+                </div>
+                {video.video_code && (
+                  <div className="text-[11px] text-zinc-600 font-mono">{video.video_code}</div>
+                )}
+                <div className="text-xs text-zinc-500">
+                  {getTimeAgo(video.last_status_changed_at, video.created_at)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRegenerate(video.id)}
+                  disabled={regenLoading === video.id}
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {regenLoading === video.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4" />
+                  )}
+                  Re-generate
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

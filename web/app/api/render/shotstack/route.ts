@@ -40,25 +40,22 @@ export async function POST(request: Request) {
 
   const { productImageUrl, spokenText, onScreenText, cta, duration = 30 } = parsed.data;
 
-  // Pre-validate image URL — Shotstack servers must be able to fetch it.
-  // Amazon CDN (m.media-amazon.com) blocks external server requests.
+  // Block domains known to reject Shotstack's render servers.
+  // HEAD requests from our API server may succeed, but Shotstack's render
+  // farm gets blocked — causing "File not found: undefined" at render time.
+  const blockedHosts = ["m.media-amazon.com", "images-na.ssl-images-amazon.com", "images-amazon.com"];
   try {
-    const headResp = await fetch(productImageUrl, { method: "HEAD", redirect: "follow" });
-    if (!headResp.ok) {
+    const imageHost = new URL(productImageUrl).hostname;
+    if (blockedHosts.some((h) => imageHost === h || imageHost.endsWith(`.${h}`))) {
       return createApiErrorResponse(
         "BAD_REQUEST",
-        `Image URL not accessible (HTTP ${headResp.status}). Shotstack requires a publicly accessible image URL. Amazon product images are blocked — use a re-hosted copy instead.`,
+        `Amazon CDN images (${imageHost}) block Shotstack's render servers. Re-host the image on Supabase Storage, Cloudflare, or any public CDN first.`,
         400,
         correlationId
       );
     }
   } catch {
-    return createApiErrorResponse(
-      "BAD_REQUEST",
-      "Image URL not accessible. Shotstack requires a publicly accessible image URL. Amazon product images are blocked — use a re-hosted copy instead.",
-      400,
-      correlationId
-    );
+    return createApiErrorResponse("BAD_REQUEST", "Invalid image URL", 400, correlationId);
   }
 
   // Build Shotstack timeline — image track on bottom, overlays on top

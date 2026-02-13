@@ -7,6 +7,37 @@ import { runwayRequest } from "@/lib/runway";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+function normalizeRunwayStatus(raw: string): "processing" | "done" | "failed" | "unknown" {
+  switch (raw) {
+    case "THROTTLED":
+    case "PENDING":
+    case "RUNNING":
+      return "processing";
+    case "SUCCEEDED":
+      return "done";
+    case "FAILED":
+      return "failed";
+    default:
+      return "unknown";
+  }
+}
+
+function normalizeShotstackStatus(raw: string): "processing" | "done" | "failed" | "unknown" {
+  switch (raw) {
+    case "queued":
+    case "fetching":
+    case "rendering":
+    case "saving":
+      return "processing";
+    case "done":
+      return "done";
+    case "failed":
+      return "failed";
+    default:
+      return "unknown";
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -35,27 +66,33 @@ export async function GET(
     if (provider === "shotstack") {
       const response = await shotstackRequest(`/render/${id}`);
       const render = response.response;
+      const rawStatus = render?.status || "unknown";
 
       return NextResponse.json({
         ok: true,
         provider: "shotstack",
         id,
-        status: render?.status || "unknown",
+        status: normalizeShotstackStatus(rawStatus),
+        rawStatus,
         url: render?.url || null,
         poster: render?.poster || null,
+        error: rawStatus === "failed" ? (render?.error || null) : null,
         correlation_id: correlationId,
       });
     } else {
       const response = await runwayRequest(`/v1/tasks/${id}`) as Record<string, unknown>;
+      const rawStatus = (response.status as string) || "unknown";
       const output = response.output as string[] | undefined;
 
       return NextResponse.json({
         ok: true,
         provider: "runway",
         id,
-        status: response.status || "unknown",
-        url: output?.[0] || null,
+        status: normalizeRunwayStatus(rawStatus),
+        rawStatus,
+        url: rawStatus === "SUCCEEDED" ? (output?.[0] || null) : null,
         progress: response.progress || null,
+        error: rawStatus === "FAILED" ? (response.failure as string || response.failureReason as string || null) : null,
         correlation_id: correlationId,
       });
     }

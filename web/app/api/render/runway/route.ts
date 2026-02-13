@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { runwayRequest } from "@/lib/runway";
 import { z } from "zod";
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
+  const auth = await validateApiAccess(request);
+  if (!auth) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { shotstackRequest } from "@/lib/shotstack";
 import { runwayRequest } from "@/lib/runway";
@@ -45,8 +45,8 @@ export async function GET(
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
+  const auth = await validateApiAccess(request);
+  if (!auth) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 

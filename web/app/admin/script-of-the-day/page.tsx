@@ -230,7 +230,7 @@ export default function ScriptOfTheDayPage() {
             Script of the Day
           </h1>
           <p className="text-zinc-400 mt-1">
-            Today&apos;s top-scored scripts from your Content Package
+            Today&apos;s top-scored scripts from your Content Planner
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -276,7 +276,7 @@ export default function ScriptOfTheDayPage() {
       {!loading && !pkg && (
         <div className="border border-dashed border-zinc-700 rounded-xl p-12 text-center">
           <Package className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">No Content Package for Today</h2>
+          <h2 className="text-xl font-semibold mb-2">No Content Plan for Today</h2>
           <p className="text-zinc-400 mb-6 max-w-md mx-auto">
             Generate today&apos;s package to get AI-scored script ideas for every product.
             The best one becomes your Script of the Day.

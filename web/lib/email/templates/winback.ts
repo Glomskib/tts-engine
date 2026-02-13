@@ -13,7 +13,7 @@ export const winbackEmails = [
       <h1>A lot has changed, ${data.userName}</h1>
       <p>Since you've been gone, we've added:</p>
       <p><strong>AI Product Enrichment</strong> &mdash; Import from TikTok Shop and FlashFlow auto-extracts selling points, objections, and viral hook ideas</p>
-      <p><strong>Content Packages</strong> &mdash; Get 5 daily scripts tailored to your products, ready to film</p>
+      <p><strong>Content Planner</strong> &mdash; Get 5 daily scripts tailored to your products, ready to film</p>
       <p><strong>7 Creator Personas</strong> &mdash; Every script sounds different. No more cookie-cutter content.</p>
       <p>Your account and all your products are still here. One click to pick up where you left off.</p>
       <a href="https://flashflowai.com/admin/content-studio" class="btn">See What's New</a>

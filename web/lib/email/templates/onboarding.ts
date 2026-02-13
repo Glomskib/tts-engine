@@ -46,9 +46,9 @@ export const onboardingEmails = [
       <p>Here's what FlashFlow users are doing:</p>
       <p><strong>Batch scripting:</strong> Generating a full week of scripts in one sitting (15 minutes instead of 3 hours)</p>
       <p><strong>Persona rotation:</strong> Using the Skeptic Convert for health products, Honest Reviewer for tech, and Storyteller for lifestyle &mdash; so every video sounds different</p>
-      <p><strong>Content Packages:</strong> Getting daily bundles of 5 scripts tailored to their specific products, ready to film</p>
+      <p><strong>Content Planner:</strong> Getting daily bundles of 5 scripts tailored to their specific products, ready to film</p>
       <p>The creators seeing the best results aren't just generating one script. They're generating 5-10, picking the best hooks, and filming those.</p>
-      <a href="https://flashflowai.com/admin/content-package" class="btn">Try Content Packages</a>
+      <a href="https://flashflowai.com/admin/content-package" class="btn">Try the Content Planner</a>
     `, 'How top creators batch-produce a week of content in 15 minutes', data.unsubscribeUrl),
   },
   {
@@ -68,7 +68,7 @@ export const onboardingEmails = [
         </div>
       </div>
       <p>Each script you generate gets better as FlashFlow learns your products' selling angles.</p>
-      <p>Pro users get <strong>unlimited scripts</strong>, <strong>Script of the Day</strong>, and <strong>Content Packages</strong> &mdash; all for less than the cost of one freelance script.</p>
+      <p>Pro users get <strong>unlimited scripts</strong>, <strong>Script of the Day</strong>, and the <strong>Content Planner</strong> &mdash; all for less than the cost of one freelance script.</p>
       <a href="https://flashflowai.com/upgrade" class="btn">See Pro Features</a>
     `, "Here's what you've created so far", data.unsubscribeUrl),
   },

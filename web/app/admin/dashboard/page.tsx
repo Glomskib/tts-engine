@@ -129,7 +129,7 @@ const QUICK_ACTIONS = [
     description: 'Plan posting schedule',
   },
   {
-    label: 'Content Package',
+    label: 'Content Planner',
     href: '/admin/content-package',
     icon: Package,
     color: 'bg-violet-500/20 text-violet-400',
@@ -714,7 +714,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
             </div>
             <div className="text-center py-4">
-              <p className="text-sm text-zinc-500 mb-3">Generate today&apos;s content package to see top picks</p>
+              <p className="text-sm text-zinc-500 mb-3">Generate today&apos;s content plan to see top picks</p>
               <Link
                 href="/admin/content-package"
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500/20 text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-500/30 transition-colors"

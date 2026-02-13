@@ -16,7 +16,7 @@ export const upgradeNudgeEmails = [
       <p>Here's what Creator Pro unlocks:</p>
       <p>&bull; <strong>Unlimited scripts</strong> &mdash; no more counting credits</p>
       <p>&bull; <strong>Script of the Day</strong> &mdash; fresh content ideas delivered daily</p>
-      <p>&bull; <strong>Content Packages</strong> &mdash; 5 tailored scripts in one click</p>
+      <p>&bull; <strong>Content Planner</strong> &mdash; 5 tailored scripts in one click</p>
       <p>&bull; <strong>Advanced personas</strong> &mdash; more variety, better hooks</p>
       <p>Most creators see ROI within their first week.</p>
       <a href="https://flashflowai.com/upgrade" class="btn">See Creator Pro Plans</a>
@@ -46,7 +46,7 @@ export const upgradeNudgeEmails = [
           <td style="padding: 12px 8px; color: #0D9488; font-size: 14px; text-align: center;">All 7+</td>
         </tr>
         <tr style="border-bottom: 1px solid #3F3F46;">
-          <td style="padding: 12px 8px; color: #E4E4E7; font-size: 14px;">Content Packages</td>
+          <td style="padding: 12px 8px; color: #E4E4E7; font-size: 14px;">Content Planner</td>
           <td style="padding: 12px 8px; color: #A1A1AA; font-size: 14px; text-align: center;">&mdash;</td>
           <td style="padding: 12px 8px; color: #0D9488; font-size: 14px; text-align: center;">&#10003;</td>
         </tr>

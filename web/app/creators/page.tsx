@@ -100,7 +100,7 @@ export default function CreatorsPage() {
             </p>
             <div className="grid sm:grid-cols-2 gap-6">
               {[
-                { title: 'Content Packages', desc: 'Get 5 daily scripts tailored to your products. One bundle, one filming session, a week of content.' },
+                { title: 'Content Planner', desc: 'Get 5 daily scripts tailored to your products. One batch, one filming session, a week of content.' },
                 { title: 'Winners Bank', desc: 'Save hooks that performed well. FlashFlow learns what works for your niche and products.' },
                 { title: 'Script of the Day', desc: 'A trending, ready-to-film script drops in your dashboard every morning.' },
                 { title: 'Video Editing', desc: 'Need editing help? Our team edits your raw footage into scroll-stopping content.' },

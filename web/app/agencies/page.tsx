@@ -53,7 +53,7 @@ export default function AgenciesPage() {
             {[
               { title: 'Brand Workspaces', desc: 'Each brand has its own product catalog, tone of voice settings, and content history. Switch between brands in one click.' },
               { title: 'Team Pipeline', desc: 'Script → Review → Film → Edit → Post. Track every piece of content across every brand from one dashboard.' },
-              { title: 'Bulk Generation', desc: 'Generate scripts for all your brands at once. Content Packages deliver 5 scripts per brand daily.' },
+              { title: 'Bulk Generation', desc: 'Generate scripts for all your brands at once. The Content Planner delivers 5 scripts per brand daily.' },
             ].map((f) => (
               <div key={f.title} className="bg-zinc-900/60 border border-white/10 rounded-2xl p-6">
                 <h3 className="text-lg font-semibold text-zinc-100 mb-2">{f.title}</h3>

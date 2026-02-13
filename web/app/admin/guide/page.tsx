@@ -283,7 +283,7 @@ const sections: GuideSection[] = [
           <h4 className="text-white font-semibold mb-2">Power User Tips</h4>
           <ul className="text-zinc-400 space-y-1">
             <li>• <strong className="text-zinc-200">Bulk Operations:</strong> Select multiple items with checkboxes for batch actions</li>
-            <li>• <strong className="text-zinc-200">Content Packages:</strong> Generate 20 scripts at once with auto-product selection</li>
+            <li>• <strong className="text-zinc-200">Content Planner:</strong> Generate 20 scripts at once with auto-product selection</li>
             <li>• <strong className="text-zinc-200">Dark/Light Mode:</strong> Toggle in the header</li>
             <li>• <strong className="text-zinc-200">Quick Search:</strong> Cmd+K searches everything — products, scripts, pages</li>
           </ul>

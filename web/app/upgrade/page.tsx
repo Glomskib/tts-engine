@@ -28,7 +28,7 @@ const SAAS_FEATURES = [
   { name: 'Creator Personas', values: ['3', '5', 'All 7+', 'All', 'All'] },
   { name: 'Products', values: ['3', '10', '50', 'Unlimited', 'Unlimited'] },
   { name: 'Brands', values: ['1', '1', '3', '5', 'Unlimited'] },
-  { name: 'Content Packages', values: [false, false, true, true, true] },
+  { name: 'Content Planner', values: [false, false, true, true, true] },
   { name: 'Script of the Day', values: [false, true, true, true, true] },
   { name: 'Creator Invite Links', values: [false, false, false, true, true] },
   { name: 'Content Approval', values: [false, false, false, true, true] },

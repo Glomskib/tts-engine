@@ -13,7 +13,7 @@ const COMPARISON_FEATURES = [
   { name: 'Creator personas', values: ['3', '5', 'All 7+', 'All', 'All'] },
   { name: 'Products', values: ['3', '10', '50', 'Unlimited', 'Unlimited'] },
   { name: 'Brands', values: ['1', '1', '3', '5', 'Unlimited'] },
-  { name: 'Content Packages', values: [false, false, true, true, true] },
+  { name: 'Content Planner', values: [false, false, true, true, true] },
   { name: 'Script of the Day', values: [false, true, true, true, true] },
   { name: 'Creator invite links', values: [false, false, false, true, true] },
   { name: 'Content approval', values: [false, false, false, true, true] },
@@ -37,8 +37,8 @@ const FAQS = [
     answer: 'Yes! Upgrade instantly and get immediate access to new features. Downgrade at any time and changes take effect at your next billing date. No long-term contracts.',
   },
   {
-    question: 'What are Content Packages?',
-    answer: 'Content Packages bundle your daily scripts, hooks, captions, and hashtags into a single download. Great for batch-creating a week of content at once.',
+    question: 'What is the Content Planner?',
+    answer: 'The Content Planner bundles your daily scripts, hooks, captions, and hashtags into a single view. Great for batch-creating a week of content at once.',
   },
   {
     question: 'How does the affiliate program work?',

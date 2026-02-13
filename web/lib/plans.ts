@@ -90,7 +90,7 @@ export const PLANS = {
       '25 AI video edits',
       'All 7+ creator personas',
       '50 products',
-      'Content Packages (daily bundles)',
+      'Content Planner (daily bundles)',
       'Script of the Day',
       'Up to 3 brands',
       'Affiliate program (earn cash)',

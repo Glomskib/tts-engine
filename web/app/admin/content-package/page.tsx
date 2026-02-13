@@ -195,7 +195,7 @@ export default function ContentPackagePage() {
       }
     } catch (err) {
       console.error('Failed to fetch package:', err);
-      showError('Failed to load content package');
+      showError('Failed to load content planner');
       setPkg(null);
     } finally {
       setLoading(false);
@@ -327,7 +327,7 @@ export default function ContentPackagePage() {
 
     const keptItems = pkg.items.filter(i => i.kept && !i.added_to_pipeline);
     if (keptItems.length === 0) {
-      showError('No saved items to add');
+      showError('No selected items to add');
       return;
     }
 
@@ -406,12 +406,12 @@ export default function ContentPackagePage() {
 
   return (
     <AdminPageLayout
-      title="Content Package"
+      title="Content Planner"
       subtitle="AI-generated daily content batches for your pipeline"
       maxWidth="2xl"
       breadcrumbs={[
         { label: 'Dashboard', href: '/admin' },
-        { label: 'Content Package' },
+        { label: 'Content Planner' },
       ]}
       headerActions={
         <div className="flex items-center gap-2">
@@ -451,7 +451,7 @@ export default function ContentPackagePage() {
         <AdminCard>
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 text-violet-400 animate-spin mr-3" />
-            <span className="text-zinc-400 text-sm">Loading content package...</span>
+            <span className="text-zinc-400 text-sm">Loading content planner...</span>
           </div>
         </AdminCard>
       )}
@@ -463,9 +463,9 @@ export default function ContentPackagePage() {
             <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
               <Package className="w-8 h-8 text-violet-400" />
             </div>
-            <h3 className="text-lg font-semibold text-zinc-100 mb-2">No Content Package Yet</h3>
+            <h3 className="text-lg font-semibold text-zinc-100 mb-2">No Content Plan Yet</h3>
             <p className="text-sm text-zinc-500 mb-6 max-w-md mx-auto">
-              Generate your first daily content package. The AI will analyze your products, trending hooks,
+              Generate your first daily content plan. The AI will analyze your products, trending hooks,
               and winning patterns to create a batch of content ideas scored by potential.
             </p>
             <AdminButton
@@ -542,7 +542,7 @@ export default function ContentPackagePage() {
               </div>
               <div className="px-4 py-3 rounded-xl border bg-emerald-500/10 border-emerald-500/20">
                 <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
-                  Saved
+                  Selected
                 </div>
                 <div className="text-xl font-semibold text-emerald-400">{stats.kept}</div>
               </div>
@@ -567,7 +567,7 @@ export default function ContentPackagePage() {
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-violet-400" />
                 <span className="text-sm text-zinc-200">
-                  <span className="font-semibold text-violet-400">{keptNotAdded}</span> saved item{keptNotAdded !== 1 ? 's' : ''} ready to add
+                  <span className="font-semibold text-violet-400">{keptNotAdded}</span> selected item{keptNotAdded !== 1 ? 's' : ''} ready to add
                 </span>
               </div>
               <AdminButton
@@ -584,7 +584,7 @@ export default function ContentPackagePage() {
                 ) : (
                   <>
                     <ArrowRight className="w-4 h-4 mr-1.5" />
-                    Add All Saved to Pipeline
+                    Add All Selected to Pipeline
                   </>
                 )}
               </AdminButton>
@@ -662,7 +662,7 @@ export default function ContentPackagePage() {
                   className="appearance-none bg-zinc-800 text-zinc-300 text-xs font-medium pl-2.5 pr-7 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                 >
                   <option value="all">All Status</option>
-                  <option value="kept">Saved Only</option>
+                  <option value="kept">Selected Only</option>
                   <option value="discarded">Discarded</option>
                 </select>
                 <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -820,12 +820,12 @@ export default function ContentPackagePage() {
                         {item.kept ? (
                           <>
                             <Check className="w-3.5 h-3.5" />
-                            Saved
+                            Selected
                           </>
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
-                            Save
+                            Select
                           </>
                         )}
                       </button>

@@ -39,8 +39,8 @@ const EVENT_LABELS: Record<string, { label: string; description: string }> = {
     description: 'Notifies when a VA submits a video for review',
   },
   content_package_ready: {
-    label: 'Content Package Ready',
-    description: 'Alerts when a daily content package has been generated',
+    label: 'Content Planner Ready',
+    description: 'Alerts when a daily content plan has been generated',
   },
   daily_summary: {
     label: 'Daily Summary',

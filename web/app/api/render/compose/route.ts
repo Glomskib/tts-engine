@@ -44,12 +44,42 @@ function buildTextCards(
   }));
 }
 
-function textCardHtml(text: string): string {
-  return `<div style="display:flex;justify-content:center;align-items:center;height:100%;padding:0 108px"><span style="font-family:Montserrat;font-weight:700;font-size:52px;color:#fff;text-align:center;line-height:1.3;background:rgba(0,0,0,0.55);border-radius:16px;padding:16px 32px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</span></div>`;
+// Shotstack HTML assets use HTML4 / CSS 2.1 only.
+// No rgba(), border-radius, flexbox, or overflow-wrap.
+// Use the `css` property on the asset instead of inline styles.
+
+const TEXT_CARD_CSS = `
+p { font-family: Montserrat; font-weight: 700; font-size: 52px;
+    color: #ffffff; text-align: center; line-height: 1.3;
+    padding: 16px 32px; margin: 0; }
+`.trim();
+
+const CTA_CSS = `
+p { font-family: Montserrat; font-weight: 700; font-size: 56px;
+    color: #ffffff; text-align: center; line-height: 1.3;
+    padding: 20px 40px; margin: 0; }
+`.trim();
+
+function textCardAsset(text: string) {
+  return {
+    type: "html" as const,
+    html: `<p>${escapeHtml(text)}</p>`,
+    css: TEXT_CARD_CSS,
+    width: 800,
+    height: 120,
+    background: "#000000",
+  };
 }
 
-function ctaHtml(text: string): string {
-  return `<div style="display:flex;justify-content:center;align-items:center;height:100%;padding:0 108px"><span style="font-family:Montserrat;font-weight:700;font-size:56px;color:#fff;text-align:center;line-height:1.3;background:rgba(0,0,0,0.55);border-radius:16px;padding:20px 40px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</span></div>`;
+function ctaAsset(text: string) {
+  return {
+    type: "html" as const,
+    html: `<p>${escapeHtml(text)}</p>`,
+    css: CTA_CSS,
+    width: 800,
+    height: 140,
+    background: "#000000",
+  };
 }
 
 export async function POST(request: Request) {
@@ -111,15 +141,11 @@ export async function POST(request: Request) {
     tracks.push({
       clips: [
         {
-          asset: {
-            type: "html",
-            html: ctaHtml(cta),
-            width: 1080,
-            height: 400,
-          },
+          asset: ctaAsset(cta),
           start: Math.max(0, duration - ctaLength),
           length: Math.min(ctaLength, duration),
           position: "center",
+          opacity: 0.85,
           transition: { in: "fade", out: "fade" },
         },
       ],
@@ -131,16 +157,12 @@ export async function POST(request: Request) {
     const cards = buildTextCards(onScreenText, duration, cta ? ctaLength : 0);
     tracks.push({
       clips: cards.map((card) => ({
-        asset: {
-          type: "html",
-          html: textCardHtml(card.text),
-          width: 1080,
-          height: 300,
-        },
+        asset: textCardAsset(card.text),
         start: card.start,
         length: card.length,
         position: "bottom",
-        offset: { y: 0.18 },
+        offset: { y: 0.15 },
+        opacity: 0.85,
         transition: { in: "fade", out: "fade" },
       })),
     });

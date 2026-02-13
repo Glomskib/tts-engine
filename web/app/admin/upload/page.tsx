@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -40,7 +40,19 @@ function titleFromFilename(filename: string): string {
     .trim();
 }
 
-export default function UploadVideoPage() {
+export default function UploadVideoPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-zinc-400 animate-spin" />
+      </div>
+    }>
+      <UploadVideoPage />
+    </Suspense>
+  );
+}
+
+function UploadVideoPage() {
   const searchParams = useSearchParams();
   const editVideoId = searchParams.get("video_id");
   const isEditMode = Boolean(editVideoId);

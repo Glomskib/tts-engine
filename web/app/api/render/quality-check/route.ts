@@ -44,25 +44,31 @@ export async function runQualityCheck(
 ): Promise<QualityScore | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.error("[quality-check] ANTHROPIC_API_KEY not configured");
-    return null;
+    throw new Error("ANTHROPIC_API_KEY not configured");
   }
 
   // Download the video
   const videoResp = await fetch(finalVideoUrl);
   if (!videoResp.ok) {
-    console.error(`[quality-check] Failed to download video: ${videoResp.status}`);
-    return null;
+    throw new Error(`Failed to download video: HTTP ${videoResp.status} from ${finalVideoUrl.slice(0, 80)}`);
   }
 
   const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+  if (videoBuffer.length < 1000) {
+    throw new Error(`Video too small (${videoBuffer.length} bytes) — likely not a valid MP4`);
+  }
 
   // Extract frames using ffmpeg via child_process
   // We grab 3 frames: 1s, 4s, 8s — to check start, middle, end
-  const frames = await extractFrames(videoBuffer);
+  let frames: string[];
+  try {
+    frames = await extractFrames(videoBuffer);
+  } catch (err) {
+    throw new Error(`Frame extraction failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   if (!frames.length) {
-    console.error("[quality-check] No frames extracted");
-    return null;
+    throw new Error("No frames extracted — ffmpeg may not be available or video is invalid");
   }
 
   // Score each frame with Claude Vision, then average
@@ -81,8 +87,7 @@ export async function runQualityCheck(
   }
 
   if (!frameScores.length) {
-    console.error("[quality-check] No frames scored successfully");
-    return null;
+    throw new Error(`No frames scored — ${frames.length} frames extracted but Vision API failed on all`);
   }
 
   // Average across all scored frames
@@ -297,12 +302,22 @@ export async function POST(request: Request) {
   }
 
   // Run quality check
-  const score = await runQualityCheck(body.videoId, video.final_video_url);
-
-  if (!score) {
+  let score: QualityScore;
+  try {
+    const result = await runQualityCheck(body.videoId, video.final_video_url);
+    if (!result) {
+      return createApiErrorResponse(
+        "INTERNAL",
+        "Quality check returned null unexpectedly",
+        500,
+        correlationId
+      );
+    }
+    score = result;
+  } catch (err) {
     return createApiErrorResponse(
       "INTERNAL",
-      "Quality check failed — could not score video",
+      `Quality check failed: ${err instanceof Error ? err.message : String(err)}`,
       500,
       correlationId
     );

@@ -66,8 +66,13 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
           .update({ final_video_url: finalUrl })
           .eq("id", video.id);
 
-        // Run AI quality gate
-        const qualityScore = await runQualityCheck(video.id, finalUrl);
+        // Run AI quality gate (null if check fails — pass through to review)
+        let qualityScore: Awaited<ReturnType<typeof runQualityCheck>> = null;
+        try {
+          qualityScore = await runQualityCheck(video.id, finalUrl);
+        } catch (qcErr) {
+          console.warn(`[check-renders] Quality check failed for ${video.id}, passing through:`, qcErr);
+        }
         const productLabel = await getVideoProductLabel(video.id);
 
         if (qualityScore && !qualityScore.pass) {

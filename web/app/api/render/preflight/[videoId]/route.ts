@@ -155,15 +155,19 @@ export async function runPreflight(videoId: string): Promise<PreflightResult> {
     const skitData = skit.skit_data as {
       beats?: Array<{
         action?: string;
+        dialogue?: string;
         on_screen_text?: string;
       }>;
     } | null;
 
     const beats = skitData?.beats || [];
 
-    // 3. Script text check — build full script from beat actions
-    const allActions = beats.map((b) => b.action || "").filter(Boolean);
-    const scriptText = allActions.join(" ");
+    // 3. Script text check — build full script from beat dialogue (spoken words)
+    //    Falls back to action text for older skits without dialogue fields
+    const allDialogue = beats.map((b) => b.dialogue || "").filter(Boolean);
+    const hasDialogue = allDialogue.some((d) => d.trim().length > 0);
+    const scriptSource = hasDialogue ? allDialogue : beats.map((b) => b.action || "").filter(Boolean);
+    const scriptText = scriptSource.join(" ");
     const wordCount = scriptText ? scriptText.trim().split(/\s+/).length : 0;
 
     if (wordCount > 0) {
@@ -176,8 +180,11 @@ export async function runPreflight(videoId: string): Promise<PreflightResult> {
     }
 
     // 4. Word limit check
-    const genConfig = skit.generation_config as { duration?: number } | null;
-    const duration = genConfig?.duration || 10;
+    const genConfig = skit.generation_config as { duration?: number; target_duration?: string } | null;
+    let duration = genConfig?.duration || 10;
+    if (typeof genConfig?.target_duration === "string") {
+      duration = { quick: 10, standard: 15, extended: 30, long: 30 }[genConfig.target_duration] || 10;
+    }
     const wordLimit = SCRIPT_WORD_LIMITS[duration] || SCRIPT_WORD_LIMITS[10];
     if (wordCount > 0) {
       checks.scriptUnderLimit = {

@@ -324,8 +324,13 @@ export async function POST(
     }
     const wordLimit = SCRIPT_WORD_LIMITS[duration] || 50;
 
+    // Count dialogue words (spoken script) — falls back to action for older skits
+    const hasDialogue = beats.some((b) => b.dialogue?.trim());
     const currentWords = beats.reduce(
-      (sum, b) => sum + (b.action ? b.action.trim().split(/\s+/).length : 0),
+      (sum, b) => {
+        const text = hasDialogue ? (b.dialogue || "") : (b.action || "");
+        return sum + (text.trim() ? text.trim().split(/\s+/).length : 0);
+      },
       0
     );
 

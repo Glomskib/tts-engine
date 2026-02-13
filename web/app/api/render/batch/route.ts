@@ -71,7 +71,7 @@ async function executeRunwayRequest(
   if (req.videoId && result.id) {
     await supabaseAdmin
       .from("videos")
-      .update({ render_prompt: req.prompt, render_task_id: String(result.id), render_provider: "runway" })
+      .update({ render_prompt: req.prompt, render_task_id: String(result.id), render_provider: "runway", recording_status: "AI_RENDERING" })
       .eq("id", req.videoId);
   }
 

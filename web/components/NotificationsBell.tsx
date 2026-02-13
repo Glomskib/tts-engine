@@ -51,8 +51,9 @@ export function NotificationsBell() {
       const response = await fetch('/api/notifications?limit=10');
       if (response.ok) {
         const data = await response.json();
-        setNotifications(data.data || []);
-        setUnreadCount(data.meta?.unread_count || 0);
+        const payload = data.data || {};
+        setNotifications(payload.notifications || payload || []);
+        setUnreadCount(payload.unread_count ?? data.meta?.unread_count ?? 0);
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error);

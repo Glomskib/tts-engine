@@ -20,6 +20,7 @@ import { AriaLiveProvider } from '@/components/ui/AriaLive';
 import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
+const NotificationsBell = dynamic(() => import('@/components/NotificationsBell'), { ssr: false });
 import { LowCreditBanner } from '@/components/LowCreditBanner';
 import { CreditMilestoneBanner, ReferralPromptBanner } from '@/components/UpgradePrompts';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -449,6 +450,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 </button>
                 <ThemeToggle />
                 <ClawbotStatus compact />
+                <NotificationsBell />
                 <CreditsBadge />
 
                 {/* User menu */}

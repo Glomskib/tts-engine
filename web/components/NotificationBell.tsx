@@ -54,8 +54,14 @@ export default function NotificationBell() {
       const res = await fetch('/api/notifications?limit=10');
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data.data || []);
-        setUnreadCount(data.unreadCount || 0);
+        const payload = data.data || {};
+        // API returns { data: { notifications: [...], unread_count: N } }
+        const items = payload.notifications || [];
+        setNotifications(items.map((n: Record<string, unknown>) => ({
+          ...n,
+          payload: n.payload || { title: n.title as string, message: n.message as string, link: n.action_url as string },
+        })));
+        setUnreadCount(payload.unread_count ?? 0);
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
@@ -66,10 +72,10 @@ export default function NotificationBell() {
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`/api/notifications/${id}`, {
-        method: 'PATCH',
+      await fetch('/api/notifications/mark-read', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_read: true }),
+        body: JSON.stringify({ ids: [id] }),
       });
 
       setNotifications(prev =>
@@ -83,7 +89,11 @@ export default function NotificationBell() {
 
   const markAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+      await fetch('/api/notifications/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {

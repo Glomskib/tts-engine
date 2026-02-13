@@ -11,7 +11,7 @@ import type { Winner, WinnerAIAnalysis } from './types';
  * Build the prompt for AI analysis of a winner
  */
 export function buildAnalysisPrompt(winner: Winner): string {
-  return `Analyze this TikTok video that performed well and explain WHY it worked.
+  return `Analyze this short-form video that performed well and explain WHY it worked.
 
 VIDEO DETAILS:
 - Hook: "${winner.hook || 'Not provided'}"

@@ -114,7 +114,7 @@ export function buildFullPrompt(context: ContentContext): BuiltPrompt {
   const humorLevelInfo = getHumorLevel(context.humorLevel || 'light');
 
   // ===== SYSTEM CONTEXT =====
-  parts.push(`You are an expert short-form video scriptwriter specializing in viral content for TikTok, Instagram Reels, and YouTube Shorts. You understand audience psychology, hook writing, and conversion-focused storytelling.`);
+  parts.push(`You are an expert short-form video scriptwriter specializing in viral content for Instagram Reels, YouTube Shorts, and other social platforms. You understand audience psychology, hook writing, and conversion-focused storytelling.`);
   parts.push('');
 
   // ===== CONTENT TYPE CONTEXT =====

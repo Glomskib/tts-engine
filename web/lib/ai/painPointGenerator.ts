@@ -29,7 +29,7 @@ export function buildPainPointPrompt(
   // Combine all product context into one block — notes often has the real detail
   const fullDescription = [description, notes].filter(Boolean).join('\n\n');
 
-  return `You are a TikTok content strategist who deeply understands customer psychology.
+  return `You are a short-form video content strategist who deeply understands customer psychology.
 
 PRODUCT: ${productName}
 BRAND: ${brandName}
@@ -44,9 +44,9 @@ CRITICAL: Your pain points MUST directly relate to what THIS SPECIFIC product so
 
 RULES:
 1. Pain points must DIRECTLY relate to what this product solves
-2. Use emotional language that resonates on TikTok
+2. Use emotional language that resonates on social media
 3. Be specific enough that customers think "that's exactly me!"
-4. Each pain point could be the opening hook of a viral TikTok
+4. Each pain point could be the opening hook of a viral short-form video
 5. Write as a REAL PERSON would describe their problem, not marketing copy
 6. Mix of emotional, practical, social, and financial categories
 7. At least 2 should be "severe" intensity
@@ -71,7 +71,7 @@ Output valid JSON with this exact structure:
       "point": "Specific pain point in customer's voice (10-15 words)",
       "category": "emotional|practical|social|financial",
       "intensity": "mild|moderate|severe",
-      "hook_angle": "A TikTok opening line that calls out this pain point (scroll-stopping)"
+      "hook_angle": "A short-form video opening line that calls out this pain point (scroll-stopping)"
     }
   ],
   "product_category_insights": "Brief insight about this product category",

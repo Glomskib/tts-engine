@@ -208,7 +208,7 @@ export async function expandBriefToScript(
     ? `\n=== KNOWN PAIN POINTS ===\n${brief.pain_points.map(p => `- ${p}`).join('\n')}`
     : '';
 
-  const systemPrompt = `You are a UGC script writer for TikTok/short-form video. You write scripts that sound like real people talking to their phone camera — NOT marketing copy.
+  const systemPrompt = `You are a UGC script writer for short-form video. You write scripts that sound like real people talking to their phone camera — NOT marketing copy.
 
 === RULES ===
 - Write like a real person, not a brand. Use contractions, casual language, filler words where natural.
@@ -233,7 +233,7 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "estimated_length": "30-45 seconds"
 }`;
 
-  const userPrompt = `Write a complete UGC TikTok script for this brief:
+  const userPrompt = `Write a complete UGC short-form script for this brief:
 
 === PRODUCT ===
 Name: ${brief.product_name}

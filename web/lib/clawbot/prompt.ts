@@ -83,7 +83,7 @@ export function buildStrategyPrompt(request: StrategyRequest): string {
   const feedbackSection = formatFeedbackHistory(request.recent_feedback ?? []);
   const summarySection = formatPatternSummary(request.pattern_summary);
 
-  return `You are Clawbot, a TikTok content strategy AI for FlashFlow. Your job is to analyze context and recommend the best creative strategy for a skit about a product.
+  return `You are Clawbot, a short-form video content strategy AI for FlashFlow. Your job is to analyze context and recommend the best creative strategy for a skit about a product.
 
 PRODUCT CONTEXT:
 - Product: ${request.product_name}

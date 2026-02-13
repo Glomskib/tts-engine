@@ -5,7 +5,7 @@
 // appropriately structured scripts while keeping the same JSON schema.
 
 export interface OutputFormatConfig {
-  /** Replaces the hardcoded "elite TikTok comedy writer" system identity */
+  /** Replaces the hardcoded "elite short-form comedy writer" system identity */
   systemIdentity: string;
   /** Replaces the CREATIVE_PRINCIPLES constant */
   creativePrinciples: string;
@@ -53,7 +53,7 @@ SPEAK TO THEIR PAIN:
 export const CTA_INSTRUCTIONS = `
 ## CALL TO ACTION RULES
 
-For TikTok Shop videos, CTAs must be ACTION STATEMENTS, not suggestions.
+For social commerce videos, CTAs must be ACTION STATEMENTS, not suggestions.
 
 NEVER USE:
 - "Link in bio"
@@ -86,7 +86,7 @@ GOOD B-Roll:
 - "Close-up of hand picking up the bottle from bathroom counter"
 - "POV: Opening medicine cabinet, seeing empty energy drink cans"
 - "Time-lapse of person's face going from tired (rubbing eyes) to alert"
-- "Screen recording of adding to cart on TikTok Shop"
+- "Screen recording of adding to cart on social commerce platform"
 - "Split screen: Left side dragging through day, right side energized"
 
 Each B-Roll suggestion should be:
@@ -101,7 +101,7 @@ Each B-Roll suggestion should be:
 
 const SKIT_CONFIG: OutputFormatConfig = {
   systemIdentity:
-    `You are an elite TikTok comedy writer who creates viral product skits. Your content has that "wait I need to show this to everyone" energy.`,
+    `You are an elite short-form comedy writer who creates viral product skits. Your content has that "wait I need to show this to everyone" energy.`,
 
   creativePrinciples: `
 CREATIVE PRINCIPLES - MAKE CONTENT THAT SLAPS:
@@ -570,7 +570,7 @@ CHARACTER FORMAT: SINGLE EXPERT / EDUCATOR
 
 const SLIDESHOW_STORY_CONFIG: OutputFormatConfig = {
   systemIdentity:
-    `You are a visual storytelling specialist who creates 30-60 second narrative-driven TikTok scripts. You craft emotional arcs with scene transitions, building from setup to tension to satisfying resolution — all while naturally weaving in the product.`,
+    `You are a visual storytelling specialist who creates 30-60 second narrative-driven short-form scripts. You craft emotional arcs with scene transitions, building from setup to tension to satisfying resolution — all while naturally weaving in the product.`,
 
   creativePrinciples: `
 SLIDESHOW STORY scripts are 30-60 seconds with 5-8 visual scenes.
@@ -663,7 +663,7 @@ CHARACTER FORMAT: NARRATOR / PROTAGONIST
 
 const UGC_SHORT_CONFIG: OutputFormatConfig = {
   systemIdentity:
-    `You are a TikTok UGC director who creates 7-9 second videos where the VISUALS do all the selling. You write almost nothing — 1 sentence spoken, max. Your real skill is designing the scene: what the person does, their expressions, what's happening around them, and the tiny visual details that bait comments and stop the scroll. Less talking, more showing.`,
+    `You are a short-form UGC director who creates 7-9 second videos where the VISUALS do all the selling. You write almost nothing — 1 sentence spoken, max. Your real skill is designing the scene: what the person does, their expressions, what's happening around them, and the tiny visual details that bait comments and stop the scroll. Less talking, more showing.`,
 
   creativePrinciples: `
 CRITICAL: UGC_SHORT SCRIPTS ARE 7-9 SECONDS. THE PERSON BARELY SPEAKS.
@@ -786,7 +786,7 @@ CHARACTER FORMAT: SINGLE PERSON — BARELY SPEAKING
 
 const BOF_CONFIG: OutputFormatConfig = {
   systemIdentity:
-    `You are a TikTok urgency specialist who creates ULTRA-SHORT 10-15 second conversion scripts. You write for viewers who already know the product — pure urgency, scarcity, FOMO. No stories, no education, just "BUY NOW" energy delivered authentically.`,
+    `You are a short-form urgency specialist who creates ULTRA-SHORT 10-15 second conversion scripts. You write for viewers who already know the product — pure urgency, scarcity, FOMO. No stories, no education, just "BUY NOW" energy delivered authentically.`,
 
   creativePrinciples: `
 CRITICAL: BOF SCRIPTS ARE 10-15 SECONDS MAX. THIS IS NON-NEGOTIABLE.

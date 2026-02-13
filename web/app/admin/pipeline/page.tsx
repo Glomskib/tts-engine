@@ -411,18 +411,15 @@ export default function AdminPipelinePage() {
     }
     const esc = (v: string | null | undefined) => `"${(v || '').replace(/"/g, '""')}"`;
     const csv = [
-      ['ID', 'Video Code', 'Status', 'Recording Status', 'Brand', 'Product', 'Claimed By', 'SLA Status', 'Priority', 'Created At'].join(','),
+      ['Video Title', 'Product', 'Brand', 'Status', 'Assigned To', 'Created', 'Last Updated'].join(','),
       ...videos.map(v => [
-        v.id,
-        esc(v.video_code),
-        esc(v.status),
-        esc(v.recording_status),
-        esc(v.brand_name),
+        esc(v.video_code || v.id.slice(0, 12)),
         esc(v.product_name),
-        esc(v.claimed_by),
-        esc(v.sla_status),
-        v.priority_score,
+        esc(v.brand_name),
+        esc((v.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')),
+        esc(v.claimed_by ? (userMap[v.claimed_by] || v.claimed_by.slice(0, 8)) : ''),
         v.created_at?.slice(0, 10) || '',
+        v.last_status_changed_at?.slice(0, 10) || v.created_at?.slice(0, 10) || '',
       ].join(','))
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -906,14 +903,14 @@ export default function AdminPipelinePage() {
       const res = await fetch('/api/videos/release-stale', { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        setReleaseMessage(`Released ${data.released_count} stale claim(s)`);
+        setReleaseMessage(`Freed up ${data.released_count} inactive assignment(s)`);
         fetchData();
         fetchQueueVideos();
       } else {
         setReleaseMessage(`Error: ${data.message || 'Failed to release'}`);
       }
     } catch {
-      setReleaseMessage('Error: Failed to release stale claims');
+      setReleaseMessage('Error: Failed to free inactive assignments');
     } finally {
       setReleasing(false);
     }
@@ -926,14 +923,14 @@ export default function AdminPipelinePage() {
       const res = await fetch('/api/videos/reclaim-expired', { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        setReclaimMessage(`Reclaimed ${data.reclaimed_count} expired assignment(s)`);
+        setReclaimMessage(`Reassigned ${data.reclaimed_count} timed-out video(s)`);
         fetchData();
         fetchQueueVideos();
       } else {
         setReclaimMessage(`Error: ${data.error || 'Failed to reclaim'}`);
       }
     } catch {
-      setReclaimMessage('Error: Failed to reclaim expired assignments');
+      setReclaimMessage('Error: Failed to reassign timed-out videos');
     } finally {
       setReclaiming(false);
     }
@@ -1695,7 +1692,7 @@ export default function AdminPipelinePage() {
                         opacity: releasing ? 0.5 : 1,
                       }}
                     >
-                      {releasing ? 'Releasing...' : 'Release Stale Claims'}
+                      {releasing ? 'Freeing...' : 'Free Up Inactive Assignments'}
                     </button>
                     <button type="button"
                       onClick={() => { reclaimExpired(); setShowMaintenanceMenu(false); }}
@@ -1713,7 +1710,7 @@ export default function AdminPipelinePage() {
                         opacity: reclaiming ? 0.5 : 1,
                       }}
                     >
-                      {reclaiming ? 'Reclaiming...' : 'Reclaim Expired'}
+                      {reclaiming ? 'Reassigning...' : 'Reassign Timed-Out Videos'}
                     </button>
                   </div>
                 </>

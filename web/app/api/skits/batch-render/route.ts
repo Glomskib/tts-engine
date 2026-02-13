@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         .filter(Boolean)
         .join(' ');
 
-      const runwayPrompt = `TikTok UGC style 9:16 vertical video. Young person holding ${productName}, looking at camera. ${sceneDescriptions} Natural lighting, casual setting, handheld camera feel.`;
+      const runwayPrompt = `Smartphone-shot casual UGC style 9:16 vertical video. Young person holding ${productName}, looking at camera. ${sceneDescriptions} Natural lighting, casual setting, handheld camera feel.`;
 
       // Step 6: Trigger Runway render
       let runwayResult: { id?: string };

@@ -71,6 +71,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/skit-library': 'Script Library',
       '/admin/pipeline': 'Production Board',
       '/admin/review': 'Video Review',
+      '/admin/calendar': 'Content Calendar',
       '/admin/posting-queue': 'Posting Queue',
       '/admin/winners': 'Winners Bank',
       '/admin/demographics': 'Customer Archetypes',

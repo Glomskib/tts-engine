@@ -239,6 +239,7 @@ export async function POST(
       } catch (renderErr) {
         // Runway failure should NOT fail the send-to-video operation
         console.error(`[${correlationId}] Runway auto-render failed (non-blocking):`, renderErr);
+        renderProvider = "runway_error:" + (renderErr instanceof Error ? renderErr.message : String(renderErr));
       }
     }
 
@@ -250,6 +251,7 @@ export async function POST(
         video_code: videoResult.data.video.video_code,
         render_task_id: renderTaskId,
         render_provider: renderProvider,
+        render_detected: isUgcShort ? "ugc_short" : null,
         message: isUgcShort && renderTaskId
           ? "Skit sent to video queue — Runway render triggered"
           : "Skit sent to video queue successfully",

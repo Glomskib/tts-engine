@@ -5,7 +5,8 @@
  * Flow:
  *   AI_RENDERING → poll Runway → SUCCEEDED → re-host video → generate TTS →
  *   submit Shotstack compose → update video with compose_render_id →
- *   (next cron tick checks Shotstack) → set final_video_url → READY_FOR_REVIEW
+ *   (next cron tick checks Shotstack) → set final_video_url →
+ *   quality check → READY_FOR_REVIEW or REJECTED
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -13,6 +14,7 @@ import { getTaskStatus } from "@/lib/runway";
 import { getRenderStatus } from "@/lib/shotstack";
 import { textToSpeech } from "@/lib/elevenlabs";
 import { submitCompose } from "@/lib/compose";
+import { runQualityCheck } from "@/app/api/render/quality-check/route";
 import { sendTelegramNotification } from "@/lib/telegram";
 
 export const runtime = "nodejs";
@@ -57,18 +59,61 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
 
       if (renderStatus === "done") {
         const finalUrl = status.response?.url || status.url;
+
+        // Save final URL first (quality check needs it)
         await supabaseAdmin
           .from("videos")
-          .update({
-            final_video_url: finalUrl,
-            recording_status: "READY_FOR_REVIEW",
-          })
+          .update({ final_video_url: finalUrl })
           .eq("id", video.id);
 
+        // Run AI quality gate
+        const qualityScore = await runQualityCheck(video.id, finalUrl);
         const productLabel = await getVideoProductLabel(video.id);
-        sendTelegramNotification(`🎬 Video ready: ${productLabel}`);
 
-        results.push({ id: video.id, phase: "compose", status: "done", finalUrl });
+        if (qualityScore && !qualityScore.pass) {
+          // Auto-reject: below quality threshold
+          await supabaseAdmin
+            .from("videos")
+            .update({
+              recording_status: "REJECTED",
+              quality_score: qualityScore,
+              recording_notes: `Auto-rejected by quality check: avg ${qualityScore.avg}/10`,
+            })
+            .eq("id", video.id);
+
+          sendTelegramNotification(
+            `🚫 Auto-rejected: ${productLabel} — quality ${qualityScore.avg}/10`
+          );
+
+          results.push({
+            id: video.id,
+            phase: "compose",
+            status: "auto_rejected",
+            quality: qualityScore.avg,
+            finalUrl,
+          });
+        } else {
+          // Quality passed (or check unavailable — pass through)
+          await supabaseAdmin
+            .from("videos")
+            .update({
+              recording_status: "READY_FOR_REVIEW",
+              ...(qualityScore ? { quality_score: qualityScore } : {}),
+            })
+            .eq("id", video.id);
+
+          sendTelegramNotification(
+            `🎬 Video ready: ${productLabel}${qualityScore ? ` (quality: ${qualityScore.avg}/10)` : ""}`
+          );
+
+          results.push({
+            id: video.id,
+            phase: "compose",
+            status: "done",
+            quality: qualityScore?.avg ?? null,
+            finalUrl,
+          });
+        }
       } else if (renderStatus === "failed") {
         const composeError = status.response?.error || "unknown";
         await supabaseAdmin

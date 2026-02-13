@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
+import AdminPageLayout, { StatCard } from '../components/AdminPageLayout';
+import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ReviewVideo {
   id: string;
@@ -10,38 +11,25 @@ interface ReviewVideo {
   recording_status: string | null;
   final_video_url?: string | null;
   script_locked_text: string | null;
-  brand_name?: string;
-  product_name?: string;
-  product_sku?: string;
+  brand_name?: string | null;
+  product_name?: string | null;
   product_category?: string | null;
-  account_name?: string;
   last_status_changed_at: string | null;
-  concept_id: string | null;
+  created_at: string;
 }
 
-interface VideoDetails {
-  brief: {
-    angle: string | null;
-    on_screen_text_hook: string | null;
-    on_screen_text_mid: string[] | null;
-    on_screen_text_cta: string | null;
-    visual_hook: string | null;
-    hook_options: string[] | null;
-  } | null;
-}
-
-const REJECT_TAGS = [
+const REJECT_REASONS = [
   { code: 'bad_visuals', label: 'Bad Visuals' },
   { code: 'wrong_pacing', label: 'Wrong Pacing' },
   { code: 'audio_issues', label: 'Audio Issues' },
   { code: 'off_brand', label: 'Off Brand' },
-  { code: 'wrong_angle', label: 'Wrong Angle' },
+  { code: 'wrong_product', label: 'Wrong Product' },
+  { code: 'text_overlay', label: 'Text Overlay Issues' },
   { code: 'compliance', label: 'Compliance Issue' },
+  { code: 'other', label: 'Other' },
 ];
 
 export default function ReviewPage() {
-  const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
   const { showSuccess, showError } = useToast();
 
   const [videos, setVideos] = useState<ReviewVideo[]>([]);
@@ -52,14 +40,17 @@ export default function ReviewPage() {
 
   // Reject modal state
   const [rejectVideoId, setRejectVideoId] = useState<string | null>(null);
-  const [selectedRejectTag, setSelectedRejectTag] = useState<string | null>(null);
+  const [selectedRejectCode, setSelectedRejectCode] = useState<string | null>(null);
+  const [rejectNotes, setRejectNotes] = useState('');
 
-  // Details cache (concept brief data for on-screen text overlays)
-  const [detailsCache, setDetailsCache] = useState<Record<string, VideoDetails>>({});
+  // Approve notes state
+  const [showApproveNotes, setShowApproveNotes] = useState<Record<string, boolean>>({});
+  const [approveNotes, setApproveNotes] = useState<Record<string, string>>({});
 
   const fetchVideos = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/videos/queue?recording_status=READY_FOR_REVIEW&limit=50');
+      const res = await fetch('/api/videos/queue?recording_status=READY_FOR_REVIEW&claimed=any&limit=50');
       if (res.ok) {
         const data = await res.json();
         setVideos(data.data || []);
@@ -75,96 +66,83 @@ export default function ReviewPage() {
     fetchVideos();
   }, [fetchVideos]);
 
-  // Fetch details for each video (for on-screen text overlays)
-  useEffect(() => {
-    videos.forEach(async (video) => {
-      if (detailsCache[video.id]) return;
-      try {
-        const res = await fetch(`/api/videos/${video.id}/details`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok) {
-            setDetailsCache(prev => ({ ...prev, [video.id]: data }));
-          }
-        }
-      } catch {
-        // ignore
-      }
-    });
-  }, [videos, detailsCache]);
-
   const handleApprove = useCallback(async (videoId: string) => {
     setActionLoading(videoId);
     try {
-      const res = await fetch(`/api/videos/${videoId}`, {
-        method: 'PATCH',
+      const notes = approveNotes[videoId]?.trim() || undefined;
+      const res = await fetch(`/api/admin/videos/${videoId}/review`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'READY_TO_POST' }),
+        body: JSON.stringify({ action: 'approve', notes }),
       });
       if (res.ok) {
-        showSuccess('Video approved');
-        setVideos(prev => {
-          const next = prev.filter(v => v.id !== videoId);
-          // Auto-advance: clamp activeIndex to new list length
-          setActiveIndex(i => Math.min(i, Math.max(0, next.length - 1)));
+        showSuccess('Video approved — moved to posting queue');
+        setVideos((prev) => {
+          const next = prev.filter((v) => v.id !== videoId);
+          setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
           return next;
         });
       } else {
         const err = await res.json().catch(() => ({}));
-        showError(err.message || 'Failed to approve');
+        showError(err.error?.message || err.message || 'Failed to approve');
       }
     } catch {
       showError('Network error');
     } finally {
       setActionLoading(null);
     }
-  }, [showSuccess, showError]);
+  }, [approveNotes, showSuccess, showError]);
 
   const handleReject = async () => {
-    if (!rejectVideoId) return;
+    if (!rejectVideoId || !selectedRejectCode) return;
     setActionLoading(rejectVideoId);
     try {
-      const res = await fetch(`/api/videos/${rejectVideoId}`, {
-        method: 'PATCH',
+      const reasonLabel = REJECT_REASONS.find((r) => r.code === selectedRejectCode)?.label || selectedRejectCode;
+      const reason = selectedRejectCode === 'other' && rejectNotes.trim()
+        ? rejectNotes.trim()
+        : reasonLabel;
+
+      const res = await fetch(`/api/admin/videos/${rejectVideoId}/review`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          status: 'REJECTED',
-          reason_code: selectedRejectTag || 'unspecified',
-          reason_message: selectedRejectTag
-            ? REJECT_TAGS.find(t => t.code === selectedRejectTag)?.label
-            : 'Rejected without reason',
+          action: 'reject',
+          reason,
+          notes: rejectNotes.trim() || undefined,
         }),
       });
       if (res.ok) {
         showSuccess('Video rejected');
-        setVideos(prev => {
-          const next = prev.filter(v => v.id !== rejectVideoId);
-          setActiveIndex(i => Math.min(i, Math.max(0, next.length - 1)));
+        setVideos((prev) => {
+          const next = prev.filter((v) => v.id !== rejectVideoId);
+          setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
           return next;
         });
-        setRejectVideoId(null);
-        setSelectedRejectTag(null);
       } else {
         const err = await res.json().catch(() => ({}));
-        showError(err.message || 'Failed to reject');
+        showError(err.error?.message || err.message || 'Failed to reject');
       }
     } catch {
       showError('Network error');
     } finally {
       setActionLoading(null);
+      setRejectVideoId(null);
+      setSelectedRejectCode(null);
+      setRejectNotes('');
     }
   };
 
-  const getTimeAgo = (dateStr: string | null) => {
-    if (!dateStr) return '';
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours < 1) return 'just now';
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+  const getTimeAgo = (dateStr: string | null, fallback?: string) => {
+    const d = dateStr || fallback;
+    if (!d) return '';
+    const mins = Math.round((Date.now() - new Date(d).getTime()) / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   };
 
-  // Scroll active card into view when activeIndex changes
+  // Scroll active card into view
   useEffect(() => {
     const el = cardRefs.current[activeIndex];
     if (el) {
@@ -175,15 +153,14 @@ export default function ReviewPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't capture when reject modal is open (except Escape)
       if (rejectVideoId) {
         if (e.key === 'Escape') {
           setRejectVideoId(null);
-          setSelectedRejectTag(null);
+          setSelectedRejectCode(null);
+          setRejectNotes('');
         }
         return;
       }
-      // Don't capture when typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (videos.length === 0 || actionLoading) return;
 
@@ -201,20 +178,21 @@ export default function ReviewPage() {
           const video = videos[activeIndex];
           if (video) {
             setRejectVideoId(video.id);
-            setSelectedRejectTag(null);
+            setSelectedRejectCode(null);
+            setRejectNotes('');
           }
           break;
         }
         case 'ArrowUp':
         case 'ArrowLeft': {
           e.preventDefault();
-          setActiveIndex(i => Math.max(0, i - 1));
+          setActiveIndex((i) => Math.max(0, i - 1));
           break;
         }
         case 'ArrowDown':
         case 'ArrowRight': {
           e.preventDefault();
-          setActiveIndex(i => Math.min(videos.length - 1, i + 1));
+          setActiveIndex((i) => Math.min(videos.length - 1, i + 1));
           break;
         }
       }
@@ -224,429 +202,297 @@ export default function ReviewPage() {
   }, [videos, activeIndex, actionLoading, rejectVideoId, handleApprove]);
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '24px',
-      }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: colors.text, margin: 0 }}>
-            Video Review
-          </h1>
-          <p style={{ fontSize: '14px', color: colors.textMuted, margin: '4px 0 0' }}>
-            {videos.length} video{videos.length !== 1 ? 's' : ''} awaiting review
-            {videos.length > 0 && <span style={{ marginLeft: '8px', fontSize: '12px', opacity: 0.7 }}>• Reviewing {activeIndex + 1} of {videos.length}</span>}
-          </p>
-        </div>
+    <AdminPageLayout
+      title="Video Review"
+      subtitle={
+        videos.length > 0
+          ? `${videos.length} video${videos.length !== 1 ? 's' : ''} awaiting review`
+          : 'Approve or reject AI-generated videos'
+      }
+      headerActions={
         <button
-          type="button"
-          onClick={() => { setLoading(true); fetchVideos(); }}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: colors.surface,
-            color: colors.text,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: 500,
-          }}
+          onClick={() => fetchVideos()}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-800 text-zinc-100 border border-white/10 hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-50"
         >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
+      }
+    >
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <StatCard
+          label="Pending Review"
+          value={videos.length}
+          variant={videos.length > 0 ? 'warning' : 'default'}
+        />
+        {videos.length > 0 && (
+          <StatCard
+            label="Reviewing"
+            value={`${activeIndex + 1} of ${videos.length}`}
+            variant="default"
+          />
+        )}
       </div>
+
+      {/* Keyboard hints */}
+      {!loading && videos.length > 0 && (
+        <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded font-mono text-[11px]">A</kbd>{' '}
+            Approve
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded font-mono text-[11px]">R</kbd>{' '}
+            Reject
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded font-mono text-[11px]">
+              &uarr;&darr;
+            </kbd>{' '}
+            Navigate
+          </span>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
-        <div style={{
-          textAlign: 'center',
-          padding: '60px 20px',
-          color: colors.textMuted,
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            border: `3px solid ${colors.border}`,
-            borderTopColor: colors.accent,
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 12px',
-          }} />
-          Loading videos...
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+          <span className="ml-3 text-zinc-500">Loading videos...</span>
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Empty state */}
       {!loading && videos.length === 0 && (
-        <div style={{
-          textAlign: 'center',
-          padding: '80px 20px',
-          backgroundColor: colors.surface,
-          borderRadius: '12px',
-          border: `1px solid ${colors.border}`,
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>&#x2705;</div>
-          <div style={{ fontSize: '18px', fontWeight: 600, color: colors.text, marginBottom: '8px' }}>
-            All caught up
+        <div className="py-16 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-500/10 flex items-center justify-center">
+            <CheckCircle className="w-6 h-6 text-emerald-400" />
           </div>
-          <div style={{ fontSize: '14px', color: colors.textMuted }}>
-            No videos waiting for review right now.
-          </div>
+          <h3 className="text-lg font-medium text-zinc-100 mb-1">All caught up</h3>
+          <p className="text-sm text-zinc-500">No videos pending review right now.</p>
         </div>
       )}
 
-      {/* Keyboard Hints */}
-      {videos.length > 0 && (
-        <div style={{
-          display: 'flex',
-          gap: '16px',
-          marginBottom: '16px',
-          fontSize: '12px',
-          color: colors.textMuted,
-          flexWrap: 'wrap',
-        }}>
-          <span><kbd style={{ padding: '2px 6px', backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', border: `1px solid ${colors.border}` }}>A</kbd> Approve</span>
-          <span><kbd style={{ padding: '2px 6px', backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', border: `1px solid ${colors.border}` }}>R</kbd> Reject</span>
-          <span><kbd style={{ padding: '2px 6px', backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', border: `1px solid ${colors.border}` }}>↑↓</kbd> Navigate</span>
-        </div>
-      )}
+      {/* Video grid — 2 columns on desktop */}
+      {!loading && videos.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {videos.map((video, index) => {
+            const isActive = index === activeIndex;
+            const isActioning = actionLoading === video.id;
 
-      {/* Video Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {videos.map((video, index) => {
-          const details = detailsCache[video.id];
-          const videoUrl = video.final_video_url || '';
-          const isActioning = actionLoading === video.id;
-          const isActive = index === activeIndex;
-
-          return (
-            <div
-              key={video.id}
-              ref={el => { cardRefs.current[index] = el; }}
-              onClick={() => setActiveIndex(index)}
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: '12px',
-                border: isActive
-                  ? `2px solid ${isDark ? '#34d399' : '#059669'}`
-                  : `1px solid ${colors.border}`,
-                overflow: 'hidden',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-                boxShadow: isActive ? `0 0 0 3px ${isDark ? 'rgba(52,211,153,0.15)' : 'rgba(5,150,105,0.1)'}` : 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: videoUrl ? '400px 1fr' : '1fr',
-                gap: '0',
-              }}>
-                {/* Video Player */}
-                {videoUrl && (
-                  <div style={{
-                    backgroundColor: '#000',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '300px',
-                  }}>
+            return (
+              <div
+                key={video.id}
+                ref={(el) => {
+                  cardRefs.current[index] = el;
+                }}
+                onClick={() => setActiveIndex(index)}
+                className={`bg-zinc-900/50 rounded-xl overflow-hidden cursor-pointer transition-all ${
+                  isActive
+                    ? 'ring-2 ring-emerald-500/60 border border-emerald-500/30'
+                    : 'border border-white/10 hover:border-white/20'
+                }`}
+              >
+                {/* Video player */}
+                <div className="aspect-[9/16] max-h-[480px] bg-black relative">
+                  {video.final_video_url ? (
                     <video
-                      src={videoUrl}
+                      src={video.final_video_url}
                       controls
                       playsInline
-                      style={{
-                        width: '100%',
-                        maxHeight: '400px',
-                        objectFit: 'contain',
-                      }}
+                      preload="metadata"
+                      className="w-full h-full object-contain"
                     />
-                  </div>
-                )}
-
-                {/* Info Panel */}
-                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Product + Brand Header */}
-                  <div>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: colors.text }}>
-                          {video.product_name || video.product_sku || 'Unknown Product'}
-                        </div>
-                        <div style={{ fontSize: '13px', color: colors.textMuted, marginTop: '2px' }}>
-                          {[video.brand_name, video.product_category].filter(Boolean).join(' / ')}
-                        </div>
-                      </div>
-                      <div style={{
-                        fontSize: '12px',
-                        color: colors.textMuted,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {getTimeAgo(video.last_status_changed_at)}
-                      </div>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-zinc-600 text-sm">
+                      No video URL available
                     </div>
-                    {video.video_code && (
-                      <div style={{
-                        fontSize: '11px',
-                        color: colors.textMuted,
-                        fontFamily: 'monospace',
-                        marginTop: '4px',
-                      }}>
-                        {video.video_code}
-                      </div>
-                    )}
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-base font-semibold text-zinc-100">
+                        {video.product_name || 'Unknown Product'}
+                      </h3>
+                      <p className="text-sm text-zinc-500">
+                        {[video.brand_name, video.product_category].filter(Boolean).join(' / ')}
+                      </p>
+                    </div>
+                    <span className="text-xs text-zinc-600 whitespace-nowrap">
+                      {getTimeAgo(video.last_status_changed_at, video.created_at)}
+                    </span>
                   </div>
 
-                  {/* Script */}
+                  {video.video_code && (
+                    <div className="text-[11px] text-zinc-600 font-mono">{video.video_code}</div>
+                  )}
+
+                  {/* Script text */}
                   {video.script_locked_text && (
-                    <div>
-                      <div style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: colors.textMuted,
-                        textTransform: 'uppercase',
-                        marginBottom: '6px',
-                        letterSpacing: '0.5px',
-                      }}>
-                        Script
-                      </div>
-                      <div style={{
-                        fontSize: '13px',
-                        lineHeight: '1.6',
-                        color: colors.text,
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        maxHeight: '120px',
-                        overflow: 'auto',
-                        whiteSpace: 'pre-wrap',
-                      }}>
+                    <details className="group">
+                      <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400 select-none">
+                        View script
+                      </summary>
+                      <pre className="mt-2 text-xs text-zinc-400 whitespace-pre-wrap bg-zinc-800/50 rounded-lg p-3 max-h-40 overflow-y-auto font-mono">
                         {video.script_locked_text}
-                      </div>
-                    </div>
+                      </pre>
+                    </details>
                   )}
 
-                  {/* On-Screen Text Overlays */}
-                  {details?.brief && (details.brief.on_screen_text_hook || details.brief.on_screen_text_mid?.length || details.brief.on_screen_text_cta) && (
-                    <div>
-                      <div style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: colors.textMuted,
-                        textTransform: 'uppercase',
-                        marginBottom: '6px',
-                        letterSpacing: '0.5px',
-                      }}>
-                        On-Screen Text
-                      </div>
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '6px',
-                      }}>
-                        {details.brief.on_screen_text_hook && (
-                          <span style={{
-                            padding: '4px 10px',
-                            backgroundColor: '#ecfdf5',
-                            color: '#059669',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            border: '1px solid #a7f3d0',
-                          }}>
-                            Hook: {details.brief.on_screen_text_hook}
-                          </span>
-                        )}
-                        {details.brief.on_screen_text_mid?.map((text, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              padding: '4px 10px',
-                              backgroundColor: '#eff6ff',
-                              color: '#2563eb',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: 500,
-                              border: '1px solid #bfdbfe',
-                            }}
-                          >
-                            {text}
-                          </span>
-                        ))}
-                        {details.brief.on_screen_text_cta && (
-                          <span style={{
-                            padding: '4px 10px',
-                            backgroundColor: '#fef3c7',
-                            color: '#d97706',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            border: '1px solid #fde68a',
-                          }}>
-                            CTA: {details.brief.on_screen_text_cta}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  {/* Approve notes toggle */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowApproveNotes((prev) => ({ ...prev, [video.id]: !prev[video.id] }));
+                    }}
+                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-400"
+                  >
+                    {showApproveNotes[video.id] ? (
+                      <ChevronUp className="w-3 h-3" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3" />
+                    )}
+                    Add notes
+                  </button>
+                  {showApproveNotes[video.id] && (
+                    <textarea
+                      value={approveNotes[video.id] || ''}
+                      onChange={(e) =>
+                        setApproveNotes((prev) => ({ ...prev, [video.id]: e.target.value }))
+                      }
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Optional notes (saved on approve)..."
+                      className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-lg text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      rows={2}
+                    />
                   )}
 
-                  {/* Spoken Hook */}
-                  {details?.brief?.hook_options?.[0] && (
-                    <div style={{ fontSize: '13px', color: colors.textMuted }}>
-                      <span style={{ fontWeight: 600 }}>Spoken Hook:</span> {details.brief.hook_options[0]}
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div style={{
-                    display: 'flex',
-                    gap: '10px',
-                    marginTop: 'auto',
-                    paddingTop: '8px',
-                  }}>
+                  {/* Action buttons */}
+                  <div className="flex gap-3 pt-1">
                     <button
                       type="button"
-                      onClick={() => handleApprove(video.id)}
-                      disabled={isActioning}
-                      style={{
-                        flex: 1,
-                        padding: '12px 20px',
-                        backgroundColor: isActioning ? '#94a3b8' : '#059669',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: isActioning ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 600,
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleApprove(video.id);
                       }}
+                      disabled={isActioning}
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
                     >
-                      {isActioning ? 'Processing...' : 'Approve'}
+                      {isActioning ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                      Approve
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setRejectVideoId(video.id); setSelectedRejectTag(null); }}
-                      disabled={isActioning}
-                      style={{
-                        padding: '12px 20px',
-                        backgroundColor: 'transparent',
-                        color: '#ef4444',
-                        border: '1px solid #ef4444',
-                        borderRadius: '8px',
-                        cursor: isActioning ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 600,
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRejectVideoId(video.id);
+                        setSelectedRejectCode(null);
+                        setRejectNotes('');
                       }}
+                      disabled={isActioning}
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 rounded-lg transition-colors disabled:opacity-50"
                     >
+                      <XCircle className="w-4 h-4" />
                       Reject
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Reject Modal */}
+      {/* Reject modal */}
       {rejectVideoId && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setRejectVideoId(null)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setRejectVideoId(null)} />
           <div
-            style={{
-              backgroundColor: colors.surface,
-              borderRadius: '16px',
-              padding: '24px',
-              width: '400px',
-              maxWidth: '90vw',
-              border: `1px solid ${colors.border}`,
-            }}
-            onClick={e => e.stopPropagation()}
+            className="relative bg-zinc-900 border border-white/10 rounded-xl w-full max-w-md p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: colors.text }}>
-              Reject Video
-            </h3>
-            <p style={{ margin: '0 0 16px', fontSize: '14px', color: colors.textMuted }}>
-              Select a reason for rejecting this video:
-            </p>
+            <h3 className="text-lg font-semibold text-zinc-100">Reject Video</h3>
+            <p className="text-sm text-zinc-500">Select a reason for rejecting this video:</p>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-              {REJECT_TAGS.map(tag => (
+            {/* Reject reason tags */}
+            <div className="flex flex-wrap gap-2">
+              {REJECT_REASONS.map((r) => (
                 <button
-                  key={tag.code}
+                  key={r.code}
                   type="button"
-                  onClick={() => setSelectedRejectTag(tag.code === selectedRejectTag ? null : tag.code)}
-                  style={{
-                    padding: '8px 14px',
-                    backgroundColor: selectedRejectTag === tag.code
-                      ? '#fecaca'
-                      : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                    color: selectedRejectTag === tag.code ? '#dc2626' : colors.text,
-                    border: `1px solid ${selectedRejectTag === tag.code ? '#f87171' : colors.border}`,
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                  }}
+                  onClick={() =>
+                    setSelectedRejectCode(r.code === selectedRejectCode ? null : r.code)
+                  }
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                    selectedRejectCode === r.code
+                      ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                      : 'bg-white/5 text-zinc-300 border-white/10 hover:border-white/20'
+                  }`}
                 >
-                  {tag.label}
+                  {r.label}
                 </button>
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            {/* Notes textarea */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+                Notes{' '}
+                {selectedRejectCode === 'other' && <span className="text-red-400">*</span>}
+              </label>
+              <textarea
+                value={rejectNotes}
+                onChange={(e) => setRejectNotes(e.target.value)}
+                placeholder="Additional details, instructions for re-render..."
+                className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-lg text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none focus:ring-1 focus:ring-red-500"
+                rows={3}
+              />
+            </div>
+
+            {/* Modal actions */}
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setRejectVideoId(null)}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: 'transparent',
-                  color: colors.textMuted,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
+                onClick={() => {
+                  setRejectVideoId(null);
+                  setSelectedRejectCode(null);
+                  setRejectNotes('');
                 }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium bg-zinc-800 text-zinc-300 border border-white/10 hover:bg-zinc-700 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleReject}
-                disabled={!selectedRejectTag || actionLoading === rejectVideoId}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: !selectedRejectTag ? '#94a3b8' : '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: !selectedRejectTag ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                }}
+                disabled={
+                  !selectedRejectCode ||
+                  actionLoading !== null ||
+                  (selectedRejectCode === 'other' && !rejectNotes.trim())
+                }
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
               >
-                {actionLoading === rejectVideoId ? 'Rejecting...' : 'Confirm Reject'}
+                {actionLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                Reject
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </AdminPageLayout>
   );
 }

@@ -87,7 +87,7 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
             .eq("id", video.id);
 
           sendTelegramNotification(
-            `🚫 Auto-rejected: ${productLabel} — quality ${qualityScore.avg}/10`
+            `🎬 Quality Gate: ${productLabel} scored ${qualityScore.avg}/10 — REJECTED\n  Visible: ${qualityScore.product_visible}, Legible: ${qualityScore.label_legible}, Look: ${qualityScore.natural_look}, Light: ${qualityScore.lighting_quality}`
           );
 
           results.push({
@@ -108,7 +108,9 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
             .eq("id", video.id);
 
           sendTelegramNotification(
-            `🎬 Video ready: ${productLabel}${qualityScore ? ` (quality: ${qualityScore.avg}/10)` : ""}`
+            qualityScore
+              ? `🎬 Quality Gate: ${productLabel} scored ${qualityScore.avg}/10 — PASS\n  Visible: ${qualityScore.product_visible}, Legible: ${qualityScore.label_legible}, Look: ${qualityScore.natural_look}, Light: ${qualityScore.lighting_quality}`
+              : `🎬 Video ready: ${productLabel} (quality check unavailable)`
           );
 
           results.push({

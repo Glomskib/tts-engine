@@ -13,6 +13,7 @@ import { getTaskStatus } from "@/lib/runway";
 import { getRenderStatus } from "@/lib/shotstack";
 import { textToSpeech } from "@/lib/elevenlabs";
 import { submitCompose } from "@/lib/compose";
+import { sendTelegramNotification } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -64,15 +65,22 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
           })
           .eq("id", video.id);
 
+        const productLabel = await getVideoProductLabel(video.id);
+        sendTelegramNotification(`🎬 Video ready: ${productLabel}`);
+
         results.push({ id: video.id, phase: "compose", status: "done", finalUrl });
       } else if (renderStatus === "failed") {
+        const composeError = status.response?.error || "unknown";
         await supabaseAdmin
           .from("videos")
           .update({
             recording_status: "REJECTED",
-            recording_notes: `Shotstack compose failed: ${status.response?.error || "unknown"}`,
+            recording_notes: `Shotstack compose failed: ${composeError}`,
           })
           .eq("id", video.id);
+
+        const productLabel = await getVideoProductLabel(video.id);
+        sendTelegramNotification(`❌ Render failed: ${productLabel} — ${composeError}`);
 
         results.push({ id: video.id, phase: "compose", status: "failed" });
       } else {
@@ -165,6 +173,9 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
           })
           .eq("id", video.id);
 
+        const productLabel = await getVideoProductLabel(video.id);
+        sendTelegramNotification(`❌ Render failed: ${productLabel} — ${reason}`);
+
         results.push({ id: video.id, phase: "runway", status: "failed", reason });
       } else {
         // Still processing
@@ -242,6 +253,29 @@ async function getSkitOverlays(videoId: string): Promise<{
   const ttsText = ttsLines.length ? ttsLines.join(" ") : undefined;
 
   return { onScreenText, cta, ttsText };
+}
+
+async function getVideoProductLabel(videoId: string): Promise<string> {
+  try {
+    const { data: video } = await supabaseAdmin
+      .from("videos")
+      .select("product_id")
+      .eq("id", videoId)
+      .single();
+    if (video?.product_id) {
+      const { data: product } = await supabaseAdmin
+        .from("products")
+        .select("name, brand")
+        .eq("id", video.product_id)
+        .single();
+      if (product?.name) {
+        return product.brand ? `${product.brand} — ${product.name}` : product.name;
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return videoId.slice(0, 8);
 }
 
 async function generateAndUploadTTS(text: string, videoId: string): Promise<string> {

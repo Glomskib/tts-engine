@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 export const runtime = 'nodejs';
 
@@ -65,6 +66,8 @@ export async function POST(request: NextRequest) {
   if (error) {
     return createApiErrorResponse('DB_ERROR', error.message, 500, correlationId);
   }
+
+  sendTelegramNotification(`🔧 New task: ${title.trim()} — ${priority || 'medium'}`);
 
   const response = NextResponse.json({ ok: true, data, correlation_id: correlationId }, { status: 201 });
   response.headers.set('x-correlation-id', correlationId);

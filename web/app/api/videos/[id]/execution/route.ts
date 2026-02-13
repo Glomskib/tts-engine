@@ -12,6 +12,7 @@ import {
   type VideoForValidation,
 } from "@/lib/execution-stages";
 import { getVideosColumns } from "@/lib/videosSchema";
+import { sendTelegramNotification } from "@/lib/telegram";
 import { getApiAuthContext, type UserRole } from "@/lib/supabase/api-auth";
 import { canPerformGatedAction } from "@/lib/subscription";
 import { checkIncidentReadOnlyBlock } from "@/lib/settings";
@@ -448,6 +449,31 @@ export async function PUT(request: Request, { params }: RouteParams) {
         authenticated: isAuthenticated,
       }
     );
+
+    // Telegram notifications for key transitions (fire-and-forget)
+    if (recording_status === "READY_TO_POST" || recording_status === "REJECTED") {
+      // Fetch product label for notification
+      let productLabel = id.slice(0, 8);
+      if (currentVideo.product_id) {
+        try {
+          const { data: product } = await supabaseAdmin
+            .from("products")
+            .select("name, brand")
+            .eq("id", currentVideo.product_id)
+            .single();
+          if (product?.name) {
+            productLabel = product.brand ? `${product.brand} — ${product.name}` : product.name;
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (recording_status === "READY_TO_POST") {
+        sendTelegramNotification(`✅ Video approved: ${productLabel}`);
+      } else {
+        const notes = (recording_notes as string) || "no reason";
+        sendTelegramNotification(`🔄 Video rejected: ${productLabel} — ${notes}`);
+      }
+    }
 
     // Auto-handoff logic: complete current assignment and assign to next role
     if (hasAssignmentColumns && previousRecordingStatus && recording_status) {

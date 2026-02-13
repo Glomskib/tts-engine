@@ -44,7 +44,7 @@ export async function GET(
   // Fetch video with product and skit data
   const { data: video, error: videoErr } = await supabaseAdmin
     .from("videos")
-    .select("id, product_id, script_locked_text, recording_status")
+    .select("id, product_id, script_locked_text, recording_status, render_prompt")
     .eq("id", videoId)
     .single();
 
@@ -127,7 +127,26 @@ export async function GET(
   // Use script_locked_text as fallback
   const scriptText = skitScript || video.script_locked_text || null;
 
-  // Build the prompt
+  // If a manual render_prompt override exists, return it directly
+  if (video.render_prompt) {
+    return NextResponse.json({
+      ok: true,
+      videoId,
+      productName: product.name,
+      brand: product.brand,
+      category: product.category,
+      hasProductImage: !!product.product_image_url,
+      hasScript: !!scriptText,
+      hasOnScreenText: !!onScreenText,
+      prompt: video.render_prompt,
+      charCount: video.render_prompt.length,
+      override: true,
+      recording_status: video.recording_status,
+      correlation_id: correlationId,
+    });
+  }
+
+  // Build the prompt via AI
   const result = await buildRunwayPrompt({
     productName: product.product_display_name || product.name,
     brand: product.brand,
@@ -153,9 +172,62 @@ export async function GET(
     action: result.action,
     aiGenerated: result.aiGenerated,
     model: result.model || null,
+    override: false,
     recording_status: video.recording_status,
     correlation_id: correlationId,
   });
   response.headers.set("x-correlation-id", correlationId);
   return response;
+}
+
+/**
+ * PATCH /api/render/preview-prompt/[videoId]
+ *
+ * Save a manual prompt override. Batch render will use this instead of
+ * AI-generated prompt when rendering this video.
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ videoId: string }> }
+) {
+  const correlationId =
+    request.headers.get("x-correlation-id") || generateCorrelationId();
+
+  const auth = await validateApiAccess(request);
+  if (!auth) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
+  const { videoId } = await params;
+  if (!videoId || videoId.length < 10) {
+    return createApiErrorResponse("BAD_REQUEST", "Invalid videoId", 400, correlationId);
+  }
+
+  let body: { prompt: string };
+  try {
+    body = await request.json();
+  } catch {
+    return createApiErrorResponse("BAD_REQUEST", "Invalid JSON", 400, correlationId);
+  }
+
+  if (!body.prompt || typeof body.prompt !== "string" || body.prompt.length > 2000) {
+    return createApiErrorResponse("BAD_REQUEST", "prompt required (max 2000 chars)", 400, correlationId);
+  }
+
+  const { error } = await supabaseAdmin
+    .from("videos")
+    .update({ render_prompt: body.prompt })
+    .eq("id", videoId);
+
+  if (error) {
+    return createApiErrorResponse("INTERNAL", error.message, 500, correlationId);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    videoId,
+    prompt: body.prompt,
+    charCount: body.prompt.length,
+    correlation_id: correlationId,
+  });
 }

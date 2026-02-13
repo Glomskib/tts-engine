@@ -78,6 +78,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/notifications': 'Notifications',
       '/admin/referrals': 'Referrals',
       '/admin/credits': 'Credits',
+      '/admin/tasks': 'Task Queue',
       '/admin/automation': 'Automation',
       '/admin/settings': 'Settings',
       '/admin/api-docs': 'API Docs',

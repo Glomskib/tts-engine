@@ -40,6 +40,7 @@ import {
   UserCheck,
   Link2,
   Ticket,
+  ListTodo,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -122,6 +123,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Automation', href: '/admin/automation', icon: Zap },
       { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen },
       { name: 'Voice Agent', href: '/admin/voice', icon: Mic },
+      { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen },
       { name: 'Settings', href: '/admin/settings', icon: Settings },
     ],

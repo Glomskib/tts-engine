@@ -42,6 +42,7 @@ interface BoardViewProps {
   onOpenAttachModal: (video: QueueVideo) => void;
   onOpenPostModal: (video: QueueVideo) => void;
   onOpenHandoffModal?: (video: QueueVideo) => void;
+  onRejectVideo?: (videoId: string) => void;
   onRefresh: () => void;
   filters: BoardFilters;
   onFiltersChange: (filters: BoardFilters) => void;
@@ -62,6 +63,7 @@ export default function BoardView({
   onOpenAttachModal,
   onOpenPostModal,
   onOpenHandoffModal,
+  onRejectVideo,
   onRefresh,
   filters,
   onFiltersChange,
@@ -175,6 +177,13 @@ export default function BoardView({
       return;
     }
 
+    // Intercept drag-to-REJECTED: open modal instead of silent transition
+    if (targetStatus === 'REJECTED' && onRejectVideo) {
+      onRejectVideo(videoId);
+      setDraggedVideoId(null);
+      return;
+    }
+
     setTransitioning(videoId);
     try {
       await onExecuteTransition(videoId, targetStatus);
@@ -185,7 +194,7 @@ export default function BoardView({
       setTransitioning(null);
       setDraggedVideoId(null);
     }
-  }, [videos, onExecuteTransition, onShowToast]);
+  }, [videos, onExecuteTransition, onRejectVideo, onShowToast]);
 
   // Check if a column is a valid drop target for the currently dragged video
   const isValidDropTarget = useCallback((columnKey: string): boolean => {

@@ -356,6 +356,12 @@ export default function AdminPipelinePage() {
   const [attachMessage, setAttachMessage] = useState<string | null>(null);
   const [forceOverwrite, setForceOverwrite] = useState(false);
 
+  // Reject modal state (for drag-to-REJECTED from board)
+  const [rejectModalVideoId, setRejectModalVideoId] = useState<string | null>(null);
+  const [rejectTag, setRejectTag] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+
   // Post modal state (for READY_TO_POST -> POSTED)
   const [postModalVideoId, setPostModalVideoId] = useState<string | null>(null);
   const [, setPostModalVideo] = useState<QueueVideo | null>(null);
@@ -1176,6 +1182,63 @@ export default function AdminPipelinePage() {
       showError('Network error - please try again');
     } finally {
       setExecutingVideoId(null);
+    }
+  };
+
+  // Reject modal handlers
+  const REJECT_TAGS = [
+    { code: 'too_generic', label: 'Too Generic' },
+    { code: 'too_risky', label: 'Too Risky' },
+    { code: 'not_relatable', label: 'Not Relatable' },
+    { code: 'wrong_angle', label: 'Wrong Angle' },
+    { code: 'compliance', label: 'Compliance Issue' },
+    { code: 'bad_cta', label: 'Bad CTA' },
+  ];
+
+  const openRejectModal = (videoId: string) => {
+    setRejectModalVideoId(videoId);
+    setRejectTag(null);
+    setRejectReason('');
+  };
+
+  const closeRejectModal = () => {
+    setRejectModalVideoId(null);
+    setRejectTag(null);
+    setRejectReason('');
+  };
+
+  const submitReject = async () => {
+    if (!rejectModalVideoId || (!rejectTag && !rejectReason.trim())) return;
+    setRejecting(true);
+    try {
+      const tagLabel = rejectTag
+        ? REJECT_TAGS.find(t => t.code === rejectTag)?.label
+        : null;
+      const noteParts: string[] = [];
+      if (tagLabel) noteParts.push(`[${tagLabel}]`);
+      if (rejectReason.trim()) noteParts.push(rejectReason.trim());
+      const combinedNotes = noteParts.join(' ') || 'Rejected';
+
+      const res = await fetch(`/api/videos/${rejectModalVideoId}/execution`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recording_status: 'REJECTED',
+          recording_notes: combinedNotes,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSuccess('Video rejected');
+        fetchQueueVideos();
+        closeRejectModal();
+      } else {
+        showError(data.error || 'Failed to reject video');
+      }
+    } catch {
+      showError('Network error - please try again');
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -2259,6 +2322,7 @@ export default function AdminPipelinePage() {
             onOpenAttachModal={openAttachModal}
             onOpenPostModal={openPostModal}
             onOpenHandoffModal={isAdminMode ? openHandoffModal : undefined}
+            onRejectVideo={openRejectModal}
             onRefresh={fetchQueueVideos}
             filters={boardFilters}
             onFiltersChange={setBoardFilters}
@@ -2644,6 +2708,137 @@ export default function AdminPipelinePage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal (drag-to-REJECTED from board) */}
+      {rejectModalVideoId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: colors.card,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '90%',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: colors.text, fontSize: '18px' }}>Reject Video</h2>
+              <button type="button"
+                onClick={closeRejectModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: colors.textMuted,
+                }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '12px' }}>
+              Select a reason:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              {REJECT_TAGS.map((tag) => (
+                <button type="button"
+                  key={tag.code}
+                  onClick={() => setRejectTag(rejectTag === tag.code ? null : tag.code)}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: rejectTag === tag.code ? '#e03131' : colors.surface,
+                    color: rejectTag === tag.code ? 'white' : colors.text,
+                    border: `1px solid ${rejectTag === tag.code ? '#e03131' : colors.border}`,
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: rejectTag === tag.code ? 600 : 'normal',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {tag.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: colors.textMuted }}>
+                What went wrong?
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Describe why this video is being rejected..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {!rejectTag && !rejectReason.trim() && (
+              <p style={{ margin: '0 0 12px 0', color: '#e03131', fontSize: '12px' }}>
+                Select a tag or add a note before rejecting.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button type="button"
+                onClick={submitReject}
+                disabled={rejecting || (!rejectTag && !rejectReason.trim())}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: (!rejectTag && !rejectReason.trim()) ? '#666' : '#e03131',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: (rejecting || (!rejectTag && !rejectReason.trim())) ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  opacity: (!rejectTag && !rejectReason.trim()) ? 0.5 : 1,
+                }}
+              >
+                {rejecting ? 'Rejecting...' : 'Reject'}
+              </button>
+              <button type="button"
+                onClick={closeRejectModal}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

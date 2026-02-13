@@ -163,6 +163,7 @@ export default function VideoDrawer({
   // Rejection modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRejectTag, setSelectedRejectTag] = useState<string | null>(null);
+  const [rejectNotes, setRejectNotes] = useState('');
 
   // Underperform feedback state
   const [showUnderperformMenu, setShowUnderperformMenu] = useState(false);
@@ -618,6 +619,7 @@ export default function VideoDrawer({
     // Show reject modal instead of immediate rejection
     setShowRejectModal(true);
     setSelectedRejectTag(null);
+    setRejectNotes('');
   };
 
   const handleConfirmReject = async () => {
@@ -658,16 +660,22 @@ export default function VideoDrawer({
         }
       }
 
-      // Execute the rejection transition with reason code
-      await fetch(`/api/videos/${video.id}`, {
-        method: 'PATCH',
+      // Build rejection notes from tag + free text
+      const tagLabel = selectedRejectTag
+        ? REJECT_TAGS.find(t => t.code === selectedRejectTag)?.label
+        : null;
+      const noteParts: string[] = [];
+      if (tagLabel) noteParts.push(`[${tagLabel}]`);
+      if (rejectNotes.trim()) noteParts.push(rejectNotes.trim());
+      const combinedNotes = noteParts.join(' ') || 'Rejected';
+
+      // Execute the rejection transition via execution API (requires recording_notes)
+      await fetch(`/api/videos/${video.id}/execution`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          status: 'REJECTED',
-          reason_code: selectedRejectTag || 'unspecified',
-          reason_message: selectedRejectTag
-            ? REJECT_TAGS.find(t => t.code === selectedRejectTag)?.label
-            : 'Rejected without reason',
+          recording_status: 'REJECTED',
+          recording_notes: combinedNotes,
         }),
       });
 
@@ -945,10 +953,10 @@ export default function VideoDrawer({
             <h3 style={{ margin: '0 0 16px 0', color: colors.text, fontSize: '18px' }}>
               Reject Video
             </h3>
-            <p style={{ margin: '0 0 16px 0', color: colors.textMuted, fontSize: '14px' }}>
-              Select a reason (optional):
+            <p style={{ margin: '0 0 12px 0', color: colors.textMuted, fontSize: '14px' }}>
+              Select a reason:
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
               {REJECT_TAGS.map((tag) => (
                 <button type="button"
                   key={tag.code}
@@ -969,6 +977,34 @@ export default function VideoDrawer({
                 </button>
               ))}
             </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: colors.textMuted }}>
+                What went wrong?
+              </label>
+              <textarea
+                value={rejectNotes}
+                onChange={(e) => setRejectNotes(e.target.value)}
+                placeholder="Describe why this video is being rejected..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            {!selectedRejectTag && !rejectNotes.trim() && (
+              <p style={{ margin: '0 0 12px 0', color: colors.danger, fontSize: '12px' }}>
+                Select a tag or add a note before rejecting.
+              </p>
+            )}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button type="button"
                 onClick={() => setShowRejectModal(false)}
@@ -987,17 +1023,18 @@ export default function VideoDrawer({
               </button>
               <button type="button"
                 onClick={handleConfirmReject}
-                disabled={loading}
+                disabled={loading || (!selectedRejectTag && !rejectNotes.trim())}
                 style={{
                   flex: 1,
                   padding: '12px',
-                  backgroundColor: '#e03131',
+                  backgroundColor: (!selectedRejectTag && !rejectNotes.trim()) ? '#666' : '#e03131',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
+                  cursor: (loading || (!selectedRejectTag && !rejectNotes.trim())) ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
                   fontWeight: 'bold',
+                  opacity: (!selectedRejectTag && !rejectNotes.trim()) ? 0.5 : 1,
                 }}
               >
                 {loading ? 'Rejecting...' : 'Reject'}
@@ -3260,6 +3297,28 @@ export default function VideoDrawer({
                                     </div>
                                   </div>
                                 </div>
+                                {/* Show rejection reason for REJECTED transitions */}
+                                {event.to_status === 'REJECTED' && event.details &&
+                                  (() => {
+                                    const d = event.details as Record<string, unknown>;
+                                    const reason = (d.recording_notes || d.rejection_notes) as string | undefined;
+                                    if (!reason) return null;
+                                    return (
+                                      <div style={{
+                                        marginTop: '8px',
+                                        padding: '8px 12px',
+                                        backgroundColor: isDark ? '#2d1b1b' : '#fef2f2',
+                                        borderLeft: '3px solid #e03131',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        color: isDark ? '#fca5a5' : '#991b1b',
+                                        fontStyle: 'italic',
+                                      }}>
+                                        {reason}
+                                      </div>
+                                    );
+                                  })()
+                                }
                               </div>
                             </div>
                           );

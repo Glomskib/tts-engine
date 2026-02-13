@@ -117,17 +117,17 @@ export async function runPreflight(videoId: string): Promise<PreflightResult> {
           };
         }
       } else {
-        checks.hasProductImage = { pass: false, detail: "missing" };
+        checks.hasProductImage = { pass: false, detail: "Product image required — Runway cannot generate readable labels without a reference image" };
         checks.imageAccessible = { pass: false, detail: "no URL to check" };
       }
     } else {
       checks.hasProductInfo = { pass: false, detail: "product not found in database" };
-      checks.hasProductImage = { pass: false, detail: "product not found" };
+      checks.hasProductImage = { pass: false, detail: "Product image required — Runway cannot generate readable labels without a reference image" };
       checks.imageAccessible = { pass: false, detail: "product not found" };
     }
   } else {
     checks.hasProductInfo = { pass: false, detail: "no product_id on video" };
-    checks.hasProductImage = { pass: false, detail: "no product linked" };
+    checks.hasProductImage = { pass: false, detail: "Product image required — Runway cannot generate readable labels without a reference image" };
     checks.imageAccessible = { pass: false, detail: "no product linked" };
   }
 

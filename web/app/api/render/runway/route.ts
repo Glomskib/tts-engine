@@ -41,6 +41,17 @@ export async function POST(request: Request) {
   }
 
   const { promptText, promptImageUrl, duration, ratio, videoId } = parsed.data;
+
+  // Image-to-video is REQUIRED — text-to-video produces garbled labels
+  if (!promptImageUrl) {
+    return createApiErrorResponse(
+      "BAD_REQUEST",
+      "Product image required — Runway cannot generate readable labels without a reference image. Upload a product image first.",
+      422,
+      correlationId
+    );
+  }
+
   // Map legacy/alias model names to available Runway models
   const modelAliases: Record<string, string> = {
     gen4_turbo: "gen4.5",
@@ -49,30 +60,16 @@ export async function POST(request: Request) {
   const model = modelAliases[parsed.data.model] || parsed.data.model;
 
   try {
-    let response: Record<string, unknown>;
-
-    if (promptImageUrl) {
-      response = await runwayRequest("/v1/image_to_video", {
-        method: "POST",
-        body: JSON.stringify({
-          model,
-          promptImage: promptImageUrl,
-          promptText,
-          duration: Number(duration),
-          ratio,
-        }),
-      });
-    } else {
-      response = await runwayRequest("/v1/text_to_video", {
-        method: "POST",
-        body: JSON.stringify({
-          model,
-          promptText,
-          duration: Number(duration),
-          ratio,
-        }),
-      });
-    }
+    const response = await runwayRequest("/v1/image_to_video", {
+      method: "POST",
+      body: JSON.stringify({
+        model,
+        promptImage: promptImageUrl,
+        promptText,
+        duration: Number(duration),
+        ratio,
+      }),
+    });
 
     // Save prompt to video record if videoId provided
     if (videoId && response.id) {

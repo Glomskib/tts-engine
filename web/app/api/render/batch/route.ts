@@ -4,7 +4,7 @@ import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors"
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { renderVideo, createSimpleRender } from "@/lib/shotstack";
-import { createTextToVideo, createImageToVideo, type RunwayModel } from "@/lib/runway";
+import { createImageToVideo, type RunwayModel } from "@/lib/runway";
 import { runPreflight } from "@/app/api/render/preflight/[videoId]/route";
 
 export const runtime = "nodejs";
@@ -60,12 +60,13 @@ async function executeRunwayRequest(
 ): Promise<{ provider: "runway"; task_id: string }> {
   const model: RunwayModel = req.model ?? "gen3a_turbo";
   const ratio = req.ratio ?? "768:1280";
-  let result;
-  if (req.imageUrl) {
-    result = await createImageToVideo(req.imageUrl, req.prompt, model, req.duration, ratio);
-  } else {
-    result = await createTextToVideo(req.prompt, model, req.duration, ratio);
+
+  // Image-to-video is REQUIRED — text-to-video produces garbled labels
+  if (!req.imageUrl) {
+    throw new Error("Product image required — Runway cannot generate readable labels without a reference image");
   }
+
+  const result = await createImageToVideo(req.imageUrl, req.prompt, model, req.duration, ratio);
 
   // Save prompt to video record if videoId provided
   if (req.videoId && result.id) {

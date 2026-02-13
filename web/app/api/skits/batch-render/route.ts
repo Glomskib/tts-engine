@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { createVideoFromProduct } from '@/lib/createVideoFromProduct';
-import { createImageToVideo, createTextToVideo } from '@/lib/runway';
+import { createImageToVideo } from '@/lib/runway';
 import { buildRunwayPrompt } from '@/lib/runway-prompt-builder';
 import { logVideoActivity } from '@/lib/videoActivity';
 
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       const preflightIssues: string[] = [];
 
       if (!productImageUrl) {
-        preflightIssues.push('No product_image_url — text-to-video cannot show actual product');
+        preflightIssues.push('Product image required — Runway cannot generate readable labels without a reference image');
       } else {
         try {
           const headResp = await fetch(productImageUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
@@ -291,13 +291,8 @@ export async function POST(request: NextRequest) {
       const runwayPrompt = promptResult.prompt;
       console.log(`[${correlationId}] Prompt (${runwayPrompt.length} chars, ai=${promptResult.aiGenerated}): ${runwayPrompt}`);
 
-      // Step 6: Trigger Runway render
-      let runwayResult: { id?: string };
-      if (productImageUrl) {
-        runwayResult = await createImageToVideo(productImageUrl, runwayPrompt, 'gen4.5', 10);
-      } else {
-        runwayResult = await createTextToVideo(runwayPrompt, 'gen4.5', 10);
-      }
+      // Step 6: Trigger Runway render (image-to-video only — text-to-video garbles labels)
+      const runwayResult = await createImageToVideo(productImageUrl!, runwayPrompt, 'gen4.5', 10);
 
       const renderTaskId = runwayResult.id ? String(runwayResult.id) : null;
 

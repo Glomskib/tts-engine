@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { createImageToVideo, createTextToVideo } from "@/lib/runway";
+import { createImageToVideo } from "@/lib/runway";
 import { logVideoActivity } from "@/lib/videoActivity";
 
 export const runtime = "nodejs";
@@ -143,7 +143,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (!productImageUrl) {
       preflightIssues.push(
-        "No product_image_url — text-to-video cannot show actual product"
+        "Product image required — Runway cannot generate readable labels without a reference image"
       );
     } else {
       try {
@@ -226,18 +226,13 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    // 6. Trigger Runway render
-    let runwayResult: { id?: string };
-    if (productImageUrl) {
-      runwayResult = await createImageToVideo(
-        productImageUrl,
-        runwayPrompt,
-        "gen4.5",
-        10
-      );
-    } else {
-      runwayResult = await createTextToVideo(runwayPrompt, "gen4.5", 10);
-    }
+    // 6. Trigger Runway render (image-to-video only — text-to-video garbles labels)
+    const runwayResult = await createImageToVideo(
+      productImageUrl!,
+      runwayPrompt,
+      "gen4.5",
+      10
+    );
 
     const renderTaskId = runwayResult.id ? String(runwayResult.id) : null;
 

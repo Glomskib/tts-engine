@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 export const runtime = 'nodejs';
 
@@ -79,7 +80,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { data: video, error: fetchError } = await supabaseAdmin
       .from('videos')
-      .select('id, recording_status')
+      .select('id, recording_status, product_id')
       .eq('id', video_id)
       .single();
 
@@ -142,6 +143,26 @@ export async function POST(request: Request, { params }: RouteParams) {
         reviewed_by: authContext.user.email || authContext.user.id,
       }
     );
+
+    // Telegram notification (fire-and-forget)
+    let productLabel = video_id.slice(0, 8);
+    if (video.product_id) {
+      try {
+        const { data: product } = await supabaseAdmin
+          .from('products')
+          .select('name, brand')
+          .eq('id', video.product_id)
+          .single();
+        if (product?.name) {
+          productLabel = product.brand ? `${product.brand} — ${product.name}` : product.name;
+        }
+      } catch { /* ignore */ }
+    }
+    if (action === 'approve') {
+      sendTelegramNotification(`✅ Video approved: ${productLabel}`);
+    } else {
+      sendTelegramNotification(`🔄 Video rejected: ${productLabel} — ${reason?.trim() || 'no reason'}`);
+    }
 
     return NextResponse.json({
       ok: true,

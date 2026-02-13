@@ -54,7 +54,7 @@ const SLA_COLORS: Record<SlaStatus, { bg: string; text: string; border: string }
 
 // Blocker labels for readability
 const BLOCKER_LABELS: Record<string, string> = {
-  missing_locked_script: 'Missing Locked Script',
+  missing_locked_script: 'Missing Approved Script',
   missing_final_video_url: 'Missing Final Video URL',
   missing_post_fields: 'Missing Post Fields',
   assigned_to_other_user: 'Assigned to Different User',

@@ -71,7 +71,6 @@ export default function ProductsPage() {
   const [productStats, setProductStats] = useState<ProductStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [brandFilter, setBrandFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
 
   // Edit drawer state
@@ -592,13 +591,11 @@ export default function ProductsPage() {
 
   const isAdmin = authUser.role === 'admin';
 
-  // Get unique brands and categories for filters
-  const uniqueBrands = Array.from(new Set(productStats.map(p => p.brand))).sort();
+  // Get unique categories for filters
   const uniqueCategories = Array.from(new Set(productStats.map(p => p.category))).sort();
 
   // Apply filters
   const filteredProducts = productStats.filter(p => {
-    if (brandFilter && p.brand !== brandFilter) return false;
     if (categoryFilter && p.category !== categoryFilter) return false;
     if (brandEntityFilter) {
       if (brandEntityFilter === 'unlinked') {
@@ -674,13 +671,14 @@ export default function ProductsPage() {
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-zinc-400">Brand:</label>
           <select
-            value={brandFilter}
-            onChange={(e) => setBrandFilter(e.target.value)}
+            value={brandEntityFilter}
+            onChange={(e) => setBrandEntityFilter(e.target.value)}
             className="px-3 py-1.5 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <option value="">All Brands</option>
-            {uniqueBrands.map(b => (
-              <option key={b} value={b}>{b}</option>
+            <option value="unlinked">Unlinked</option>
+            {brandEntities.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
         </div>
@@ -699,26 +697,9 @@ export default function ProductsPage() {
           </select>
         </div>
 
-        {brandEntities.length > 0 && (
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-zinc-400">Brand:</label>
-            <select
-              value={brandEntityFilter}
-              onChange={(e) => setBrandEntityFilter(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value="">All</option>
-              <option value="unlinked">Unlinked</option>
-              {brandEntities.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {(brandFilter || categoryFilter || brandEntityFilter) && (
+        {(categoryFilter || brandEntityFilter) && (
           <button type="button"
-            onClick={() => { setBrandFilter(''); setCategoryFilter(''); setBrandEntityFilter(''); }}
+            onClick={() => { setCategoryFilter(''); setBrandEntityFilter(''); }}
             className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:underline"
           >
             Clear Filters
@@ -820,7 +801,7 @@ export default function ProductsPage() {
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('in_queue')}>In Queue<SortIndicator col="in_queue" /></th>
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('posted')}>Posted<SortIndicator col="posted" /></th>
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('retainer')}>Retainer<SortIndicator col="retainer" /></th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Target Accounts</th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('quota')}>Quota<SortIndicator col="quota" /></th>
                   <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
                 </tr>
               </thead>
@@ -881,21 +862,6 @@ export default function ProductsPage() {
                         <span className="px-2 py-0.5 bg-zinc-700/50 text-zinc-300 rounded text-xs font-medium">
                           {product.brand}
                         </span>
-                        {(() => {
-                          const brandEntity = product.brand_id
-                            ? brandEntities.find(b => b.id === product.brand_id)
-                            : null;
-                          if (!brandEntity?.monthly_video_quota || brandEntity.monthly_video_quota <= 0) return null;
-                          const used = brandEntity.videos_this_month ?? 0;
-                          const quota = brandEntity.monthly_video_quota;
-                          if (used >= quota) {
-                            return <span className="ml-1.5 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-semibold">Over quota</span>;
-                          }
-                          if (used >= quota * 0.8) {
-                            return <span className="ml-1.5 px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px] font-semibold">Near quota</span>;
-                          }
-                          return null;
-                        })()}
                       </td>
                       <td className="px-4 py-3 text-zinc-400">
                         {product.category}
@@ -924,23 +890,25 @@ export default function ProductsPage() {
                       <td className="px-4 py-3 text-center text-zinc-300">
                         {product.retainer ? `$${product.retainer.toLocaleString()}` : <span className="text-zinc-600">—</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        {product.target_accounts.length > 0 ? (
-                          <div className="flex gap-1 flex-wrap">
-                            {product.target_accounts.slice(0, 3).map((account, idx) => (
-                              <span key={idx} className="px-1.5 py-0.5 bg-zinc-700/50 rounded text-xs text-zinc-400">
-                                {account}
-                              </span>
-                            ))}
-                            {product.target_accounts.length > 3 && (
-                              <span className="text-xs text-zinc-500">
-                                +{product.target_accounts.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-500 text-xs">None</span>
-                        )}
+                      <td className="px-4 py-3 text-center">
+                        {(() => {
+                          const brandEntity = product.brand_id
+                            ? brandEntities.find(b => b.id === product.brand_id)
+                            : null;
+                          if (!brandEntity?.monthly_video_quota || brandEntity.monthly_video_quota <= 0) {
+                            return <span className="text-zinc-600">—</span>;
+                          }
+                          const used = brandEntity.videos_this_month ?? 0;
+                          const quota = brandEntity.monthly_video_quota;
+                          const pct = Math.round((used / quota) * 100);
+                          if (used >= quota) {
+                            return <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-semibold">{used}/{quota}</span>;
+                          }
+                          if (used >= quota * 0.8) {
+                            return <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-semibold">{used}/{quota}</span>;
+                          }
+                          return <span className="px-2 py-0.5 bg-teal-500/10 text-teal-400 rounded text-xs font-medium">{used}/{quota}</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex gap-2 justify-end">

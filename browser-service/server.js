@@ -1,7 +1,8 @@
 const express = require('express');
 const { chromium } = require('playwright');
-const { execSync, exec } = require('child_process');
+const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -10,7 +11,7 @@ app.use(express.json());
 const FLASHFLOW_EMAIL = process.env.FLASHFLOW_EMAIL;
 const FLASHFLOW_PASSWORD = process.env.FLASHFLOW_PASSWORD;
 const SERVICE_KEY = process.env.BROWSER_SERVICE_KEY || 'bsk_changeme';
-const ADOBE_APP = process.env.ADOBE_CH_APP || 'Adobe Character Animator 2024';
+const HP_WORKER_URL = process.env.HP_WORKER_URL || 'http://HP_WORKER_IP:8100';
 
 let browser, context;
 
@@ -23,21 +24,22 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize browser
+// Initialize Playwright browser (for screenshots only — NOT for Google/Adobe login)
 async function initBrowser() {
   browser = await chromium.launch({ headless: false });
   context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
-  console.log('Browser ready');
+  console.log('Playwright browser ready');
 }
 
-// Login to FlashFlow
+// Login to FlashFlow (only triggers on flashflowai.com)
 async function loginIfNeeded(page) {
-  if (page.url().includes('login') || page.url().includes('auth')) {
+  const url = page.url();
+  if (url.includes('flashflowai.com') && (url.includes('login') || url.includes('auth'))) {
     await page.fill('input[type="email"]', FLASHFLOW_EMAIL);
     await page.fill('input[type="password"]', FLASHFLOW_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForNavigation({ timeout: 10000 });
-    console.log('Logged in');
+    console.log('Logged in to FlashFlow');
   }
 }
 
@@ -73,22 +75,18 @@ app.post('/browser/review-video', async (req, res) => {
     page = await context.newPage();
 
     if (isYouTubeUrl(videoUrl)) {
-      // Navigate to YouTube and let the player load
       await page.goto(videoUrl, { waitUntil: 'networkidle', timeout: 20000 });
-      // Dismiss consent dialog if it appears
       const consentBtn = page.locator('button:has-text("Accept all"), button:has-text("Reject all")');
       if (await consentBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
         await consentBtn.first().click();
         await page.waitForTimeout(1000);
       }
-      // Click the video to start playback if paused
       const player = page.locator('#movie_player video, video');
       if (await player.first().isVisible({ timeout: 3000 }).catch(() => false)) {
         await player.first().click().catch(() => {});
       }
       await page.waitForTimeout(4000);
     } else {
-      // Direct video file — use embedded player
       await page.setContent(`
         <video src="${videoUrl}" autoplay muted style="width:100%;height:100vh;object-fit:contain;background:black"></video>
       `);
@@ -125,13 +123,10 @@ app.post('/browser/pipeline-status', async (req, res) => {
   }
 });
 
-// Run osascript from a temp file (avoids shell quoting issues with multi-line scripts)
-const path = require('path');
-const os = require('os');
-
+// ─── osascript helper ──────────────────────────────────────────────────────────
 function runOsascript(script, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
-    const tmpFile = path.join(os.tmpdir(), `osascript-${Date.now()}.scpt`);
+    const tmpFile = path.join('/tmp', `osascript-${Date.now()}.scpt`);
     fs.writeFileSync(tmpFile, script);
     exec(`osascript "${tmpFile}"`, { timeout: timeoutMs }, (err, stdout, stderr) => {
       fs.unlinkSync(tmpFile);
@@ -141,8 +136,113 @@ function runOsascript(script, timeoutMs = 120000) {
   });
 }
 
-// Adobe Character Animator lip-sync
+// ─── Adobe Express PWA (Chrome on this Mac Mini) ──────────────────────────────
+// The PWA is already open and logged in — we control it via Chrome AppleScript.
+// NEVER use Playwright to log into Google or Adobe.
+
+// Navigate the PWA to any Adobe Express URL
+app.post('/desktop/adobe-express-navigate', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'url is required' });
+    await runOsascript(`tell application "Google Chrome" to set URL of active tab of window 1 to "${url}"`);
+    await new Promise(r => setTimeout(r, 3000));
+    const currentUrl = await runOsascript('tell application "Google Chrome" to get URL of active tab of window 1');
+    res.json({ ok: true, url: currentUrl });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get current Adobe Express PWA state
+app.get('/desktop/adobe-express-status', async (req, res) => {
+  try {
+    const url = await runOsascript('tell application "Google Chrome" to get URL of active tab of window 1');
+    const title = await runOsascript('tell application "Google Chrome" to get title of active tab of window 1');
+    res.json({ ok: true, url, title });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Execute JavaScript in the Adobe Express PWA
+app.post('/desktop/adobe-express-exec', async (req, res) => {
+  try {
+    const { js } = req.body;
+    if (!js) return res.status(400).json({ error: 'js is required' });
+    const result = await runOsascript(
+      `tell application "Google Chrome" to execute active tab of window 1 javascript "${js.replace(/"/g, '\\"')}"`
+    );
+    res.json({ ok: true, result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Screenshot the Adobe Express PWA via screencapture (native macOS)
+app.post('/desktop/adobe-express-screenshot', async (req, res) => {
+  try {
+    // Bring Chrome to front
+    await runOsascript('tell application "Google Chrome" to activate');
+    await new Promise(r => setTimeout(r, 1000));
+    const filename = `/tmp/screenshots/adobe-express-${Date.now()}.png`;
+    await new Promise((resolve, reject) => {
+      exec(`screencapture -x "${filename}"`, { timeout: 10000 }, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+    res.json({ ok: true, path: filename });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── HP Worker: Adobe Character Animator (remote) ──────────────────────────────
+// Character Animator runs on the HP Worker machine.
+// This endpoint proxies the request to the HP Worker's browser-service.
+// Configure HP_WORKER_URL in .env once the HP Worker is set up.
+
 app.post('/desktop/adobe-sync', async (req, res) => {
+  try {
+    const { audioPath, characterName, outputPath } = req.body;
+    if (!audioPath || !characterName || !outputPath) {
+      return res.status(400).json({ error: 'audioPath, characterName, and outputPath are required' });
+    }
+
+    console.log(`Proxying adobe-sync to HP Worker: ${HP_WORKER_URL}`);
+
+    // Forward the request to the HP Worker
+    const response = await fetch(`${HP_WORKER_URL}/desktop/adobe-sync-local`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-service-key': SERVICE_KEY,
+      },
+      body: JSON.stringify({ audioPath, characterName, outputPath }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+    res.json(data);
+  } catch (e) {
+    console.error('HP Worker proxy error:', e.message);
+    res.status(500).json({
+      error: `Cannot reach HP Worker at ${HP_WORKER_URL}: ${e.message}`,
+      hint: 'Set HP_WORKER_URL in .env to the HP Worker Tailscale IP',
+    });
+  }
+});
+
+// ─── HP Worker local endpoint (runs ON the HP Worker only) ─────────────────────
+// This is the actual osascript automation. Deploy browser-service on the HP Worker
+// and this endpoint will control Adobe Character Animator locally.
+
+const ADOBE_APP = process.env.ADOBE_CH_APP || 'Adobe Character Animator 2025';
+
+app.post('/desktop/adobe-sync-local', async (req, res) => {
   try {
     const { audioPath, characterName, outputPath } = req.body;
     if (!audioPath || !characterName || !outputPath) {
@@ -158,16 +258,14 @@ app.post('/desktop/adobe-sync', async (req, res) => {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    console.log(`Adobe sync: character="${characterName}" audio="${audioPath}" output="${outputPath}"`);
+    console.log(`Adobe sync local: character="${characterName}" audio="${audioPath}" output="${outputPath}"`);
 
     // Step 1: Activate Adobe Character Animator
     await runOsascript(`tell application "${ADOBE_APP}" to activate`);
     console.log('Adobe Character Animator activated');
-
-    // Step 2: Wait for app to come to foreground
     await new Promise(r => setTimeout(r, 3000));
 
-    // Step 3: Use System Events to select character, import audio, record, and export
+    // Step 2: Use System Events to select character, import audio, record, and export
     const syncScript = `tell application "System Events"
   tell process "${ADOBE_APP}"
     set frontmost to true
@@ -230,17 +328,7 @@ end tell`;
 
     res.json({ ok: true, outputPath, exported: exists });
   } catch (e) {
-    console.error('Adobe sync error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Test endpoint: just activate Adobe
-app.post('/desktop/adobe-open', async (req, res) => {
-  try {
-    await runOsascript(`tell application "${ADOBE_APP}" to activate`);
-    res.json({ ok: true, message: `${ADOBE_APP} activated` });
-  } catch (e) {
+    console.error('Adobe sync local error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

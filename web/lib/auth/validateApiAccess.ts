@@ -61,7 +61,8 @@ export async function validateApiAccess(request: Request): Promise<ApiAccessResu
   }
 
   // Determine if this was API key auth (ff_ak_*) or session
-  const isApiKeyAuth = authHeader && authHeader.startsWith('Bearer ff_ak_');
+  const xApiKey = request.headers.get('x-api-key');
+  const isApiKeyAuth = (authHeader && authHeader.startsWith('Bearer ff_ak_')) || (xApiKey && xApiKey.startsWith('ff_ak_'));
 
   return {
     userId: authContext.user.id,

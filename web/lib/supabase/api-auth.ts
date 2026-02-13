@@ -131,10 +131,11 @@ async function resolveUserRole(
  * 3. Default: no role
  */
 export async function getApiAuthContext(request?: Request): Promise<AuthContext> {
-  // API key auth path: if request has a Bearer ff_ak_* token, use it
+  // API key auth path: check Authorization header or x-api-key header
   if (request) {
     const authHeader = request.headers.get('authorization');
-    if (authHeader && authHeader.startsWith('Bearer ff_ak_')) {
+    const xApiKey = request.headers.get('x-api-key');
+    if ((authHeader && authHeader.startsWith('Bearer ff_ak_')) || (xApiKey && xApiKey.startsWith('ff_ak_'))) {
       const keyResult = await verifyApiKeyFromRequest(request);
       if (!keyResult) {
         return { user: null, role: null, isAdmin: false, isUploader: false };

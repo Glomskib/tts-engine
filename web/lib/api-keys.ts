@@ -35,12 +35,17 @@ export async function verifyApiKeyFromRequest(
   request: Request
 ): Promise<ApiKeyResult | null> {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader) return null;
+  const xApiKey = request.headers.get('x-api-key');
 
-  const match = authHeader.match(/^Bearer\s+(ff_ak_.+)$/);
-  if (!match) return null;
-
-  const plaintext = match[1];
+  let plaintext: string | null = null;
+  if (authHeader) {
+    const match = authHeader.match(/^Bearer\s+(ff_ak_.+)$/);
+    if (match) plaintext = match[1];
+  }
+  if (!plaintext && xApiKey && xApiKey.startsWith('ff_ak_')) {
+    plaintext = xApiKey;
+  }
+  if (!plaintext) return null;
   const hash = hashApiKey(plaintext);
 
   const { data, error } = await supabaseAdmin

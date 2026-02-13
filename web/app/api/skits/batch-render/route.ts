@@ -290,20 +290,29 @@ export async function POST(request: NextRequest) {
 
       const runwayPrompt = promptResult.prompt;
       console.log(`[${correlationId}] Prompt (${runwayPrompt.length} chars, ai=${promptResult.aiGenerated}): ${runwayPrompt}`);
+      console.log(`[${correlationId}] Image URL for Runway: ${productImageUrl}`);
 
-      // Step 6: Trigger Runway render (image-to-video only — text-to-video garbles labels)
+      // Step 6a: Save prompt + image URL BEFORE calling Runway (audit trail)
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          render_provider: 'runway',
+          render_prompt: runwayPrompt,
+          render_image_url: productImageUrl,
+        })
+        .eq('id', videoId);
+
+      // Step 6b: Trigger Runway render (image-to-video only — text-to-video garbles labels)
       const runwayResult = await createImageToVideo(productImageUrl!, runwayPrompt, 'gen4.5', 10);
 
       const renderTaskId = runwayResult.id ? String(runwayResult.id) : null;
 
       if (renderTaskId) {
-        // Step 7: Store render_task_id, prompt, and set AI_RENDERING
+        // Step 7: Store render_task_id and set AI_RENDERING
         await supabaseAdmin
           .from('videos')
           .update({
             render_task_id: renderTaskId,
-            render_provider: 'runway',
-            render_prompt: runwayPrompt,
             recording_status: 'AI_RENDERING',
           })
           .eq('id', videoId);

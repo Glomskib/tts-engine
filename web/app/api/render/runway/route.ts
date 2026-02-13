@@ -59,6 +59,14 @@ export async function POST(request: Request) {
   };
   const model = modelAliases[parsed.data.model] || parsed.data.model;
 
+  // Save prompt + image URL BEFORE calling Runway (audit trail even if Runway fails)
+  if (videoId) {
+    await supabaseAdmin
+      .from("videos")
+      .update({ render_prompt: promptText, render_image_url: promptImageUrl, render_provider: "runway" })
+      .eq("id", videoId);
+  }
+
   try {
     const response = await runwayRequest("/v1/image_to_video", {
       method: "POST",
@@ -71,11 +79,11 @@ export async function POST(request: Request) {
       }),
     });
 
-    // Save prompt to video record if videoId provided
+    // Save task ID after successful Runway call
     if (videoId && response.id) {
       await supabaseAdmin
         .from("videos")
-        .update({ render_prompt: promptText, render_task_id: String(response.id), render_provider: "runway" })
+        .update({ render_task_id: String(response.id) })
         .eq("id", videoId);
     }
 

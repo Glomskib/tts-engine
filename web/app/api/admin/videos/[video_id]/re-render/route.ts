@@ -226,7 +226,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    // 6. Trigger Runway render (image-to-video only — text-to-video garbles labels)
+    // 6a. Save prompt + image URL BEFORE calling Runway (audit trail)
+    await supabaseAdmin
+      .from("videos")
+      .update({
+        render_provider: "runway",
+        render_prompt: runwayPrompt,
+        render_image_url: productImageUrl,
+      })
+      .eq("id", video_id);
+
+    // 6b. Trigger Runway render (image-to-video only — text-to-video garbles labels)
     const runwayResult = await createImageToVideo(
       productImageUrl!,
       runwayPrompt,
@@ -245,13 +255,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // 7. Update video: new render_task_id, prompt, clear old compose data, set AI_RENDERING
+    // 7. Update video: new render_task_id, clear old compose data, set AI_RENDERING
     const { error: updateErr } = await supabaseAdmin
       .from("videos")
       .update({
         render_task_id: renderTaskId,
-        render_provider: "runway",
-        render_prompt: runwayPrompt,
         compose_render_id: null,
         runway_video_url: null,
         final_video_url: null,

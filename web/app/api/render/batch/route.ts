@@ -66,13 +66,21 @@ async function executeRunwayRequest(
     throw new Error("Product image required — Runway cannot generate readable labels without a reference image");
   }
 
+  // Save prompt + image URL BEFORE calling Runway (audit trail even if Runway fails)
+  if (req.videoId) {
+    await supabaseAdmin
+      .from("videos")
+      .update({ render_prompt: req.prompt, render_image_url: req.imageUrl, render_provider: "runway" })
+      .eq("id", req.videoId);
+  }
+
   const result = await createImageToVideo(req.imageUrl, req.prompt, model, req.duration, ratio);
 
-  // Save prompt to video record if videoId provided
+  // Save task ID and set status after successful Runway call
   if (req.videoId && result.id) {
     await supabaseAdmin
       .from("videos")
-      .update({ render_prompt: req.prompt, render_task_id: String(result.id), render_provider: "runway", recording_status: "AI_RENDERING" })
+      .update({ render_task_id: String(result.id), recording_status: "AI_RENDERING" })
       .eq("id", req.videoId);
   }
 

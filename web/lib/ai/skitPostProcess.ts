@@ -257,17 +257,45 @@ function determineTier(requestedTier: RiskTier, riskScore: number): RiskTier {
 }
 
 /**
+ * Extract a short punchy phrase from dialogue for on-screen text.
+ * Takes the first sentence/clause, strips filler words, and truncates to max length.
+ */
+function deriveOnScreenText(dialogue: string, maxLen: number): string {
+  // Take first sentence or clause (split on . ! ? — ,)
+  const clause = dialogue.split(/[.!?—]/)[ 0]?.trim() || dialogue.trim();
+  // Strip common filler/conversational starters
+  const stripped = clause
+    .replace(/^(okay|ok|so|well|hey|like|um|uh|you know|honestly|literally|actually|basically|look|listen|oh|wow|wait)\b[,]?\s*/i, "")
+    .trim();
+  const text = stripped || clause;
+  if (text.length <= maxLen) return text;
+  // Truncate at last word boundary within limit
+  const truncated = text.slice(0, maxLen - 1);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return lastSpace > 10 ? truncated.slice(0, lastSpace) + "…" : truncated + "…";
+}
+
+/**
  * Sanitize entire skit structure
  */
 function sanitizeSkit(skit: Skit): Skit {
   return {
     hook_line: sanitizeText(skit.hook_line, MAX_LENGTHS.hook_line),
-    beats: skit.beats.map((beat) => ({
-      t: beat.t,
-      action: sanitizeText(beat.action, MAX_LENGTHS.action),
-      dialogue: beat.dialogue ? sanitizeText(beat.dialogue, MAX_LENGTHS.dialogue) : undefined,
-      on_screen_text: beat.on_screen_text ? sanitizeText(beat.on_screen_text, MAX_LENGTHS.on_screen_text) : undefined,
-    })),
+    beats: skit.beats.map((beat) => {
+      // Auto-generate on_screen_text from dialogue when missing
+      let ost = beat.on_screen_text
+        ? sanitizeText(beat.on_screen_text, MAX_LENGTHS.on_screen_text)
+        : undefined;
+      if (!ost && beat.dialogue) {
+        ost = deriveOnScreenText(beat.dialogue, MAX_LENGTHS.on_screen_text);
+      }
+      return {
+        t: beat.t,
+        action: sanitizeText(beat.action, MAX_LENGTHS.action),
+        dialogue: beat.dialogue ? sanitizeText(beat.dialogue, MAX_LENGTHS.dialogue) : undefined,
+        on_screen_text: ost,
+      };
+    }),
     b_roll: skit.b_roll.map((item) => sanitizeText(item, MAX_LENGTHS.b_roll_item)),
     overlays: skit.overlays.map((item) => sanitizeText(item, MAX_LENGTHS.overlay_item)),
     cta_line: sanitizeText(skit.cta_line, MAX_LENGTHS.cta_line),

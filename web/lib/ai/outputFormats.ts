@@ -150,7 +150,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       "t": "0:00-0:03",
       "action": "What happens visually",
       "dialogue": "What is said (optional)",
-      "on_screen_text": "Text overlay (optional, max 50 chars)"
+      "on_screen_text": "Short punchy text overlay for this beat — extract the key phrase from dialogue (REQUIRED when beat has dialogue, max 50 chars)"
     }
   ],
   "b_roll": ["Suggested B-roll shot 1", "Shot 2"],
@@ -226,7 +226,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       "t": "0:00-0:03",
       "action": "What happens visually",
       "dialogue": "What is said (optional)",
-      "on_screen_text": "Text overlay (optional, max 50 chars)"
+      "on_screen_text": "Short punchy text overlay for this beat — extract the key phrase from dialogue (REQUIRED when beat has dialogue, max 50 chars)"
     }
   ],
   "b_roll": ["Suggested B-roll shot 1", "Shot 2"],
@@ -302,7 +302,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       "t": "0:00-0:03",
       "action": "What happens visually / scene description",
       "dialogue": "Narration or spoken words (optional)",
-      "on_screen_text": "Text overlay (optional, max 50 chars)"
+      "on_screen_text": "Short punchy text overlay for this beat — extract the key phrase from dialogue (REQUIRED when beat has dialogue, max 50 chars)"
     }
   ],
   "b_roll": ["Suggested visual/shot 1", "Shot 2"],
@@ -379,7 +379,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       "t": "0:00-0:03",
       "action": "What happens visually / demonstration step",
       "dialogue": "Explanation or narration (optional)",
-      "on_screen_text": "Text overlay (optional, max 50 chars)"
+      "on_screen_text": "Short punchy text overlay for this beat — extract the key phrase from dialogue (REQUIRED when beat has dialogue, max 50 chars)"
     }
   ],
   "b_roll": ["Product shot 1", "Close-up detail 2"],
@@ -456,7 +456,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       "t": "0:00-0:03",
       "action": "What happens visually",
       "dialogue": "What the person says (casual, natural)",
-      "on_screen_text": "Text overlay (optional, max 50 chars)"
+      "on_screen_text": "Short punchy text overlay for this beat — extract the key phrase from dialogue (REQUIRED when beat has dialogue, max 50 chars)"
     }
   ],
   "b_roll": ["Product in real-life setting 1", "Shot 2"],

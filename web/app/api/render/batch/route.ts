@@ -35,6 +35,7 @@ const renderRequestSchema = z.discriminatedUnion("provider", [
 
 const batchSchema = z.object({
   requests: z.array(renderRequestSchema).min(1).max(10),
+  dryRun: z.boolean().optional(),
 });
 
 async function executeShotstackRequest(
@@ -94,13 +95,38 @@ export async function POST(request: Request) {
     );
   }
 
+  const isDryRun = parsed.data.dryRun === true;
+
   const results: Array<
     | { provider: "shotstack"; render_id: string }
     | { provider: "runway"; task_id: string }
     | { provider: string; error: string; preflight_skipped?: boolean; checks?: Record<string, unknown> }
+    | { provider: string; dryRun: true; wouldRender: boolean; checks?: Record<string, unknown>; videoId?: string }
   > = [];
 
   for (const req of parsed.data.requests) {
+    // Dry run: run preflight only, never call providers
+    if (isDryRun) {
+      if (req.provider === "runway" && req.videoId) {
+        const preflight = await runPreflight(req.videoId);
+        results.push({
+          provider: "runway",
+          dryRun: true,
+          wouldRender: preflight.ready,
+          checks: preflight.checks,
+          videoId: req.videoId,
+        });
+      } else {
+        results.push({
+          provider: req.provider,
+          dryRun: true,
+          wouldRender: req.provider === "shotstack",
+          ...(req.provider === "runway" ? { checks: undefined, videoId: undefined } : {}),
+        });
+      }
+      continue;
+    }
+
     if (req.provider === "shotstack") {
       try {
         results.push(await executeShotstackRequest(req));
@@ -140,15 +166,19 @@ export async function POST(request: Request) {
     }
   }
 
-  const submitted = results.filter((r) => !("error" in r)).length;
+  const submitted = isDryRun ? 0 : results.filter((r) => !("error" in r) && !("dryRun" in r)).length;
+  const wouldRender = isDryRun ? results.filter((r) => "wouldRender" in r && r.wouldRender).length : undefined;
+  const wouldSkip = isDryRun ? results.filter((r) => "wouldRender" in r && !r.wouldRender).length : undefined;
   const skipped = results.filter((r) => "preflight_skipped" in r).length;
-  const failed = results.length - submitted;
+  const failed = isDryRun ? 0 : results.length - submitted;
 
   return NextResponse.json({
     ok: true,
     data: {
+      dryRun: isDryRun,
       results,
       submitted,
+      ...(isDryRun ? { wouldRender, wouldSkip } : {}),
       skipped,
       failed,
     },

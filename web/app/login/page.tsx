@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { BRAND } from '@/lib/brand';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '';
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
@@ -101,8 +100,8 @@ function LoginForm() {
 
         const explicitRedirect = searchParams.get('redirect');
         if (explicitRedirect) {
-          router.push(explicitRedirect);
-          router.refresh();
+          // Full page load to ensure AuthProvider re-initializes with session
+          window.location.href = explicitRedirect;
           return;
         }
 
@@ -112,21 +111,19 @@ function LoginForm() {
 
           if (roleData.ok) {
             if (roleData.isAdmin) {
-              router.push('/admin/dashboard');
+              window.location.href = '/admin/dashboard';
             } else if (roleData.isUploader) {
-              router.push('/uploader');
+              window.location.href = '/uploader';
             } else {
-              router.push('/my-tasks');
+              window.location.href = '/my-tasks';
             }
-            router.refresh();
             return;
           }
         } catch {
           // Fallback if role check fails
         }
 
-        router.push('/my-tasks');
-        router.refresh();
+        window.location.href = '/my-tasks';
       }
     } catch (err) {
       console.error('Auth error:', err);

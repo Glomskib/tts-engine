@@ -15,7 +15,7 @@
  * All API routes should use this function instead of calling
  * `createServerSupabaseClient()` or parsing Bearer tokens directly.
  */
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyApiKeyFromRequest } from '@/lib/api-keys';
@@ -166,21 +166,16 @@ export async function getApiAuthContext(request?: Request): Promise<AuthContext>
     supabaseAnonKey,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(cookiesToSet) {
           try {
-            cookieStore.set({ name, value, ...options });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
           } catch {
             // Cannot set cookies in API routes during response
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options });
-          } catch {
-            // Cannot remove cookies in API routes during response
           }
         },
       },

@@ -10,7 +10,7 @@ CREATE INDEX IF NOT EXISTS idx_videos_render_task_id ON videos(render_task_id) W
 
 -- Saved skits: lookup by product
 CREATE INDEX IF NOT EXISTS idx_saved_skits_product_id ON saved_skits(product_id);
-CREATE INDEX IF NOT EXISTS idx_saved_skits_account_id ON saved_skits(account_id);
+CREATE INDEX IF NOT EXISTS idx_saved_skits_user_id ON saved_skits(user_id);
 
 -- Agent tasks: status queries
 CREATE INDEX IF NOT EXISTS idx_agent_tasks_status ON agent_tasks(status);

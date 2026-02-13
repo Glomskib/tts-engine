@@ -7,12 +7,16 @@ import { uploadToStorage } from "@/lib/storage";
 import { logVideoActivity } from "@/lib/videoActivity";
 import { sendTelegramNotification } from "@/lib/telegram";
 import { z } from "zod";
+import { writeFile, readFile, mkdir, unlink } from "fs/promises";
+import path from "path";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const BROWSER_SERVICE_URL =
   process.env.BROWSER_SERVICE_URL || "http://localhost:8100";
+const BROWSER_SERVICE_KEY =
+  process.env.BROWSER_SERVICE_KEY || "bsk_changeme";
 
 const AnimatedSchema = z.object({
   productId: z.string().uuid(),
@@ -117,6 +121,7 @@ export async function POST(request: Request) {
           status: "needs_edit",
           recording_status: "AI_RENDERING",
           script_not_required: true,
+          google_drive_url: "",
         })
         .select("id")
         .single();
@@ -199,15 +204,24 @@ export async function POST(request: Request) {
     );
     const audioBuffer = await textToSpeech(scriptText, voiceId);
 
-    // --- Step 3: Upload audio to Supabase storage ---
-    const audioPath = `animated/${videoId}/${Date.now()}_voice.mp3`;
+    // --- Step 3: Save audio to Supabase storage + local temp file ---
+    const audioStoragePath = `animated/${videoId}/${Date.now()}_voice.mp3`;
     const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
-    const audioUpload = await uploadToStorage("renders", audioPath, audioBlob, {
-      contentType: "audio/mpeg",
-    });
+    const audioUpload = await uploadToStorage(
+      "renders",
+      audioStoragePath,
+      audioBlob,
+      { contentType: "audio/mpeg" }
+    );
+
+    // Browser service needs a local file path, so write to /tmp as well
+    const tmpDir = `/tmp/flashflow-animated`;
+    await mkdir(tmpDir, { recursive: true });
+    const localAudioPath = path.join(tmpDir, `${videoId}.mp3`);
+    await writeFile(localAudioPath, Buffer.from(audioBuffer));
 
     console.log(
-      `[${correlationId}] Audio uploaded: ${audioUpload.url} (${audioBuffer.byteLength} bytes)`
+      `[${correlationId}] Audio uploaded: ${audioUpload.url} (${audioBuffer.byteLength} bytes), local: ${localAudioPath}`
     );
 
     // --- Step 4: Call browser service to create animated video ---
@@ -216,8 +230,11 @@ export async function POST(request: Request) {
       `${BROWSER_SERVICE_URL}/adobe/create-animated-video`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioPath: audioUpload.url }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-service-key": BROWSER_SERVICE_KEY,
+        },
+        body: JSON.stringify({ audioPath: localAudioPath }),
       }
     );
 
@@ -229,28 +246,24 @@ export async function POST(request: Request) {
     }
 
     const browserResult = (await browserRes.json()) as {
-      videoPath?: string;
-      videoUrl?: string;
+      ok: boolean;
+      outputPath?: string;
+      size?: number;
     };
-    const localVideoPath = browserResult.videoPath || browserResult.videoUrl;
+    const renderedVideoPath = browserResult.outputPath;
 
-    if (!localVideoPath) {
-      throw new Error("Browser service returned no videoPath");
+    if (!renderedVideoPath) {
+      throw new Error("Browser service returned no outputPath");
     }
 
     // --- Step 5: Upload finished video to Supabase storage ---
+    // Read the local file that the browser service wrote
     console.log(
-      `[${correlationId}] Uploading finished video from: ${localVideoPath}`
+      `[${correlationId}] Uploading finished video from: ${renderedVideoPath}`
     );
-    const videoRes = await fetch(localVideoPath);
-    if (!videoRes.ok) {
-      throw new Error(
-        `Failed to fetch rendered video: ${videoRes.status}`
-      );
-    }
+    const videoFileBuffer = await readFile(renderedVideoPath);
 
-    const videoBuffer = await videoRes.arrayBuffer();
-    const videoBlob = new Blob([videoBuffer], { type: "video/mp4" });
+    const videoBlob = new Blob([videoFileBuffer], { type: "video/mp4" });
     const videoStoragePath = `animated/${videoId}/${Date.now()}_final.mp4`;
     const videoUpload = await uploadToStorage(
       "renders",
@@ -260,8 +273,12 @@ export async function POST(request: Request) {
     );
 
     console.log(
-      `[${correlationId}] Video uploaded: ${videoUpload.url} (${videoBuffer.byteLength} bytes)`
+      `[${correlationId}] Video uploaded: ${videoUpload.url} (${videoFileBuffer.byteLength} bytes)`
     );
+
+    // Clean up temp files (non-blocking)
+    unlink(localAudioPath).catch(() => {});
+    unlink(renderedVideoPath).catch(() => {});
 
     // --- Step 6: Update video record ---
     await supabaseAdmin
@@ -280,7 +297,7 @@ export async function POST(request: Request) {
       "AI_RENDERING",
       "READY_FOR_REVIEW",
       "system",
-      `Animated video render complete (${Math.round(videoBuffer.byteLength / 1024)}KB)`,
+      `Animated video render complete (${Math.round(videoFileBuffer.byteLength / 1024)}KB)`,
       correlationId
     );
 
@@ -289,7 +306,7 @@ export async function POST(request: Request) {
       `🎬 <b>Animated video ready for review</b>\n` +
         `Product: ${product.brand} — ${product.name}\n` +
         `Video ID: <code>${videoId}</code>\n` +
-        `Size: ${Math.round(videoBuffer.byteLength / 1024)}KB`
+        `Size: ${Math.round(videoFileBuffer.byteLength / 1024)}KB`
     );
 
     const response = NextResponse.json(

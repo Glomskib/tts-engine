@@ -3015,51 +3015,160 @@ export default function VideoDrawer({
               {/* Activity Tab */}
               {activeTab === 'activity' && (
                 <div>
-                  {details?.events && details.events.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {details.events.map((event) => (
-                        <div
-                          key={event.id}
-                          style={{
-                            padding: '10px 12px',
-                            backgroundColor: '#f8f9fa',
-                            borderRadius: '6px',
-                            borderLeft: `3px solid ${
-                              event.event_type === 'status_change' ? '#228be6' :
-                              event.event_type === 'claimed' ? '#40c057' :
-                              event.event_type === 'released' ? '#fab005' :
-                              '#868e96'
-                            }`,
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                              <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#212529', marginBottom: '2px' }}>
-                                {event.event_type.replace(/_/g, ' ')}
-                              </div>
-                              {event.from_status && event.to_status && (
-                                <div style={{ fontSize: '11px', color: '#495057' }}>
-                                  {event.from_status} → {event.to_status}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontSize: '10px', color: '#868e96' }}>
-                                {displayTime(event.created_at)}
-                              </div>
-                              <div style={{ fontSize: '10px', color: '#adb5bd', fontFamily: 'monospace' }}>
-                                {event.actor.slice(0, 8)}
-                              </div>
-                            </div>
+                  {details?.events && details.events.length > 0 ? (() => {
+                    // Sort events chronologically (oldest first) for timeline
+                    const chronological = [...details.events].sort(
+                      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    );
+
+                    // Format duration between two dates
+                    const formatDuration = (fromDate: string, toDate: string) => {
+                      const ms = new Date(toDate).getTime() - new Date(fromDate).getTime();
+                      if (ms < 0) return '';
+                      const mins = Math.floor(ms / 60000);
+                      if (mins < 1) return '< 1 min';
+                      if (mins < 60) return `${mins}m`;
+                      const hrs = Math.floor(mins / 60);
+                      const remainMins = mins % 60;
+                      if (hrs < 24) return remainMins > 0 ? `${hrs}h ${remainMins}m` : `${hrs}h`;
+                      const days = Math.floor(hrs / 24);
+                      const remainHrs = hrs % 24;
+                      return remainHrs > 0 ? `${days}d ${remainHrs}h` : `${days}d`;
+                    };
+
+                    // Format absolute timestamp
+                    const formatTimestamp = (dateStr: string) => {
+                      const d = new Date(dateStr);
+                      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+                        ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    };
+
+                    // Friendly status label
+                    const statusLabel = (s: string) => {
+                      const labels: Record<string, string> = {
+                        'NEEDS_SCRIPT': 'Needs Script',
+                        'GENERATING_SCRIPT': 'Generating Script',
+                        'NOT_RECORDED': 'Not Recorded',
+                        'AI_RENDERING': 'AI Rendering',
+                        'RECORDED': 'Recorded',
+                        'EDITED': 'Edited',
+                        'READY_TO_POST': 'Ready to Post',
+                        'POSTED': 'Posted',
+                        'REJECTED': 'Rejected',
+                      };
+                      return labels[s] || s.replace(/_/g, ' ');
+                    };
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                        {/* Created marker */}
+                        <div style={{
+                          padding: '10px 12px',
+                          backgroundColor: isDark ? '#1a2332' : '#eef6ff',
+                          borderRadius: '6px 6px 0 0',
+                          borderLeft: '3px solid #228be6',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}>
+                          <div style={{ fontWeight: 600, fontSize: '12px', color: isDark ? '#93c5fd' : '#1e40af' }}>
+                            Created
+                          </div>
+                          <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                            {formatTimestamp(video.created_at)}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
+
+                        {chronological.map((event, idx) => {
+                          const prevTime = idx === 0 ? video.created_at : chronological[idx - 1].created_at;
+                          const elapsed = formatDuration(prevTime, event.created_at);
+                          const borderColor =
+                            event.event_type === 'status_change' ? '#228be6' :
+                            event.event_type === 'claimed' ? '#40c057' :
+                            event.event_type === 'released' ? '#fab005' :
+                            '#868e96';
+
+                          return (
+                            <div key={event.id}>
+                              {/* Duration connector */}
+                              {elapsed && (
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '4px 12px 4px 15px',
+                                  borderLeft: `3px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+                                }}>
+                                  <div style={{
+                                    fontSize: '10px',
+                                    color: isDark ? '#94a3b8' : '#94a3b8',
+                                    fontFamily: 'monospace',
+                                    backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                  }}>
+                                    {elapsed}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Event card */}
+                              <div
+                                style={{
+                                  padding: '10px 12px',
+                                  backgroundColor: isDark ? '#1e293b' : '#f8f9fa',
+                                  borderLeft: `3px solid ${borderColor}`,
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                  <div>
+                                    <div style={{ fontWeight: 600, fontSize: '12px', color: isDark ? '#e2e8f0' : '#212529', marginBottom: '2px' }}>
+                                      {event.event_type === 'status_change' && event.to_status
+                                        ? statusLabel(event.to_status)
+                                        : event.event_type.replace(/_/g, ' ')}
+                                    </div>
+                                    {event.from_status && event.to_status && event.event_type === 'status_change' && (
+                                      <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#495057' }}>
+                                        {statusLabel(event.from_status)} &rarr; {statusLabel(event.to_status)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                                      {formatTimestamp(event.created_at)}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: isDark ? '#64748b' : '#adb5bd', fontFamily: 'monospace' }}>
+                                      {event.actor.slice(0, 8)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Total elapsed */}
+                        <div style={{
+                          padding: '8px 12px',
+                          backgroundColor: isDark ? '#1a2332' : '#eef6ff',
+                          borderRadius: '0 0 6px 6px',
+                          borderLeft: '3px solid #228be6',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}>
+                          <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                            Total time
+                          </div>
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: isDark ? '#93c5fd' : '#1e40af', fontFamily: 'monospace' }}>
+                            {formatDuration(video.created_at, chronological[chronological.length - 1].created_at)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })() : (
                     <div style={{
                       textAlign: 'center',
                       padding: '40px 20px',
-                      backgroundColor: '#f8fafc',
+                      backgroundColor: isDark ? '#1e293b' : '#f8fafc',
                       borderRadius: '8px',
                       color: '#64748b',
                     }}>

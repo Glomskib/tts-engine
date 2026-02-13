@@ -2,6 +2,7 @@
 
 import AdminNav from './AdminNav';
 import IncidentBanner from './IncidentBanner';
+import { Breadcrumbs, type BreadcrumbItem } from '@/components/ui/Breadcrumbs';
 
 interface AdminPageLayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface AdminPageLayoutProps {
   showNav?: boolean;
   maxWidth?: 'md' | 'lg' | 'xl' | '2xl' | 'full';
   headerActions?: React.ReactNode;
+  breadcrumbs?: BreadcrumbItem[];
 }
 
 const MAX_WIDTH_CLASSES = {
@@ -34,6 +36,7 @@ export default function AdminPageLayout({
   showNav = false,
   maxWidth = 'xl',
   headerActions,
+  breadcrumbs,
 }: AdminPageLayoutProps) {
   return (
     <div className="min-h-screen bg-[#09090b]">
@@ -43,6 +46,9 @@ export default function AdminPageLayout({
 
         {/* Navigation */}
         {showNav && <AdminNav isAdmin={isAdmin} />}
+
+        {/* Breadcrumbs */}
+        {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 
         {/* Page Header */}
         <div className="mb-6 flex flex-col sm:flex-row items-start justify-between gap-4">

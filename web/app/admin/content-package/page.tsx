@@ -409,6 +409,10 @@ export default function ContentPackagePage() {
       title="Content Package"
       subtitle="AI-generated daily content batches for your pipeline"
       maxWidth="2xl"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/admin' },
+        { label: 'Content Package' },
+      ]}
       headerActions={
         <div className="flex items-center gap-2">
           {pkg && (

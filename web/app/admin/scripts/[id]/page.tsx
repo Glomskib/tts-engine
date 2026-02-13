@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
 interface ScriptJson {
   hook?: string;
@@ -404,10 +405,17 @@ export default function ScriptEditorPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[
+        { label: 'Dashboard', href: '/admin' },
+        { label: 'Scripts', href: '/admin/scripts' },
+        { label: script.title || 'Script Detail' },
+      ]} />
+
       {/* Header */}
       <div style={{ marginBottom: '20px' }}>
         <Link href="/admin/scripts" style={{ padding: '8px 16px', marginRight: '10px', textDecoration: 'none', color: '#333', border: '1px solid #ccc', borderRadius: '4px', display: 'inline-block' }}>
-          &larr; Back to Library
+          &larr; Back to Scripts
         </Link>
       </div>
 

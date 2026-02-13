@@ -636,6 +636,10 @@ export default function ProductsPage() {
       title="Products"
       subtitle="Manage product catalog and view statistics"
       isAdmin={isAdmin}
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/admin' },
+        { label: 'Products' },
+      ]}
       headerActions={
         <div className="flex gap-2">
           {selectedProducts.size > 0 && isAdmin && (

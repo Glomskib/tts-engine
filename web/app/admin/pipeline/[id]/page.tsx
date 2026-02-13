@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
 interface ClaimedVideo {
   id: string;
@@ -626,10 +627,17 @@ export default function VideoDetailPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[
+        { label: 'Dashboard', href: '/admin' },
+        { label: 'Pipeline', href: '/admin/pipeline' },
+        { label: 'Video Detail' },
+      ]} />
+
       {/* Navigation */}
       <div style={{ marginBottom: '20px' }}>
         <Link href="/admin/pipeline" style={{ padding: '8px 16px', marginRight: '10px', textDecoration: 'none', color: '#333', border: '1px solid #ccc', borderRadius: '4px', display: 'inline-block' }}>
-          &larr; Back to Work Queue
+          &larr; Back to Pipeline
         </Link>
         <button type="button" onClick={fetchData} style={{ padding: '8px 16px' }}>
           Refresh

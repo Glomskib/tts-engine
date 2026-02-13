@@ -48,8 +48,8 @@ export async function PATCH(
     return createApiErrorResponse("BAD_REQUEST", "Video ID is required", 400, correlationId);
   }
 
-  // Validate UUID format
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  // Validate UUID format (permissive — accepts v4, v7, and other variants)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
     return createApiErrorResponse("INVALID_UUID", "Video ID must be a valid UUID", 400, correlationId, { provided: id });
   }
@@ -66,12 +66,17 @@ export async function PATCH(
     google_drive_url,
     final_video_url,
     raw_footage_url,
+    render_url,
     assets_url,
     script_locked_text,
     product_id,
     posting_account_id,
     reason_code,
     reason_message,
+    caption_used,
+    hashtags_used,
+    title,
+    description,
     // Selected hook package fields
     selected_spoken_hook,
     selected_visual_hook,
@@ -181,6 +186,21 @@ export async function PATCH(
   }
   if (posting_account_id !== undefined) {
     updatePayload.posting_account_id = posting_account_id;
+  }
+  if (render_url !== undefined) {
+    updatePayload.render_url = render_url;
+  }
+  if (caption_used !== undefined) {
+    updatePayload.caption_used = caption_used;
+  }
+  if (hashtags_used !== undefined) {
+    updatePayload.hashtags_used = hashtags_used;
+  }
+  if (title !== undefined) {
+    updatePayload.title = title;
+  }
+  if (description !== undefined) {
+    updatePayload.description = description;
   }
 
   // Selected hook package fields

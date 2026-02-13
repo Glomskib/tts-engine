@@ -48,17 +48,16 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
   const variant_id = searchParams.get("variant_id");
 
-  // account_id is required for portal pages
-  if (!account_id) {
-    return createApiErrorResponse("BAD_REQUEST", "account_id is required", 400, correlationId);
-  }
-
   try {
     let query = supabaseAdmin
       .from("videos")
       .select("*")
-      .eq("account_id", account_id)
       .order("created_at", { ascending: false });
+
+    // Filter by account_id if provided (required for portal, optional for API)
+    if (account_id) {
+      query = query.eq("account_id", account_id);
+    }
 
     // Add optional query filters
     if (status) {

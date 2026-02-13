@@ -10,8 +10,8 @@ export const maxDuration = 300;
 const RunwaySchema = z.object({
   promptText: z.string().min(1).max(2000),
   promptImageUrl: z.string().url().optional(),
-  model: z.enum(["gen3a_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional().default("gen4.5"),
-  duration: z.enum(["5", "10"]).optional().default("10"),
+  model: z.enum(["gen3a_turbo", "gen4_turbo", "gen4.5", "veo3", "veo3.1", "veo3.1_fast"]).optional().default("gen4.5"),
+  duration: z.union([z.literal(5), z.literal(10), z.literal("5"), z.literal("10")]).optional().default(10),
   ratio: z.string().optional().default("720:1280"),
 });
 
@@ -38,7 +38,13 @@ export async function POST(request: Request) {
     });
   }
 
-  const { promptText, promptImageUrl, model, duration, ratio } = parsed.data;
+  const { promptText, promptImageUrl, duration, ratio } = parsed.data;
+  // Map legacy/alias model names to available Runway models
+  const modelAliases: Record<string, string> = {
+    gen4_turbo: "gen4.5",
+    gen3a_turbo: "gen4.5",
+  };
+  const model = modelAliases[parsed.data.model] || parsed.data.model;
 
   try {
     let response: Record<string, unknown>;
@@ -50,7 +56,7 @@ export async function POST(request: Request) {
           model,
           promptImage: promptImageUrl,
           promptText,
-          duration: parseInt(duration),
+          duration: Number(duration),
           ratio,
         }),
       });
@@ -60,7 +66,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model,
           promptText,
-          duration: parseInt(duration),
+          duration: Number(duration),
           ratio,
         }),
       });

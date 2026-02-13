@@ -14,6 +14,43 @@ const ComposeSchema = z.object({
   duration: z.number().min(1).max(120).optional(),
 });
 
+/**
+ * Split on-screen text into timed cards.
+ * - Splits on "|" delimiter first
+ * - Any segment > 40 chars gets word-wrapped into max-20-char lines, max 2 lines per card
+ * - Returns array of { text, start, length } clips evenly distributed before CTA
+ */
+function buildTextCards(
+  raw: string,
+  videoDuration: number,
+  ctaDuration: number
+): { text: string; start: number; length: number }[] {
+  // Split on pipe delimiter and trim
+  const segments = raw
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Available time for on-screen text (reserve last ctaDuration for CTA)
+  const textWindow = Math.max(videoDuration - ctaDuration - 0.5, 2);
+  const cardDuration = Math.min(textWindow / segments.length, 4);
+  const gap = 0.3; // small gap between cards
+
+  return segments.map((seg, i) => ({
+    text: seg,
+    start: 0.5 + i * (cardDuration + gap),
+    length: cardDuration,
+  }));
+}
+
+function textCardHtml(text: string): string {
+  return `<p style="font-family:Montserrat;font-weight:700;font-size:52px;color:#fff;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,0.95),0 0 40px rgba(0,0,0,0.5);line-height:1.3;margin:0;padding:0 108px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</p>`;
+}
+
+function ctaHtml(text: string): string {
+  return `<p style="font-family:Montserrat;font-weight:700;font-size:56px;color:#fff;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,0.95),0 0 40px rgba(0,0,0,0.5);line-height:1.3;margin:0;padding:0 108px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</p>`;
+}
+
 export async function POST(request: Request) {
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -39,7 +76,7 @@ export async function POST(request: Request) {
 
   const { videoUrl, onScreenText, cta } = parsed.data;
 
-  // Probe video duration if not provided — fall back to 10s default
+  // Probe video URL if duration not provided — fall back to 10s default
   let duration = parsed.data.duration;
   if (!duration) {
     try {
@@ -63,23 +100,24 @@ export async function POST(request: Request) {
     duration = 10;
   }
 
+  const ctaLength = 3.5;
+
   // Build Shotstack timeline — video on bottom track, text overlays on top
   const tracks: Record<string, unknown>[] = [];
 
-  // Track 1 (top): CTA text in the last 4 seconds
-  // 80% width (864px) centered with 10% margin on each side via padding
+  // CTA — centered, last 3.5s of video
   if (cta) {
     tracks.push({
       clips: [
         {
           asset: {
             type: "html",
-            html: `<p style="font-family:Montserrat;font-weight:700;font-size:52px;color:#fff;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,0.95),0 0 40px rgba(0,0,0,0.5);word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;margin:0;padding:0 108px">${escapeHtml(cta)}</p>`,
+            html: ctaHtml(cta),
             width: 1080,
-            height: 500,
+            height: 400,
           },
-          start: Math.max(0, duration - 4),
-          length: Math.min(4, duration),
+          start: Math.max(0, duration - ctaLength),
+          length: Math.min(ctaLength, duration),
           position: "center",
           transition: { in: "fade", out: "fade" },
         },
@@ -87,28 +125,27 @@ export async function POST(request: Request) {
     });
   }
 
-  // Track 2: On-screen text — safe zone (10% inset = 108px padding each side)
+  // On-screen text — split into timed cards at lower-third (70% from top)
   if (onScreenText) {
+    const cards = buildTextCards(onScreenText, duration, cta ? ctaLength : 0);
     tracks.push({
-      clips: [
-        {
-          asset: {
-            type: "html",
-            html: `<p style="font-family:Montserrat;font-weight:600;font-size:46px;color:#fff;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.95),0 0 30px rgba(0,0,0,0.4);word-wrap:break-word;overflow-wrap:break-word;line-height:1.35;margin:0;padding:0 108px">${escapeHtml(onScreenText)}</p>`,
-            width: 1080,
-            height: 500,
-          },
-          start: 0.5,
-          length: Math.min(duration - 0.5, 8),
-          position: "bottom",
-          offset: { y: 0.12 },
-          transition: { in: "fade", out: "fade" },
+      clips: cards.map((card) => ({
+        asset: {
+          type: "html",
+          html: textCardHtml(card.text),
+          width: 1080,
+          height: 300,
         },
-      ],
+        start: card.start,
+        length: card.length,
+        position: "bottom",
+        offset: { y: 0.18 },
+        transition: { in: "fade", out: "fade" },
+      })),
     });
   }
 
-  // Bottom track: Runway AI video — renders behind all overlays
+  // Bottom track: Runway AI video
   tracks.push({
     clips: [
       {

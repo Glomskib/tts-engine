@@ -11,7 +11,6 @@ const ComposeSchema = z.object({
   videoUrl: z.string().url(),
   onScreenText: z.string().max(500).optional(),
   cta: z.string().max(200).optional(),
-  hashtags: z.string().max(300).optional(),
   duration: z.number().min(1).max(120).optional(),
 });
 
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const { videoUrl, onScreenText, cta, hashtags } = parsed.data;
+  const { videoUrl, onScreenText, cta } = parsed.data;
 
   // Probe video duration if not provided — fall back to 10s default
   let duration = parsed.data.duration;
@@ -68,15 +67,16 @@ export async function POST(request: Request) {
   const tracks: Record<string, unknown>[] = [];
 
   // Track 1 (top): CTA text in the last 4 seconds
+  // 80% width (864px) centered with 10% margin on each side via padding
   if (cta) {
     tracks.push({
       clips: [
         {
           asset: {
             type: "html",
-            html: `<p style="font-family:Montserrat;font-weight:700;font-size:42px;color:#fff;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.9);padding:0 40px">${escapeHtml(cta)}</p>`,
+            html: `<p style="font-family:Montserrat;font-weight:700;font-size:52px;color:#fff;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,0.95),0 0 40px rgba(0,0,0,0.5);word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;margin:0;padding:0 108px">${escapeHtml(cta)}</p>`,
             width: 1080,
-            height: 400,
+            height: 500,
           },
           start: Math.max(0, duration - 4),
           length: Math.min(4, duration),
@@ -87,48 +87,28 @@ export async function POST(request: Request) {
     });
   }
 
-  // Track 2: On-screen text for the first portion
+  // Track 2: On-screen text — safe zone (10% inset = 108px padding each side)
   if (onScreenText) {
     tracks.push({
       clips: [
         {
           asset: {
             type: "html",
-            html: `<p style="font-family:Montserrat;font-weight:600;font-size:36px;color:#fff;text-align:center;text-shadow:0 2px 6px rgba(0,0,0,0.9);padding:0 48px">${escapeHtml(onScreenText)}</p>`,
+            html: `<p style="font-family:Montserrat;font-weight:600;font-size:46px;color:#fff;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.95),0 0 30px rgba(0,0,0,0.4);word-wrap:break-word;overflow-wrap:break-word;line-height:1.35;margin:0;padding:0 108px">${escapeHtml(onScreenText)}</p>`,
             width: 1080,
-            height: 350,
+            height: 500,
           },
           start: 0.5,
           length: Math.min(duration - 0.5, 8),
           position: "bottom",
-          offset: { y: 0.15 },
+          offset: { y: 0.12 },
           transition: { in: "fade", out: "fade" },
         },
       ],
     });
   }
 
-  // Track 3: Hashtag bar at the very bottom
-  if (hashtags) {
-    tracks.push({
-      clips: [
-        {
-          asset: {
-            type: "html",
-            html: `<p style="font-family:Montserrat;font-size:22px;color:rgba(255,255,255,0.85);text-align:center;padding:12px 32px">${escapeHtml(hashtags)}</p>`,
-            width: 1080,
-            height: 120,
-          },
-          start: 0,
-          length: duration,
-          position: "bottom",
-          offset: { y: 0.02 },
-        },
-      ],
-    });
-  }
-
-  // Track 4 (bottom): Runway AI video — renders behind all overlays
+  // Bottom track: Runway AI video — renders behind all overlays
   tracks.push({
     clips: [
       {

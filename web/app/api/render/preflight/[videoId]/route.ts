@@ -10,9 +10,9 @@ export const runtime = "nodejs";
 
 /** Word limits per video duration (seconds). */
 const SCRIPT_WORD_LIMITS: Record<number, number> = {
-  10: 30,
-  15: 40,
-  30: 80,
+  10: 50,
+  15: 70,
+  30: 120,
 };
 
 /** Status that means "scripted and ready to render". */

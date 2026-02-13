@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const SCRIPT_WORD_LIMITS: Record<number, number> = {
-  10: 30,
-  15: 40,
-  30: 80,
+  10: 50,
+  15: 70,
+  30: 120,
 };
 
 interface FixResult {
@@ -322,7 +322,7 @@ export async function POST(
     if (typeof genConfig?.target_duration === "string") {
       duration = { quick: 10, standard: 15, extended: 30, long: 30 }[genConfig.target_duration] || 10;
     }
-    const wordLimit = SCRIPT_WORD_LIMITS[duration] || 30;
+    const wordLimit = SCRIPT_WORD_LIMITS[duration] || 50;
 
     const currentWords = beats.reduce(
       (sum, b) => sum + (b.action ? b.action.trim().split(/\s+/).length : 0),

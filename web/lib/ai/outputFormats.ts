@@ -663,19 +663,18 @@ CHARACTER FORMAT: NARRATOR / PROTAGONIST
 
 const UGC_SHORT_CONFIG: OutputFormatConfig = {
   systemIdentity:
-    `You are a short-form UGC director who creates 7-9 second videos where the VISUALS do all the selling. You write almost nothing — 1 sentence spoken, max. Your real skill is designing the scene: what the person does, their expressions, what's happening around them, and the tiny visual details that bait comments and stop the scroll. Less talking, more showing.`,
+    `You are a short-form UGC director who creates 10-30 second videos that feel like real people talking, not ads. You write 3-4 punchy sentences of natural dialogue — the kind of thing someone would actually say to their phone. Your real skill is pairing that authentic voice with killer visuals: what the person does, their expressions, background details that bait comments and stop the scroll.`,
 
   creativePrinciples: `
-CRITICAL: UGC_SHORT SCRIPTS ARE 7-9 SECONDS. THE PERSON BARELY SPEAKS.
-
-THE SPOKEN SCRIPT IS NOT THE AD. THE VIDEO IS THE AD.
-- 1 sentence. Maybe 2 short ones. 15-20 words MAXIMUM.
-- If the AI-generated voice talks too much, it sounds fake and uncanny.
-- The voice is just a surface layer — a reaction, a thought, a single line.
-- Think "what would someone actually mutter to themselves?" not "sales pitch."
+THE SPOKEN SCRIPT SHOULD SOUND LIKE A REAL PERSON, NOT A ROBOT.
+- 3-4 short punchy sentences. 40-50 words for a 10s video, 60-70 for 15s, 100-120 for 30s.
+- Each sentence should land a different beat: hook, problem, discovery, reaction.
+- Think "what would someone actually say while filming themselves?" not "sales pitch."
+- Natural speech patterns: contractions, trailing off, genuine surprise, casual tone.
+- NO filler, NO "honestly", NO "like" — every sentence hits.
 
 THE ON-SCREEN TEXT IS WHAT PEOPLE READ:
-- 1-2 text cards, 3-5 words each
+- 1-2 text cards per beat, 3-6 words each
 - Hit the pain point or the benefit, nothing else
 - This is what viewers actually absorb while watching
 
@@ -705,82 +704,83 @@ BAD VIDEO DIRECTION:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "The single spoken line or reaction (15-20 words MAX)",
+  "hook_line": "The full spoken script across all beats combined (40-50 words for 10s, 60-70 for 15s, 100-120 for 30s)",
   "beats": [
     {
       "t": "0:00-0:03",
       "action": "DETAILED video direction — what the person is doing, their expression, the setting, background details, comment bait elements. This is the most important field. Write it like a scene description for a director.",
-      "dialogue": "Spoken words for this moment (VERY few or empty string)",
-      "on_screen_text": "3-5 word text card (or empty string)"
+      "dialogue": "1 punchy sentence — the hook that stops the scroll",
+      "on_screen_text": "3-6 word text card"
     },
     {
       "t": "0:03-0:06",
       "action": "DETAILED video direction — the shift/discovery moment. Expression change, product interaction, visual storytelling.",
-      "dialogue": "",
-      "on_screen_text": "3-5 word text card (or empty string)"
+      "dialogue": "1-2 sentences — the problem or discovery",
+      "on_screen_text": "3-6 word text card"
     },
     {
-      "t": "0:06-0:09",
+      "t": "0:06-0:10",
       "action": "DETAILED video direction — the payoff. Reaction, satisfaction, something unexpected happening. Include a comment-bait detail.",
-      "dialogue": "",
-      "on_screen_text": ""
+      "dialogue": "1 sentence — the reaction or payoff line",
+      "on_screen_text": "3-6 word CTA text card"
     }
   ],
   "b_roll": ["Not needed — this format is all one continuous scene"],
-  "overlays": ["Pain point or benefit text card (3-5 words)", "CTA text card"],
+  "overlays": ["Pain point or benefit text card (3-6 words)", "CTA text card"],
   "cta_line": "CTA text (3-5 words — 'link in bio' or 'yellow basket')",
   "cta_overlay": "CTA overlay (max 20 chars)"
 }
 
 HARD RULES:
-- EXACTLY 3 beats, total time 7-9 seconds
-- UNDER 20 spoken words total across ALL beats combined
-- Most beats have EMPTY dialogue — the person is DOING things, not TALKING
+- 3-4 beats depending on duration
+- 40-50 spoken words total for 10s videos, 60-70 for 15s, 100-120 for 30s
+- EVERY beat should have dialogue — the person is reacting AND talking naturally
 - The "action" field in each beat should be 2-4 sentences of detailed scene direction
-- On-screen text: max 2 text cards, 3-5 words each
-- The hook_line is the entire spoken script — 1 sentence, maybe 2 short ones
+- On-screen text: EVERY beat gets a text card, 3-6 words each
+- The hook_line is a summary of the entire spoken script
+- 3-4 punchy sentences total — each one lands a different beat
 - NO filler words, NO "honestly", NO "like" — every word must count
 - Product appears naturally in beat 2, never in beat 1
 
 EXAMPLE:
 {
-  "hook_line": "I can't believe nobody told me about this sooner.",
+  "hook_line": "Wait, this actually works? I've been dragging myself through every morning for months. One scoop and I'm actually awake. Why did nobody tell me?",
   "beats": [
     {
       "t": "0:00-0:03",
       "action": "Woman sitting at messy desk looking exhausted, rubbing her temples. Empty coffee cup next to her, papers everywhere. She lets out a long sigh and drops her head.",
-      "dialogue": "",
-      "on_screen_text": "where has this been??"
+      "dialogue": "Wait, this actually works?",
+      "on_screen_text": "I was SO skeptical"
     },
     {
       "t": "0:03-0:06",
       "action": "She notices product sitting on corner of desk. Picks it up casually, takes a sip. Eyes slowly widen. Her whole posture changes — sits up straight, slight head tilt of surprise.",
-      "dialogue": "I can't believe nobody told me about this sooner.",
-      "on_screen_text": ""
+      "dialogue": "I've been dragging myself through every morning for months. One scoop and I'm actually awake.",
+      "on_screen_text": "morning game changer"
     },
     {
-      "t": "0:06-0:09",
+      "t": "0:06-0:10",
       "action": "Slow satisfied smile spreading across her face. Behind her, a cat knocks a water bottle off the shelf — she doesn't even flinch, just keeps sipping with her eyes closed. Pure contentment.",
-      "dialogue": "",
+      "dialogue": "Why did nobody tell me?",
       "on_screen_text": "link in bio"
     }
   ],
   "b_roll": [],
-  "overlays": ["where has this been??", "link in bio"],
+  "overlays": ["I was SO skeptical", "morning game changer", "link in bio"],
   "cta_line": "link in bio",
   "cta_overlay": "link in bio"
 }
 `,
 
   characterConstraints: `
-CHARACTER FORMAT: SINGLE PERSON — BARELY SPEAKING
-- ONE person in a natural setting, doing things, reacting
-- They speak 1 sentence MAX — the rest is action and expression
-- NO talking to camera, NO "hey guys", NO presenting
-- The person is living a moment, not performing
-- Their face and body tell the whole story
-- Think "candid moment caught on camera" not "content creator filming"
-- Tone: genuine reaction, not scripted delivery
+CHARACTER FORMAT: SINGLE PERSON — NATURAL AND CONVERSATIONAL
+- ONE person in a natural setting, reacting and talking naturally
+- They speak 3-4 punchy sentences — each one hits a different beat
+- NO talking directly to camera like a presenter, NO "hey guys"
+- The person is living a moment, reacting genuinely, thinking out loud
+- Their face and body AMPLIFY the words — expressions match the dialogue
+- Think "someone telling their friend about something" not "content creator filming"
+- Tone: genuine surprise, casual discovery, real enthusiasm — not scripted
 `,
 };
 

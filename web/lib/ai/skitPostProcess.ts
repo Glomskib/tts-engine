@@ -66,6 +66,61 @@ const SAFE_REPLACEMENTS: Record<string, string> = {
   "pain relief": "comfort support",
 };
 
+// Common misspellings in AI-generated on-screen text (case-insensitive)
+const COMMON_MISSPELLINGS: Record<string, string> = {
+  "definately": "definitely",
+  "seperately": "separately",
+  "occured": "occurred",
+  "recieve": "receive",
+  "beleive": "believe",
+  "wierd": "weird",
+  "thier": "their",
+  "alot": "a lot",
+  "untill": "until",
+  "accomodate": "accommodate",
+  "occurence": "occurrence",
+  "neccessary": "necessary",
+  "suplement": "supplement",
+  "supplment": "supplement",
+  "suppliment": "supplement",
+  "benifits": "benefits",
+  "benifit": "benefit",
+  "ingrediants": "ingredients",
+  "ingredents": "ingredients",
+  "naturaly": "naturally",
+  "recomend": "recommend",
+  "recomended": "recommended",
+  "excelent": "excellent",
+  "diferent": "different",
+  "diffrent": "different",
+  "imediately": "immediately",
+  "immedietly": "immediately",
+  "basicly": "basically",
+  "actualy": "actually",
+  "truely": "truly",
+  "noticable": "noticeable",
+  "changeing": "changing",
+  "gamechanger": "game changer",
+};
+
+/**
+ * Fix common misspellings in text (case-insensitive, preserves case)
+ */
+function fixSpelling(text: string): string {
+  if (!text) return "";
+  let result = text;
+  for (const [wrong, right] of Object.entries(COMMON_MISSPELLINGS)) {
+    const regex = new RegExp(`\\b${wrong}\\b`, "gi");
+    result = result.replace(regex, (match) => {
+      if (match[0] === match[0].toUpperCase()) {
+        return right.charAt(0).toUpperCase() + right.slice(1);
+      }
+      return right;
+    });
+  }
+  return result;
+}
+
 // Max lengths by content type
 const MAX_LENGTHS = {
   hook_line: 150,
@@ -282,12 +337,12 @@ function sanitizeSkit(skit: Skit): Skit {
   return {
     hook_line: sanitizeText(skit.hook_line, MAX_LENGTHS.hook_line),
     beats: skit.beats.map((beat) => {
-      // Auto-generate on_screen_text from dialogue when missing
+      // Auto-generate on_screen_text from dialogue when missing, spell-check all
       let ost = beat.on_screen_text
-        ? sanitizeText(beat.on_screen_text, MAX_LENGTHS.on_screen_text)
+        ? fixSpelling(sanitizeText(beat.on_screen_text, MAX_LENGTHS.on_screen_text))
         : undefined;
       if (!ost && beat.dialogue) {
-        ost = deriveOnScreenText(beat.dialogue, MAX_LENGTHS.on_screen_text);
+        ost = fixSpelling(deriveOnScreenText(beat.dialogue, MAX_LENGTHS.on_screen_text));
       }
       return {
         t: beat.t,

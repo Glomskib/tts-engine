@@ -235,9 +235,9 @@ export async function POST(request: Request) {
     const TONE_OPTIONS = ['high_energy', 'calm_confident', 'conversational', 'storytelling', 'educational'];
     const LENGTH_OPTIONS = ['10_sec', '15_sec', '30_sec'] as const;
     const WORD_LIMITS: Record<string, { max: number; chars: number }> = {
-      '10_sec': { max: 30, chars: 150 },
-      '15_sec': { max: 40, chars: 200 },
-      '30_sec': { max: 80, chars: 400 },
+      '10_sec': { max: 50, chars: 250 },
+      '15_sec': { max: 70, chars: 350 },
+      '30_sec': { max: 120, chars: 600 },
     };
 
     // Randomly pick variety parameters for this generation

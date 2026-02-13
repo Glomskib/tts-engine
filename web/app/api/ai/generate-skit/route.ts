@@ -699,32 +699,36 @@ function buildDurationGuidelines(duration: TargetDuration): string {
   switch (duration) {
     case "quick":
       return `
-TARGET LENGTH: QUICK (15-20 seconds)
+TARGET LENGTH: QUICK (10-15 seconds)
 - Generate exactly 3-4 beats
+- DIALOGUE: 40-50 spoken words total across all beats (3-4 punchy sentences)
 - Ultra-tight pacing, every second counts
 - Hook + 1-2 setup beats + CTA
-- Perfect for attention-challenged scrollers
+- Every beat should have dialogue — no silent beats
 `;
     case "standard":
       return `
-TARGET LENGTH: STANDARD (30-45 seconds)
-- Generate exactly 5-6 beats
+TARGET LENGTH: STANDARD (15-30 seconds)
+- Generate exactly 4-5 beats
+- DIALOGUE: 60-70 spoken words total across all beats (4-5 punchy sentences)
 - Classic TikTok rhythm
-- Hook + 3-4 story beats + CTA
+- Hook + 2-3 story beats + CTA
 - Room for one callback or twist
 `;
     case "extended":
       return `
-TARGET LENGTH: EXTENDED (45-60 seconds)
-- Generate exactly 7-8 beats
+TARGET LENGTH: EXTENDED (30-45 seconds)
+- Generate exactly 6-8 beats
+- DIALOGUE: 100-120 spoken words total across all beats (6-8 sentences)
 - More room for character development
-- Hook + 5-6 story beats + CTA
+- Hook + 4-6 story beats + CTA
 - Can include subplot or B-story
 `;
     case "long":
       return `
 TARGET LENGTH: LONG FORM (60-90 seconds)
 - Generate exactly 9-12 beats
+- DIALOGUE: 150-200 spoken words total
 - Full narrative arc possible
 - Hook + 7-10 story beats + CTA
 - Multiple escalations, callbacks encouraged

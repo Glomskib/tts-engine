@@ -1,20 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/cron/weekly-summaries",
-      "schedule": "0 9 * * 1"
+      "path": "/api/cron/check-renders",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/nightly-reset",
+      "schedule": "5 5 * * *"
     },
     {
       "path": "/api/cron/process-emails",
       "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/process-payouts",
-      "schedule": "0 9 1 * *"
-    },
-    {
-      "path": "/api/cron/check-renders",
-      "schedule": "*/2 * * * *"
     }
   ]
 }

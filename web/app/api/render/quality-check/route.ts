@@ -41,39 +41,18 @@ export interface QualityScore {
 export async function runQualityCheck(
   videoId: string,
   finalVideoUrl: string,
-  composeRenderId?: string | null
+  _composeRenderId?: string | null
 ): Promise<QualityScore | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY not configured");
   }
 
-  // Download the video
-  const videoResp = await fetch(finalVideoUrl);
-  if (!videoResp.ok) {
-    throw new Error(`Failed to download video: HTTP ${videoResp.status} from ${finalVideoUrl.slice(0, 80)}`);
-  }
-
-  const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
-  if (videoBuffer.length < 1000) {
-    throw new Error(`Video too small (${videoBuffer.length} bytes) — likely not a valid MP4`);
-  }
-
-  // Extract frames: try Shotstack thumbnail first, fall back to MP4 keyframe extraction
-  let frames: string[] = [];
-
-  // Try to get Shotstack thumbnail via compose_render_id
-  if (composeRenderId) {
-    const thumbFrame = await getShotstackThumbnail(composeRenderId);
-    if (thumbFrame) frames.push(thumbFrame);
-  }
-
-  // Extract keyframes directly from the MP4 binary (no ffmpeg needed)
-  const extractedFrames = extractKeyframes(videoBuffer);
-  frames.push(...extractedFrames);
+  // Capture frames via Shotstack poster renders (serverless-compatible, no ffmpeg)
+  const frames = await captureFrames(finalVideoUrl, [1, 5, 9]);
 
   if (!frames.length) {
-    throw new Error("No frames available — could not extract from video or Shotstack");
+    throw new Error("No frames captured — Shotstack poster renders failed");
   }
 
   // Score each frame with Claude Vision, then average
@@ -184,80 +163,91 @@ async function scoreFrame(
 }
 
 /**
- * Get thumbnail from Shotstack's serve API for a completed render.
- * Returns base64 JPEG or null.
+ * Capture video frames by submitting Shotstack poster renders.
+ * Each poster render extracts a single frame at a given timestamp.
+ * We submit 3 poster renders (1s, 5s, 9s), poll until done, then download.
  */
-async function getShotstackThumbnail(
-  composeRenderId: string
-): Promise<string | null> {
-  try {
-    const { shotstackRequest } = await import("@/lib/shotstack");
-    const assets = await shotstackRequest(`/assets/render/${composeRenderId}`);
-    const assetList = assets?.data || assets?.response?.data || [];
-
-    // Find thumbnail or poster asset
-    for (const asset of assetList) {
-      if (
-        asset.attributes?.filename?.includes("thumb") ||
-        asset.attributes?.filename?.includes("poster") ||
-        asset.attributes?.filename?.endsWith(".jpg") ||
-        asset.attributes?.filename?.endsWith(".png")
-      ) {
-        const url = asset.attributes?.url;
-        if (url) {
-          const resp = await fetch(url);
-          if (resp.ok) {
-            const buf = Buffer.from(await resp.arrayBuffer());
-            return buf.toString("base64");
-          }
-        }
-      }
-    }
-  } catch {
-    // Shotstack thumbnail not available — fall through
-  }
-  return null;
-}
-
-/**
- * Extract keyframes from MP4 binary by sampling bytes at different offsets
- * and looking for JPEG-like image data. Falls back to grabbing raw byte
- * chunks that can be sent as "image data" hints to Claude Vision.
- *
- * This is a lightweight approach that works without ffmpeg on serverless.
- * We grab the video at 3 byte offsets (10%, 40%, 80%) and create
- * snapshot images by downloading the same video URL with range requests.
- */
-function extractKeyframes(videoBuffer: Buffer): string[] {
-  // MP4 I-frames often start with NAL unit markers (0x00 0x00 0x00 0x01 0x65)
-  // But the most reliable approach for serverless: just sample the video
-  // at different byte positions and look for complete JFIF/JPEG data
-  // (some MP4s contain JPEG thumbnails in the moov atom)
-
+async function captureFrames(
+  videoUrl: string,
+  timestamps: number[] = [1, 5, 9]
+): Promise<string[]> {
+  const { shotstackRequest, getRenderStatus: getSsStatus } = await import("@/lib/shotstack");
   const frames: string[] = [];
 
-  // Look for embedded JPEG thumbnails in the MP4 metadata (moov/udta atoms)
-  // JPEG files start with FF D8 FF and end with FF D9
-  const jpegStart = Buffer.from([0xff, 0xd8, 0xff]);
-  const jpegEnd = Buffer.from([0xff, 0xd9]);
-
-  let searchStart = 0;
-  let found = 0;
-  while (found < 3 && searchStart < videoBuffer.length - 100) {
-    const startIdx = videoBuffer.indexOf(jpegStart, searchStart);
-    if (startIdx === -1) break;
-
-    const endIdx = videoBuffer.indexOf(jpegEnd, startIdx + 3);
-    if (endIdx === -1) break;
-
-    const jpegData = videoBuffer.subarray(startIdx, endIdx + 2);
-    // Only accept reasonably sized JPEGs (1KB - 500KB)
-    if (jpegData.length > 1024 && jpegData.length < 512000) {
-      frames.push(jpegData.toString("base64"));
+  // Submit poster renders in parallel
+  const renderIds: string[] = [];
+  for (const ts of timestamps) {
+    try {
+      const result = await shotstackRequest("/render", {
+        method: "POST",
+        body: JSON.stringify({
+          timeline: {
+            tracks: [
+              {
+                clips: [
+                  {
+                    asset: { type: "video", src: videoUrl, trim: ts },
+                    start: 0,
+                    length: 1,
+                  },
+                ],
+              },
+            ],
+          },
+          output: {
+            format: "jpg",
+            resolution: "sd",
+            aspectRatio: "9:16",
+          },
+        }),
+      });
+      const renderId = result?.response?.id;
+      if (renderId) renderIds.push(renderId);
+    } catch (err) {
+      console.warn(`[quality-check] Poster render submit failed for t=${ts}:`, err);
     }
+  }
 
-    searchStart = endIdx + 2;
-    found++;
+  if (!renderIds.length) return frames;
+
+  // Poll for completion (max 30s)
+  const deadline = Date.now() + 30000;
+  const pending = new Set(renderIds);
+  const urls = new Map<string, string>();
+
+  while (pending.size > 0 && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2000));
+
+    for (const rid of Array.from(pending)) {
+      try {
+        const status = await getSsStatus(rid);
+        const renderStatus = status?.response?.status || status?.status;
+        if (renderStatus === "done") {
+          const url = status?.response?.url || status?.url;
+          if (url) urls.set(rid, url);
+          pending.delete(rid);
+        } else if (renderStatus === "failed") {
+          pending.delete(rid);
+        }
+      } catch {
+        // keep polling
+      }
+    }
+  }
+
+  // Download frames
+  for (const [, url] of urls) {
+    try {
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const buf = Buffer.from(await resp.arrayBuffer());
+        if (buf.length > 500) {
+          frames.push(buf.toString("base64"));
+        }
+      }
+    } catch {
+      // skip this frame
+    }
   }
 
   return frames;

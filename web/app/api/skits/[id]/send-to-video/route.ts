@@ -187,29 +187,62 @@ export async function POST(
 
     if (isUgcShort && skitData.beats?.length > 0) {
       try {
+        // Fetch product details for image and name
+        const { data: product } = await supabaseAdmin
+          .from("products")
+          .select("product_image_url, name")
+          .eq("id", skit.product_id)
+          .single();
+
         // Build Runway prompt from beats[].action
         const sceneDescriptions = skitData.beats
           .map((b) => b.action)
           .filter(Boolean)
           .join(" ");
 
-        const runwayPrompt = `9:16 vertical video, TikTok UGC style. ${sceneDescriptions} Natural lighting, handheld camera feel, casual setting.`;
+        const productName = product?.name || "the product";
+        const runwayPrompt = `TikTok UGC style 9:16 vertical video. Young person holding ${productName}, looking at camera. ${sceneDescriptions} Natural lighting, casual setting, handheld camera feel.`;
 
         console.log(`[${correlationId}] UGC_SHORT detected — triggering Runway render`);
         console.log(`[${correlationId}] Runway prompt (${runwayPrompt.length} chars): ${runwayPrompt.slice(0, 200)}...`);
 
-        // Check if product has an image URL
-        const { data: product } = await supabaseAdmin
-          .from("products")
-          .select("product_image_url")
-          .eq("id", skit.product_id)
-          .single();
+        let productImageUrl = product?.product_image_url;
 
-        const productImageUrl = product?.product_image_url;
+        // Re-host external images to Supabase to guarantee Runway compatibility
+        // (avoids CDN redirects, missing Content-Type, blocked domains)
+        if (productImageUrl && !productImageUrl.includes("supabase.co")) {
+          try {
+            console.log(`[${correlationId}] Re-hosting product image from ${new URL(productImageUrl).hostname}`);
+            const imgResp = await fetch(productImageUrl);
+            if (imgResp.ok) {
+              const contentType = imgResp.headers.get("content-type") || "image/jpeg";
+              const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+              const imgBuffer = await imgResp.arrayBuffer();
+              const imgBlob = new Blob([imgBuffer], { type: contentType });
+              const imgPath = `product-images/${skit.product_id}_${Date.now()}.${ext}`;
+
+              const { error: imgUploadError } = await supabaseAdmin.storage
+                .from("renders")
+                .upload(imgPath, imgBlob, { contentType, upsert: true });
+
+              if (!imgUploadError) {
+                const { data: imgUrlData } = supabaseAdmin.storage
+                  .from("renders")
+                  .getPublicUrl(imgPath);
+                productImageUrl = imgUrlData.publicUrl;
+                console.log(`[${correlationId}] Re-hosted image: ${productImageUrl}`);
+              } else {
+                console.warn(`[${correlationId}] Image re-host upload failed, using original URL:`, imgUploadError.message);
+              }
+            }
+          } catch (rehostErr) {
+            console.warn(`[${correlationId}] Image re-host failed, using original URL:`, rehostErr);
+          }
+        }
 
         let runwayResult: { id?: string };
         if (productImageUrl) {
-          console.log(`[${correlationId}] Using image-to-video with product image`);
+          console.log(`[${correlationId}] Using image-to-video with product image: ${productImageUrl}`);
           runwayResult = await createImageToVideo(productImageUrl, runwayPrompt, "gen4.5", 10);
         } else {
           console.log(`[${correlationId}] Using text-to-video (no product image)`);

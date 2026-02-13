@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
       .from('videos')
       .select(`
         id,
-        title,
         video_code,
         status,
         recording_status,
@@ -70,7 +69,6 @@ export async function GET(request: NextRequest) {
 
       calendar[date].push({
         id: video.id,
-        title: video.title,
         video_code: video.video_code,
         status: video.status,
         recording_status: rs,

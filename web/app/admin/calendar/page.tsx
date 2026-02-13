@@ -13,7 +13,6 @@ import { PageErrorState } from '@/components/ui/PageErrorState';
 
 interface CalendarVideo {
   id: string;
-  title: string | null;
   video_code: string | null;
   status: string | null;
   recording_status: string;
@@ -129,7 +128,7 @@ export default function ContentCalendarPage() {
       const res = await fetch(`/api/calendar?start=${rangeStart}&end=${rangeEnd}`);
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'Failed to load calendar');
+        throw new Error(json.message || json.error || 'Failed to load calendar');
       }
       const json = await res.json();
       setData(json.data);
@@ -440,7 +439,7 @@ export default function ContentCalendarPage() {
                                     hover:brightness-125 transition-all
                                   `}
                                   onClick={(e) => e.stopPropagation()}
-                                  title={`${video.product_name || video.title || 'Video'} (${colors.label})`}
+                                  title={`${video.product_name || video.video_code || 'Video'} (${colors.label})`}
                                 >
                                   <span className={colors.text}>
                                     {video.product_name || video.video_code || 'Video'}
@@ -524,7 +523,7 @@ export default function ContentCalendarPage() {
                               )}
                             </div>
                             <p className="text-sm font-medium text-white truncate">
-                              {video.product_name || video.title || 'Untitled Video'}
+                              {video.product_name || video.video_code || 'Untitled Video'}
                             </p>
                             {video.product_brand && (
                               <p className="text-xs text-zinc-500 mt-0.5">{video.product_brand}</p>

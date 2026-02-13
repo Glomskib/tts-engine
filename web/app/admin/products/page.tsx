@@ -32,6 +32,7 @@ interface Product {
   pain_points?: PainPoint[] | null;
   product_image_url?: string | null;  // Primary hero image for video generation
   images?: string[];                   // Additional product images gallery
+  retainer?: number | null;
   created_at?: string;
 }
 
@@ -116,7 +117,7 @@ export default function ProductsPage() {
   const [creatingBrand, setCreatingBrand] = useState(false);
 
   // Sort state
-  const [sortBy, setSortBy] = useState<'name' | 'brand' | 'posted' | 'this_month' | 'in_queue'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'brand' | 'posted' | 'this_month' | 'in_queue' | 'quota' | 'retainer'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const { showSuccess, showError } = useToast();
 
@@ -259,6 +260,7 @@ export default function ProductsPage() {
       pain_points: product.pain_points || [],
       product_image_url: product.product_image_url || '',
       images: product.images || [],
+      retainer: product.retainer ?? null,
     });
     setSaveError(null);
     setOpsWarnings([]);
@@ -614,6 +616,12 @@ export default function ProductsPage() {
       case 'posted': return dir * (a.posted - b.posted);
       case 'this_month': return dir * (a.videos_this_month - b.videos_this_month);
       case 'in_queue': return dir * (a.in_queue - b.in_queue);
+      case 'retainer': return dir * ((a.retainer || 0) - (b.retainer || 0));
+      case 'quota': {
+        const aQuota = a.brand_id ? (brandEntities.find(be => be.id === a.brand_id)?.monthly_video_quota || 0) : 0;
+        const bQuota = b.brand_id ? (brandEntities.find(be => be.id === b.brand_id)?.monthly_video_quota || 0) : 0;
+        return dir * (aQuota - bQuota);
+      }
       default: return 0;
     }
   });
@@ -624,6 +632,7 @@ export default function ProductsPage() {
     } else {
       setSortBy(col);
       setSortDir(col === 'name' || col === 'brand' ? 'asc' : 'desc');
+
     }
   };
 
@@ -692,7 +701,7 @@ export default function ProductsPage() {
 
         {brandEntities.length > 0 && (
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-zinc-400">Brand Entity:</label>
+            <label className="text-sm font-medium text-zinc-400">Brand:</label>
             <select
               value={brandEntityFilter}
               onChange={(e) => setBrandEntityFilter(e.target.value)}
@@ -720,6 +729,19 @@ export default function ProductsPage() {
           {filteredProducts.length} of {productStats.length} products
         </div>
       </div>
+
+      {/* Retainer Total */}
+      {(() => {
+        const retainerTotal = filteredProducts.reduce((sum, p) => sum + (p.retainer || 0), 0);
+        if (retainerTotal <= 0) return null;
+        return (
+          <div className="flex items-center gap-3 p-4 bg-zinc-900/50 rounded-xl border border-white/10">
+            <div className="text-sm text-zinc-400">Total Retainer:</div>
+            <div className="text-lg font-semibold text-emerald-400">${retainerTotal.toLocaleString()}</div>
+            <div className="text-xs text-zinc-500">/ month across {filteredProducts.filter(p => p.retainer && p.retainer > 0).length} products</div>
+          </div>
+        );
+      })()}
 
       {/* Brand Quotas Summary */}
       {(() => {
@@ -797,6 +819,7 @@ export default function ProductsPage() {
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('this_month')}>This Month<SortIndicator col="this_month" /></th>
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('in_queue')}>In Queue<SortIndicator col="in_queue" /></th>
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('posted')}>Posted<SortIndicator col="posted" /></th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('retainer')}>Retainer<SortIndicator col="retainer" /></th>
                   <th className="px-4 py-3 text-left font-medium text-zinc-400">Target Accounts</th>
                   <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
                 </tr>
@@ -897,6 +920,9 @@ export default function ProductsPage() {
                         }`}>
                           {product.posted}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-zinc-300">
+                        {product.retainer ? `$${product.retainer.toLocaleString()}` : <span className="text-zinc-600">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         {product.target_accounts.length > 0 ? (
@@ -1141,6 +1167,23 @@ export default function ProductsPage() {
                   value={editForm.slug || ''}
                   onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
                   placeholder="product-slug"
+                  className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              {/* Retainer */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Monthly Retainer
+                  <span className="text-zinc-500 font-normal ml-1">($)</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editForm.retainer ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, retainer: e.target.value ? Number(e.target.value) : null })}
+                  placeholder="0"
                   className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>

@@ -684,7 +684,7 @@ export default function AudiencePage() {
   }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto", paddingBottom: "6rem" }}>
+    <div style={{ padding: "16px", maxWidth: "1200px", margin: "0 auto", paddingBottom: "6rem", overflowX: "hidden" }}>
         {/* Header */}
         <div style={{ marginBottom: "24px" }}>
           <h1 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, margin: 0 }}>
@@ -1178,7 +1178,7 @@ export default function AudiencePage() {
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#3b82f6", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     Demographics
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>AGE RANGE</label>
                       <input
@@ -1377,7 +1377,7 @@ export default function AudiencePage() {
                     Communication Style
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                       <div>
                         <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>TONE PREFERENCE</label>
                         <select

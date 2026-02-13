@@ -238,16 +238,16 @@ export default function AutomationDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 space-y-6">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 space-y-6 overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Zap className="w-6 h-6 text-teal-400" />
-          <h1 className="text-2xl font-bold">Automation Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Automation Dashboard</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
           {lastRefresh && (
-            <span className="text-sm text-zinc-500">Last refresh: {lastRefresh}</span>
+            <span className="text-xs sm:text-sm text-zinc-500">Last refresh: {lastRefresh}</span>
           )}
           <button
             onClick={async () => {
@@ -294,7 +294,7 @@ export default function AutomationDashboard() {
       </div>
 
       {/* Top-level status */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className={`p-4 rounded-xl border ${getStatusBadge(apiHealth)}`}>
           <div className="flex items-center gap-2 mb-1">
             <Globe className="w-4 h-4" />
@@ -332,7 +332,7 @@ export default function AutomationDashboard() {
             <BarChart3 className="w-5 h-5 text-teal-400" />
             <h2 className="text-lg font-semibold">Pipeline Snapshot</h2>
           </div>
-          <div className="grid grid-cols-7 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {pipelineMetrics.map((m) => (
               <div key={m.label} className="text-center">
                 <div className="text-2xl font-bold text-teal-400">{m.value}</div>
@@ -344,7 +344,7 @@ export default function AutomationDashboard() {
       )}
 
       {/* Main grid */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Machines */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4">
           <div className="flex items-center gap-2 mb-4">
@@ -457,7 +457,7 @@ export default function AutomationDashboard() {
           <TrendingUp className="w-5 h-5 text-teal-400" />
           <h2 className="text-lg font-semibold">Automation Scripts</h2>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {SCRIPTS.map((script) => (
             <div key={script.name} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
               <div>
@@ -516,7 +516,7 @@ export default function AutomationDashboard() {
           <CheckCircle className="w-5 h-5 text-teal-400" />
           <h2 className="text-lg font-semibold">Setup Checklist</h2>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           {[
             { label: 'FlashFlow API deployed', done: true },
             { label: 'API key created', done: true },

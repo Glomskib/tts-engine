@@ -220,7 +220,7 @@ function ClawbotWeeklyInsights() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
           {/* Winning Patterns */}
           <div style={{ backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', padding: '16px' }}>
             <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#4ade80', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
@@ -413,7 +413,7 @@ function ClawbotMonthlyInsights() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
           {/* Top 5 Winning Angles */}
           <div style={{ backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', padding: '16px' }}>
             <h4 style={{ fontSize: '13px', fontWeight: 500, color: '#4ade80', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
@@ -686,7 +686,7 @@ export default function AdminAnalyticsPage() {
   ) || { recorded: 0, edited: 0, ready_to_post: 0, posted: 0 };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
+    <div style={{ padding: '16px', maxWidth: '1200px', margin: '0 auto', overflowX: 'hidden' }} className="pb-24 lg:pb-6">
 
       {/* Header */}
       <h1 style={{ margin: '0 0 20px 0' }}>Analytics Dashboard</h1>
@@ -694,6 +694,7 @@ export default function AdminAnalyticsPage() {
       {/* Tab Selector */}
       <div style={{
         display: 'flex',
+        flexWrap: 'wrap',
         gap: '0',
         marginBottom: '20px',
         borderBottom: '2px solid #dee2e6',
@@ -917,7 +918,7 @@ export default function AdminAnalyticsPage() {
             borderRadius: '8px',
             border: '1px solid #dee2e6',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '14px', fontWeight: '500', color: '#495057' }}>
                 Export Data
               </div>
@@ -1020,7 +1021,7 @@ export default function AdminAnalyticsPage() {
           {/* Charts Row */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
             gap: '20px',
             marginBottom: '20px',
           }}>
@@ -1113,7 +1114,7 @@ export default function AdminAnalyticsPage() {
           {/* Content Types and Funnel Row */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
             gap: '20px',
             marginBottom: '20px',
           }}>

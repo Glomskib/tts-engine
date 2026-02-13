@@ -87,7 +87,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 export default function PricingPage() {
   return (
     <PublicLayout>
-      <div className="relative py-16 px-4">
+      <div className="relative py-16 px-4 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
@@ -127,7 +127,7 @@ export default function PricingPage() {
           </div>
 
           {/* Plan Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-16">
             {PLANS_LIST.map((plan) => {
               const isPopular = plan.id === 'creator_pro';
               const isBestValue = plan.id === 'agency';
@@ -234,8 +234,8 @@ export default function PricingPage() {
           {/* Feature Comparison Table */}
           <div className="mb-16">
             <h2 className="text-2xl font-semibold text-center mb-8">Compare All Plans</h2>
-            <div className="overflow-x-auto rounded-xl border border-white/10">
-              <table className="w-full border-collapse min-w-[800px]">
+            <div className="overflow-x-auto rounded-xl border border-white/10 -mx-4 sm:mx-0">
+              <table className="w-full border-collapse min-w-[640px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-zinc-900/50">
                     <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>

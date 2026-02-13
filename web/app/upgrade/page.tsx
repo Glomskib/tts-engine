@@ -198,7 +198,7 @@ export default function UpgradePage() {
   const creditsRemaining = isUnlimited ? 'Unlimited' : (credits?.remaining ?? 5);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 py-10 px-4">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 py-10 px-4 overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
         {/* Back Link */}
         <div className="mb-6">
@@ -286,7 +286,7 @@ export default function UpgradePage() {
         {/* SaaS Plans */}
         {activeTab === 'saas' && (
           <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-5 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-10">
               {SAAS_PLANS.map((plan) => {
                 const isCurrentPlan = currentPlan === plan.id;
                 const isPopular = 'popular' in plan && plan.popular;
@@ -342,8 +342,8 @@ export default function UpgradePage() {
             </div>
 
             {/* SaaS Feature Comparison */}
-            <div className="overflow-x-auto mb-10">
-              <table className="w-full border-collapse">
+            <div className="overflow-x-auto mb-10 -mx-4 sm:mx-0">
+              <table className="w-full border-collapse min-w-[640px]">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
@@ -460,8 +460,8 @@ export default function UpgradePage() {
             </div>
 
             {/* Video Feature Comparison */}
-            <div className="overflow-x-auto mb-10">
-              <table className="w-full border-collapse">
+            <div className="overflow-x-auto mb-10 -mx-4 sm:mx-0">
+              <table className="w-full border-collapse min-w-[500px]">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>

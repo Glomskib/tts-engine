@@ -122,6 +122,7 @@ export function assertVideoTransition(from: VideoStatus, to: VideoStatus): void 
  */
 export const RECORDING_STATUSES = [
   "NOT_RECORDED",
+  "AI_RENDERING",
   "RECORDED",
   "EDITED",
   "READY_TO_POST",
@@ -136,7 +137,8 @@ export type RecordingStatus = (typeof RECORDING_STATUSES)[number];
  * Key: current recording_status, Value: array of allowed next statuses.
  */
 export const ALLOWED_RECORDING_TRANSITIONS: Record<RecordingStatus, readonly RecordingStatus[]> = {
-  NOT_RECORDED: ["RECORDED", "REJECTED"],
+  NOT_RECORDED: ["AI_RENDERING", "RECORDED", "REJECTED"],
+  AI_RENDERING: ["RECORDED", "EDITED", "REJECTED"],
   RECORDED: ["EDITED", "REJECTED"],
   EDITED: ["READY_TO_POST", "REJECTED"],
   READY_TO_POST: ["POSTED", "REJECTED"],

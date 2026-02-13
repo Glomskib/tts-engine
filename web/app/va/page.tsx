@@ -31,6 +31,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   NEEDS_SCRIPT: { label: "Needs Script", color: "text-zinc-400", bg: "bg-zinc-700" },
   GENERATING_SCRIPT: { label: "Writing Script...", color: "text-blue-400", bg: "bg-blue-900/50" },
   NOT_RECORDED: { label: "Ready to Record", color: "text-yellow-400", bg: "bg-yellow-900/40" },
+  AI_RENDERING: { label: "AI Rendering...", color: "text-purple-400", bg: "bg-purple-900/40" },
   RECORDED: { label: "Recorded — Edit Now", color: "text-amber-400", bg: "bg-amber-900/40" },
   EDITED: { label: "Edited — Review", color: "text-blue-400", bg: "bg-blue-900/40" },
   READY_TO_POST: { label: "Ready to Post", color: "text-green-400", bg: "bg-green-900/40" },

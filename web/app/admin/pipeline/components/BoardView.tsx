@@ -9,6 +9,7 @@ const RECORDING_STATUS_COLUMNS = [
   { key: 'NEEDS_SCRIPT', label: 'Needs Script', color: '#e8590c', darkColor: '#fb923c' },
   { key: 'GENERATING_SCRIPT', label: 'Generating', color: '#7950f2', darkColor: '#a78bfa' },
   { key: 'NOT_RECORDED', label: 'Not Recorded', color: '#6c757d', darkColor: '#9ca3af' },
+  { key: 'AI_RENDERING', label: 'AI Rendering', color: '#9333ea', darkColor: '#c084fc' },
   { key: 'RECORDED', label: 'Recorded', color: '#228be6', darkColor: '#60a5fa' },
   { key: 'EDITED', label: 'Edited', color: '#fab005', darkColor: '#fbbf24' },
   { key: 'READY_TO_POST', label: 'Ready to Post', color: '#40c057', darkColor: '#4ade80' },
@@ -20,7 +21,8 @@ const RECORDING_STATUS_COLUMNS = [
 const VALID_TRANSITIONS: Record<string, string[]> = {
   'NEEDS_SCRIPT': ['GENERATING_SCRIPT', 'NOT_RECORDED', 'REJECTED'],
   'GENERATING_SCRIPT': ['NEEDS_SCRIPT', 'NOT_RECORDED', 'REJECTED'],
-  'NOT_RECORDED': ['RECORDED', 'REJECTED'],
+  'NOT_RECORDED': ['AI_RENDERING', 'RECORDED', 'REJECTED'],
+  'AI_RENDERING': ['RECORDED', 'EDITED', 'REJECTED'],
   'RECORDED': ['EDITED', 'REJECTED', 'NOT_RECORDED'],
   'EDITED': ['READY_TO_POST', 'REJECTED', 'RECORDED'],
   'READY_TO_POST': ['POSTED', 'REJECTED', 'EDITED'],

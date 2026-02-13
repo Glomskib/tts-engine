@@ -9,6 +9,7 @@ export const RECORDING_STATUSES = [
   'NEEDS_SCRIPT',
   'GENERATING_SCRIPT',
   'NOT_RECORDED',
+  'AI_RENDERING',
   'RECORDED',
   'EDITED',
   'READY_TO_POST',
@@ -24,6 +25,7 @@ export const SLA_DEADLINES_MINUTES: Record<string, number> = {
   'NEEDS_SCRIPT': 48 * 60,     // 48 hours to get a script
   'GENERATING_SCRIPT': 60,     // 1 hour for AI generation
   'NOT_RECORDED': 24 * 60,     // 24 hours
+  'AI_RENDERING': 30,          // 30 minutes for Runway render
   'RECORDED': 24 * 60,         // 24 hours
   'EDITED': 24 * 60,           // 24 hours
   'READY_TO_POST': 12 * 60,    // 12 hours
@@ -56,6 +58,7 @@ const NEXT_STATUS_MAP: Record<RecordingStatus, RecordingStatus | null> = {
   'NEEDS_SCRIPT': 'NOT_RECORDED',
   'GENERATING_SCRIPT': 'NOT_RECORDED',
   'NOT_RECORDED': 'RECORDED',
+  'AI_RENDERING': 'EDITED',
   'RECORDED': 'EDITED',
   'EDITED': 'READY_TO_POST',
   'READY_TO_POST': 'POSTED',
@@ -68,6 +71,7 @@ const NEXT_ACTION_MAP: Record<RecordingStatus, string> = {
   'NEEDS_SCRIPT': 'Add a script',
   'GENERATING_SCRIPT': 'Waiting for AI script',
   'NOT_RECORDED': 'Record the video',
+  'AI_RENDERING': 'Waiting for AI video render',
   'RECORDED': 'Edit the video',
   'EDITED': 'Mark ready to post',
   'READY_TO_POST': 'Post the video',

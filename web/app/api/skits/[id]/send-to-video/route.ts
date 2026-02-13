@@ -3,6 +3,7 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createVideoFromProduct, CreateVideoParams } from "@/lib/createVideoFromProduct";
+import { createImageToVideo, createTextToVideo } from "@/lib/runway";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -178,13 +179,80 @@ export async function POST(
       // Video was created but linking failed - still return success with warning
     }
 
+    // --- UGC_SHORT: Auto-trigger Runway render ---
+    const generationConfig = skit.generation_config as { content_type?: string } | null;
+    const isUgcShort = generationConfig?.content_type === "ugc_short";
+    let renderTaskId: string | null = null;
+    let renderProvider: string | null = null;
+
+    if (isUgcShort && skitData.beats?.length > 0) {
+      try {
+        // Build Runway prompt from beats[].action
+        const sceneDescriptions = skitData.beats
+          .map((b) => b.action)
+          .filter(Boolean)
+          .join(" ");
+
+        const runwayPrompt = `9:16 vertical video, TikTok UGC style. ${sceneDescriptions} Natural lighting, handheld camera feel, casual setting.`;
+
+        console.log(`[${correlationId}] UGC_SHORT detected — triggering Runway render`);
+        console.log(`[${correlationId}] Runway prompt (${runwayPrompt.length} chars): ${runwayPrompt.slice(0, 200)}...`);
+
+        // Check if product has an image URL
+        const { data: product } = await supabaseAdmin
+          .from("products")
+          .select("product_image_url")
+          .eq("id", skit.product_id)
+          .single();
+
+        const productImageUrl = product?.product_image_url;
+
+        let runwayResult: { id?: string };
+        if (productImageUrl) {
+          console.log(`[${correlationId}] Using image-to-video with product image`);
+          runwayResult = await createImageToVideo(productImageUrl, runwayPrompt, "gen3a_turbo", 10);
+        } else {
+          console.log(`[${correlationId}] Using text-to-video (no product image)`);
+          runwayResult = await createTextToVideo(runwayPrompt, "gen3a_turbo", 10);
+        }
+
+        renderTaskId = runwayResult.id ? String(runwayResult.id) : null;
+        renderProvider = "runway";
+
+        if (renderTaskId) {
+          // Update video record with render task ID and set recording_status to AI_RENDERING
+          const { error: renderUpdateError } = await supabaseAdmin
+            .from("videos")
+            .update({
+              render_task_id: renderTaskId,
+              render_provider: renderProvider,
+              recording_status: "AI_RENDERING",
+            })
+            .eq("id", videoResult.data.video.id);
+
+          if (renderUpdateError) {
+            console.error(`[${correlationId}] Failed to update video with render task:`, renderUpdateError);
+          } else {
+            console.log(`[${correlationId}] Runway task ${renderTaskId} stored on video ${videoResult.data.video.id}`);
+          }
+        }
+      } catch (renderErr) {
+        // Runway failure should NOT fail the send-to-video operation
+        console.error(`[${correlationId}] Runway auto-render failed (non-blocking):`, renderErr);
+      }
+    }
+
     const response = NextResponse.json({
       ok: true,
       data: {
         skit_id: skitId.trim(),
         video_id: videoResult.data.video.id,
         video_code: videoResult.data.video.video_code,
-        message: "Skit sent to video queue successfully",
+        render_task_id: renderTaskId,
+        render_provider: renderProvider,
+        message: isUgcShort && renderTaskId
+          ? "Skit sent to video queue — Runway render triggered"
+          : "Skit sent to video queue successfully",
       },
       correlation_id: correlationId,
     });

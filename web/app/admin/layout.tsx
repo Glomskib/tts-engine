@@ -61,6 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
   const [unreadCount, setUnreadCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
 
   // Set page title based on pathname
   useEffect(() => {
@@ -69,6 +70,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/content-studio': 'Content Studio',
       '/admin/skit-library': 'Script Library',
       '/admin/pipeline': 'Production Board',
+      '/admin/review': 'Video Review',
       '/admin/posting-queue': 'Posting Queue',
       '/admin/winners': 'Winners Bank',
       '/admin/demographics': 'Customer Archetypes',
@@ -135,7 +137,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [auth.loading, auth.authenticated, router]);
 
-  // Fetch notifications
+  // Fetch notifications + review count
   useEffect(() => {
     if (!auth.authenticated) return;
     const fetchNotifications = async () => {
@@ -149,8 +151,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         // ignore
       }
     };
+    const fetchReviewCount = async () => {
+      try {
+        const res = await fetch('/api/videos/queue?recording_status=READY_FOR_REVIEW&limit=1');
+        if (res.ok) {
+          const data = await res.json();
+          setReviewCount(data.meta?.total || data.data?.length || 0);
+        }
+      } catch {
+        // ignore
+      }
+    };
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    fetchReviewCount();
+    const interval = setInterval(() => { fetchNotifications(); fetchReviewCount(); }, 30000);
     return () => clearInterval(interval);
   }, [auth.authenticated]);
 
@@ -218,6 +232,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   {item.href === '/admin/notifications' && unreadCount > 0 && (
                     <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
                       {unreadCount}
+                    </span>
+                  )}
+                  {item.href === '/admin/review' && reviewCount > 0 && (
+                    <span className={`ml-auto px-2 py-0.5 font-medium bg-emerald-600 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
+                      {reviewCount}
                     </span>
                   )}
                 </Link>

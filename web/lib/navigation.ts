@@ -41,6 +41,7 @@ import {
   Link2,
   Ticket,
   ListTodo,
+  Eye,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -85,6 +86,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Production Board', href: '/admin/pipeline', icon: Video },
+      { name: 'Review', href: '/admin/review', icon: Eye },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send },
       { name: 'VA Dashboard', href: '/va', icon: Users, external: true },
     ],
@@ -257,6 +259,7 @@ export const Icons = {
   CreditCard,
   Server,
   Shield,
+  Eye,
   Upload,
   Play,
   HelpCircle,

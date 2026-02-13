@@ -9,6 +9,7 @@ export const maxDuration = 300;
 
 const ComposeSchema = z.object({
   videoUrl: z.string().url(),
+  audioUrl: z.string().url().optional(),
   onScreenText: z.string().max(500).optional(),
   cta: z.string().max(200).optional(),
   duration: z.number().min(1).max(120).optional(),
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const { videoUrl, onScreenText, cta } = parsed.data;
+  const { videoUrl, audioUrl, onScreenText, cta } = parsed.data;
 
   // Probe video URL if duration not provided — fall back to 10s default
   let duration = parsed.data.duration;
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
     ],
   });
 
-  const timeline = {
+  const timeline: Record<string, unknown> = {
     background: "#000000",
     fonts: [
       {
@@ -170,6 +171,14 @@ export async function POST(request: Request) {
     ],
     tracks,
   };
+
+  // Add voiceover soundtrack if audioUrl provided
+  if (audioUrl) {
+    timeline.soundtrack = {
+      src: audioUrl,
+      effect: "fadeOut",
+    };
+  }
 
   const output = {
     format: "mp4",

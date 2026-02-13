@@ -333,6 +333,267 @@ end tell`;
   }
 });
 
+// ─── cliclick / keyboard helpers ─────────────────────────────────────────────
+function cliclick(action) {
+  return new Promise((resolve, reject) => {
+    exec(`/opt/homebrew/bin/cliclick ${action}`, { timeout: 5000 }, (err, stdout) => {
+      if (err) return reject(err);
+      resolve(stdout.trim());
+    });
+  });
+}
+
+function keystroke(keys, modifiers) {
+  const mod = modifiers ? ` using {${modifiers}}` : '';
+  return runOsascript(`tell application "System Events" to keystroke "${keys}"${mod}`);
+}
+
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// Execute JS in Chrome active tab and return result
+function chromeJS(js) {
+  const escaped = js.replace(/"/g, '\\"');
+  return runOsascript(
+    `tell application "Google Chrome" to execute active tab of window 1 javascript "${escaped}"`
+  );
+}
+
+// Shadow DOM helper JS — finds an element by tag+text through nested shadow roots
+const SHADOW_FIND_FN = `
+function findInShadow(root, tag, text) {
+  var all = root.querySelectorAll(tag);
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].textContent.trim().toLowerCase() === text) return all[i];
+  }
+  var elems = root.querySelectorAll("*");
+  for (var j = 0; j < elems.length; j++) {
+    if (elems[j].shadowRoot) {
+      var f = findInShadow(elems[j].shadowRoot, tag, text);
+      if (f) return f;
+    }
+  }
+  return null;
+}`;
+
+// Get Chrome viewport offset (screen Y where viewport starts)
+async function getViewportOffset() {
+  const info = JSON.parse(await chromeJS(
+    'JSON.stringify({innerHeight:window.innerHeight,outerHeight:window.outerHeight,screenY:window.screenY})'
+  ));
+  const chromeUI = info.outerHeight - info.innerHeight;
+  return { x: 0, y: info.screenY + chromeUI };
+}
+
+// ─── POST /adobe/create-animated-video ───────────────────────────────────────
+// Automates Adobe Express "Animate from Audio" via Chrome PWA.
+// Uses cliclick for file dialog, JS for shadow DOM buttons, screencapture for verification.
+// Character/category/background use whatever is currently set in the PWA.
+
+app.post('/adobe/create-animated-video', async (req, res) => {
+  const screenshots = {};
+  try {
+    const { audioPath, outputPath } = req.body;
+    if (!audioPath) return res.status(400).json({ error: 'audioPath is required' });
+    if (!fs.existsSync(audioPath)) return res.status(400).json({ error: `Audio file not found: ${audioPath}` });
+
+    const audioBasename = path.basename(audioPath, path.extname(audioPath));
+    const finalOutput = outputPath || `/tmp/screenshots/animated-${Date.now()}.mp4`;
+    const finalDir = path.dirname(finalOutput);
+    if (!fs.existsSync(finalDir)) fs.mkdirSync(finalDir, { recursive: true });
+
+    console.log(`create-animated-video: audio="${audioPath}" output="${finalOutput}"`);
+
+    // Step 1: Navigate to animate-from-audio page
+    console.log('Step 1: Navigating to animate-from-audio...');
+    await runOsascript('tell application "Google Chrome" to set URL of active tab of window 1 to "https://new.express.adobe.com/home/tools/animate-from-audio"');
+    await delay(8000);
+
+    // Wait for animate component to load (poll up to 30s)
+    for (let i = 0; i < 6; i++) {
+      const hasComponent = await chromeJS(`
+        (function() {
+          function check(root) {
+            if (root.querySelector("x-animate-ui-component")) return true;
+            var all = root.querySelectorAll("*");
+            for (var i = 0; i < all.length; i++) {
+              if (all[i].shadowRoot && check(all[i].shadowRoot)) return true;
+            }
+            return false;
+          }
+          return check(document) ? "true" : "false";
+        })()
+      `);
+      if (hasComponent === 'true') break;
+      await delay(5000);
+    }
+
+    // Step 2: Click Browse to open file dialog
+    console.log('Step 2: Clicking Browse...');
+    await runOsascript('tell application "Google Chrome" to activate');
+    await delay(500);
+
+    // Get viewport offset for coordinate mapping
+    const offset = await getViewportOffset();
+
+    // Find Browse link position via JS
+    const browseInfo = await chromeJS(`
+      (function() {
+        ${SHADOW_FIND_FN}
+        var el = findInShadow(document, "sp-link", "browse");
+        if (!el) return "null";
+        var r = el.getBoundingClientRect();
+        return JSON.stringify({x: r.x + r.width/2, y: r.y + r.height/2});
+      })()
+    `);
+
+    if (browseInfo === 'null') {
+      throw new Error('Browse link not found on page');
+    }
+
+    const browsePos = JSON.parse(browseInfo);
+    const screenX = Math.round(browsePos.x + offset.x);
+    const screenY = Math.round(browsePos.y + offset.y);
+
+    await cliclick(`c:${screenX},${screenY}`);
+    await delay(2000);
+
+    // Verify file dialog opened (take screenshot)
+    const dialogShot = `/tmp/screenshots/dialog-${Date.now()}.png`;
+    await new Promise((resolve, reject) => {
+      exec(`screencapture -x "${dialogShot}"`, { timeout: 5000 }, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+    screenshots.fileDialog = dialogShot;
+
+    // Step 3: Navigate to audio file in dialog
+    console.log('Step 3: Navigating to audio file...');
+    await keystroke('g', 'command down, shift down');
+    await delay(1000);
+    await keystroke('a', 'command down');
+    await delay(300);
+    await runOsascript(`tell application "System Events" to keystroke "${audioPath}"`);
+    await delay(500);
+    await runOsascript('tell application "System Events" to keystroke return');
+    await delay(1500);
+    // Press Enter again to select the file
+    await runOsascript('tell application "System Events" to keystroke return');
+    await delay(5000);
+
+    // Step 4: Wait for rendering to complete (poll for download button, up to 3 min)
+    console.log('Step 4: Waiting for rendering...');
+    let downloadFound = false;
+    for (let i = 0; i < 18; i++) {
+      await delay(10000);
+      const result = await chromeJS(`
+        (function() {
+          ${SHADOW_FIND_FN}
+          var dl = findInShadow(document, "sp-button", "download");
+          if (dl) {
+            var r = dl.getBoundingClientRect();
+            return r.width > 0 ? "ready" : "hidden";
+          }
+          return "rendering";
+        })()
+      `);
+      console.log(`  Render poll ${i + 1}: ${result}`);
+      if (result === 'ready') {
+        downloadFound = true;
+        break;
+      }
+    }
+
+    if (!downloadFound) {
+      const renderShot = `/tmp/screenshots/render-timeout-${Date.now()}.png`;
+      await new Promise((resolve, reject) => {
+        exec(`screencapture -x "${renderShot}"`, { timeout: 5000 }, (err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+      screenshots.renderTimeout = renderShot;
+      throw new Error('Rendering timed out after 3 minutes');
+    }
+
+    // Take post-render screenshot
+    const renderShot = `/tmp/screenshots/render-done-${Date.now()}.png`;
+    await new Promise((resolve, reject) => {
+      exec(`screencapture -x "${renderShot}"`, { timeout: 5000 }, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+    screenshots.renderComplete = renderShot;
+
+    // Step 5: Click Download via JS
+    console.log('Step 5: Clicking Download...');
+    const clickResult = await chromeJS(`
+      (function() {
+        ${SHADOW_FIND_FN}
+        var btn = findInShadow(document, "sp-button", "download");
+        if (!btn) return "not found";
+        btn.click();
+        return "clicked";
+      })()
+    `);
+
+    if (clickResult !== 'clicked') {
+      throw new Error('Download button not found or not clickable');
+    }
+
+    // Step 6: Wait for file to appear in ~/Downloads/
+    console.log('Step 6: Waiting for download...');
+    const downloadsDir = path.join(process.env.HOME || '/Users/brandonglomski', 'Downloads');
+    let downloadedFile = null;
+    const startTime = Date.now();
+
+    for (let i = 0; i < 30; i++) {
+      await delay(2000);
+      const files = fs.readdirSync(downloadsDir)
+        .filter(f => f.endsWith('.mp4') && !f.endsWith('.crdownload'))
+        .map(f => ({ name: f, mtime: fs.statSync(path.join(downloadsDir, f)).mtimeMs }))
+        .filter(f => f.mtime > startTime - 5000)
+        .sort((a, b) => b.mtime - a.mtime);
+
+      if (files.length > 0) {
+        downloadedFile = path.join(downloadsDir, files[0].name);
+        break;
+      }
+    }
+
+    if (!downloadedFile) {
+      throw new Error('Download did not complete within 60 seconds');
+    }
+
+    console.log(`Downloaded: ${downloadedFile}`);
+
+    // Step 7: Move to output path
+    fs.copyFileSync(downloadedFile, finalOutput);
+    const stats = fs.statSync(finalOutput);
+    console.log(`Output: ${finalOutput} (${stats.size} bytes)`);
+
+    res.json({
+      ok: true,
+      outputPath: finalOutput,
+      size: stats.size,
+      downloadedFrom: downloadedFile,
+      screenshots,
+    });
+  } catch (e) {
+    console.error('create-animated-video error:', e.message);
+    // Try to capture error state screenshot
+    try {
+      const errShot = `/tmp/screenshots/error-${Date.now()}.png`;
+      exec(`screencapture -x "${errShot}"`);
+      screenshots.error = errShot;
+    } catch (_) {}
+    res.status(500).json({ error: e.message, screenshots });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => res.json({ ok: true, status: 'browser service running' }));
 

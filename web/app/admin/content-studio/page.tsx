@@ -64,6 +64,7 @@ const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; cl
   Megaphone,
   Search,
   ShoppingCart,
+  Smartphone,
   Star,
   Theater,
   GraduationCap,
@@ -92,7 +93,7 @@ const FUNNEL_STAGE_COLORS: Record<string, { bg: string; text: string; border: st
 const MAIN_TABS = [
   { id: 'all', label: 'All Types', icon: Sparkles, description: 'View all content types', contentTypes: [] as string[], funnelHint: '' },
   { id: 'skit', label: 'Skit / Comedy', icon: Theater, description: 'Dialogue-based comedy content', contentTypes: ['skit', 'tof'], funnelHint: 'Top of funnel: hooks and viral moments' },
-  { id: 'ugc', label: 'UGC / Testimonial', icon: User, description: 'Authentic user-generated style', contentTypes: ['testimonial', 'mof'], funnelHint: 'Middle of funnel: demos, social proof' },
+  { id: 'ugc', label: 'UGC / Testimonial', icon: User, description: 'Authentic user-generated style', contentTypes: ['testimonial', 'mof', 'ugc_short'], funnelHint: 'Middle of funnel: demos, social proof, UGC shorts' },
   { id: 'hook', label: 'Hook / Teaser', icon: Zap, description: 'Quick attention-grabbing content', contentTypes: ['tof'], funnelHint: 'Top of funnel: scroll-stopping openers' },
   { id: 'educational', label: 'Educational', icon: GraduationCap, description: 'Value-first teaching content', contentTypes: ['educational'], funnelHint: 'Mid-funnel: builds trust and authority' },
   { id: 'story', label: 'Story / Narrative', icon: BookOpen, description: 'Emotional storytelling', contentTypes: ['story', 'slideshow_story'], funnelHint: 'Full-funnel: emotional connection' },
@@ -859,6 +860,7 @@ export default function ContentStudioPage() {
     const getContentFormat = (): string => {
       // Map based on content type and subtype
       if (selectedContentTypeId === 'skit') return 'skit_dialogue';
+      if (selectedContentTypeId === 'ugc_short') return 'pov_story'; // UGC Short: minimal speech, visual scene
       if (selectedContentTypeId === 'bof') return 'pov_story'; // BOF: direct-to-camera urgency pitch
       if (selectedContentTypeId === 'slideshow_story') return 'scene_montage'; // Slideshow: visual scenes
       if (selectedSubtypeId === 'day_in_life' || selectedSubtypeId === 'day_in_life_story') return 'day_in_life';

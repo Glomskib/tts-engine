@@ -46,6 +46,19 @@ export const CONTENT_TYPES: ContentType[] = [
     ],
   },
   {
+    id: 'ugc_short',
+    name: 'UGC Short (7-9s)',
+    description: 'Ultra-short UGC — visuals sell, person barely speaks, comment-bait scenes',
+    funnelStage: 'conversion',
+    icon: 'Smartphone',
+    subtypes: [
+      { id: 'reaction', name: 'Reaction Moment', description: 'Genuine reaction to discovering product' },
+      { id: 'silent_demo', name: 'Silent Demo', description: 'Product in use with minimal words' },
+      { id: 'comment_bait', name: 'Comment Bait', description: 'Weird/funny background detail drives engagement' },
+      { id: 'before_after', name: 'Quick Before/After', description: 'Expression shift from struggle to relief' },
+    ],
+  },
+  {
     id: 'bof',
     name: 'Bottom of Funnel (BOF)',
     description: 'Ultra-short 10-15 sec conversion — urgency, scarcity, FOMO, buy NOW',

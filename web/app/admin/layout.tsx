@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, ChevronDown, User, LogOut, Zap, Bell, Search, Sun, Moon } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Search, Sun, Moon } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
@@ -68,26 +68,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin': 'Dashboard',
       '/admin/content-studio': 'Content Studio',
       '/admin/skit-library': 'Script Library',
-      '/admin/pipeline': 'Pipeline',
-      '/admin/calendar': 'Calendar',
+      '/admin/pipeline': 'Production Board',
       '/admin/posting-queue': 'Posting Queue',
-      '/admin/analytics': 'Analytics',
-      '/admin/revenue': 'Revenue',
-      '/admin/winners-bank': 'Winners Bank',
-      '/admin/winners': 'Winners',
-      '/admin/competitors': 'Competitors',
-      '/admin/ab-tests': 'A/B Tests',
-      '/admin/trends': 'Trends',
+      '/admin/winners': 'Winners Bank',
+      '/admin/demographics': 'Customer Archetypes',
+      '/admin/winners/patterns': 'Patterns',
       '/admin/products': 'Products',
-      '/admin/accounts': 'Accounts',
-      '/admin/automation': 'Automation',
-      '/admin/templates': 'Templates',
-      '/admin/settings': 'Settings',
+      '/admin/brands': 'Brands',
       '/admin/notifications': 'Notifications',
-      '/admin/activity': 'Activity',
+      '/admin/referrals': 'Referrals',
+      '/admin/credits': 'Credits',
+      '/admin/automation': 'Automation',
+      '/admin/settings': 'Settings',
+      '/admin/api-docs': 'API Docs',
       '/admin/onboarding': 'Getting Started',
       '/admin/help': 'Help',
-      '/admin/api-docs': 'API Docs',
     };
     const title = PAGE_TITLES[pathname] || 'Admin';
     document.title = `${title} | FlashFlow AI`;
@@ -231,29 +226,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       ))}
 
-      {/* Notifications link */}
-      <div className="px-2 mt-4 pt-4 border-t border-zinc-800">
-        <Link
-          href="/admin/notifications"
-          onClick={onItemClick}
-          className={`
-            flex items-center gap-4 px-4 rounded-xl transition-colors
-            ${isNavItemActive(pathname, '/admin/notifications')
-              ? 'bg-teal-500/20 text-teal-400'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-            }
-            ${isMobile ? 'py-4 text-[17px] min-h-[52px]' : 'py-2.5 text-sm'}
-          `}
-        >
-          <Bell className={`flex-shrink-0 ${isMobile ? 'w-7 h-7' : 'w-5 h-5'}`} />
-          <span className="font-medium">Notifications</span>
-          {unreadCount > 0 && (
-            <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
-              {unreadCount}
-            </span>
-          )}
-        </Link>
-      </div>
+      {/* Bottom spacer */}
+      <div className="px-2 mt-4 pt-4 border-t border-zinc-800" />
     </nav>
   );
 

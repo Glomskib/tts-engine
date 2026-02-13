@@ -57,41 +57,47 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
       flexWrap: 'wrap',
       padding: '8px 0',
     }}>
-      {/* Work Group */}
+      {/* Create Group */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={groupLabelStyle}>Work</span>
+        <span style={groupLabelStyle}>Create</span>
         <Link href="/admin/content-studio" style={linkStyle('/admin/content-studio')}>
-          Content Studio
+          Studio
         </Link>
         <span style={separatorStyle}>|</span>
+        <Link href="/admin/skit-library" style={linkStyle('/admin/skit-library')}>
+          Scripts
+        </Link>
+      </div>
+
+      <div style={groupSeparatorStyle} />
+
+      {/* Pipeline Group */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={groupLabelStyle}>Pipeline</span>
         <Link href="/admin/pipeline" style={linkStyle('/admin/pipeline')}>
-          Work Queue
+          Board
         </Link>
         <span style={separatorStyle}>|</span>
-        <Link href="/admin/brands" style={linkStyle('/admin/brands')}>
-          Brands
+        <Link href="/admin/posting-queue" style={linkStyle('/admin/posting-queue')}>
+          Posting
+        </Link>
+      </div>
+
+      <div style={groupSeparatorStyle} />
+
+      {/* Insights Group */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={groupLabelStyle}>Insights</span>
+        <Link href="/admin/winners" style={linkStyle('/admin/winners')}>
+          Winners
         </Link>
         <span style={separatorStyle}>|</span>
         <Link href="/admin/products" style={linkStyle('/admin/products')}>
           Products
         </Link>
         <span style={separatorStyle}>|</span>
-        <Link href="/admin/winners" style={linkStyle('/admin/winners')}>
-          Winners
-        </Link>
-      </div>
-
-      <div style={groupSeparatorStyle} />
-
-      {/* Insight Group */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={groupLabelStyle}>Insight</span>
-        <Link href="/admin/analytics" style={linkStyle('/admin/analytics')}>
-          Analytics
-        </Link>
-        <span style={separatorStyle}>|</span>
-        <Link href="/admin/events" style={linkStyle('/admin/events')}>
-          Events
+        <Link href="/admin/brands" style={linkStyle('/admin/brands')}>
+          Brands
         </Link>
       </div>
 

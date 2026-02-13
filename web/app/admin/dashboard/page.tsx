@@ -512,7 +512,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-zinc-400 mt-0.5">{sotd.brand}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className="text-xs font-medium bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
-                      Score {Math.min(sotd.score, 10)}/10
+                      Score {Math.min(Math.round(sotd.score ?? 0), 10)}/10
                     </span>
                     <span className="text-xs text-zinc-500">{getContentTypeName(sotd.content_type)}</span>
                     {sotd.full_script?.persona && (
@@ -541,6 +541,19 @@ export default function DashboardPage() {
                       &quot;{sotd.full_script.hook}&quot;
                     </p>
                   </div>
+
+                  {/* Script body preview (collapsed) */}
+                  {!sotdExpanded && sotd.full_script.setup && (
+                    <div className="bg-zinc-800/50 rounded-lg p-3">
+                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">
+                        Script Preview
+                      </span>
+                      <p className="text-xs text-zinc-300 leading-relaxed line-clamp-3 whitespace-pre-line">
+                        {sotd.full_script.setup}
+                        {sotd.full_script.body ? `\n${sotd.full_script.body}` : ''}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Expandable Full Script */}
                   {sotdExpanded && (
@@ -608,7 +621,7 @@ export default function DashboardPage() {
                   )}
 
                   {/* Expand/Collapse + Actions */}
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
                     <button
                       onClick={() => setSotdExpanded(!sotdExpanded)}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors"
@@ -616,7 +629,7 @@ export default function DashboardPage() {
                       {sotdExpanded ? (
                         <><ChevronUp className="w-3 h-3" /> Collapse</>
                       ) : (
-                        <><ChevronDown className="w-3 h-3" /> Full Script</>
+                        <><ChevronDown className="w-3 h-3" /> View Full Script</>
                       )}
                     </button>
                     <button

@@ -44,11 +44,11 @@ function buildTextCards(
 }
 
 function textCardHtml(text: string): string {
-  return `<p style="font-family:Montserrat;font-weight:700;font-size:52px;color:#fff;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,0.95),0 0 40px rgba(0,0,0,0.5);line-height:1.3;margin:0;padding:0 108px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</p>`;
+  return `<div style="display:flex;justify-content:center;align-items:center;height:100%;padding:0 108px"><span style="font-family:Montserrat;font-weight:700;font-size:52px;color:#fff;text-align:center;line-height:1.3;background:rgba(0,0,0,0.55);border-radius:16px;padding:16px 32px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</span></div>`;
 }
 
 function ctaHtml(text: string): string {
-  return `<p style="font-family:Montserrat;font-weight:700;font-size:56px;color:#fff;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,0.95),0 0 40px rgba(0,0,0,0.5);line-height:1.3;margin:0;padding:0 108px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</p>`;
+  return `<div style="display:flex;justify-content:center;align-items:center;height:100%;padding:0 108px"><span style="font-family:Montserrat;font-weight:700;font-size:56px;color:#fff;text-align:center;line-height:1.3;background:rgba(0,0,0,0.55);border-radius:16px;padding:20px 40px;word-wrap:break-word;overflow-wrap:break-word">${escapeHtml(text)}</span></div>`;
 }
 
 export async function POST(request: Request) {

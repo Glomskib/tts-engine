@@ -18,6 +18,7 @@ import { SkeletonVideoList } from '@/components/ui/Skeleton';
 import { PageErrorState } from '@/components/ui/PageErrorState';
 import BoardView from './components/BoardView';
 import type { BoardFilters } from './types';
+import { getVideoDisplayTitle } from './types';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -413,7 +414,7 @@ export default function AdminPipelinePage() {
     const csv = [
       ['Video Title', 'Product', 'Brand', 'Status', 'Assigned To', 'Created', 'Last Updated'].join(','),
       ...videos.map(v => [
-        esc(v.video_code || v.id.slice(0, 12)),
+        esc(getVideoDisplayTitle(v)),
         esc(v.product_name),
         esc(v.brand_name),
         esc((v.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')),
@@ -2210,7 +2211,7 @@ export default function AdminPipelinePage() {
             <VideoQueueMobile
               videos={getIntentFilteredVideos().map(v => ({
                 id: v.id,
-                title: v.video_code || v.id.slice(0, 8),
+                title: getVideoDisplayTitle(v),
                 thumbnail: undefined,
                 brand: v.brand_name || v.product_name || undefined,
                 workflow: v.recording_status || v.status || 'Unknown',
@@ -2339,14 +2340,14 @@ export default function AdminPipelinePage() {
                       <span style={{ fontSize: '11px', color: colors.textMuted }}>On Track</span>
                     )}
                   </td>
-                  {/* Video - code prominent, UUID muted */}
+                  {/* Video - readable title prominent, code muted */}
                   <td style={tdStyle}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 500, color: colors.text }}>
-                      {video.video_code || video.id.slice(0, 8)}
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>
+                      {getVideoDisplayTitle(video)}
                     </div>
                     {video.video_code && (
                       <div style={{ fontFamily: 'monospace', fontSize: '10px', color: colors.textMuted }}>
-                        {video.id.slice(0, 8)}
+                        {video.video_code}
                       </div>
                     )}
                   </td>
@@ -2419,7 +2420,7 @@ export default function AdminPipelinePage() {
       <VideoDetailSheet
         video={mobileDetailVideo ? {
           id: mobileDetailVideo.id,
-          title: mobileDetailVideo.video_code || mobileDetailVideo.id.slice(0, 8),
+          title: getVideoDisplayTitle(mobileDetailVideo),
           brand: mobileDetailVideo.brand_name || mobileDetailVideo.product_name,
           workflow: mobileDetailVideo.recording_status || mobileDetailVideo.status || 'Unknown',
           assignedTo: mobileDetailVideo.claimed_by || undefined,

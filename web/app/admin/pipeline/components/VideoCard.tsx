@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { QueueVideo } from '../types';
-import { getSlaColor, getPrimaryAction, getReadinessIndicators } from '../types';
+import { getSlaColor, getPrimaryAction, getReadinessIndicators, getVideoDisplayTitle } from '../types';
 
 interface VideoCardProps {
   video: QueueVideo;
@@ -163,7 +163,7 @@ export default function VideoCard({
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}>
-          {video.product_name || video.product_sku || video.id.slice(0, 8)}
+          {getVideoDisplayTitle(video)}
         </div>
       )}
 

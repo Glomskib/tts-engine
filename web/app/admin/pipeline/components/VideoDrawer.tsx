@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { QueueVideo } from '../types';
-import { getStatusBadgeColor, getSlaColor, getPrimaryAction } from '../types';
+import { getStatusBadgeColor, getSlaColor, getPrimaryAction, getVideoDisplayTitle } from '../types';
 import { formatDateString, getTimeAgo, useHydrated } from '@/lib/useHydrated';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
@@ -1138,12 +1138,11 @@ export default function VideoDrawer({
               {/* Video Code with copy + Copy Pack */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{
-                  fontFamily: 'monospace',
-                  fontSize: video.video_code ? '14px' : '13px',
-                  fontWeight: video.video_code ? 600 : 'normal',
+                  fontSize: '14px',
+                  fontWeight: 600,
                   color: colors.text,
                 }}>
-                  {video.video_code || video.id.slice(0, 12) + '...'}
+                  {getVideoDisplayTitle(video)}
                 </span>
                 <button type="button"
                   onClick={() => copyToClipboard(video.video_code || video.id, 'videoCode')}
@@ -1170,7 +1169,8 @@ export default function VideoDrawer({
                     const driveUrl = details?.assets?.google_drive_url || video.google_drive_url || '';
 
                     const pack = [
-                      `Video Code: ${video.video_code || video.id.slice(0, 12)}`,
+                      `Title: ${getVideoDisplayTitle(video)}`,
+                      video.video_code ? `Video Code: ${video.video_code}` : null,
                       `Brand: ${brand}`,
                       `Product: ${product}`,
                       spokenHook ? `Spoken Hook: ${spokenHook}` : null,
@@ -3342,7 +3342,7 @@ export default function VideoDrawer({
                 {isAdmin && (
                   <button type="button"
                     onClick={async () => {
-                      if (!window.confirm(`Delete video ${video.video_code || video.id.slice(0, 8)}? This cannot be undone.`)) return;
+                      if (!window.confirm(`Delete video "${getVideoDisplayTitle(video)}"? This cannot be undone.`)) return;
                       setLoading(true);
                       try {
                         const res = await fetch(`/api/videos/${video.id}`, { method: 'DELETE', credentials: 'include' });

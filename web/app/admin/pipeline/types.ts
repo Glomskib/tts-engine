@@ -229,3 +229,34 @@ export function getReadinessIndicators(video: QueueVideo): ReadinessIndicators {
     hasFinal: !!video.final_video_url || video.recording_status === 'EDITED' || video.recording_status === 'READY_TO_POST' || video.recording_status === 'POSTED',
   };
 }
+
+/**
+ * Generate a readable display title for a video.
+ * Format: "[Brand] - [Product] #[N]"
+ * Example: "Snap Supplements - Big Boy Bundle #1"
+ * Falls back to video_code or truncated ID.
+ */
+export function getVideoDisplayTitle(video: Pick<QueueVideo, 'brand_name' | 'product_name' | 'product_sku' | 'video_code' | 'id'>): string {
+  const brand = video.brand_name;
+  const product = video.product_name || video.product_sku;
+
+  // Extract sequence number from video_code (last segment, e.g., "001" from "UNMAPD-SNAPSU-BIGBOY-02-12-26-001")
+  let seq = '';
+  if (video.video_code) {
+    const match = video.video_code.match(/-(\d{3})$/);
+    if (match) seq = `#${parseInt(match[1], 10)}`;
+  }
+
+  if (brand && product) {
+    return `${brand} - ${product}${seq ? ' ' + seq : ''}`;
+  }
+  if (product) {
+    return `${product}${seq ? ' ' + seq : ''}`;
+  }
+  if (brand) {
+    return `${brand}${seq ? ' ' + seq : ''}`;
+  }
+
+  // Fallback to video_code or truncated ID
+  return video.video_code || video.id.slice(0, 8);
+}

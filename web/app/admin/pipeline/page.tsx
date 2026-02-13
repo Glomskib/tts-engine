@@ -43,7 +43,7 @@ interface VideoEvent {
   created_at: string;
 }
 
-type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
+type SlaStatus = 'on_track' | 'due_soon' | 'overdue' | 'no_due_date';
 
 interface QueueVideo {
   id: string;
@@ -866,18 +866,37 @@ export default function AdminPipelinePage() {
           videos = videos.filter((v: QueueVideo) => v.can_mark_posted || v.recording_status === 'READY_TO_POST');
         }
 
-        // Override SLA display: use 7-day window instead of aggressive 24-48h deadlines
+        // Compute SLA status based on due date (7-day window from creation)
         const SLA_DAYS = 7;
-        const SLA_DUE_SOON_DAYS = 6;
+        const SLA_DUE_SOON_HOURS = 24;
         const nowMs = Date.now();
         videos = videos.map((v: QueueVideo) => {
-          if (v.recording_status === 'POSTED') return v; // terminal, no SLA
-          const enteredAt = v.last_status_changed_at || v.created_at;
-          if (!enteredAt) return v;
-          const ageDays = (nowMs - new Date(enteredAt).getTime()) / (1000 * 60 * 60 * 24);
+          // POSTED and READY_TO_POST (approved) videos never show Past Due
+          const terminalStatuses = ['POSTED', 'READY_TO_POST'];
+          if (terminalStatuses.includes(v.recording_status || '')) {
+            return { ...v, sla_status: 'on_track' as SlaStatus };
+          }
+
+          // Compute due_date: sla_deadline_at from API, or 7 days from creation
+          const dueDateStr = v.sla_deadline_at;
+          if (!dueDateStr) {
+            // No due date set — check if we can derive one from created_at
+            if (!v.created_at) return { ...v, sla_status: 'no_due_date' as SlaStatus };
+            // Default due date: 7 days from creation
+            const defaultDueMs = new Date(v.created_at).getTime() + SLA_DAYS * 24 * 60 * 60 * 1000;
+            const msUntilDue = defaultDueMs - nowMs;
+            let sla_status: SlaStatus = 'on_track';
+            if (msUntilDue < 0) sla_status = 'overdue';
+            else if (msUntilDue < SLA_DUE_SOON_HOURS * 60 * 60 * 1000) sla_status = 'due_soon';
+            return { ...v, sla_status };
+          }
+
+          // Explicit due date exists
+          const dueMs = new Date(dueDateStr).getTime();
+          const msUntilDue = dueMs - nowMs;
           let sla_status: SlaStatus = 'on_track';
-          if (ageDays > SLA_DAYS) sla_status = 'overdue';
-          else if (ageDays > SLA_DUE_SOON_DAYS) sla_status = 'due_soon';
+          if (msUntilDue < 0) sla_status = 'overdue';
+          else if (msUntilDue < SLA_DUE_SOON_HOURS * 60 * 60 * 1000) sla_status = 'due_soon';
           return { ...v, sla_status };
         });
 
@@ -2401,7 +2420,8 @@ export default function AdminPipelinePage() {
 
               // SLA indicator - subtle left border color
               const slaBorderColor = video.sla_status === 'overdue' ? colors.danger :
-                video.sla_status === 'due_soon' ? colors.warning : 'transparent';
+                video.sla_status === 'due_soon' ? colors.warning :
+                video.sla_status === 'no_due_date' ? 'transparent' : 'transparent';
 
               return (
                 <tr
@@ -2432,7 +2452,9 @@ export default function AdminPipelinePage() {
                   )}
                   {/* Status - subtle indicator */}
                   <td style={{ ...tdStyle, width: '90px' }}>
-                    {video.sla_status === 'overdue' ? (
+                    {video.sla_status === 'no_due_date' ? (
+                      <span style={{ fontSize: '11px', color: colors.textMuted }}>No due date</span>
+                    ) : video.sla_status === 'overdue' ? (
                       <span
                         title="This video is past its expected completion time"
                         style={{
@@ -2450,7 +2472,7 @@ export default function AdminPipelinePage() {
                     ) : video.sla_status === 'due_soon' ? (
                       <span style={{ fontSize: '11px', color: colors.warning }}>Due Soon</span>
                     ) : (
-                      <span style={{ fontSize: '11px', color: colors.textMuted }}>On Track</span>
+                      <span style={{ fontSize: '11px', color: '#2b8a3e' }}>On Track</span>
                     )}
                   </td>
                   {/* Video - readable title prominent, code muted */}

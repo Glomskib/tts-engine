@@ -1332,7 +1332,7 @@ export default function VideoDrawer({
                   fontSize: '9px',
                   fontWeight: 'bold',
                 }}>
-                  {video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : 'ON TRACK'}
+                  {video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : video.sla_status === 'no_due_date' ? 'NO DUE DATE' : 'ON TRACK'}
                 </span>
               </div>
 

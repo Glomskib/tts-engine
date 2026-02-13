@@ -1,4 +1,4 @@
-export type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
+export type SlaStatus = 'on_track' | 'due_soon' | 'overdue' | 'no_due_date';
 
 export interface QueueVideo {
   id: string;
@@ -104,6 +104,8 @@ export function getSlaColor(status: SlaStatus): { bg: string; text: string; bord
       return { bg: '#fff3bf', text: '#e67700', border: '#ffd43b' };
     case 'on_track':
       return { bg: '#d3f9d8', text: '#2b8a3e', border: '#69db7c' };
+    case 'no_due_date':
+      return { bg: '#f8f9fa', text: '#868e96', border: '#dee2e6' };
     default:
       return { bg: '#f8f9fa', text: '#495057', border: '#dee2e6' };
   }

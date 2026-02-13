@@ -159,7 +159,7 @@ export default function VideoCard({
         }}>
           {simpleMode
             ? (video.sla_status === 'overdue' ? '!' : video.sla_status === 'due_soon' ? '~' : '')
-            : (video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : 'OK')
+            : (video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : video.sla_status === 'no_due_date' ? '' : 'OK')
           }
         </span>
 

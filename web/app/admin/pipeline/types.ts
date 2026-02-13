@@ -42,6 +42,7 @@ export interface QueueVideo {
   brand_name?: string;
   product_name?: string;
   product_sku?: string;
+  product_category?: string | null;
   account_name?: string;
   // Posting account
   posting_account_id?: string | null;
@@ -236,9 +237,10 @@ export function getReadinessIndicators(video: QueueVideo): ReadinessIndicators {
  * Example: "Snap Supplements - Big Boy Bundle #1"
  * Falls back to video_code or truncated ID.
  */
-export function getVideoDisplayTitle(video: Pick<QueueVideo, 'brand_name' | 'product_name' | 'product_sku' | 'video_code' | 'id'>): string {
+export function getVideoDisplayTitle(video: Pick<QueueVideo, 'brand_name' | 'product_name' | 'product_sku' | 'product_category' | 'video_code' | 'id'>): string {
   const brand = video.brand_name;
   const product = video.product_name || video.product_sku;
+  const category = video.product_category;
 
   // Extract sequence number from video_code (last segment, e.g., "001" from "UNMAPD-SNAPSU-BIGBOY-02-12-26-001")
   let seq = '';
@@ -247,14 +249,14 @@ export function getVideoDisplayTitle(video: Pick<QueueVideo, 'brand_name' | 'pro
     if (match) seq = `#${parseInt(match[1], 10)}`;
   }
 
-  if (brand && product) {
-    return `${brand} - ${product}${seq ? ' ' + seq : ''}`;
-  }
-  if (product) {
-    return `${product}${seq ? ' ' + seq : ''}`;
-  }
-  if (brand) {
-    return `${brand}${seq ? ' ' + seq : ''}`;
+  // Build segments: [Brand] - [Product] - [Category] #[N]
+  const parts: string[] = [];
+  if (brand) parts.push(brand);
+  if (product) parts.push(product);
+  if (category) parts.push(category);
+
+  if (parts.length > 0) {
+    return parts.join(' - ') + (seq ? ' ' + seq : '');
   }
 
   // Fallback to video_code or truncated ID

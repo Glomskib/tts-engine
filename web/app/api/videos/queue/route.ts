@@ -11,7 +11,7 @@ type SortValue = typeof VALID_SORT_VALUES[number];
 
 export const runtime = "nodejs";
 
-const VIDEO_SELECT_BASE = "id,video_code,variant_id,account_id,status,google_drive_url,created_at,final_video_url,concept_id,product_id,product:product_id(id,name,brand)";
+const VIDEO_SELECT_BASE = "id,video_code,variant_id,account_id,status,google_drive_url,created_at,final_video_url,concept_id,product_id,product:product_id(id,name,brand,category)";
 const VIDEO_SELECT_CLAIM = ",claimed_by,claimed_at,claim_expires_at";
 const VIDEO_SELECT_CLAIM_ROLE = ",claim_role";
 const VIDEO_SELECT_EXECUTION = ",recording_status,last_status_changed_at,posted_url,posted_platform,script_locked_text,script_locked_version,script_not_required,recording_notes,editor_notes,uploader_notes";
@@ -213,10 +213,11 @@ export async function GET(request: Request) {
 
       // Flatten product join into top-level fields
       const productRaw = video.product;
-      const productJoin = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; brand: string } | null;
+      const productJoin = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; brand: string; category?: string } | null;
       const brand_name = productJoin?.brand || null;
       const product_name = productJoin?.name || null;
       const product_sku: string | null = null;
+      const product_category = productJoin?.category || null;
 
       // Remove nested product object from spread
       const { product: _product, ...videoWithoutProduct } = video;
@@ -226,6 +227,7 @@ export async function GET(request: Request) {
         brand_name,
         product_name,
         product_sku,
+        product_category,
         // Stage info computed fields
         can_move_next: stageInfo.can_move_next,
         blocked_reason: stageInfo.blocked_reason,

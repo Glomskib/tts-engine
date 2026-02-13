@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import AdminPageLayout, { StatCard } from '../components/AdminPageLayout';
-import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Star } from 'lucide-react';
+import { QUALITY_DIMENSIONS, calculateTotal, type QualityScore } from '@/lib/video-quality-score';
 
 interface ReviewVideo {
   id: string;
@@ -14,6 +15,7 @@ interface ReviewVideo {
   brand_name?: string | null;
   product_name?: string | null;
   product_category?: string | null;
+  quality_score?: QualityScore | null;
   last_status_changed_at: string | null;
   created_at: string;
 }
@@ -46,6 +48,34 @@ export default function ReviewPage() {
   // Approve notes state
   const [showApproveNotes, setShowApproveNotes] = useState<Record<string, boolean>>({});
   const [approveNotes, setApproveNotes] = useState<Record<string, string>>({});
+
+  // Quality scoring state
+  const [showScoring, setShowScoring] = useState<Record<string, boolean>>({});
+  const [scores, setScores] = useState<Record<string, Partial<QualityScore>>>({});
+  const [scoreNotes, setScoreNotes] = useState<Record<string, string>>({});
+
+  const getScoreForVideo = (videoId: string): Partial<QualityScore> =>
+    scores[videoId] || {
+      product_visibility: 3,
+      label_legibility: 3,
+      prompt_accuracy: 3,
+      text_overlay: 3,
+      composition: 3,
+    };
+
+  const updateScore = (videoId: string, key: string, value: number) => {
+    setScores((prev) => ({
+      ...prev,
+      [videoId]: { ...getScoreForVideo(videoId), [key]: value },
+    }));
+  };
+
+  const buildQualityScorePayload = (videoId: string): Partial<QualityScore> | undefined => {
+    if (!showScoring[videoId]) return undefined;
+    const s = getScoreForVideo(videoId);
+    const notes = scoreNotes[videoId]?.trim();
+    return { ...s, total: calculateTotal(s), ...(notes ? { notes } : {}) };
+  };
 
   // Rejected videos state
   const [rejectedVideos, setRejectedVideos] = useState<ReviewVideo[]>([]);
@@ -81,10 +111,11 @@ export default function ReviewPage() {
     setActionLoading(videoId);
     try {
       const notes = approveNotes[videoId]?.trim() || undefined;
+      const quality_score = buildQualityScorePayload(videoId);
       const res = await fetch(`/api/admin/videos/${videoId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', notes }),
+        body: JSON.stringify({ action: 'approve', notes, quality_score }),
       });
       if (res.ok) {
         showSuccess('Video approved — moved to posting queue');
@@ -102,7 +133,7 @@ export default function ReviewPage() {
     } finally {
       setActionLoading(null);
     }
-  }, [approveNotes, showSuccess, showError]);
+  }, [approveNotes, showScoring, scores, scoreNotes, showSuccess, showError]);
 
   const handleReject = async () => {
     if (!rejectVideoId || selectedRejectCodes.size === 0) return;
@@ -115,6 +146,7 @@ export default function ReviewPage() {
         ? [...reasonLabels.filter((l) => l !== 'Other'), rejectNotes.trim()].join(', ')
         : reasonLabels.join(', ');
 
+      const quality_score = buildQualityScorePayload(rejectVideoId);
       const res = await fetch(`/api/admin/videos/${rejectVideoId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,6 +154,7 @@ export default function ReviewPage() {
           action: 'reject',
           reason,
           notes: rejectNotes.trim() || undefined,
+          quality_score,
         }),
       });
       if (res.ok) {
@@ -377,6 +410,75 @@ export default function ReviewPage() {
                         {video.script_locked_text}
                       </pre>
                     </details>
+                  )}
+
+                  {/* Quality scoring panel */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowScoring((prev) => ({ ...prev, [video.id]: !prev[video.id] }));
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-400"
+                  >
+                    {showScoring[video.id] ? (
+                      <ChevronUp className="w-3 h-3" />
+                    ) : (
+                      <Star className="w-3 h-3" />
+                    )}
+                    {showScoring[video.id] ? 'Hide scoring' : 'Score video'}
+                    {showScoring[video.id] && (
+                      <span className="ml-1 text-teal-400 font-medium">
+                        {calculateTotal(getScoreForVideo(video.id))}/25
+                      </span>
+                    )}
+                  </button>
+                  {showScoring[video.id] && (
+                    <div
+                      className="space-y-2 bg-zinc-800/50 rounded-lg p-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {QUALITY_DIMENSIONS.map((dim) => {
+                        const current = (getScoreForVideo(video.id)[dim.key] as number) || 3;
+                        return (
+                          <div key={dim.key} className="space-y-0.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-zinc-400">{dim.label}</span>
+                              <span className="text-xs font-mono text-zinc-500">{current}/5</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="range"
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={current}
+                                onChange={(e) =>
+                                  updateScore(video.id, dim.key, parseInt(e.target.value))
+                                }
+                                className="flex-1 h-1.5 appearance-none bg-zinc-700 rounded-full cursor-pointer accent-teal-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal-500"
+                              />
+                            </div>
+                            <p className="text-[10px] text-zinc-600">{dim.hint}</p>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                        <span className="text-xs font-medium text-zinc-300">Total</span>
+                        <span className="text-sm font-bold text-teal-400">
+                          {calculateTotal(getScoreForVideo(video.id))}/25
+                        </span>
+                      </div>
+                      <textarea
+                        value={scoreNotes[video.id] || ''}
+                        onChange={(e) =>
+                          setScoreNotes((prev) => ({ ...prev, [video.id]: e.target.value }))
+                        }
+                        placeholder="Scoring notes (optional)..."
+                        className="w-full px-2.5 py-1.5 text-xs bg-zinc-800 border border-white/10 rounded-lg text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        rows={2}
+                      />
+                    </div>
                   )}
 
                   {/* Approve notes toggle */}

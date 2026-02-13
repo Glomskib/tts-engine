@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { validateQualityScore } from '@/lib/video-quality-score';
 
 export const runtime = 'nodejs';
 
@@ -63,11 +64,28 @@ export async function POST(request: Request, { params }: RouteParams) {
     return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId);
   }
 
-  const { action, reason, notes } = body as {
+  const { action, reason, notes, quality_score: rawScore } = body as {
     action?: string;
     reason?: string;
     notes?: string;
+    quality_score?: unknown;
   };
+
+  // Validate quality_score if provided
+  let validatedScore = undefined;
+  if (rawScore !== undefined) {
+    validatedScore = validateQualityScore(rawScore);
+    if (!validatedScore) {
+      return createApiErrorResponse(
+        'BAD_REQUEST',
+        'Invalid quality_score. Each dimension must be an integer 1-5.',
+        400,
+        correlationId
+      );
+    }
+    validatedScore.scored_by = authContext.user!.email || authContext.user!.id;
+    validatedScore.scored_at = new Date().toISOString();
+  }
 
   if (!action || !['approve', 'reject'].includes(action)) {
     return createApiErrorResponse('BAD_REQUEST', 'action must be "approve" or "reject"', 400, correlationId);
@@ -117,11 +135,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       updatePayload.review_notes = notes.trim();
     }
 
+    if (validatedScore) {
+      updatePayload.quality_score = validatedScore;
+    }
+
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('videos')
       .update(updatePayload)
       .eq('id', video_id)
-      .select('id, recording_status, rejection_reason, review_notes, last_status_changed_at')
+      .select('id, recording_status, rejection_reason, review_notes, quality_score, last_status_changed_at')
       .single();
 
     if (updateError) {
@@ -141,6 +163,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         reason: reason?.trim() || null,
         notes: notes?.trim() || null,
         reviewed_by: authContext.user.email || authContext.user.id,
+        quality_score: validatedScore || null,
       }
     );
 

@@ -152,13 +152,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Fetch recent events (last 10)
+    // Fetch recent events (last 50 for a fuller timeline)
     const { data: events } = await supabaseAdmin
       .from("video_events")
       .select("id, event_type, from_status, to_status, actor, details, created_at")
       .eq("video_id", videoId)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(50);
+
+    // Synthesize a "video_created" event if none exist so the activity tab always shows something
+    const hasCreatedEvent = events?.some(e =>
+      e.event_type === 'video_created' || e.event_type === 'created_from_script'
+    );
+    if (!hasCreatedEvent && video.created_at) {
+      const syntheticCreated = {
+        id: `synth-created-${videoId}`,
+        event_type: 'video_created',
+        from_status: null,
+        to_status: video.recording_status || 'NOT_RECORDED',
+        actor: 'system',
+        details: { synthetic: true },
+        created_at: video.created_at,
+      };
+      if (events) {
+        events.push(syntheticCreated);
+      }
+    }
 
     // Fetch posting metadata
     let postingMeta = null;

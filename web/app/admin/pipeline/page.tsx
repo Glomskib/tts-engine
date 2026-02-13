@@ -844,6 +844,21 @@ export default function AdminPipelinePage() {
           videos = videos.filter((v: QueueVideo) => v.can_mark_posted || v.recording_status === 'READY_TO_POST');
         }
 
+        // Override SLA display: use 7-day window instead of aggressive 24-48h deadlines
+        const SLA_DAYS = 7;
+        const SLA_DUE_SOON_DAYS = 6;
+        const nowMs = Date.now();
+        videos = videos.map((v: QueueVideo) => {
+          if (v.recording_status === 'POSTED') return v; // terminal, no SLA
+          const enteredAt = v.last_status_changed_at || v.created_at;
+          if (!enteredAt) return v;
+          const ageDays = (nowMs - new Date(enteredAt).getTime()) / (1000 * 60 * 60 * 24);
+          let sla_status: SlaStatus = 'on_track';
+          if (ageDays > SLA_DAYS) sla_status = 'overdue';
+          else if (ageDays > SLA_DUE_SOON_DAYS) sla_status = 'due_soon';
+          return { ...v, sla_status };
+        });
+
         setQueueVideos(videos);
       }
     } catch (err) {

@@ -3154,9 +3154,12 @@ export default function VideoDrawer({
                           const prevTime = idx === 0 ? video.created_at : chronological[idx - 1].created_at;
                           const elapsed = formatDuration(prevTime, event.created_at);
                           const borderColor =
-                            event.event_type === 'status_change' ? '#228be6' :
-                            event.event_type === 'claimed' ? '#40c057' :
-                            event.event_type === 'released' ? '#fab005' :
+                            event.event_type === 'status_change' || event.event_type === 'recording_status_changed' || event.event_type === 'va_status_change' ? '#228be6' :
+                            event.event_type === 'video_created' || event.event_type === 'created_from_script' ? '#40c057' :
+                            event.event_type === 'admin_force_status' ? '#e8590c' :
+                            event.event_type === 'claimed' || event.event_type === 'assignment_completed' ? '#40c057' :
+                            event.event_type === 'released' || event.event_type === 'auto_handoff' || event.event_type === 'handoff_pending' ? '#fab005' :
+                            event.event_type === 'video_mark_posted' ? '#1971c2' :
                             '#868e96';
 
                           return (
@@ -3192,11 +3195,18 @@ export default function VideoDrawer({
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                   <div>
                                     <div style={{ fontWeight: 600, fontSize: '12px', color: isDark ? '#e2e8f0' : '#212529', marginBottom: '2px' }}>
-                                      {event.event_type === 'status_change' && event.to_status
+                                      {(event.event_type === 'status_change' || event.event_type === 'recording_status_changed' || event.event_type === 'va_status_change' || event.event_type === 'admin_force_status') && event.to_status
                                         ? statusLabel(event.to_status)
+                                        : event.event_type === 'video_created' ? 'Video Created'
+                                        : event.event_type === 'created_from_script' ? 'Created from Script'
+                                        : event.event_type === 'video_mark_posted' ? 'Marked as Posted'
+                                        : event.event_type === 'assignment_completed' ? 'Assignment Completed'
+                                        : event.event_type === 'auto_handoff' ? 'Auto Handoff'
+                                        : event.event_type === 'handoff_pending' ? 'Handoff Pending'
+                                        : event.event_type === 'hook_suggestions_created' ? 'Hook Suggestions Created'
                                         : event.event_type.replace(/_/g, ' ')}
                                     </div>
-                                    {event.from_status && event.to_status && event.event_type === 'status_change' && (
+                                    {event.from_status && event.to_status && (event.event_type === 'status_change' || event.event_type === 'recording_status_changed' || event.event_type === 'va_status_change' || event.event_type === 'admin_force_status') && (
                                       <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#495057' }}>
                                         {statusLabel(event.from_status)} &rarr; {statusLabel(event.to_status)}
                                       </div>

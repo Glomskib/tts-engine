@@ -46,6 +46,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const account_id = searchParams.get("account_id");
   const status = searchParams.get("status");
+  const recording_status = searchParams.get("recording_status");
   const variant_id = searchParams.get("variant_id");
 
   try {
@@ -62,6 +63,10 @@ export async function GET(request: Request) {
     // Add optional query filters
     if (status) {
       query = query.eq("status", status);
+    }
+
+    if (recording_status) {
+      query = query.eq("recording_status", recording_status);
     }
 
     if (variant_id) {

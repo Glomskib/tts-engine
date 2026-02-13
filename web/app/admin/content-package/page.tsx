@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminPageLayout, { AdminCard, AdminButton } from '../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
 import { celebrate } from '@/lib/celebrations';
-import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star, Trash2, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star, Trash2, SlidersHorizontal, ChevronDown, ChevronRight } from 'lucide-react';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
 // --- Helpers ---
@@ -98,6 +98,7 @@ export default function ContentPackagePage() {
   const [addingToPipeline, setAddingToPipeline] = useState<Set<string>>(new Set());
   const [bulkAdding, setBulkAdding] = useState(false);
   const [discardedIds, setDiscardedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // Sort & Filter
   const [sortBy, setSortBy] = useState<'score' | 'product' | 'content_type'>('score');
@@ -326,7 +327,7 @@ export default function ContentPackagePage() {
 
     const keptItems = pkg.items.filter(i => i.kept && !i.added_to_pipeline);
     if (keptItems.length === 0) {
-      showError('No kept items to add');
+      showError('No saved items to add');
       return;
     }
 
@@ -537,7 +538,7 @@ export default function ContentPackagePage() {
               </div>
               <div className="px-4 py-3 rounded-xl border bg-emerald-500/10 border-emerald-500/20">
                 <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">
-                  Kept
+                  Saved
                 </div>
                 <div className="text-xl font-semibold text-emerald-400">{stats.kept}</div>
               </div>
@@ -562,7 +563,7 @@ export default function ContentPackagePage() {
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-violet-400" />
                 <span className="text-sm text-zinc-200">
-                  <span className="font-semibold text-violet-400">{keptNotAdded}</span> kept item{keptNotAdded !== 1 ? 's' : ''} ready to add
+                  <span className="font-semibold text-violet-400">{keptNotAdded}</span> saved item{keptNotAdded !== 1 ? 's' : ''} ready to add
                 </span>
               </div>
               <AdminButton
@@ -579,7 +580,7 @@ export default function ContentPackagePage() {
                 ) : (
                   <>
                     <ArrowRight className="w-4 h-4 mr-1.5" />
-                    Add All Kept to Pipeline
+                    Add All Saved to Pipeline
                   </>
                 )}
               </AdminButton>
@@ -657,7 +658,7 @@ export default function ContentPackagePage() {
                   className="appearance-none bg-zinc-800 text-zinc-300 text-xs font-medium pl-2.5 pr-7 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                 >
                   <option value="all">All Status</option>
-                  <option value="kept">Kept Only</option>
+                  <option value="kept">Saved Only</option>
                   <option value="discarded">Discarded</option>
                 </select>
                 <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -730,9 +731,73 @@ export default function ContentPackagePage() {
                     </div>
 
                     {/* Hook Text */}
-                    <p className="text-sm text-zinc-300 leading-relaxed mb-4 line-clamp-3">
+                    <p className="text-sm text-zinc-300 leading-relaxed mb-2 line-clamp-3">
                       &ldquo;{item.full_script?.hook || item.hook}&rdquo;
                     </p>
+
+                    {/* Full Script Expand */}
+                    {item.full_script && (
+                      <div className="mb-4">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(item.id)) next.delete(item.id);
+                            else next.add(item.id);
+                            return next;
+                          })}
+                          className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors mb-2"
+                        >
+                          {expandedIds.has(item.id) ? (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          )}
+                          {expandedIds.has(item.id) ? 'Hide full script' : 'Show full script'}
+                        </button>
+                        {expandedIds.has(item.id) && (
+                          <div className="space-y-2 text-xs text-zinc-400 bg-zinc-800/50 rounded-lg p-3 border border-white/5">
+                            {item.full_script.setup && (
+                              <div>
+                                <span className="font-semibold text-zinc-300">Setup:</span>{' '}
+                                {item.full_script.setup}
+                              </div>
+                            )}
+                            {item.full_script.body && (
+                              <div>
+                                <span className="font-semibold text-zinc-300">Body:</span>{' '}
+                                {item.full_script.body}
+                              </div>
+                            )}
+                            {item.full_script.cta && (
+                              <div>
+                                <span className="font-semibold text-zinc-300">CTA:</span>{' '}
+                                {item.full_script.cta}
+                              </div>
+                            )}
+                            {item.full_script.on_screen_text && item.full_script.on_screen_text.length > 0 && (
+                              <div>
+                                <span className="font-semibold text-zinc-300">On-screen text:</span>{' '}
+                                {item.full_script.on_screen_text.join(' | ')}
+                              </div>
+                            )}
+                            {item.full_script.filming_notes && (
+                              <div>
+                                <span className="font-semibold text-zinc-300">Filming notes:</span>{' '}
+                                {item.full_script.filming_notes}
+                              </div>
+                            )}
+                            {item.full_script.estimated_length && (
+                              <div>
+                                <span className="font-semibold text-zinc-300">Est. length:</span>{' '}
+                                {item.full_script.estimated_length}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!item.full_script && <div className="mb-4" />}
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 pt-3 border-t border-white/5">
@@ -751,12 +816,12 @@ export default function ContentPackagePage() {
                         {item.kept ? (
                           <>
                             <Check className="w-3.5 h-3.5" />
-                            Kept
+                            Saved
                           </>
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
-                            Keep
+                            Save
                           </>
                         )}
                       </button>

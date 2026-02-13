@@ -217,15 +217,8 @@ export async function POST(request: NextRequest) {
 
       const sceneActions = skitData.beats.map((b) => b.action).filter(Boolean);
       const totalActionWords = sceneActions.join(' ').split(/\s+/).length;
-      if (totalActionWords > 50) {
-        preflightIssues.push(`Beat actions total ${totalActionWords} words — too long for Runway (max ~50)`);
-      }
-
-      for (let i = 0; i < skitData.beats.length; i++) {
-        const beat = skitData.beats[i];
-        if (beat.action && beat.action.split(/\s+/).length > 25) {
-          preflightIssues.push(`Beat ${i + 1} action is ${beat.action.split(/\s+/).length} words (max 25)`);
-        }
+      if (totalActionWords > 150) {
+        preflightIssues.push(`Beat actions total ${totalActionWords} words — too long for Runway (max ~150)`);
       }
 
       if (preflightIssues.length > 0) {

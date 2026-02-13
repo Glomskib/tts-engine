@@ -170,9 +170,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       .filter(Boolean)
       .join(" ")
       .split(/\s+/).length;
-    if (totalActionWords > 50) {
+    if (totalActionWords > 150) {
       preflightIssues.push(
-        `Beat actions total ${totalActionWords} words — too long for Runway (max ~50)`
+        `Beat actions total ${totalActionWords} words — too long for Runway (max ~150)`
       );
     }
 

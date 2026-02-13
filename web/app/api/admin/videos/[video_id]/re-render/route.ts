@@ -138,6 +138,54 @@ export async function POST(request: Request, { params }: RouteParams) {
     const productName = product?.name || skit.product_name || "the product";
     let productImageUrl = product?.product_image_url;
 
+    // --- Preflight checks (fail BEFORE spending a Runway credit) ---
+    const preflightIssues: string[] = [];
+
+    if (!productImageUrl) {
+      preflightIssues.push(
+        "No product_image_url — text-to-video cannot show actual product"
+      );
+    } else {
+      try {
+        const headResp = await fetch(productImageUrl, {
+          method: "HEAD",
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!headResp.ok) {
+          preflightIssues.push(
+            `Product image returned HTTP ${headResp.status}`
+          );
+        }
+      } catch {
+        preflightIssues.push("Product image URL unreachable");
+      }
+    }
+
+    if (!product?.name) {
+      preflightIssues.push("Product name is empty");
+    }
+
+    const totalActionWords = skitData.beats
+      .map((b) => b.action)
+      .filter(Boolean)
+      .join(" ")
+      .split(/\s+/).length;
+    if (totalActionWords > 50) {
+      preflightIssues.push(
+        `Beat actions total ${totalActionWords} words — too long for Runway (max ~50)`
+      );
+    }
+
+    if (preflightIssues.length > 0) {
+      return NextResponse.json({
+        ok: false,
+        error_code: "PREFLIGHT_FAILED",
+        message: `Pre-render checks failed: ${preflightIssues.join("; ")}`,
+        issues: preflightIssues,
+        correlation_id: correlationId,
+      }, { status: 422 });
+    }
+
     // 4. Build Runway prompt (matches batch-render prompt style)
     const sceneDescriptions = skitData.beats
       .map((b) => b.action)

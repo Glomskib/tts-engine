@@ -194,6 +194,51 @@ export async function POST(request: NextRequest) {
       let productImageUrl = product?.product_image_url;
       const productName = product?.name || skit.product_name || 'the product';
 
+      // --- Preflight checks (fail BEFORE spending a Runway credit) ---
+      const preflightIssues: string[] = [];
+
+      if (!productImageUrl) {
+        preflightIssues.push('No product_image_url — text-to-video cannot show actual product');
+      } else {
+        try {
+          const headResp = await fetch(productImageUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+          if (!headResp.ok) {
+            preflightIssues.push(`Product image returned HTTP ${headResp.status}`);
+          }
+        } catch {
+          preflightIssues.push('Product image URL unreachable');
+        }
+      }
+
+      if (!product?.name) {
+        preflightIssues.push('Product name is empty');
+      }
+
+      const sceneActions = skitData.beats.map((b) => b.action).filter(Boolean);
+      const totalActionWords = sceneActions.join(' ').split(/\s+/).length;
+      if (totalActionWords > 50) {
+        preflightIssues.push(`Beat actions total ${totalActionWords} words — too long for Runway (max ~50)`);
+      }
+
+      for (let i = 0; i < skitData.beats.length; i++) {
+        const beat = skitData.beats[i];
+        if (beat.action && beat.action.split(/\s+/).length > 25) {
+          preflightIssues.push(`Beat ${i + 1} action is ${beat.action.split(/\s+/).length} words (max 25)`);
+        }
+      }
+
+      if (preflightIssues.length > 0) {
+        console.warn(`[${correlationId}] Preflight FAILED for skit ${skit.id}: ${preflightIssues.join('; ')}`);
+        results.push({
+          skit_id: skit.id,
+          product_name: productName,
+          video_id: videoId,
+          status: 'failed',
+          error: `Preflight failed: ${preflightIssues.join('; ')}`,
+        });
+        continue;
+      }
+
       // Step 4: Re-host external image to Supabase
       if (productImageUrl && !productImageUrl.includes('supabase.co')) {
         try {

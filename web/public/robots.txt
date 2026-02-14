@@ -1,10 +1,26 @@
 User-agent: *
 Allow: /
+Allow: /signup
+Allow: /pricing
+Allow: /features
+Allow: /about
+Allow: /tools
+Allow: /transcribe
 Disallow: /admin/
 Disallow: /api/
 Disallow: /va/
 Disallow: /login
-Disallow: /signup
 Disallow: /reset-password
+Disallow: /_next/
+
+# Allow major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: CCBot
+Allow: /
 
 Sitemap: https://flashflowai.com/sitemap.xml

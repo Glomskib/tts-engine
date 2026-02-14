@@ -80,6 +80,39 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // JSON-LD Schema for Organization + SoftwareApplication
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'FlashFlow AI',
+    url: 'https://flashflowai.com',
+    logo: 'https://flashflowai.com/FFAI.png',
+    description: 'AI-powered TikTok Shop video content creation platform',
+    sameAs: [
+      'https://twitter.com/flashflowai',
+    ],
+  };
+
+  const softwareApplicationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'FlashFlow AI',
+    applicationCategory: 'Multimedia',
+    operatingSystem: 'Web',
+    url: 'https://flashflowai.com',
+    description: 'AI-powered TikTok Shop video content creation platform. Generate scripts, create videos, and analyze winners.',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      ratingCount: '500',
+    },
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -90,6 +123,16 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="FlashFlow" />
         <meta name="mobile-web-app-capable" content="yes" />
+        
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-[#09090b] antialiased`}

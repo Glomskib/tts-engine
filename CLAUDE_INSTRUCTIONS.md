@@ -219,3 +219,167 @@ OVERVIEW OF TODAY'S WORK (for your records):
 - Wait for database fix (no code work right now)
 - Be ready to deploy fixes once database is live
 - Consider TikTok Winner Import feature once things stabilize
+
+---
+
+# 🚀 PARALLEL 8-TERMINAL WORK SESSION — Feb 14, 2026 21:50 PST
+
+**Each terminal gets ONE task. All tasks are independent and can run in parallel.**
+**Status: READY TO EXECUTE**
+
+Brandon uploaded 8 task files from ~/Downloads/files-2/T1_*.md through T8_*.md
+
+---
+
+## ✅ TERMINAL 1: Production Critical Fixes
+
+**File:** T1_PRODUCTION_FIXES.md
+
+**Priority:** CRITICAL
+- Push unpushed logo commit (bdffd1f)
+- Fix 3 broken 404s: /admin/content-studio, /admin/transcribe, /admin/help
+- Fix mobile scroll issue (overflow-x-hidden)
+
+**Step:** Read full task from T1_PRODUCTION_FIXES.md, execute all 3 fixes, build/commit/push. This terminal pushes first.
+
+---
+
+## ✅ TERMINAL 2: Winners Bank + Calendar Mobile
+
+**File:** T2_WINNERS_CALENDAR_FIX.md
+
+**Priority:** HIGH
+- Fix Winners Bank null status crash (null guards on charAt calls)
+- Calendar mobile layout cleanup (responsive heights, compact text)
+
+**Step:** Edit app/admin/winners/page.tsx and app/admin/calendar/page.tsx per the task. Build/commit/push AFTER T1.
+
+---
+
+## ✅ TERMINAL 3: Performance Optimizations
+
+**File:** T3_PERFORMANCE.md
+
+**Priority:** HIGH
+- Add loading.tsx for admin routes
+- Dynamic imports for heavy components
+- Scope middleware (skip unnecessary Supabase checks)
+- next.config.ts optimizations
+- Cache headers on read-only APIs
+- Supabase preconnect
+
+**Step:** Make 6 distinct updates to app, middleware, next.config. Build/commit/push AFTER T1.
+
+---
+
+## ✅ TERMINAL 4: Transcriber Action Buttons
+
+**File:** T4_TRANSCRIBER_ACTIONS.md
+
+**Priority:** HIGH
+- 7 button gaps in components/TranscriberCore.tsx
+- "Use in Studio", "Save Hook", "Add to Pipeline", "Find Products", rate limit UI
+
+**Step:** Edit ONLY components/TranscriberCore.tsx. Add state + 7 action buttons. Build/commit/push AFTER T1.
+
+---
+
+## ✅ TERMINAL 5: Persona Dropdown + Names
+
+**File:** T5_PERSONA_DROPDOWN.md
+
+**Priority:** MEDIUM
+- Database migration: rename generic personas
+- Searchable persona dropdown in Content Studio
+- Name input helper text in Audience page
+
+**Step:** Create migration file, edit 2 page files (content-studio, audience), add search UI. Build/commit/push AFTER T1.
+
+---
+
+## ✅ TERMINAL 6: Products Income Dashboard
+
+**File:** T6_PRODUCTS_INCOME.md
+
+**Priority:** MEDIUM
+- Income dashboard (base + bonus + total)
+- Per-brand breakdown (collapsible)
+- Mobile card layout
+- Clean up duplicate retainer display
+
+**Step:** Edit ONLY app/admin/products/page.tsx. Add useMemo for income summary, render dashboard cards, mobile cards. Build/commit/push AFTER T1.
+
+---
+
+## ✅ TERMINAL 7: AI Brand Brief Analyzer
+
+**File:** T7_BRIEF_ANALYZER.md
+
+**Priority:** HIGH (biggest feature)
+- Database migration (brand_briefs table)
+- 4 new API routes (/analyze, /route.ts, /[id]/apply)
+- Full frontend page (app/admin/briefs/page.tsx)
+- Add to navigation
+
+**Step:** Create migration, 4 API routes, 1 UI page, update navigation. Build/commit/push AFTER T1.
+
+---
+
+## ✅ TERMINAL 8: Pipeline Board View
+
+**File:** T8_PIPELINE_BOARD.md
+
+**Priority:** HIGH
+- Monday.com-style board view for pipeline
+- Status groupings (SCRIPT_READY → ARCHIVED)
+- Collapsible sections, SLA timers
+- Mobile cards + desktop table
+- Keep existing list view as fallback
+
+**Step:** Edit ONLY app/admin/pipeline/page.tsx. Add board view toggle, STATUS_CONFIG, grouping logic, rendering. Build/commit/push AFTER T1.
+
+---
+
+## 📋 EXECUTION ORDER
+
+1. **T1 pushes first** (logo + fixes 404s)
+2. **T2-T8 each:** `git pull --rebase origin main` → execute edits → `npm run build` → commit → push
+3. **All terminals should complete within 30-40 minutes**
+
+## ✅ ACKNOWLEDGEMENTS
+
+Below: Add "ACKNOWLEDGED: [timestamp]" as each terminal finishes its task.
+
+T1: _________
+T2: _________
+T3: _________
+T4: _________
+T5: _________
+T6: _________
+T7: _________
+T8: _________
+
+---
+
+
+---
+🟢 **EXECUTION START: 2026-02-14 21:51 PST**
+
+All 8 terminals should now execute their assigned tasks from T1_*.md through T8_*.md in parallel.
+
+✅ Terminal 1: Push logo + fix 404s + mobile scroll
+✅ Terminal 2-8: Execute in parallel after T1 merges
+
+Status: **LIVE** 
+
+---
+
+🔴 **URGENT: START EXECUTING NOW**
+
+Terminal 1: Begin T1_PRODUCTION_FIXES.md immediately
+Terminal 2-8: Wait for T1 to push, then start in parallel
+
+DO NOT WAIT FOR FURTHER INSTRUCTIONS. EXECUTE NOW.
+
+Timestamp: 2026-02-14T21:52:00Z
+

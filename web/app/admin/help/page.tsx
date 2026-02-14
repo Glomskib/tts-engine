@@ -1,253 +1,273 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { useState, useRef, useEffect } from 'react';
+import { Send, Loader2, Bot, User, LifeBuoy, MessageSquare } from 'lucide-react';
 
 interface ChatMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
 }
+
+const SUGGESTIONS = [
+  'How do I generate a script?',
+  'What are credits used for?',
+  'How do I upgrade my plan?',
+  'What is Winners Bank?',
+];
 
 export default function HelpPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      role: "assistant",
+      role: 'assistant',
       content:
-        "Hi! I'm FlashFlow's AI assistant. Ask me anything about using FlashFlow.",
-      timestamp: new Date(),
+        "Hi! I'm FlashFlow's AI assistant. Ask me anything about features, plans, credits, or troubleshooting. I'm here to help!",
     },
   ]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [supportTicketOpen, setSupportTicketOpen] = useState(false);
-  const [ticketMessage, setTicketMessage] = useState("");
+  const [showTicketForm, setShowTicketForm] = useState(false);
+  const [ticketTitle, setTicketTitle] = useState('');
+  const [ticketDescription, setTicketDescription] = useState('');
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketSuccess, setTicketSuccess] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+  const sendMessage = async (text?: string) => {
+    const messageText = text || input.trim();
+    if (!messageText || loading) return;
 
-    const userMessage = input.trim();
-    setInput("");
-    setError(null);
-
-    // Add user message to chat
-    const newUserMessage: ChatMessage = {
-      role: "user",
-      content: userMessage,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, newUserMessage]);
-
-    // Send to API
+    const userMessage: ChatMessage = { role: 'user', content: messageText };
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+    setInput('');
     setLoading(true);
+
     try {
-      const response = await fetch("/api/help/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/help/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userMessage,
-          history: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          message: messageText,
+          history: messages.map((m) => ({ role: m.role, content: m.content })),
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
+      const data = await res.json();
+
+      if (data.ok && data.response) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: data.error || 'Sorry, something went wrong. Please try again.' },
+        ]);
       }
-
-      const data = await response.json();
-      const assistantMessage: ChatMessage = {
-        role: "assistant",
-        content: data.response,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
-      setError("Failed to get response. Please try again.");
-      console.error("[help] Error:", err);
-      // Remove the user message if request failed
-      setMessages((prev) => prev.slice(0, -1));
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Network error. Please check your connection and try again.' },
+      ]);
     } finally {
       setLoading(false);
+      inputRef.current?.focus();
     }
   };
 
   const handleSubmitTicket = async () => {
-    if (!ticketMessage.trim()) return;
+    if (!ticketTitle.trim() || !ticketDescription.trim() || ticketSubmitting) return;
 
+    setTicketSubmitting(true);
     try {
-      // Create feedback entry with type='support'
-      const { error: feedbackError } = await supabaseAdmin.from("feedback").insert({
-        type: "support",
-        message: ticketMessage,
-        metadata: {
-          chat_history: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        },
-      });
+      const formData = new FormData();
+      formData.append('type', 'support');
+      formData.append('title', ticketTitle.trim());
+      formData.append('description', ticketDescription.trim());
+      formData.append('page_url', window.location.href);
+      formData.append('user_agent', navigator.userAgent);
 
-      if (feedbackError) {
-        throw feedbackError;
+      const res = await fetch('/api/feedback', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.ok) {
+        setTicketSuccess(true);
+        setTicketTitle('');
+        setTicketDescription('');
+        setTimeout(() => {
+          setShowTicketForm(false);
+          setTicketSuccess(false);
+        }, 3000);
       }
-
-      // Show success and close modal
-      alert(
-        "Support ticket submitted! Our team will respond within 24 hours."
-      );
-      setSupportTicketOpen(false);
-      setTicketMessage("");
-    } catch (err) {
-      console.error("[help] Error submitting ticket:", err);
-      alert("Failed to submit ticket. Please try again.");
+    } catch {
+      // Silent fail — user can retry
+    } finally {
+      setTicketSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="max-w-2xl mx-auto h-screen flex flex-col">
-        {/* Header */}
-        <div className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">FlashFlow Help</h1>
-            <p className="text-sm text-slate-400 mt-1">
-              AI assistant available 24/7
-            </p>
+    <div className="max-w-3xl mx-auto pb-24 lg:pb-6 flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+      {/* Header */}
+      <div className="mb-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-teal-400" />
           </div>
-          <button
-            onClick={() => setSupportTicketOpen(true)}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
-          >
-            Submit Ticket
-          </button>
-        </div>
-
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`flex ${
-                msg.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white rounded-br-none"
-                    : "bg-slate-700 text-slate-100 rounded-bl-none"
-                }`}
-              >
-                <p className="text-sm leading-relaxed">{msg.content}</p>
-                <p
-                  className={`text-xs mt-1.5 ${
-                    msg.role === "user"
-                      ? "text-blue-200"
-                      : "text-slate-400"
-                  }`}
-                >
-                  {msg.timestamp.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
-            </div>
-          ))}
-
-          {/* Loading indicator */}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-slate-700 text-slate-100 px-4 py-3 rounded-lg rounded-bl-none">
-                <div className="flex gap-2">
-                  <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce delay-200" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && (
-            <div className="flex justify-center">
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm">
-                {error}
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Form */}
-        <div className="bg-slate-800 border-t border-slate-700 px-6 py-4">
-          <form onSubmit={handleSendMessage} className="flex gap-3">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about FlashFlow features, pricing, troubleshooting..."
-              disabled={loading}
-              className="flex-1 px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              {loading ? "..." : "Send"}
-            </button>
-          </form>
-          <p className="text-xs text-slate-500 mt-2">
-            AI responses are based on FlashFlow's knowledge base. For urgent
-            issues, use "Submit Ticket".
-          </p>
+          <div>
+            <h1 className="text-xl font-bold text-white">FlashFlow Help</h1>
+            <p className="text-sm text-zinc-500">AI assistant + support tickets</p>
+          </div>
         </div>
       </div>
 
-      {/* Support Ticket Modal */}
-      {supportTicketOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 rounded-lg max-w-md w-full p-6 border border-slate-700">
-            <h2 className="text-xl font-bold text-white mb-4">
-              Submit Support Ticket
-            </h2>
-            <textarea
-              value={ticketMessage}
-              onChange={(e) => setTicketMessage(e.target.value)}
-              placeholder="Describe your issue in detail. Include any error messages or context."
-              className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-32 mb-4"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSupportTicketOpen(false)}
-                className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitTicket}
-                disabled={!ticketMessage.trim()}
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Submit
-              </button>
+      {/* Chat Messages */}
+      <div className="flex-1 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-4 min-h-0">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+          >
+            <div
+              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                msg.role === 'assistant' ? 'bg-teal-500/20' : 'bg-zinc-700'
+              }`}
+            >
+              {msg.role === 'assistant' ? (
+                <Bot className="w-4 h-4 text-teal-400" />
+              ) : (
+                <User className="w-4 h-4 text-zinc-300" />
+              )}
+            </div>
+            <div
+              className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+                msg.role === 'assistant'
+                  ? 'bg-zinc-800 text-zinc-200'
+                  : 'bg-teal-600 text-white'
+              }`}
+            >
+              {msg.content}
             </div>
           </div>
+        ))}
+
+        {loading && (
+          <div className="flex gap-3">
+            <div className="w-7 h-7 rounded-lg bg-teal-500/20 flex items-center justify-center shrink-0">
+              <Bot className="w-4 h-4 text-teal-400" />
+            </div>
+            <div className="bg-zinc-800 rounded-xl px-4 py-2.5">
+              <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Suggestions (only show when there's just the welcome message) */}
+      {messages.length === 1 && (
+        <div className="flex flex-wrap gap-2 mt-3 shrink-0">
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => sendMessage(s)}
+              className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-zinc-300 transition-colors"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="mt-3 shrink-0">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage();
+          }}
+          className="flex gap-2"
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about FlashFlow features, plans, credits..."
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/20"
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || loading}
+            className="px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </form>
+
+        {/* Support Ticket Toggle */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowTicketForm(!showTicketForm)}
+            className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            <LifeBuoy className="w-3.5 h-3.5" />
+            {showTicketForm ? 'Hide support form' : 'Need more help? Submit a support ticket'}
+          </button>
+        </div>
+      </div>
+
+      {/* Support Ticket Form */}
+      {showTicketForm && (
+        <div className="mt-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4 shrink-0">
+          {ticketSuccess ? (
+            <div className="text-sm text-teal-400 text-center py-2">
+              Ticket submitted! We'll get back to you soon.
+            </div>
+          ) : (
+            <>
+              <h3 className="text-sm font-semibold text-zinc-300 mb-3">Submit Support Ticket</h3>
+              <input
+                type="text"
+                value={ticketTitle}
+                onChange={(e) => setTicketTitle(e.target.value)}
+                placeholder="Brief summary of your issue"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-teal-500/50 mb-2"
+                maxLength={200}
+              />
+              <textarea
+                value={ticketDescription}
+                onChange={(e) => setTicketDescription(e.target.value)}
+                placeholder="Describe your issue in detail (min 10 characters)..."
+                rows={3}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-teal-500/50 mb-3 resize-none"
+                maxLength={5000}
+              />
+              <button
+                type="button"
+                onClick={handleSubmitTicket}
+                disabled={
+                  ticketSubmitting ||
+                  ticketTitle.trim().length < 3 ||
+                  ticketDescription.trim().length < 10
+                }
+                className="w-full py-2.5 bg-zinc-700 text-zinc-200 rounded-lg text-sm font-medium hover:bg-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {ticketSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                ) : (
+                  'Submit Ticket'
+                )}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

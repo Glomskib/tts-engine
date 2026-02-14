@@ -20,7 +20,7 @@ import { CONTENT_TYPES } from '@/lib/content-types';
 const WeeklyChart = dynamic(() => import('./WeeklyChart'), { ssr: false });
 const SetupChecklist = dynamic(() => import('./SetupChecklist'), { ssr: false });
 const QuickStart = dynamic(() => import('@/components/dashboard/QuickStart'), { ssr: false });
-const OnboardingModal = dynamic(() => import('@/components/OnboardingModal'), { ssr: false });
+const OnboardingWizard = dynamic(() => import('@/components/onboarding/OnboardingWizard'), { ssr: false });
 const RetainerTracker = dynamic(() => import('./RetainerTracker'), { ssr: false });
 
 function getContentTypeName(id: string): string {
@@ -1165,9 +1165,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Onboarding modal for first-time users */}
+      {/* Onboarding wizard for first-time users */}
       {showOnboardingModal && (
-        <OnboardingModal onComplete={() => setShowOnboardingModal(false)} />
+        <OnboardingWizard onComplete={() => setShowOnboardingModal(false)} />
       )}
     </PullToRefresh>
   );

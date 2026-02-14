@@ -1,322 +1,312 @@
 /**
- * Referral system utilities for FlashFlow AI.
- * Handles referral code generation, tracking, and reward distribution.
+ * Referral system for FlashFlow AI.
+ *
+ * Tables:
+ *   referral_codes      — one row per user, stores their shareable code
+ *   referral_redemptions — one row per referred user, tracks reward status
+ *
+ * Reward: both referrer AND new user receive 1 month of plan credits.
+ *
+ * Affiliate commission system (25% recurring) is separate.
+ * // TODO: affiliate commission system (3rd party?)
  */
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getPlanCredits, migrateOldPlanId } from "@/lib/plans";
+import { addCredits } from "@/lib/credits";
+import { sendTelegramNotification } from "@/lib/telegram";
 
 // ---------------------------------------------------------------------------
 // Code Generation
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a unique 8-character referral code.
- * Format: 2 letters + 4 numbers + 2 letters (e.g., BK4829TM)
- * Easy to type, share verbally, and hard to guess.
+ * Generate a referral code from a user's name.
+ * Format: FIRSTNAME + 4 random digits (e.g. BRANDON4821)
+ * Falls back to "FLASH" if no name available.
  */
-export function generateReferralCode(): string {
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O to avoid confusion
-  const digits = "0123456789";
+export function generateReferralCode(userName?: string): string {
+  const base = (userName || "FLASH")
+    .replace(/[^A-Za-z]/g, "")
+    .toUpperCase()
+    .slice(0, 10); // cap length
 
-  const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
-
-  return (
-    pick(letters) +
-    pick(letters) +
-    pick(digits) +
-    pick(digits) +
-    pick(digits) +
-    pick(digits) +
-    pick(letters) +
-    pick(letters)
-  );
+  const digits = Math.floor(1000 + Math.random() * 9000); // 4-digit, always 1000-9999
+  return `${base || "FLASH"}${digits}`;
 }
 
 // ---------------------------------------------------------------------------
-// User Referral Code
+// Ensure User Has a Referral Code
 // ---------------------------------------------------------------------------
 
 /**
- * Get (or lazily create) a user's referral code.
- * Stored on user_subscriptions.referral_code.
+ * Get or create a referral code for a user.
+ * Called lazily on first visit to referrals page, or eagerly on signup.
  */
-export async function getUserReferralCode(userId: string): Promise<string> {
-  // Check if user already has a code
-  const { data } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("referral_code")
+export async function ensureReferralCode(
+  userId: string,
+  userName?: string,
+): Promise<string> {
+  // Check if code already exists
+  const { data: existing } = await supabaseAdmin
+    .from("referral_codes")
+    .select("code")
     .eq("user_id", userId)
+    .eq("type", "referral")
     .single();
 
-  if (data?.referral_code) return data.referral_code;
+  if (existing?.code) return existing.code;
 
-  // Generate a unique one (retry up to 5 times on collision)
+  // Generate and insert (retry up to 5 times on collision)
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateReferralCode();
-    const { error } = await supabaseAdmin
-      .from("user_subscriptions")
-      .update({ referral_code: code })
-      .eq("user_id", userId);
+    const code = generateReferralCode(userName);
+    const { error } = await supabaseAdmin.from("referral_codes").insert({
+      user_id: userId,
+      code,
+      type: "referral",
+    });
 
     if (!error) return code;
-    // Unique constraint violation → retry
+
+    // 23505 = unique violation → retry with different digits
+    if (error.code !== "23505") {
+      console.error("[referrals] insert error:", error);
+      break;
+    }
   }
 
   throw new Error("Failed to generate unique referral code after 5 attempts");
 }
 
 // ---------------------------------------------------------------------------
-// Referral Stats
+// Look Up a Referral Code
 // ---------------------------------------------------------------------------
 
-export interface ReferralStats {
-  totalClicks: number;
-  signedUp: number;
-  converted: number;
-  creditsEarned: number;
-  creditsAvailable: number;
-  referralLink: string;
-  referralCode: string;
-}
-
-export async function getReferralStats(userId: string): Promise<ReferralStats> {
-  const code = await getUserReferralCode(userId);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com";
-
-  const { data: referrals } = await supabaseAdmin
-    .from("referrals")
-    .select("status, click_count, credited")
-    .eq("referrer_id", userId);
-
-  const rows = referrals || [];
-
-  const totalClicks = rows.reduce((sum, r) => sum + (r.click_count || 0), 0);
-  const signedUp = rows.filter((r) => ["signed_up", "converted"].includes(r.status)).length;
-  const converted = rows.filter((r) => r.status === "converted").length;
-  const creditsEarned = rows.filter((r) => r.credited).length;
-
-  // Credits available from user_subscriptions
-  const { data: sub } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("referral_credits")
-    .eq("user_id", userId)
+export async function lookupReferralCode(code: string) {
+  const { data } = await supabaseAdmin
+    .from("referral_codes")
+    .select("id, user_id, code, type, uses, max_uses")
+    .eq("code", code.toUpperCase().trim())
     .single();
 
-  return {
-    totalClicks,
-    signedUp,
-    converted,
-    creditsEarned,
-    creditsAvailable: sub?.referral_credits || 0,
-    referralLink: `${appUrl}/?ref=${code}`,
-    referralCode: code,
-  };
+  return data;
 }
 
 // ---------------------------------------------------------------------------
-// Referral Click Tracking
+// Record Referral Signup + Award Credits
 // ---------------------------------------------------------------------------
 
 /**
- * Record a referral link click. Creates or updates the referral row.
- */
-export async function recordReferralClick(referralCode: string): Promise<void> {
-  // Find the referrer
-  const { data: referrer } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("user_id")
-    .eq("referral_code", referralCode)
-    .single();
-
-  if (!referrer) return; // Invalid code — silently ignore
-
-  // Upsert a pending referral (one per code, no referred user yet)
-  const { data: existing } = await supabaseAdmin
-    .from("referrals")
-    .select("id, click_count")
-    .eq("referral_code", referralCode)
-    .is("referred_id", null)
-    .single();
-
-  if (existing) {
-    await supabaseAdmin
-      .from("referrals")
-      .update({
-        click_count: (existing.click_count || 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
-  } else {
-    await supabaseAdmin.from("referrals").insert({
-      referrer_id: referrer.user_id,
-      referral_code: referralCode,
-      status: "pending",
-      click_count: 1,
-    });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Referral Signup
-// ---------------------------------------------------------------------------
-
-/**
- * Record that a referred user signed up.
+ * Called after a referred user confirms their email.
+ * Creates a redemption record and gives BOTH users 1 month of credits.
  */
 export async function recordReferralSignup(
   referralCode: string,
   newUserId: string,
 ): Promise<void> {
-  // Find the referrer
-  const { data: referrer } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("user_id")
-    .eq("referral_code", referralCode)
-    .single();
+  const codeRow = await lookupReferralCode(referralCode);
+  if (!codeRow) return; // Invalid code — silently ignore
 
-  if (!referrer) return;
+  // Don't let users refer themselves
+  if (codeRow.user_id === newUserId) return;
 
-  // Store the referral code on the new user's subscription row
-  await supabaseAdmin
-    .from("user_subscriptions")
-    .update({ referred_by: referralCode })
-    .eq("user_id", newUserId);
+  // Check max_uses
+  if (codeRow.max_uses !== null && codeRow.uses >= codeRow.max_uses) return;
 
-  // Create or update referral record
-  const { data: existing } = await supabaseAdmin
-    .from("referrals")
+  // Check if new user was already referred (UNIQUE constraint on referred_user_id)
+  const { data: alreadyReferred } = await supabaseAdmin
+    .from("referral_redemptions")
     .select("id")
-    .eq("referral_code", referralCode)
-    .is("referred_id", null)
+    .eq("referred_user_id", newUserId)
     .single();
 
-  if (existing) {
-    await supabaseAdmin
-      .from("referrals")
-      .update({
-        referred_id: newUserId,
-        status: "signed_up",
-        signed_up_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
-  } else {
-    await supabaseAdmin.from("referrals").insert({
-      referrer_id: referrer.user_id,
-      referred_id: newUserId,
-      referral_code: referralCode,
-      status: "signed_up",
-      signed_up_at: new Date().toISOString(),
+  if (alreadyReferred) return;
+
+  // Get both users' plan info for credit rewards
+  const [referrerPlan, referredPlan] = await Promise.all([
+    getUserPlanCredits(codeRow.user_id),
+    getUserPlanCredits(newUserId),
+  ]);
+
+  const referrerReward = referrerPlan.monthlyCredits;
+  const referredReward = referredPlan.monthlyCredits;
+
+  // Create redemption record
+  const { error: redemptionError } = await supabaseAdmin
+    .from("referral_redemptions")
+    .insert({
+      referral_code_id: codeRow.id,
+      referrer_user_id: codeRow.user_id,
+      referred_user_id: newUserId,
+      reward_given: true,
+      reward_details: {
+        referrer_credits: referrerReward,
+        referred_credits: referredReward,
+        referrer_plan: referrerPlan.planId,
+        referred_plan: referredPlan.planId,
+      },
     });
+
+  if (redemptionError) {
+    // Likely duplicate — silently ignore
+    if (redemptionError.code === "23505") return;
+    console.error("[referrals] redemption insert error:", redemptionError);
+    return;
   }
-}
 
-// ---------------------------------------------------------------------------
-// Referral Conversion (user upgraded to paid plan)
-// ---------------------------------------------------------------------------
-
-/**
- * When a referred user upgrades to paid, credit the referrer.
- */
-export async function recordReferralConversion(referredUserId: string): Promise<void> {
-  // Check if this user was referred
-  const { data: sub } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("referred_by")
-    .eq("user_id", referredUserId)
-    .single();
-
-  if (!sub?.referred_by) return;
-
-  // Find the referral record
-  const { data: referral } = await supabaseAdmin
-    .from("referrals")
-    .select("id, referrer_id, status")
-    .eq("referred_id", referredUserId)
-    .single();
-
-  if (!referral || referral.status === "converted") return;
-
-  // Update referral status
+  // Increment uses on the referral code
   await supabaseAdmin
-    .from("referrals")
-    .update({
-      status: "converted",
-      converted_at: new Date().toISOString(),
-      credited: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", referral.id);
+    .from("referral_codes")
+    .update({ uses: codeRow.uses + 1 })
+    .eq("id", codeRow.id);
 
-  // Credit the referrer with 1 free month (stored as referral_credits)
-  await supabaseAdmin.rpc("increment_referral_credits", {
-    p_user_id: referral.referrer_id,
-  }).then(({ error }) => {
-    if (error) {
-      // Fallback: direct increment
-      supabaseAdmin
-        .from("user_subscriptions")
-        .select("referral_credits")
-        .eq("user_id", referral.referrer_id)
-        .single()
-        .then(({ data }) => {
-          const current = data?.referral_credits || 0;
-          supabaseAdmin
-            .from("user_subscriptions")
-            .update({ referral_credits: current + 1 })
-            .eq("user_id", referral.referrer_id);
-        });
-    }
-  });
+  // Award credits to BOTH users
+  await Promise.all([
+    addCredits(
+      codeRow.user_id,
+      referrerReward,
+      "referral",
+      `Referral reward: new user signed up with your code`,
+    ),
+    addCredits(
+      newUserId,
+      referredReward,
+      "referral",
+      `Welcome bonus: signed up with referral code ${codeRow.code}`,
+    ),
+  ]);
+
+  // Send Telegram notification
+  const [referrerEmail, referredEmail] = await Promise.all([
+    getUserEmail(codeRow.user_id),
+    getUserEmail(newUserId),
+  ]);
+
+  await sendTelegramNotification(
+    `🎉 <b>Referral!</b> ${referrerEmail} → ${referredEmail}\n` +
+    `Code: ${codeRow.code}\n` +
+    `Rewards: ${referrerReward} credits (referrer) + ${referredReward} credits (new user)`,
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Recent Referrals (for dashboard)
+// Stats + Dashboard Data
 // ---------------------------------------------------------------------------
+
+export interface ReferralStats {
+  totalReferrals: number;
+  creditsEarned: number;
+  referralLink: string;
+  referralCode: string;
+}
+
+export async function getReferralStats(userId: string): Promise<ReferralStats> {
+  const code = await ensureReferralCode(userId);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com";
+
+  // Count redemptions where this user is the referrer
+  const { count: totalReferrals } = await supabaseAdmin
+    .from("referral_redemptions")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_user_id", userId);
+
+  // Sum credits earned from referral rewards
+  const { data: transactions } = await supabaseAdmin
+    .from("credit_transactions")
+    .select("amount")
+    .eq("user_id", userId)
+    .eq("type", "referral");
+
+  const creditsEarned = (transactions || []).reduce(
+    (sum, t) => sum + (t.amount > 0 ? t.amount : 0),
+    0,
+  );
+
+  return {
+    totalReferrals: totalReferrals ?? 0,
+    creditsEarned,
+    referralLink: `${appUrl}/signup?ref=${code}`,
+    referralCode: code,
+  };
+}
 
 export interface ReferralRow {
   id: string;
   referred_email: string | null;
-  status: string;
-  signed_up_at: string | null;
-  converted_at: string | null;
+  reward_given: boolean;
+  reward_details: Record<string, unknown> | null;
   created_at: string;
 }
 
 export async function getRecentReferrals(
   userId: string,
-  limit = 10,
+  limit = 20,
 ): Promise<ReferralRow[]> {
   const { data } = await supabaseAdmin
-    .from("referrals")
-    .select("id, referred_id, status, signed_up_at, converted_at, created_at")
-    .eq("referrer_id", userId)
+    .from("referral_redemptions")
+    .select("id, referred_user_id, reward_given, reward_details, created_at")
+    .eq("referrer_user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (!data) return [];
 
-  // Fetch emails for referred users (masked for privacy)
   const rows: ReferralRow[] = [];
   for (const r of data) {
-    let email: string | null = null;
-    if (r.referred_id) {
-      const { data: user } = await supabaseAdmin.auth.admin.getUserById(r.referred_id);
-      if (user?.user?.email) {
-        // Mask email: show first 3 chars + *** + domain
-        const parts = user.user.email.split("@");
-        email = parts[0].slice(0, 3) + "***@" + parts[1];
-      }
+    const email = await getUserEmail(r.referred_user_id);
+    // Mask email: first 3 chars + *** + @domain
+    let masked: string | null = null;
+    if (email) {
+      const parts = email.split("@");
+      masked = parts[0].slice(0, 3) + "***@" + parts[1];
     }
+
     rows.push({
       id: r.id,
-      referred_email: email,
-      status: r.status,
-      signed_up_at: r.signed_up_at,
-      converted_at: r.converted_at,
+      referred_email: masked,
+      reward_given: r.reward_given,
+      reward_details: r.reward_details,
       created_at: r.created_at,
     });
   }
 
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Get a user's plan monthly credit allocation.
+ * Used to determine the referral reward amount ("1 month of credits").
+ * Unlimited plans get a fixed 50-credit bonus.
+ */
+async function getUserPlanCredits(userId: string): Promise<{
+  planId: string;
+  monthlyCredits: number;
+}> {
+  const { data: sub } = await supabaseAdmin
+    .from("user_subscriptions")
+    .select("plan_id")
+    .eq("user_id", userId)
+    .single();
+
+  const planId = migrateOldPlanId(sub?.plan_id || "free");
+  const credits = getPlanCredits(planId);
+
+  // Unlimited plans (-1) get a fixed 50-credit bonus
+  const monthlyCredits = credits === -1 ? 50 : Math.max(credits, 5);
+
+  return { planId, monthlyCredits };
+}
+
+async function getUserEmail(userId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin.auth.admin.getUserById(userId);
+  return data?.user?.email || null;
+}
+
+// Legacy compat — recordReferralClick is called from the API route
+export async function recordReferralClick(referralCode: string): Promise<void> {
+  // No-op in new system — we track redemptions, not clicks
 }

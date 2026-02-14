@@ -6,7 +6,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import { recordReferralSignup } from '@/lib/referrals';
+import { recordReferralSignup, ensureReferralCode } from '@/lib/referrals';
 import { queueEmailSequence } from '@/lib/email/scheduler';
 
 export async function GET(request: Request) {
@@ -91,6 +91,16 @@ export async function GET(request: Request) {
       } catch (e) {
         // Log but don't fail - user is authenticated
         console.error('Error initializing user data (non-fatal):', e);
+      }
+
+      // Auto-generate referral code for new user (non-fatal)
+      try {
+        const firstName = data.user.user_metadata?.full_name?.split(' ')[0]
+          || data.user.email?.split('@')[0]
+          || undefined;
+        await ensureReferralCode(data.user.id, firstName);
+      } catch (e) {
+        console.error('Referral code generation error (non-fatal):', e);
       }
 
       // Process referral code if present (non-fatal)

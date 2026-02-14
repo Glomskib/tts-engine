@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Lightbulb,
   Pen,
+  Bookmark,
 } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
@@ -188,6 +189,9 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [addingWinner, setAddingWinner] = useState(false);
   const [winnerAdded, setWinnerAdded] = useState(false);
   const [winnerError, setWinnerError] = useState('');
+  const [savingHook, setSavingHook] = useState(false);
+  const [hookSaved, setHookSaved] = useState(false);
+  const [hookSaveError, setHookSaveError] = useState('');
   const [usageRemaining, setUsageRemaining] = useState<number | null>(null);
   const [usageLimit, setUsageLimit] = useState<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -251,6 +255,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     setResult(null);
     setWinnerAdded(false);
     setWinnerError('');
+    setHookSaved(false);
+    setHookSaveError('');
     setRecommendations(null);
     setRewriteResult(null);
     setRecsOpen(false);
@@ -345,6 +351,42 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       setWinnerError('Network error. Please try again.');
     } finally {
       setAddingWinner(false);
+    }
+  }
+
+  async function handleSaveHook() {
+    if (!result?.analysis?.hook.line) return;
+    setSavingHook(true);
+    setHookSaveError('');
+
+    try {
+      const res = await fetch('/api/saved-hooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hook_text: result.analysis.hook.line,
+          source: 'transcribed',
+          content_format: result.analysis.content.format,
+        }),
+      });
+
+      if (res.status === 401) {
+        setHookSaveError('Sign in to save hooks');
+        setIsLoggedIn(false);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        setHookSaveError(data.error || 'Failed to save hook');
+        return;
+      }
+
+      setHookSaved(true);
+    } catch {
+      setHookSaveError('Network error. Please try again.');
+    } finally {
+      setSavingHook(false);
     }
   }
 
@@ -605,14 +647,39 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         <Target size={18} className="text-orange-400" />
                         Hook Analysis
                       </h3>
-                      <CopyButton
-                        text={result.analysis.hook.line}
-                        copyKey="hook"
-                        copiedKey={copiedKey}
-                        copy={copy}
-                        size="xs"
-                        label="Copy Hook"
-                      />
+                      <div className="flex items-center gap-2">
+                        <CopyButton
+                          text={result.analysis.hook.line}
+                          copyKey="hook"
+                          copiedKey={copiedKey}
+                          copy={copy}
+                          size="xs"
+                          label="Copy Hook"
+                        />
+                        {isLoggedIn && (
+                          <button
+                            onClick={handleSaveHook}
+                            disabled={savingHook || hookSaved}
+                            className={`inline-flex items-center px-2 py-1 text-xs gap-1 rounded-lg transition-colors shrink-0 ${
+                              hookSaved
+                                ? 'bg-green-500/10 text-green-400'
+                                : hookSaveError
+                                  ? 'bg-red-500/10 text-red-400'
+                                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {savingHook ? (
+                              <><Loader2 size={12} className="animate-spin" /> Saving...</>
+                            ) : hookSaved ? (
+                              <><Check size={12} /> Saved!</>
+                            ) : hookSaveError ? (
+                              <><AlertCircle size={12} /> Failed</>
+                            ) : (
+                              <><Bookmark size={12} /> Save Hook</>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-4">
                       <div>

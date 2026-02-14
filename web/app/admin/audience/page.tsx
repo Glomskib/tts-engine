@@ -20,6 +20,7 @@ import {
   CONTENT_OPTIONS,
   PLATFORM_OPTIONS,
 } from "@/lib/persona-options";
+import { meetsMinPlan } from "@/lib/plans";
 
 // --- Types ---
 
@@ -65,6 +66,7 @@ interface Persona {
   platforms?: string[];
   best_posting_times?: string;
   // Meta
+  is_system?: boolean;
   avatar_type?: string;
   product_categories?: string[];  // deprecated
   beliefs?: Record<string, string>;
@@ -101,6 +103,7 @@ export default function AudiencePage() {
 
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userPlan, setUserPlan] = useState<string>("free");
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>("personas");
@@ -167,6 +170,22 @@ export default function AudiencePage() {
     };
     checkAuth();
   }, [router]);
+
+  // Fetch plan status
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/auth/plan-status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && data.data?.plan) {
+          setUserPlan(data.data.plan);
+          if (data.data.isAdmin) setIsAdmin(true);
+        }
+      })
+      .catch(() => {});
+  }, [isAdmin]);
+
+  const canCreateCustom = isAdmin || meetsMinPlan(userPlan, "creator_pro");
 
   // Fetch personas
   const fetchPersonas = useCallback(async () => {
@@ -725,9 +744,21 @@ export default function AudiencePage() {
           <div>
             {/* Add Persona Button */}
             <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button type="button" style={primaryButton} onClick={() => openPersonaModal()}>
-                + New Persona
-              </button>
+              {canCreateCustom ? (
+                <button type="button" style={primaryButton} onClick={() => openPersonaModal()}>
+                  + New Persona
+                </button>
+              ) : (
+                <div style={{ position: "relative" }} title="Upgrade to Creator Pro to create custom personas">
+                  <button type="button" style={{ ...primaryButton, opacity: 0.5, cursor: "not-allowed", display: "flex", alignItems: "center", gap: "6px" }} disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    + New Persona
+                  </button>
+                  <div style={{ fontSize: "11px", color: colors.textMuted, marginTop: "4px" }}>
+                    Upgrade to Creator Pro to create custom personas
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Personas Grid */}
@@ -743,6 +774,7 @@ export default function AudiencePage() {
                 {personas.map((persona) => {
                   const painPointCount = persona.primary_pain_points?.length || persona.pain_points?.length || 0;
                   const displayTone = persona.tone_preference || persona.tone;
+                  const isBuiltIn = !!persona.is_system;
                   return (
                     <div
                       key={persona.id}
@@ -750,7 +782,14 @@ export default function AudiencePage() {
                       onClick={() => openPersonaModal(persona)}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                        <div style={{ fontSize: "15px", fontWeight: 600, color: colors.text }}>{persona.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{ fontSize: "15px", fontWeight: 600, color: colors.text }}>{persona.name}</div>
+                          {isBuiltIn && (
+                            <span style={{ fontSize: "10px", padding: "2px 6px", backgroundColor: "rgba(99, 102, 241, 0.1)", color: "#818cf8", borderRadius: "4px", fontWeight: 500 }}>
+                              Built-in
+                            </span>
+                          )}
+                        </div>
                         {persona.times_used != null && persona.times_used > 0 && (
                           <span style={{ fontSize: "11px", color: colors.textMuted }}>Used {persona.times_used}x</span>
                         )}
@@ -1680,7 +1719,12 @@ export default function AudiencePage() {
 
               {/* Modal Footer */}
               <div style={{ padding: "14px 20px", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
-                {editingPersona.id !== "new" ? (
+                {editingPersona.is_system ? (
+                  <div style={{ fontSize: "12px", color: colors.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Built-in persona (view only)
+                  </div>
+                ) : editingPersona.id !== "new" ? (
                   <button type="button" onClick={() => deletePersona(editingPersona.id)} style={{ ...buttonStyle, color: "#ef4444", backgroundColor: "transparent" }}>
                     Delete
                   </button>
@@ -1688,10 +1732,14 @@ export default function AudiencePage() {
                   <div />
                 )}
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button type="button" onClick={() => setEditingPersona(null)} style={secondaryButton}>Cancel</button>
-                  <button type="button" onClick={savePersona} disabled={savingPersona} style={{ ...primaryButton, opacity: savingPersona ? 0.5 : 1 }}>
-                    {savingPersona ? "Saving..." : "Save Persona"}
+                  <button type="button" onClick={() => setEditingPersona(null)} style={secondaryButton}>
+                    {editingPersona.is_system ? "Close" : "Cancel"}
                   </button>
+                  {!editingPersona.is_system && (
+                    <button type="button" onClick={savePersona} disabled={savingPersona} style={{ ...primaryButton, opacity: savingPersona ? 0.5 : 1 }}>
+                      {savingPersona ? "Saving..." : "Save Persona"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -132,6 +132,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
       { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },
       { name: 'Billing & Credits', href: '/admin/billing', icon: Wallet },
+      { name: 'Help', href: '/admin/help', icon: HelpCircle },
     ],
   },
   {

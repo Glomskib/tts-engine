@@ -1,7 +1,7 @@
 /**
  * Referral API
  * GET  — Get referral stats + recent referrals for the authenticated user
- * POST — Record a referral click (no auth required — called from landing page)
+ * POST — Record a referral click (legacy, now no-op)
  */
 
 import { NextResponse } from "next/server";
@@ -10,7 +10,6 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import {
   getReferralStats,
   getRecentReferrals,
-  recordReferralClick,
 } from "@/lib/referrals";
 
 export const runtime = "nodejs";
@@ -48,21 +47,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
-
-  const body = await request.json().catch(() => ({}));
-  const code = body.referral_code || body.code;
-
-  if (!code || typeof code !== "string") {
-    return createApiErrorResponse("BAD_REQUEST", "referral_code is required", 400, correlationId);
-  }
-
-  try {
-    await recordReferralClick(code.toUpperCase().trim());
-    const res = NextResponse.json({ ok: true, correlation_id: correlationId });
-    res.headers.set("x-correlation-id", correlationId);
-    return res;
-  } catch {
-    // Silently succeed — don't expose referral tracking errors
-    return NextResponse.json({ ok: true, correlation_id: correlationId });
-  }
+  // Legacy endpoint — clicks are no longer tracked in the new system
+  return NextResponse.json({ ok: true, correlation_id: correlationId });
 }

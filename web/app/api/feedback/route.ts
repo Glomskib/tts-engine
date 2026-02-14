@@ -6,7 +6,7 @@ import { sendTelegramNotification } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
-const VALID_TYPES = ["bug", "feature", "improvement", "other"] as const;
+const VALID_TYPES = ["bug", "feature", "improvement", "support", "other"] as const;
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024; // 5MB
 
 function detectDevice(ua: string): string {

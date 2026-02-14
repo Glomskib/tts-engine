@@ -353,7 +353,7 @@ export default function DashboardPage() {
   if (error && !loading) {
     return (
       <PullToRefresh onRefresh={fetchData}>
-        <div className="pt-4 pb-24 lg:pb-8 max-w-7xl mx-auto">
+        <div className="pt-6 pb-24 lg:pb-8 max-w-7xl mx-auto">
           <PageErrorState message={error} onRetry={fetchData} />
         </div>
       </PullToRefresh>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
 
   return (
     <PullToRefresh onRefresh={fetchData}>
-      <div className="pt-4 pb-24 lg:pb-8 space-y-5 sm:space-y-6 max-w-7xl mx-auto">
+      <div className="pt-6 pb-24 lg:pb-8 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
@@ -371,9 +371,9 @@ export default function DashboardPage() {
 
         {/* Morning Briefing */}
         {!loading && data && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Videos Created Today */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
               <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                 <Video className="w-3.5 h-3.5 shrink-0" />
                 <span className="text-[11px] sm:text-xs leading-tight">Videos Today</span>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Ready for Review — prominent with link */}
-            <Link href="/admin/review" className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 sm:p-4 min-h-[88px] hover:border-emerald-500/50 transition-colors group">
+            <Link href="/admin/review" className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 min-h-[88px] hover:border-emerald-500/50 transition-colors group">
               <div className="flex items-center gap-1.5 text-emerald-400 mb-1">
                 <Eye className="w-3.5 h-3.5 shrink-0" />
                 <span className="text-[11px] sm:text-xs font-medium leading-tight">Ready for Review</span>
@@ -395,7 +395,7 @@ export default function DashboardPage() {
             </Link>
 
             {/* Approved Today */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
               <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                 <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                 <span className="text-[11px] sm:text-xs leading-tight">Approved Today</span>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Weekly Output */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
               <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                 <TrendingUp className="w-3.5 h-3.5 shrink-0" />
                 <span className="text-[11px] sm:text-xs leading-tight">Posted This Week</span>
@@ -438,7 +438,7 @@ export default function DashboardPage() {
                   Open board
                 </Link>
               </div>
-              <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5 sm:gap-2">
+              <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
                 {REC_PIPELINE_STATUSES.map((status) => {
                   const count = data.recordingPipelineByStatus[status] || 0;
                   const isReview = status === 'READY_FOR_REVIEW';
@@ -529,10 +529,10 @@ export default function DashboardPage() {
         )}
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4">
+              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                 <Skeleton height={14} width="60%" className="mb-2" />
                 <Skeleton height={28} width="40%" className="mb-1" />
                 <Skeleton height={12} width="50%" />
@@ -541,7 +541,7 @@ export default function DashboardPage() {
           ) : (
             <>
               {/* Posted This Week */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
                 <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                   <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] sm:text-xs leading-tight">Posted This Week</span>
@@ -558,7 +558,7 @@ export default function DashboardPage() {
               </div>
 
               {/* In Pipeline */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
                 <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                   <Video className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] sm:text-xs leading-tight">In Pipeline</span>
@@ -570,7 +570,7 @@ export default function DashboardPage() {
               </div>
 
               {/* VA Queue */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
                 <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                   <Users className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] sm:text-xs leading-tight">VA Queue</span>
@@ -580,7 +580,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Library Stats */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px]">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px]">
                 <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                   <FileText className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] sm:text-xs leading-tight">Content Library</span>
@@ -593,7 +593,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Unread Alerts */}
-              <Link href="/admin/notifications" className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 min-h-[88px] hover:border-zinc-700 transition-colors col-span-2 lg:col-span-1">
+              <Link href="/admin/notifications" className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 min-h-[88px] hover:border-zinc-700 transition-colors col-span-2 lg:col-span-1">
                 <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
                   <Bell className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] sm:text-xs leading-tight">Unread Alerts</span>
@@ -853,7 +853,7 @@ export default function DashboardPage() {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {QUICK_ACTIONS.map((action) => {
             const Icon = action.icon;
             return (

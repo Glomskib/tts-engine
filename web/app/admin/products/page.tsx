@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
@@ -43,6 +43,12 @@ interface BrandEntity {
   name: string;
   monthly_video_quota?: number | null;
   videos_this_month?: number | null;
+  retainer_type?: string | null;
+  retainer_payout_amount?: number | null;
+  retainer_video_goal?: number | null;
+  retainer_bonus_tiers?: any[] | null;
+  retainer_period_start?: string | null;
+  retainer_period_end?: string | null;
 }
 
 interface ProductStats extends Product {
@@ -116,6 +122,9 @@ export default function ProductsPage() {
   const [showQuickBrand, setShowQuickBrand] = useState(false);
   const [quickBrandName, setQuickBrandName] = useState('');
   const [creatingBrand, setCreatingBrand] = useState(false);
+
+  // Income dashboard state
+  const [incomeExpanded, setIncomeExpanded] = useState(false);
 
   // Sort state
   const [sortBy, setSortBy] = useState<'name' | 'brand' | 'posted' | 'this_month' | 'in_queue' | 'quota' | 'retainer'>('name');
@@ -236,6 +245,12 @@ export default function ProductsPage() {
               name: b.name as string,
               monthly_video_quota: (b.monthly_video_quota as number) ?? null,
               videos_this_month: (b.videos_this_month as number) ?? null,
+              retainer_type: (b.retainer_type as string) ?? null,
+              retainer_payout_amount: (b.retainer_payout_amount as number) ?? null,
+              retainer_video_goal: (b.retainer_video_goal as number) ?? null,
+              retainer_bonus_tiers: (b.retainer_bonus_tiers as any[]) ?? null,
+              retainer_period_start: (b.retainer_period_start as string) ?? null,
+              retainer_period_end: (b.retainer_period_end as string) ?? null,
             })));
           }
         })
@@ -575,6 +590,73 @@ export default function ProductsPage() {
     return null;
   };
 
+  // Income dashboard computed stats
+  const incomeSummary = useMemo(() => {
+    const activeBrands = brandEntities.filter(
+      (b) => b.retainer_type && b.retainer_type !== 'none'
+    );
+
+    let baseRetainers = 0;
+    let potentialBonuses = 0;
+    let totalVideosNeeded = 0;
+    const deadlines: Array<{ brand: string; date: string; daysLeft: number }> = [];
+    const brandBreakdown: Array<{
+      name: string; type: string; base: number; videoGoal: number;
+      completed: number; tiers: any[]; periodEnd: string | null;
+      nextBonusAmount: number; nextBonusNeeded: number;
+    }> = [];
+
+    for (const brand of activeBrands) {
+      const base = brand.retainer_payout_amount || 0;
+      baseRetainers += base;
+
+      const tiers = Array.isArray(brand.retainer_bonus_tiers) ? brand.retainer_bonus_tiers : [];
+      const completed = brand.videos_this_month || 0;
+      let brandBonus = 0;
+      let nextBonusAmount = 0;
+      let nextBonusNeeded = 0;
+
+      for (const tier of tiers) {
+        const target = tier.videos || tier.gmv || 0;
+        const payout = tier.payout || tier.bonus || 0;
+        brandBonus += payout;
+        if (!nextBonusAmount && target > completed) {
+          nextBonusAmount = payout;
+          nextBonusNeeded = target - completed;
+        }
+      }
+      potentialBonuses += brandBonus;
+
+      if (brand.retainer_period_end) {
+        const daysLeft = Math.ceil(
+          (new Date(brand.retainer_period_end).getTime() - Date.now()) / 86400000
+        );
+        if (daysLeft > 0 && daysLeft <= 30) {
+          deadlines.push({ brand: brand.name, date: brand.retainer_period_end, daysLeft });
+        }
+      }
+
+      const goal = brand.retainer_video_goal || brand.monthly_video_quota || 0;
+      totalVideosNeeded += Math.max(0, goal - completed);
+
+      brandBreakdown.push({
+        name: brand.name, type: brand.retainer_type || 'none',
+        base, videoGoal: goal, completed, tiers,
+        periodEnd: brand.retainer_period_end || null,
+        nextBonusAmount, nextBonusNeeded,
+      });
+    }
+
+    return {
+      baseRetainers, potentialBonuses,
+      total: baseRetainers + potentialBonuses,
+      totalVideosNeeded,
+      deadlines: deadlines.sort((a, b) => a.daysLeft - b.daysLeft),
+      brandBreakdown,
+      count: activeBrands.length,
+    };
+  }, [brandEntities]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
@@ -668,6 +750,102 @@ export default function ProductsPage() {
         </div>
       }
     >
+      {/* Income Dashboard */}
+      {incomeSummary.count > 0 && (
+        <div className="mb-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="text-xs text-zinc-500 mb-1">Base Retainers</div>
+              <div className="text-xl font-bold text-emerald-400">
+                ${incomeSummary.baseRetainers.toLocaleString()}
+              </div>
+              <div className="text-xs text-zinc-500">/month · {incomeSummary.count} brands</div>
+            </div>
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="text-xs text-zinc-500 mb-1">Bonus Available</div>
+              <div className="text-xl font-bold text-amber-400">
+                ${incomeSummary.potentialBonuses.toLocaleString()}
+              </div>
+              <div className="text-xs text-zinc-500">across all tiers</div>
+            </div>
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="text-xs text-zinc-500 mb-1">Total Potential</div>
+              <div className="text-xl font-bold text-teal-400">
+                ${incomeSummary.total.toLocaleString()}
+              </div>
+              <div className="text-xs text-zinc-500">this period</div>
+            </div>
+          </div>
+
+          {/* Deadline Alerts */}
+          {incomeSummary.deadlines.map((d, i) => (
+            <div key={i} className={`flex items-center gap-2 px-3 py-2 mb-1 rounded-lg text-sm ${
+              d.daysLeft <= 7 ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
+            }`}>
+              <span>{d.daysLeft <= 7 ? '🔴' : '⚠️'}</span>
+              <span className="font-medium">{d.brand}</span>
+              <span>deadline in {d.daysLeft} days</span>
+            </div>
+          ))}
+
+          {incomeSummary.totalVideosNeeded > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg text-sm bg-zinc-800/30 text-zinc-400">
+              📹 {incomeSummary.totalVideosNeeded} videos still needed across all brands
+            </div>
+          )}
+
+          {/* Per-Brand Breakdown (collapsible) */}
+          <button
+            onClick={() => setIncomeExpanded(!incomeExpanded)}
+            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1"
+          >
+            {incomeExpanded ? '▾' : '▸'} Per-brand breakdown
+          </button>
+
+          {incomeExpanded && (
+            <div className="mt-2 space-y-2">
+              {incomeSummary.brandBreakdown.map((brand, i) => (
+                <div key={i} className="bg-zinc-800/30 border border-zinc-700/30 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-white text-sm">{brand.name}</span>
+                    <span className="text-xs text-zinc-500">{brand.type}</span>
+                  </div>
+
+                  {/* Progress bar */}
+                  {brand.videoGoal > 0 && (
+                    <div className="mb-2">
+                      <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                        <span>{brand.completed}/{brand.videoGoal} videos</span>
+                        <span>{Math.round((brand.completed / brand.videoGoal) * 100)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-500 rounded-full transition-all"
+                          style={{ width: `${Math.min(100, (brand.completed / brand.videoGoal) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 text-xs text-zinc-400">
+                    {brand.base > 0 && <span className="text-emerald-400">${brand.base} base</span>}
+                    {brand.tiers.length > 0 && (
+                      <span className="text-amber-400">{brand.tiers.length} bonus tiers</span>
+                    )}
+                    {brand.nextBonusAmount > 0 && (
+                      <span className="text-teal-400">
+                        Next: ${brand.nextBonusAmount} ({brand.nextBonusNeeded} more videos)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-3 flex-wrap items-center">
         <div className="flex items-center gap-2">
@@ -713,49 +891,6 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Retainer Total */}
-      {(() => {
-        const retainerTotal = filteredProducts.reduce((sum, p) => sum + (p.retainer || 0), 0);
-        if (retainerTotal <= 0) return null;
-        return (
-          <div className="flex items-center gap-3 p-4 bg-zinc-900/50 rounded-xl border border-white/10">
-            <div className="text-sm text-zinc-400">Total Retainer:</div>
-            <div className="text-lg font-semibold text-emerald-400">${retainerTotal.toLocaleString()}</div>
-            <div className="text-xs text-zinc-500">/ month across {filteredProducts.filter(p => p.retainer && p.retainer > 0).length} products</div>
-          </div>
-        );
-      })()}
-
-      {/* Brand Quotas Summary */}
-      {(() => {
-        const brandsWithQuota = brandEntities.filter(b => b.monthly_video_quota && b.monthly_video_quota > 0);
-        if (brandsWithQuota.length === 0) return null;
-        return (
-          <AdminCard>
-            <div className="mb-2 text-sm font-semibold text-zinc-300">Brand Quotas</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {brandsWithQuota.map(brand => {
-                const used = brand.videos_this_month ?? 0;
-                const quota = brand.monthly_video_quota!;
-                const pct = Math.min((used / quota) * 100, 100);
-                const barColor = pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : 'bg-teal-500';
-                const textColor = pct >= 100 ? 'text-red-400' : pct >= 80 ? 'text-amber-400' : 'text-teal-400';
-                return (
-                  <div key={brand.id} className="p-3 bg-zinc-800/50 border border-white/5 rounded-lg">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-xs font-medium text-zinc-200 truncate min-w-0">{brand.name}</span>
-                      <span className={`text-xs font-semibold shrink-0 ${textColor}`}>{used}/{quota}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-                      <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </AdminCard>
-        );
-      })()}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
@@ -781,179 +916,220 @@ export default function ProductsPage() {
             ) : undefined}
           />
         ) : (
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full text-xs sm:text-sm min-w-[640px]">
-              <thead>
-                <tr className="bg-zinc-800/50 border-b border-white/10">
-                  {isAdmin && (
-                    <th className="px-4 py-3 text-center w-10">
-                      <label className="flex items-center justify-center w-11 h-11 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
-                          onChange={toggleAllSelection}
-                          className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
-                        />
-                      </label>
-                    </th>
-                  )}
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400 w-16">Image</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('name')}>Product<SortIndicator col="name" /></th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('brand')}>Brand<SortIndicator col="brand" /></th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Category</th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('this_month')}>This Month<SortIndicator col="this_month" /></th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('in_queue')}>In Queue<SortIndicator col="in_queue" /></th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('posted')}>Posted<SortIndicator col="posted" /></th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('retainer')}>Retainer<SortIndicator col="retainer" /></th>
-                  <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('quota')}>Quota<SortIndicator col="quota" /></th>
-                  <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map((product) => {
-                  const duplicateWarning = getDuplicateWarning(product);
-                  return (
-                    <tr key={product.id} className="border-b border-white/5 hover:bg-zinc-800/50">
+          <>
+            {/* Mobile card layout */}
+            <div className="md:hidden space-y-2 p-3">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700/50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-white text-sm truncate">{product.name}</div>
+                      <div className="text-xs text-zinc-400 mt-0.5">{product.brand || 'No brand'}</div>
+                    </div>
+                    <div className="flex gap-2 shrink-0 ml-2">
                       {isAdmin && (
-                        <td className="px-4 py-3 text-center">
-                          <label className="flex items-center justify-center w-11 h-11 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedProducts.has(product.id)}
-                              onChange={() => toggleProductSelection(product.id)}
-                              className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
-                            />
-                          </label>
-                        </td>
+                        <button type="button"
+                          onClick={() => handleEdit(product)}
+                          className="text-xs text-zinc-400 hover:text-zinc-100 hover:underline"
+                        >
+                          Edit
+                        </button>
                       )}
-                      <td className="px-4 py-3 text-center">
-                        {product.product_image_url ? (
-                          <button
-                            onClick={() => {
-                              setImageModalUrl(product.product_image_url || null);
-                              setImageModalOpen(true);
-                            }}
-                            className="inline-block overflow-hidden rounded border border-white/10 hover:border-teal-500/50 transition-colors"
-                          >
-                            <img
-                              src={product.product_image_url}
-                              alt={product.name}
-                              className="w-12 h-12 object-cover"
-                            />
-                          </button>
-                        ) : (
-                          <div className="w-12 h-12 rounded border border-white/10 bg-zinc-800 flex items-center justify-center text-zinc-600">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
+                      <Link
+                        href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Videos
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-zinc-500">
+                    <span>{product.posted || 0} posted</span>
+                    <span>{product.in_queue || 0} in queue</span>
+                    {product.retainer ? (
+                      <span className="text-emerald-400">${product.retainer}/vid</span>
+                    ) : null}
+                    {product.category && <span>{product.category}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto -mx-4 sm:mx-0">
+              <table className="w-full text-xs sm:text-sm min-w-[640px]">
+                <thead>
+                  <tr className="bg-zinc-800/50 border-b border-white/10">
+                    {isAdmin && (
+                      <th className="px-4 py-3 text-center w-10">
+                        <label className="flex items-center justify-center w-11 h-11 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
+                            onChange={toggleAllSelection}
+                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
+                          />
+                        </label>
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-center font-medium text-zinc-400 w-16">Image</th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('name')}>Product<SortIndicator col="name" /></th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('brand')}>Brand<SortIndicator col="brand" /></th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400">Category</th>
+                    <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('this_month')}>This Month<SortIndicator col="this_month" /></th>
+                    <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('in_queue')}>In Queue<SortIndicator col="in_queue" /></th>
+                    <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('posted')}>Posted<SortIndicator col="posted" /></th>
+                    <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('retainer')}>Retainer<SortIndicator col="retainer" /></th>
+                    <th className="px-4 py-3 text-center font-medium text-zinc-400 cursor-pointer select-none hover:text-zinc-200" onClick={() => handleSort('quota')}>Quota<SortIndicator col="quota" /></th>
+                    <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map((product) => {
+                    const duplicateWarning = getDuplicateWarning(product);
+                    return (
+                      <tr key={product.id} className="border-b border-white/5 hover:bg-zinc-800/50">
+                        {isAdmin && (
+                          <td className="px-4 py-3 text-center">
+                            <label className="flex items-center justify-center w-11 h-11 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedProducts.has(product.id)}
+                                onChange={() => toggleProductSelection(product.id)}
+                                className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
+                              />
+                            </label>
+                          </td>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-zinc-100">{product.name}</span>
-                            {product.source === 'tiktok_shop' && (
-                              <a
-                                href={product.tiktok_showcase_url || `https://www.tiktok.com/view/product/${product.tiktok_product_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#fe2c55]/15 text-[#fe2c55] text-[10px] font-semibold hover:bg-[#fe2c55]/25 transition-colors shrink-0"
-                                title="View on TikTok Shop"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                TikTok Shop
-                              </a>
+                        <td className="px-4 py-3 text-center">
+                          {product.product_image_url ? (
+                            <button
+                              onClick={() => {
+                                setImageModalUrl(product.product_image_url || null);
+                                setImageModalOpen(true);
+                              }}
+                              className="inline-block overflow-hidden rounded border border-white/10 hover:border-teal-500/50 transition-colors"
+                            >
+                              <img
+                                src={product.product_image_url}
+                                alt={product.name}
+                                className="w-12 h-12 object-cover"
+                              />
+                            </button>
+                          ) : (
+                            <div className="w-12 h-12 rounded border border-white/10 bg-zinc-800 flex items-center justify-center text-zinc-600">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-zinc-100">{product.name}</span>
+                              {product.source === 'tiktok_shop' && (
+                                <a
+                                  href={product.tiktok_showcase_url || `https://www.tiktok.com/view/product/${product.tiktok_product_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#fe2c55]/15 text-[#fe2c55] text-[10px] font-semibold hover:bg-[#fe2c55]/25 transition-colors shrink-0"
+                                  title="View on TikTok Shop"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  TikTok Shop
+                                </a>
+                              )}
+                            </div>
+                            {product.product_display_name && (
+                              <div className="text-xs text-zinc-400 mt-0.5">
+                                Display: {product.product_display_name}
+                              </div>
+                            )}
+                            {duplicateWarning && (
+                              <div className="text-xs text-amber-600 mt-1">
+                                {duplicateWarning}
+                              </div>
                             )}
                           </div>
-                          {product.product_display_name && (
-                            <div className="text-xs text-zinc-400 mt-0.5">
-                              Display: {product.product_display_name}
-                            </div>
-                          )}
-                          {duplicateWarning && (
-                            <div className="text-xs text-amber-600 mt-1">
-                              {duplicateWarning}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-zinc-700/50 text-zinc-300 rounded text-xs font-medium">
-                          {product.brand}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-zinc-400">
-                        {product.category}
-                      </td>
-                      <td className="px-4 py-3 text-center text-zinc-300">
-                        {product.videos_this_month}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          product.in_queue > 0
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-zinc-700/50 text-zinc-400'
-                        }`}>
-                          {product.in_queue}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          product.posted > 0
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-zinc-700/50 text-zinc-400'
-                        }`}>
-                          {product.posted}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center text-zinc-300">
-                        {product.retainer ? `$${product.retainer.toLocaleString()}` : <span className="text-zinc-600">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {(() => {
-                          const brandEntity = product.brand_id
-                            ? brandEntities.find(b => b.id === product.brand_id)
-                            : null;
-                          if (!brandEntity?.monthly_video_quota || brandEntity.monthly_video_quota <= 0) {
-                            return <span className="text-zinc-600">—</span>;
-                          }
-                          const used = brandEntity.videos_this_month ?? 0;
-                          const quota = brandEntity.monthly_video_quota;
-                          const pct = Math.round((used / quota) * 100);
-                          if (used >= quota) {
-                            return <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-semibold">{used}/{quota}</span>;
-                          }
-                          if (used >= quota * 0.8) {
-                            return <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-semibold">{used}/{quota}</span>;
-                          }
-                          return <span className="px-2 py-0.5 bg-teal-500/10 text-teal-400 rounded text-xs font-medium">{used}/{quota}</span>;
-                        })()}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex gap-2 justify-end">
-                          {isAdmin && (
-                            <button type="button"
-                              onClick={() => handleEdit(product)}
-                              className="text-xs text-zinc-400 hover:text-zinc-100 hover:underline"
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 bg-zinc-700/50 text-zinc-300 rounded text-xs font-medium">
+                            {product.brand}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-zinc-400">
+                          {product.category}
+                        </td>
+                        <td className="px-4 py-3 text-center text-zinc-300">
+                          {product.videos_this_month}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            product.in_queue > 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-zinc-700/50 text-zinc-400'
+                          }`}>
+                            {product.in_queue}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            product.posted > 0
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-zinc-700/50 text-zinc-400'
+                          }`}>
+                            {product.posted}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-zinc-300">
+                          {product.retainer ? `$${product.retainer.toLocaleString()}` : <span className="text-zinc-600">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {(() => {
+                            const brandEntity = product.brand_id
+                              ? brandEntities.find(b => b.id === product.brand_id)
+                              : null;
+                            if (!brandEntity?.monthly_video_quota || brandEntity.monthly_video_quota <= 0) {
+                              return <span className="text-zinc-600">—</span>;
+                            }
+                            const used = brandEntity.videos_this_month ?? 0;
+                            const quota = brandEntity.monthly_video_quota;
+                            const pct = Math.round((used / quota) * 100);
+                            if (used >= quota) {
+                              return <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-semibold">{used}/{quota}</span>;
+                            }
+                            if (used >= quota * 0.8) {
+                              return <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs font-semibold">{used}/{quota}</span>;
+                            }
+                            return <span className="px-2 py-0.5 bg-teal-500/10 text-teal-400 rounded text-xs font-medium">{used}/{quota}</span>;
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex gap-2 justify-end">
+                            {isAdmin && (
+                              <button type="button"
+                                onClick={() => handleEdit(product)}
+                                className="text-xs text-zinc-400 hover:text-zinc-100 hover:underline"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            <Link
+                              href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
+                              className="text-xs text-blue-600 hover:underline"
                             >
-                              Edit
-                            </button>
-                          )}
-                          <Link
-                            href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            View Videos
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                              View Videos
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </AdminCard>
 

@@ -71,13 +71,12 @@ export async function POST(request: Request) {
           .limit(20)
           .then(r => r, () => ({ data: null as any, error: null })),
 
-      Promise.resolve(
-        supabaseAdmin
+      supabaseAdmin
           .from('brand_briefs')
           .select('title, brand_id, brief_type, campaign_start, campaign_end, focus_product, required_hashtags, min_videos, status')
           .eq('user_id', userId)
           .in('status', ['ready', 'applied'])
-      ).catch(() => ({ data: null, error: null })),
+          .then(r => r, () => ({ data: null as any, error: null })),
     ]);
 
     const brands = brandsRes.data || [];

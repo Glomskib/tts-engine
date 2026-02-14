@@ -552,7 +552,7 @@ export default function WinnersPage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh} className="min-h-screen">
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }} className="max-w-full overflow-hidden pb-24 lg:pb-6">
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }} className="max-w-full pb-24 lg:pb-6">
         {/* Header - Hidden on mobile since admin layout provides header */}
         <div className="hidden lg:flex" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>

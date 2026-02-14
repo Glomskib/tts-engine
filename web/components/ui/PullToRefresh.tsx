@@ -18,7 +18,7 @@ export function PullToRefresh({ onRefresh, children, className = '' }: PullToRef
   return (
     <div
       ref={containerRef}
-      className={`overflow-y-auto overscroll-contain ${className}`}
+      className={className || undefined}
       {...handlers}
     >
       {/* Pull indicator */}

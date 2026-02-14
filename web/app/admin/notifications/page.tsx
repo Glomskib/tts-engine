@@ -237,7 +237,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <PullToRefresh onRefresh={handleRefresh} className="max-w-full overflow-hidden pb-24 lg:pb-6 min-h-screen">
+    <PullToRefresh onRefresh={handleRefresh} className="max-w-full pb-24 lg:pb-6 min-h-screen">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl font-semibold text-zinc-100 flex items-center gap-3">

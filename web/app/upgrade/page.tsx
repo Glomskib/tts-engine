@@ -198,7 +198,7 @@ export default function UpgradePage() {
   const creditsRemaining = isUnlimited ? 'Unlimited' : (credits?.remaining ?? 5);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 py-10 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 py-10 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Back Link */}
         <div className="mb-6">

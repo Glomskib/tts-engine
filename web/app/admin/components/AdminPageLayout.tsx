@@ -40,7 +40,7 @@ export default function AdminPageLayout({
 }: AdminPageLayoutProps) {
   return (
     <div className="min-h-screen bg-[#09090b]">
-      <div className={`${MAX_WIDTH_CLASSES[maxWidth]} mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6 overflow-x-hidden`}>
+      <div className={`${MAX_WIDTH_CLASSES[maxWidth]} mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6`}>
         {/* Incident Banner */}
         <IncidentBanner />
 

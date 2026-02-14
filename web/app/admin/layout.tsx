@@ -294,7 +294,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <header className="
             fixed top-0 left-0 right-0 h-14 z-40
             bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800
-            flex items-center justify-between px-3 gap-2 overflow-hidden
+            flex items-center justify-between px-3 gap-2
           ">
             <Link href="/admin" className="flex items-center gap-2 flex-shrink-0 min-w-0">
               <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg flex-shrink-0" />

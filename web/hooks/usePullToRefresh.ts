@@ -15,8 +15,9 @@ export function usePullToRefresh({ onRefresh, threshold = 80 }: UsePullToRefresh
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Only start pulling if at the top of the container
-    if (containerRef.current?.scrollTop === 0) {
+    // Only start pulling if at the top of the page (use window scroll, not container)
+    const atTop = (containerRef.current?.scrollTop === 0) && (window.scrollY <= 0);
+    if (atTop) {
       startY.current = e.touches[0].clientY;
       setIsPulling(true);
     }

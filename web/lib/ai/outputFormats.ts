@@ -710,7 +710,7 @@ BAD VIDEO DIRECTION:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "The full spoken script across all beats combined (40-50 words for 10s, 60-70 for 15s, 100-120 for 30s)",
+  "hook_line": "Opening line that grabs attention — the first beat's dialogue (max 150 chars)",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -743,7 +743,7 @@ HARD RULES:
 - EVERY beat should have dialogue — the person is reacting AND talking naturally
 - The "action" field in each beat should be 2-4 sentences of detailed scene direction
 - On-screen text: EVERY beat gets a text card, 3-6 words each
-- The hook_line is a summary of the entire spoken script
+- The hook_line is the FIRST beat's dialogue only — the scroll-stopping opener
 - 3-4 punchy sentences total — each one lands a different beat
 - NO filler words, NO "honestly", NO "like" — every word must count
 - Product appears naturally in beat 2, never in beat 1
@@ -760,7 +760,7 @@ CTA RULES (CRITICAL — #1 weakness in generated scripts):
 
 EXAMPLE:
 {
-  "hook_line": "Wait, this actually works? I've been dragging myself through every morning for months. One scoop and I'm actually awake. Why did nobody tell me?",
+  "hook_line": "Wait, this actually works?",
   "beats": [
     {
       "t": "0:00-0:03",

@@ -149,16 +149,29 @@ export function extractScriptFromSkit(skitData: {
   cta_overlay?: string;
 }): { script: string; hook: string } {
   const lines: string[] = [];
-  const hook = skitData.hook_line || '';
 
-  if (hook) lines.push(hook);
-
+  // Collect beat dialogues as the canonical script source
+  const beatDialogues: string[] = [];
   for (const beat of skitData.beats || []) {
-    if (beat.dialogue) lines.push(beat.dialogue);
-    else if (beat.action) lines.push(beat.action);
+    if (beat.dialogue) beatDialogues.push(beat.dialogue);
+    else if (beat.action) beatDialogues.push(beat.action);
   }
 
-  if (skitData.cta_line) lines.push(skitData.cta_line);
+  if (beatDialogues.length > 0) {
+    // Beats exist — use them as the script (hook_line may be a summary/duplicate)
+    lines.push(...beatDialogues);
+    // Only add cta_line if it's not already the last beat's dialogue
+    if (skitData.cta_line && skitData.cta_line !== beatDialogues[beatDialogues.length - 1]) {
+      lines.push(skitData.cta_line);
+    }
+  } else {
+    // No beats — fall back to hook_line + cta_line
+    if (skitData.hook_line) lines.push(skitData.hook_line);
+    if (skitData.cta_line) lines.push(skitData.cta_line);
+  }
+
+  // Hook = first beat's dialogue (the actual opening hook), or hook_line as fallback
+  const hook = beatDialogues[0] || skitData.hook_line || '';
 
   return { script: lines.join(' '), hook };
 }

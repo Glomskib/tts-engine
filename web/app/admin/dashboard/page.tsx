@@ -15,7 +15,9 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { PageErrorState } from '@/components/ui/PageErrorState';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { CONTENT_TYPES } from '@/lib/content-types';
+import { BRAND } from '@/lib/brand';
 
 const WeeklyChart = dynamic(() => import('./WeeklyChart'), { ssr: false });
 const SetupChecklist = dynamic(() => import('./SetupChecklist'), { ssr: false });
@@ -219,6 +221,58 @@ function getActivityIcon(type: string) {
     case 'pipeline_alert': return AlertTriangle;
     default: return Bell;
   }
+}
+
+function EmailVerificationBanner() {
+  const { emailConfirmed, user } = useAuth();
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  if (emailConfirmed) return null;
+
+  const handleResend = async () => {
+    if (!user?.email) return;
+    setResending(true);
+    try {
+      const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
+      const supabase = createBrowserSupabaseClient();
+      await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      setResent(true);
+    } catch {
+      // Silently fail
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+      <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-amber-300">
+          Please verify your email address to get the most out of {BRAND.name}.
+        </p>
+      </div>
+      {resent ? (
+        <span className="text-xs text-emerald-400 font-medium shrink-0">Sent!</span>
+      ) : (
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={resending}
+          className="text-xs text-amber-300 hover:text-amber-200 font-medium underline shrink-0 disabled:opacity-50"
+        >
+          {resending ? 'Sending...' : 'Resend verification email'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -429,6 +483,9 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-zinc-400 text-sm">Your content operations at a glance</p>
         </div>
+
+        {/* Email verification reminder */}
+        <EmailVerificationBanner />
 
         {/* Quick Start checklist — onboarding for new users */}
         <QuickStart />

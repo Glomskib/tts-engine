@@ -90,8 +90,9 @@ function LoginForm() {
           return;
         }
 
-        setSignupSuccess(true);
-        setLoading(false);
+        // Redirect to verify-email page
+        window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
+        return;
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,

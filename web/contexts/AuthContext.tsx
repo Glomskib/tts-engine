@@ -17,6 +17,7 @@ interface AuthContextType {
   role: UserRole;
   isAdmin: boolean;
   isUploader: boolean;
+  emailConfirmed: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isUploader, setIsUploader] = useState(false);
+  const [emailConfirmed, setEmailConfirmed] = useState(true);
 
   const fetchAuth = useCallback(async () => {
     try {
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole(data.role || 'creator');
           setIsAdmin(data.isAdmin || false);
           setIsUploader(data.isUploader || data.isAdmin || false);
+          setEmailConfirmed(data.emailConfirmed !== false);
           setLoading(false);
           return;
         }
@@ -50,12 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole(null);
       setIsAdmin(false);
       setIsUploader(false);
+      setEmailConfirmed(true);
     } catch {
       setAuthenticated(false);
       setUser(null);
       setRole(null);
       setIsAdmin(false);
       setIsUploader(false);
+      setEmailConfirmed(true);
     } finally {
       setLoading(false);
     }
@@ -82,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(null);
         setIsAdmin(false);
         setIsUploader(false);
+        setEmailConfirmed(true);
       }
     });
 
@@ -89,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ loading, authenticated, user, role, isAdmin, isUploader, refresh: fetchAuth }}>
+    <AuthContext.Provider value={{ loading, authenticated, user, role, isAdmin, isUploader, emailConfirmed, refresh: fetchAuth }}>
       {children}
     </AuthContext.Provider>
   );

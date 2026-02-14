@@ -14,6 +14,7 @@ const footerLinks = {
   resources: [
     { label: 'Help Center', href: '/help' },
     { label: 'API Docs', href: '/docs' },
+    { label: 'Roadmap', href: '/roadmap' },
     { label: 'Changelog', href: '/changelog' },
   ],
   company: [

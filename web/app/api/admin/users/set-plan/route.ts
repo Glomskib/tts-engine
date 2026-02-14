@@ -43,10 +43,15 @@ export async function POST(request: Request) {
     return createApiErrorResponse("BAD_REQUEST", "user_id is required", 400, correlationId);
   }
 
-  // Validate plan
-  const validPlans: PlanType[] = ["free", "pro"];
+  // Validate plan — accepts all 5 tiers
+  const validPlans: PlanType[] = ["free", "creator_lite", "creator_pro", "brand", "agency"];
   if (!plan || !validPlans.includes(plan as PlanType)) {
-    return createApiErrorResponse("BAD_REQUEST", "plan must be 'free' or 'pro'", 400, correlationId);
+    return createApiErrorResponse(
+      "BAD_REQUEST",
+      `plan must be one of: ${validPlans.join(", ")}`,
+      400,
+      correlationId
+    );
   }
 
   const normalizedUserId = user_id.toLowerCase();
@@ -66,6 +71,17 @@ export async function POST(request: Request) {
         set_by_email: authContext.user.email || null,
       },
     });
+
+    // Also update user_subscriptions table directly so getUserPlan() picks it up
+    await supabaseAdmin
+      .from("user_subscriptions")
+      .upsert({
+        user_id: normalizedUserId,
+        plan_id: planValue,
+        status: isActiveValue ? "active" : "cancelled",
+        subscription_type: "saas",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
 
     // Notify via Slack (admin action)
     notify("admin_set_plan", {

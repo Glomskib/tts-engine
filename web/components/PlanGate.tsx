@@ -13,6 +13,14 @@ const PLAN_LABELS: Record<string, string> = {
   agency: 'Agency',
 };
 
+const PLAN_PRICES: Record<string, number> = {
+  free: 0,
+  creator_lite: 9,
+  creator_pro: 29,
+  brand: 49,
+  agency: 149,
+};
+
 const PLAN_RANK: Record<string, number> = {
   free: 0,
   creator_lite: 1,
@@ -77,6 +85,8 @@ export default function PlanGate({ minPlan, feature, children, adminOnly }: Plan
 function UpgradeCard({ feature, requiredPlan, currentPlan }: { feature: string; requiredPlan: string; currentPlan: string }) {
   const planName = requiredPlan === 'admin' ? 'Admin' : (PLAN_LABELS[requiredPlan] || requiredPlan);
   const currentName = PLAN_LABELS[currentPlan] || currentPlan;
+  const price = PLAN_PRICES[requiredPlan];
+  const priceLabel = price ? `$${price}/mo` : '';
 
   return (
     <div className="flex items-center justify-center min-h-[400px] p-6">
@@ -92,6 +102,9 @@ function UpgradeCard({ feature, requiredPlan, currentPlan }: { feature: string; 
         <p className="text-sm text-zinc-400">
           This feature requires the <span className="text-white font-medium">{planName}</span> plan
           {requiredPlan !== 'admin' && ' or higher'}.
+          {priceLabel && (
+            <span className="text-zinc-500"> ({priceLabel})</span>
+          )}
         </p>
 
         <div className="flex items-center justify-center gap-3 text-sm">
@@ -100,7 +113,7 @@ function UpgradeCard({ feature, requiredPlan, currentPlan }: { feature: string; 
           </span>
           <ArrowRight className="w-4 h-4 text-zinc-600" />
           <span className="px-3 py-1 bg-purple-500/20 rounded-full text-purple-400">
-            Required: {planName}
+            {planName}{priceLabel && ` — ${priceLabel}`}
           </span>
         </div>
 
@@ -109,7 +122,7 @@ function UpgradeCard({ feature, requiredPlan, currentPlan }: { feature: string; 
             href="/admin/billing"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-500 transition-colors mt-2"
           >
-            Upgrade Now
+            Upgrade to {planName}{priceLabel && ` (${priceLabel})`}
             <ArrowRight className="w-4 h-4" />
           </Link>
         )}

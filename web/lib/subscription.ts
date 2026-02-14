@@ -15,8 +15,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getEffectiveBoolean } from "@/lib/settings";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
+import { migrateOldPlanId, PLAN_RANK } from "@/lib/plans";
 
-export type PlanType = "free" | "pro";
+export type PlanType = "free" | "creator_lite" | "creator_pro" | "brand" | "agency";
+
+/** Legacy alias — old code that checks === "pro" can use this */
+export type LegacyPlanType = "free" | "pro";
 export type OrgPlanType = "free" | "pro" | "enterprise";
 export type OrgBillingStatus = "active" | "trial" | "past_due" | "canceled";
 
@@ -95,19 +99,36 @@ export async function isSubscriptionGatingEnabled(): Promise<boolean> {
   }
 }
 
+/** All valid SaaS plan IDs */
+const VALID_SAAS_PLANS = new Set<PlanType>(["free", "creator_lite", "creator_pro", "brand", "agency"]);
+
+/**
+ * Normalize a plan string to a valid 5-tier PlanType.
+ * Maps legacy IDs: "pro" → "creator_pro", "starter" → "creator_lite", etc.
+ */
+function normalizePlanId(raw: string): PlanType {
+  const migrated = migrateOldPlanId(raw);
+  // Legacy "pro" from events_log / env maps to creator_pro
+  if (raw === "pro") return "creator_pro";
+  if (VALID_SAAS_PLANS.has(migrated as PlanType)) return migrated as PlanType;
+  return "free";
+}
+
 /**
  * Get the user's subscription plan.
- * Checks (in order):
- * 1. events_log admin_set_plan events (most recent wins)
- * 2. PRO_USER_IDS env allowlist
+ * Resolution order:
+ * 1. user_subscriptions table (Stripe-managed, authoritative for paying users)
+ * 2. events_log admin_set_plan events (admin overrides)
+ * 3. PRO_USER_IDS env allowlist (legacy)
+ * 4. Default: free
  *
- * Fail-safe: returns { plan: "pro", isActive: true } if gating is not enabled.
+ * Fail-safe: returns { plan: "agency", isActive: true } if gating is not enabled.
  */
 export async function getUserPlan(userId: string): Promise<UserPlan> {
-  // Fail-safe: if gating not enabled, everyone is pro
+  // Fail-safe: if gating not enabled, everyone gets full access
   const gatingEnabled = await isSubscriptionGatingEnabled();
   if (!gatingEnabled) {
-    return { plan: "pro", isActive: true };
+    return { plan: "agency", isActive: true };
   }
 
   if (!userId) {
@@ -116,7 +137,27 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
 
   const normalizedUserId = userId.toLowerCase();
 
-  // Check events_log for admin_set_plan events (most recent first)
+  // 1. Check user_subscriptions table (Stripe-managed truth)
+  try {
+    const { data: subscription } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("plan_id, status")
+      .eq("user_id", userId)
+      .single();
+
+    if (subscription?.plan_id && subscription.plan_id !== "free") {
+      const plan = normalizePlanId(subscription.plan_id);
+      const isActive = subscription.status === "active" || subscription.status === "trialing";
+      if (plan !== "free") {
+        return { plan, isActive };
+      }
+    }
+  } catch (err) {
+    // Table doesn't exist or no row — fall through
+    console.error("Error checking user_subscriptions:", err);
+  }
+
+  // 2. Check events_log for admin_set_plan events (admin overrides)
   try {
     const { data: planEvent } = await supabaseAdmin
       .from("events_log")
@@ -129,49 +170,59 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
       .maybeSingle();
 
     if (planEvent?.payload) {
-      const payload = planEvent.payload as { plan?: PlanType; is_active?: boolean };
-      if (payload.plan === "pro" || payload.plan === "free") {
+      const payload = planEvent.payload as { plan?: string; is_active?: boolean };
+      if (payload.plan) {
+        const plan = normalizePlanId(payload.plan);
         return {
-          plan: payload.plan,
+          plan,
           isActive: payload.is_active !== false,
         };
       }
     }
   } catch (err) {
-    // Table doesn't exist or error, fall through to env check
     console.error("Error checking admin_set_plan events:", err);
   }
 
-  // Check PRO_USER_IDS env allowlist
+  // 3. Check PRO_USER_IDS env allowlist (legacy — maps to creator_pro)
   const proUserIds = getProUserIds();
   if (proUserIds.has(normalizedUserId)) {
-    return { plan: "pro", isActive: true };
+    return { plan: "creator_pro", isActive: true };
   }
 
-  // Default: free plan
+  // 4. Default: free plan
   return { plan: "free", isActive: true };
 }
 
 /**
- * Check if a user has an active pro subscription.
+ * Check if a user has an active paid subscription (any tier above free).
+ * Fail-safe: returns true if gating is not enabled.
+ */
+export async function isPaidUser(userId: string): Promise<boolean> {
+  const plan = await getUserPlan(userId);
+  return (PLAN_RANK[plan.plan] ?? 0) >= 1 && plan.isActive;
+}
+
+/**
+ * Check if a user has an active pro subscription (creator_pro or higher).
+ * Backwards compatible — treats creator_pro+ as "pro".
  * Fail-safe: returns true if gating is not enabled.
  */
 export async function isProUser(userId: string): Promise<boolean> {
   const plan = await getUserPlan(userId);
-  return plan.plan === "pro" && plan.isActive;
+  return (PLAN_RANK[plan.plan] ?? 0) >= (PLAN_RANK["creator_pro"] ?? 2) && plan.isActive;
 }
 
 /**
- * Check if a user can perform gated actions.
+ * Check if a user can perform gated actions (requires any paid plan).
  * Returns true if:
  * - User is admin (always passes)
- * - User has pro plan
+ * - User has any paid plan (creator_lite or higher)
  * - Subscription gating is disabled (fail-safe)
  */
 export async function canPerformGatedAction(
   userId: string,
   isAdmin: boolean
-): Promise<{ allowed: boolean; reason?: string }> {
+): Promise<{ allowed: boolean; reason?: string; plan?: PlanType }> {
   // Admins always bypass
   if (isAdmin) {
     return { allowed: true };
@@ -183,15 +234,17 @@ export async function canPerformGatedAction(
     return { allowed: true };
   }
 
-  // Check user plan
-  const isPro = await isProUser(userId);
-  if (isPro) {
-    return { allowed: true };
+  // Check user plan — any paid plan passes
+  const userPlan = await getUserPlan(userId);
+  const paid = (PLAN_RANK[userPlan.plan] ?? 0) >= 1 && userPlan.isActive;
+  if (paid) {
+    return { allowed: true, plan: userPlan.plan };
   }
 
   return {
     allowed: false,
     reason: "subscription_required",
+    plan: userPlan.plan,
   };
 }
 
@@ -323,12 +376,13 @@ export async function getEffectivePlanForUser(
       .maybeSingle();
 
     if (planEvent?.payload) {
-      const payload = planEvent.payload as { plan?: PlanType };
-      if (payload.plan === "pro") {
-        return { source: "user_event", plan: "pro" };
-      }
-      if (payload.plan === "free") {
-        return { source: "user_event", plan: "free" };
+      const payload = planEvent.payload as { plan?: string };
+      if (payload.plan) {
+        // Map legacy "pro" → "pro" for org plan context (OrgPlanType)
+        const orgPlan = payload.plan === "pro" || payload.plan === "creator_pro" || payload.plan === "creator_lite" || payload.plan === "brand" || payload.plan === "agency"
+          ? "pro" as OrgPlanType
+          : "free" as OrgPlanType;
+        return { source: "user_event", plan: orgPlan };
       }
     }
   } catch (err) {

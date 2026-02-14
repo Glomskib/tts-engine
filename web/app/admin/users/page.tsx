@@ -10,7 +10,7 @@ interface User {
   email: string | null;
   role: string | null;
   created_at: string | null;
-  plan: 'free' | 'pro';
+  plan: string;
   is_active: boolean;
 }
 
@@ -85,7 +85,7 @@ export default function AdminUsersPage() {
   }, [isAdmin]);
 
   // Set plan for user
-  const handleSetPlan = async (userId: string, newPlan: 'free' | 'pro') => {
+  const handleSetPlan = async (userId: string, newPlan: string) => {
     setUpdatingUser(userId);
     setMessage(null);
 
@@ -230,23 +230,24 @@ export default function AdminUsersPage() {
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       <span style={{
                         padding: '4px 12px',
-                        backgroundColor: user.plan === 'pro' ? '#d3f9d8' : '#f8f9fa',
-                        color: user.plan === 'pro' ? '#2b8a3e' : '#495057',
-                        border: `1px solid ${user.plan === 'pro' ? '#69db7c' : '#dee2e6'}`,
+                        backgroundColor: user.plan !== 'free' ? '#d3f9d8' : '#f8f9fa',
+                        color: user.plan !== 'free' ? '#2b8a3e' : '#495057',
+                        border: `1px solid ${user.plan !== 'free' ? '#69db7c' : '#dee2e6'}`,
                         borderRadius: '20px',
                         fontSize: '12px',
                         fontWeight: 'bold',
                       }}>
-                        {user.plan.toUpperCase()}
+                        {user.plan.replace(/_/g, ' ').toUpperCase()}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       {user.plan === 'free' ? (
-                        <button type="button"
-                          onClick={() => handleSetPlan(user.user_id, 'pro')}
+                        <select
+                          onChange={(e) => e.target.value && handleSetPlan(user.user_id, e.target.value)}
                           disabled={updatingUser === user.user_id}
+                          defaultValue=""
                           style={{
-                            padding: '6px 14px',
+                            padding: '6px 10px',
                             backgroundColor: updatingUser === user.user_id ? '#adb5bd' : '#28a745',
                             color: 'white',
                             border: 'none',
@@ -256,8 +257,12 @@ export default function AdminUsersPage() {
                             fontWeight: 'bold',
                           }}
                         >
-                          {updatingUser === user.user_id ? 'Updating...' : 'Upgrade to Pro'}
-                        </button>
+                          <option value="" disabled>Upgrade to...</option>
+                          <option value="creator_lite">Creator Lite ($9)</option>
+                          <option value="creator_pro">Creator Pro ($29)</option>
+                          <option value="brand">Brand ($49)</option>
+                          <option value="agency">Agency ($149)</option>
+                        </select>
                       ) : (
                         <button type="button"
                           onClick={() => handleSetPlan(user.user_id, 'free')}
@@ -292,7 +297,7 @@ export default function AdminUsersPage() {
           color: '#6c757d',
           fontSize: '13px',
         }}>
-          Total: {users.length} user(s) | Pro: {users.filter(u => u.plan === 'pro').length} | Free: {users.filter(u => u.plan === 'free').length}
+          Total: {users.length} user(s) | Paid: {users.filter(u => u.plan !== 'free').length} | Free: {users.filter(u => u.plan === 'free').length}
         </div>
       )}
     </div>

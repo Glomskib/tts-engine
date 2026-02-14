@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
-import { getUserPlan } from "@/lib/subscription";
+import { isPaidUser } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -26,13 +26,13 @@ export async function POST(request: Request) {
   const userId = authContext.user.id;
   const userEmail = authContext.user.email || null;
 
-  // Check if user is already Pro
-  const currentPlan = await getUserPlan(userId);
-  if (currentPlan.plan === "pro" && currentPlan.isActive) {
+  // Check if user is already on a paid plan
+  const alreadyPaid = await isPaidUser(userId);
+  if (alreadyPaid) {
     return NextResponse.json({
       ok: true,
-      status: "already_pro",
-      message: "You already have a Pro subscription.",
+      status: "already_paid",
+      message: "You already have a paid subscription.",
       correlation_id: correlationId,
     });
   }

@@ -219,6 +219,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [savedConceptId, setSavedConceptId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
 
+  // GAP 2: Track saved alternative hooks
+  const [savedHookIndexes, setSavedHookIndexes] = useState<Set<number>>(new Set());
+  const [savingHookIndex, setSavingHookIndex] = useState<number | null>(null);
+
+  // GAP 6: Track concepts added to pipeline
+  const [pipelineAddedIndexes, setPipelineAddedIndexes] = useState<Set<number>>(new Set());
+  const [pipelineAddingIndex, setPipelineAddingIndex] = useState<number | null>(null);
+
   const isPaid = usageLimit === -1;
   const isRateLimited = usageRemaining !== null && usageRemaining <= 0 && !isPaid;
 
@@ -907,6 +915,57 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                     <p className="text-sm text-zinc-400 mt-1">{concept.angle}</p>
                                     <p className="text-sm text-amber-400 mt-2 font-medium">&ldquo;{concept.hook}&rdquo;</p>
                                     <p className="text-sm text-zinc-400 mt-1">{concept.outline}</p>
+                                    {/* GAP 1 + GAP 6: Action buttons */}
+                                    {isLoggedIn && (
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        <button
+                                          onClick={() => {
+                                            const params = new URLSearchParams({
+                                              hook: concept.hook || '',
+                                              inspiration: concept.outline || concept.angle || '',
+                                            });
+                                            window.location.href = `/admin/content-studio?${params.toString()}`;
+                                          }}
+                                          className="text-xs bg-teal-600 hover:bg-teal-500 text-white rounded-lg px-3 py-1.5 font-medium transition-colors"
+                                        >
+                                          Use in Studio →
+                                        </button>
+                                        {planId && planId !== 'free' && (
+                                          pipelineAddedIndexes.has(i) ? (
+                                            <span className="text-xs text-green-400 font-medium px-3 py-1.5">✓ Added</span>
+                                          ) : (
+                                            <button
+                                              onClick={async () => {
+                                                setPipelineAddingIndex(i);
+                                                try {
+                                                  const res = await fetch('/api/admin/videos', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    credentials: 'include',
+                                                    body: JSON.stringify({
+                                                      title: concept.title || 'Transcriber Script',
+                                                      script_text: `Hook: ${concept.hook}\n\n${concept.outline}`,
+                                                      status: 'SCRIPT_READY',
+                                                    }),
+                                                  });
+                                                  if (res.ok) {
+                                                    setPipelineAddedIndexes(prev => new Set([...prev, i]));
+                                                  }
+                                                } catch (e) {
+                                                  console.error('Failed to add to pipeline:', e);
+                                                } finally {
+                                                  setPipelineAddingIndex(null);
+                                                }
+                                              }}
+                                              disabled={pipelineAddingIndex === i}
+                                              className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 font-medium transition-colors disabled:opacity-50"
+                                            >
+                                              {pipelineAddingIndex === i ? '...' : '+ Add to Pipeline'}
+                                            </button>
+                                          )
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <CopyButton
                                     text={`${concept.title}\n\nHook: "${concept.hook}"\n\nAngle: ${concept.angle}\n\n${concept.outline}`}
@@ -936,13 +995,51 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                     <span className="text-xs text-zinc-500">{h.why_it_works}</span>
                                   </div>
                                 </div>
-                                <CopyButton
-                                  text={h.hook}
-                                  copyKey={`hook-${i}`}
-                                  copiedKey={copiedKey}
-                                  copy={copy}
-                                  size="xs"
-                                />
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {isLoggedIn && (
+                                    savedHookIndexes.has(i) ? (
+                                      <span className="text-xs text-green-400 font-medium px-2 py-1">✓ Saved</span>
+                                    ) : (
+                                      <button
+                                        onClick={async () => {
+                                          setSavingHookIndex(i);
+                                          try {
+                                            const res = await fetch('/api/admin/winners-bank', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              credentials: 'include',
+                                              body: JSON.stringify({
+                                                source_type: 'manual',
+                                                winner_type: 'hook',
+                                                hook: h.hook,
+                                                hook_type: h.style,
+                                                notes: h.why_it_works,
+                                              }),
+                                            });
+                                            if (res.ok) {
+                                              setSavedHookIndexes(prev => new Set([...prev, i]));
+                                            }
+                                          } catch (e) {
+                                            console.error('Failed to save hook:', e);
+                                          } finally {
+                                            setSavingHookIndex(null);
+                                          }
+                                        }}
+                                        disabled={savingHookIndex === i}
+                                        className="text-xs bg-zinc-700 hover:bg-zinc-600 text-teal-400 rounded px-2 py-1 font-medium transition-colors disabled:opacity-50"
+                                      >
+                                        {savingHookIndex === i ? '...' : '💾 Save Hook'}
+                                      </button>
+                                    )
+                                  )}
+                                  <CopyButton
+                                    text={h.hook}
+                                    copyKey={`hook-${i}`}
+                                    copiedKey={copiedKey}
+                                    copy={copy}
+                                    size="xs"
+                                  />
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -959,6 +1056,22 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                 <p className="font-medium text-white text-sm">{cat.category}</p>
                                 <p className="text-xs text-zinc-400 mt-1">{cat.reasoning}</p>
                                 <p className="text-xs text-zinc-500 mt-1">e.g. {cat.example_product}</p>
+                                <div className="flex gap-2 mt-1">
+                                  <button
+                                    onClick={() => copy(`${cat.category}: ${cat.reasoning}`, `cat-${i}`)}
+                                    className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                  >
+                                    {copiedKey === `cat-${i}` ? <span className="text-green-400">Copied!</span> : '📋 Copy'}
+                                  </button>
+                                  <a
+                                    href={`https://www.tiktok.com/shop/search?q=${encodeURIComponent(cat.category)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                                  >
+                                    🔍 Find Products →
+                                  </a>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1197,7 +1310,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           copy={copy}
                           label="Copy All"
                         />
-                        {isPortal && isLoggedIn && isPaid && (
+                        {isLoggedIn && isPaid && (
                           savedConceptId ? (
                             <Link
                               href={`/admin/content-studio?concept=${savedConceptId}`}

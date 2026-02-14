@@ -19,6 +19,11 @@ import {
   ArrowRight,
   RotateCcw,
   List,
+  Upload,
+  Clock,
+  Hash,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -71,7 +76,26 @@ interface ProductEnrichment {
   urgency_triggers: string[];
 }
 
-type TabType = 'tiktok' | 'manual';
+interface BulkScrapeResult {
+  url: string;
+  data: ScrapedProductData | null;
+  error?: string;
+  enrichment?: ProductEnrichment | null;
+  enriching?: boolean;
+  saved?: boolean;
+  savedId?: string;
+}
+
+interface RecentImport {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+  created_at: string;
+  product_image_url: string | null;
+}
+
+type TabType = 'tiktok' | 'bulk' | 'manual';
 
 const CATEGORY_OPTIONS = [
   'Beauty',
@@ -136,6 +160,18 @@ export default function ImportProductsPage() {
   const [enrichmentError, setEnrichmentError] = useState<string | null>(null);
   const [showEnrichment, setShowEnrichment] = useState(false);
 
+  // Bulk import state
+  const [bulkUrls, setBulkUrls] = useState('');
+  const [bulkScraping, setBulkScraping] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, phase: '' });
+  const [bulkResults, setBulkResults] = useState<BulkScrapeResult[]>([]);
+  const [bulkAutoEnrich, setBulkAutoEnrich] = useState(true);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Import history state
+  const [recentImports, setRecentImports] = useState<RecentImport[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
   // Fetch brand entities on mount
   useEffect(() => {
     fetch('/api/brands')
@@ -151,6 +187,31 @@ export default function ImportProductsPage() {
       .catch(err => console.error('Failed to fetch brands:', err))
       .finally(() => setBrandsLoading(false));
   }, []);
+
+  // Fetch recent imports on mount
+  const fetchImportHistory = useCallback(() => {
+    setHistoryLoading(true);
+    fetch('/api/products?limit=10')
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.data?.products) {
+          setRecentImports(data.data.products.map((p: Record<string, unknown>) => ({
+            id: p.id as string,
+            name: p.name as string,
+            brand: p.brand as string,
+            category: (p.category as string) || 'General',
+            created_at: p.created_at as string,
+            product_image_url: (p.product_image_url as string) || null,
+          })));
+        }
+      })
+      .catch(err => console.error('Failed to fetch import history:', err))
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchImportHistory();
+  }, [fetchImportHistory]);
 
   /* ---------------------------------------------------------------- */
   /*  TikTok Scraping Handlers                                        */
@@ -279,6 +340,9 @@ export default function ImportProductsPage() {
       setSavedProductId(data.data.id);
       setSavedProductName(scrapedData.name);
 
+      // Refresh import history
+      fetchImportHistory();
+
       // Reset form
       setTiktokUrl('');
       setScrapedData(null);
@@ -291,7 +355,7 @@ export default function ImportProductsPage() {
     } finally {
       setSavingScraped(false);
     }
-  }, [scrapedData, tiktokUrl, brandEntities, showSuccess, showError]);
+  }, [scrapedData, tiktokUrl, brandEntities, showSuccess, showError, fetchImportHistory]);
 
   /* ---------------------------------------------------------------- */
   /*  Manual Entry Handlers                                           */
@@ -376,6 +440,9 @@ export default function ImportProductsPage() {
       setSavedProductId(data.data.id);
       setSavedProductName(manualForm.name);
 
+      // Refresh import history
+      fetchImportHistory();
+
       // Reset form
       setManualForm({
         name: '',
@@ -390,7 +457,7 @@ export default function ImportProductsPage() {
     } finally {
       setSavingManual(false);
     }
-  }, [manualForm, brandEntities, showSuccess]);
+  }, [manualForm, brandEntities, showSuccess, fetchImportHistory]);
 
   /* ---------------------------------------------------------------- */
   /*  AI Enrichment Handler                                           */
@@ -441,6 +508,201 @@ export default function ImportProductsPage() {
       setEnriching(false);
     }
   }, [showSuccess]);
+
+  /* ---------------------------------------------------------------- */
+  /*  Bulk Import Handlers                                            */
+  /* ---------------------------------------------------------------- */
+
+  const handleBulkScrape = useCallback(async () => {
+    const urls = bulkUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0 && u.startsWith('http'));
+
+    if (urls.length === 0) {
+      showError('Please enter at least one valid URL');
+      return;
+    }
+
+    if (urls.length > 20) {
+      showError('Maximum 20 URLs per batch');
+      return;
+    }
+
+    setBulkScraping(true);
+    setBulkResults([]);
+    setBulkProgress({ current: 0, total: urls.length, phase: 'Scraping' });
+
+    const results: BulkScrapeResult[] = [];
+
+    for (let i = 0; i < urls.length; i++) {
+      setBulkProgress({ current: i + 1, total: urls.length, phase: 'Scraping' });
+
+      try {
+        const res = await fetch('/api/products/scrape-tiktok', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: urls[i] }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          results.push({ url: urls[i], data: data.data.product, enrichment: null });
+        } else {
+          results.push({ url: urls[i], data: null, error: data.message || data.error || 'Failed to scrape' });
+        }
+      } catch {
+        results.push({ url: urls[i], data: null, error: 'Network error' });
+      }
+
+      setBulkResults([...results]);
+    }
+
+    // Auto-enrich if enabled
+    if (bulkAutoEnrich) {
+      const scrapedResults = results.filter(r => r.data);
+      for (let i = 0; i < scrapedResults.length; i++) {
+        const r = scrapedResults[i];
+        const resultIdx = results.indexOf(r);
+
+        setBulkProgress({ current: i + 1, total: scrapedResults.length, phase: 'Enriching' });
+        results[resultIdx] = { ...results[resultIdx], enriching: true };
+        setBulkResults([...results]);
+
+        try {
+          const res = await fetch('/api/products/enrich', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: r.data!.name,
+              brand: r.data!.brand,
+              category: r.data!.category,
+              description: r.data!.description,
+              price: r.data!.price,
+              sold_count: r.data!.sold_count,
+              seller_location: r.data!.seller_location,
+              variants: r.data!.variants,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (res.ok && data.ok) {
+            results[resultIdx] = { ...results[resultIdx], enrichment: data.data.enrichment, enriching: false };
+          } else {
+            results[resultIdx] = { ...results[resultIdx], enriching: false };
+          }
+        } catch {
+          results[resultIdx] = { ...results[resultIdx], enriching: false };
+        }
+
+        setBulkResults([...results]);
+      }
+    }
+
+    setBulkScraping(false);
+    const successCount = results.filter(r => r.data).length;
+    showSuccess(`Scraped ${successCount} of ${urls.length} products`);
+  }, [bulkUrls, bulkAutoEnrich, showSuccess, showError]);
+
+  const handleBulkSave = useCallback(async () => {
+    const toSave = bulkResults.filter(r => r.data && !r.saved);
+    if (toSave.length === 0) return;
+
+    setBulkSaving(true);
+    let saved = 0;
+
+    for (const r of toSave) {
+      const resultIdx = bulkResults.indexOf(r);
+
+      // Find or create brand
+      let brandId: string | null = null;
+      const existingBrand = brandEntities.find(b => b.name.toLowerCase() === r.data!.brand.toLowerCase());
+      if (existingBrand) {
+        brandId = existingBrand.id;
+      } else {
+        try {
+          const brandRes = await fetch('/api/brands', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: r.data!.brand }),
+          });
+          const brandData = await brandRes.json();
+          if (brandData.ok && brandData.data) {
+            brandId = brandData.data.id;
+            setBrandEntities(prev => {
+              if (prev.find(b => b.id === brandId)) return prev;
+              return [...prev, { id: brandId!, name: r.data!.brand }];
+            });
+          }
+        } catch {
+          // Continue without brand_id
+        }
+      }
+
+      // Build notes
+      const notesLines: string[] = [
+        r.data!.sold_count ? `Sold: ${r.data!.sold_count.toLocaleString()} units` : null,
+        r.data!.seller_location ? `Location: ${r.data!.seller_location}` : null,
+        r.data!.variants.length > 0 ? `Variants: ${r.data!.variants.join('; ')}` : null,
+        r.data!.discount ? `Discount: ${r.data!.discount}` : null,
+      ].filter(Boolean) as string[];
+
+      if (r.enrichment) {
+        notesLines.push('', '=== AI ENRICHMENT ===');
+        if (r.enrichment.benefits.length > 0) {
+          notesLines.push('', 'BENEFITS:');
+          r.enrichment.benefits.forEach(b => notesLines.push(`• ${b}`));
+        }
+        if (r.enrichment.unique_selling_points.length > 0) {
+          notesLines.push('', 'UNIQUE SELLING POINTS:');
+          r.enrichment.unique_selling_points.forEach(u => notesLines.push(`• ${u}`));
+        }
+      }
+
+      try {
+        const res = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: r.data!.name,
+            brand: r.data!.brand,
+            brand_id: brandId,
+            category: r.data!.category,
+            description: r.data!.description,
+            primary_link: r.url,
+            tiktok_showcase_url: r.url,
+            notes: notesLines.join('\n'),
+            price: r.data!.price,
+            product_image_url: r.data!.images[0] || null,
+            images: r.data!.images,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          setBulkResults(prev => prev.map((p, idx) =>
+            idx === resultIdx ? { ...p, saved: true, savedId: data.data.id } : p
+          ));
+          saved++;
+        }
+      } catch {
+        // Skip failed saves
+      }
+    }
+
+    setBulkSaving(false);
+    if (saved > 0) {
+      showSuccess(`Saved ${saved} product${saved !== 1 ? 's' : ''}!`);
+      celebrate('first-product', showSuccess);
+      fetchImportHistory();
+    }
+  }, [bulkResults, brandEntities, showSuccess, fetchImportHistory]);
+
+  const handleRemoveBulkResult = useCallback((index: number) => {
+    setBulkResults(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
   /* ---------------------------------------------------------------- */
   /*  Post-Save Action Handlers                                       */
@@ -494,6 +756,23 @@ export default function ImportProductsPage() {
             TikTok Shop
           </span>
           {activeTab === 'tiktok' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('bulk')}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+            activeTab === 'bulk'
+              ? 'text-violet-400'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Upload size={16} />
+            Bulk Import
+          </span>
+          {activeTab === 'bulk' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />
           )}
         </button>
@@ -900,6 +1179,236 @@ export default function ImportProductsPage() {
         </div>
       )}
 
+      {/* Bulk Import Tab */}
+      {activeTab === 'bulk' && (
+        <div className="space-y-6">
+          {/* URL Input Card */}
+          <AdminCard
+            title="Bulk Import from TikTok Shop"
+            subtitle="Paste multiple TikTok Shop URLs (one per line) to scrape and import them all at once"
+          >
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="bulk-urls" className="block text-sm font-medium text-zinc-300 mb-1.5">
+                  TikTok Shop URLs
+                </label>
+                <textarea
+                  id="bulk-urls"
+                  value={bulkUrls}
+                  onChange={(e) => setBulkUrls(e.target.value)}
+                  rows={6}
+                  placeholder={`https://www.tiktok.com/shop/pdp/product-1/123456\nhttps://www.tiktok.com/shop/pdp/product-2/789012\nhttps://www.tiktok.com/shop/pdp/product-3/345678`}
+                  className="w-full rounded-lg border border-white/10 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-y font-mono"
+                  disabled={bulkScraping}
+                />
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-xs text-zinc-500">
+                    {bulkUrls.split('\n').filter(u => u.trim().startsWith('http')).length} URL{bulkUrls.split('\n').filter(u => u.trim().startsWith('http')).length !== 1 ? 's' : ''} detected (max 20)
+                  </p>
+                </div>
+              </div>
+
+              {/* Auto-enrich toggle */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={bulkAutoEnrich}
+                    onChange={(e) => setBulkAutoEnrich(e.target.checked)}
+                    className="sr-only"
+                    disabled={bulkScraping}
+                  />
+                  <div className={`w-10 h-5 rounded-full transition-colors ${bulkAutoEnrich ? 'bg-violet-500' : 'bg-zinc-700'}`} />
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${bulkAutoEnrich ? 'translate-x-5' : ''}`} />
+                </div>
+                <div>
+                  <span className="text-sm text-zinc-200">Auto-enrich with AI</span>
+                  <p className="text-xs text-zinc-500">Generate hooks, audiences, and selling points for each product</p>
+                </div>
+              </label>
+
+              {/* Scrape Button */}
+              <AdminButton
+                onClick={handleBulkScrape}
+                disabled={bulkScraping || bulkUrls.split('\n').filter(u => u.trim().startsWith('http')).length === 0}
+              >
+                {bulkScraping ? (
+                  <>
+                    <Loader2 size={16} className="mr-1.5 animate-spin" />
+                    {bulkProgress.phase} {bulkProgress.current}/{bulkProgress.total}...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={16} className="mr-1.5" />
+                    Scrape All Products
+                  </>
+                )}
+              </AdminButton>
+            </div>
+          </AdminCard>
+
+          {/* Progress Bar */}
+          {bulkScraping && bulkProgress.total > 0 && (
+            <div className="rounded-xl border border-white/10 bg-zinc-900/50 px-5 py-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-zinc-300">
+                  {bulkProgress.phase}: {bulkProgress.current} of {bulkProgress.total}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {Math.round((bulkProgress.current / bulkProgress.total) * 100)}%
+                </span>
+              </div>
+              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                  style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Results */}
+          {bulkResults.length > 0 && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-medium text-zinc-200">
+                    {bulkResults.filter(r => r.data).length} scraped, {bulkResults.filter(r => !r.data).length} failed
+                    {bulkResults.some(r => r.saved) && `, ${bulkResults.filter(r => r.saved).length} saved`}
+                  </h3>
+                </div>
+                {bulkResults.some(r => r.data && !r.saved) && !bulkScraping && (
+                  <AdminButton onClick={handleBulkSave} disabled={bulkSaving}>
+                    {bulkSaving ? (
+                      <>
+                        <Loader2 size={16} className="mr-1.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} className="mr-1.5" />
+                        Save All ({bulkResults.filter(r => r.data && !r.saved).length})
+                      </>
+                    )}
+                  </AdminButton>
+                )}
+              </div>
+
+              {/* Product Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {bulkResults.map((result, idx) => (
+                  <div
+                    key={idx}
+                    className={`rounded-xl border p-4 ${
+                      result.saved
+                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        : result.data
+                        ? 'border-white/10 bg-zinc-900/50'
+                        : 'border-red-500/20 bg-red-500/5'
+                    }`}
+                  >
+                    {result.data ? (
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          {/* Product Image */}
+                          {result.data.images[0] && (
+                            <img
+                              src={result.data.images[0]}
+                              alt={result.data.name}
+                              className="w-14 h-14 rounded-lg border border-white/10 object-cover shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="text-sm font-medium text-zinc-100 line-clamp-2">
+                                {result.data.name}
+                              </h4>
+                              {!result.saved && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveBulkResult(idx)}
+                                  className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                                >
+                                  <X size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-500 mt-0.5">{result.data.brand}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {result.data.price && (
+                                <span className="text-xs font-medium text-zinc-300">
+                                  ${result.data.price.toFixed(2)}
+                                </span>
+                              )}
+                              {result.data.sold_count && (
+                                <span className="text-xs text-zinc-500">
+                                  {result.data.sold_count.toLocaleString()} sold
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-800 text-zinc-400 border border-white/10">
+                            {result.data.category}
+                          </span>
+                          {result.enriching && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                              <Loader2 size={10} className="animate-spin" />
+                              Enriching...
+                            </span>
+                          )}
+                          {result.enrichment && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <Brain size={10} />
+                              Enriched
+                            </span>
+                          )}
+                          {result.saved && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <CheckCircle size={10} />
+                              Saved
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-zinc-400 truncate">{result.url}</p>
+                          <p className="text-xs text-red-300 mt-0.5">{result.error}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Reset button after save */}
+              {bulkResults.every(r => !r.data || r.saved) && !bulkScraping && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkResults([]);
+                      setBulkUrls('');
+                    }}
+                    className="text-sm text-zinc-500 hover:text-zinc-300"
+                  >
+                    <RotateCcw size={14} className="inline mr-1.5" />
+                    Import More Products
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Manual Entry Tab */}
       {activeTab === 'manual' && (
         <AdminCard
@@ -1086,6 +1595,60 @@ export default function ImportProductsPage() {
             </div>
           </div>
         </AdminCard>
+      )}
+
+      {/* Import History */}
+      {recentImports.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-zinc-900/50 px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-zinc-500" />
+              <h3 className="text-sm font-medium text-zinc-200">Recent Imports</h3>
+            </div>
+            <Link href="/admin/products" className="text-xs text-violet-400 hover:text-violet-300">
+              View All
+            </Link>
+          </div>
+          {historyLoading ? (
+            <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <Loader2 size={14} className="animate-spin" />
+              Loading...
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recentImports.slice(0, 5).map(product => (
+                <Link
+                  key={product.id}
+                  href={`/admin/products/${product.id}`}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-800/60 transition-colors group"
+                >
+                  {product.product_image_url ? (
+                    <img
+                      src={product.product_image_url}
+                      alt={product.name}
+                      className="w-8 h-8 rounded border border-white/10 object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded border border-white/10 bg-zinc-800 flex items-center justify-center shrink-0">
+                      <Package size={14} className="text-zinc-600" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-200 truncate group-hover:text-zinc-100">
+                      {product.name}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {product.brand} &middot; {product.category}
+                    </p>
+                  </div>
+                  <span className="text-xs text-zinc-600 shrink-0">
+                    {new Date(product.created_at).toLocaleDateString()}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Help Card */}

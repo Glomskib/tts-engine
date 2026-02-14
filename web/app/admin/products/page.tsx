@@ -27,6 +27,8 @@ interface Product {
   notes?: string | null;
   primary_link?: string | null;
   tiktok_showcase_url?: string | null;
+  tiktok_product_id?: string | null;
+  source?: string | null;
   slug?: string | null;
   category_risk?: 'low' | 'medium' | 'high' | null;
   pain_points?: PainPoint[] | null;
@@ -845,7 +847,21 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div>
-                          <span className="font-medium text-zinc-100">{product.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-zinc-100">{product.name}</span>
+                            {product.source === 'tiktok_shop' && (
+                              <a
+                                href={product.tiktok_showcase_url || `https://www.tiktok.com/view/product/${product.tiktok_product_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#fe2c55]/15 text-[#fe2c55] text-[10px] font-semibold hover:bg-[#fe2c55]/25 transition-colors shrink-0"
+                                title="View on TikTok Shop"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                TikTok Shop
+                              </a>
+                            )}
+                          </div>
                           {product.product_display_name && (
                             <div className="text-xs text-zinc-400 mt-0.5">
                               Display: {product.product_display_name}

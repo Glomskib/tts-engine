@@ -51,6 +51,13 @@ export default function TikTokShopSettingsPage() {
   const [products, setProducts] = useState<TikTokProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    total_fetched: number;
+    synced: number;
+    created: number;
+    updated: number;
+    skipped: number;
+  } | null>(null);
 
   // Check URL params for callback results
   useEffect(() => {
@@ -120,7 +127,6 @@ export default function TikTokShopSettingsPage() {
       const json = await res.json();
       if (json.ok) {
         setProducts(json.data?.products || []);
-        showSuccess(`Loaded ${json.data?.products?.length || 0} products`);
       } else {
         showError(json.error || 'Failed to fetch products');
       }
@@ -133,8 +139,26 @@ export default function TikTokShopSettingsPage() {
 
   const handleSync = async () => {
     setSyncing(true);
-    await fetchProducts();
-    setSyncing(false);
+    setSyncResult(null);
+    try {
+      const res = await fetch('/api/tiktok-shop/sync', { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setSyncResult(json.data);
+        showSuccess(
+          `Synced ${json.data.synced} products from TikTok Shop (${json.data.created} new, ${json.data.updated} updated)`
+        );
+        // Also refresh the product preview
+        fetchProducts();
+        fetchStatus();
+      } else {
+        showError(json.error || 'Sync failed');
+      }
+    } catch {
+      showError('Failed to sync products');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   if (loading) {
@@ -287,6 +311,25 @@ export default function TikTokShopSettingsPage() {
       </AdminCard>
 
       {/* Products */}
+      {/* Sync Result Banner */}
+      {syncResult && (
+        <div className="p-4 rounded-xl border border-teal-500/20 bg-teal-500/10">
+          <div className="flex items-center gap-3">
+            <Check className="w-5 h-5 text-teal-400 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-teal-300">
+                Synced {syncResult.synced} products from TikTok Shop
+              </p>
+              <p className="text-xs text-teal-400/70 mt-0.5">
+                {syncResult.created} created, {syncResult.updated} updated
+                {syncResult.skipped > 0 ? `, ${syncResult.skipped} skipped` : ''}
+                {' '}&middot; {syncResult.total_fetched} total in shop
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isConnected && (
         <AdminCard
           title="Shop Products"
@@ -502,6 +545,11 @@ export default function TikTokShopSettingsPage() {
               method: 'GET',
               path: '/api/tiktok-shop/callback',
               desc: 'OAuth2 callback (handled automatically)',
+            },
+            {
+              method: 'POST',
+              path: '/api/tiktok-shop/sync',
+              desc: 'Sync TikTok products into FlashFlow products table',
             },
             {
               method: 'POST',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Eye, Search, Brain, Upload, Video, TrendingUp, X, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Eye, Search, Brain, Upload, Video, TrendingUp, X, Loader2, ExternalLink, ArrowLeft, Swords, Lightbulb, Shield, Target, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonCard, SkeletonPageHeader } from '@/components/ui/Skeleton';
 import { PageErrorState } from '@/components/ui/PageErrorState';
@@ -44,6 +44,22 @@ interface AnalysisResult {
   remix_ideas?: string[];
 }
 
+interface DnaComparison {
+  competitor_name: string;
+  competitor_handle: string;
+  my_stats: { avgViews: number; avgEngagement: number };
+  competitor_stats: { avgViews: number; avgEngagement: number; totalVideos: number };
+  comparison?: {
+    engagement?: { mine: number; theirs: number; verdict: string };
+    avg_views?: { mine: number; theirs: number; verdict: string };
+    content_diversity?: { mine: string; theirs: string; verdict: string };
+  };
+  steal_worthy?: Array<{ what: string; how_to_adapt: string; example_hook: string }>;
+  your_advantages?: Array<{ what: string; how_to_leverage: string }>;
+  gaps_to_fill?: Array<{ gap: string; opportunity: string }>;
+  tactical_plan?: string;
+}
+
 export default function CompetitorsPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +75,11 @@ export default function CompetitorsPage() {
   const [newName, setNewName] = useState('');
   const [newHandle, setNewHandle] = useState('');
   const [newCategory, setNewCategory] = useState('');
+
+  // DNA comparison
+  const [dnaComparison, setDnaComparison] = useState<DnaComparison | null>(null);
+  const [comparingDna, setComparingDna] = useState(false);
+  const [dnaExpanded, setDnaExpanded] = useState(true);
 
   // Track video form
   const [trackUrl, setTrackUrl] = useState('');
@@ -122,6 +143,7 @@ export default function CompetitorsPage() {
   const selectCompetitor = async (id: string) => {
     setSelectedId(id);
     setAnalysis(null);
+    setDnaComparison(null);
     setLoadingVideos(true);
     try {
       const res = await fetch(`/api/competitors/${id}`);
@@ -174,6 +196,27 @@ export default function CompetitorsPage() {
         showSuccess('Added to Winners Bank!');
       }
     } catch (e) { console.error(e); }
+  };
+
+  const handleDnaCompare = async () => {
+    if (!selectedId) return;
+    setComparingDna(true);
+    setDnaComparison(null);
+    try {
+      const res = await fetch('/api/competitors/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competitor_id: selectedId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setDnaComparison(data.data);
+        setDnaExpanded(true);
+      } else {
+        showError(data.error || 'DNA comparison failed');
+      }
+    } catch (e) { console.error(e); showError('DNA comparison failed'); }
+    finally { setComparingDna(false); }
   };
 
   const selected = competitors.find(c => c.id === selectedId);
@@ -289,7 +332,7 @@ export default function CompetitorsPage() {
               <div className="space-y-4">
                 {/* Mobile Back Button */}
                 <button
-                  onClick={() => { setSelectedId(null); setSelectedVideos([]); setAnalysis(null); }}
+                  onClick={() => { setSelectedId(null); setSelectedVideos([]); setAnalysis(null); setDnaComparison(null); }}
                   className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white mb-3 lg:hidden btn-press min-h-[44px]"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back to list
@@ -302,14 +345,24 @@ export default function CompetitorsPage() {
                       <h2 className="text-lg font-bold">{selected.name}</h2>
                       <p className="text-sm text-zinc-400">{selected.tiktok_handle} {selected.category ? `| ${selected.category}` : ''}</p>
                     </div>
-                    <button
-                      onClick={handleAnalyze}
-                      disabled={analyzing}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm transition-colors btn-press min-h-[44px] self-start"
-                    >
-                      {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-                      {analyzing ? 'Analyzing...' : 'AI Analysis'}
-                    </button>
+                    <div className="flex gap-2 self-start">
+                      <button
+                        onClick={handleAnalyze}
+                        disabled={analyzing}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm transition-colors btn-press min-h-[44px]"
+                      >
+                        {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                        {analyzing ? 'Analyzing...' : 'AI Analysis'}
+                      </button>
+                      <button
+                        onClick={handleDnaCompare}
+                        disabled={comparingDna}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-lg text-sm transition-colors btn-press min-h-[44px]"
+                      >
+                        {comparingDna ? <Loader2 className="w-4 h-4 animate-spin" /> : <Swords className="w-4 h-4" />}
+                        {comparingDna ? 'Comparing...' : 'DNA Compare'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Track Video Input */}
@@ -390,6 +443,136 @@ export default function CompetitorsPage() {
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* DNA Comparison Results */}
+                {dnaComparison && (
+                  <div className="p-5 bg-zinc-900 border border-amber-500/30 rounded-xl">
+                    <button
+                      onClick={() => setDnaExpanded(!dnaExpanded)}
+                      className="flex items-center justify-between w-full mb-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Swords className="w-4 h-4 text-amber-400" />
+                        <h3 className="font-semibold text-amber-300">DNA Comparison: You vs @{dnaComparison.competitor_handle}</h3>
+                      </div>
+                      {dnaExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                    </button>
+
+                    {dnaExpanded && (
+                      <div className="space-y-5">
+                        {/* Head-to-Head Stats */}
+                        {dnaComparison.comparison && (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {dnaComparison.comparison.engagement && (
+                              <div className="p-3 bg-zinc-800 rounded-lg">
+                                <div className="text-[10px] font-semibold text-zinc-500 uppercase mb-1">Engagement</div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-teal-400">{dnaComparison.comparison.engagement.mine}%</span>
+                                  <span className="text-zinc-500">vs</span>
+                                  <span className="text-amber-400">{dnaComparison.comparison.engagement.theirs}%</span>
+                                </div>
+                                <div className="text-xs text-zinc-400 mt-1">{dnaComparison.comparison.engagement.verdict}</div>
+                              </div>
+                            )}
+                            {dnaComparison.comparison.avg_views && (
+                              <div className="p-3 bg-zinc-800 rounded-lg">
+                                <div className="text-[10px] font-semibold text-zinc-500 uppercase mb-1">Avg Views</div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-teal-400">{Number(dnaComparison.comparison.avg_views.mine).toLocaleString()}</span>
+                                  <span className="text-zinc-500">vs</span>
+                                  <span className="text-amber-400">{Number(dnaComparison.comparison.avg_views.theirs).toLocaleString()}</span>
+                                </div>
+                                <div className="text-xs text-zinc-400 mt-1">{dnaComparison.comparison.avg_views.verdict}</div>
+                              </div>
+                            )}
+                            {dnaComparison.comparison.content_diversity && (
+                              <div className="p-3 bg-zinc-800 rounded-lg">
+                                <div className="text-[10px] font-semibold text-zinc-500 uppercase mb-1">Content Diversity</div>
+                                <div className="text-xs text-zinc-400 mt-1">{dnaComparison.comparison.content_diversity.verdict}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Steal-Worthy Ideas */}
+                        {dnaComparison.steal_worthy && dnaComparison.steal_worthy.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Lightbulb className="w-3.5 h-3.5 text-yellow-400" />
+                              <span className="text-xs font-semibold text-zinc-400 uppercase">Steal-Worthy Ideas</span>
+                            </div>
+                            <div className="space-y-2">
+                              {dnaComparison.steal_worthy.map((idea, i) => (
+                                <div key={i} className="p-3 bg-zinc-800 rounded-lg">
+                                  <div className="text-sm font-medium text-white">{idea.what}</div>
+                                  <div className="text-xs text-zinc-400 mt-1">{idea.how_to_adapt}</div>
+                                  {idea.example_hook && (
+                                    <div className="flex items-center justify-between mt-2 p-2 bg-zinc-900 rounded-md">
+                                      <span className="text-xs text-teal-400 italic flex-1 mr-2">&ldquo;{idea.example_hook}&rdquo;</span>
+                                      <a
+                                        href={`/admin/content-studio?hook=${encodeURIComponent(idea.example_hook)}`}
+                                        className="text-[10px] px-2.5 py-1 bg-teal-600 hover:bg-teal-500 rounded text-white whitespace-nowrap transition-colors"
+                                      >
+                                        Use This Hook →
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Your Advantages */}
+                        {dnaComparison.your_advantages && dnaComparison.your_advantages.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Shield className="w-3.5 h-3.5 text-green-400" />
+                              <span className="text-xs font-semibold text-zinc-400 uppercase">Your Advantages</span>
+                            </div>
+                            <div className="space-y-2">
+                              {dnaComparison.your_advantages.map((adv, i) => (
+                                <div key={i} className="p-3 bg-zinc-800 rounded-lg">
+                                  <div className="text-sm font-medium text-green-300">{adv.what}</div>
+                                  <div className="text-xs text-zinc-400 mt-1">{adv.how_to_leverage}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Gaps to Fill */}
+                        {dnaComparison.gaps_to_fill && dnaComparison.gaps_to_fill.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Target className="w-3.5 h-3.5 text-red-400" />
+                              <span className="text-xs font-semibold text-zinc-400 uppercase">Gaps to Fill</span>
+                            </div>
+                            <div className="space-y-2">
+                              {dnaComparison.gaps_to_fill.map((gap, i) => (
+                                <div key={i} className="p-3 bg-zinc-800 rounded-lg">
+                                  <div className="text-sm font-medium text-red-300">{gap.gap}</div>
+                                  <div className="text-xs text-zinc-400 mt-1">{gap.opportunity}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tactical Plan */}
+                        {dnaComparison.tactical_plan && (
+                          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Zap className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="text-xs font-semibold text-amber-400 uppercase">This Week&apos;s Game Plan</span>
+                            </div>
+                            <p className="text-sm text-zinc-300">{dnaComparison.tactical_plan}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -25,7 +25,7 @@ import {
   scoreScript,
   type ScriptScoreResult,
 } from '@/lib/script-scorer';
-import { textToSpeech } from '@/lib/elevenlabs';
+import { textToSpeech, formatForTTS } from '@/lib/elevenlabs';
 import { uploadAudio, generateVideo, getPersonaByName } from '@/lib/heygen';
 import { BRAND_PERSONA_MAP } from '@/lib/product-persona-map';
 import { lintScriptAndCaption, type PolicyPack } from '@/lib/compliance-linter';
@@ -512,7 +512,7 @@ export async function POST(request: NextRequest) {
     // Generate TTS audio via ElevenLabs (voice matches avatar gender)
     let audioBuffer: ArrayBuffer;
     try {
-      audioBuffer = await textToSpeech(fullScript, voiceId, {
+      audioBuffer = await textToSpeech(formatForTTS(fullScript), voiceId, {
         stability: personaConfig.voiceStability,
         similarityBoost: personaConfig.voiceSimilarityBoost,
       });

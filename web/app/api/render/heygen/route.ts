@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { textToSpeech } from "@/lib/elevenlabs";
+import { textToSpeech, formatForTTS } from "@/lib/elevenlabs";
 import { uploadAudio, generateVideo, getPersona } from "@/lib/heygen";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { logVideoActivity } from "@/lib/videoActivity";
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
 
     // --- Step 1: Generate TTS via ElevenLabs (persona voice settings) ---
     const resolvedVoiceId = voiceId || persona.voiceId;
-    const audioBuffer = await textToSpeech(ttsText, resolvedVoiceId, {
+    const audioBuffer = await textToSpeech(formatForTTS(ttsText), resolvedVoiceId, {
       stability: persona.voiceStability,
       similarityBoost: persona.voiceSimilarityBoost,
     });

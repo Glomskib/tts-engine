@@ -35,6 +35,7 @@ interface UserSettings {
     video_aspect_ratio: string;
     video_quality: string;
     auto_save: boolean;
+    ambient_sfx_enabled: boolean;
   };
   accessibility: {
     reduce_motion: boolean;
@@ -935,6 +936,18 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={settings.defaults.auto_save}
                     onChange={(e) => updateSettings({ defaults: { ...settings.defaults, auto_save: e.target.checked } })}
+                    className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
+                  />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <div className="text-sm font-medium text-zinc-200">Ambient SFX</div>
+                    <div className="text-sm text-zinc-500">Add subtle sound effects to AI-rendered videos (TikTok Shop safe)</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.defaults.ambient_sfx_enabled}
+                    onChange={(e) => updateSettings({ defaults: { ...settings.defaults, ambient_sfx_enabled: e.target.checked } })}
                     className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
                   />
                 </label>

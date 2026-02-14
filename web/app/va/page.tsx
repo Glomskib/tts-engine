@@ -347,6 +347,13 @@ function VideoCard({
             </div>
           )}
 
+          {/* Trending sound tip for ready-to-post videos */}
+          {video.recording_status === "READY_TO_POST" && (
+            <div className="p-4 bg-blue-900/20 border border-blue-800/40 rounded-xl text-sm text-blue-300">
+              <span className="font-semibold">TikTok tip:</span> After uploading, add a trending original sound in the TikTok app if the video is eligible. Shop-tagged videos can use original sounds but NOT commercial music.
+            </div>
+          )}
+
           {/* Revision notes for rejected videos */}
           {video.recording_status === "REJECTED" && (
             <div className="mt-2 p-4 bg-red-900/20 border border-red-900/40 rounded-xl">

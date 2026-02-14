@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
     video_aspect_ratio: '9:16',
     video_quality: 'high',
     auto_save: true,
+    ambient_sfx_enabled: false,
   },
   accessibility: {
     reduce_motion: false,

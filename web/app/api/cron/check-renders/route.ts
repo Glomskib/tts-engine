@@ -18,13 +18,46 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTaskStatus } from "@/lib/runway";
 import { getVideoStatus as getHeyGenStatus } from "@/lib/heygen";
 import { getRenderStatus } from "@/lib/shotstack";
-import { textToSpeech } from "@/lib/elevenlabs";
-import { submitCompose } from "@/lib/compose";
+import { textToSpeech, formatForTTS } from "@/lib/elevenlabs";
+import { submitCompose, SfxClip } from "@/lib/compose";
+import { buildDefaultSfxPlan } from "@/lib/ambient-audio";
 import { runQualityCheck } from "@/app/api/render/quality-check/route";
 import { sendTelegramNotification } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+/**
+ * Get SFX clips for a video if the owner has ambient SFX enabled.
+ * Returns undefined if disabled or no owner found.
+ */
+async function getSfxClipsForVideo(videoId: string, duration: number): Promise<SfxClip[] | undefined> {
+  try {
+    const { data: video } = await supabaseAdmin
+      .from("videos")
+      .select("client_user_id")
+      .eq("id", videoId)
+      .single();
+
+    if (!video?.client_user_id) return undefined;
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("settings")
+      .eq("id", video.client_user_id)
+      .single();
+
+    const settings = profile?.settings as Record<string, unknown> | null;
+    const defaults = settings?.defaults as Record<string, unknown> | undefined;
+    if (!defaults?.ambient_sfx_enabled) return undefined;
+
+    const plan = await buildDefaultSfxPlan(duration);
+    return plan.map(({ url, start, length, volume }) => ({ url, start, length, volume }));
+  } catch (err) {
+    console.warn(`[check-renders] SFX lookup failed for ${videoId}:`, err);
+    return undefined;
+  }
+}
 
 export async function GET() {
   const results: Record<string, unknown>[] = [];
@@ -209,6 +242,9 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
           productImageUrl = product?.product_image_url || undefined;
         }
 
+        // Check if owner has ambient SFX enabled
+        const sfxClips = await getSfxClipsForVideo(video.id, 10);
+
         // Submit Shotstack compose
         const compose = await submitCompose({
           videoUrl: rehostedUrl,
@@ -217,6 +253,7 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
           cta,
           duration: 10,
           productImageUrl,
+          sfxClips,
         });
 
         // Store compose render ID on the video — Phase 1 will finalize it
@@ -299,13 +336,18 @@ async function checkHeyGenRenders(results: Record<string, unknown>[]) {
         const hasOverlays = !!(onScreenText || cta);
 
         if (hasOverlays) {
+          // Check if owner has ambient SFX enabled
+          const heygenDuration = status.duration ?? 15;
+          const sfxClips = await getSfxClipsForVideo(video.id, heygenDuration);
+
           // Submit Shotstack compose for text overlays (no additional audio — HeyGen bakes it in)
           const compose = await submitCompose({
             videoUrl: rehostedUrl,
             // No audioUrl — HeyGen video already has audio
             onScreenText,
             cta,
-            duration: status.duration ?? 15,
+            duration: heygenDuration,
+            sfxClips,
           });
 
           await supabaseAdmin
@@ -461,7 +503,7 @@ async function getVideoProductLabel(videoId: string): Promise<string> {
 }
 
 async function generateAndUploadTTS(text: string, videoId: string): Promise<string> {
-  const audioBuffer = await textToSpeech(text);
+  const audioBuffer = await textToSpeech(formatForTTS(text));
   const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
   const path = `tts/${videoId}_${Date.now()}.mp3`;
 

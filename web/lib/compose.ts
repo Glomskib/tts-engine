@@ -4,6 +4,13 @@
  */
 import { shotstackRequest } from "@/lib/shotstack";
 
+export interface SfxClip {
+  url: string;
+  start: number;
+  length: number;
+  volume: number;
+}
+
 export interface ComposeParams {
   videoUrl: string;
   audioUrl?: string;
@@ -11,6 +18,7 @@ export interface ComposeParams {
   cta?: string;
   duration?: number;
   productImageUrl?: string;
+  sfxClips?: SfxClip[];
 }
 
 export interface ComposeResult {
@@ -123,11 +131,22 @@ function buildProductImageClips(
  * Throws on failure.
  */
 export async function submitCompose(params: ComposeParams): Promise<ComposeResult> {
-  const { videoUrl, audioUrl, onScreenText, cta, productImageUrl } = params;
+  const { videoUrl, audioUrl, onScreenText, cta, productImageUrl, sfxClips } = params;
   const duration = params.duration ?? 10;
   const ctaLength = 3.5;
 
   const tracks: Record<string, unknown>[] = [];
+
+  // SFX audio track — subtle ambient sound effects
+  if (sfxClips?.length) {
+    tracks.unshift({
+      clips: sfxClips.map((clip) => ({
+        asset: { type: "audio", src: clip.url, volume: clip.volume },
+        start: clip.start,
+        length: clip.length,
+      })),
+    });
+  }
 
   if (cta) {
     tracks.push({

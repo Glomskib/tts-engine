@@ -1,0 +1,726 @@
+/**
+ * Pipeline Orchestrator: Auto-Generate
+ *
+ * POST /api/pipeline/auto-generate
+ * Master endpoint that chains the full content pipeline:
+ *
+ *   Step 1: Generate UGC script (via /api/ai/generate-skit)
+ *   Step 2: Score script (lib/script-scorer.ts) — retry up to 3x if < 7
+ *   Step 3: Generate HeyGen avatar video (async — cron finishes)
+ *   Step 4: [TODO] Generate B-roll via Runway
+ *   Step 5: Shotstack compose (handled by check-renders cron)
+ *   Step 6: Quality gate (handled by check-renders cron)
+ *
+ * Auth: Admin session or CRON_SECRET Bearer token.
+ * Each step logs to video_events. Telegram notification at each stage.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { sendTelegramNotification } from '@/lib/telegram';
+import {
+  scoreScript,
+  extractScriptFromSkit,
+  type ScriptScoreResult,
+} from '@/lib/script-scorer';
+import { textToSpeech } from '@/lib/elevenlabs';
+import { uploadAudio, generateVideo } from '@/lib/heygen';
+import { BRAND_PERSONA_MAP } from '@/lib/product-persona-map';
+import { z } from 'zod';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
+// --- Avatar Assignment ---
+// "The Skeptic" → male avatar, everything else → female avatar
+const AVATAR_MAP: Record<string, string> = {
+  'The Skeptic': 'Aditya_public_1',
+};
+const DEFAULT_AVATAR = 'Abigail_expressive_2024112501';
+
+// --- Input Schema ---
+const AutoGenerateSchema = z.object({
+  productId: z.string().uuid(),
+  personaId: z.string().uuid().optional(),
+  renderProvider: z.enum(['heygen', 'runway']).default('heygen'),
+});
+
+// --- Step Logger ---
+async function logStep(params: {
+  videoId: string;
+  step: number;
+  stepName: string;
+  status: 'started' | 'completed' | 'failed';
+  correlationId: string;
+  details?: Record<string, unknown>;
+}) {
+  const { videoId, step, stepName, status, correlationId, details } = params;
+  const emoji = status === 'completed' ? '✅' : status === 'failed' ? '❌' : '⏳';
+
+  // Log to video_events
+  try {
+    await supabaseAdmin.from('video_events').insert({
+      video_id: videoId,
+      event_type: `pipeline_step_${step}_${status}`,
+      correlation_id: correlationId,
+      actor: 'pipeline_orchestrator',
+      details: { step, step_name: stepName, status, ...details },
+    });
+  } catch (err) {
+    console.error(`[${correlationId}] Failed to log step ${step}:`, err);
+  }
+
+  // Telegram notification for completions/failures only (not starts)
+  if (status !== 'started') {
+    const label = details?.productLabel || videoId.slice(0, 8);
+    sendTelegramNotification(
+      `${emoji} Pipeline Step ${step}/6: <b>${stepName}</b> — ${status}\n📦 ${label}`
+    ).catch(() => {});
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const correlationId =
+    request.headers.get('x-correlation-id') || generateCorrelationId();
+
+  // --- Auth: Admin session or CRON_SECRET ---
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get('authorization');
+  let isAuthorized = false;
+  let actorId = 'cron';
+
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    isAuthorized = true;
+  } else {
+    const authContext = await getApiAuthContext(request);
+    if (authContext.user && authContext.isAdmin) {
+      isAuthorized = true;
+      actorId = authContext.user.id;
+    }
+  }
+
+  if (!isAuthorized) {
+    return createApiErrorResponse(
+      'UNAUTHORIZED',
+      'Admin or cron access required',
+      401,
+      correlationId
+    );
+  }
+
+  // --- Parse Input ---
+  let input: z.infer<typeof AutoGenerateSchema>;
+  try {
+    const body = await request.json();
+    input = AutoGenerateSchema.parse(body);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return createApiErrorResponse(
+        'VALIDATION_ERROR',
+        err.issues.map((i) => `${i.path}: ${i.message}`).join('; '),
+        400,
+        correlationId
+      );
+    }
+    return createApiErrorResponse(
+      'BAD_REQUEST',
+      'Invalid JSON',
+      400,
+      correlationId
+    );
+  }
+
+  // --- Fetch Product ---
+  const { data: product, error: productError } = await supabaseAdmin
+    .from('products')
+    .select('id, name, brand, category, product_image_url')
+    .eq('id', input.productId)
+    .single();
+
+  if (productError || !product) {
+    return createApiErrorResponse(
+      'NOT_FOUND',
+      'Product not found',
+      404,
+      correlationId
+    );
+  }
+
+  const productLabel = product.brand
+    ? `${product.brand} — ${product.name}`
+    : product.name;
+
+  // --- Resolve Persona ---
+  let personaName: string | null = null;
+  let audiencePersonaId: string | undefined;
+
+  if (input.personaId) {
+    audiencePersonaId = input.personaId;
+    const { data: persona } = await supabaseAdmin
+      .from('audience_personas')
+      .select('name')
+      .eq('id', input.personaId)
+      .single();
+    personaName = persona?.name || null;
+  } else if (product.brand) {
+    // Auto-map brand → persona via BRAND_PERSONA_MAP
+    personaName = BRAND_PERSONA_MAP[product.brand] || null;
+    if (personaName) {
+      const { data: persona } = await supabaseAdmin
+        .from('audience_personas')
+        .select('id')
+        .eq('name', personaName)
+        .limit(1)
+        .single();
+      audiencePersonaId = persona?.id;
+    }
+  }
+
+  // --- Create Video Record ---
+  // Use NOT_RECORDED status so no cron picks it up during script generation
+  const videoCode = `AUTO-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+  const { data: video, error: videoError } = await supabaseAdmin
+    .from('videos')
+    .insert({
+      video_code: videoCode,
+      product_id: product.id,
+      recording_status: 'NOT_RECORDED',
+      render_provider: input.renderProvider,
+      source: 'auto_pipeline',
+      priority: 70,
+    })
+    .select('id, video_code, recording_status')
+    .single();
+
+  if (videoError || !video) {
+    console.error(`[${correlationId}] Video creation error:`, videoError);
+    return createApiErrorResponse(
+      'DB_ERROR',
+      'Failed to create video record',
+      500,
+      correlationId
+    );
+  }
+
+  // Pipeline started notification
+  sendTelegramNotification(
+    `🚀 Pipeline started: <b>${productLabel}</b>\n📋 Video: ${video.video_code}\n🎭 Persona: ${personaName || 'default'}`
+  ).catch(() => {});
+
+  try {
+    // ================================================================
+    // STEP 1: Generate Script
+    // ================================================================
+    await logStep({
+      videoId: video.id,
+      step: 1,
+      stepName: 'Script Generation',
+      status: 'started',
+      correlationId,
+    });
+
+    // Build internal API URL
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    const host = request.headers.get('host') || 'flashflowai.com';
+    const baseUrl = `${proto}://${host}`;
+
+    // Forward auth headers for internal API calls
+    const internalHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const apiKey = request.headers.get('x-api-key');
+    const incomingAuth = request.headers.get('authorization');
+    if (apiKey) internalHeaders['x-api-key'] = apiKey;
+    else if (incomingAuth) internalHeaders['Authorization'] = incomingAuth;
+
+    let bestSkit: Record<string, unknown> | null = null;
+    let bestScore: ScriptScoreResult | null = null;
+    let bestAiScore: number | null = null;
+    const MAX_SCRIPT_ATTEMPTS = 3;
+
+    for (let attempt = 1; attempt <= MAX_SCRIPT_ATTEMPTS; attempt++) {
+      // Call the generate-skit endpoint
+      const genRes = await fetch(`${baseUrl}/api/ai/generate-skit`, {
+        method: 'POST',
+        headers: internalHeaders,
+        body: JSON.stringify({
+          product_id: product.id,
+          content_type_id: 'ugc_short',
+          risk_tier: 'BALANCED',
+          persona: 'NONE',
+          intensity: 50,
+          variation_count: 1,
+          actor_type: 'ai_avatar',
+          target_duration: 'quick',
+          hook_strength: 'strong',
+          authenticity: 'raw',
+          ...(audiencePersonaId && {
+            audience_persona_id: audiencePersonaId,
+          }),
+        }),
+        signal: AbortSignal.timeout(120000),
+      });
+
+      const genData = await genRes.json();
+
+      if (!genRes.ok || !genData.ok || !genData.data?.skit) {
+        console.error(
+          `[${correlationId}] Script gen attempt ${attempt} failed:`,
+          genData.error || genData.message || `HTTP ${genRes.status}`
+        );
+
+        if (attempt === MAX_SCRIPT_ATTEMPTS) {
+          await logStep({
+            videoId: video.id,
+            step: 1,
+            stepName: 'Script Generation',
+            status: 'failed',
+            correlationId,
+            details: { productLabel, attempts: attempt },
+          });
+          await supabaseAdmin
+            .from('videos')
+            .update({
+              recording_status: 'REJECTED',
+              recording_notes:
+                'Pipeline: script generation failed after 3 attempts',
+            })
+            .eq('id', video.id);
+          return createApiErrorResponse(
+            'AI_ERROR',
+            'Script generation failed after 3 attempts',
+            500,
+            correlationId
+          );
+        }
+        continue;
+      }
+
+      bestSkit = genData.data.skit;
+      bestAiScore = genData.data.ai_score?.overall_score ?? null;
+
+      await logStep({
+        videoId: video.id,
+        step: 1,
+        stepName: 'Script Generation',
+        status: 'completed',
+        correlationId,
+        details: { productLabel, attempt, aiScore: bestAiScore },
+      });
+
+      // ================================================================
+      // STEP 2: Score Script
+      // ================================================================
+      await logStep({
+        videoId: video.id,
+        step: 2,
+        stepName: 'Script Scoring',
+        status: 'started',
+        correlationId,
+      });
+
+      const { script, hook } = extractScriptFromSkit(
+        bestSkit as {
+          hook_line?: string;
+          beats?: Array<{
+            dialogue?: string;
+            action?: string;
+            on_screen_text?: string;
+          }>;
+          cta_line?: string;
+          cta_overlay?: string;
+        }
+      );
+
+      try {
+        bestScore = await scoreScript({
+          script,
+          persona: personaName || 'general UGC creator',
+          product: productLabel,
+          hook,
+        });
+      } catch (scoreErr) {
+        console.error(
+          `[${correlationId}] Scoring failed on attempt ${attempt}:`,
+          scoreErr
+        );
+        // If scoring fails, proceed with the script anyway
+        bestScore = null;
+        await logStep({
+          videoId: video.id,
+          step: 2,
+          stepName: 'Script Scoring',
+          status: 'completed',
+          correlationId,
+          details: {
+            productLabel,
+            score: null,
+            note: 'Scoring service unavailable — proceeding with script',
+          },
+        });
+        break;
+      }
+
+      if (bestScore && bestScore.passed) {
+        await logStep({
+          videoId: video.id,
+          step: 2,
+          stepName: 'Script Scoring',
+          status: 'completed',
+          correlationId,
+          details: {
+            productLabel,
+            score: bestScore.totalScore,
+            passed: true,
+            attempt,
+            scores: bestScore.scores,
+          },
+        });
+        break; // Passed threshold — proceed to render
+      }
+
+      // Below threshold
+      if (attempt < MAX_SCRIPT_ATTEMPTS) {
+        console.log(
+          `[${correlationId}] Script scored ${bestScore?.totalScore}/10 (attempt ${attempt}/${MAX_SCRIPT_ATTEMPTS}), regenerating...`
+        );
+      } else {
+        // Final attempt — proceed with best available
+        await logStep({
+          videoId: video.id,
+          step: 2,
+          stepName: 'Script Scoring',
+          status: 'completed',
+          correlationId,
+          details: {
+            productLabel,
+            score: bestScore?.totalScore,
+            passed: false,
+            note: 'Max retries reached — proceeding with best script',
+            feedback: bestScore?.feedback,
+          },
+        });
+      }
+    }
+
+    if (!bestSkit) {
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          recording_status: 'REJECTED',
+          recording_notes: 'Pipeline: no script generated',
+        })
+        .eq('id', video.id);
+      return createApiErrorResponse(
+        'AI_ERROR',
+        'Failed to generate any script',
+        500,
+        correlationId
+      );
+    }
+
+    // ================================================================
+    // STEP 3: Save Skit + TTS + HeyGen Avatar Render
+    // ================================================================
+    await logStep({
+      videoId: video.id,
+      step: 3,
+      stepName: 'Avatar Render (HeyGen)',
+      status: 'started',
+      correlationId,
+    });
+
+    // Save skit to saved_skits (linked to video)
+    const { error: skitError } = await supabaseAdmin
+      .from('saved_skits')
+      .insert({
+        video_id: video.id,
+        product_id: product.id,
+        title: `Auto Pipeline — ${product.name}`,
+        skit_data: bestSkit,
+        generation_config: {
+          content_type: 'ugc_short',
+          source: 'auto_pipeline',
+          persona: personaName || 'NONE',
+          script_score: bestScore?.totalScore || null,
+        },
+        status: 'approved',
+      });
+
+    if (skitError) {
+      console.error(`[${correlationId}] Skit save error:`, skitError);
+      // Non-fatal — continue anyway
+    }
+
+    // Lock script text on the video record
+    const { script: fullScript } = extractScriptFromSkit(
+      bestSkit as {
+        hook_line?: string;
+        beats?: Array<{
+          dialogue?: string;
+          action?: string;
+          on_screen_text?: string;
+        }>;
+        cta_line?: string;
+        cta_overlay?: string;
+      }
+    );
+
+    await supabaseAdmin
+      .from('videos')
+      .update({
+        script_locked_text: fullScript,
+        script_locked_json: bestSkit,
+      })
+      .eq('id', video.id);
+
+    // Select avatar based on persona
+    const avatarId =
+      personaName && AVATAR_MAP[personaName]
+        ? AVATAR_MAP[personaName]
+        : DEFAULT_AVATAR;
+
+    // Generate TTS audio via ElevenLabs
+    let audioBuffer: ArrayBuffer;
+    try {
+      audioBuffer = await textToSpeech(fullScript);
+    } catch (ttsErr) {
+      console.error(`[${correlationId}] TTS generation failed:`, ttsErr);
+      await logStep({
+        videoId: video.id,
+        step: 3,
+        stepName: 'Avatar Render (HeyGen)',
+        status: 'failed',
+        correlationId,
+        details: {
+          productLabel,
+          error: 'TTS generation failed',
+          message: ttsErr instanceof Error ? ttsErr.message : String(ttsErr),
+        },
+      });
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          recording_status: 'REJECTED',
+          recording_notes: 'Pipeline: TTS generation failed',
+        })
+        .eq('id', video.id);
+      return createApiErrorResponse(
+        'AI_ERROR',
+        'TTS generation failed',
+        500,
+        correlationId
+      );
+    }
+
+    // Upload audio to HeyGen
+    let audioUrl: string;
+    try {
+      const uploadResult = await uploadAudio(audioBuffer);
+      audioUrl = uploadResult.url;
+    } catch (uploadErr) {
+      console.error(
+        `[${correlationId}] HeyGen audio upload failed:`,
+        uploadErr
+      );
+      await logStep({
+        videoId: video.id,
+        step: 3,
+        stepName: 'Avatar Render (HeyGen)',
+        status: 'failed',
+        correlationId,
+        details: { productLabel, error: 'HeyGen audio upload failed' },
+      });
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          recording_status: 'REJECTED',
+          recording_notes: 'Pipeline: HeyGen audio upload failed',
+        })
+        .eq('id', video.id);
+      return createApiErrorResponse(
+        'AI_ERROR',
+        'HeyGen audio upload failed',
+        500,
+        correlationId
+      );
+    }
+
+    // Submit HeyGen video generation (async — cron polls for completion)
+    let heygenVideoId: string;
+    try {
+      const genResult = await generateVideo(audioUrl, avatarId);
+      heygenVideoId = genResult.video_id;
+    } catch (genErr) {
+      console.error(
+        `[${correlationId}] HeyGen video generation failed:`,
+        genErr
+      );
+      await logStep({
+        videoId: video.id,
+        step: 3,
+        stepName: 'Avatar Render (HeyGen)',
+        status: 'failed',
+        correlationId,
+        details: { productLabel, error: 'HeyGen generation request failed' },
+      });
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          recording_status: 'REJECTED',
+          recording_notes: 'Pipeline: HeyGen generation request failed',
+        })
+        .eq('id', video.id);
+      return createApiErrorResponse(
+        'AI_ERROR',
+        'HeyGen video generation failed',
+        500,
+        correlationId
+      );
+    }
+
+    // Transition video to AI_RENDERING — the check-renders cron takes over
+    await supabaseAdmin
+      .from('videos')
+      .update({
+        recording_status: 'AI_RENDERING',
+        render_provider: 'heygen',
+        render_task_id: heygenVideoId,
+        render_prompt: fullScript.slice(0, 500),
+        last_status_changed_at: new Date().toISOString(),
+      })
+      .eq('id', video.id);
+
+    // Log video event for the status transition
+    await supabaseAdmin.from('video_events').insert({
+      video_id: video.id,
+      event_type: 'render_submitted',
+      correlation_id: correlationId,
+      actor: actorId,
+      from_status: 'NOT_RECORDED',
+      to_status: 'AI_RENDERING',
+      details: {
+        render_provider: 'heygen',
+        heygen_video_id: heygenVideoId,
+        avatar_id: avatarId,
+        script_score: bestScore?.totalScore || null,
+      },
+    });
+
+    await logStep({
+      videoId: video.id,
+      step: 3,
+      stepName: 'Avatar Render (HeyGen)',
+      status: 'completed',
+      correlationId,
+      details: {
+        productLabel,
+        avatarId,
+        heygenVideoId,
+        note: 'Async render started — check-renders cron handles completion',
+      },
+    });
+
+    // ================================================================
+    // STEPS 4-6: Handled by the check-renders cron
+    // ================================================================
+    // Step 4: B-roll via Runway (TODO — future enhancement)
+    // Step 5: Shotstack compose (cron: HeyGen complete → re-host → compose)
+    // Step 6: Quality gate (cron: compose complete → frame capture → score)
+
+    // Final summary notification
+    sendTelegramNotification(
+      [
+        `🎬 Pipeline handed off to renderer: <b>${productLabel}</b>`,
+        `⏳ HeyGen rendering (ID: ${heygenVideoId.slice(0, 12)}...)`,
+        `🤖 Avatar: ${avatarId}`,
+        `📊 Script score: ${bestScore?.totalScore || 'N/A'}/10`,
+        '',
+        'Steps 5-6 handled by check-renders cron.',
+      ].join('\n')
+    ).catch(() => {});
+
+    const response = NextResponse.json({
+      ok: true,
+      data: {
+        video_id: video.id,
+        video_code: video.video_code,
+        product: productLabel,
+        persona: personaName,
+        pipeline_status: 'rendering',
+        steps: {
+          1: {
+            name: 'Script Generation',
+            status: 'completed',
+            ai_score: bestAiScore,
+          },
+          2: {
+            name: 'Script Scoring',
+            status: 'completed',
+            score: bestScore?.totalScore ?? null,
+            passed: bestScore?.passed ?? null,
+            feedback: bestScore?.feedback ?? null,
+          },
+          3: {
+            name: 'HeyGen Avatar',
+            status: 'rendering',
+            heygen_video_id: heygenVideoId,
+            avatar: avatarId,
+          },
+          4: {
+            name: 'B-roll (Runway)',
+            status: 'pending',
+            note: 'Future enhancement',
+          },
+          5: {
+            name: 'Shotstack Compose',
+            status: 'pending',
+            note: 'Handled by check-renders cron',
+          },
+          6: {
+            name: 'Quality Gate',
+            status: 'pending',
+            note: 'Handled by check-renders cron',
+          },
+        },
+        script_score: bestScore
+          ? {
+              total: bestScore.totalScore,
+              passed: bestScore.passed,
+              dimensions: bestScore.scores,
+              feedback: bestScore.feedback,
+              improvements: bestScore.suggestedImprovements,
+            }
+          : null,
+      },
+      correlation_id: correlationId,
+    });
+    response.headers.set('x-correlation-id', correlationId);
+    return response;
+  } catch (err) {
+    console.error(`[${correlationId}] Pipeline error:`, err);
+
+    // Mark video as failed
+    await supabaseAdmin
+      .from('videos')
+      .update({
+        recording_status: 'REJECTED',
+        recording_notes: `Pipeline error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      })
+      .eq('id', video.id);
+
+    sendTelegramNotification(
+      `🔴 Pipeline FAILED: <b>${productLabel}</b>\n❌ ${err instanceof Error ? err.message : 'Unknown error'}`
+    ).catch(() => {});
+
+    return createApiErrorResponse(
+      'INTERNAL',
+      err instanceof Error ? err.message : 'Pipeline failed',
+      500,
+      correlationId
+    );
+  }
+}

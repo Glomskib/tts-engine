@@ -866,7 +866,7 @@ export default function SkitLibraryPage() {
             placeholder="Search by title..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ ...inputStyle, flex: "1 1 200px", minWidth: "200px" }}
+            style={{ ...inputStyle, flex: "1 1 140px", minWidth: "0" }}
             aria-label="Search scripts by title"
           />
 
@@ -874,7 +874,7 @@ export default function SkitLibraryPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ ...inputStyle, minWidth: "140px" }}
+            style={{ ...inputStyle, minWidth: "0", flex: "1 1 120px" }}
             aria-label="Filter by status"
           >
             <option value="">All Statuses</option>
@@ -890,7 +890,7 @@ export default function SkitLibraryPage() {
             <select
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
-              style={{ ...inputStyle, minWidth: "140px" }}
+              style={{ ...inputStyle, minWidth: "0", flex: "1 1 120px" }}
               aria-label="Filter by brand"
             >
               <option value="">All Brands</option>
@@ -927,7 +927,7 @@ export default function SkitLibraryPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            style={{ ...inputStyle, minWidth: "160px" }}
+            style={{ ...inputStyle, minWidth: "0", flex: "1 1 140px" }}
             aria-label="Sort scripts by"
           >
             <option value="newest">Newest First</option>

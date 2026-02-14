@@ -1462,7 +1462,7 @@ export default function ContentStudioPage() {
                   setSelectedContentTypeId(recommendation.content_type);
                   setRecommendation(null);
                 }}
-                className="px-3 py-1.5 text-white rounded-lg text-sm flex items-center gap-2"
+                className="px-3 py-2.5 text-white rounded-lg text-sm flex items-center gap-2 min-h-[44px]"
                 style={{ backgroundColor: '#a855f7' }}
               >
                 <Zap size={14} />
@@ -1471,7 +1471,7 @@ export default function ContentStudioPage() {
               <button
                 type="button"
                 onClick={() => setRecommendation(null)}
-                className="p-1.5 text-zinc-400 hover:text-white rounded"
+                className="p-2.5 text-zinc-400 hover:text-white rounded min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <X size={14} />
               </button>
@@ -1562,7 +1562,7 @@ export default function ContentStudioPage() {
                     setQuickGenBatchMode(!quickGenBatchMode);
                     setQuickGenSelectedPresets([]);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  className={`px-3 py-2.5 rounded-lg text-xs font-medium border transition-colors min-h-[44px] ${
                     quickGenBatchMode
                       ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
                       : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'
@@ -1575,7 +1575,7 @@ export default function ContentStudioPage() {
                     type="button"
                     onClick={handleBatchQuickGenerate}
                     disabled={!quickGenProductId || quickGenerating}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-2 disabled:opacity-50"
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-2 disabled:opacity-50 min-h-[44px]"
                   >
                     {quickGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
                     Generate {quickGenSelectedPresets.length} Scripts
@@ -2344,7 +2344,7 @@ export default function ContentStudioPage() {
         </div>
 
         {/* Right Column: Results */}
-        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6 min-h-[400px] lg:min-h-[600px]">
+        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6 min-h-[300px] lg:min-h-[600px]">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', color: colors.text, fontWeight: 600 }}>
               Generated Scripts

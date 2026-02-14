@@ -559,7 +559,7 @@ export default function BillingPage() {
                 type="button"
                 onClick={() => handleSubscribe(plan.id)}
                 disabled={isCurrent || checkoutLoading !== null}
-                className={`w-full py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors ${
+                className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors min-h-[44px] ${
                   isCurrent
                     ? 'bg-zinc-800 text-zinc-500 cursor-default'
                     : isDowngrade
@@ -714,7 +714,7 @@ export default function BillingPage() {
                       type="button"
                       onClick={() => handleBuyCredits(addon.id)}
                       disabled={buyCreditsLoading !== null}
-                      className={`w-full py-2 px-4 rounded-lg text-sm font-semibold transition-colors ${
+                      className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors min-h-[44px] ${
                         addon.popular
                           ? 'bg-violet-600 text-white hover:bg-violet-500'
                           : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
@@ -749,22 +749,22 @@ export default function BillingPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
             <div className="divide-y divide-zinc-800">
               {transactions.slice(0, 20).map((tx) => (
-                <div key={tx.id} className="px-6 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                <div key={tx.id} className="px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
                       {getTransactionIcon(tx.type)}
                     </div>
-                    <div>
-                      <div className="font-medium text-zinc-200">{tx.description}</div>
-                      <div className="text-sm text-zinc-500">{formatDate(tx.created_at)}</div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-zinc-200 text-sm truncate">{tx.description}</div>
+                      <div className="text-xs sm:text-sm text-zinc-500">{formatDate(tx.created_at)}</div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <div className={`font-medium ${tx.amount > 0 ? 'text-emerald-400' : 'text-zinc-400'}`}>
                       {tx.amount > 0 ? '+' : ''}{tx.amount}
                     </div>
-                    <div className="text-sm text-zinc-500">
-                      Balance: {tx.balance_after}
+                    <div className="text-xs sm:text-sm text-zinc-500">
+                      Bal: {tx.balance_after}
                     </div>
                   </div>
                 </div>

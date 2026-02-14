@@ -787,12 +787,14 @@ export default function ProductsPage() {
                 <tr className="bg-zinc-800/50 border-b border-white/10">
                   {isAdmin && (
                     <th className="px-4 py-3 text-center w-10">
-                      <input
-                        type="checkbox"
-                        checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
-                        onChange={toggleAllSelection}
-                        className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
-                      />
+                      <label className="flex items-center justify-center w-11 h-11 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
+                          onChange={toggleAllSelection}
+                          className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
+                        />
+                      </label>
                     </th>
                   )}
                   <th className="px-4 py-3 text-center font-medium text-zinc-400 w-16">Image</th>
@@ -814,12 +816,14 @@ export default function ProductsPage() {
                     <tr key={product.id} className="border-b border-white/5 hover:bg-zinc-800/50">
                       {isAdmin && (
                         <td className="px-4 py-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedProducts.has(product.id)}
-                            onChange={() => toggleProductSelection(product.id)}
-                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
-                          />
+                          <label className="flex items-center justify-center w-11 h-11 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.has(product.id)}
+                              onChange={() => toggleProductSelection(product.id)}
+                              className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-teal-500 focus:ring-teal-500"
+                            />
+                          </label>
                         </td>
                       )}
                       <td className="px-4 py-3 text-center">
@@ -1190,7 +1194,7 @@ export default function ProductsPage() {
                     <button
                       type="button"
                       onClick={() => setEditForm({ ...editForm, product_image_url: '' })}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-2.5 bg-red-500/90 hover:bg-red-600 text-white rounded-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       aria-label="Remove image"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1336,7 +1340,7 @@ export default function ProductsPage() {
                           <button
                             type="button"
                             onClick={() => handleRemovePainPoint(index)}
-                            className="text-zinc-500 hover:text-red-400 p-1"
+                            className="text-zinc-500 hover:text-red-400 p-2.5"
                             title="Remove pain point"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

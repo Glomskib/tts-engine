@@ -102,7 +102,7 @@ export default function ReferralsPage() {
           </div>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium rounded-lg transition-colors shrink-0"
+            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium rounded-lg transition-colors shrink-0 min-h-[44px]"
           >
             {copied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy</>}
           </button>

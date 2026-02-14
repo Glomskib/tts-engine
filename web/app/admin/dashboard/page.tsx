@@ -505,7 +505,7 @@ export default function DashboardPage() {
                   Open board
                 </Link>
               </div>
-              <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                 {REC_PIPELINE_STATUSES.map((status) => {
                   const count = data.recordingPipelineByStatus[status] || 0;
                   const isReview = status === 'READY_FOR_REVIEW';
@@ -1038,26 +1038,26 @@ export default function DashboardPage() {
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-2 overflow-x-auto pb-1">
                 {Array.from({ length: 7 }).map((_, i) => (
-                  <Skeleton key={i} height={72} width="100%" />
+                  <Skeleton key={i} height={72} width="100%" className="min-w-[48px]" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-7 gap-1.5">
+              <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
                 {data?.weekCalendar.map((day) => (
                   <div
                     key={day.date}
-                    className={`flex flex-col items-center rounded-lg p-2 transition-colors ${
+                    className={`flex flex-col items-center rounded-lg p-1 sm:p-2 min-w-0 transition-colors ${
                       day.isToday
                         ? 'bg-teal-500/15 border border-teal-500/30'
                         : 'bg-zinc-800/50 border border-transparent'
                     }`}
                   >
-                    <span className={`text-[10px] font-medium ${day.isToday ? 'text-teal-400' : 'text-zinc-500'}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-medium ${day.isToday ? 'text-teal-400' : 'text-zinc-500'}`}>
                       {day.dayName}
                     </span>
-                    <span className={`text-lg font-bold mt-0.5 ${day.isToday ? 'text-white' : 'text-zinc-300'}`}>
+                    <span className={`text-base sm:text-lg font-bold mt-0.5 ${day.isToday ? 'text-white' : 'text-zinc-300'}`}>
                       {day.dayNum}
                     </span>
                     <div className="flex items-center gap-1 mt-1.5">

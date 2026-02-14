@@ -569,7 +569,7 @@ export default function WinnersPage() {
           <h1 className="text-lg font-semibold text-zinc-100">Winners Bank</h1>
           <a
             href="/api/winners/export"
-            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs transition-colors btn-press min-h-[36px]"
+            className="flex items-center gap-1.5 px-3 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs transition-colors btn-press min-h-[44px]"
           >
             <Download className="w-3.5 h-3.5" />
             Export
@@ -1033,7 +1033,7 @@ export default function WinnersPage() {
                 </div>
 
                 {/* Metrics */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", marginBottom: "16px" }}>
                   {[
                     { key: "views", label: "Views" },
                     { key: "likes", label: "Likes" },

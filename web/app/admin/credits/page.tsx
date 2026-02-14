@@ -6,6 +6,7 @@ import { Coins, Zap, TrendingUp, Package, ArrowRight, Sparkles } from 'lucide-re
 import Link from 'next/link';
 import { SkeletonForm } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
+import UpsellBanner from '@/components/UpsellBanner';
 
 interface CreditPackage {
   id: string;
@@ -138,6 +139,11 @@ export default function CreditsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold mb-2">Credits</h1>
           <p className="text-zinc-400">Manage your AI generation credits</p>
+        </div>
+
+        {/* Upsell Banner */}
+        <div className="mb-6">
+          <UpsellBanner creditsRemaining={credits?.remaining} />
         </div>
 
         {/* Current Balance */}

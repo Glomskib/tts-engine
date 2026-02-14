@@ -16,6 +16,13 @@ const CreateBrandSchema = z.object({
   target_audience: z.string().max(5000).optional().nullable(),
   guidelines: z.string().max(5000).optional().nullable(),
   monthly_video_quota: z.number().int().min(0).optional().default(0),
+  retainer_type: z.enum(['retainer', 'bonus', 'challenge', 'affiliate', 'none']).optional().default('none'),
+  retainer_video_goal: z.number().int().min(0).optional().default(0),
+  retainer_period_start: z.string().optional().nullable(),
+  retainer_period_end: z.string().optional().nullable(),
+  retainer_payout_amount: z.number().min(0).optional().default(0),
+  retainer_bonus_tiers: z.array(z.record(z.unknown())).optional().default([]),
+  retainer_notes: z.string().max(5000).optional().nullable(),
 });
 
 /**
@@ -109,6 +116,13 @@ export async function POST(request: NextRequest) {
       target_audience: input.target_audience,
       guidelines: input.guidelines,
       monthly_video_quota: input.monthly_video_quota,
+      retainer_type: input.retainer_type,
+      retainer_video_goal: input.retainer_video_goal,
+      retainer_period_start: input.retainer_period_start,
+      retainer_period_end: input.retainer_period_end,
+      retainer_payout_amount: input.retainer_payout_amount,
+      retainer_bonus_tiers: input.retainer_bonus_tiers,
+      retainer_notes: input.retainer_notes,
     })
     .select()
     .single();

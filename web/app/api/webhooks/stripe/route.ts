@@ -143,10 +143,11 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     return;
   }
 
-  // Handle credit pack purchases
+  // Handle credit pack purchases (both legacy credit_packages and new addon flow)
   if (sessionType === "credit_purchase") {
     const packageId = session.metadata?.package_id;
-    const credits = parseInt(session.metadata?.credits || "0");
+    const addonId = session.metadata?.addon_id;
+    const credits = parseInt(session.metadata?.credit_amount || session.metadata?.credits || "0");
 
     console.info(`[${correlationId}] Credit purchase completed for user ${userId}: ${credits} credits`);
 
@@ -154,22 +155,31 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     const { error: creditError } = await supabaseAdmin.rpc("add_purchased_credits", {
       p_user_id: userId,
       p_amount: credits,
-      p_description: `Credit pack purchase: ${packageId}`,
+      p_description: `Credit purchase: ${addonId || packageId || 'addon'}`,
     });
 
     if (creditError) {
       console.error(`[${correlationId}] Failed to add credits:`, creditError);
     }
 
-    // Update purchase record
-    await supabaseAdmin
-      .from("credit_purchases")
-      .update({
-        status: "completed",
-        stripe_payment_intent_id: session.payment_intent as string,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("stripe_checkout_session_id", session.id);
+    // Update purchase record (legacy flow)
+    if (packageId) {
+      await supabaseAdmin
+        .from("credit_purchases")
+        .update({
+          status: "completed",
+          stripe_payment_intent_id: session.payment_intent as string,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("stripe_checkout_session_id", session.id);
+    }
+
+    // Telegram notification
+    const purchaseEmail = session.customer_details?.email || 'unknown';
+    const amount = session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}` : 'N/A';
+    sendTelegramNotification(
+      `💳 Credit purchase: <b>${purchaseEmail}</b> bought ${credits} credits (${amount})`
+    ).catch(() => {});
 
     return;
   }

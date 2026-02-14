@@ -137,6 +137,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen, adminOnly: true },
       { name: 'Voice Agent', href: '/admin/voice', icon: Mic, adminOnly: true },
       { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo, adminOnly: true },
+      { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },
       { name: 'Settings', href: '/admin/settings', icon: Settings, adminOnly: true },

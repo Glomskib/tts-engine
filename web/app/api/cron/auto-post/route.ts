@@ -150,20 +150,33 @@ async function submitNewPosts(
   results: Record<string, unknown>[],
 ) {
   // Find videos eligible for auto-posting
+  // Only include videos with no scheduled_date (post immediately) or scheduled_date <= today
+  const today = new Date().toISOString().slice(0, 10);
   const { data: eligible } = await supabaseAdmin
     .from('videos')
-    .select('id, final_video_url, account_id, product_id, script_text')
+    .select('id, final_video_url, account_id, product_id, script_text, scheduled_date, scheduled_time')
     .eq('recording_status', 'READY_TO_POST')
     .not('final_video_url', 'is', null)
     .not('account_id', 'is', null)
     .is('tiktok_post_status', null)
+    .or(`scheduled_date.is.null,scheduled_date.lte.${today}`)
     .order('created_at', { ascending: true })
     .limit(MAX_NEW_POSTS_PER_RUN);
 
   if (!eligible?.length) return;
 
+  // Filter out videos whose scheduled_time hasn't arrived yet
+  const nowHHMM = new Date().toTimeString().slice(0, 5); // "HH:MM"
+  const readyToPost = eligible.filter(v => {
+    if (!v.scheduled_time) return true; // No specific time = post anytime
+    // scheduled_time is "HH:MM:SS", compare with current "HH:MM"
+    return nowHHMM >= v.scheduled_time.slice(0, 5);
+  });
+
+  if (!readyToPost.length) return;
+
   // Get all active content connections
-  const accountIds = [...new Set(eligible.map(v => v.account_id))];
+  const accountIds = [...new Set(readyToPost.map(v => v.account_id))];
   const { data: connections } = await supabaseAdmin
     .from('tiktok_content_connections')
     .select('*')
@@ -174,7 +187,7 @@ async function submitNewPosts(
     (connections || []).map(c => [c.account_id, c])
   );
 
-  for (const video of eligible) {
+  for (const video of readyToPost) {
     const connection = connectionMap.get(video.account_id);
     if (!connection) {
       results.push({ id: video.id, phase: 'submit', status: 'skipped', reason: 'no_connection' });

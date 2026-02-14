@@ -13,6 +13,8 @@ import { FilterSheet } from '@/components/FilterSheet';
 import { Filter, Film, Download, LayoutGrid, List } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import UpsellBanner from '@/components/UpsellBanner';
+import { useCredits } from '@/hooks/useCredits';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
 import { PageErrorState } from '@/components/ui/PageErrorState';

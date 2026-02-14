@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCredits } from '@/hooks/useCredits';
-import { Check, Zap, CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, Zap, CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle, Plus } from 'lucide-react';
 import { PLANS_LIST } from '@/lib/plans';
+
+const CREDIT_ADDONS = [
+  { id: 'credits_25', name: '25 Credits', price: 499, credits: 25 },
+  { id: 'credits_100', name: '100 Credits', price: 1499, credits: 100, popular: true },
+  { id: 'credits_500', name: '500 Credits', price: 4999, credits: 500 },
+];
 
 const PLAN_ORDER = ['free', 'creator_lite', 'creator_pro', 'brand', 'agency'] as const;
 
@@ -14,17 +20,40 @@ export default function BillingPage() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
-  const [banner, setBanner] = useState<{ type: 'success' | 'canceled'; plan?: string } | null>(null);
+  const [buyCreditsLoading, setBuyCreditsLoading] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ type: 'success' | 'canceled' | 'credits'; plan?: string; credits?: string } | null>(null);
 
   // Show banners for redirect from Stripe checkout
   useEffect(() => {
     if (searchParams.get('upgraded') === 'true') {
       setBanner({ type: 'success', plan: searchParams.get('plan') || undefined });
       refetch();
+    } else if (searchParams.get('credits_purchased')) {
+      setBanner({ type: 'credits', credits: searchParams.get('credits_purchased') || undefined });
+      refetch();
     } else if (searchParams.get('canceled') === 'true') {
       setBanner({ type: 'canceled' });
     }
   }, [searchParams, refetch]);
+
+  const handleBuyCredits = async (addonId: string) => {
+    setBuyCreditsLoading(addonId);
+    setCheckoutError(null);
+    try {
+      const res = await fetch('/api/billing/buy-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addonId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Checkout failed');
+      if (!data.url) throw new Error('No checkout URL');
+      window.location.href = data.url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setBuyCreditsLoading(null);
+    }
+  };
 
   const currentPlanId = subscription?.planId || 'free';
 
@@ -178,6 +207,18 @@ export default function BillingPage() {
           </button>
         </div>
       )}
+      {banner?.type === 'credits' && (
+        <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-teal-300">{banner.credits} credits added!</p>
+            <p className="text-xs text-teal-400/70 mt-0.5">Your credits have been topped up.</p>
+          </div>
+          <button type="button" onClick={() => setBanner(null)} className="ml-auto text-teal-500/50 hover:text-teal-400">
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {banner?.type === 'canceled' && (
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4 mb-6 flex items-center gap-3">
           <XCircle className="w-5 h-5 text-zinc-500 shrink-0" />
@@ -271,6 +312,54 @@ export default function BillingPage() {
           );
         })}
       </div>
+
+      {/* Credit Add-ons */}
+      {!isUnlimited && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Plus className="w-4 h-4 text-violet-400" />
+            <h2 className="text-lg font-bold text-white">Need More Credits?</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {CREDIT_ADDONS.map((addon) => {
+              const perCredit = (addon.price / addon.credits / 100).toFixed(2);
+              return (
+                <div
+                  key={addon.id}
+                  className={`relative bg-zinc-900 border rounded-xl p-5 flex flex-col items-center text-center ${
+                    addon.popular ? 'border-violet-500/50 ring-1 ring-violet-500/20' : 'border-zinc-800'
+                  }`}
+                >
+                  {addon.popular && (
+                    <div className="absolute -top-3 px-3 py-0.5 bg-violet-500 text-white text-xs font-semibold rounded-full">
+                      Best Value
+                    </div>
+                  )}
+                  <div className="text-3xl font-bold text-white mt-1">{addon.credits}</div>
+                  <div className="text-sm text-zinc-400 mb-2">credits</div>
+                  <div className="text-xl font-bold text-white">${(addon.price / 100).toFixed(2)}</div>
+                  <div className="text-xs text-zinc-500 mb-4">${perCredit}/credit</div>
+                  <button
+                    onClick={() => handleBuyCredits(addon.id)}
+                    disabled={buyCreditsLoading !== null}
+                    className={`w-full py-2 px-4 rounded-lg text-sm font-semibold transition-colors ${
+                      addon.popular
+                        ? 'bg-violet-600 text-white hover:bg-violet-500'
+                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    } disabled:opacity-50`}
+                  >
+                    {buyCreditsLoading === addon.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                    ) : (
+                      'Buy Now'
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Promo Code Hint */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-center">

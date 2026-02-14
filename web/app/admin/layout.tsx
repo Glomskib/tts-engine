@@ -90,6 +90,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/api-docs': 'API Docs',
       '/admin/transcribe': 'Transcriber',
       '/admin/help': 'Help',
+      '/admin/settings/system-status': 'System Status',
     };
     const title = PAGE_TITLES[pathname] || 'Admin';
     document.title = `${title} | FlashFlow AI`;

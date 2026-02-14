@@ -6,10 +6,19 @@ import PlanGate from '@/components/PlanGate';
 import {
   Plus, Building2, Edit, Trash2, ExternalLink, X, Loader2,
   TrendingUp, Video, Trophy, Target, AlertCircle, CheckCircle,
+  DollarSign,
 } from 'lucide-react';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 import { SkeletonAuthCheck, SkeletonTable } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
+
+interface BonusTier {
+  videos?: number;
+  payout?: number;
+  gmv?: number;
+  bonus?: number;
+  label: string;
+}
 
 interface Brand {
   id: string;
@@ -26,6 +35,13 @@ interface Brand {
   videos_this_month: number;
   is_active: boolean;
   created_at: string;
+  retainer_type?: string;
+  retainer_video_goal?: number;
+  retainer_period_start?: string | null;
+  retainer_period_end?: string | null;
+  retainer_payout_amount?: number;
+  retainer_bonus_tiers?: BonusTier[];
+  retainer_notes?: string | null;
 }
 
 interface BrandStats {
@@ -498,6 +514,26 @@ export default function BrandsPage() {
                     <span className="text-xs text-zinc-500">Unlimited videos</span>
                   </div>
                 )}
+
+                {/* Retainer badge */}
+                {brand.retainer_type && brand.retainer_type !== 'none' && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-3.5 h-3.5 text-green-400" />
+                      <span className="text-xs font-medium text-green-400 capitalize">{brand.retainer_type}</span>
+                      {brand.retainer_video_goal ? (
+                        <span className="text-xs text-zinc-400">
+                          {brand.retainer_video_goal} videos &middot; ${brand.retainer_payout_amount}
+                        </span>
+                      ) : null}
+                    </div>
+                    {brand.retainer_period_end && (
+                      <p className="text-[11px] text-zinc-500 mt-1">
+                        Ends {new Date(brand.retainer_period_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -538,6 +574,13 @@ function BrandEditModal({
     target_audience: brand?.target_audience || '',
     guidelines: brand?.guidelines || '',
     monthly_video_quota: brand?.monthly_video_quota || 0,
+    retainer_type: brand?.retainer_type || 'none',
+    retainer_video_goal: brand?.retainer_video_goal || 0,
+    retainer_period_start: brand?.retainer_period_start || '',
+    retainer_period_end: brand?.retainer_period_end || '',
+    retainer_payout_amount: brand?.retainer_payout_amount || 0,
+    retainer_bonus_tiers: (brand?.retainer_bonus_tiers || []) as BonusTier[],
+    retainer_notes: brand?.retainer_notes || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -565,6 +608,13 @@ function BrandEditModal({
         target_audience: formData.target_audience || null,
         guidelines: formData.guidelines || null,
         monthly_video_quota: formData.monthly_video_quota,
+        retainer_type: formData.retainer_type,
+        retainer_video_goal: formData.retainer_video_goal,
+        retainer_period_start: formData.retainer_period_start || null,
+        retainer_period_end: formData.retainer_period_end || null,
+        retainer_payout_amount: formData.retainer_payout_amount,
+        retainer_bonus_tiers: formData.retainer_bonus_tiers,
+        retainer_notes: formData.retainer_notes || null,
       };
 
       const res = await fetch(url, {
@@ -826,6 +876,177 @@ function BrandEditModal({
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               <p className="text-xs text-zinc-500 mt-1">Set to 0 for unlimited</p>
+            </div>
+
+            {/* Retainer / Partnership Section */}
+            <div className="border-t border-zinc-700 pt-4 mt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <DollarSign className="w-4 h-4 text-green-400" />
+                <h3 className="text-sm font-semibold text-zinc-200">Retainer / Partnership</h3>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Type</label>
+                  <select
+                    value={formData.retainer_type}
+                    onChange={(e) => setFormData({ ...formData, retainer_type: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="none">None</option>
+                    <option value="retainer">Retainer</option>
+                    <option value="bonus">Bonus</option>
+                    <option value="challenge">Challenge</option>
+                    <option value="affiliate">Affiliate</option>
+                  </select>
+                </div>
+
+                {formData.retainer_type !== 'none' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm text-zinc-400 mb-1">Video Goal</label>
+                        <input
+                          type="number"
+                          value={formData.retainer_video_goal}
+                          onChange={(e) => setFormData({ ...formData, retainer_video_goal: parseInt(e.target.value) || 0 })}
+                          min="0"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-zinc-400 mb-1">Base Payout ($)</label>
+                        <input
+                          type="number"
+                          value={formData.retainer_payout_amount}
+                          onChange={(e) => setFormData({ ...formData, retainer_payout_amount: parseFloat(e.target.value) || 0 })}
+                          min="0"
+                          step="0.01"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm text-zinc-400 mb-1">Period Start</label>
+                        <input
+                          type="date"
+                          value={formData.retainer_period_start}
+                          onChange={(e) => setFormData({ ...formData, retainer_period_start: e.target.value })}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-zinc-400 mb-1">Period End</label>
+                        <input
+                          type="date"
+                          value={formData.retainer_period_end}
+                          onChange={(e) => setFormData({ ...formData, retainer_period_end: e.target.value })}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bonus Tiers */}
+                    <div>
+                      <label className="block text-sm text-zinc-400 mb-1">Bonus Tiers</label>
+                      <div className="space-y-2">
+                        {formData.retainer_bonus_tiers.map((tier, i) => (
+                          <div key={i} className="flex items-center gap-2 bg-zinc-800/50 rounded-lg p-2">
+                            <input
+                              type="text"
+                              value={tier.label}
+                              onChange={(e) => {
+                                const tiers = [...formData.retainer_bonus_tiers];
+                                tiers[i] = { ...tiers[i], label: e.target.value };
+                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                              }}
+                              className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              placeholder="Label"
+                            />
+                            <input
+                              type="number"
+                              value={tier.videos ?? tier.gmv ?? ''}
+                              onChange={(e) => {
+                                const tiers = [...formData.retainer_bonus_tiers];
+                                const val = parseFloat(e.target.value) || 0;
+                                if (tier.videos !== undefined) {
+                                  tiers[i] = { ...tiers[i], videos: val };
+                                } else {
+                                  tiers[i] = { ...tiers[i], gmv: val };
+                                }
+                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                              }}
+                              className="w-20 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              placeholder="Threshold"
+                            />
+                            <span className="text-zinc-500 text-xs">$</span>
+                            <input
+                              type="number"
+                              value={tier.payout ?? tier.bonus ?? ''}
+                              onChange={(e) => {
+                                const tiers = [...formData.retainer_bonus_tiers];
+                                const val = parseFloat(e.target.value) || 0;
+                                if (tier.payout !== undefined) {
+                                  tiers[i] = { ...tiers[i], payout: val };
+                                } else {
+                                  tiers[i] = { ...tiers[i], bonus: val };
+                                }
+                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                              }}
+                              className="w-20 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              placeholder="Payout"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const tiers = formData.retainer_bonus_tiers.filter((_, idx) => idx !== i);
+                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                              }}
+                              className="text-zinc-500 hover:text-red-400"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormData({
+                              ...formData,
+                              retainer_bonus_tiers: [...formData.retainer_bonus_tiers, { videos: 0, payout: 0, label: '' }],
+                            })}
+                            className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
+                          >
+                            + Video tier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({
+                              ...formData,
+                              retainer_bonus_tiers: [...formData.retainer_bonus_tiers, { gmv: 0, bonus: 0, label: '' }],
+                            })}
+                            className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
+                          >
+                            + GMV tier
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-zinc-400 mb-1">Notes</label>
+                      <textarea
+                        value={formData.retainer_notes}
+                        onChange={(e) => setFormData({ ...formData, retainer_notes: e.target.value })}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-16 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        placeholder="Partnership details, terms, etc."
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

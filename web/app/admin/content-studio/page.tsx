@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useCredits } from '@/hooks/useCredits';
+import UpsellBanner from '@/components/UpsellBanner';
 import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 import { useToast } from '@/contexts/ToastContext';
@@ -278,7 +279,7 @@ export default function ContentStudioPage() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Credits state
-  const { hasCredits, refetch: refetchCredits } = useCredits();
+  const { credits: creditsInfo, hasCredits, refetch: refetchCredits } = useCredits();
   const noCreditsModal = useNoCreditsModal();
   const { showSuccess, showError } = useToast();
 
@@ -1395,6 +1396,9 @@ export default function ContentStudioPage() {
     <div ref={containerRef} className="max-w-full lg:max-w-[1400px] mx-auto overflow-hidden">
       {/* No Credits Modal */}
       <NoCreditsModal isOpen={noCreditsModal.isOpen} onClose={noCreditsModal.close} />
+
+      {/* Upsell Banner */}
+      <UpsellBanner creditsRemaining={creditsInfo?.remaining} />
 
       {/* Header */}
       <div className="mb-6">

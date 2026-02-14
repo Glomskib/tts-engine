@@ -383,6 +383,8 @@ export default function AdminPipelinePage() {
   const [postPlatform, setPostPlatform] = useState('');
   const [posting, setPosting] = useState(false);
   const [postMessage, setPostMessage] = useState<string | null>(null);
+  const [tiktokPosting, setTiktokPosting] = useState(false);
+  const [tiktokContentConnected, setTiktokContentConnected] = useState(false);
 
   // Handoff modal state
   const [handoffModalVideoId, setHandoffModalVideoId] = useState<string | null>(null);

@@ -133,6 +133,16 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
         />
+        
+        {/* Performance: Preconnect to external APIs */}
+        <link rel="preconnect" href="https://api.openai.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://replicate.delivery" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://flashflowai.com" />
+        
+        {/* Performance: Prefetch critical navigation */}
+        <link rel="prefetch" href="/pricing" />
+        <link rel="prefetch" href="/features" />
+        <link rel="prefetch" href="/transcribe" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-[#09090b] antialiased`}

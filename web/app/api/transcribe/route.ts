@@ -285,12 +285,10 @@ Return this exact JSON structure:
 
     // Log usage for rate limiting + analytics
     const processingTimeMs = Date.now() - requestStart;
-    supabaseAdmin
+    const { error: insertErr } = await supabaseAdmin
       .from('transcribe_usage')
-      .insert({ ip, user_id: userId, url_transcribed: url, processing_time_ms: processingTimeMs })
-      .then(({ error: insertErr }) => {
-        if (insertErr) console.warn('[transcribe] Failed to log usage:', insertErr.message);
-      });
+      .insert({ ip, user_id: userId, url_transcribed: url, processing_time_ms: processingTimeMs });
+    if (insertErr) console.warn('[transcribe] Failed to log usage:', insertErr.message);
 
     return NextResponse.json(
       { transcript, segments, duration, language, analysis },

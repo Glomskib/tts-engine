@@ -1,0 +1,314 @@
+import { NextResponse } from 'next/server';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { stat, unlink, writeFile } from 'fs/promises';
+import { createReadStream, existsSync } from 'fs';
+import { randomUUID } from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import OpenAI from 'openai';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+const execFileAsync = promisify(execFile);
+const WHISPER_MAX_SIZE = 24 * 1024 * 1024; // 24 MB (Whisper limit is 25MB, keep buffer)
+
+// ============================================================================
+// Rate Limiting (in-memory, per-IP)
+// ============================================================================
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_UNAUTHENTICATED = 5;
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remaining: RATE_LIMIT_UNAUTHENTICATED - 1 };
+  }
+
+  if (entry.count >= RATE_LIMIT_UNAUTHENTICATED) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_UNAUTHENTICATED - entry.count };
+}
+
+// Clean up stale entries periodically (only once per process)
+const RL_KEY = '__transcribe_rl_cleanup';
+if (typeof globalThis !== 'undefined' && !(globalThis as Record<string, unknown>)[RL_KEY]) {
+  (globalThis as Record<string, unknown>)[RL_KEY] = setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of rateLimitMap) {
+      if (now > value.resetAt) rateLimitMap.delete(key);
+    }
+  }, 60 * 60 * 1000);
+}
+
+// ============================================================================
+// TikTok URL validation
+// ============================================================================
+
+function isValidTikTokUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return [
+      'www.tiktok.com', 'tiktok.com', 'vm.tiktok.com', 'm.tiktok.com', 'vt.tiktok.com',
+    ].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================================
+// Download TikTok video via tikwm.com API
+// ============================================================================
+
+async function downloadTikTokVideo(tiktokUrl: string): Promise<Buffer> {
+  const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}&hd=0`;
+
+  const metaRes = await fetch(apiUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      Accept: 'application/json',
+    },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!metaRes.ok) throw new Error(`TikTok metadata API returned ${metaRes.status}`);
+
+  const meta = await metaRes.json();
+  if (meta.code !== 0 || !meta.data?.play) {
+    throw new Error(meta.msg || 'Could not fetch video metadata');
+  }
+
+  const videoRes = await fetch(meta.data.play, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      Referer: 'https://www.tikwm.com/',
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!videoRes.ok) throw new Error(`Video download returned ${videoRes.status}`);
+
+  return Buffer.from(await videoRes.arrayBuffer());
+}
+
+// ============================================================================
+// Prepare audio file for Whisper
+// ============================================================================
+
+async function prepareAudioFile(videoPath: string): Promise<string> {
+  const fileSize = (await stat(videoPath)).size;
+
+  // If video is small enough, Whisper can handle mp4 directly
+  if (fileSize <= WHISPER_MAX_SIZE) {
+    return videoPath;
+  }
+
+  // For larger files, extract audio with ffmpeg
+  const audioPath = videoPath.replace('.mp4', '.mp3');
+  await execFileAsync('ffmpeg', [
+    '-i', videoPath,
+    '-vn',
+    '-acodec', 'libmp3lame',
+    '-ab', '128k',
+    '-ar', '44100',
+    '-y',
+    audioPath,
+  ], { timeout: 15000 });
+
+  if (!existsSync(audioPath)) {
+    throw new Error('Audio extraction failed');
+  }
+
+  return audioPath;
+}
+
+// ============================================================================
+// POST /api/transcribe
+// ============================================================================
+
+export async function POST(request: Request) {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
+  const { allowed, remaining } = checkRateLimit(ip);
+
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Free users get 5 transcriptions per day. Sign up for more!' },
+      { status: 429, headers: { 'X-RateLimit-Remaining': '0' } }
+    );
+  }
+
+  let body: { url?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
+  }
+
+  const { url } = body;
+  if (!url || typeof url !== 'string') {
+    return NextResponse.json({ error: 'URL is required.' }, { status: 400 });
+  }
+
+  if (!isValidTikTokUrl(url)) {
+    return NextResponse.json(
+      { error: 'Please provide a valid TikTok URL (e.g. https://www.tiktok.com/@user/video/...)' },
+      { status: 400 }
+    );
+  }
+
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) {
+    console.error('[transcribe] OPENAI_API_KEY not configured');
+    return NextResponse.json({ error: 'Transcription service is not configured.' }, { status: 500 });
+  }
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const id = randomUUID();
+  const videoPath = join(tmpdir(), `tiktok-${id}.mp4`);
+  const filesToClean: string[] = [videoPath];
+
+  try {
+    // Step 1: Download video
+    console.log('[transcribe] Downloading video from:', url);
+    const videoBuffer = await downloadTikTokVideo(url);
+    await writeFile(videoPath, videoBuffer);
+    console.log('[transcribe] Downloaded:', (videoBuffer.length / 1024 / 1024).toFixed(1), 'MB');
+
+    // Step 2: Prepare audio (small files go direct, large files need ffmpeg)
+    const whisperInputPath = await prepareAudioFile(videoPath);
+    if (whisperInputPath !== videoPath) filesToClean.push(whisperInputPath);
+
+    // Step 3: Transcribe with Whisper
+    console.log('[transcribe] Sending to Whisper...');
+    const openai = new OpenAI({ apiKey: openaiKey });
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: createReadStream(whisperInputPath),
+      model: 'whisper-1',
+      response_format: 'verbose_json',
+      timestamp_granularities: ['segment'],
+    });
+
+    const transcript = transcription.text || '';
+    const segments = (transcription.segments || []).map((s) => ({
+      start: s.start, end: s.end, text: s.text,
+    }));
+    const duration = transcription.duration || 0;
+    const language = transcription.language || 'en';
+
+    // Step 4: AI Analysis via Claude Haiku (best-effort)
+    let analysis = null;
+
+    if (anthropicKey && transcript.length > 10) {
+      console.log('[transcribe] Running AI analysis...');
+      try {
+        const analysisPrompt = `Analyze this TikTok video transcript. Return ONLY valid JSON with no markdown formatting or explanation.
+
+TRANSCRIPT:
+${transcript}
+
+Return this exact JSON structure:
+{
+  "hook": {
+    "line": "<the first sentence/hook line from the transcript>",
+    "style": "<one of: question, shock, relatable, controversial, curiosity, story, instruction>",
+    "strength": <1-10 integer>
+  },
+  "content": {
+    "format": "<e.g. tutorial, story time, product review, skit, rant, educational, day-in-life>",
+    "pacing": "<e.g. fast and punchy, conversational, slow build, rapid-fire>",
+    "structure": "<e.g. hook-problem-solution, hook-story-cta, list format, before/after>"
+  },
+  "keyPhrases": ["<3-6 memorable phrases or power words used>"],
+  "emotionalTriggers": ["<2-4 emotions the content targets>"],
+  "productMentions": ["<any products/brands mentioned, or empty array>"],
+  "whatWorks": ["<3-5 specific things this creator does well>"],
+  "targetEmotion": "<the primary emotion this content targets>"
+}`;
+
+        const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1000,
+            temperature: 0.3,
+            messages: [{ role: 'user', content: analysisPrompt }],
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+
+        if (claudeRes.ok) {
+          const claudeData = await claudeRes.json();
+          const text = claudeData.content?.[0]?.text || '';
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          console.warn('[transcribe] Claude analysis failed:', claudeRes.status);
+        }
+      } catch (e) {
+        console.warn('[transcribe] Analysis error (non-fatal):', e);
+      }
+    }
+
+    cleanupFiles(filesToClean);
+
+    return NextResponse.json(
+      { transcript, segments, duration, language, analysis },
+      { headers: { 'X-RateLimit-Remaining': String(remaining) } }
+    );
+  } catch (err) {
+    cleanupFiles(filesToClean);
+    console.error('[transcribe] Error:', err);
+
+    const message = err instanceof Error ? err.message : 'Unknown error';
+
+    if (message.includes('timed out') || message.includes('ETIMEDOUT') || message.includes('AbortError')) {
+      return NextResponse.json(
+        { error: 'The download timed out. The video may be too long or the connection is slow.' },
+        { status: 504 }
+      );
+    }
+
+    if (message.includes('metadata') || message.includes('Could not fetch')) {
+      return NextResponse.json(
+        { error: 'Could not access this TikTok video. It may be private, deleted, or region-locked.' },
+        { status: 422 }
+      );
+    }
+
+    if (message.includes('Audio extraction') || message.includes('ENOENT')) {
+      return NextResponse.json(
+        { error: 'This video is too large to process. Try a shorter video (under 3 minutes).' },
+        { status: 413 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to transcribe this video. Please check the URL and try again.' },
+      { status: 500 }
+    );
+  }
+}
+
+function cleanupFiles(paths: string[]) {
+  for (const p of paths) {
+    try {
+      if (existsSync(p)) unlink(p).catch(() => {});
+    } catch { /* ignore */ }
+  }
+}

@@ -51,25 +51,30 @@ SPEAK TO THEIR PAIN:
 `;
 
 export const CTA_INSTRUCTIONS = `
-## CALL TO ACTION RULES
+## CALL TO ACTION RULES (CRITICAL — #1 reason scripts fail quality checks)
 
-For social commerce videos, CTAs must be ACTION STATEMENTS, not suggestions.
+For social commerce videos, CTAs must be URGENT ACTION COMMANDS, not passive suggestions.
 
-NEVER USE:
-- "Link in bio"
-- "Check it out"
-- "Learn more"
-- "Click the link"
+BANNED PHRASES (using these = automatic failure):
+- "Link in bio" ❌
+- "Check it out" ❌
+- "Learn more" ❌
+- "Click the link" ❌
+- "Try it" ❌
+- "Give it a shot" ❌
+- "Go check" ❌
+- Any CTA without urgency or specific action ❌
 
-ALWAYS USE urgency + action:
-- "Add to cart before they sell out"
-- "Tap the yellow basket NOW"
-- "Grab yours while it's still in stock"
-- "The yellow button is RIGHT THERE - tap it"
-- "This deal ends tonight - add to cart"
-- "Don't scroll past this - tap add to cart"
+REQUIRED: Urgency + specific action + FOMO:
+- "Add to cart before they sell out — seriously, last time they were gone in 2 days"
+- "Tap the yellow basket NOW — this price won't last"
+- "Grab yours while it's still in stock — I'm not kidding"
+- "The yellow button is RIGHT THERE — don't think about it, just tap it"
+- "This deal ends tonight — add to cart or regret it tomorrow"
+- "Don't scroll past this — you'll be mad at yourself later. Add to cart."
 
-The CTA should create FOMO and immediate action.
+The CTA must sound like a friend URGENTLY telling you to buy something before it's gone.
+It should create genuine FOMO — the viewer should feel like waiting = losing out.
 `;
 
 export const BROLL_INSTRUCTIONS = `
@@ -727,8 +732,8 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Not needed — this format is all one continuous scene"],
   "overlays": ["Pain point or benefit text card (3-6 words)", "CTA text card"],
-  "cta_line": "CTA text (3-5 words — 'link in bio' or 'yellow basket')",
-  "cta_overlay": "CTA overlay (max 20 chars)"
+  "cta_line": "Urgent action command — 'add to cart NOW' or 'tap the yellow basket' (NEVER 'link in bio' or 'check it out')",
+  "cta_overlay": "Action CTA overlay (max 20 chars, e.g. 'ADD TO CART NOW')"
 }
 
 HARD RULES:
@@ -741,6 +746,14 @@ HARD RULES:
 - 3-4 punchy sentences total — each one lands a different beat
 - NO filler words, NO "honestly", NO "like" — every word must count
 - Product appears naturally in beat 2, never in beat 1
+
+CTA RULES (CRITICAL — this is the #1 weakness in generated scripts):
+- The LAST beat MUST end with a clear, urgent call to action
+- NEVER use: "link in bio", "check it out", "learn more", "try it"
+- ALWAYS use action + urgency: "Add to cart before they sell out", "Tap the yellow basket NOW", "Grab yours — this deal ends tonight"
+- The CTA should feel like the person is genuinely telling a friend to act FAST
+- CTA overlay text must match: "ADD TO CART NOW", "TAP YELLOW BASKET", "GRAB YOURS"
+- Think: what would make someone STOP scrolling and BUY right now?
 
 EXAMPLE:
 {
@@ -761,14 +774,14 @@ EXAMPLE:
     {
       "t": "0:06-0:10",
       "action": "Slow satisfied smile spreading across her face. Behind her, a cat knocks a water bottle off the shelf — she doesn't even flinch, just keeps sipping with her eyes closed. Pure contentment.",
-      "dialogue": "Why did nobody tell me?",
-      "on_screen_text": "link in bio"
+      "dialogue": "Why did nobody tell me? Grab yours before they sell out.",
+      "on_screen_text": "add to cart NOW"
     }
   ],
   "b_roll": [],
-  "overlays": ["I was SO skeptical", "morning game changer", "link in bio"],
-  "cta_line": "link in bio",
-  "cta_overlay": "link in bio"
+  "overlays": ["I was SO skeptical", "morning game changer", "add to cart NOW"],
+  "cta_line": "Grab yours before they sell out",
+  "cta_overlay": "ADD TO CART NOW"
 }
 `,
 

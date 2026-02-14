@@ -161,7 +161,7 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
 async function checkRunwayRenders(results: Record<string, unknown>[]) {
   const { data: rendering } = await supabaseAdmin
     .from("videos")
-    .select("id, render_task_id, render_provider")
+    .select("id, render_task_id, render_provider, product_id")
     .eq("recording_status", "AI_RENDERING")
     .not("render_task_id", "is", null)
     .is("compose_render_id", null)
@@ -198,6 +198,17 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
           }
         }
 
+        // Fetch product image URL for overlay
+        let productImageUrl: string | undefined;
+        if (video.product_id) {
+          const { data: product } = await supabaseAdmin
+            .from("products")
+            .select("product_image_url")
+            .eq("id", video.product_id)
+            .single();
+          productImageUrl = product?.product_image_url || undefined;
+        }
+
         // Submit Shotstack compose
         const compose = await submitCompose({
           videoUrl: rehostedUrl,
@@ -205,6 +216,7 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
           onScreenText,
           cta,
           duration: 10,
+          productImageUrl,
         });
 
         // Store compose render ID on the video — Phase 1 will finalize it

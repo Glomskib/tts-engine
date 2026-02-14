@@ -10,6 +10,7 @@ export interface ComposeParams {
   onScreenText?: string;
   cta?: string;
   duration?: number;
+  productImageUrl?: string;
 }
 
 export interface ComposeResult {
@@ -80,12 +81,49 @@ function buildTextCards(
   }));
 }
 
+function buildProductImageClips(
+  imageUrl: string,
+  videoDuration: number,
+  ctaLength: number
+) {
+  const clips: Record<string, unknown>[] = [];
+
+  // Hook appearance: 0.3s → ~3.3s, bottom-left
+  clips.push({
+    asset: { type: "image", src: imageUrl },
+    start: 0.3,
+    length: 3,
+    position: "bottomLeft",
+    offset: { x: 0.05, y: 0.08 },
+    scale: 0.28,
+    opacity: 0.92,
+    fit: "contain",
+    transition: { in: "fade", out: "fade" },
+  });
+
+  // CTA appearance: last 3.5s, bottom-right
+  const ctaStart = Math.max(0, videoDuration - ctaLength);
+  clips.push({
+    asset: { type: "image", src: imageUrl },
+    start: ctaStart,
+    length: Math.min(ctaLength, videoDuration),
+    position: "bottomRight",
+    offset: { x: -0.05, y: 0.08 },
+    scale: 0.28,
+    opacity: 0.92,
+    fit: "contain",
+    transition: { in: "fade", out: "fade" },
+  });
+
+  return clips;
+}
+
 /**
  * Submit a compose render to Shotstack. Returns the render ID.
  * Throws on failure.
  */
 export async function submitCompose(params: ComposeParams): Promise<ComposeResult> {
-  const { videoUrl, audioUrl, onScreenText, cta } = params;
+  const { videoUrl, audioUrl, onScreenText, cta, productImageUrl } = params;
   const duration = params.duration ?? 10;
   const ctaLength = 3.5;
 
@@ -118,6 +156,12 @@ export async function submitCompose(params: ComposeParams): Promise<ComposeResul
         opacity: 0.85,
         transition: { in: "fade", out: "fade" },
       })),
+    });
+  }
+
+  if (productImageUrl) {
+    tracks.push({
+      clips: buildProductImageClips(productImageUrl, duration, ctaLength),
     });
   }
 

@@ -13,6 +13,7 @@ const ComposeSchema = z.object({
   onScreenText: z.string().max(500).optional(),
   cta: z.string().max(200).optional(),
   duration: z.number().min(1).max(120).optional(),
+  productImageUrl: z.string().url().optional(),
 });
 
 export async function POST(request: Request) {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const { videoUrl, audioUrl, onScreenText, cta } = parsed.data;
+  const { videoUrl, audioUrl, onScreenText, cta, productImageUrl } = parsed.data;
 
   // Probe video URL if duration not provided — fall back to 10s default
   let duration = parsed.data.duration;
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await submitCompose({ videoUrl, audioUrl, onScreenText, cta, duration });
+    const result = await submitCompose({ videoUrl, audioUrl, onScreenText, cta, duration, productImageUrl });
 
     return NextResponse.json({
       ok: true,

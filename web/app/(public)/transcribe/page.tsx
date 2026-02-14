@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Clipboard,
@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Clock,
   Globe,
+  Trophy,
 } from 'lucide-react';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 // ============================================================================
 // Types
@@ -57,7 +59,18 @@ export default function TranscribePage() {
   const [result, setResult] = useState<TranscribeResult | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [addingWinner, setAddingWinner] = useState(false);
+  const [winnerAdded, setWinnerAdded] = useState(false);
+  const [winnerError, setWinnerError] = useState('');
   const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+    });
+  }, []);
 
   async function handleTranscribe() {
     if (!url.trim()) return;
@@ -65,6 +78,8 @@ export default function TranscribePage() {
     setLoading(true);
     setError('');
     setResult(null);
+    setWinnerAdded(false);
+    setWinnerError('');
 
     try {
       const res = await fetch('/api/transcribe', {
@@ -104,6 +119,45 @@ export default function TranscribePage() {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  }
+
+  async function handleAddToWinners() {
+    if (!result) return;
+    setAddingWinner(true);
+    setWinnerError('');
+
+    try {
+      const res = await fetch('/api/winners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_type: 'external',
+          video_url: url.trim(),
+          full_script: result.transcript,
+          hook: result.analysis?.hook.line,
+          hook_type: result.analysis?.hook.style,
+          content_format: result.analysis?.content.format,
+        }),
+      });
+
+      if (res.status === 401) {
+        setWinnerError('Sign in to save winners');
+        setIsLoggedIn(false);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        setWinnerError(data.error || 'Failed to save winner');
+        return;
+      }
+
+      setWinnerAdded(true);
+    } catch {
+      setWinnerError('Network error. Please try again.');
+    } finally {
+      setAddingWinner(false);
+    }
   }
 
   return (
@@ -352,22 +406,72 @@ export default function TranscribePage() {
               </div>
             )}
 
-            {/* CTA */}
-            <div className="bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-xl p-8 text-center">
-              <h3 className="text-xl font-bold text-white mb-2">
-                Want to write scripts like this?
-              </h3>
-              <p className="text-zinc-400 mb-6">
-                Generate your first AI-powered TikTok script in seconds. Free to start.
-              </p>
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
-              >
-                Generate your first script free
-                <ArrowRight size={16} />
-              </Link>
-            </div>
+            {/* Winners Bank + CTA */}
+            {winnerAdded ? (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-center">
+                <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
+                  <Check size={20} />
+                  <span className="text-lg font-semibold">Added to Winners Bank</span>
+                </div>
+                <Link
+                  href="/admin/winners"
+                  className="text-green-400 hover:text-green-300 underline underline-offset-2 text-sm transition-colors"
+                >
+                  View in your Winners Bank &rarr;
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {isLoggedIn && (
+                  <div className="text-center">
+                    <button
+                      onClick={handleAddToWinners}
+                      disabled={addingWinner}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingWinner ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Trophy size={18} />
+                          Add to Winners Bank
+                        </>
+                      )}
+                    </button>
+                    {winnerError && (
+                      <p className="text-red-400 text-sm mt-2">{winnerError}</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-xl p-8 text-center">
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    Want to write scripts like this?
+                  </h3>
+                  <p className="text-zinc-400 mb-6">
+                    Generate your first AI-powered TikTok script in seconds. Free to start.
+                  </p>
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
+                  >
+                    Generate your first script free
+                    <ArrowRight size={16} />
+                  </Link>
+                  {!isLoggedIn && (
+                    <p className="mt-4 text-zinc-500 text-sm">
+                      <Link href="/login" className="text-zinc-400 hover:text-zinc-300 underline underline-offset-2 transition-colors">
+                        Sign in
+                      </Link>
+                      {' '}to save this to your Winners Bank
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}

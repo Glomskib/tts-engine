@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AdminPageLayout, { AdminCard, AdminButton } from '../../components/AdminPageLayout';
+import PlanGate from '@/components/PlanGate';
 import { useToast } from '@/contexts/ToastContext';
 import { Trophy, Loader2, RefreshCw, TrendingUp, BarChart, Lightbulb, Zap, Star, Target } from 'lucide-react';
 
@@ -123,6 +124,7 @@ export default function WinnerPatternsPage() {
     : 1;
 
   return (
+    <PlanGate minPlan="creator_pro" feature="Winner Patterns">
     <AdminPageLayout
       title="Winner Patterns"
       subtitle="AI-powered analysis of your top-performing videos"
@@ -497,5 +499,6 @@ export default function WinnerPatternsPage() {
         }
       `}</style>
     </AdminPageLayout>
+    </PlanGate>
   );
 }

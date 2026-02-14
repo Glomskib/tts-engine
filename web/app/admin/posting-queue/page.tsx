@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import AdminPageLayout, { StatCard } from '../components/AdminPageLayout';
+import PlanGate from '@/components/PlanGate';
 import {
   Send, Copy, CheckCircle, Loader2, RefreshCw,
   Calendar, Clock, ArrowUpDown, ExternalLink, Play,
@@ -173,6 +174,7 @@ export default function PostingQueuePage() {
   };
 
   return (
+    <PlanGate minPlan="creator_pro" feature="Posting Queue">
     <AdminPageLayout
       title="Posting Queue"
       subtitle="Manual posting bridge — copy video URL, post to TikTok, mark as posted"
@@ -535,6 +537,7 @@ export default function PostingQueuePage() {
         </div>
       )}
     </AdminPageLayout>
+    </PlanGate>
   );
 }
 

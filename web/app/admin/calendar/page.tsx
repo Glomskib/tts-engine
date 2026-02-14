@@ -274,6 +274,7 @@ export default function ContentCalendarPage() {
   const selectedDayVideos = selectedDay && data ? (data.calendar[selectedDay] || []) : [];
 
   return (
+    <PlanGate minPlan="creator_pro" feature="Content Calendar">
     <PullToRefresh onRefresh={fetchData}>
       <div className="px-4 py-6 pb-24 lg:pb-8 space-y-5 max-w-7xl mx-auto">
         {/* Header */}
@@ -555,5 +556,6 @@ export default function ContentCalendarPage() {
         )}
       </div>
     </PullToRefresh>
+    </PlanGate>
   );
 }

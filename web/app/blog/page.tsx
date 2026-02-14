@@ -16,6 +16,15 @@ export const metadata: Metadata = {
 export default function BlogPage() {
   const articles = [
     {
+      slug: 'ai-tools-tiktok-shop',
+      title: '5 AI Tools Every TikTok Shop Seller Needs in 2026',
+      excerpt: 'Complete AI toolkit for TikTok Shop sellers. FlashFlow + CapCut + Kalodata + ChatGPT + Adobe Firefly = unstoppable content machine.',
+      date: 'Feb 14, 2026',
+      readTime: '10 min read',
+      category: 'Tools',
+      image: '🤖',
+    },
+    {
       slug: 'getting-started',
       title: 'Getting Started with FlashFlow AI — Your First Script in 60 Seconds',
       excerpt: 'Step-by-step guide to generating your first TikTok script. Add a product, pick a persona, generate, save. No experience needed.',

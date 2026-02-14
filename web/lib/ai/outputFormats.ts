@@ -51,32 +51,31 @@ SPEAK TO THEIR PAIN:
 `;
 
 export const CTA_INSTRUCTIONS = `
-## CALL TO ACTION RULES
+## CALL TO ACTION — THE NATURAL CLOSE
 
-The CTA is the LAST thing the viewer hears. It must feel like a NATURAL part of the conversation — a friend telling you about something they love and why you should get it too.
+The CTA is NOT a sales pitch. It's the organic ending of someone's genuine experience.
 
-BANNED (too passive, zero urgency):
-- "Link in bio" ❌
-- "Check it out" ❌
-- "Learn more" ❌
-- "Click the link" ❌
+The best CTAs are PERSONAL TESTIMONY that makes the viewer want to act on their own:
 
-BANNED (too salesy, breaks authenticity):
-- "Tap the yellow basket NOW" ❌
-- "Buy it right now" ❌
-- Anything that sounds like a TV infomercial ❌
+TIER 1 (score 9-10) — Personal conviction, no commands:
+- "I'm on my third bottle. Just saying."
+- "I literally can't go back to how I was doing it before."
+- "I wish someone had told me about this six months ago."
+- "This is the one thing I tell everyone about. Do with that what you will."
+- "I grabbed two more just in case. That should tell you everything."
 
-THE SWEET SPOT — authentic urgency:
-The CTA should sound like something you'd genuinely text a friend:
-- "I'm telling you — grab this before they figure out how underpriced it is"
-- "Seriously, I wish someone told me about this sooner. Don't wait like I did."
-- "I stocked up on three. You should at least get one before they sell out."
-- "If you've been going back and forth, this is your sign. Just get it."
-- "I'm never going back to what I was using before. Add to cart — trust me."
-- "Everyone who tries this says the same thing. You'll thank me later."
+TIER 2 (score 7-8) — Gentle nudge with personality:
+- "If you've been on the fence, get off it. Trust me on this one."
+- "I'm not saying you NEED this. But... you kind of need this."
+- "All I'm saying is, I haven't looked back. Not once."
 
-FORMULA: Personal conviction + gentle urgency + no corporate language.
-The viewer should feel like they're getting insider advice, not being sold to.
+TIER 3 (score 4-6) — Avoid these:
+- "Add to cart now" — too corporate
+- "Tap the yellow basket" — platform mechanic, breaks immersion
+- "Grab yours before they sell out" — generic urgency
+- "Link in bio" — lazy, zero conviction
+
+The CTA should feel like the LAST LINE of someone's genuine reaction — not a pivot to selling.
 `;
 
 export const BROLL_INSTRUCTIONS = `
@@ -734,8 +733,8 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Not needed — this format is all one continuous scene"],
   "overlays": ["Pain point or benefit text card (3-6 words)", "CTA text card"],
-  "cta_line": "Natural close — like texting a friend: 'seriously just get one, you'll thank me later' (NEVER 'link in bio' or 'tap yellow basket')",
-  "cta_overlay": "Short CTA overlay (max 20 chars, e.g. 'grab yours', 'don't sleep on this')"
+  "cta_line": "Personal testimony close — what YOU did/feel, not what the viewer should do. e.g. 'I'm on my third bottle. Just saying.' (NEVER 'link in bio', 'add to cart', 'tap yellow basket')",
+  "cta_overlay": "Casual overlay, 2-4 words (e.g. 'just saying', 'trust me on this', 'you're welcome')"
 }
 
 HARD RULES:
@@ -749,16 +748,15 @@ HARD RULES:
 - NO filler words, NO "honestly", NO "like" — every word must count
 - Product appears naturally in beat 2, never in beat 1
 
-CTA RULES (CRITICAL — this is the #1 weakness in generated scripts):
-- The LAST beat MUST end with a natural, convincing close
-- NEVER use passive CTAs: "link in bio", "check it out", "learn more", "try it"
-- NEVER use infomercial CTAs: "tap the yellow basket NOW", "buy it right now"
-- USE authentic urgency — sound like you're texting a friend:
-  "I stocked up on three. Seriously, just get one before they sell out."
-  "I wish someone told me about this sooner. Don't wait like I did."
-  "If you've been going back and forth — just get it. You'll thank me later."
-- The CTA should feel like the NATURAL ending of the person's genuine reaction
-- CTA overlay: short, action-oriented but not screamy (e.g. "grab yours", "don't sleep on this")
+CTA RULES (CRITICAL — #1 weakness in generated scripts):
+- The LAST sentence of dialogue is the close. It must feel like the natural ending of their reaction.
+- The close is PERSONAL TESTIMONY, not a sales command:
+  PERFECT: "I'm on my third bottle. Just saying."
+  PERFECT: "I literally can't go back to how I was doing it before."
+  PERFECT: "I wish someone had told me about this six months ago."
+  BAD: "Add to cart now" / "Tap the yellow basket" / "Link in bio" / "Grab yours"
+- The person is sharing what THEY did, not telling the viewer what to do
+- CTA overlay: casual, lowercase, 2-4 words (e.g. "just saying", "trust me on this", "you're welcome")
 
 EXAMPLE:
 {
@@ -779,14 +777,14 @@ EXAMPLE:
     {
       "t": "0:06-0:10",
       "action": "Slow satisfied smile spreading across her face. Behind her, a cat knocks a water bottle off the shelf — she doesn't even flinch, just keeps sipping with her eyes closed. Pure contentment.",
-      "dialogue": "Why did nobody tell me about this sooner? Seriously, just get one.",
-      "on_screen_text": "don't sleep on this"
+      "dialogue": "I'm on my third container. I wish someone told me about this six months ago.",
+      "on_screen_text": "just saying"
     }
   ],
   "b_roll": [],
-  "overlays": ["I was SO skeptical", "morning game changer", "don't sleep on this"],
-  "cta_line": "Seriously, just get one. You'll thank me later.",
-  "cta_overlay": "grab yours"
+  "overlays": ["I was SO skeptical", "morning game changer", "just saying"],
+  "cta_line": "I'm on my third container. I wish someone told me about this six months ago.",
+  "cta_overlay": "just saying"
 }
 `,
 

@@ -23,7 +23,7 @@ const UpdateBrandSchema = z.object({
   retainer_period_start: z.string().optional().nullable(),
   retainer_period_end: z.string().optional().nullable(),
   retainer_payout_amount: z.number().min(0).optional(),
-  retainer_bonus_tiers: z.array(z.record(z.unknown())).optional(),
+  retainer_bonus_tiers: z.array(z.record(z.string(), z.unknown())).optional(),
   retainer_notes: z.string().max(5000).optional().nullable(),
 });
 

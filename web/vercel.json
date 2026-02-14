@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/script-of-the-day",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/retainer-check",
+      "schedule": "0 13 * * *"
     }
   ]
 }

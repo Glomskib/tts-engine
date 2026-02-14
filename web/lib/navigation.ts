@@ -42,6 +42,7 @@ import {
   Ticket,
   ListTodo,
   Eye,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -139,6 +140,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo, adminOnly: true },
       { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
+      { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },
       { name: 'Settings', href: '/admin/settings', icon: Settings, adminOnly: true },
     ],
@@ -307,6 +309,7 @@ export const Icons = {
   FlaskConical,
   Mic,
   Search,
+  MessageSquare,
 };
 
 // Constants

@@ -25,6 +25,7 @@ const NotificationsBell = dynamic(() => import('@/components/NotificationsBell')
 import { LowCreditBanner } from '@/components/LowCreditBanner';
 import { CreditMilestoneBanner, ReferralPromptBanner } from '@/components/UpgradePrompts';
 import { CommandPalette } from '@/components/CommandPalette';
+import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { ThemeProvider, useTheme } from '@/app/components/ThemeProvider';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +64,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
   const [unreadCount, setUnreadCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  const [feedbackCount, setFeedbackCount] = useState(0);
 
   // Set page title based on pathname
   useEffect(() => {
@@ -87,6 +89,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/tasks': 'Task Queue',
       '/admin/automation': 'Automation',
       '/admin/settings': 'Settings',
+      '/admin/feedback': 'User Feedback',
       '/admin/api-docs': 'API Docs',
       '/admin/transcribe': 'Transcriber',
       '/admin/help': 'Help',
@@ -167,11 +170,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         // ignore
       }
     };
+    const fetchFeedbackCount = async () => {
+      if (!auth.isAdmin) return;
+      try {
+        const res = await fetch('/api/feedback?admin=true&status=new');
+        if (res.ok) {
+          const data = await res.json();
+          setFeedbackCount(data.stats?.new || 0);
+        }
+      } catch {
+        // ignore
+      }
+    };
     fetchNotifications();
     fetchReviewCount();
-    const interval = setInterval(() => { fetchNotifications(); fetchReviewCount(); }, 30000);
+    fetchFeedbackCount();
+    const interval = setInterval(() => { fetchNotifications(); fetchReviewCount(); fetchFeedbackCount(); }, 30000);
     return () => clearInterval(interval);
-  }, [auth.authenticated]);
+  }, [auth.authenticated, auth.isAdmin]);
 
   const handleLogout = async () => {
     try {
@@ -242,6 +258,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   {item.href === '/admin/review' && reviewCount > 0 && (
                     <span className={`ml-auto px-2 py-0.5 font-medium bg-emerald-600 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
                       {reviewCount}
+                    </span>
+                  )}
+                  {item.href === '/admin/feedback' && feedbackCount > 0 && (
+                    <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
+                      {feedbackCount}
                     </span>
                   )}
                 </Link>
@@ -523,6 +544,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
     </div>
+    <FeedbackWidget />
     <CommandPalette />
     <KeyboardShortcutsModal />
     <PlanDebugBanner />

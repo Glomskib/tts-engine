@@ -4,24 +4,72 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BRAND } from '@/lib/brand';
-import { VideoShowcase } from '@/components/VideoShowcase';
+import { PLANS } from '@/lib/plans';
 import { VideoServiceContact } from '@/components/VideoServiceContact';
 
 // ============================================================================
-// FLASHFLOW AI — LANDING PAGE WITH PRICING
+// FLASHFLOW AI — CONVERSION FUNNEL HOMEPAGE
 // ============================================================================
 
+const FAQ_ITEMS = [
+  {
+    q: 'How does FlashFlow AI work?',
+    a: 'Enter your product name, pick a creator persona (like "Skeptical Reviewer" or "Gen-Z Trendsetter"), choose a tone, and hit generate. Our AI writes a scroll-stopping TikTok script in under 60 seconds — complete with hooks, beat-by-beat dialogue, and CTAs.',
+  },
+  {
+    q: 'What are credits and how do they work?',
+    a: 'Credits power AI generations. Each script generation costs 1 credit. Free accounts get 5 scripts/month. Paid plans range from 25 to unlimited scripts per month depending on your tier.',
+  },
+  {
+    q: 'Is there a free trial?',
+    a: 'Yes! You get 3 free script generations per day without even signing up. Create a free account for 5 per day. No credit card required — ever.',
+  },
+  {
+    q: 'Does this work for TikTok Shop products?',
+    a: 'Absolutely. FlashFlow was built for TikTok Shop sellers. All scripts are compliance-safe — no prohibited health claims, no fake urgency, no celebrity impersonation. The "Safe" tone mode is designed specifically for TikTok Shop guidelines.',
+  },
+  {
+    q: 'What are persona presets?',
+    a: 'Personas are pre-built creator voices. Each one has a distinct tone, humor style, and delivery approach. Examples include the "Skeptical Reviewer" (analytical, honest), "Gen-Z Trendsetter" (playful, slang-heavy), and "High-Energy Hype Machine" (urgent, exciting). Pick the one that matches your brand.',
+  },
+  {
+    q: 'Can FlashFlow create the actual videos too?',
+    a: 'Yes. Our AI video editing service turns your scripts into ready-to-post TikToks with captions, b-roll, and music. Packages start at $89/month for 45 videos. Contact us for details.',
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. All plans are month-to-month with no contracts. Cancel anytime from your dashboard — no questions asked.',
+  },
+];
+
+// Mini script generator result types
+interface Beat {
+  t: string;
+  action: string;
+  dialogue?: string;
+  on_screen_text?: string;
+}
+
+interface SkitResult {
+  hook_line: string;
+  beats: Beat[];
+  cta_line: string;
+  cta_overlay: string;
+}
+
 export default function LandingPage() {
-  const [scrollY, setScrollY] = useState(0);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [contactOpen, setContactOpen] = useState(false);
   const [referralBanner, setReferralBanner] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Mini script generator state
+  const [miniProduct, setMiniProduct] = useState('');
+  const [miniLoading, setMiniLoading] = useState(false);
+  const [miniResult, setMiniResult] = useState<SkitResult | null>(null);
+  const [miniError, setMiniError] = useState('');
+
+  // FAQ state
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // Capture referral and promo codes from URL params
   useEffect(() => {
@@ -33,7 +81,6 @@ export default function LandingPage() {
       localStorage.setItem('ff_ref', ref);
       document.cookie = `ff_ref=${ref}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
       setReferralBanner(true);
-      // Record click
       fetch('/api/referrals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,6 +93,36 @@ export default function LandingPage() {
       document.cookie = `ff_promo=${promo}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
     }
   }, []);
+
+  const handleMiniGenerate = async () => {
+    if (!miniProduct.trim()) return;
+    setMiniLoading(true);
+    setMiniError('');
+    setMiniResult(null);
+
+    try {
+      const res = await fetch('/api/public/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_name: miniProduct.trim(),
+          risk_tier: 'BALANCED',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMiniError(data.error || 'Generation failed');
+        return;
+      }
+      setMiniResult(data.skit);
+    } catch {
+      setMiniError('Network error. Please try again.');
+    } finally {
+      setMiniLoading(false);
+    }
+  };
+
+  const yearlyPrice = (monthly: number) => Math.round(monthly * 0.8);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased">
@@ -60,13 +137,13 @@ export default function LandingPage() {
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             url: 'https://flashflowai.com',
-            description: 'AI-powered script generation for TikTok Shop creators, marketers, and teams.',
+            description: 'AI-powered TikTok script generator for creators, TikTok Shop sellers, and agencies.',
             offers: {
               '@type': 'AggregateOffer',
               lowPrice: '0',
-              highPrice: '59',
+              highPrice: '149',
               priceCurrency: 'USD',
-              offerCount: 4,
+              offerCount: 5,
             },
             aggregateRating: {
               '@type': 'AggregateRating',
@@ -76,16 +153,42 @@ export default function LandingPage() {
           }),
         }}
       />
-      {/* Subtle grid background */}
-      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
-      
-      {/* Gradient orb */}
-      <div 
-        className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-blue-500/8 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none"
-        style={{ transform: `translate(-50%, ${scrollY * 0.1}px)` }}
+
+      {/* FAQPage Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            mainEntity: FAQ_ITEMS.map((item) => ({
+              '@type': 'Question',
+              name: item.q,
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: item.a,
+              },
+            })),
+          }),
+        }}
       />
 
-      {/* Navigation */}
+      {/* Subtle grid background */}
+      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+
+      {/* Gradient orb */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-blue-500/8 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+      {/* Referral Banner */}
+      {referralBanner && (
+        <div className="bg-emerald-500/10 border-b border-emerald-500/20 text-center py-2 px-4 text-sm text-emerald-400">
+          Referral link applied! Your friend will earn rewards when you subscribe.
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* NAVIGATION — Minimal, single CTA */}
+      {/* ================================================================ */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -98,53 +201,52 @@ export default function LandingPage() {
             />
             <span className="font-semibold text-lg tracking-tight">{BRAND.name}</span>
           </Link>
-          <div className="flex items-center gap-6">
-            <Link href="#features" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Features</Link>
-            <Link href="#how-it-works" className="text-sm text-zinc-400 hover:text-white transition-colors hidden md:block">How It Works</Link>
-            <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Pricing</Link>
-            <Link href="#video-services" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Video Services</Link>
-            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Sign In</Link>
-            <Link href="/signup" className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors">
-              Start Free
+          <div className="flex items-center gap-4">
+            <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Pricing
+            </Link>
+            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Sign In
+            </Link>
+            <Link
+              href="/script-generator"
+              className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+            >
+              Try Script Generator Free
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-24 px-6">
+      {/* ================================================================ */}
+      {/* SECTION 1 — HERO */}
+      {/* ================================================================ */}
+      <section className="relative pt-32 pb-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          {/* Pill badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Try free — no credit card required
+            Free — no credit card required
           </div>
-          
-          {/* Main headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
-            Ideas move{' '}
+
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+            Turn Any Viral TikTok Into Your Own{' '}
             <span className="bg-gradient-to-r from-blue-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
-              faster
-            </span>
-            {' '}here.
+              Money-Making Content
+            </span>{' '}
+            in 60 Seconds
           </h1>
-          
-          {/* Subheadline */}
-          <p className="text-xl sm:text-2xl text-zinc-400 max-w-2xl mx-auto mb-4 leading-relaxed">
-            From concept to content — without breaking flow.
+
+          <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            AI writes hooks, scripts, and CTAs tuned to YOUR product and audience.
+            Pick a persona, drop in your product, and get a ready-to-film script instantly.
           </p>
-          <p className="text-lg text-zinc-500 max-w-xl mx-auto mb-10">
-            AI-powered script generation for creators, marketers, and teams. 
-            Build momentum. Ship faster. Stay in flow.
-          </p>
-          
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Link
               href="/script-generator"
               className="group px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_4px_24px_rgba(0,0,0,0.4)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]"
             >
-              Try Script Generator
+              Try the Script Generator Free
               <svg className="inline-block ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -153,12 +255,12 @@ export default function LandingPage() {
               href="#pricing"
               className="px-8 py-4 rounded-xl border border-white/10 text-zinc-300 font-medium text-lg hover:bg-white/5 hover:border-white/20 transition-all"
             >
-              View Pricing
+              See Pricing
             </Link>
           </div>
-          
-          {/* Social proof */}
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-8 sm:gap-12 text-center">
+
+          {/* Social proof counters */}
+          <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12 text-center">
             <div>
               <div className="text-2xl font-bold text-white">10,000+</div>
               <div className="text-xs text-zinc-500 mt-1">Scripts Generated</div>
@@ -170,167 +272,259 @@ export default function LandingPage() {
             </div>
             <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
             <div>
-              <div className="text-2xl font-bold text-white">20+</div>
-              <div className="text-xs text-zinc-500 mt-1">Persona Archetypes</div>
-            </div>
-            <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
-            <div>
-              <div className="text-2xl font-bold text-white">Free</div>
-              <div className="text-xs text-zinc-500 mt-1">No Card Required</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Hero visual */}
-        <div className="relative max-w-5xl mx-auto mt-20">
-          <div className="aspect-[16/9] rounded-2xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-white/10 overflow-hidden shadow-2xl shadow-black/50">
-            <div className="absolute inset-0 p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                  <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                  <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                </div>
-                <div className="flex-1 h-8 rounded-lg bg-zinc-800/50 max-w-md" />
+              <div className="flex items-center gap-1 justify-center">
+                <span className="text-2xl font-bold text-white">4.8</span>
+                <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
               </div>
-              <div className="grid grid-cols-3 gap-4 h-[calc(100%-4rem)]">
-                <div className="col-span-1 space-y-3">
-                  <div className="h-10 rounded-lg bg-zinc-800/50" />
-                  <div className="h-32 rounded-lg bg-zinc-800/30" />
-                  <div className="h-10 rounded-lg bg-zinc-800/50" />
-                  <div className="h-20 rounded-lg bg-zinc-800/30" />
-                </div>
-                <div className="col-span-2 rounded-xl bg-zinc-800/20 border border-white/5 p-4">
-                  <div className="space-y-3">
-                    <div className="h-4 rounded bg-zinc-700/50 w-3/4" />
-                    <div className="h-4 rounded bg-zinc-700/30 w-full" />
-                    <div className="h-4 rounded bg-zinc-700/30 w-5/6" />
-                    <div className="h-4 rounded bg-zinc-700/30 w-2/3" />
-                    <div className="mt-6 h-24 rounded-lg bg-gradient-to-r from-blue-500/20 to-violet-500/20 border border-blue-500/20" />
-                  </div>
-                </div>
-              </div>
+              <div className="text-xs text-zinc-500 mt-1">Creator Rating</div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-transparent pointer-events-none" />
           </div>
         </div>
       </section>
 
-      {/* The Problem Section */}
-      <section className="relative py-24 px-6 border-t border-white/5">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">The Problem</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6">
-              Creative momentum is fragile.
-            </h2>
-          </div>
-          
-          <div className="grid sm:grid-cols-3 gap-8">
-            <ProblemCard
-              title="Tool Sprawl"
-              description="Jumping between apps, tabs, and platforms. Every switch costs you focus. By the time you're back, the idea has faded."
-            />
-            <ProblemCard
-              title="Decision Fatigue"
-              description="Which hook? What tone? How long? Endless micro-decisions drain your energy before you've written a single line."
-            />
-            <ProblemCard
-              title="Lost Momentum"
-              description="Great ideas die in the gap between conception and execution. The workflow itself becomes the bottleneck."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* The FlashFlow Difference */}
-      <section className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-sm font-medium text-blue-400 uppercase tracking-widest mb-4">The FlashFlow Difference</p>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6">
-            A system, not a chatbot.
-          </h2>
-          <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-12">
-            FlashFlow AI isn&apos;t another prompt box. It&apos;s a structured creative engine with guardrails,
-            templates, and throttles — designed for continuous output, not one-off generations.
-          </p>
-          
-          <div className="grid sm:grid-cols-3 gap-6 text-left">
-            <DifferenceCard
-              icon={<LightningIcon />}
-              title="Creative Velocity"
-              description="Move from idea to script in minutes. Structured inputs eliminate decision paralysis."
-            />
-            <DifferenceCard
-              icon={<ShieldIcon />}
-              title="Built-in Guardrails"
-              description="Policy safety, tone control, and risk throttling. Ship confidently without compliance anxiety."
-            />
-            <DifferenceCard
-              icon={<RepeatIcon />}
-              title="Repeatable Patterns"
-              description="Save winning structures. Reuse what works. Build a library of proven creative frameworks."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Core Features */}
-      <section id="features" className="relative py-24 px-6 border-t border-white/5">
+      {/* ================================================================ */}
+      {/* SECTION 2 — SOCIAL PROOF (TikTok embed placeholders) */}
+      {/* ================================================================ */}
+      <section className="relative py-16 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Core Features</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Everything you need to stay in flow.
-            </h2>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              title="AI Script Generation"
-              description="Generate hooks, skits, and full scripts from structured inputs. Choose your angle, tone, and intensity — the system handles the rest."
-            />
-            <FeatureCard
-              title="Character Presets"
-              description="Pre-built personas with distinct voices. Select a character, and the AI adapts its writing style, humor level, and delivery automatically."
-            />
-            <FeatureCard
-              title="Creative Throttles"
-              description="Dial creativity up or down with precision controls. Balance wild ideation with brand-safe output depending on your needs."
-            />
-            <FeatureCard
-              title="Product-Aware Generation"
-              description="Connect your product catalog. The AI references real features, benefits, and positioning — no more generic filler copy."
-            />
-            <FeatureCard
-              title="Policy Safety Layer"
-              description="Built-in compliance checks flag risky content before it ships. Set your risk tolerance and let the system enforce it."
-            />
-            <FeatureCard
-              title="Winning Pattern Library"
-              description="Save scripts that perform. Tag, organize, and reuse proven structures. Turn one-time wins into repeatable frameworks."
-            />
+          <p className="text-center text-sm font-medium text-zinc-500 uppercase tracking-widest mb-8">
+            Real scripts. Real results.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-6">
+            {['Product Demo', 'UGC Testimonial', 'Trend Reaction'].map((label) => (
+              <div
+                key={label}
+                className="aspect-[9/16] rounded-2xl bg-zinc-900 border border-white/5 flex flex-col items-center justify-center gap-3 overflow-hidden"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-zinc-500">{label}</span>
+                <span className="text-xs text-zinc-700">Coming soon</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
+      {/* ================================================================ */}
+      {/* SECTION 3 — PAIN POINTS */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Sound Familiar?</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Creating content shouldn&apos;t feel this hard.
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6 mb-10">
+            {[
+              {
+                title: 'Spending hours writing scripts that flop',
+                desc: 'You stare at a blank screen, rewrite hooks five times, and the video still gets 200 views.',
+              },
+              {
+                title: 'Your VA keeps missing the voice',
+                desc: 'You hire help but every script sounds generic. Revisions take longer than writing it yourself.',
+              },
+              {
+                title: 'Competitors posting 5x more than you',
+                desc: 'They\'re pumping out content daily while you\'re stuck producing one video a week.',
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="p-6 rounded-xl bg-red-500/5 border border-red-500/10"
+              >
+                <h3 className="text-lg font-semibold text-zinc-200 mb-3">{item.title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <p className="text-lg text-zinc-300 mb-4">
+              FlashFlow fixes all three.
+            </p>
+            <Link
+              href="/script-generator"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all"
+            >
+              Try the Script Generator Free
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 4 — HOW IT WORKS */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">How It Works</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Three steps. Sixty seconds.
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-8">
+            {[
+              {
+                step: '01',
+                title: 'Paste your product',
+                desc: 'Enter a product name and optional description. The AI learns what you\'re selling instantly.',
+              },
+              {
+                step: '02',
+                title: 'Pick a persona',
+                desc: 'Choose from 20 creator voices — skeptical reviewer, Gen-Z trendsetter, hype machine, and more.',
+              },
+              {
+                step: '03',
+                title: 'Generate',
+                desc: 'Get a ready-to-film script with scroll-stopping hook, beat-by-beat dialogue, and CTA in 60 seconds.',
+              },
+            ].map((item) => (
+              <div key={item.step} className="text-center">
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-xl font-bold text-blue-400">{item.step}</span>
+                </div>
+                <h3 className="text-lg font-semibold text-zinc-200 mb-2">{item.title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{item.desc}</p>
+
+                {/* Screenshot placeholder */}
+                <div className="mt-4 aspect-[4/3] rounded-xl bg-zinc-800/50 border border-white/5 flex items-center justify-center">
+                  <span className="text-xs text-zinc-600">Screenshot: {item.title}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 5 — LIVE MINI SCRIPT GENERATOR */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-sm font-medium text-violet-400 uppercase tracking-widest mb-4">Try It Now</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+              See it in action — free.
+            </h2>
+            <p className="text-zinc-400">
+              Type a product name and get a real script. No signup, no credit card.
+            </p>
+          </div>
+
+          <div className="p-6 sm:p-8 rounded-2xl bg-zinc-900/80 border border-white/10">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={miniProduct}
+                onChange={(e) => setMiniProduct(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleMiniGenerate()}
+                placeholder="e.g. Matcha Energy Powder"
+                className="flex-1 px-4 py-3 rounded-xl bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                maxLength={100}
+              />
+              <button
+                type="button"
+                onClick={handleMiniGenerate}
+                disabled={miniLoading || !miniProduct.trim()}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-white font-semibold hover:from-violet-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+              >
+                {miniLoading ? 'Generating...' : 'Generate'}
+              </button>
+            </div>
+
+            {miniError && (
+              <p className="mt-4 text-sm text-red-400">{miniError}</p>
+            )}
+
+            {miniResult && (
+              <div className="mt-6 space-y-4">
+                {/* Hook */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/20">
+                  <div className="text-xs font-medium text-violet-400 uppercase tracking-wider mb-1">Hook</div>
+                  <p className="text-lg font-semibold text-zinc-100">&ldquo;{miniResult.hook_line}&rdquo;</p>
+                </div>
+
+                {/* Beats preview (show first 3) */}
+                <div className="space-y-2">
+                  {miniResult.beats.slice(0, 3).map((beat, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/50">
+                      <span className="shrink-0 px-2 py-0.5 rounded bg-zinc-700 text-xs font-mono text-zinc-400">{beat.t}</span>
+                      <div>
+                        {beat.dialogue && (
+                          <p className="text-sm text-zinc-200">&ldquo;{beat.dialogue}&rdquo;</p>
+                        )}
+                        <p className="text-xs text-zinc-500 mt-0.5">{beat.action}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {miniResult.beats.length > 3 && (
+                    <p className="text-xs text-zinc-600 text-center">+ {miniResult.beats.length - 3} more beats</p>
+                  )}
+                </div>
+
+                {/* CTA */}
+                <div className="p-3 rounded-lg bg-zinc-800/50">
+                  <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">CTA: </span>
+                  <span className="text-sm text-zinc-200">{miniResult.cta_line}</span>
+                </div>
+
+                {/* Conversion CTA */}
+                <div className="pt-4 border-t border-white/5 text-center">
+                  <p className="text-sm text-zinc-400 mb-3">
+                    Like it? Get unlimited scripts with 20 persona presets.
+                  </p>
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all"
+                  >
+                    Start Free — No Credit Card
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 6 — PRICING PREVIEW (Anchor High) */}
+      {/* ================================================================ */}
+      <section id="pricing" className="relative py-20 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              Start free. Scale as you grow.
+              Start free. Scale when you&apos;re ready.
             </h2>
             <p className="text-lg text-zinc-400 max-w-xl mx-auto">
-              Every plan includes full access to the platform. Pay only for the AI generations you need.
+              Every plan includes the full platform. Pay only for the volume you need.
             </p>
           </div>
 
           {/* Billing toggle */}
           <div className="flex items-center justify-center gap-4 mb-12">
             <span className={`text-sm ${billingPeriod === 'monthly' ? 'text-white' : 'text-zinc-500'}`}>Monthly</span>
-            <button type="button"
+            <button
+              type="button"
               onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'yearly' : 'monthly')}
               className="relative w-14 h-7 rounded-full bg-zinc-800 border border-white/10 transition-colors"
             >
@@ -341,292 +535,201 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Pricing cards */}
+          {/* Pricing cards — Agency first (anchor), Creator Pro highlighted */}
           <div className="grid lg:grid-cols-4 gap-6">
-            {/* Free Tier */}
+            {/* Agency — $149 (Anchor) */}
             <PricingCard
-              name="Free"
-              description="Try the platform"
-              price={0}
-              period=""
-              credits="5 generations"
+              name={PLANS.AGENCY.name}
+              description="For agencies & teams"
+              price={billingPeriod === 'monthly' ? PLANS.AGENCY.price : yearlyPrice(PLANS.AGENCY.price)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              credits="Unlimited"
               features={[
-                'Access to script generator',
-                'Basic character presets',
-                '5 AI generations total',
-                'Save up to 3 skits',
-                'Community support',
-              ]}
-              cta="Get Started"
-              ctaLink="/signup"
-              highlight={false}
-            />
-
-            {/* Starter */}
-            <PricingCard
-              name="Starter"
-              description="For individual creators"
-              price={billingPeriod === 'monthly' ? 9 : 7}
-              period={billingPeriod === 'monthly' ? '/month' : '/month, billed yearly'}
-              credits="75 credits/mo"
-              features={[
-                'Everything in Free',
-                'All character presets',
-                '75 AI credits/month',
-                'Unlimited saved skits',
-                'Product catalog (5 products)',
-                'Export to all formats',
-                'Email support',
-              ]}
-              cta="Start Trial"
-              ctaLink="/signup?plan=starter"
-              highlight={false}
-            />
-
-            {/* Creator - Highlighted */}
-            <PricingCard
-              name="Creator"
-              description="For power users"
-              price={billingPeriod === 'monthly' ? 29 : 23}
-              period={billingPeriod === 'monthly' ? '/month' : '/month, billed yearly'}
-              credits="300 credits/mo"
-              features={[
-                'Everything in Starter',
-                '300 AI credits/month',
-                'Product catalog (unlimited)',
-                'Audience Intelligence',
-                'Winners Bank',
-                'Pain Point Analysis',
+                'Unlimited scripts & edits',
+                'All 20 personas',
+                'Unlimited products & brands',
+                'Client portal',
+                'API access',
                 'Priority support',
               ]}
               cta="Start Trial"
-              ctaLink="/signup?plan=creator"
+              ctaLink="/signup?plan=agency"
+              highlight={false}
+            />
+
+            {/* Brand — $49 */}
+            <PricingCard
+              name={PLANS.BRAND.name}
+              description="For growing brands"
+              price={billingPeriod === 'monthly' ? PLANS.BRAND.price : yearlyPrice(PLANS.BRAND.price)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              credits={`${PLANS.BRAND.credits} credits/mo`}
+              features={[
+                'Unlimited scripts',
+                '50 AI video edits',
+                'All personas',
+                'Unlimited products',
+                'Creator invite links',
+                'Content approval',
+              ]}
+              cta="Start Trial"
+              ctaLink="/signup?plan=brand"
+              highlight={false}
+            />
+
+            {/* Creator Pro — $29 (Most Popular) */}
+            <PricingCard
+              name={PLANS.CREATOR_PRO.name}
+              description="For power creators"
+              price={billingPeriod === 'monthly' ? PLANS.CREATOR_PRO.price : yearlyPrice(PLANS.CREATOR_PRO.price)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              credits={`${PLANS.CREATOR_PRO.credits} credits/mo`}
+              features={[
+                'Unlimited scripts',
+                '25 AI video edits',
+                'All 20 personas',
+                '50 products',
+                'Content Planner',
+                'Up to 3 brands',
+              ]}
+              cta="Start Trial"
+              ctaLink="/signup?plan=creator_pro"
               highlight={true}
               badge="Most Popular"
             />
 
-            {/* Business */}
+            {/* Free */}
             <PricingCard
-              name="Business"
-              description="For teams & agencies"
-              price={billingPeriod === 'monthly' ? 59 : 47}
-              period={billingPeriod === 'monthly' ? '/month' : '/month, billed yearly'}
-              credits="1,000 credits/mo"
+              name={PLANS.FREE.name}
+              description="Try the platform"
+              price={0}
+              period=""
+              credits={`${PLANS.FREE.credits} scripts/mo`}
               features={[
-                'Everything in Creator',
-                '1,000 AI credits/month',
-                'Up to 5 team members',
-                'Shared workspaces',
-                'Usage analytics',
-                'Dedicated support',
+                '5 scripts per month',
+                '3 personas',
+                '3 products',
+                'TikTok Shop import',
               ]}
-              cta="Start Trial"
-              ctaLink="/signup?plan=business"
+              cta="Get Started Free"
+              ctaLink="/signup"
               highlight={false}
             />
           </div>
 
           {/* Enterprise CTA */}
-          <div className="mt-12 p-8 rounded-2xl bg-zinc-900/50 border border-white/5 text-center">
-            <h3 className="text-xl font-semibold mb-2">Need More?</h3>
-            <p className="text-zinc-400 mb-6 max-w-2xl mx-auto">
-              Enterprise plans with custom limits, dedicated support, and white-label options available.
+          <div className="mt-10 p-6 rounded-2xl bg-zinc-900/50 border border-white/5 text-center">
+            <h3 className="text-lg font-semibold mb-2">Need a custom plan?</h3>
+            <p className="text-zinc-400 text-sm mb-4">
+              Enterprise pricing, white-label, and managed video production available.
             </p>
-            <button type="button"
+            <button
+              type="button"
               onClick={() => setContactOpen(true)}
-              className="inline-flex items-center px-6 py-3 rounded-lg border border-white/10 text-zinc-300 font-medium hover:bg-white/5 hover:border-white/20 transition-all"
+              className="inline-flex items-center px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 hover:border-white/20 transition-all"
             >
               Contact Sales
-              <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
             </button>
           </div>
         </div>
       </section>
 
-      {/* Video Production Services Section */}
-      <section id="video-services" className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-violet-950/20 via-zinc-900/50 to-transparent">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs text-violet-400 mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-              Done-For-You Service
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              We handle the production.
-            </h2>
-            <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
-              Don&apos;t have time to create videos yourself? Our team handles filming, editing,
-              and optimization — you just approve and post.
-            </p>
-          </div>
-
-          {/* Service Features */}
-          <div className="grid sm:grid-cols-3 gap-6 mb-16">
-            <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
-              <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Full Production</h3>
-              <p className="text-sm text-zinc-500">Filming, editing, graphics, captions — the complete package.</p>
-            </div>
-            <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
-              <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Performance Tracking</h3>
-              <p className="text-sm text-zinc-500">Analytics dashboard to see what&apos;s working and optimize.</p>
-            </div>
-            <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
-              <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Consistent Output</h3>
-              <p className="text-sm text-zinc-500">10-50+ videos per month, on brand, on schedule.</p>
-            </div>
-          </div>
-
-          {/* Video Showcase */}
-          <VideoShowcase
-            limit={6}
-            showTitle={true}
-            onContactClick={() => setContactOpen(true)}
-          />
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section id="how-it-works" className="relative py-24 px-6 border-t border-white/5">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">How It Works</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Four steps. Zero friction.
-            </h2>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <StepCard number="01" title="Select Context" description="Choose your product, character preset, and creative parameters." />
-            <StepCard number="02" title="Generate with Structure" description="The AI produces scripts following proven frameworks and your guardrails." />
-            <StepCard number="03" title="Stay in Flow" description="Iterate, refine, and regenerate without leaving the system." />
-            <StepCard number="04" title="Ship Faster" description="Export, save to library, or push directly to production." />
-          </div>
-        </div>
-      </section>
-
-      {/* Who It's For */}
-      <section className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Built For</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Teams that move fast.
-            </h2>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <AudienceCard title="Content Creators" description="Produce more without burning out. Keep the ideas flowing and the camera rolling." />
-            <AudienceCard title="Performance Marketers" description="Test more angles, faster. Find winners without the creative bottleneck." />
-            <AudienceCard title="Agencies" description="Scale client output without scaling headcount. Maintain quality at volume." />
-            <AudienceCard title="Brand Teams" description="Keep internal creative velocity high while maintaining brand consistency." />
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-zinc-900/50 to-transparent">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Testimonials</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Creators love FlashFlow
-            </h2>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-6">
-            <TestimonialCard
-              quote="I went from one video a week to four. The script generator nails hooks I would never think of on my own."
-              name="Jenna M."
-              role="TikTok Shop Creator"
-            />
-            <TestimonialCard
-              quote="Our agency manages 12 creator accounts. FlashFlow cut our script turnaround from 2 days to 20 minutes."
-              name="Mark R."
-              role="Agency Founder"
-            />
-            <TestimonialCard
-              quote="The persona presets are wild. I can match any brand voice in seconds. My clients think I have a writing team."
-              name="Dani K."
-              role="UGC Creator"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="relative py-24 px-6 border-t border-white/5">
+      {/* ================================================================ */}
+      {/* SECTION 7 — FAQ WITH SCHEMA MARKUP */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">FAQ</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
               Common questions
             </h2>
           </div>
-          
-          <div className="space-y-6">
-            <FAQItem
-              question="What counts as a generation?"
-              answer="Each time you click 'Generate' to create a new script, that counts as one generation. Refining or editing an existing script doesn't use additional credits."
-            />
-            <FAQItem
-              question="Do unused credits roll over?"
-              answer="Credits reset each billing cycle. We recommend choosing a plan that matches your typical monthly usage."
-            />
-            <FAQItem
-              question="Can I upgrade or downgrade anytime?"
-              answer="Yes. Changes take effect on your next billing cycle. If you upgrade mid-cycle, you'll get immediate access to additional credits."
-            />
-            <FAQItem
-              question="What's included in the free trial?"
-              answer="You get 5 free generations to test the platform. No credit card required. You can upgrade to a paid plan whenever you're ready."
-            />
-            <FAQItem
-              question="What are Video Production Services?"
-              answer="Our managed service for brands that need end-to-end video production. We handle filming, editing, posting, and performance tracking. This is a separate retainer-based service — contact sales for custom pricing."
-            />
+
+          <div className="space-y-4">
+            {FAQ_ITEMS.map((item, i) => (
+              <div key={i} className="border-b border-white/5 pb-4">
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between text-left py-2"
+                >
+                  <span className="font-medium text-zinc-200">{item.q}</span>
+                  <svg
+                    className={`w-5 h-5 text-zinc-500 shrink-0 ml-4 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {openFaq === i && (
+                  <p className="mt-2 text-zinc-500 leading-relaxed">{item.a}</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="relative py-32 px-6 border-t border-white/5">
+      {/* ================================================================ */}
+      {/* SECTION 8 — FINAL URGENCY CTA */}
+      {/* ================================================================ */}
+      <section className="relative py-24 px-6 border-t border-white/5 bg-gradient-to-b from-zinc-900/50 to-transparent">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">
-            Ready to move faster?
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6 leading-tight">
+            Your competitors are already using AI to post more. Every day you wait is content you&apos;re not making.
           </h2>
           <p className="text-xl text-zinc-400 mb-10">
-            Start with 5 free generations. No credit card required. 
-            Upgrade when you&apos;re ready to scale.
+            Stop overthinking. Start generating.
           </p>
-          <Link 
-            href="/signup"
-            className="group inline-flex items-center px-10 py-5 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_4px_24px_rgba(0,0,0,0.4)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]"
-          >
-            Start Free Trial
-            <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </Link>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+            <Link
+              href="/script-generator"
+              className="group px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_4px_24px_rgba(0,0,0,0.4)]"
+            >
+              Try the Script Generator Free
+              <svg className="inline-block ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+            <Link
+              href="#pricing"
+              className="px-8 py-4 rounded-xl border border-white/10 text-zinc-300 font-medium text-lg hover:bg-white/5 hover:border-white/20 transition-all"
+            >
+              See Pricing
+            </Link>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-500">
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Free forever plan
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              No credit card
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Cancel anytime
+            </span>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ================================================================ */}
+      {/* FOOTER */}
+      {/* ================================================================ */}
       <footer className="border-t border-white/5 py-12 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -664,67 +767,6 @@ export default function LandingPage() {
 // ============================================================================
 // COMPONENTS
 // ============================================================================
-
-function ProblemCard({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5">
-      <h3 className="text-lg font-semibold text-zinc-200 mb-3">{title}</h3>
-      <p className="text-zinc-500 leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function DifferenceCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5">
-      <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
-        {icon}
-      </div>
-      <h3 className="text-lg font-semibold text-zinc-200 mb-2">{title}</h3>
-      <p className="text-zinc-500 leading-relaxed text-sm">{description}</p>
-    </div>
-  );
-}
-
-function FeatureCard({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="group p-6 rounded-xl bg-zinc-900/30 border border-white/5 hover:border-white/10 hover:bg-zinc-900/50 transition-all">
-      <h3 className="text-lg font-semibold text-zinc-200 mb-3 group-hover:text-white transition-colors">{title}</h3>
-      <p className="text-zinc-500 leading-relaxed text-sm">{description}</p>
-    </div>
-  );
-}
-
-function StepCard({ number, title, description }: { number: string; title: string; description: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-4xl font-bold text-zinc-800 mb-4">{number}</div>
-      <h3 className="text-lg font-semibold text-zinc-200 mb-2">{title}</h3>
-      <p className="text-zinc-500 text-sm leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function AudienceCard({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="p-6 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-      <h3 className="text-lg font-semibold text-zinc-200 mb-2">{title}</h3>
-      <p className="text-zinc-500 text-sm leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function TestimonialCard({ quote, name, role }: { quote: string; name: string; role: string }) {
-  return (
-    <div className="p-6 rounded-xl bg-zinc-900/50 border border-white/5">
-      <p className="text-zinc-300 leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
-      <div>
-        <p className="font-medium text-white text-sm">{name}</p>
-        <p className="text-xs text-zinc-500">{role}</p>
-      </div>
-    </div>
-  );
-}
 
 function PricingCard({
   name,
@@ -786,54 +828,5 @@ function PricingCard({
         {cta}
       </Link>
     </div>
-  );
-}
-
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="border-b border-white/5 pb-6">
-      <button type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-left"
-      >
-        <span className="font-medium text-zinc-200">{question}</span>
-        <svg
-          className={`w-5 h-5 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && <p className="mt-4 text-zinc-500 leading-relaxed">{answer}</p>}
-    </div>
-  );
-}
-
-// Icons
-function LightningIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-    </svg>
-  );
-}
-
-function RepeatIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-    </svg>
   );
 }

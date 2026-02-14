@@ -13,32 +13,32 @@ import { VideoServiceContact } from '@/components/VideoServiceContact';
 
 const FAQ_ITEMS = [
   {
-    q: 'How does FlashFlow AI work?',
-    a: 'Enter your product name, pick a creator persona (like "Skeptical Reviewer" or "Gen-Z Trendsetter"), choose a tone, and hit generate. Our AI writes a scroll-stopping TikTok script in under 60 seconds — complete with hooks, beat-by-beat dialogue, and CTAs.',
+    q: 'How do I find products that actually convert?',
+    a: 'Winners Bank shows you the highest-performing products with actual engagement metrics. See what angles work, what hooks land, and which products have the best commission potential. Build scripts from proven winners instead of guessing.',
   },
   {
-    q: 'What are credits and how do they work?',
-    a: 'Credits power AI generations. Each script generation costs 1 credit. Free accounts get 5 scripts/month. Paid plans range from 25 to unlimited scripts per month depending on your tier.',
+    q: 'How do I write scripts that don't sound AI-generated?',
+    a: 'FlashFlow uses multiple creator personas (Skeptical Reviewer, Gen-Z Trendsetter, High-Energy, etc.) and tone customization. The output reads like a real creator — with natural pauses, humor, and authentic energy. You can always edit and tweak.',
+  },
+  {
+    q: 'How do I hit my retainer video goals on time?',
+    a: 'Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and get reminders when you're behind. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.',
+  },
+  {
+    q: 'Can I manage multiple TikTok Shop brands?',
+    a: 'Yes. FlashFlow is built for affiliates juggling 3-5 brands simultaneously. Track retainer progress, winners, and scripts per brand. Switch between brands instantly and see all your brand analytics in one dashboard.',
+  },
+  {
+    q: 'What makes FlashFlow different from ChatGPT?',
+    a: 'FlashFlow is built specifically for TikTok Shop affiliates. It gives you script generation + Winners Bank (competitive intelligence) + Content Calendar + Retainer tracking. ChatGPT doesn't know about TikTok compliance, affiliate psychology, or your brand deals.',
   },
   {
     q: 'Is there a free trial?',
-    a: 'Yes! You get 3 free script generations per day without even signing up. Create a free account for 5 per day. No credit card required — ever.',
-  },
-  {
-    q: 'Does this work for TikTok Shop products?',
-    a: 'Absolutely. FlashFlow was built for TikTok Shop sellers. All scripts are compliance-safe — no prohibited health claims, no fake urgency, no celebrity impersonation. The "Safe" tone mode is designed specifically for TikTok Shop guidelines.',
-  },
-  {
-    q: 'What are persona presets?',
-    a: 'Personas are pre-built creator voices. Each one has a distinct tone, humor style, and delivery approach. Examples include the "Skeptical Reviewer" (analytical, honest), "Gen-Z Trendsetter" (playful, slang-heavy), and "High-Energy Hype Machine" (urgent, exciting). Pick the one that matches your brand.',
-  },
-  {
-    q: 'Can FlashFlow create the actual videos too?',
-    a: 'Yes. Our AI video editing service turns your scripts into ready-to-post TikToks with captions, b-roll, and music. Packages start at $89/month for 45 videos. Contact us for details.',
+    a: 'Yes! Free tier includes 5 scripts/month and access to 3 products in Winners Bank. Create an account instantly — no credit card needed.',
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. All plans are month-to-month with no contracts. Cancel anytime from your dashboard — no questions asked.',
+    a: 'Yes. Month-to-month, no contracts. Cancel anytime from your account — no questions asked.',
   },
 ];
 
@@ -229,16 +229,14 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            Turn Any Viral TikTok Into Your Own{' '}
-            <span className="bg-gradient-to-r from-blue-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
-              Money-Making Content
-            </span>{' '}
-            in 60 Seconds
+            Turn Winning TikTok Shop Content Into Your Own{' '}
+            <span className="bg-gradient-to-r from-emerald-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent">
+              Money-Making Scripts
+            </span>
           </h1>
 
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            AI writes hooks, scripts, and CTAs tuned to YOUR product and audience.
-            Pick a persona, drop in your product, and get a ready-to-film script instantly.
+            For TikTok Shop affiliates: Find winning products. Write scripts that don't sound AI. Hit your retainer goals. Track what works.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -326,16 +324,16 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-3 gap-6 mb-10">
             {[
               {
-                title: 'Spending hours writing scripts that flop',
-                desc: 'You stare at a blank screen, rewrite hooks five times, and the video still gets 200 views.',
+                title: 'Finding products that convert',
+                desc: 'Endless scrolling through TikTok Shop. You\'re guessing which products will actually sell instead of knowing what winners are getting views.',
               },
               {
-                title: 'Your VA keeps missing the voice',
-                desc: 'You hire help but every script sounds generic. Revisions take longer than writing it yourself.',
+                title: 'Scripts that sound AI-generated',
+                desc: 'ChatGPT writes the same hooks as everyone else. Your scripts lack personality, authenticity, and the edge that wins followers.',
               },
               {
-                title: 'Competitors posting 5x more than you',
-                desc: 'They\'re pumping out content daily while you\'re stuck producing one video a week.',
+                title: 'Missing retainer deadlines',
+                desc: 'Juggling 3 brands with different video quotas. You lose track of who needs what, and miss payouts because you weren\'t keeping pace.',
               },
             ].map((item) => (
               <div
@@ -350,7 +348,7 @@ export default function LandingPage() {
 
           <div className="text-center">
             <p className="text-lg text-zinc-300 mb-4">
-              FlashFlow fixes all three.
+              FlashFlow solves all three — with Winners Bank, authentic personas, and retainer tracking.
             </p>
             <Link
               href="/script-generator"
@@ -560,37 +558,38 @@ export default function LandingPage() {
             {/* Brand — $49 */}
             <PricingCard
               name={PLANS.BRAND.name}
-              description="For growing brands"
+              description="For multi-brand affiliates"
               price={billingPeriod === 'monthly' ? PLANS.BRAND.price : yearlyPrice(PLANS.BRAND.price)}
               period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
               credits={`${PLANS.BRAND.credits} credits/mo`}
               features={[
                 'Unlimited scripts',
-                '50 AI video edits',
-                'All personas',
-                'Unlimited products',
-                'Creator invite links',
-                'Content approval',
+                'All 20 personas',
+                'Full Winners Bank access',
+                'Unlimited products & brands',
+                'Retainer tracking (3+ brands)',
+                'Team accounts (3 seats)',
               ]}
               cta="Start Trial"
               ctaLink="/signup?plan=brand"
               highlight={false}
             />
 
-            {/* Creator Pro — $29 (Most Popular) */}
+            {/* Pro — $29 (Most Popular) */}
             <PricingCard
               name={PLANS.CREATOR_PRO.name}
-              description="For power creators"
+              description="For serious affiliates"
               price={billingPeriod === 'monthly' ? PLANS.CREATOR_PRO.price : yearlyPrice(PLANS.CREATOR_PRO.price)}
               period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
               credits={`${PLANS.CREATOR_PRO.credits} credits/mo`}
               features={[
                 'Unlimited scripts',
-                '25 AI video edits',
                 'All 20 personas',
-                '50 products',
-                'Content Planner',
-                'Up to 3 brands',
+                'Full Winners Bank',
+                'Unlimited products',
+                'Content Calendar (multi-brand)',
+                'Retainer goal tracking',
+                'Advanced analytics',
               ]}
               cta="Start Trial"
               ctaLink="/signup?plan=creator_pro"

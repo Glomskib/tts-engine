@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Pricing - AI Script Generator',
+  title: 'Pricing - TikTok Shop Script Generator',
   description:
-    'Choose the right plan for your content creation needs. Free tier includes 5 transcriptions/day. Premium plans from $9/month.',
+    'FlashFlow pricing for TikTok Shop affiliates. Free tier with 5 scripts/month. Pro plan at $29/month includes unlimited scripts and Winners Bank.',
   openGraph: {
     title: 'Pricing | FlashFlow AI',
-    description: 'Transparent pricing for creators, brands, and agencies.',
+    description: 'Transparent pricing built for TikTok Shop affiliates.',
     type: 'website',
     images: [{ url: '/FFAI.png', width: 512, height: 512 }],
   },
@@ -17,49 +17,53 @@ export default function PricingPage() {
   const plans = [
     {
       name: 'Free',
+      tagline: 'Try FlashFlow',
       price: '0',
-      description: 'Perfect for trying FlashFlow',
+      description: 'Perfect for testing scripts',
       features: [
-        '5 transcriptions/day',
-        '10 scripts/month',
-        'Basic hook analysis',
-        'Standard support',
-        'Free TikTok transcriber',
+        '5 scripts/month',
+        '3 products in Winners Bank',
+        '1 persona',
+        'Community support',
+        'No credit card',
       ],
       cta: 'Get Started',
       href: '/signup',
       highlighted: false,
     },
     {
-      name: 'Creator Lite',
+      name: 'Lite',
+      tagline: 'Start Creating',
       price: '9',
       period: '/month',
-      description: 'For growing creators',
+      description: 'For early-stage affiliates',
       features: [
-        'Unlimited transcriptions',
-        '100 scripts/month',
-        'Advanced hook analysis',
-        'Emotion trigger detection',
+        '50 scripts/month',
+        '20 products in Winners Bank',
+        '5 personas',
+        'Content Calendar',
+        'Basic retainer tracking',
         'Email support',
-        'Content recommendations',
       ],
       cta: 'Start Free Trial',
       href: '/signup?plan=lite',
       highlighted: false,
     },
     {
-      name: 'Creator Pro',
+      name: 'Pro',
+      tagline: 'Scale Your Content',
       price: '29',
       period: '/month',
-      description: 'For serious TikTok creators',
+      description: 'For serious TikTok Shop affiliates',
       features: [
-        'Everything in Lite',
-        'AI avatar video generation',
-        'Batch script generation',
-        '500 scripts/month',
+        'Unlimited scripts',
+        'All 20 personas',
+        'Unlimited products',
+        'Winners Bank (all data)',
+        'Multi-brand Content Calendar',
+        'Retainer goal tracking',
+        'Advanced analytics',
         'Priority support',
-        'Winners Bank access',
-        'Custom personas',
       ],
       cta: 'Start Free Trial',
       href: '/signup?plan=pro',
@@ -67,34 +71,36 @@ export default function PricingPage() {
     },
     {
       name: 'Brand',
+      tagline: 'Multi-Brand Power',
       price: '49',
       period: '/month',
-      description: 'For brands and TikTok Shop sellers',
+      description: 'For creators managing multiple brands',
       features: [
         'Everything in Pro',
         'Team accounts (3 seats)',
-        'Advanced analytics',
-        'TikTok Shop integration',
+        '50 AI video packages/month',
+        'Brand-specific dashboards',
+        'Retainer payment tracking',
         'API access',
-        'Custom branding',
         'Dedicated support',
       ],
-      cta: 'Contact Sales',
-      href: '/contact',
+      cta: 'Start Free Trial',
+      href: '/signup?plan=brand',
       highlighted: false,
     },
     {
       name: 'Agency',
+      tagline: 'Enterprise Scale',
       price: '149',
       period: '/month',
-      description: 'For marketing agencies',
+      description: 'For agencies & high-volume teams',
       features: [
         'Everything in Brand',
         'Unlimited team seats',
-        'White-label option',
-        'Client management',
+        'Unlimited video packages',
+        'Client management portal',
         'Advanced API access',
-        'Priority onboarding',
+        'Custom integrations',
         '24/7 phone support',
       ],
       cta: 'Contact Sales',
@@ -107,9 +113,9 @@ export default function PricingPage() {
     <div className="min-h-screen bg-[#09090b] text-white">
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-5xl font-bold mb-6">Simple, Transparent Pricing</h1>
+        <h1 className="text-5xl font-bold mb-6">Pricing Built for TikTok Shop Affiliates</h1>
         <p className="text-xl text-gray-300 mb-8">
-          Start free. Upgrade when you're ready. No hidden fees.
+          Free forever tier. No setup fees. Cancel anytime.
         </p>
       </div>
 
@@ -126,11 +132,14 @@ export default function PricingPage() {
               }`}
             >
               {plan.highlighted && (
-                <div className="mb-4 inline-block px-3 py-1 bg-teal-500 text-white text-sm rounded-full font-semibold">
+                <div className="mb-4 inline-block px-3 py-1 bg-emerald-500 text-white text-sm rounded-full font-semibold">
                   Most Popular
                 </div>
               )}
-              <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+              <h3 className="text-2xl font-bold mb-1">{plan.name}</h3>
+              {plan.tagline && (
+                <p className="text-emerald-400 text-sm font-medium mb-3">{plan.tagline}</p>
+              )}
               <p className="text-gray-400 text-sm mb-6">{plan.description}</p>
 
               <div className="mb-6">
@@ -142,7 +151,7 @@ export default function PricingPage() {
                 href={plan.href}
                 className={`block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition ${
                   plan.highlighted
-                    ? 'bg-teal-500 text-white hover:bg-teal-600'
+                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
                     : 'bg-gray-700 text-white hover:bg-gray-600'
                 }`}
               >
@@ -167,33 +176,39 @@ export default function PricingPage() {
         <h2 className="text-3xl font-bold mb-12 text-center">Frequently Asked Questions</h2>
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-bold mb-2">Can I cancel anytime?</h3>
+            <h3 className="text-lg font-bold mb-2">What's the difference between the tiers?</h3>
             <p className="text-gray-300">
-              Yes. No contracts, no commitments. Cancel your subscription anytime from your account settings.
+              Free is for testing. Lite ($9) is for 1-2 brands with retainer tracking. Pro ($29) is unlimited scripts + full Winners Bank + multi-brand tracking. Brand ($49) adds team seats + API. Agency ($149) is for scaling teams.
             </p>
           </div>
           <div>
-            <h3 className="text-lg font-bold mb-2">Do you offer discounts for annual billing?</h3>
+            <h3 className="text-lg font-bold mb-2">Can I switch plans anytime?</h3>
             <p className="text-gray-300">
-              Yes! Pay yearly and save 20% on all plans. Contact sales for bulk discounts.
+              Yes. Upgrade or downgrade anytime. Changes take effect on your next billing cycle.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold mb-2">How does the referral system work?</h3>
+            <p className="text-gray-300">
+              Share your referral link. When someone signs up, you both get 1 month of free credits. This is separate from affiliate commissions.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold mb-2">What are affiliate commissions?</h3>
+            <p className="text-gray-300">
+              If you're a TikTok Shop affiliate selling products through FlashFlow, you earn 25% commission on every sale. Referrals are different — they're 1 month free credits for you and your friend.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold mb-2">Can I cancel anytime?</h3>
+            <p className="text-gray-300">
+              Yes. Month-to-month, no contracts. Cancel anytime from your account settings — no questions asked.
             </p>
           </div>
           <div>
             <h3 className="text-lg font-bold mb-2">What payment methods do you accept?</h3>
             <p className="text-gray-300">
-              We accept all major credit cards (Visa, Mastercard, American Express) and PayPal.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-bold mb-2">Is there a free trial?</h3>
-            <p className="text-gray-300">
-              Yes! Free tier gives you 5 transcriptions/day and 10 scripts/month forever. Paid plans include 7-day free trial.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-bold mb-2">Do you offer custom plans?</h3>
-            <p className="text-gray-300">
-              Yes. Contact our sales team for custom pricing based on your usage needs.
+              All major credit cards (Visa, Mastercard, Amex) and PayPal.
             </p>
           </div>
         </div>

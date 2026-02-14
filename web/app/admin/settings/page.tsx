@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
@@ -118,6 +118,49 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  // Notification preferences state
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, any> | null>(null);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifSaving, setNotifSaving] = useState<string | null>(null);
+
+  const fetchNotifPrefs = useCallback(async () => {
+    setNotifLoading(true);
+    try {
+      const res = await fetch('/api/admin/notification-preferences');
+      if (res.ok) {
+        const json = await res.json();
+        setNotifPrefs(json.data || null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notification preferences:', err);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  const updateNotifPref = useCallback(async (field: string, value: any) => {
+    if (!notifPrefs) return;
+    setNotifSaving(field);
+    const prev = notifPrefs[field];
+    setNotifPrefs(p => p ? { ...p, [field]: value } : p);
+    try {
+      const res = await fetch('/api/admin/notification-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) {
+        setNotifPrefs(p => p ? { ...p, [field]: prev } : p);
+        showError('Failed to save notification preference');
+      }
+    } catch {
+      setNotifPrefs(p => p ? { ...p, [field]: prev } : p);
+      showError('Failed to save notification preference');
+    } finally {
+      setNotifSaving(null);
+    }
+  }, [notifPrefs, showError]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -416,7 +459,7 @@ export default function SettingsPage() {
     }
   };
 
-  // Fetch API keys / webhooks when tab becomes active
+  // Fetch API keys / webhooks / notification prefs when tab becomes active
   useEffect(() => {
     if (activeTab === 'api-keys') {
       fetchApiKeys();
@@ -424,7 +467,10 @@ export default function SettingsPage() {
     if (activeTab === 'webhooks') {
       fetchWebhooks();
     }
-  }, [activeTab]);
+    if (activeTab === 'notifications' && !notifPrefs) {
+      fetchNotifPrefs();
+    }
+  }, [activeTab, notifPrefs, fetchNotifPrefs]);
 
   const isUnlimited = credits?.remaining === -1;
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -674,61 +720,220 @@ export default function SettingsPage() {
         )}
 
         {/* Notifications Tab */}
-        {activeTab === 'notifications' && settings && (
+        {activeTab === 'notifications' && (
           <div className="space-y-6">
-            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
-              <h2 className="text-lg font-semibold text-white mb-4">Email Notifications</h2>
-              <div className="space-y-4">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium text-zinc-200">Email notifications</div>
-                    <div className="text-sm text-zinc-500">Receive updates about your account via email</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications.email}
-                    onChange={(e) => updateSettings({ notifications: { ...settings.notifications, email: e.target.checked } })}
-                    className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
-                  />
-                </label>
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium text-zinc-200">Weekly digest</div>
-                    <div className="text-sm text-zinc-500">Get a summary of your activity each week</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications.weekly_digest}
-                    onChange={(e) => updateSettings({ notifications: { ...settings.notifications, weekly_digest: e.target.checked } })}
-                    className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
-                  />
-                </label>
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium text-zinc-200">Script of the Day email</div>
-                    <div className="text-sm text-zinc-500">Daily email with your generated script angle and hook</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications.script_of_the_day_email}
-                    onChange={(e) => updateSettings({ notifications: { ...settings.notifications, script_of_the_day_email: e.target.checked } })}
-                    className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
-                  />
-                </label>
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium text-zinc-200">Push notifications</div>
-                    <div className="text-sm text-zinc-500">Receive push notifications in your browser</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications.push}
-                    onChange={(e) => updateSettings({ notifications: { ...settings.notifications, push: e.target.checked } })}
-                    className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
-                  />
-                </label>
+            {notifLoading ? (
+              <div className="flex items-center gap-2 text-zinc-400 py-8 justify-center">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Loading notification preferences...
               </div>
-            </div>
+            ) : notifPrefs ? (
+              <>
+                {/* Email Notifications */}
+                <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <h2 className="text-lg font-semibold text-white mb-1">Email Notifications</h2>
+                  <p className="text-sm text-zinc-500 mb-4">Choose which emails you receive</p>
+                  <div className="space-y-4">
+                    {([
+                      { field: 'email_weekly_report', label: 'Weekly Report Card', desc: 'Performance summary with wins, trends, and action items' },
+                      { field: 'email_retainer_alerts', label: 'Retainer Alerts', desc: 'Deadline reminders and quota warnings for active retainers' },
+                      { field: 'email_brief_analyzed', label: 'Brief Analyzed', desc: 'Notification when a new brand brief finishes AI analysis' },
+                      { field: 'email_video_graded', label: 'Video Graded', desc: 'Get notified when a video receives its performance grade' },
+                      { field: 'email_trend_alerts', label: 'Trend Alerts', desc: 'Emerging trends and viral patterns in your niche' },
+                      { field: 'email_milestone_reached', label: 'Milestones', desc: 'Celebrate when you hit view, follower, or revenue milestones' },
+                      { field: 'email_daily_digest', label: 'Daily Digest', desc: 'Daily summary of activity across all your brands' },
+                      { field: 'email_script_of_day', label: 'Script of the Day', desc: 'AI-generated script idea delivered to your inbox each morning' },
+                      { field: 'email_credits_low', label: 'Credits Low', desc: 'Warning when your credit balance is running low' },
+                      { field: 'email_monthly_summary', label: 'Monthly Summary', desc: 'End-of-month recap with growth metrics and top content' },
+                      { field: 'email_winner_pattern', label: 'Winner Pattern Detected', desc: 'AI spots a new winning pattern in your content' },
+                      { field: 'email_retainer_milestone', label: 'Retainer Milestone', desc: 'Celebrate hitting retainer delivery milestones' },
+                    ] as const).map(({ field, label, desc }) => (
+                      <label key={field} className="flex items-center justify-between cursor-pointer group">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium text-zinc-200">{label}</div>
+                          <div className="text-sm text-zinc-500">{desc}</div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={!!notifPrefs[field]}
+                          onClick={() => updateNotifPref(field, !notifPrefs[field])}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                            notifPrefs[field] ? 'bg-violet-600' : 'bg-zinc-700'
+                          } ${notifSaving === field ? 'opacity-60' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              notifPrefs[field] ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Push Notifications */}
+                <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <h2 className="text-lg font-semibold text-white mb-1">Push Notifications</h2>
+                  <p className="text-sm text-zinc-500 mb-4">Real-time browser and mobile notifications</p>
+                  <div className="space-y-4">
+                    {([
+                      { field: 'push_new_orders', label: 'New Orders', desc: 'Instant alert when a new brand order comes in' },
+                      { field: 'push_video_posted', label: 'Video Posted', desc: 'Confirmation when your video goes live on TikTok' },
+                      { field: 'push_retainer_deadline', label: 'Retainer Deadline', desc: 'Urgent push when a retainer deadline is approaching' },
+                      { field: 'push_engagement_spike', label: 'Engagement Spike', desc: 'Alert when a video is getting unusually high engagement' },
+                    ] as const).map(({ field, label, desc }) => (
+                      <label key={field} className="flex items-center justify-between cursor-pointer group">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium text-zinc-200">{label}</div>
+                          <div className="text-sm text-zinc-500">{desc}</div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={!!notifPrefs[field]}
+                          onClick={() => updateNotifPref(field, !notifPrefs[field])}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                            notifPrefs[field] ? 'bg-violet-600' : 'bg-zinc-700'
+                          } ${notifSaving === field ? 'opacity-60' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              notifPrefs[field] ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Telegram (Legacy) */}
+                <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <h2 className="text-lg font-semibold text-white mb-1">Telegram Alerts</h2>
+                  <p className="text-sm text-zinc-500 mb-4">Legacy Telegram bot notifications</p>
+                  <div className="space-y-4">
+                    {([
+                      { field: 'telegram_new_subscriber', label: 'New Subscriber', desc: 'Alert when someone subscribes to your content' },
+                      { field: 'telegram_payment_failed', label: 'Payment Failed', desc: 'Immediate alert on failed payment attempts' },
+                      { field: 'telegram_bug_report', label: 'Bug Report', desc: 'System error and bug report notifications' },
+                      { field: 'telegram_pipeline_error', label: 'Pipeline Error', desc: 'Alert when a video pipeline step fails' },
+                      { field: 'telegram_every_script', label: 'Every Script Generated', desc: 'Get notified for every single script generation' },
+                    ] as const).map(({ field, label, desc }) => (
+                      <label key={field} className="flex items-center justify-between cursor-pointer group">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium text-zinc-200">{label}</div>
+                          <div className="text-sm text-zinc-500">{desc}</div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={!!notifPrefs[field]}
+                          onClick={() => updateNotifPref(field, !notifPrefs[field])}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                            notifPrefs[field] ? 'bg-violet-600' : 'bg-zinc-700'
+                          } ${notifSaving === field ? 'opacity-60' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              notifPrefs[field] ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Digest & Scheduling */}
+                <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <h2 className="text-lg font-semibold text-white mb-1">Digest & Scheduling</h2>
+                  <p className="text-sm text-zinc-500 mb-4">Control how often you receive summaries and when notifications are silent</p>
+                  <div className="space-y-6">
+                    {/* Digest Frequency */}
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-200 mb-2">Digest Frequency</label>
+                      <div className="flex flex-wrap gap-2">
+                        {(['daily', 'weekly', 'monthly', 'never'] as const).map((freq) => (
+                          <button
+                            key={freq}
+                            type="button"
+                            onClick={() => updateNotifPref('digest_frequency', freq)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+                              notifPrefs.digest_frequency === freq
+                                ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                                : 'bg-zinc-800 text-zinc-400 border border-transparent hover:text-zinc-200'
+                            } ${notifSaving === 'digest_frequency' ? 'opacity-60' : ''}`}
+                          >
+                            {freq}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quiet Hours */}
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-200 mb-1">Quiet Hours</label>
+                      <p className="text-sm text-zinc-500 mb-3">No push or Telegram notifications during these hours</p>
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={notifPrefs.quiet_hours_start ?? ''}
+                          onChange={(e) => updateNotifPref('quiet_hours_start', e.target.value === '' ? null : parseInt(e.target.value))}
+                          className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                        >
+                          <option value="">Off</option>
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}</option>
+                          ))}
+                        </select>
+                        <span className="text-zinc-500 text-sm">to</span>
+                        <select
+                          value={notifPrefs.quiet_hours_end ?? ''}
+                          onChange={(e) => updateNotifPref('quiet_hours_end', e.target.value === '' ? null : parseInt(e.target.value))}
+                          className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                        >
+                          <option value="">Off</option>
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Timezone */}
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-200 mb-1">Timezone</label>
+                      <p className="text-sm text-zinc-500 mb-2">Used for quiet hours and digest delivery times</p>
+                      <select
+                        value={notifPrefs.timezone || 'America/New_York'}
+                        onChange={(e) => updateNotifPref('timezone', e.target.value)}
+                        className="w-full max-w-xs px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                      >
+                        <option value="America/New_York">Eastern (ET)</option>
+                        <option value="America/Chicago">Central (CT)</option>
+                        <option value="America/Denver">Mountain (MT)</option>
+                        <option value="America/Los_Angeles">Pacific (PT)</option>
+                        <option value="America/Anchorage">Alaska (AKT)</option>
+                        <option value="Pacific/Honolulu">Hawaii (HT)</option>
+                        <option value="Europe/London">London (GMT)</option>
+                        <option value="Europe/Paris">Paris (CET)</option>
+                        <option value="Asia/Tokyo">Tokyo (JST)</option>
+                        <option value="Asia/Shanghai">Shanghai (CST)</option>
+                        <option value="Australia/Sydney">Sydney (AEST)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-zinc-500">
+                <p>Unable to load notification preferences.</p>
+                <button type="button" onClick={fetchNotifPrefs} className="mt-2 text-sm text-violet-400 hover:text-violet-300">
+                  Try again
+                </button>
+              </div>
+            )}
           </div>
         )}
 

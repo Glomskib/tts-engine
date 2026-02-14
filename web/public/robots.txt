@@ -6,6 +6,11 @@ Allow: /features
 Allow: /about
 Allow: /tools
 Allow: /transcribe
+Allow: /script-generator
+Allow: /blog
+Allow: /blog/*
+Allow: /roadmap
+Allow: /lp/*
 Disallow: /admin/
 Disallow: /api/
 Disallow: /va/

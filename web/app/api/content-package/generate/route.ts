@@ -5,6 +5,7 @@ import {
   generateCorrelationId,
   createApiErrorResponse,
 } from "@/lib/api-errors";
+import { requirePlan } from "@/lib/plan-gate";
 import { CONTENT_TYPES } from "@/lib/content-types";
 import { generateUnifiedScript } from "@/lib/unified-script-generator";
 import { PERSONAS, SALES_APPROACHES } from "@/lib/script-expander";
@@ -108,6 +109,15 @@ export async function POST(request: Request) {
       401,
       correlationId
     );
+  }
+
+  // 1b. Plan gate — requires creator_pro (admins bypass)
+  if (!authContext.isAdmin) {
+    const { data: sub } = await supabaseAdmin
+      .from('user_subscriptions').select('plan_id')
+      .eq('user_id', authContext.user.id).single();
+    const gate = requirePlan(sub?.plan_id || 'free', 'creator_pro', 'Content Packages');
+    if (gate) return NextResponse.json(gate, { status: 403 });
   }
 
   // 2. Parse body -------------------------------------------------------------

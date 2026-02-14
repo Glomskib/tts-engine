@@ -511,23 +511,27 @@ export default function VADashboard() {
 
       {/* Quick Stats */}
       {videos.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { label: "To Record", key: "NOT_RECORDED", color: "border-yellow-500/30 bg-yellow-900/10" },
             { label: "To Edit", key: "RECORDED", color: "border-amber-500/30 bg-amber-900/10" },
-            { label: "In Review", key: "EDITED", color: "border-blue-500/30 bg-blue-900/10" },
+            { label: "In Review", key: "EDITED", color: "border-blue-500/30 bg-blue-900/10", extraKeys: ["READY_FOR_REVIEW"] },
+            { label: "Needs Edits", key: "APPROVED_NEEDS_EDITS", color: "border-amber-500/30 bg-amber-900/10" },
             { label: "Ready to Post", key: "READY_TO_POST", color: "border-green-500/30 bg-green-900/10" },
-          ].map(({ label, key, color }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(filter === key ? "all" : key)}
-              className={`border rounded-xl p-3 text-center transition-all ${color}
-                ${filter === key ? "ring-2 ring-teal-500" : "hover:ring-1 hover:ring-zinc-600"}`}
-            >
-              <div className="text-2xl font-bold">{counts[key] || 0}</div>
-              <div className="text-xs text-zinc-400">{label}</div>
-            </button>
-          ))}
+          ].map(({ label, key, color, extraKeys }) => {
+            const count = (counts[key] || 0) + (extraKeys ? extraKeys.reduce((sum, k) => sum + (counts[k] || 0), 0) : 0);
+            return (
+              <button
+                key={key}
+                onClick={() => setFilter(filter === key ? "all" : key)}
+                className={`border rounded-xl p-3 text-center transition-all ${color}
+                  ${filter === key ? "ring-2 ring-teal-500" : "hover:ring-1 hover:ring-zinc-600"}`}
+              >
+                <div className="text-2xl font-bold">{count}</div>
+                <div className="text-xs text-zinc-400">{label}</div>
+              </button>
+            );
+          })}
         </div>
       )}
 

@@ -100,7 +100,7 @@ export async function GET(request: Request) {
         product_id, product:product_id(id, name, brand),
         script_locked_text, script_locked_version,
         google_drive_url, final_video_url, posted_url, posted_platform,
-        recording_notes, editor_notes, uploader_notes,
+        recording_notes, editor_notes, uploader_notes, edit_notes,
         assigned_to, assigned_at, assigned_role, assignment_state,
         assigned_expires_at,
         last_status_changed_at, created_at

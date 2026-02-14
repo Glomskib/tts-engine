@@ -48,6 +48,10 @@ export interface QueueVideo {
   posting_account_id?: string | null;
   posting_account_name?: string;
   posting_account_code?: string;
+  // TikTok auto-posting
+  tiktok_post_status?: string | null;
+  auto_post_error?: string | null;
+  tiktok_url?: string | null;
 }
 
 export interface BoardFilters {

@@ -6,6 +6,7 @@ import {
   Video, Send, Eye, Calendar, GripVertical,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import PlanGate from '@/components/PlanGate';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
 import { PageErrorState } from '@/components/ui/PageErrorState';
 

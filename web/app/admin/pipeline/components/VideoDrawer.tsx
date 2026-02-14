@@ -1461,6 +1461,92 @@ export default function VideoDrawer({
               </div>
             )}
           </div>
+
+          {/* TikTok Posting Status */}
+          {video.tiktok_post_status && (
+            <div style={{
+              margin: '8px 0 0 0',
+              padding: '10px 12px',
+              borderRadius: '6px',
+              backgroundColor: video.tiktok_post_status === 'published'
+                ? (isDark ? '#052e16' : '#dcfce7')
+                : video.tiktok_post_status === 'failed'
+                  ? (isDark ? '#450a0a' : '#fef2f2')
+                  : (isDark ? '#1e293b' : '#f0f9ff'),
+              border: `1px solid ${
+                video.tiktok_post_status === 'published'
+                  ? (isDark ? '#166534' : '#86efac')
+                  : video.tiktok_post_status === 'failed'
+                    ? (isDark ? '#991b1b' : '#fecaca')
+                    : (isDark ? '#334155' : '#bae6fd')
+              }`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '12px' }}>
+                    {video.tiktok_post_status === 'processing' && '\u23F3'}
+                    {video.tiktok_post_status === 'published' && '\u2705'}
+                    {video.tiktok_post_status === 'failed' && '\u274C'}
+                  </span>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: video.tiktok_post_status === 'published'
+                      ? (isDark ? '#4ade80' : '#166534')
+                      : video.tiktok_post_status === 'failed'
+                        ? (isDark ? '#f87171' : '#991b1b')
+                        : (isDark ? '#93c5fd' : '#1d4ed8'),
+                  }}>
+                    TikTok: {video.tiktok_post_status === 'processing' ? 'Processing...' : video.tiktok_post_status.charAt(0).toUpperCase() + video.tiktok_post_status.slice(1)}
+                  </span>
+                </div>
+                {video.tiktok_post_status === 'published' && video.tiktok_url && (
+                  <a
+                    href={video.tiktok_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: '11px',
+                      color: isDark ? '#93c5fd' : '#2563eb',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    View Post
+                  </a>
+                )}
+                {video.tiktok_post_status === 'failed' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenPostModal(video);
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      backgroundColor: isDark ? '#1e40af' : '#2563eb',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+              {video.tiktok_post_status === 'failed' && video.auto_post_error && (
+                <div style={{
+                  marginTop: '6px',
+                  fontSize: '11px',
+                  color: isDark ? '#fca5a5' : '#dc2626',
+                  wordBreak: 'break-word',
+                }}>
+                  Error: {video.auto_post_error}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Quick Info Section - Always visible above tabs */}

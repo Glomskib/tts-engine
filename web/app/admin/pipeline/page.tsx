@@ -87,6 +87,10 @@ interface QueueVideo {
   product_name?: string;
   product_sku?: string;
   account_name?: string;
+  // TikTok auto-posting
+  tiktok_post_status?: string | null;
+  auto_post_error?: string | null;
+  tiktok_url?: string | null;
 }
 
 interface AvailableScript {

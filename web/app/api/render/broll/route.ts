@@ -17,6 +17,8 @@ import { z } from "zod";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requirePlan } from "@/lib/plan-gate";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createImageToVideo, getTaskStatus } from "@/lib/runway";
 import { sendTelegramNotification } from "@/lib/telegram";
 
@@ -317,6 +319,18 @@ export async function POST(request: Request) {
   const auth = await validateApiAccess(request);
   if (!auth) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+
+  // Plan gate — requires creator_pro (admins and service keys bypass)
+  if (auth.authType !== 'service_key') {
+    const authContext = await getApiAuthContext(request);
+    if (!authContext.isAdmin) {
+      const { data: sub } = await supabaseAdmin
+        .from('user_subscriptions').select('plan_id')
+        .eq('user_id', auth.userId).single();
+      const gate = requirePlan(sub?.plan_id || 'free', 'creator_pro', 'B-roll Generation');
+      if (gate) return NextResponse.json(gate, { status: 403 });
+    }
   }
 
   let body: unknown;

@@ -33,9 +33,10 @@ export const PLANS = {
       referrals: false,
     },
     features: [
-      '5 scripts per month',
-      'Built-in personas',
+      '5 credits / month',
+      '5 scripts / month',
       '3 products',
+      'Built-in personas',
       'TikTok Shop import',
     ],
   },
@@ -64,10 +65,11 @@ export const PLANS = {
       referrals: true,
     },
     features: [
-      '50 scripts per month',
-      'Built-in personas',
+      '50 credits / month',
+      '50 scripts / month',
       '20 products',
       'Script Library',
+      'Built-in personas',
       'Referral program',
     ],
   },
@@ -97,14 +99,15 @@ export const PLANS = {
       referrals: true,
     },
     features: [
-      'Unlimited scripts & credits',
-      'All personas + custom',
+      'Unlimited credits',
+      'Unlimited scripts',
       'Unlimited products & brands',
-      'Script of the Day',
+      'All personas + custom',
       'Winners Bank & Patterns',
       'Production Board',
       'Content Calendar',
       'Analytics & Templates',
+      'Script of the Day',
       'Referral program',
     ],
   },
@@ -135,10 +138,10 @@ export const PLANS = {
     features: [
       'Everything in Creator Pro',
       'Content Packages',
-      'Unlimited everything',
-      'Referral program',
+      'Priority support',
     ],
   },
+  // TODO: convert to base + usage-based pricing
   AGENCY: {
     id: 'agency',
     name: 'Agency',
@@ -166,8 +169,7 @@ export const PLANS = {
     features: [
       'Everything in Brand',
       'API access',
-      'Priority support',
-      'Unlimited everything',
+      'Dedicated support',
     ],
   },
 } as const;

@@ -9,8 +9,9 @@
  *   if (!auth.user) return createApiErrorResponse('UNAUTHORIZED', ...);
  *
  * `getApiAuthContext()` supports:
- *   - Cookie-based session auth (default)
  *   - API key auth (Bearer ff_ak_* tokens)
+ *   - Raw Supabase JWT auth (Bearer eyJ... tokens)
+ *   - Cookie-based session auth (default fallback)
  *
  * All API routes should use this function instead of calling
  * `createServerSupabaseClient()` or parsing Bearer tokens directly.
@@ -146,6 +147,22 @@ export async function getApiAuthContext(request?: Request): Promise<AuthContext>
       const email = userData?.user?.email;
 
       return resolveUserRole(keyResult.userId, email);
+    }
+  }
+
+  // Raw Supabase JWT token path (programmatic access, scripts, external tools)
+  if (request) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ') && !authHeader.startsWith('Bearer ff_ak_')) {
+      const token = authHeader.slice(7);
+      try {
+        const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+        if (user) {
+          return resolveUserRole(user.id, user.email);
+        }
+      } catch {
+        // Invalid/expired token — fall through to session auth
+      }
     }
   }
 

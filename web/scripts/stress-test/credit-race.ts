@@ -66,7 +66,6 @@ async function main() {
   let { data: concepts } = await adminSb
     .from('concepts')
     .select('id')
-    .eq('user_id', userId)
     .limit(1);
 
   let conceptId: string;
@@ -76,10 +75,9 @@ async function main() {
     const { data: newConcept, error: conceptErr } = await adminSb
       .from('concepts')
       .insert({
-        user_id: userId,
         concept_title: 'Credit Race Test Product',
         core_angle: 'Testing credit atomicity',
-        status: 'active',
+        status: 'draft',
       })
       .select('id')
       .single();

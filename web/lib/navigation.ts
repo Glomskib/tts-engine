@@ -128,6 +128,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SETTINGS',
     subscriptionType: 'saas',
     items: [
+      { name: 'Getting Started', href: '/admin/guide', icon: BookOpen },
       { name: 'What\'s New', href: '/admin/whats-new', icon: Gift },
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
       { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },

@@ -1,394 +1,367 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
+import Link from 'next/link';
 import {
   BookOpen,
   Package,
+  UserCheck,
   Sparkles,
-  Video,
   Trophy,
   Calendar,
-  Users,
-  Sun,
-  Keyboard,
-  ChevronDown,
+  Activity,
+  Video,
+  FileText,
+  Mic,
+  Lightbulb,
+  Wallet,
+  Building,
+  Send,
+  Eye,
+  HelpCircle,
+  MessageSquare,
+  Play,
   ChevronRight,
+  CheckCircle2,
+  Circle,
+  Mail,
   ExternalLink,
-} from "lucide-react";
-import Link from "next/link";
+} from 'lucide-react';
 
-interface GuideSection {
-  id: string;
-  icon: React.ElementType;
-  title: string;
-  content: React.ReactNode;
-}
+// ─── Step tracker (persisted in localStorage) ────────────────────────────────
 
-const sections: GuideSection[] = [
-  {
-    id: "getting-started",
-    icon: Package,
-    title: "1. Getting Started",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <div>
-          <h4 className="text-white font-semibold mb-2">First Login</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Go to your FlashFlow URL and sign up or log in</li>
-            <li>You&apos;ll land on the <strong className="text-zinc-200">Dashboard</strong> — your home base</li>
-            <li>The sidebar has everything you need</li>
-          </ol>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Adding Products</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Click <strong className="text-zinc-200">Products</strong> in the sidebar</li>
-            <li>Click <strong className="text-zinc-200">Add Product</strong> in the top right</li>
-            <li>Fill in name, brand, category, and a detailed description</li>
-            <li>The more detail you add, the better your AI scripts will be!</li>
-          </ol>
-          <div className="mt-2 bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
-            <strong className="text-teal-400 text-xs">Shortcut:</strong>{" "}
-            <span className="text-zinc-400">Use <Link href="/admin/products/import" className="text-teal-400 hover:underline">Import Products</Link> to paste TikTok Shop URLs for bulk import</span>
-          </div>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Creating Audience Personas</h4>
-          <p className="text-zinc-400">
-            Go to <strong className="text-zinc-200">Audiences</strong> and create personas like &quot;Tired Mom Sarah&quot; or &quot;Fitness Bro Mike&quot;.
-            Describe their age, pain points, phrases they use, and what content they love.
-            This helps the AI write scripts that <em>feel real</em> to your audience.
-          </p>
-        </div>
-        {/* Screenshot placeholder */}
-        <div className="bg-zinc-800 border border-dashed border-zinc-600 rounded-lg p-6 text-center text-zinc-500 text-xs">
-          [ Screenshot: Products page with products listed ]
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "content-studio",
-    icon: Sparkles,
-    title: "2. Content Studio — Generating Scripts",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <div>
-          <h4 className="text-white font-semibold mb-2">Quick Generate (Easiest Way)</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Go to <strong className="text-zinc-200">Content Studio</strong></li>
-            <li>You&apos;ll see <strong className="text-zinc-200">Quick Generate</strong> presets at the top:</li>
-          </ol>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-            {["Trending Hook", "Pain Point Skit", "Before/After", "Testimonial", "Unboxing", "Day in Life"].map((p) => (
-              <div key={p} className="bg-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 text-center">{p}</div>
-            ))}
-          </div>
-          <p className="text-zinc-400 mt-2">Select a product, click any preset, and your script is generated!</p>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Full Generate (More Control)</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Choose a <strong className="text-zinc-200">Product</strong></li>
-            <li>Pick a <strong className="text-zinc-200">Content Type</strong> (skit, story, testimonial...)</li>
-            <li>Adjust risk level, duration, hook strength</li>
-            <li>Click <strong className="text-zinc-200">Generate</strong></li>
-            <li>Review: hook, scene beats, dialogue, CTA</li>
-          </ol>
-        </div>
-        <div className="bg-teal-900/20 border border-teal-700/40 rounded-lg p-3">
-          <strong className="text-teal-300 text-xs block mb-1">Tips for Better Scripts</strong>
-          <ul className="text-xs text-zinc-400 space-y-1">
-            <li>• Add lots of detail to your products — the AI uses everything</li>
-            <li>• Use audience personas — scripts with personas feel more real</li>
-            <li>• Generate 3 variations and pick the best one</li>
-            <li>• Save good scripts to your library</li>
-          </ul>
-        </div>
-        <div className="bg-zinc-800 border border-dashed border-zinc-600 rounded-lg p-6 text-center text-zinc-500 text-xs">
-          [ Screenshot: Content Studio with Quick Generate presets ]
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "pipeline",
-    icon: Video,
-    title: "3. Pipeline — From Script to Posted",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <div>
-          <h4 className="text-white font-semibold mb-2">How Videos Flow</h4>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {["SCRIPTED", "ASSIGNED", "IN_PROGRESS", "REVIEW", "APPROVED", "POSTED"].map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <span className="bg-zinc-800 px-3 py-1.5 rounded font-mono">{s}</span>
-                {i < 5 && <ChevronRight className="w-3 h-3 text-zinc-600" />}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Status Meanings</h4>
-          <ul className="space-y-1 text-zinc-400">
-            <li><strong className="text-zinc-200">SCRIPTED:</strong> Script written, needs someone to film/edit</li>
-            <li><strong className="text-zinc-200">ASSIGNED:</strong> Given to a VA to work on</li>
-            <li><strong className="text-zinc-200">IN_PROGRESS:</strong> VA is actively editing</li>
-            <li><strong className="text-zinc-200">REVIEW:</strong> VA submitted, needs your approval</li>
-            <li><strong className="text-zinc-200">APPROVED:</strong> Ready to post!</li>
-            <li><strong className="text-zinc-200">POSTED:</strong> Live on TikTok</li>
-          </ul>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Adding Scripts to Pipeline</h4>
-          <ul className="text-zinc-400 space-y-1">
-            <li>• From Content Studio → <strong className="text-zinc-200">Send to Pipeline</strong></li>
-            <li>• From Script Library → click the send icon</li>
-            <li>• From Script of the Day → <strong className="text-zinc-200">Accept & Add to Pipeline</strong></li>
-          </ul>
-        </div>
-        <div className="bg-zinc-800 border border-dashed border-zinc-600 rounded-lg p-6 text-center text-zinc-500 text-xs">
-          [ Screenshot: Pipeline board with status columns ]
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "winners",
-    icon: Trophy,
-    title: "4. Winners Bank",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <p className="text-zinc-400">
-          Winners are your best-performing videos. FlashFlow learns from them to make future scripts even better.
-        </p>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Importing Winners</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Go to <strong className="text-zinc-200">Winners Bank → Import</strong></li>
-            <li>Paste TikTok video URLs of your best performers</li>
-            <li>FlashFlow extracts the hook, metrics, and patterns</li>
-          </ol>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Analyzing Patterns</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Go to <strong className="text-zinc-200">Winners Bank → Patterns</strong></li>
-            <li>Click <strong className="text-zinc-200">Run Analysis</strong></li>
-            <li>See: top hook types, best formats, winning formulas</li>
-          </ol>
-        </div>
-        <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3">
-          <strong className="text-amber-300 text-xs block mb-1">How Winners Improve Scripts</strong>
-          <ul className="text-xs text-zinc-400 space-y-1">
-            <li>• AI checks Winners Bank during generation</li>
-            <li>• Proven hooks and patterns are reused</li>
-            <li>• Script of the Day remixes winner hooks with new products</li>
-            <li>• You&apos;ll see &quot;Based on winner: [hook]&quot; when this happens</li>
-          </ul>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "calendar",
-    icon: Calendar,
-    title: "5. Content Calendar & Scheduling",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <div>
-          <h4 className="text-white font-semibold mb-2">Content Calendar</h4>
-          <ul className="text-zinc-400 space-y-1">
-            <li>• See your scheduled content on a weekly/monthly view</li>
-            <li>• Click any day to add content manually</li>
-          </ul>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Auto-Fill</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Click <strong className="text-zinc-200">Auto-Fill Week</strong></li>
-            <li>FlashFlow distributes APPROVED videos across the week</li>
-            <li>Max 3 videos per account per day, no duplicate products</li>
-          </ol>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "va",
-    icon: Users,
-    title: "6. For VAs (Video Editors)",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <p className="text-zinc-400">
-          VAs access their work at <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-xs">/va</code> — separate from the admin area.
-        </p>
-        <div>
-          <h4 className="text-white font-semibold mb-2">VA Workflow</h4>
-          <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-            <li>Go to Available Work and click <strong className="text-zinc-200">Claim</strong></li>
-            <li>Read the <strong className="text-zinc-200">Editing Brief</strong> — full script, product info, style notes</li>
-            <li>Edit the video following the brief</li>
-            <li>Click <strong className="text-zinc-200">Submit for Review</strong></li>
-            <li>Wait for approval or revision notes</li>
-          </ol>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "sotd",
-    icon: Sun,
-    title: "7. Script of the Day",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <p className="text-zinc-400">
-          Your daily AI-recommended script. FlashFlow picks the best product + hook combo to film today.
-        </p>
-        <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-          <li>Go to <strong className="text-zinc-200">Script of the Day</strong> (first item in sidebar!)</li>
-          <li>See today&apos;s script: product, hook, full script, filming tips</li>
-          <li>Use the <strong className="text-zinc-200">Filming Checklist</strong> to prep</li>
-          <li>Click <strong className="text-zinc-200">Accept & Add to Pipeline</strong> or <strong className="text-zinc-200">Regenerate</strong></li>
-          <li>View previous days&apos; scripts below</li>
-        </ol>
-      </div>
-    ),
-  },
-  {
-    id: "shortcuts",
-    icon: Keyboard,
-    title: "8. Tips & Keyboard Shortcuts",
-    content: (
-      <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <div>
-          <h4 className="text-white font-semibold mb-2">Keyboard Shortcuts</h4>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ["Cmd/Ctrl + K", "Universal search"],
-              ["G then D", "Go to Dashboard"],
-              ["G then S", "Go to Content Studio"],
-              ["G then P", "Go to Pipeline"],
-              ["G then W", "Go to Winners"],
-              ["G then C", "Go to Calendar"],
-            ].map(([key, desc]) => (
-              <div key={key} className="flex items-center gap-2">
-                <kbd className="bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded text-xs font-mono text-zinc-300">{key}</kbd>
-                <span className="text-zinc-400 text-xs">{desc}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <h4 className="text-white font-semibold mb-2">Power User Tips</h4>
-          <ul className="text-zinc-400 space-y-1">
-            <li>• <strong className="text-zinc-200">Bulk Operations:</strong> Select multiple items with checkboxes for batch actions</li>
-            <li>• <strong className="text-zinc-200">Content Planner:</strong> Generate 20 scripts at once with auto-product selection</li>
-            <li>• <strong className="text-zinc-200">Dark/Light Mode:</strong> Toggle in the header</li>
-            <li>• <strong className="text-zinc-200">Quick Search:</strong> Cmd+K searches everything — products, scripts, pages</li>
-          </ul>
-        </div>
-      </div>
-    ),
-  },
-];
+const STEPS = [
+  { key: 'product', label: 'Add a product', href: '/admin/products', icon: Package },
+  { key: 'persona', label: 'Create a customer archetype', href: '/admin/audience', icon: UserCheck },
+  { key: 'studio', label: 'Open Content Studio', href: '/admin/content-studio', icon: Sparkles },
+  { key: 'generate', label: 'Generate & save a script', href: '/admin/content-studio', icon: FileText },
+] as const;
 
-export default function GuidePage() {
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["getting-started"]));
+type StepKey = (typeof STEPS)[number]['key'];
 
-  const toggle = (id: string) => {
-    setOpenSections((prev) => {
+function useCompletedSteps() {
+  const STORAGE_KEY = 'ffai-guide-steps';
+  const [completed, setCompleted] = useState<Set<StepKey>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? new Set(JSON.parse(raw) as StepKey[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggle = (key: StepKey) => {
+    setCompleted((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
       return next;
     });
   };
 
-  const expandAll = () => setOpenSections(new Set(sections.map((s) => s.id)));
-  const collapseAll = () => setOpenSections(new Set());
+  return { completed, toggle };
+}
+
+// ─── Quick Links data ────────────────────────────────────────────────────────
+
+const QUICK_LINKS = [
+  { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, desc: 'Generate AI scripts in 60 seconds' },
+  { name: 'Script Library', href: '/admin/skit-library', icon: FileText, desc: 'Browse and manage saved scripts' },
+  { name: 'Products', href: '/admin/products', icon: Package, desc: 'Add and manage your product catalog' },
+  { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck, desc: 'Create target audience personas' },
+  { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, desc: 'Study top-performing viral content' },
+  { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar, desc: 'Plan and schedule your posts' },
+  { name: 'Production Board', href: '/admin/pipeline', icon: Video, desc: 'Track videos from script to posted' },
+  { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, desc: 'Convert TikTok videos to scripts' },
+  { name: 'Content Ideas', href: '/admin/content-ideas', icon: Lightbulb, desc: 'AI-recommended scripts and angles' },
+  { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, desc: 'Analyze what makes winners win' },
+  { name: 'Brands', href: '/admin/brands', icon: Building, desc: 'Manage brand partnerships' },
+  { name: 'Billing & Credits', href: '/admin/billing', icon: Wallet, desc: 'Manage your plan and credits' },
+] as const;
+
+// ─── Tutorial placeholders ───────────────────────────────────────────────────
+
+const TUTORIALS = [
+  { title: 'Getting Started with FlashFlow', duration: '3:45' },
+  { title: 'Generate Your First Script', duration: '2:30' },
+  { title: 'Using Winners Bank', duration: '4:15' },
+  { title: 'Setting Up Your Content Pipeline', duration: '5:00' },
+  { title: 'Mastering Customer Archetypes', duration: '3:20' },
+  { title: 'Content Calendar Deep Dive', duration: '4:50' },
+] as const;
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default function GuidePage() {
+  const { completed, toggle } = useCompletedSteps();
+  const completedCount = completed.size;
+  const totalSteps = STEPS.length;
+  const progressPct = Math.round((completedCount / totalSteps) * 100);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white p-4 md:p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-            <BookOpen className="w-7 h-7 text-teal-400" />
-            FlashFlow User Guide
-          </h1>
-          <p className="text-zinc-400 mt-1">
-            Everything you need to start making TikTok content
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={expandAll} className="text-xs text-zinc-400 hover:text-white px-3 py-1.5 bg-zinc-800 rounded-lg transition-colors">
-            Expand All
-          </button>
-          <button onClick={collapseAll} className="text-xs text-zinc-400 hover:text-white px-3 py-1.5 bg-zinc-800 rounded-lg transition-colors">
-            Collapse
-          </button>
-          <a
-            href="/guide.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-zinc-400 hover:text-white px-3 py-1.5 bg-zinc-800 rounded-lg transition-colors flex items-center gap-1"
-          >
-            <ExternalLink className="w-3 h-3" /> Markdown
-          </a>
+    <div className="max-w-4xl mx-auto pb-24 lg:pb-8 space-y-10">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-teal-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">Getting Started</h1>
+            <p className="text-sm text-zinc-500">Your interactive guide to FlashFlow</p>
+          </div>
         </div>
       </div>
 
-      {/* Quick nav */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-6">
-        <span className="text-xs uppercase tracking-wider text-zinc-500 font-medium">Jump to</span>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {sections.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setOpenSections((prev) => new Set([...prev, s.id]));
-                document.getElementById(`guide-${s.id}`)?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 1 — YOUR FIRST SCRIPT IN 60 SECONDS
+          ════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-1">Your First Script in 60 Seconds</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Complete these four steps to generate your first AI-powered TikTok script.
+        </p>
+
+        {/* Progress bar */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between text-xs text-zinc-500 mb-1.5">
+            <span>{completedCount} of {totalSteps} complete</span>
+            <span>{progressPct}%</span>
+          </div>
+          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-teal-500 rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="space-y-3">
+          {STEPS.map((step, i) => {
+            const done = completed.has(step.key);
+            const Icon = step.icon;
+            return (
+              <div
+                key={step.key}
+                className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
+                  done
+                    ? 'bg-teal-500/5 border-teal-500/20'
+                    : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                {/* Check toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggle(step.key)}
+                  className="shrink-0"
+                  aria-label={done ? `Mark "${step.label}" incomplete` : `Mark "${step.label}" complete`}
+                >
+                  {done ? (
+                    <CheckCircle2 className="w-6 h-6 text-teal-400" />
+                  ) : (
+                    <Circle className="w-6 h-6 text-zinc-600" />
+                  )}
+                </button>
+
+                {/* Step number + icon */}
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4 text-zinc-400" />
+                </div>
+
+                {/* Label */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-zinc-500 font-medium">Step {i + 1}</span>
+                  <p className={`text-sm font-medium ${done ? 'text-zinc-500 line-through' : 'text-white'}`}>
+                    {step.label}
+                  </p>
+                </div>
+
+                {/* Link */}
+                <Link
+                  href={step.href}
+                  className="shrink-0 flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                >
+                  Go <ChevronRight className="w-3 h-3" />
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+
+        {completedCount === totalSteps && (
+          <div className="mt-4 p-4 bg-teal-500/10 border border-teal-500/20 rounded-xl text-center">
+            <p className="text-sm font-semibold text-teal-400">You&apos;re all set! You&apos;ve completed the basics.</p>
+            <p className="text-xs text-zinc-400 mt-1">Keep going below to level up your content game.</p>
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 2 — LEVEL UP YOUR CONTENT
+          ════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-1">Level Up Your Content</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Once you&apos;ve got the basics down, use these tools to produce content faster and smarter.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Winners Bank */}
+          <Link
+            href="/admin/winners"
+            className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-amber-500/30 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center mb-3">
+              <Trophy className="w-4.5 h-4.5 text-amber-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-amber-400 transition-colors">
+              Study What Works
+            </h3>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Import your best TikToks into Winners Bank. FlashFlow analyzes hooks, formats, and patterns so you can replicate what converts.
+            </p>
+          </Link>
+
+          {/* Content Calendar */}
+          <Link
+            href="/admin/calendar"
+            className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-blue-500/30 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center mb-3">
+              <Calendar className="w-4.5 h-4.5 text-blue-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-blue-400 transition-colors">
+              Stay Consistent
+            </h3>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Plan your posts with the Content Calendar. Schedule across brands, auto-fill your week, and never miss a posting day.
+            </p>
+          </Link>
+
+          {/* Retainer Tracking */}
+          <Link
+            href="/admin/brands"
+            className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-violet-500/30 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center mb-3">
+              <Building className="w-4.5 h-4.5 text-violet-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-violet-400 transition-colors">
+              Track Retainer Progress
+            </h3>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Monitor brand partnership goals, see videos remaining to hit quota, and track bonus tier progress.
+            </p>
+          </Link>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 3 — QUICK LINKS
+          ════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-1">Quick Links</h2>
+        <p className="text-sm text-zinc-500 mb-4">Jump to any feature.</p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {QUICK_LINKS.map((link) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors"
+              >
+                <Icon className="w-5 h-5 text-teal-400 mb-2 group-hover:text-teal-300 transition-colors" />
+                <p className="text-sm font-medium text-white mb-0.5">{link.name}</p>
+                <p className="text-xs text-zinc-500 leading-relaxed">{link.desc}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 4 — VIDEO TUTORIALS (PLACEHOLDER)
+          ════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-1">Video Tutorials</h2>
+        <p className="text-sm text-zinc-500 mb-4">Watch step-by-step walkthroughs of every feature.</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {TUTORIALS.map((tut) => (
+            <div
+              key={tut.title}
+              className="relative bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
             >
-              <s.icon className="w-3 h-3 text-teal-400" />
-              {s.title.replace(/^\d+\.\s*/, "")}
-            </button>
+              {/* Thumbnail placeholder */}
+              <div className="aspect-video bg-zinc-800 flex items-center justify-center relative">
+                <Play className="w-8 h-8 text-zinc-600" />
+                {/* Coming soon badge */}
+                <span className="absolute top-2 right-2 px-2 py-0.5 bg-zinc-700 text-zinc-400 text-[10px] font-semibold rounded-full uppercase tracking-wider">
+                  Coming soon
+                </span>
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-medium text-zinc-300">{tut.title}</p>
+                <p className="text-xs text-zinc-600 mt-0.5">{tut.duration}</p>
+              </div>
+            </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Sections */}
-      <div className="space-y-3">
-        {sections.map((section) => {
-          const isOpen = openSections.has(section.id);
-          return (
-            <div
-              key={section.id}
-              id={`guide-${section.id}`}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
-            >
-              <button
-                onClick={() => toggle(section.id)}
-                className="w-full flex items-center gap-3 p-5 text-left hover:bg-zinc-800/50 transition-colors"
-              >
-                <section.icon className="w-5 h-5 text-teal-400 shrink-0" />
-                <span className="font-semibold flex-1">{section.title}</span>
-                <ChevronDown
-                  className={`w-4 h-4 text-zinc-500 transition-transform ${
-                    isOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              {isOpen && (
-                <div className="px-5 pb-5 pt-0 border-t border-zinc-800 mt-0 pt-4">
-                  {section.content}
-                </div>
-              )}
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 5 — NEED HELP?
+          ════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-1">Need Help?</h2>
+        <p className="text-sm text-zinc-500 mb-4">We&apos;re here for you.</p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link
+            href="/admin/help"
+            className="group flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-teal-500/30 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-teal-500/15 flex items-center justify-center shrink-0">
+              <HelpCircle className="w-4.5 h-4.5 text-teal-400" />
             </div>
-          );
-        })}
-      </div>
+            <div>
+              <p className="text-sm font-medium text-white group-hover:text-teal-400 transition-colors">AI Help Bot</p>
+              <p className="text-xs text-zinc-500">Chat with our AI assistant</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/help"
+            className="group flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-blue-500/30 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+              <MessageSquare className="w-4.5 h-4.5 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Submit a Ticket</p>
+              <p className="text-xs text-zinc-500">Report bugs or request features</p>
+            </div>
+          </Link>
+
+          <a
+            href="mailto:hello@flashflowai.com"
+            className="group flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-violet-500/30 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0">
+              <Mail className="w-4.5 h-4.5 text-violet-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white group-hover:text-violet-400 transition-colors">Email Us</p>
+              <p className="text-xs text-zinc-500">hello@flashflowai.com</p>
+            </div>
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

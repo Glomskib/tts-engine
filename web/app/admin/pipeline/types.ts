@@ -84,6 +84,8 @@ export function getStatusBadgeColor(status: string | null): { bg: string; border
       return { bg: '#e7f5ff', border: '#74c0fc', badge: '#228be6' };
     case 'EDITED':
       return { bg: '#fff3bf', border: '#ffd43b', badge: '#fab005' };
+    case 'APPROVED_NEEDS_EDITS':
+      return { bg: '#fff3bf', border: '#fbbf24', badge: '#d97706' };
     case 'READY_TO_POST':
       return { bg: '#d3f9d8', border: '#69db7c', badge: '#40c057' };
     case 'POSTED':
@@ -196,6 +198,17 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
       label: 'Approve',
       shortLabel: 'Approve',
       color: '#40c057',
+      icon: '',
+    };
+  }
+
+  // If APPROVED_NEEDS_EDITS: primary = Mark Ready to Post
+  if (video.recording_status === 'APPROVED_NEEDS_EDITS') {
+    return {
+      type: 'upload_edit',
+      label: 'Mark Ready to Post',
+      shortLabel: 'Ready',
+      color: '#d97706',
       icon: '',
     };
   }

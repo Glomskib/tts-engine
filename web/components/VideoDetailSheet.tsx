@@ -177,6 +177,8 @@ function StatusBadge({ status }: { status: string }) {
     'approved': 'bg-green-500/20 text-green-400',
     'Rejected': 'bg-red-500/20 text-red-400',
     'rejected': 'bg-red-500/20 text-red-400',
+    'APPROVED_NEEDS_EDITS': 'bg-amber-500/20 text-amber-400',
+    'Approved Needs Edits': 'bg-amber-500/20 text-amber-400',
   };
 
   const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

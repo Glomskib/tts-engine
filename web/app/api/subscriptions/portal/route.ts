@@ -4,7 +4,14 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return _stripe;
+}
 
 export const runtime = 'nodejs';
 
@@ -38,7 +45,7 @@ export async function POST(request: Request) {
     // Create portal session
     const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://flashflowai.com'}/admin/settings`;
 
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const portalSession = await getStripe().billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
       return_url: returnUrl,
     });

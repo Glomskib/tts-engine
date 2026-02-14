@@ -16,12 +16,14 @@ import {
   type PlanName
 } from '@/lib/subscriptions';
 
-// Validate Stripe key at startup
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.error('STRIPE_SECRET_KEY is not set!');
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return _stripe;
 }
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 // Get base URL with fallback
 function getBaseUrl(): string {
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
       stripeCustomerId = existingSub.stripe_customer_id;
     } else {
       // Create new Stripe customer
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: userEmail || undefined,
         metadata: {
           user_id: userId,
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
     }
 
     // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
       payment_method_types: ['card'],

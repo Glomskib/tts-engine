@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   DollarSign, TrendingUp, BarChart, Package, Building,
-  ArrowUpRight, Video, Percent
+  ArrowUpRight, Video, Percent, ShoppingCart, Store,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonStats, SkeletonChart } from '@/components/ui/Skeleton';
@@ -47,6 +47,59 @@ interface TopVideo {
   views: number;
 }
 
+// TikTok Shop types
+interface ShopSummary {
+  total_gmv: number;
+  total_commission: number;
+  total_orders: number;
+  avg_order_value: number;
+  month_orders: number;
+  month_gmv: number;
+  month_commission: number;
+}
+
+interface ShopBrandRevenue {
+  id: string;
+  name: string;
+  gmv: number;
+  commission: number;
+  orders: number;
+}
+
+interface ShopProductRevenue {
+  name: string;
+  gmv: number;
+  commission: number;
+  orders: number;
+}
+
+interface ShopTimelineEntry {
+  week: string;
+  gmv: number;
+  commission: number;
+  orders: number;
+}
+
+interface ShopOrder {
+  id: string;
+  tiktok_order_id: string;
+  product_name: string | null;
+  order_amount: number;
+  commission_amount: number;
+  order_status: string | null;
+  order_created_at: string | null;
+  brand_name: string | null;
+  attribution_confidence: number | null;
+}
+
+interface ShopData {
+  summary: ShopSummary;
+  revenue_by_brand: ShopBrandRevenue[];
+  revenue_by_product: ShopProductRevenue[];
+  timeline: ShopTimelineEntry[];
+  recent_orders: ShopOrder[];
+}
+
 function formatMoney(n: number): string {
   return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
@@ -87,11 +140,17 @@ export default function RevenuePage() {
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(30);
 
+  // TikTok Shop data
+  const [shopData, setShopData] = useState<ShopData | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/revenue?days=${days}`);
+      const [res, shopRes] = await Promise.all([
+        fetch(`/api/revenue?days=${days}`),
+        fetch('/api/admin/revenue').catch(() => null),
+      ]);
       if (res.ok) {
         const json = await res.json();
         setSummary(json.data?.summary || null);
@@ -102,6 +161,13 @@ export default function RevenuePage() {
       } else {
         const json = await res.json().catch(() => ({}));
         setError(json.error || 'Failed to load revenue data');
+      }
+      // Shop data (optional — don't fail if unavailable)
+      if (shopRes?.ok) {
+        const shopJson = await shopRes.json().catch(() => ({}));
+        if (shopJson.ok && shopJson.data) {
+          setShopData(shopJson.data);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch revenue:', err);
@@ -285,6 +351,136 @@ export default function RevenuePage() {
               ))}
             </div>
           </div>
+        )}
+        {/* TikTok Shop Sales Section */}
+        {shopData && shopData.summary.total_orders > 0 && (
+          <>
+            <div className="border-t border-zinc-800 pt-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                <Store className="w-5 h-5 text-teal-400" /> TikTok Shop Sales
+              </h2>
+
+              {/* Shop Summary */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center gap-1 text-xs text-zinc-400 mb-1"><DollarSign className="w-3 h-3" /> Total GMV</div>
+                  <div className="text-xl font-bold text-emerald-400">{formatMoney(shopData.summary.total_gmv)}</div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center gap-1 text-xs text-zinc-400 mb-1"><TrendingUp className="w-3 h-3" /> Commission</div>
+                  <div className="text-xl font-bold text-teal-400">{formatMoney(shopData.summary.total_commission)}</div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center gap-1 text-xs text-zinc-400 mb-1"><ShoppingCart className="w-3 h-3" /> This Month</div>
+                  <div className="text-xl font-bold text-blue-400">{shopData.summary.month_orders}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{formatMoney(shopData.summary.month_gmv)}</div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center gap-1 text-xs text-zinc-400 mb-1"><Package className="w-3 h-3" /> Avg Order</div>
+                  <div className="text-xl font-bold text-amber-400">{formatMoney(shopData.summary.avg_order_value)}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{shopData.summary.total_orders} total</div>
+                </div>
+              </div>
+
+              {/* Shop Weekly Timeline */}
+              {shopData.timeline.length > 0 && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                  <h3 className="text-sm font-semibold text-white mb-3">Weekly Shop Revenue</h3>
+                  <div className="space-y-2">
+                    {shopData.timeline.map(entry => {
+                      const maxGmv = Math.max(...shopData.timeline.map(e => e.gmv), 1);
+                      const pct = (entry.gmv / maxGmv) * 100;
+                      const weekDate = new Date(entry.week + 'T12:00:00');
+                      const label = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      return (
+                        <div key={entry.week} className="flex items-center gap-3">
+                          <span className="text-xs text-zinc-500 w-16 shrink-0">{label}</span>
+                          <div className="flex-1 h-5 bg-zinc-800 rounded-full overflow-hidden relative">
+                            <div
+                              className="h-full bg-emerald-500/30 rounded-full transition-all"
+                              style={{ width: `${Math.max(pct, 2)}%` }}
+                            />
+                            <span className="absolute inset-y-0 right-2 flex items-center text-[10px] text-zinc-300 font-medium">
+                              {formatMoney(entry.gmv)}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-zinc-600 w-8 text-right shrink-0">{entry.orders}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Shop Brand + Product */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                {shopData.revenue_by_brand.length > 0 && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                    <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                      <Building className="w-4 h-4 text-zinc-400" /> Shop Revenue by Brand
+                    </h3>
+                    <HorizontalBar
+                      items={shopData.revenue_by_brand.slice(0, 6).map(b => ({ name: b.name, value: b.gmv }))}
+                      colorFn={(i) => ['bg-emerald-500', 'bg-teal-500', 'bg-cyan-500', 'bg-green-500', 'bg-lime-500', 'bg-emerald-600'][i % 6]}
+                    />
+                  </div>
+                )}
+
+                {shopData.revenue_by_product.length > 0 && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                    <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                      <Package className="w-4 h-4 text-zinc-400" /> Top Shop Products
+                    </h3>
+                    <HorizontalBar
+                      items={shopData.revenue_by_product.slice(0, 6).map(p => ({ name: p.name, value: p.gmv }))}
+                      colorFn={(i) => ['bg-teal-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-green-500', 'bg-blue-500'][i % 6]}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Shop Orders */}
+              {shopData.recent_orders.length > 0 && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-white mb-3">Recent Shop Orders</h3>
+                  <div className="space-y-2">
+                    {shopData.recent_orders.map(order => (
+                      <div key={order.id} className="flex items-center gap-3 py-2 border-b border-zinc-800/50 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{order.product_name || 'Unknown Product'}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {order.brand_name && (
+                              <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">{order.brand_name}</span>
+                            )}
+                            {order.attribution_confidence != null && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                order.attribution_confidence >= 0.8 ? 'bg-emerald-500/10 text-emerald-400'
+                                  : order.attribution_confidence >= 0.5 ? 'bg-amber-500/10 text-amber-400'
+                                  : 'bg-zinc-800 text-zinc-500'
+                              }`}>
+                                {Math.round(order.attribution_confidence * 100)}% match
+                              </span>
+                            )}
+                            {order.order_status && (
+                              <span className="text-[10px] text-zinc-600">{order.order_status}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-medium text-emerald-400">{formatMoney(order.order_amount)}</p>
+                          {order.order_created_at && (
+                            <p className="text-[10px] text-zinc-600">
+                              {new Date(order.order_created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </PullToRefresh>

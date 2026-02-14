@@ -116,6 +116,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
       { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
+      { name: 'Revenue', href: '/admin/revenue', icon: DollarSign, minPlan: 'creator_pro' },
       { name: 'Export & Reports', href: '/admin/export', icon: Download },
     ],
   },

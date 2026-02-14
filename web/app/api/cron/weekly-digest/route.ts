@@ -28,6 +28,7 @@ interface UserDigestData {
     score: number;
   };
   credits_used: number;
+  creditsRemaining: number;
   videos_posted: number;
   retainer_data?: {
     videos_posted: number;
@@ -193,6 +194,7 @@ export async function GET(request: Request) {
           scripts_generated: scriptsGenerated,
           top_script: topScript,
           credits_used: creditsUsed,
+          creditsRemaining,
           videos_posted: videosPosted ?? 0,
           retainer_data: retainerData,
           content_idea: contentIdea,

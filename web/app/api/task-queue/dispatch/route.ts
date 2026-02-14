@@ -109,17 +109,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET endpoint to check task status
+// GET endpoint: Monitor all tasks or fetch single task by ID
 export async function GET(req: NextRequest) {
   try {
-    const taskId = req.nextUrl.searchParams.get('id');
-
-    if (!taskId) {
+    // Validate dispatch API key
+    const dispatchKey = req.headers.get('x-dispatch-key');
+    if (!dispatchKey || dispatchKey !== process.env.DISPATCH_API_KEY) {
       return NextResponse.json(
-        { ok: false, error: 'Missing task_id query parameter' },
-        { status: 400 }
+        { ok: false, error: 'Invalid or missing x-dispatch-key header' },
+        { status: 401 }
       );
     }
+
+    const taskId = req.nextUrl.searchParams.get('id');
 
     // Create Supabase client (service role for API)
     const { createClient } = await import('@supabase/supabase-js');
@@ -128,31 +130,71 @@ export async function GET(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data: task, error } = await supabase
+    // If ID provided, fetch single task
+    if (taskId) {
+      const { data: task, error } = await supabase
+        .from('task_queue')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+
+      if (error) {
+        return NextResponse.json(
+          { ok: false, error: `Task not found: ${error.message}` },
+          { status: 404 }
+        );
+      }
+
+      // Extract first 200 chars of error if present
+      let errorMsg = null;
+      if (task.result?.error) {
+        errorMsg = String(task.result.error).substring(0, 200);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          id: task.id,
+          task_name: task.task_name,
+          status: task.status,
+          assigned_terminal: task.assigned_terminal,
+          created_at: task.created_at,
+          completed_at: task.completed_at,
+          error: errorMsg,
+        },
+      });
+    }
+
+    // Otherwise return all tasks (monitoring endpoint)
+    const { data: tasks, error } = await supabase
       .from('task_queue')
-      .select('*')
-      .eq('id', taskId)
-      .single();
+      .select('id, task_name, status, assigned_terminal, priority, created_at, completed_at, result')
+      .order('created_at', { ascending: false });
 
     if (error) {
       return NextResponse.json(
-        { ok: false, error: `Task not found: ${error.message}` },
-        { status: 404 }
+        { ok: false, error: `Failed to fetch tasks: ${error.message}` },
+        { status: 500 }
       );
     }
+
+    // Format response: extract error first 200 chars from result
+    const formattedTasks = tasks.map((task) => ({
+      id: task.id,
+      task_name: task.task_name,
+      status: task.status,
+      assigned_terminal: task.assigned_terminal,
+      priority: task.priority,
+      created_at: task.created_at,
+      completed_at: task.completed_at,
+      error: task.result?.error ? String(task.result.error).substring(0, 200) : null,
+    }));
 
     return NextResponse.json({
       ok: true,
       data: {
-        id: task.id,
-        task_name: task.task_name,
-        status: task.status,
-        priority: task.priority,
-        assigned_terminal: task.assigned_terminal,
-        claimed_at: task.claimed_at,
-        started_at: task.started_at,
-        completed_at: task.completed_at,
-        result: task.result,
+        total: formattedTasks.length,
+        tasks: formattedTasks,
       },
     });
   } catch (error) {

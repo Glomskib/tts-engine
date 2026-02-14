@@ -46,6 +46,8 @@ import {
   MessageSquare,
   Plug,
   Gift,
+  Target,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -114,6 +116,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
       { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
+      { name: 'Export & Reports', href: '/admin/export', icon: Download },
     ],
   },
   {
@@ -122,6 +125,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
       { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
+      { name: 'Retainer Tracking', href: '/admin/retainers', icon: Target, minPlan: 'creator_pro' },
       { name: 'Briefs', href: '/admin/briefs', icon: FileText, minPlan: 'creator_pro' },
     ],
   },

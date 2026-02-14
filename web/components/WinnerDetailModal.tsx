@@ -77,17 +77,24 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
     return num.toString();
   };
 
+  const [analyzeError, setAnalyzeError] = useState('');
+
   const handleReanalyze = async () => {
     setIsReanalyzing(true);
+    setAnalyzeError('');
     try {
       const response = await fetch(`/api/winners/${winner.id}/analyze`, {
         method: 'POST',
       });
-      if (response.ok) {
+      const data = await response.json();
+      if (response.ok && data.ok) {
         onUpdate?.();
+      } else {
+        setAnalyzeError(data.message || 'Analysis failed. Please try again.');
       }
     } catch (err) {
       console.error('Reanalysis failed:', err);
+      setAnalyzeError('Network error. Please try again.');
     } finally {
       setIsReanalyzing(false);
     }
@@ -463,6 +470,9 @@ export function WinnerDetailModal({ isOpen, onClose, winner, onUpdate, onDelete 
                   </>
                 )}
               </button>
+              {analyzeError && (
+                <p className="text-red-400 text-sm mt-2">{analyzeError}</p>
+              )}
             </div>
           )}
         </div>

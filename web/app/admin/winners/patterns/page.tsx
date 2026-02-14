@@ -105,7 +105,7 @@ export default function WinnerPatternsPage() {
       if (data.ok && data.data) {
         setAnalysis(data.data);
       } else {
-        showError(data.error || 'Analysis failed. Please try again.');
+        showError(data.message || data.error || 'Analysis failed. Please try again.');
       }
     } catch {
       showError('Network error. Please check your connection and try again.');

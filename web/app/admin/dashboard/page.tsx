@@ -19,6 +19,7 @@ import { CONTENT_TYPES } from '@/lib/content-types';
 
 const WeeklyChart = dynamic(() => import('./WeeklyChart'), { ssr: false });
 const SetupChecklist = dynamic(() => import('./SetupChecklist'), { ssr: false });
+const QuickStart = dynamic(() => import('@/components/dashboard/QuickStart'), { ssr: false });
 const OnboardingModal = dynamic(() => import('@/components/OnboardingModal'), { ssr: false });
 const RetainerTracker = dynamic(() => import('./RetainerTracker'), { ssr: false });
 
@@ -428,6 +429,9 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-zinc-400 text-sm">Your content operations at a glance</p>
         </div>
+
+        {/* Quick Start checklist — onboarding for new users */}
+        <QuickStart />
 
         {/* Retainer Tracker — top of page, money on the line */}
         <RetainerTracker />

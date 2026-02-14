@@ -10,8 +10,7 @@ export const maxDuration = 300;
 
 const ComposeV2Schema = z.object({
   videoId: z.string().uuid().optional(),
-  heygenUrl: z.string().url(),
-  brollClips: z.array(z.string().url()).min(1).max(10),
+  videoUrl: z.string().url(),
   onScreenText: z.array(z.string().max(200)).max(10).optional(),
   captions: z.array(z.string().max(300)).max(20).optional(),
   duration: z.number().min(5).max(120).optional(),
@@ -40,18 +39,16 @@ export async function POST(request: Request) {
     });
   }
 
-  const { videoId, heygenUrl, brollClips, onScreenText, captions, duration } = parsed.data;
+  const { videoId, videoUrl, onScreenText, captions, duration } = parsed.data;
 
   try {
     const result = await submitComposeV2({
-      heygenUrl,
-      brollClips,
+      videoUrl,
       onScreenText,
       captions,
       duration,
     });
 
-    // If videoId provided, update the video record with compose_render_id
     if (videoId) {
       await supabaseAdmin
         .from("videos")

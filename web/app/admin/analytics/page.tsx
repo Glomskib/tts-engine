@@ -313,7 +313,7 @@ export default function AnalyticsPage() {
                       </Pie>
                       <Tooltip
                         contentStyle={TOOLTIP_STYLE}
-                        formatter={(value: number, name: string) => [value, STATUS_LABELS[name] || name]}
+                        formatter={(value, name) => [value, STATUS_LABELS[String(name)] || name]}
                       />
                     </PieChart>
                   </ResponsiveContainer>

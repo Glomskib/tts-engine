@@ -18,7 +18,14 @@ interface ReviewVideo {
   quality_score?: QualityScore | null;
   last_status_changed_at: string | null;
   created_at: string;
+  render_provider?: string | null;
 }
+
+const PROVIDER_BADGES: Record<string, { label: string; color: string }> = {
+  runway: { label: 'Runway', color: 'bg-violet-500/20 text-violet-400 border-violet-500/30' },
+  heygen: { label: 'HeyGen', color: 'bg-sky-500/20 text-sky-400 border-sky-500/30' },
+  animated: { label: 'Animated', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+};
 
 const REJECT_REASONS = [
   { code: 'bad_visuals', label: 'Bad Visuals' },
@@ -384,9 +391,16 @@ export default function ReviewPage() {
                 <div className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-base font-semibold text-zinc-100">
-                        {video.product_name || 'Unknown Product'}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-zinc-100">
+                          {video.product_name || 'Unknown Product'}
+                        </h3>
+                        {video.render_provider && PROVIDER_BADGES[video.render_provider] && (
+                          <span className={`px-2 py-0.5 text-[10px] font-bold border rounded-full ${PROVIDER_BADGES[video.render_provider].color}`}>
+                            {PROVIDER_BADGES[video.render_provider].label}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-zinc-500">
                         {[video.brand_name, video.product_category].filter(Boolean).join(' / ')}
                       </p>
@@ -567,9 +581,16 @@ export default function ReviewPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h4 className="text-sm font-semibold text-zinc-200">
-                      {video.product_name || 'Unknown Product'}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-zinc-200">
+                        {video.product_name || 'Unknown Product'}
+                      </h4>
+                      {video.render_provider && PROVIDER_BADGES[video.render_provider] && (
+                        <span className={`px-1.5 py-0.5 text-[9px] font-bold border rounded-full ${PROVIDER_BADGES[video.render_provider].color}`}>
+                          {PROVIDER_BADGES[video.render_provider].label}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-zinc-500">
                       {video.brand_name || ''}
                     </p>

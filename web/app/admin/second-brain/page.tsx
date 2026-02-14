@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import PlanGate from '@/components/PlanGate';
 import {
   FileText, FolderOpen, Search, Tag, Calendar, ChevronRight,
   Loader2, Plus, ArrowLeft, RefreshCw, BookOpen, Hash,
@@ -182,6 +183,7 @@ export default function SecondBrainPage() {
   };
 
   return (
+    <PlanGate minPlan="agency" feature="Second Brain" adminOnly>
     <div className="min-h-screen bg-zinc-950 text-white flex">
       {/* Sidebar */}
       <div className="w-64 border-r border-zinc-800 bg-zinc-900/50 flex flex-col flex-shrink-0">
@@ -400,5 +402,6 @@ export default function SecondBrainPage() {
         )}
       </div>
     </div>
+    </PlanGate>
   );
 }

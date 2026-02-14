@@ -7,6 +7,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
 import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle, Zap, Send, ToggleLeft, ToggleRight, Download, Upload } from 'lucide-react';
 import { SkeletonForm, SkeletonPageHeader } from '@/components/ui/Skeleton';
+import PlanGate from '@/components/PlanGate';
 
 interface UserProfile {
   id: string;
@@ -437,6 +438,7 @@ export default function SettingsPage() {
   }
 
   return (
+    <PlanGate minPlan="agency" feature="Settings" adminOnly>
     <div className="p-6 lg:p-8 max-w-4xl mx-auto pb-24 lg:pb-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -1328,5 +1330,6 @@ export default function SettingsPage() {
           </div>
         )}
     </div>
+    </PlanGate>
   );
 }

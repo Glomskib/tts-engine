@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import PlanGate from '@/components/PlanGate';
 import {
   Activity, RefreshCw, CheckCircle, AlertTriangle, XCircle,
   Clock, Server, Bot, Zap, Globe, Monitor, Wifi, WifiOff,
@@ -238,6 +239,7 @@ export default function AutomationDashboard() {
   }
 
   return (
+    <PlanGate minPlan="agency" feature="Automation Dashboard" adminOnly>
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -546,5 +548,6 @@ export default function AutomationDashboard() {
         </div>
       </div>
     </div>
+    </PlanGate>
   );
 }

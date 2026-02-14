@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, Bug, Lightbulb, Search, FileText } from 'lucide-react';
 import AdminPageLayout, { AdminCard, AdminButton, StatCard } from '../components/AdminPageLayout';
+import PlanGate from '@/components/PlanGate';
 
 interface AgentTask {
   id: string;
@@ -118,6 +119,7 @@ export default function AgentTasksPage() {
   };
 
   return (
+    <PlanGate minPlan="agency" feature="Agent Tasks" adminOnly>
     <AdminPageLayout
       title="Agent Tasks"
       subtitle="Bolt → Claude Code task queue"
@@ -284,5 +286,6 @@ export default function AgentTasksPage() {
         )}
       </AdminCard>
     </AdminPageLayout>
+    </PlanGate>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import PlanGate from '@/components/PlanGate';
 import { Mic, MicOff, Send, Volume2, Loader2, Square, Trash2 } from 'lucide-react';
 
 // Web Speech API type declarations
@@ -219,6 +220,7 @@ export default function VoicePage() {
   };
 
   return (
+    <PlanGate minPlan="agency" feature="Voice Assistant" adminOnly>
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
       {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-900/50 px-6 py-4 flex items-center justify-between">
@@ -384,5 +386,6 @@ export default function VoicePage() {
         </div>
       </div>
     </div>
+    </PlanGate>
   );
 }

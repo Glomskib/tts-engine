@@ -40,7 +40,7 @@ export const PLANS = {
     name: 'Creator Lite',
     price: 9,
     credits: 75,
-    stripePriceId: process.env.STRIPE_PRICE_CREATOR_LITE || null,
+    stripePriceId: process.env.STRIPE_PRICE_CREATOR_LITE?.trim() || null,
     limits: {
       scriptsPerMonth: 25,
       editsPerMonth: 5,
@@ -70,7 +70,7 @@ export const PLANS = {
     price: 29,
     credits: 300,
     popular: true,
-    stripePriceId: process.env.STRIPE_PRICE_CREATOR_PRO || null,
+    stripePriceId: process.env.STRIPE_PRICE_CREATOR_PRO?.trim() || null,
     limits: {
       scriptsPerMonth: -1, // unlimited
       editsPerMonth: 25,
@@ -101,7 +101,7 @@ export const PLANS = {
     name: 'Brand',
     price: 49,
     credits: 1000,
-    stripePriceId: process.env.STRIPE_PRICE_BRAND || null,
+    stripePriceId: process.env.STRIPE_PRICE_BRAND?.trim() || null,
     limits: {
       scriptsPerMonth: -1,
       editsPerMonth: 50,
@@ -133,7 +133,7 @@ export const PLANS = {
     name: 'Agency',
     price: 149,
     credits: -1, // unlimited
-    stripePriceId: process.env.STRIPE_PRICE_AGENCY || null,
+    stripePriceId: process.env.STRIPE_PRICE_AGENCY?.trim() || null,
     limits: {
       scriptsPerMonth: -1,
       editsPerMonth: -1, // unlimited
@@ -173,21 +173,21 @@ export const EDITING_ADDONS = {
     name: 'Editing Only',
     price: 19,
     editsPerMonth: 15,
-    stripePriceId: process.env.STRIPE_PRICE_EDITING_ONLY || null,
+    stripePriceId: process.env.STRIPE_PRICE_EDITING_ONLY?.trim() || null,
   },
   EDITING_ADDON: {
     id: 'editing_addon',
     name: 'Extra Edits Pack',
     price: 10,
     editsPerMonth: 10,
-    stripePriceId: process.env.STRIPE_PRICE_EDITING_ADDON || null,
+    stripePriceId: process.env.STRIPE_PRICE_EDITING_ADDON?.trim() || null,
   },
   PER_VIDEO: {
     id: 'per_video',
     name: 'Single Video Edit',
     price: 3,
     editsPerMonth: 1,
-    stripePriceId: process.env.STRIPE_PRICE_PER_VIDEO || null,
+    stripePriceId: process.env.STRIPE_PRICE_PER_VIDEO?.trim() || null,
   },
 } as const;
 
@@ -293,7 +293,7 @@ export const VIDEO_PLANS = {
     perVideo: '$1.98',
     tagline: '~1-2 videos/day',
     aiIncluded: 'Creator tier (300 credits)',
-    stripePriceId: process.env.STRIPE_PRICE_VIDEO_STARTER || null,
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_STARTER?.trim() || null,
   },
   VIDEO_GROWTH: {
     id: 'video_growth' as const,
@@ -306,7 +306,7 @@ export const VIDEO_PLANS = {
     tagline: '~4 videos/day',
     aiIncluded: 'Business tier (1,000 credits)',
     popular: true as const,
-    stripePriceId: process.env.STRIPE_PRICE_VIDEO_GROWTH || null,
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_GROWTH?.trim() || null,
   },
   VIDEO_SCALE: {
     id: 'video_scale' as const,
@@ -318,7 +318,7 @@ export const VIDEO_PLANS = {
     perVideo: '$1.43',
     tagline: '~12 videos/day',
     aiIncluded: 'Unlimited AI credits',
-    stripePriceId: process.env.STRIPE_PRICE_VIDEO_SCALE || null,
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_SCALE?.trim() || null,
   },
   VIDEO_AGENCY: {
     id: 'video_agency' as const,

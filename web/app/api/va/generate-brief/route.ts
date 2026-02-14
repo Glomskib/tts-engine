@@ -254,7 +254,6 @@ export async function POST(request: Request) {
       let winnersQuery = supabaseAdmin
         .from("winners_bank")
         .select("id, hook, video_url, view_count, product_name, product_category")
-        .eq("is_active", true)
         .order("performance_score", { ascending: false })
         .limit(3);
 

@@ -736,6 +736,20 @@ export default function AdminPipelinePage() {
     };
 
     fetchReferenceData();
+
+    // Check TikTok Content Posting connection status
+    fetch('/api/tiktok-content/status')
+      .then(res => res.json())
+      .then(json => {
+        if (json.ok && json.data?.accounts) {
+          const hasConnection = json.data.accounts.some(
+            (a: { content_connection: { status: string } | null }) =>
+              a.content_connection?.status === 'active'
+          );
+          setTiktokContentConnected(hasConnection);
+        }
+      })
+      .catch(() => { /* non-fatal */ });
   }, []);
 
   // Persist filter state to localStorage on change
@@ -1326,6 +1340,32 @@ export default function AdminPipelinePage() {
       showError('Network error - please try again');
     } finally {
       setPosting(false);
+    }
+  };
+
+  // Post to TikTok via Content Posting API
+  const submitTikTokPost = async () => {
+    if (!postModalVideoId) return;
+    setTiktokPosting(true);
+    setPostMessage(null);
+    try {
+      const res = await fetch(`/api/admin/videos/${postModalVideoId}/post-tiktok`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSuccess('Video submitted to TikTok! It will appear as a private post while processing.');
+        fetchQueueVideos();
+        closePostModal();
+      } else {
+        setPostMessage(`Error: ${data.error || 'Failed to post to TikTok'}`);
+        showError(data.error || 'Failed to post to TikTok');
+      }
+    } catch {
+      setPostMessage('Error: Network error');
+      showError('Network error - please try again');
+    } finally {
+      setTiktokPosting(false);
     }
   };
 
@@ -2961,6 +3001,58 @@ export default function AdminPipelinePage() {
             <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
               Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{postModalVideoId.slice(0, 8)}...</code>
             </p>
+
+            {/* Auto-Post to TikTok */}
+            {tiktokContentConnected && (
+              <div style={{
+                marginBottom: '20px',
+                padding: '16px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? '#1a2332' : '#f0f9ff',
+                border: `1px solid ${isDark ? '#2d4a6f' : '#bae6fd'}`,
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', color: isDark ? '#7dd3fc' : '#0369a1', marginBottom: '8px' }}>
+                  Auto-Post to TikTok
+                </div>
+                <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '12px' }}>
+                  Posts directly via TikTok API. Video will appear as a private post until TikTok app audit completes.
+                </p>
+                <button type="button"
+                  onClick={submitTikTokPost}
+                  disabled={tiktokPosting}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: tiktokPosting ? '#666' : '#000',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: tiktokPosting ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {tiktokPosting ? 'Submitting to TikTok...' : 'Post to TikTok'}
+                </button>
+              </div>
+            )}
+            {!tiktokContentConnected && (
+              <div style={{
+                marginBottom: '20px',
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: isDark ? '#2a2a1a' : '#fffbeb',
+                border: `1px solid ${isDark ? '#4a4a2a' : '#fde68a'}`,
+                fontSize: '12px',
+                color: isDark ? '#fbbf24' : '#92400e',
+              }}>
+                Connect TikTok in <a href="/admin/settings/tiktok" style={{ textDecoration: 'underline' }}>Settings</a> to enable auto-posting.
+              </div>
+            )}
+
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', color: colors.textMuted, marginBottom: '12px', letterSpacing: '0.5px' }}>
+              Or mark as manually posted
+            </div>
 
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>

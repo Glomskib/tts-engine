@@ -3,10 +3,17 @@
  * Run: node scripts/create-test-accounts.mjs
  */
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
-import { resolve } from "path";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
-config({ path: resolve(import.meta.dirname, "../.env.local") });
+// Load .env.local manually (no dotenv dependency)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envFile = readFileSync(resolve(__dirname, "../.env.local"), "utf8");
+for (const line of envFile.split("\n")) {
+  const match = line.match(/^([A-Z_]+)="?([^"]*)"?$/);
+  if (match && !process.env[match[1]]) process.env[match[1]] = match[2];
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,

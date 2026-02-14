@@ -3,7 +3,7 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { z } from "zod";
-import { meetsMinPlan } from "@/lib/plans";
+import { canPerformGatedAction } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -143,23 +143,15 @@ export async function POST(request: Request) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
-  // Plan gate: custom personas require Creator Pro or higher
-  if (!authContext.isAdmin) {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("plan_id")
-      .eq("id", authContext.user.id)
-      .single();
-
-    const userPlan = profile?.plan_id || "free";
-    if (!meetsMinPlan(userPlan, "creator_pro")) {
-      return createApiErrorResponse(
-        "FORBIDDEN",
-        "Custom personas require Creator Pro or higher",
-        403,
-        correlationId
-      );
-    }
+  // Plan gate: custom personas require a paid plan (Creator Pro or higher)
+  const gateResult = await canPerformGatedAction(authContext.user.id, !!authContext.isAdmin);
+  if (!gateResult.allowed) {
+    return createApiErrorResponse(
+      "FORBIDDEN",
+      "Custom personas require Creator Pro or higher",
+      403,
+      correlationId
+    );
   }
 
   let body: unknown;

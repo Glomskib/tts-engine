@@ -1,9 +1,12 @@
 /**
  * Persona-specific HeyGen delivery configurations.
  *
- * Each persona maps to a specific avatar, voice style, and delivery energy
- * tuned for the script's target audience.
+ * Each persona maps to a specific avatar, voice, and delivery energy
+ * tuned for the script's target audience. Voice/avatar assignments
+ * come from lib/persona-delivery-config.ts.
  */
+
+import { PERSONA_DELIVERY, type PersonaDelivery } from './persona-delivery-config';
 
 export interface PersonaConfig {
   id: string;
@@ -22,87 +25,80 @@ export interface PersonaConfig {
   scale: number;
   /** Avatar position offset {x, y} — y>0 pushes down */
   offset: { x: number; y: number };
+  /** Human-readable delivery notes for logging */
+  deliveryNotes?: string;
 }
 
-/**
- * The Skeptic — Aditya (male)
- * Confident, slightly fast, "prove it to me" energy.
- * Used for scripts that challenge claims and demand evidence.
- */
-const SKEPTIC: PersonaConfig = {
-  id: 'skeptic',
-  label: 'The Skeptic',
-  avatarId: 'Aditya_public_1',        // Blue blazer — professional, authoritative
-  avatarStyle: 'normal',
-  talkingStyle: 'expressive',
-  expression: 'default',               // Neutral fits skeptical tone
-  voiceId: 'TX3LPaxmHKxFdv7VOQHJ',   // Liam — Energetic Social Media Creator
-  voiceStability: 0.35,                // Low stability = more dynamic delivery
-  voiceSimilarityBoost: 0.8,
-  scale: 1.0,
-  offset: { x: 0, y: 0.25 },          // Lower third positioning
-};
+// Helper to build a PersonaConfig from the delivery config
+function fromDelivery(
+  id: string,
+  label: string,
+  delivery: PersonaDelivery,
+  overrides?: Partial<PersonaConfig>
+): PersonaConfig {
+  const isMale = delivery.heygen_avatar.startsWith('Aditya');
+  return {
+    id,
+    label,
+    avatarId: delivery.heygen_avatar,
+    avatarStyle: 'normal',
+    talkingStyle: 'expressive',
+    expression: isMale ? 'default' : 'happy',
+    voiceId: delivery.elevenlabs_voice,
+    voiceStability: delivery.voice_settings.stability,
+    voiceSimilarityBoost: delivery.voice_settings.similarity_boost,
+    scale: 1.0,
+    offset: { x: 0, y: 0.25 },
+    deliveryNotes: delivery.delivery_notes,
+    ...overrides,
+  };
+}
 
-/**
- * Sober Curious — Abigail (female)
- * Warm, conversational, relatable "best friend" energy.
- * Used for lifestyle/wellness scripts aimed at the sober-curious audience.
- */
-const SOBER_CURIOUS: PersonaConfig = {
-  id: 'sober_curious',
-  label: 'Sober Curious',
-  avatarId: 'Abigail_expressive_2024112501', // Upper body — casual, approachable
-  avatarStyle: 'normal',
-  talkingStyle: 'expressive',
-  expression: 'happy',                 // Warm, inviting
-  voiceId: 'TX3LPaxmHKxFdv7VOQHJ',   // Liam — swap to female voice when available
-  voiceStability: 0.5,                 // Balanced — conversational but consistent
-  voiceSimilarityBoost: 0.75,
-  scale: 1.0,
-  offset: { x: 0, y: 0.25 },
-};
+// ============================================================================
+// Persona Definitions
+// ============================================================================
 
-/**
- * Chronic Warrior — Abigail (female)
- * Empathetic, understanding, gentle authority.
- * Used for health/supplement scripts targeting chronic pain/fatigue audience.
- */
-const CHRONIC_WARRIOR: PersonaConfig = {
-  id: 'chronic_warrior',
-  label: 'Chronic Warrior',
-  avatarId: 'Abigail_expressive_2024112501',
-  avatarStyle: 'normal',
-  talkingStyle: 'expressive',
-  expression: 'default',               // Calm, empathetic baseline
-  voiceId: 'TX3LPaxmHKxFdv7VOQHJ',
-  voiceStability: 0.6,                 // Higher stability = gentler, steadier
-  voiceSimilarityBoost: 0.75,
-  scale: 1.0,
-  offset: { x: 0, y: 0.25 },
-};
+const SKEPTIC = fromDelivery('skeptic', 'The Skeptic', PERSONA_DELIVERY['The Skeptic'], {
+  expression: 'default', // Neutral fits skeptical tone
+});
 
-/**
- * Default — Abigail (female)
- * General-purpose delivery for scripts that don't match a specific persona.
- */
-const DEFAULT: PersonaConfig = {
+const SOBER_CURIOUS = fromDelivery('sober_curious', 'The Sober Curious', PERSONA_DELIVERY['The Sober Curious']);
+
+const CHRONIC_WARRIOR = fromDelivery('chronic_warrior', 'The Chronic Warrior', PERSONA_DELIVERY['The Chronic Warrior'], {
+  expression: 'default', // Calm, empathetic baseline
+});
+
+const HONEST_REVIEWER = fromDelivery('honest_reviewer', 'The Honest Reviewer', PERSONA_DELIVERY['The Honest Reviewer'], {
+  expression: 'default', // Measured, neutral
+});
+
+const EDUCATOR = fromDelivery('educator', 'The Educator', PERSONA_DELIVERY['The Educator'], {
+  expression: 'default', // Professional authority
+});
+
+const HYPE_MAN = fromDelivery('hype_man', 'The Hype Man', PERSONA_DELIVERY['The Hype Man'], {
+  expression: 'happy', // Excited, animated
+});
+
+const RELATABLE_FRIEND = fromDelivery('relatable_friend', 'The Relatable Friend', PERSONA_DELIVERY['The Relatable Friend']);
+
+const DEFAULT = fromDelivery('default', 'Default', PERSONA_DELIVERY['The Sober Curious'], {
   id: 'default',
   label: 'Default',
-  avatarId: 'Abigail_expressive_2024112501',
-  avatarStyle: 'normal',
-  talkingStyle: 'expressive',
-  expression: 'happy',
-  voiceId: 'TX3LPaxmHKxFdv7VOQHJ',
-  voiceStability: 0.5,
-  voiceSimilarityBoost: 0.75,
-  scale: 1.0,
-  offset: { x: 0, y: 0.25 },
-};
+});
+
+// ============================================================================
+// Exports
+// ============================================================================
 
 export const PERSONAS: Record<string, PersonaConfig> = {
   skeptic: SKEPTIC,
   sober_curious: SOBER_CURIOUS,
   chronic_warrior: CHRONIC_WARRIOR,
+  honest_reviewer: HONEST_REVIEWER,
+  educator: EDUCATOR,
+  hype_man: HYPE_MAN,
+  relatable_friend: RELATABLE_FRIEND,
   default: DEFAULT,
 };
 
@@ -112,4 +108,26 @@ export const PERSONAS: Record<string, PersonaConfig> = {
 export function getPersona(personaId?: string): PersonaConfig {
   if (!personaId) return DEFAULT;
   return PERSONAS[personaId] ?? DEFAULT;
+}
+
+/**
+ * Map audience persona names (from audience_personas table) to persona config IDs.
+ */
+const PERSONA_NAME_TO_ID: Record<string, string> = {
+  'The Skeptic': 'skeptic',
+  'The Sober Curious': 'sober_curious',
+  'The Chronic Warrior': 'chronic_warrior',
+  'The Honest Reviewer': 'honest_reviewer',
+  'The Educator': 'educator',
+  'The Hype Man': 'hype_man',
+  'The Relatable Friend': 'relatable_friend',
+};
+
+/**
+ * Resolve a persona config by audience persona name. Falls back to default.
+ */
+export function getPersonaByName(personaName?: string | null): PersonaConfig {
+  if (!personaName) return DEFAULT;
+  const configId = PERSONA_NAME_TO_ID[personaName];
+  return configId ? (PERSONAS[configId] ?? DEFAULT) : DEFAULT;
 }

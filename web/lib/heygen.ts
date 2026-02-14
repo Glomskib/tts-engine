@@ -158,5 +158,5 @@ export async function pollUntilComplete(
 }
 
 // Re-export persona utilities for convenience
-export { getPersona, PERSONAS } from './heygen-personas';
+export { getPersona, getPersonaByName, PERSONAS } from './heygen-personas';
 export type { PersonaConfig } from './heygen-personas';

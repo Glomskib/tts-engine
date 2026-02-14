@@ -26,19 +26,16 @@ import {
   type ScriptScoreResult,
 } from '@/lib/script-scorer';
 import { textToSpeech } from '@/lib/elevenlabs';
-import { uploadAudio, generateVideo } from '@/lib/heygen';
+import { uploadAudio, generateVideo, getPersonaByName } from '@/lib/heygen';
 import { BRAND_PERSONA_MAP } from '@/lib/product-persona-map';
+import { lintScriptAndCaption, type PolicyPack } from '@/lib/compliance-linter';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-// --- Avatar Assignment ---
-// "The Skeptic" → male avatar, everything else → female avatar
-const AVATAR_MAP: Record<string, string> = {
-  'The Skeptic': 'Aditya_public_1',
-};
-const DEFAULT_AVATAR = 'Abigail_expressive_2024112501';
+// Avatar and voice assignment is handled by getPersonaByName() from lib/heygen-personas.ts
+// which maps persona names → avatar IDs + gender-matched voice IDs.
 
 // --- Input Schema ---
 const AutoGenerateSchema = z.object({
@@ -422,6 +419,88 @@ export async function POST(request: NextRequest) {
     }
 
     // ================================================================
+    // STEP 2.5: Compliance Check (before spending render credits)
+    // ================================================================
+    const skitForLint = bestSkit as {
+      hook_line?: string;
+      beats?: Array<{ dialogue?: string; action?: string; on_screen_text?: string }>;
+      cta_line?: string;
+      cta_overlay?: string;
+    };
+    const { script: lintScript } = extractScriptFromSkit(skitForLint);
+    const overlayTexts = (skitForLint.beats || [])
+      .map((b) => b.on_screen_text)
+      .filter(Boolean) as string[];
+
+    // Use supplements policy for supplement/health products, generic for everything else
+    const categoryLower = (product.category || '').toLowerCase();
+    const policyPack: PolicyPack =
+      categoryLower.includes('supplement') || categoryLower.includes('health')
+        ? 'supplements'
+        : 'generic';
+
+    const complianceResult = lintScriptAndCaption({
+      script_text: lintScript,
+      caption: overlayTexts.join(' '),
+      policy_pack: policyPack,
+    });
+
+    if (complianceResult.severity === 'block') {
+      const blockedTerms = complianceResult.issues
+        .filter((i) => i.severity === 'block')
+        .map((i) => `${i.matched_term} (${i.code})`)
+        .join(', ');
+
+      await logStep({
+        videoId: video.id,
+        step: 2,
+        stepName: 'Compliance Check',
+        status: 'failed',
+        correlationId,
+        details: {
+          productLabel,
+          policy_pack: policyPack,
+          blocked_terms: blockedTerms,
+          issues: complianceResult.issues,
+        },
+      });
+
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          recording_status: 'REJECTED',
+          recording_notes: `Pipeline: compliance blocked — ${blockedTerms}`,
+        })
+        .eq('id', video.id);
+
+      return createApiErrorResponse(
+        'COMPLIANCE_BLOCKED',
+        `Script contains blocked terms: ${blockedTerms}`,
+        400,
+        correlationId
+      );
+    }
+
+    if (complianceResult.severity === 'warn') {
+      const warnings = complianceResult.issues
+        .map((i) => `${i.matched_term} (${i.code})`)
+        .join(', ');
+
+      // Log warning but continue — these aren't blocking
+      await supabaseAdmin.from('video_events').insert({
+        video_id: video.id,
+        event_type: 'compliance_warning',
+        correlation_id: correlationId,
+        actor: 'pipeline_orchestrator',
+        details: {
+          policy_pack: policyPack,
+          warnings,
+          issues: complianceResult.issues,
+        },
+      });
+    }
+
+    // ================================================================
     // STEP 3: Save Skit + TTS + HeyGen Avatar Render
     // ================================================================
     await logStep({
@@ -476,16 +555,18 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', video.id);
 
-    // Select avatar based on persona
-    const avatarId =
-      personaName && AVATAR_MAP[personaName]
-        ? AVATAR_MAP[personaName]
-        : DEFAULT_AVATAR;
+    // Resolve persona config (avatar + gender-matched voice) from heygen-personas.ts
+    const personaConfig = getPersonaByName(personaName);
+    const avatarId = personaConfig.avatarId;
+    const voiceId = personaConfig.voiceId;
 
-    // Generate TTS audio via ElevenLabs
+    // Generate TTS audio via ElevenLabs (voice matches avatar gender)
     let audioBuffer: ArrayBuffer;
     try {
-      audioBuffer = await textToSpeech(fullScript);
+      audioBuffer = await textToSpeech(fullScript, voiceId, {
+        stability: personaConfig.voiceStability,
+        similarityBoost: personaConfig.voiceSimilarityBoost,
+      });
     } catch (ttsErr) {
       console.error(`[${correlationId}] TTS generation failed:`, ttsErr);
       await logStep({
@@ -605,6 +686,7 @@ export async function POST(request: NextRequest) {
         render_provider: 'heygen',
         heygen_video_id: heygenVideoId,
         avatar_id: avatarId,
+        voice_id: voiceId,
         script_score: bestScore?.totalScore || null,
       },
     });

@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/weekly-digest",
       "schedule": "0 16 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-tiktok-videos",
+      "schedule": "0 6 * * *"
     }
   ]
 }

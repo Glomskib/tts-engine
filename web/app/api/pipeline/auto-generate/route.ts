@@ -4,8 +4,9 @@
  * POST /api/pipeline/auto-generate
  * Master endpoint that chains the full content pipeline:
  *
- *   Step 1: Generate UGC script (via /api/ai/generate-skit)
+ *   Step 1: Generate UGC script (via unified script generator)
  *   Step 2: Score script (lib/script-scorer.ts) — retry up to 3x if < 7
+ *           Feeds scorer feedback into regeneration prompts
  *   Step 3: Generate HeyGen avatar video (async — cron finishes)
  *   Step 4: [TODO] Generate B-roll via Runway
  *   Step 5: Shotstack compose (handled by check-renders cron)
@@ -22,13 +23,16 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { sendTelegramNotification } from '@/lib/telegram';
 import {
   scoreScript,
-  extractScriptFromSkit,
   type ScriptScoreResult,
 } from '@/lib/script-scorer';
 import { textToSpeech } from '@/lib/elevenlabs';
 import { uploadAudio, generateVideo, getPersonaByName } from '@/lib/heygen';
 import { BRAND_PERSONA_MAP } from '@/lib/product-persona-map';
 import { lintScriptAndCaption, type PolicyPack } from '@/lib/compliance-linter';
+import {
+  generateUnifiedScript,
+  type UnifiedScriptOutput,
+} from '@/lib/unified-script-generator';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -208,7 +212,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // ================================================================
-    // STEP 1: Generate Script
+    // STEP 1 + 2: Generate Script with Scoring Loop
     // ================================================================
     await logStep({
       videoId: video.id,
@@ -218,54 +222,26 @@ export async function POST(request: NextRequest) {
       correlationId,
     });
 
-    // Build internal API URL
-    const proto = request.headers.get('x-forwarded-proto') || 'https';
-    const host = request.headers.get('host') || 'flashflowai.com';
-    const baseUrl = `${proto}://${host}`;
-
-    // Forward auth headers for internal API calls
-    const internalHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    const apiKey = request.headers.get('x-api-key');
-    const incomingAuth = request.headers.get('authorization');
-    if (apiKey) internalHeaders['x-api-key'] = apiKey;
-    else if (incomingAuth) internalHeaders['Authorization'] = incomingAuth;
-
-    let bestSkit: Record<string, unknown> | null = null;
+    let bestScript: UnifiedScriptOutput | null = null;
     let bestScore: ScriptScoreResult | null = null;
-    let bestAiScore: number | null = null;
     const MAX_SCRIPT_ATTEMPTS = 3;
+    let previousScore: ScriptScoreResult | undefined;
 
     for (let attempt = 1; attempt <= MAX_SCRIPT_ATTEMPTS; attempt++) {
-      // Call the generate-skit endpoint
-      const genRes = await fetch(`${baseUrl}/api/ai/generate-skit`, {
-        method: 'POST',
-        headers: internalHeaders,
-        body: JSON.stringify({
-          product_id: product.id,
-          content_type_id: 'ugc_short',
-          risk_tier: 'BALANCED',
-          persona: 'NONE',
-          intensity: 50,
-          variation_count: 1,
-          actor_type: 'ai_avatar',
-          target_duration: 'quick',
-          hook_strength: 'strong',
-          authenticity: 'raw',
-          ...(audiencePersonaId && {
-            audience_persona_id: audiencePersonaId,
-          }),
-        }),
-        signal: AbortSignal.timeout(120000),
-      });
-
-      const genData = await genRes.json();
-
-      if (!genRes.ok || !genData.ok || !genData.data?.skit) {
+      // Generate script via unified generator (feeds scorer feedback on retries)
+      try {
+        bestScript = await generateUnifiedScript({
+          productId: product.id,
+          userId: actorId !== 'cron' ? actorId : undefined,
+          audiencePersonaId,
+          targetLength: '15_sec',
+          previousScore: previousScore,
+          callerContext: 'pipeline',
+        });
+      } catch (genErr) {
         console.error(
           `[${correlationId}] Script gen attempt ${attempt} failed:`,
-          genData.error || genData.message || `HTTP ${genRes.status}`
+          genErr
         );
 
         if (attempt === MAX_SCRIPT_ATTEMPTS) {
@@ -295,21 +271,16 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      bestSkit = genData.data.skit;
-      bestAiScore = genData.data.ai_score?.overall_score ?? null;
-
       await logStep({
         videoId: video.id,
         step: 1,
         stepName: 'Script Generation',
         status: 'completed',
         correlationId,
-        details: { productLabel, attempt, aiScore: bestAiScore },
+        details: { productLabel, attempt, persona: bestScript.persona },
       });
 
-      // ================================================================
-      // STEP 2: Score Script
-      // ================================================================
+      // ── Score the generated script ──
       await logStep({
         videoId: video.id,
         step: 2,
@@ -318,32 +289,18 @@ export async function POST(request: NextRequest) {
         correlationId,
       });
 
-      const { script, hook } = extractScriptFromSkit(
-        bestSkit as {
-          hook_line?: string;
-          beats?: Array<{
-            dialogue?: string;
-            action?: string;
-            on_screen_text?: string;
-          }>;
-          cta_line?: string;
-          cta_overlay?: string;
-        }
-      );
-
       try {
         bestScore = await scoreScript({
-          script,
-          persona: personaName || 'general UGC creator',
+          script: bestScript.spokenScript,
+          persona: personaName || bestScript.persona || 'general UGC creator',
           product: productLabel,
-          hook,
+          hook: bestScript.hook,
         });
       } catch (scoreErr) {
         console.error(
           `[${correlationId}] Scoring failed on attempt ${attempt}:`,
           scoreErr
         );
-        // If scoring fails, proceed with the script anyway
         bestScore = null;
         await logStep({
           videoId: video.id,
@@ -375,16 +332,16 @@ export async function POST(request: NextRequest) {
             scores: bestScore.scores,
           },
         });
-        break; // Passed threshold — proceed to render
+        break;
       }
 
-      // Below threshold
+      // Below threshold — feed feedback into next attempt
       if (attempt < MAX_SCRIPT_ATTEMPTS) {
         console.log(
-          `[${correlationId}] Script scored ${bestScore?.totalScore}/10 (attempt ${attempt}/${MAX_SCRIPT_ATTEMPTS}), regenerating...`
+          `[${correlationId}] Script scored ${bestScore?.totalScore}/10 (attempt ${attempt}/${MAX_SCRIPT_ATTEMPTS}), regenerating with feedback...`
         );
+        previousScore = bestScore ?? undefined;
       } else {
-        // Final attempt — proceed with best available
         await logStep({
           videoId: video.id,
           step: 2,
@@ -402,7 +359,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!bestSkit) {
+    if (!bestScript) {
       await supabaseAdmin
         .from('videos')
         .update({
@@ -421,16 +378,8 @@ export async function POST(request: NextRequest) {
     // ================================================================
     // STEP 2.5: Compliance Check (before spending render credits)
     // ================================================================
-    const skitForLint = bestSkit as {
-      hook_line?: string;
-      beats?: Array<{ dialogue?: string; action?: string; on_screen_text?: string }>;
-      cta_line?: string;
-      cta_overlay?: string;
-    };
-    const { script: lintScript } = extractScriptFromSkit(skitForLint);
-    const overlayTexts = (skitForLint.beats || [])
-      .map((b) => b.on_screen_text)
-      .filter(Boolean) as string[];
+    const lintScript = bestScript.spokenScript;
+    const overlayTexts = bestScript.onScreenText;
 
     // Use supplements policy for supplement/health products, generic for everything else
     const categoryLower = (product.category || '').toLowerCase();
@@ -511,18 +460,29 @@ export async function POST(request: NextRequest) {
       correlationId,
     });
 
-    // Save skit to saved_skits (linked to video)
+    // Save script to saved_skits (linked to video) — store as skit-compatible shape
+    const skitData = {
+      hook_line: bestScript.hook,
+      beats: [
+        { dialogue: bestScript.setup, on_screen_text: bestScript.onScreenText[0] || '' },
+        { dialogue: bestScript.body, on_screen_text: bestScript.onScreenText[1] || '' },
+      ],
+      cta_line: bestScript.cta,
+      cta_overlay: bestScript.onScreenText[bestScript.onScreenText.length - 1] || '',
+    };
+
     const { error: skitError } = await supabaseAdmin
       .from('saved_skits')
       .insert({
         video_id: video.id,
         product_id: product.id,
         title: `Auto Pipeline — ${product.name}`,
-        skit_data: bestSkit,
+        skit_data: skitData,
         generation_config: {
           content_type: 'ugc_short',
-          source: 'auto_pipeline',
-          persona: personaName || 'NONE',
+          source: 'auto_pipeline_unified',
+          persona: bestScript.persona,
+          sales_approach: bestScript.salesApproach,
           script_score: bestScore?.totalScore || null,
         },
         status: 'approved',
@@ -534,24 +494,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Lock script text on the video record
-    const { script: fullScript } = extractScriptFromSkit(
-      bestSkit as {
-        hook_line?: string;
-        beats?: Array<{
-          dialogue?: string;
-          action?: string;
-          on_screen_text?: string;
-        }>;
-        cta_line?: string;
-        cta_overlay?: string;
-      }
-    );
+    const fullScript = bestScript.spokenScript;
 
     await supabaseAdmin
       .from('videos')
       .update({
         script_locked_text: fullScript,
-        script_locked_json: bestSkit,
+        script_locked_json: skitData,
       })
       .eq('id', video.id);
 
@@ -730,13 +679,13 @@ export async function POST(request: NextRequest) {
         video_id: video.id,
         video_code: video.video_code,
         product: productLabel,
-        persona: personaName,
+        persona: bestScript?.persona || personaName,
+        sales_approach: bestScript?.salesApproach || null,
         pipeline_status: 'rendering',
         steps: {
           1: {
-            name: 'Script Generation',
+            name: 'Script Generation (Unified)',
             status: 'completed',
-            ai_score: bestAiScore,
           },
           2: {
             name: 'Script Scoring',

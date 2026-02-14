@@ -63,6 +63,8 @@ export default function TranscribePage() {
   const [addingWinner, setAddingWinner] = useState(false);
   const [winnerAdded, setWinnerAdded] = useState(false);
   const [winnerError, setWinnerError] = useState('');
+  const [usageRemaining, setUsageRemaining] = useState<number | null>(null);
+  const [usageLimit, setUsageLimit] = useState<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,6 +72,15 @@ export default function TranscribePage() {
     supabase.auth.getUser().then(({ data }) => {
       setIsLoggedIn(!!data.user);
     });
+
+    fetch('/api/transcribe/usage')
+      .then((r) => r.json())
+      .then((data) => {
+        setUsageRemaining(data.remaining);
+        setUsageLimit(data.limit);
+        if (data.loggedIn) setIsLoggedIn(true);
+      })
+      .catch(() => {});
   }, []);
 
   async function handleTranscribe() {
@@ -92,8 +103,14 @@ export default function TranscribePage() {
 
       if (!res.ok) {
         setError(data.error || 'Something went wrong. Please try again.');
+        if (res.status === 429) setUsageRemaining(0);
         return;
       }
+
+      const rlRemaining = res.headers.get('X-RateLimit-Remaining');
+      const rlLimit = res.headers.get('X-RateLimit-Limit');
+      if (rlRemaining !== null) setUsageRemaining(parseInt(rlRemaining, 10));
+      if (rlLimit !== null) setUsageLimit(parseInt(rlLimit, 10));
 
       setResult(data);
 
@@ -226,8 +243,18 @@ export default function TranscribePage() {
             )}
           </div>
 
+          {/* Usage counter */}
+          {usageRemaining !== null && usageLimit !== null && (
+            <p className={`text-sm mt-4 ${usageRemaining === 0 ? 'text-red-400' : 'text-zinc-500'}`}>
+              {usageRemaining} of {usageLimit} {isLoggedIn ? '' : 'free '}transcription{usageLimit === 1 ? '' : 's'} remaining today
+              {!isLoggedIn && usageRemaining <= 3 && (
+                <> &mdash; <Link href="/signup" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">sign up</Link> for {50} /day</>
+              )}
+            </p>
+          )}
+
           {/* Social proof */}
-          <p className="text-xs text-zinc-600 mt-6">
+          <p className="text-xs text-zinc-600 mt-4">
             Works with any public TikTok video. No watermarks, no downloads, no tracking.
           </p>
         </div>

@@ -8,6 +8,8 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -16,39 +18,37 @@ const execFileAsync = promisify(execFile);
 const WHISPER_MAX_SIZE = 24 * 1024 * 1024; // 24 MB (Whisper limit is 25MB, keep buffer)
 
 // ============================================================================
-// Rate Limiting (in-memory, per-IP)
+// Rate Limiting (Supabase-backed)
 // ============================================================================
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_UNAUTHENTICATED = 5;
-const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const LIMIT_ANON = 10;
+const LIMIT_LOGGED_IN = 50;
 
-function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+async function checkRateLimit(
+  ip: string,
+  userId: string | null
+): Promise<{ allowed: boolean; remaining: number; limit: number; used: number }> {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
 
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: RATE_LIMIT_UNAUTHENTICATED - 1 };
+  const limit = userId ? LIMIT_LOGGED_IN : LIMIT_ANON;
+
+  let query = supabaseAdmin
+    .from('transcribe_usage')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', todayStart.toISOString());
+
+  if (userId) {
+    query = query.eq('user_id', userId);
+  } else {
+    query = query.eq('ip', ip).is('user_id', null);
   }
 
-  if (entry.count >= RATE_LIMIT_UNAUTHENTICATED) {
-    return { allowed: false, remaining: 0 };
-  }
+  const { count } = await query;
+  const used = count ?? 0;
+  const remaining = Math.max(0, limit - used);
 
-  entry.count++;
-  return { allowed: true, remaining: RATE_LIMIT_UNAUTHENTICATED - entry.count };
-}
-
-// Clean up stale entries periodically (only once per process)
-const RL_KEY = '__transcribe_rl_cleanup';
-if (typeof globalThis !== 'undefined' && !(globalThis as Record<string, unknown>)[RL_KEY]) {
-  (globalThis as Record<string, unknown>)[RL_KEY] = setInterval(() => {
-    const now = Date.now();
-    for (const [key, value] of rateLimitMap) {
-      if (now > value.resetAt) rateLimitMap.delete(key);
-    }
-  }, 60 * 60 * 1000);
+  return { allowed: used < limit, remaining, limit, used };
 }
 
 // ============================================================================
@@ -139,14 +139,29 @@ async function prepareAudioFile(videoPath: string): Promise<string> {
 export async function POST(request: Request) {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
-  const { allowed, remaining } = checkRateLimit(ip);
+
+  const auth = await getApiAuthContext(request);
+  const userId = auth.user?.id ?? null;
+
+  const { allowed, remaining, limit } = await checkRateLimit(ip, userId);
 
   if (!allowed) {
+    const msg = userId
+      ? "You've reached your daily transcription limit. Check back tomorrow!"
+      : "You've reached your daily limit. Sign up for FlashFlow to get more transcriptions!";
     return NextResponse.json(
-      { error: 'Rate limit exceeded. Free users get 5 transcriptions per day. Sign up for more!' },
-      { status: 429, headers: { 'X-RateLimit-Remaining': '0' } }
+      { error: msg, signupUrl: userId ? undefined : '/signup' },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Limit': String(limit),
+        },
+      }
     );
   }
+
+  const requestStart = Date.now();
 
   let body: { url?: string };
   try {
@@ -268,9 +283,23 @@ Return this exact JSON structure:
 
     cleanupFiles(filesToClean);
 
+    // Log usage for rate limiting + analytics
+    const processingTimeMs = Date.now() - requestStart;
+    supabaseAdmin
+      .from('transcribe_usage')
+      .insert({ ip, user_id: userId, url_transcribed: url, processing_time_ms: processingTimeMs })
+      .then(({ error: insertErr }) => {
+        if (insertErr) console.warn('[transcribe] Failed to log usage:', insertErr.message);
+      });
+
     return NextResponse.json(
       { transcript, segments, duration, language, analysis },
-      { headers: { 'X-RateLimit-Remaining': String(remaining) } }
+      {
+        headers: {
+          'X-RateLimit-Remaining': String(remaining - 1),
+          'X-RateLimit-Limit': String(limit),
+        },
+      }
     );
   } catch (err) {
     cleanupFiles(filesToClean);

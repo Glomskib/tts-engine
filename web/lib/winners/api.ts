@@ -18,6 +18,7 @@ function toDbColumns(input: CreateWinnerInput | UpdateWinnerInput): Record<strin
   const row: Record<string, unknown> = {};
 
   if (input.source_type !== undefined) row.source_type = input.source_type;
+  if (input.winner_type !== undefined) row.winner_type = input.winner_type;
   if (input.script_id !== undefined) row.script_id = input.script_id;
   if (input.hook !== undefined) row.hook = input.hook;
   if (input.full_script !== undefined) row.full_script = input.full_script;
@@ -52,6 +53,7 @@ function fromDbRow(row: Record<string, unknown>): Winner {
     id: row.id as string,
     user_id: row.user_id as string,
     source_type: row.source_type as Winner['source_type'],
+    winner_type: (row.winner_type as Winner['winner_type']) ?? 'script',
     script_id: (row.script_id as string) ?? null,
     hook: (row.hook as string) ?? null,
     full_script: (row.full_script as string) ?? null,
@@ -88,13 +90,14 @@ export async function fetchWinners(
   userId: string,
   options: {
     sourceType?: 'generated' | 'external';
+    winnerType?: 'script' | 'hook';
     category?: string;
     tag?: string;
     sort?: 'performance_score' | 'views' | 'engagement' | 'recent';
     limit?: number;
   } = {}
 ): Promise<{ winners: Winner[]; error?: string }> {
-  const { sourceType, category, sort = 'performance_score', limit = 20 } = options;
+  const { sourceType, winnerType, category, sort = 'performance_score', limit = 20 } = options;
 
   try {
     let query = supabaseAdmin
@@ -104,6 +107,10 @@ export async function fetchWinners(
 
     if (sourceType) {
       query = query.eq('source_type', sourceType);
+    }
+
+    if (winnerType) {
+      query = query.eq('winner_type', winnerType);
     }
 
     if (category) {

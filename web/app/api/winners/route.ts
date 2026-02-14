@@ -13,6 +13,7 @@ export const runtime = 'nodejs';
 // Schema for creating a new winner — field names match winners_bank table
 const CreateWinnerSchema = z.object({
   source_type: z.enum(['generated', 'external']),
+  winner_type: z.enum(['script', 'hook']).optional().default('script'),
   script_id: z.string().uuid().optional(),
 
   // Content
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const sourceType = searchParams.get('source_type') as 'generated' | 'external' | null;
+  const winnerType = searchParams.get('winner_type') as 'script' | 'hook' | null;
   const category = searchParams.get('category') || undefined;
   const tag = searchParams.get('tag') || undefined;
   const sort = (searchParams.get('sort') || 'performance_score') as 'performance_score' | 'views' | 'engagement' | 'recent';
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
 
   const { winners, error } = await fetchWinners(authContext.user.id, {
     sourceType: sourceType || undefined,
+    winnerType: winnerType || undefined,
     category,
     tag,
     sort,

@@ -49,6 +49,7 @@ export interface Winner {
   id: string;
   user_id: string;
   source_type: WinnerSourceType;
+  winner_type?: 'script' | 'hook';
   script_id?: string | null;
 
   // Content
@@ -175,6 +176,7 @@ export interface WinnersIntelligence {
  */
 export interface CreateWinnerInput {
   source_type: WinnerSourceType;
+  winner_type?: 'script' | 'hook';
   script_id?: string;
 
   // Content

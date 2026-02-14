@@ -360,12 +360,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     setHookSaveError('');
 
     try {
-      const res = await fetch('/api/saved-hooks', {
+      const res = await fetch('/api/winners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          hook_text: result.analysis.hook.line,
-          source: 'transcribed',
+          source_type: 'generated',
+          winner_type: 'hook',
+          hook: result.analysis.hook.line,
           content_format: result.analysis.content.format,
         }),
       });

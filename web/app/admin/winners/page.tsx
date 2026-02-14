@@ -60,6 +60,7 @@ interface ReferenceVideo {
 }
 
 type StatusFilter = "all" | "ready" | "processing" | "needs_data" | "failed";
+type TypeFilter = "all" | "script" | "hook";
 
 const CATEGORY_OPTIONS = [
   "fitness", "wellness", "beauty", "lifestyle", "food", "tech", "fashion", "comedy", "education", "other",
@@ -152,6 +153,7 @@ export default function WinnersPage() {
   // Data
   const [winners, setWinners] = useState<ReferenceVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   // Submit form
@@ -211,17 +213,21 @@ export default function WinnersPage() {
   const fetchWinners = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/winners?limit=200");
+      const params = new URLSearchParams({ limit: "200" });
+      if (typeFilter !== "all") {
+        params.set("winner_type", typeFilter);
+      }
+      const res = await fetch(`/api/winners?${params.toString()}`);
       const data = await res.json();
       if (data.ok) {
-        setWinners(data.data || []);
+        setWinners(data.winners || []);
       }
     } catch (err) {
       console.error("Failed to fetch winners:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [typeFilter]);
 
   useEffect(() => {
     if (authUser) {
@@ -627,7 +633,34 @@ export default function WinnersPage() {
           )}
         </div>
 
-        {/* Filters */}
+        {/* Type Filters */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+          {([
+            { value: "all" as TypeFilter, label: "All" },
+            { value: "script" as TypeFilter, label: "Full Scripts" },
+            { value: "hook" as TypeFilter, label: "Hooks" },
+          ]).map(({ value, label }) => (
+            <button type="button"
+              key={value}
+              onClick={() => setTypeFilter(value)}
+              style={{
+                padding: "6px 14px",
+                fontSize: "12px",
+                fontWeight: 500,
+                border: `1px solid ${typeFilter === value ? colors.accent : colors.border}`,
+                borderRadius: "6px",
+                cursor: "pointer",
+                backgroundColor: typeFilter === value ? colors.accent : colors.surface,
+                color: typeFilter === value ? "#fff" : colors.text,
+                transition: "all 0.15s",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status Filters */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
           {(["all", "ready", "processing", "needs_data", "failed"] as StatusFilter[]).map((status) => (
             <button type="button"

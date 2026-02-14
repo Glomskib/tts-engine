@@ -725,17 +725,15 @@ export default function ContentStudioPage() {
         ? products.find(p => p.id === selectedProductId)?.brand
         : manualBrandName.trim() || undefined;
 
-      const res = await fetch('/api/saved-hooks', {
+      const res = await fetch('/api/winners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          hook_text: hookText,
-          source: 'generated',
-          content_type: selectedContentTypeId,
+          source_type: 'generated',
+          winner_type: 'hook',
+          hook: hookText,
           content_format: selectedSubtypeId || undefined,
-          product_id: selectedProductId || undefined,
-          product_name: productName,
-          brand_name: brandName,
+          product_category: productName || undefined,
         }),
       });
 

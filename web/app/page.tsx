@@ -17,12 +17,12 @@ const FAQ_ITEMS = [
     a: 'Winners Bank shows you the highest-performing products with actual engagement metrics. See what angles work, what hooks land, and which products have the best commission potential. Build scripts from proven winners instead of guessing.',
   },
   {
-    q: 'How do I write scripts that don't sound AI-generated?',
+    q: "How do I write scripts that don't sound AI-generated?",
     a: 'FlashFlow uses multiple creator personas (Skeptical Reviewer, Gen-Z Trendsetter, High-Energy, etc.) and tone customization. The output reads like a real creator — with natural pauses, humor, and authentic energy. You can always edit and tweak.',
   },
   {
     q: 'How do I hit my retainer video goals on time?',
-    a: 'Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and get reminders when you're behind. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.',
+    a: "Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and get reminders when you're behind. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.",
   },
   {
     q: 'Can I manage multiple TikTok Shop brands?',
@@ -30,7 +30,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What makes FlashFlow different from ChatGPT?',
-    a: 'FlashFlow is built specifically for TikTok Shop affiliates. It gives you script generation + Winners Bank (competitive intelligence) + Content Calendar + Retainer tracking. ChatGPT doesn't know about TikTok compliance, affiliate psychology, or your brand deals.',
+    a: "FlashFlow is built specifically for TikTok Shop affiliates. It gives you script generation + Winners Bank (competitive intelligence) + Content Calendar + Retainer tracking. ChatGPT doesn't know about TikTok compliance, affiliate psychology, or your brand deals.",
   },
   {
     q: 'Is there a free trial?',

@@ -131,8 +131,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'What\'s New', href: '/admin/whats-new', icon: Gift },
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
       { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },
-      { name: 'Billing', href: '/admin/billing', icon: Wallet },
-      { name: 'Credits', href: '/admin/credits', icon: CreditCard },
+      { name: 'Billing & Credits', href: '/admin/billing', icon: Wallet },
     ],
   },
   {

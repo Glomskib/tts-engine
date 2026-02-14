@@ -8,7 +8,6 @@ const PLAN_LABELS: Record<string, string> = {
   free: 'Free',
   creator_lite: 'Creator Lite',
   creator_pro: 'Creator Pro',
-  pro: 'Creator Pro', // legacy alias
   brand: 'Brand',
   agency: 'Agency',
 };
@@ -25,7 +24,6 @@ const PLAN_RANK: Record<string, number> = {
   free: 0,
   creator_lite: 1,
   creator_pro: 2,
-  pro: 2, // legacy alias — maps to creator_pro level
   brand: 3,
   agency: 4,
 };

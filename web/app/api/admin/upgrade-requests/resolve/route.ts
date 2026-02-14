@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
-import { logEvent, logEventSafe } from "@/lib/events-log";
+import { logEvent } from "@/lib/events-log";
 
 export const runtime = "nodejs";
 
@@ -102,34 +102,29 @@ export async function POST(request: Request) {
       return createApiErrorResponse("DB_ERROR", "Failed to resolve request", 500, correlationId);
     }
 
-    // If approved, set user plan to Pro (same logic as set-plan endpoint)
+    // If approved, set user plan to creator_pro via user_subscriptions
     if (decisionValue === "approved") {
       const normalizedUserId = targetUserId.toLowerCase();
 
-      // Use logEventSafe - don't fail if plan set fails (resolution already recorded)
-      const planLogged = await logEventSafe(supabaseAdmin, {
-        entity_type: "user",
-        entity_id: normalizedUserId,
-        event_type: "admin_set_plan",
-        payload: {
-          plan: "pro",
-          is_active: true,
-          set_by: authContext.user.id,
-          set_by_email: authContext.user.email || null,
-          source: "upgrade_request_approved",
-          request_event_id: request_event_id,
-        },
-      });
+      const { error: upsertError } = await supabaseAdmin
+        .from("user_subscriptions")
+        .upsert({
+          user_id: normalizedUserId,
+          plan_id: "creator_pro",
+          status: "active",
+          subscription_type: "saas",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
 
-      if (!planLogged) {
-        console.error("Failed to set plan after approval");
+      if (upsertError) {
+        console.error("Failed to set plan after approval:", upsertError);
         // Continue - resolution was recorded, plan set can be retried
       }
 
       // Notify about plan change
       notify("admin_set_plan", {
         targetUserId: normalizedUserId,
-        plan: "pro",
+        plan: "creator_pro",
         isActive: true,
         performedBy: authContext.user.email || authContext.user.id,
       });
@@ -150,7 +145,7 @@ export async function POST(request: Request) {
         request_event_id,
         decision: decisionValue,
         user_id: targetUserId,
-        plan_set: decisionValue === "approved" ? "pro" : null,
+        plan_set: decisionValue === "approved" ? "creator_pro" : null,
       },
       correlation_id: correlationId,
     });

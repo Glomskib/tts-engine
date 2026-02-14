@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
-import { getUserPlan, isSubscriptionGatingEnabled, type PlanType } from "@/lib/subscription";
+import { getUserPlan, type PlanType } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
         email,
         role: profile.role,
         created_at: profile.created_at,
-        plan: planStatus.plan,
+        plan: planStatus.plan as PlanType,
         is_active: planStatus.isActive,
       });
     }
@@ -76,7 +76,6 @@ export async function GET(request: Request) {
       ok: true,
       data: {
         users: usersWithPlans,
-        gating_enabled: isSubscriptionGatingEnabled(),
       },
       correlation_id: correlationId,
     });

@@ -24,14 +24,12 @@ export async function GET(request: Request) {
 
     // Fetch settings and incident mode in parallel
     const [
-      subscriptionGatingEnabled,
       emailEnabled,
       slackEnabled,
       assignmentTtlMinutes,
       incidentStatus,
       userPlan,
     ] = await Promise.all([
-      getEffectiveBoolean("SUBSCRIPTION_GATING_ENABLED"),
       getEffectiveBoolean("EMAIL_ENABLED"),
       getEffectiveBoolean("SLACK_ENABLED"),
       getEffectiveNumber("ASSIGNMENT_TTL_MINUTES"),
@@ -46,7 +44,7 @@ export async function GET(request: Request) {
       ok: true,
       data: {
         is_admin: authContext.isAdmin,
-        subscription_gating_enabled: subscriptionGatingEnabled,
+        subscription_gating_enabled: true,
         email_enabled: emailEnabled,
         slack_enabled: slackEnabled,
         assignment_ttl_minutes: assignmentTtlMinutes,

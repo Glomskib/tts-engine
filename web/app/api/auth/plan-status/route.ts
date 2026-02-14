@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { getUserPlan, isSubscriptionGatingEnabled } from "@/lib/subscription";
+import { getUserPlan } from "@/lib/subscription";
+import { getPlanByStringId } from "@/lib/plans";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
@@ -22,14 +23,14 @@ export async function GET(request: Request) {
 
   try {
     const plan = await getUserPlan(userId);
-    const gatingEnabled = isSubscriptionGatingEnabled();
+    const planConfig = getPlanByStringId(plan.plan);
 
     return NextResponse.json({
       ok: true,
       data: {
         plan: plan.plan,
+        planName: planConfig?.name || plan.plan,
         isActive: plan.isActive,
-        gatingEnabled,
         isAdmin: authContext.isAdmin,
       },
       correlation_id: correlationId,

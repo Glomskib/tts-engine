@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { notify } from "@/lib/notify";
-import { logEvent } from "@/lib/events-log";
 import type { PlanType } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -11,9 +10,9 @@ export const runtime = "nodejs";
 /**
  * POST /api/admin/users/set-plan
  * Admin-only endpoint to set a user's subscription plan.
- * Writes an admin_set_plan event to video_events table (no schema migration required).
+ * Writes directly to user_subscriptions table.
  *
- * Body: { user_id: string, plan: "free" | "pro", is_active?: boolean }
+ * Body: { user_id: string, plan: PlanType, is_active?: boolean }
  */
 export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -59,21 +58,8 @@ export async function POST(request: Request) {
   const isActiveValue = is_active !== false;
 
   try {
-    // Write admin_set_plan event to events_log
-    await logEvent(supabaseAdmin, {
-      entity_type: "user",
-      entity_id: normalizedUserId,
-      event_type: "admin_set_plan",
-      payload: {
-        plan: planValue,
-        is_active: isActiveValue,
-        set_by: authContext.user.id,
-        set_by_email: authContext.user.email || null,
-      },
-    });
-
-    // Also update user_subscriptions table directly so getUserPlan() picks it up
-    await supabaseAdmin
+    // Upsert into user_subscriptions table
+    const { error: upsertError } = await supabaseAdmin
       .from("user_subscriptions")
       .upsert({
         user_id: normalizedUserId,
@@ -82,6 +68,11 @@ export async function POST(request: Request) {
         subscription_type: "saas",
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
+
+    if (upsertError) {
+      console.error("Failed to upsert user_subscriptions:", upsertError);
+      return createApiErrorResponse("DB_ERROR", "Failed to set plan", 500, correlationId);
+    }
 
     // Notify via Slack (admin action)
     notify("admin_set_plan", {

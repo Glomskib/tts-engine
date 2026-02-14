@@ -43,6 +43,7 @@ import {
   ListTodo,
   Eye,
   MessageSquare,
+  Plug,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -142,6 +143,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
       { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },
+      { name: 'Integrations', href: '/admin/settings/integrations', icon: Plug, adminOnly: true },
       { name: 'Settings', href: '/admin/settings', icon: Settings, adminOnly: true },
     ],
   },

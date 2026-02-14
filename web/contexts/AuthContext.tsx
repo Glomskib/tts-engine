@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 export type UserRole = 'admin' | 'creator' | 'recorder' | 'editor' | 'uploader' | 'va' | 'bot' | null;
 
@@ -60,9 +61,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Initial fetch
   useEffect(() => {
     fetchAuth();
   }, [fetchAuth]);
+
+  // Listen for auth state changes (token refresh, sign-in, sign-out)
+  // so session stays in sync across navigations and tab switches
+  const fetchAuthRef = useRef(fetchAuth);
+  fetchAuthRef.current = fetchAuth;
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchAuthRef.current();
+      } else if (event === 'SIGNED_OUT') {
+        setAuthenticated(false);
+        setUser(null);
+        setRole(null);
+        setIsAdmin(false);
+        setIsUploader(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <AuthContext.Provider value={{ loading, authenticated, user, role, isAdmin, isUploader, refresh: fetchAuth }}>

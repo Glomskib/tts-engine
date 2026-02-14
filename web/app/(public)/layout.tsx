@@ -1,9 +1,16 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BRAND } from '@/lib/brand';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
+  const { loading, authenticated, isAdmin } = useAuth();
+
+  const dashboardHref = isAdmin ? '/admin/dashboard' : '/my-tasks';
+
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col">
       {/* Header */}
@@ -32,12 +39,21 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             >
               Pricing
             </Link>
-            <Link
-              href="/login"
-              className="text-sm px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors"
-            >
-              Sign In
-            </Link>
+            {!loading && authenticated ? (
+              <Link
+                href={dashboardHref}
+                className="text-sm px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="text-sm px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors"
+              >
+                Sign In
+              </Link>
+            )}
           </nav>
         </div>
       </header>

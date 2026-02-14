@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'AI Content Platform for Agencies | FlashFlow AI',
+  title: 'AI Content Platform for Agencies',
   description:
     'Scale client content without scaling headcount. Multi-brand management, API access, client portal, and unlimited AI script generation for agencies.',
   openGraph: {

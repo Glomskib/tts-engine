@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Free TikTok Video Transcriber | AI Script Analyzer | FlashFlow AI',
+  title: 'Free TikTok Video Transcriber | AI Script Analyzer',
   description:
     'Transcribe any TikTok video for free. Get AI-powered hook analysis, key phrases, emotional triggers, and content recommendations. Turn winning TikToks into your own scripts. No signup required.',
   keywords: [

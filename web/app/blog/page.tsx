@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Blog | FlashFlow AI - TikTok Content Tips & Guides',
+  title: 'Blog - TikTok Content Tips & Guides',
   description:
     'Learn how to transcribe TikTok videos, master viral hooks, and reverse-engineer winning content. Free guides for creators and TikTok Shop sellers.',
   openGraph: {

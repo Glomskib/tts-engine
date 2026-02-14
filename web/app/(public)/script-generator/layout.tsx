@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Free TikTok Script Generator | AI-Powered | FlashFlow AI',
+  title: 'Free TikTok Script Generator | AI-Powered',
   description:
     'Generate scroll-stopping TikTok scripts in seconds. Choose from 20 creator personas, set your tone, and get a ready-to-film script with hooks, dialogue, and CTAs. Free — no sign up required.',
   keywords: [

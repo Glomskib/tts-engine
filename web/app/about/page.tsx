@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'About FlashFlow AI | TikTok Video Creator',
+  title: 'About - TikTok Video Creator Platform',
   description:
     'FlashFlow AI empowers TikTok Shop sellers and content creators to generate viral scripts and videos at scale. Learn how we help creators succeed.',
   openGraph: {

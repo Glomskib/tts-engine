@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'TikTok Shop Script Generator | FlashFlow AI',
+  title: 'TikTok Shop Script Generator',
   description:
     'Turn TikTok Shop products into viral content. AI-powered script generator built for TikTok Shop sellers. Generate compliant, scroll-stopping scripts in seconds.',
   openGraph: {

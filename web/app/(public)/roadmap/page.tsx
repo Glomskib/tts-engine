@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { RoadmapItems } from './RoadmapItems';
 
 export const metadata: Metadata = {
-  title: 'FlashFlow AI Roadmap — What\'s Coming Next',
+  title: 'Roadmap — What\'s Coming Next',
   description:
     'See what we\'re building next at FlashFlow AI. Our public roadmap shows planned features, current work in progress, and recently shipped updates.',
   openGraph: {

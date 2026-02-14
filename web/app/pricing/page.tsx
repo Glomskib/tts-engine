@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Pricing | FlashFlow AI - AI Script Generator',
+  title: 'Pricing - AI Script Generator',
   description:
     'Choose the right plan for your content creation needs. Free tier includes 5 transcriptions/day. Premium plans from $9/month.',
   openGraph: {

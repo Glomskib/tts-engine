@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'AI Script Writer for Content Creators | FlashFlow AI',
+  title: 'AI Script Writer for Content Creators',
   description:
     'Stop staring at blank scripts. AI-powered TikTok script generator with 20 persona presets. Beat writer\'s block and post consistently. Free to try.',
   openGraph: {

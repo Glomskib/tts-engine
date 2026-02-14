@@ -5,6 +5,7 @@ import { isWithinLimit, migrateOldPlanId } from '@/lib/plans';
 import { enforceRateLimits } from '@/lib/rate-limit';
 import { generateCorrelationId } from '@/lib/api-errors';
 import { generateUnifiedScript } from '@/lib/unified-script-generator';
+import { spendCredits } from '@/lib/credits';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -193,6 +194,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // ── Deduct credits (3 per script, admins bypass) ──
+    const SCRIPT_CREDIT_COST = 3;
+    let creditsRemaining: number | undefined;
+    if (!isAdmin) {
+      const spend = await spendCredits(
+        auth.user.id,
+        SCRIPT_CREDIT_COST,
+        "generation",
+        "Script generation",
+        false,
+      );
+      creditsRemaining = spend.remaining;
+    }
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -206,6 +221,7 @@ export async function POST(request: Request) {
         ai_provider: "anthropic_sonnet",
         persona: result.persona,
         sales_approach: result.salesApproach,
+        creditsRemaining,
       },
     });
 

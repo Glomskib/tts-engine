@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCredits } from '@/hooks/useCredits';
-import { Coins, Zap, TrendingUp, Package, ArrowRight, Sparkles } from 'lucide-react';
+import { Coins, Zap, TrendingUp, Package, ArrowRight, Sparkles, Clock, PieChart } from 'lucide-react';
 import Link from 'next/link';
 import { SkeletonForm } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
@@ -27,6 +27,102 @@ interface Transaction {
   created_at: string;
 }
 
+interface UsageItem {
+  action: string;
+  total: number;
+}
+
+// Colors for the pie chart segments
+const PIE_COLORS: Record<string, string> = {
+  generation: '#14b8a6',     // teal-500
+  purchase: '#10b981',       // emerald-500
+  bonus: '#a855f7',          // purple-500
+  subscription_renewal: '#3b82f6', // blue-500
+  refund: '#f59e0b',         // amber-500
+  other: '#71717a',          // zinc-500
+};
+
+const PIE_LABELS: Record<string, string> = {
+  generation: 'Scripts & Content',
+  purchase: 'Purchases',
+  bonus: 'Bonuses',
+  subscription_renewal: 'Renewals',
+  refund: 'Refunds',
+  other: 'Other',
+};
+
+function UsagePieChart({ data }: { data: UsageItem[] }) {
+  const total = data.reduce((s, d) => s + d.total, 0);
+  if (total === 0) {
+    return (
+      <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
+        No usage data yet
+      </div>
+    );
+  }
+
+  // Build SVG pie chart arcs
+  let cumulative = 0;
+  const slices = data.map((item) => {
+    const pct = item.total / total;
+    const startAngle = cumulative * 2 * Math.PI;
+    cumulative += pct;
+    const endAngle = cumulative * 2 * Math.PI;
+    const largeArc = pct > 0.5 ? 1 : 0;
+    const x1 = 50 + 40 * Math.sin(startAngle);
+    const y1 = 50 - 40 * Math.cos(startAngle);
+    const x2 = 50 + 40 * Math.sin(endAngle);
+    const y2 = 50 - 40 * Math.cos(endAngle);
+    const color = PIE_COLORS[item.action] || PIE_COLORS.other;
+
+    // For a single slice covering 100%, draw a circle instead
+    if (data.length === 1) {
+      return (
+        <circle key={item.action} cx="50" cy="50" r="40" fill={color} />
+      );
+    }
+
+    return (
+      <path
+        key={item.action}
+        d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+        fill={color}
+      />
+    );
+  });
+
+  return (
+    <div className="flex items-center gap-6">
+      <svg viewBox="0 0 100 100" className="w-32 h-32 shrink-0">
+        {slices}
+        {/* Center hole for donut effect */}
+        <circle cx="50" cy="50" r="22" fill="#09090b" />
+        <text x="50" y="48" textAnchor="middle" className="fill-white text-[10px] font-bold">
+          {total}
+        </text>
+        <text x="50" y="58" textAnchor="middle" className="fill-zinc-500 text-[6px]">
+          credits
+        </text>
+      </svg>
+      <div className="space-y-2 flex-1">
+        {data.map((item) => {
+          const color = PIE_COLORS[item.action] || PIE_COLORS.other;
+          const label = PIE_LABELS[item.action] || item.action;
+          const pct = Math.round((item.total / total) * 100);
+          return (
+            <div key={item.action} className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-sm text-zinc-300 flex-1">{label}</span>
+              <span className="text-sm font-medium text-zinc-400">{item.total}</span>
+              <span className="text-xs text-zinc-600 w-10 text-right">{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CreditsPage() {
   const { credits, subscription, isLoading } = useCredits();
   const { showError } = useToast();
@@ -35,6 +131,26 @@ export default function CreditsPage() {
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [usageBreakdown, setUsageBreakdown] = useState<UsageItem[]>([]);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(true);
+
+  // Fetch usage breakdown
+  useEffect(() => {
+    async function fetchBreakdown() {
+      try {
+        const res = await fetch('/api/credits/usage-breakdown');
+        const data = await res.json();
+        if (data.ok) {
+          setUsageBreakdown(data.breakdown);
+        }
+      } catch (err) {
+        console.error('Failed to fetch usage breakdown:', err);
+      } finally {
+        setLoadingBreakdown(false);
+      }
+    }
+    fetchBreakdown();
+  }, []);
 
   // Fetch credit packages
   useEffect(() => {
@@ -124,6 +240,16 @@ export default function CreditsPage() {
 
   const isUnlimited = credits?.remaining === -1 || credits?.isUnlimited;
 
+  // Calculate days until credits reset
+  const daysUntilReset = useMemo(() => {
+    const periodEnd = credits?.periodEnd || subscription?.periodEnd;
+    if (!periodEnd) return null;
+    const end = new Date(periodEnd);
+    const now = new Date();
+    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : null;
+  }, [credits?.periodEnd, subscription?.periodEnd]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -206,6 +332,65 @@ export default function CreditsPage() {
             ))}
           </div>
         </div>
+
+        {/* Usage Breakdown + Reset Countdown */}
+        {!isUnlimited && (
+          <div className="mb-10 grid md:grid-cols-2 gap-6">
+            {/* Pie Chart */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <PieChart className="w-4 h-4 text-teal-400" />
+                <h2 className="text-lg font-semibold">Usage Breakdown</h2>
+                <span className="text-xs text-zinc-500 ml-auto">Last 30 days</span>
+              </div>
+              {loadingBreakdown ? (
+                <div className="text-zinc-500 text-sm py-8 text-center">Loading...</div>
+              ) : (
+                <UsagePieChart data={usageBreakdown} />
+              )}
+            </div>
+
+            {/* Reset Countdown + Quick Stats */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <h2 className="text-lg font-semibold">Billing Cycle</h2>
+                </div>
+                {daysUntilReset !== null ? (
+                  <div className="mb-6">
+                    <div className="text-4xl font-bold text-blue-400">{daysUntilReset}</div>
+                    <div className="text-sm text-zinc-500 mt-1">days until credits reset</div>
+                    <div className="w-full h-2 bg-zinc-800 rounded-full mt-3 overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${Math.max(100 - (daysUntilReset / 30) * 100, 5)}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-6">
+                    <div className="text-sm text-zinc-500">
+                      {subscription?.planId === 'free'
+                        ? 'Free plan credits do not auto-renew.'
+                        : 'Credits reset at the start of each billing cycle.'}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <div className="text-xs text-zinc-500 mb-1">This Period</div>
+                  <div className="text-xl font-bold">{credits?.usedThisPeriod ?? 0}</div>
+                </div>
+                <div className="bg-zinc-800/50 rounded-xl p-3">
+                  <div className="text-xs text-zinc-500 mb-1">Lifetime</div>
+                  <div className="text-xl font-bold">{credits?.lifetimeUsed ?? 0}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Purchase Credits */}
         {!isUnlimited && (
@@ -299,7 +484,7 @@ export default function CreditsPage() {
           ) : (
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
               <div className="divide-y divide-zinc-800">
-                {transactions.slice(0, 20).map((tx) => (
+                {transactions.slice(0, 10).map((tx) => (
                   <div key={tx.id} className="px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">

@@ -37,7 +37,7 @@ export default function TestAccountsPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPlan, setNewPlan] = useState('free');
   const [newCredits, setNewCredits] = useState('5');
-  const { addToast } = useToast();
+  const { showSuccess, showError } = useToast();
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -47,11 +47,11 @@ export default function TestAccountsPage() {
         setAccounts(data.accounts);
       }
     } catch {
-      addToast('Failed to load test accounts', 'error');
+      showError('Failed to load test accounts');
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [showError]);
 
   useEffect(() => {
     fetchAccounts();
@@ -69,13 +69,13 @@ export default function TestAccountsPage() {
       if (data.ok) {
         const created = data.results.filter((r: { status: string }) => r.status === 'created').length;
         const existing = data.results.filter((r: { status: string }) => r.status === 'already_exists').length;
-        addToast(`Created ${created} accounts (${existing} already existed)`, 'success');
+        showSuccess(`Created ${created} accounts (${existing} already existed)`);
         fetchAccounts();
       } else {
-        addToast(data.error || 'Failed to create presets', 'error');
+        showError(data.error || 'Failed to create presets');
       }
     } catch {
-      addToast('Failed to create preset accounts', 'error');
+      showError('Failed to create preset accounts');
     } finally {
       setActionLoading(null);
     }
@@ -97,17 +97,17 @@ export default function TestAccountsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        addToast(`Created ${newEmail}`, 'success');
+        showSuccess(`Created ${newEmail}`);
         setShowCreateForm(false);
         setNewEmail('');
         setNewPlan('free');
         setNewCredits('5');
         fetchAccounts();
       } else {
-        addToast(data.error || 'Failed to create account', 'error');
+        showError(data.error || 'Failed to create account');
       }
     } catch {
-      addToast('Failed to create account', 'error');
+      showError('Failed to create account');
     } finally {
       setActionLoading(null);
     }
@@ -124,13 +124,13 @@ export default function TestAccountsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        addToast(`Deleted ${email}`, 'success');
+        showSuccess(`Deleted ${email}`);
         fetchAccounts();
       } else {
-        addToast(data.error || 'Failed to delete', 'error');
+        showError(data.error || 'Failed to delete');
       }
     } catch {
-      addToast('Failed to delete account', 'error');
+      showError('Failed to delete account');
     } finally {
       setActionLoading(null);
     }
@@ -146,13 +146,13 @@ export default function TestAccountsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        addToast(`Credits reset to ${data.credits_remaining}`, 'success');
+        showSuccess(`Credits reset to ${data.credits_remaining}`);
         fetchAccounts();
       } else {
-        addToast(data.error || 'Failed to reset credits', 'error');
+        showError(data.error || 'Failed to reset credits');
       }
     } catch {
-      addToast('Failed to reset credits', 'error');
+      showError('Failed to reset credits');
     } finally {
       setActionLoading(null);
     }

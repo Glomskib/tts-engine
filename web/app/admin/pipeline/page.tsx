@@ -100,7 +100,7 @@ interface AvailableScript {
 }
 
 // Stage tabs with user-friendly labels
-type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'AI_RENDERING' | 'READY_FOR_REVIEW' | 'RECORDED' | 'EDITED' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
+type RecordingStatusTab = 'ALL' | 'NEEDS_SCRIPT' | 'GENERATING_SCRIPT' | 'NOT_RECORDED' | 'AI_RENDERING' | 'READY_FOR_REVIEW' | 'RECORDED' | 'EDITED' | 'APPROVED_NEEDS_EDITS' | 'READY_TO_POST' | 'POSTED' | 'REJECTED';
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 
 // VA Mode types
@@ -220,6 +220,20 @@ function getPrimaryAction(video: QueueVideo): PrimaryAction {
       requiredRole: 'editor',
       disabled: !canApprove,
       disabledReason: canApprove ? undefined : 'Need video URL',
+      actionType: 'transition',
+      targetStatus: 'READY_TO_POST',
+    };
+  }
+
+  // Priority 4b: Approved but needs edits
+  if (recordingStatus === 'APPROVED_NEEDS_EDITS') {
+    return {
+      key: 'edit',
+      label: 'Apply Edits',
+      icon: '',
+      color: '#D97706', // Amber
+      requiredRole: 'editor',
+      disabled: false,
       actionType: 'transition',
       targetStatus: 'READY_TO_POST',
     };
@@ -1153,6 +1167,7 @@ export default function AdminPipelinePage() {
     const statusLabels: Record<string, string> = {
       'RECORDED': 'marked as recorded',
       'EDITED': 'marked as edited',
+      'APPROVED_NEEDS_EDITS': 'approved — needs edits',
       'READY_TO_POST': 'approved for posting',
       'POSTED': 'marked as posted',
       'REJECTED': 'rejected',
@@ -1527,7 +1542,7 @@ export default function AdminPipelinePage() {
       case 'needs_action':
         // Videos in actionable states, prioritize unclaimed
         videos = videos.filter(v =>
-          ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST'].includes(v.recording_status || '')
+          ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'APPROVED_NEEDS_EDITS', 'READY_TO_POST'].includes(v.recording_status || '')
         ).sort((a, b) => {
           // Unclaimed first
           if (!a.claimed_by && b.claimed_by) return -1;
@@ -1949,7 +1964,7 @@ export default function AdminPipelinePage() {
               let vids = getRoleFilteredVideos();
               switch (intent) {
                 case 'my_work': return vids.filter(v => v.claimed_by === activeUser).length;
-                case 'needs_action': return vids.filter(v => ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'READY_TO_POST'].includes(v.recording_status || '')).length;
+                case 'needs_action': return vids.filter(v => ['NEEDS_SCRIPT', 'NOT_RECORDED', 'RECORDED', 'EDITED', 'APPROVED_NEEDS_EDITS', 'READY_TO_POST'].includes(v.recording_status || '')).length;
                 case 'overdue': return vids.filter(v => v.sla_status === 'overdue').length;
                 case 'needs_mapping': return vids.filter(v => !v.brand_name || !v.product_id).length;
                 case 'ready_to_post': return vids.filter(v => v.recording_status === 'READY_TO_POST').length;
@@ -2018,6 +2033,7 @@ export default function AdminPipelinePage() {
             <option value="AI_RENDERING">AI Rendering</option>
             <option value="READY_FOR_REVIEW">Ready for Review</option>
             <option value="RECORDED">Recorded</option>
+            <option value="APPROVED_NEEDS_EDITS">Needs Edits</option>
             <option value="READY_TO_POST">Approved</option>
             <option value="POSTED">Posted</option>
             <option value="REJECTED">Rejected</option>
@@ -2266,6 +2282,7 @@ export default function AdminPipelinePage() {
             <option value="NEEDS_SCRIPT">Needs Script</option>
             <option value="NOT_RECORDED">Scripted</option>
             <option value="RECORDED">Ready for Review</option>
+            <option value="APPROVED_NEEDS_EDITS">Needs Edits</option>
             <option value="READY_TO_POST">Approved</option>
             <option value="POSTED">Posted</option>
           </select>
@@ -2518,6 +2535,7 @@ export default function AdminPipelinePage() {
                           case 'AI_RENDERING': return 'AI Rendering';
                           case 'RECORDED': return 'Ready for Review';
                           case 'EDITED': return 'Ready for Review';
+                          case 'APPROVED_NEEDS_EDITS': return 'Needs Edits';
                           case 'READY_TO_POST': return 'Approved';
                           case 'POSTED': return 'Posted';
                           case 'REJECTED': return 'Rejected';
@@ -2611,6 +2629,7 @@ export default function AdminPipelinePage() {
               'AI Rendering': 'AI_RENDERING',
               'Ready for Review': 'READY_FOR_REVIEW',
               'Recorded': 'RECORDED',
+              'Needs Edits': 'APPROVED_NEEDS_EDITS',
               'Approved': 'READY_TO_POST',
               'Posted': 'POSTED',
               'Rejected': 'REJECTED',

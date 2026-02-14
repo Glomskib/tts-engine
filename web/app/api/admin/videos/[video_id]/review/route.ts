@@ -64,10 +64,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId);
   }
 
-  const { action, reason, notes, quality_score: rawScore } = body as {
+  const { action, reason, notes, edit_notes, quality_score: rawScore } = body as {
     action?: string;
     reason?: string;
     notes?: string;
+    edit_notes?: string;
     quality_score?: unknown;
   };
 
@@ -87,12 +88,16 @@ export async function POST(request: Request, { params }: RouteParams) {
     validatedScore.scored_at = new Date().toISOString();
   }
 
-  if (!action || !['approve', 'reject'].includes(action)) {
-    return createApiErrorResponse('BAD_REQUEST', 'action must be "approve" or "reject"', 400, correlationId);
+  if (!action || !['approve', 'approve_needs_edits', 'reject'].includes(action)) {
+    return createApiErrorResponse('BAD_REQUEST', 'action must be "approve", "approve_needs_edits", or "reject"', 400, correlationId);
   }
 
   if (action === 'reject' && (!reason || reason.trim().length === 0)) {
     return createApiErrorResponse('BAD_REQUEST', 'reason is required when rejecting', 400, correlationId);
+  }
+
+  if (action === 'approve_needs_edits' && (!edit_notes || edit_notes.trim().length === 0)) {
+    return createApiErrorResponse('BAD_REQUEST', 'edit_notes is required when approving with edits needed', 400, correlationId);
   }
 
   try {
@@ -116,7 +121,12 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const nowIso = new Date().toISOString();
-    const targetStatus = action === 'approve' ? 'READY_TO_POST' : 'REJECTED';
+    const reviewerEmail = authContext.user.email || authContext.user.id;
+    const targetStatus = action === 'approve'
+      ? 'READY_TO_POST'
+      : action === 'approve_needs_edits'
+        ? 'APPROVED_NEEDS_EDITS'
+        : 'REJECTED';
 
     const updatePayload: Record<string, unknown> = {
       recording_status: targetStatus,
@@ -125,6 +135,14 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (action === 'approve') {
       updatePayload.ready_to_post_at = nowIso;
+      updatePayload.approved_at = nowIso;
+      updatePayload.approved_by = reviewerEmail;
+    }
+
+    if (action === 'approve_needs_edits') {
+      updatePayload.edit_notes = edit_notes!.trim();
+      updatePayload.approved_at = nowIso;
+      updatePayload.approved_by = reviewerEmail;
     }
 
     if (action === 'reject') {
@@ -143,7 +161,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       .from('videos')
       .update(updatePayload)
       .eq('id', video_id)
-      .select('id, recording_status, rejection_reason, review_notes, quality_score, last_status_changed_at')
+      .select('id, recording_status, rejection_reason, review_notes, edit_notes, approved_at, approved_by, quality_score, last_status_changed_at')
       .single();
 
     if (updateError) {
@@ -151,9 +169,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       return createApiErrorResponse('DB_ERROR', 'Failed to update video', 500, correlationId);
     }
 
+    const eventType = action === 'reject'
+      ? 'admin_review_reject'
+      : action === 'approve_needs_edits'
+        ? 'admin_review_approve_needs_edits'
+        : 'admin_review_approve';
+
     await writeVideoEvent(
       video_id,
-      action === 'approve' ? 'admin_review_approve' : 'admin_review_reject',
+      eventType,
       correlationId,
       authContext.user.id,
       'READY_FOR_REVIEW',
@@ -162,7 +186,8 @@ export async function POST(request: Request, { params }: RouteParams) {
         action,
         reason: reason?.trim() || null,
         notes: notes?.trim() || null,
-        reviewed_by: authContext.user.email || authContext.user.id,
+        edit_notes: edit_notes?.trim() || null,
+        reviewed_by: reviewerEmail,
         quality_score: validatedScore || null,
       }
     );
@@ -201,6 +226,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
       lines.push(`📋 Paste this URL into opus.pro to generate clips`);
       sendTelegramNotification(lines.join('\n'));
+    } else if (action === 'approve_needs_edits') {
+      const lines = [
+        `✏️ Video needs edits: <b>${productLabel}</b>`,
+        `📝 ${edit_notes?.trim() || 'No details'}`,
+      ];
+      sendTelegramNotification(lines.join('\n'));
     } else {
       sendTelegramNotification(`🔄 Video rejected: ${productLabel} — ${reason?.trim() || 'no reason'}`);
     }
@@ -212,7 +243,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         action,
         from_status: 'READY_FOR_REVIEW',
         to_status: targetStatus,
-        reviewed_by: authContext.user.email || authContext.user.id,
+        reviewed_by: reviewerEmail,
       },
       correlation_id: correlationId,
     });

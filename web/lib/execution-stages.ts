@@ -13,6 +13,7 @@ export const RECORDING_STATUSES = [
   'READY_FOR_REVIEW',
   'RECORDED',
   'EDITED',
+  'APPROVED_NEEDS_EDITS',
   'READY_TO_POST',
   'POSTED',
   'REJECTED',
@@ -30,6 +31,7 @@ export const SLA_DEADLINES_MINUTES: Record<string, number> = {
   'READY_FOR_REVIEW': 24 * 60, // 24 hours to review composed video
   'RECORDED': 24 * 60,         // 24 hours
   'EDITED': 24 * 60,           // 24 hours
+  'APPROVED_NEEDS_EDITS': 24 * 60, // 24 hours to complete edits
   'READY_TO_POST': 12 * 60,    // 12 hours
   'REJECTED': 24 * 60,         // 24 hours followup
   'POSTED': 0,                 // No SLA for terminal state
@@ -64,6 +66,7 @@ const NEXT_STATUS_MAP: Record<RecordingStatus, RecordingStatus | null> = {
   'READY_FOR_REVIEW': 'READY_TO_POST',
   'RECORDED': 'EDITED',
   'EDITED': 'READY_TO_POST',
+  'APPROVED_NEEDS_EDITS': 'READY_TO_POST',
   'READY_TO_POST': 'POSTED',
   'POSTED': null, // Terminal
   'REJECTED': null, // Terminal
@@ -78,6 +81,7 @@ const NEXT_ACTION_MAP: Record<RecordingStatus, string> = {
   'READY_FOR_REVIEW': 'Approve or reject the video',
   'RECORDED': 'Edit the video',
   'EDITED': 'Mark ready to post',
+  'APPROVED_NEEDS_EDITS': 'Apply edits, then mark ready to post',
   'READY_TO_POST': 'Post the video',
   'POSTED': 'Done',
   'REJECTED': 'Review rejection notes',
@@ -209,7 +213,7 @@ export function computeStageInfo(video: VideoForValidation): StageInfo {
 
   // READY_TO_POST requires video URL
   const hasVideoUrl = !!(video.final_video_url?.trim() || video.google_drive_url?.trim());
-  const can_mark_ready_to_post = (currentStatus === 'EDITED' && hasVideoUrl) || (currentStatus === 'READY_FOR_REVIEW' && hasVideoUrl);
+  const can_mark_ready_to_post = (currentStatus === 'EDITED' && hasVideoUrl) || (currentStatus === 'READY_FOR_REVIEW' && hasVideoUrl) || (currentStatus === 'APPROVED_NEEDS_EDITS' && hasVideoUrl);
 
   // POSTED requires posted_url and posted_platform
   const hasPostedUrl = !!video.posted_url?.trim();

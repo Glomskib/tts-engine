@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import AdminPageLayout, { StatCard } from '../components/AdminPageLayout';
-import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Star } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Star, Pencil } from 'lucide-react';
 import { QUALITY_DIMENSIONS, calculateTotal, type QualityScore } from '@/lib/video-quality-score';
 
 interface ReviewVideo {
@@ -51,6 +51,10 @@ export default function ReviewPage() {
   const [rejectVideoId, setRejectVideoId] = useState<string | null>(null);
   const [selectedRejectCodes, setSelectedRejectCodes] = useState<Set<string>>(new Set());
   const [rejectNotes, setRejectNotes] = useState('');
+
+  // Needs-edits modal state
+  const [needsEditsVideoId, setNeedsEditsVideoId] = useState<string | null>(null);
+  const [editNotesText, setEditNotesText] = useState('');
 
   // Approve notes state
   const [showApproveNotes, setShowApproveNotes] = useState<Record<string, boolean>>({});
@@ -114,7 +118,7 @@ export default function ReviewPage() {
     fetchVideos();
   }, [fetchVideos]);
 
-  const handleApprove = useCallback(async (videoId: string) => {
+  const handleApproveToPost = useCallback(async (videoId: string) => {
     setActionLoading(videoId);
     try {
       const notes = approveNotes[videoId]?.trim() || undefined;
@@ -141,6 +145,41 @@ export default function ReviewPage() {
       setActionLoading(null);
     }
   }, [approveNotes, showScoring, scores, scoreNotes, showSuccess, showError]);
+
+  const handleNeedsEdits = async () => {
+    if (!needsEditsVideoId || !editNotesText.trim()) return;
+    setActionLoading(needsEditsVideoId);
+    try {
+      const quality_score = buildQualityScorePayload(needsEditsVideoId);
+      const res = await fetch(`/api/admin/videos/${needsEditsVideoId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'approve_needs_edits',
+          edit_notes: editNotesText.trim(),
+          notes: approveNotes[needsEditsVideoId]?.trim() || undefined,
+          quality_score,
+        }),
+      });
+      if (res.ok) {
+        showSuccess('Video approved — needs final edits');
+        setVideos((prev) => {
+          const next = prev.filter((v) => v.id !== needsEditsVideoId);
+          setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
+          return next;
+        });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showError(err.error?.message || err.message || 'Failed to update');
+      }
+    } catch {
+      showError('Network error');
+    } finally {
+      setActionLoading(null);
+      setNeedsEditsVideoId(null);
+      setEditNotesText('');
+    }
+  };
 
   const handleReject = async () => {
     if (!rejectVideoId || selectedRejectCodes.size === 0) return;
@@ -228,11 +267,13 @@ export default function ReviewPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (rejectVideoId) {
+      if (rejectVideoId || needsEditsVideoId) {
         if (e.key === 'Escape') {
           setRejectVideoId(null);
           setSelectedRejectCodes(new Set());
           setRejectNotes('');
+          setNeedsEditsVideoId(null);
+          setEditNotesText('');
         }
         return;
       }
@@ -244,7 +285,17 @@ export default function ReviewPage() {
         case 'A': {
           e.preventDefault();
           const video = videos[activeIndex];
-          if (video) handleApprove(video.id);
+          if (video) handleApproveToPost(video.id);
+          break;
+        }
+        case 'e':
+        case 'E': {
+          e.preventDefault();
+          const video = videos[activeIndex];
+          if (video) {
+            setNeedsEditsVideoId(video.id);
+            setEditNotesText('');
+          }
           break;
         }
         case 'r':
@@ -274,7 +325,7 @@ export default function ReviewPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [videos, activeIndex, actionLoading, rejectVideoId, handleApprove]);
+  }, [videos, activeIndex, actionLoading, rejectVideoId, needsEditsVideoId, handleApproveToPost]);
 
   return (
     <AdminPageLayout
@@ -316,7 +367,11 @@ export default function ReviewPage() {
         <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
           <span>
             <kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded font-mono text-[11px]">A</kbd>{' '}
-            Approve
+            Approve to Post
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded font-mono text-[11px]">E</kbd>{' '}
+            Needs Edits
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded font-mono text-[11px]">R</kbd>{' '}
@@ -524,23 +579,36 @@ export default function ReviewPage() {
                     />
                   )}
 
-                  {/* Action buttons */}
-                  <div className="flex gap-3 pt-1">
+                  {/* Action buttons — 3-tier review */}
+                  <div className="flex gap-2 pt-1">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleApprove(video.id);
+                        setNeedsEditsVideoId(video.id);
+                        setEditNotesText('');
                       }}
                       disabled={isActioning}
-                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium bg-amber-600/20 text-amber-400 border border-amber-500/30 hover:bg-amber-600/30 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Needs Edits
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleApproveToPost(video.id);
+                      }}
+                      disabled={isActioning}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
                     >
                       {isActioning ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <CheckCircle className="w-4 h-4" />
+                        <CheckCircle className="w-3.5 h-3.5" />
                       )}
-                      Approve
+                      Approve to Post
                     </button>
                     <button
                       type="button"
@@ -551,10 +619,9 @@ export default function ReviewPage() {
                         setRejectNotes('');
                       }}
                       disabled={isActioning}
-                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 rounded-lg transition-colors disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 rounded-lg transition-colors disabled:opacity-50"
                     >
-                      <XCircle className="w-4 h-4" />
-                      Reject
+                      <XCircle className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -707,6 +774,59 @@ export default function ReviewPage() {
                   <XCircle className="w-4 h-4" />
                 )}
                 Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Needs Edits modal */}
+      {needsEditsVideoId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setNeedsEditsVideoId(null)} />
+          <div
+            className="relative bg-zinc-900 border border-white/10 rounded-xl w-full max-w-md p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-amber-400" />
+              Needs Final Edits
+            </h3>
+            <p className="text-sm text-zinc-500">
+              This video is approved but needs minor edits before posting. Describe what needs to change:
+            </p>
+
+            <textarea
+              value={editNotesText}
+              onChange={(e) => setEditNotesText(e.target.value)}
+              placeholder="e.g. Fix text overlay at 0:03, trim last 2 seconds, adjust audio levels..."
+              className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-lg text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500"
+              rows={4}
+              autoFocus
+            />
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setNeedsEditsVideoId(null);
+                  setEditNotesText('');
+                }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium bg-zinc-800 text-zinc-300 border border-white/10 hover:bg-zinc-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleNeedsEdits}
+                disabled={!editNotesText.trim() || actionLoading !== null}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Pencil className="w-4 h-4" />
+                )}
+                Submit
               </button>
             </div>
           </div>

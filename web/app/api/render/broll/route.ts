@@ -108,6 +108,110 @@ function inferAction(category: string | null): string {
   return "opening and examining product";
 }
 
+// --- Script-aware B-roll prompt generation via Claude Haiku ---
+
+interface ScriptAwarePrompt {
+  label: string;
+  prompt: string;
+  beat: string; // the script beat this corresponds to
+}
+
+/**
+ * Generate Runway image-to-video prompts that match the script content.
+ * Each prompt is tailored to visually represent what's being said in that
+ * section of the script.
+ *
+ * Falls back to null if AI generation fails (caller uses template fallback).
+ */
+async function generateScriptAwareBrollPrompts(
+  scriptText: string,
+  productName: string,
+  productCategory: string | null,
+  sceneCount: number,
+): Promise<ScriptAwarePrompt[] | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const setting = inferSetting(productCategory);
+
+  const prompt = `You are a Runway image-to-video prompt engineer for TikTok product videos.
+
+Given this UGC script, generate ${sceneCount} B-roll video prompts — one for each section of the script. Each prompt creates a 5-second clip that VISUALLY MATCHES what's being said at that moment.
+
+SCRIPT:
+${scriptText}
+
+PRODUCT: ${productName}
+CATEGORY: ${productCategory || 'general'}
+TYPICAL SETTING: ${setting}
+
+RULES:
+- Each prompt must be a specific, filmable Runway image-to-video description
+- Always include "9:16 vertical" for mobile-first format
+- Include lighting, camera movement, and framing details
+- Match the EMOTION and CONTENT of each script section
+- First prompt should match the hook (attention-grabbing opening)
+- Last prompt should match the CTA (call to action moment)
+- Middle prompts should match the body/demonstration
+- Reference the actual product by name
+- Keep each prompt under 200 characters
+
+Return ONLY a JSON array (no markdown, no explanation):
+[
+  {"label": "hook_visual", "beat": "<the script line this matches>", "prompt": "<Runway prompt>"},
+  {"label": "body_visual_1", "beat": "<the script line this matches>", "prompt": "<Runway prompt>"},
+  {"label": "cta_visual", "beat": "<the script line this matches>", "prompt": "<Runway prompt>"}
+]`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        temperature: 0.5,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.warn('[broll] Script-aware prompt generation failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const rawText: string = data.content?.[0]?.text || '';
+
+    // Parse JSON array from response
+    let text = rawText.trim();
+    if (text.startsWith('```')) {
+      text = text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    }
+
+    const firstBracket = text.indexOf('[');
+    const lastBracket = text.lastIndexOf(']');
+    if (firstBracket === -1 || lastBracket === -1) return null;
+
+    const parsed = JSON.parse(text.substring(firstBracket, lastBracket + 1));
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+
+    return parsed.slice(0, sceneCount).map((item: Record<string, unknown>) => ({
+      label: String(item.label || 'scene'),
+      prompt: String(item.prompt || ''),
+      beat: String(item.beat || ''),
+    }));
+  } catch (err) {
+    console.warn('[broll] Script-aware prompt generation error:', err);
+    return null;
+  }
+}
+
 // --- AI tag extraction from prompt ---
 
 interface BrollTags {
@@ -202,6 +306,8 @@ const requestSchema = z.object({
   productId: z.string().uuid(),
   videoId: z.string().uuid().optional(),
   scenes: z.number().int().min(1).max(5).optional().default(3),
+  /** Full script text — when provided, AI generates scene-matched prompts instead of generic templates */
+  scriptText: z.string().max(5000).optional(),
 });
 
 export async function POST(request: Request) {
@@ -230,7 +336,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { productId, videoId, scenes } = parsed.data;
+  const { productId, videoId, scenes, scriptText } = parsed.data;
 
   // --- Priority 1: Same-product clips ---
   const { data: existingClips } = await supabaseAdmin
@@ -288,13 +394,58 @@ export async function POST(request: Request) {
   const action = inferAction(product.category);
   const productType = (product.category || "general").toLowerCase().replace(/s$/, "");
 
-  const scenePrompts = SCENE_TEMPLATES.slice(0, scenes).map((scene) => ({
-    label: scene.label,
-    prompt: scene.template
-      .replace(/\{product\}/g, productLabel)
-      .replace(/\{setting\}/g, setting)
-      .replace(/\{action\}/g, action),
-  }));
+  // If script text is provided, try to fetch it from the video record
+  let resolvedScriptText = scriptText;
+  if (!resolvedScriptText && videoId) {
+    const { data: videoData } = await supabaseAdmin
+      .from("videos")
+      .select("script_locked_text")
+      .eq("id", videoId)
+      .single();
+    if (videoData?.script_locked_text) {
+      resolvedScriptText = videoData.script_locked_text;
+    }
+  }
+
+  // Try script-aware prompts first, fall back to generic templates
+  let scenePrompts: Array<{ label: string; prompt: string }>;
+  let promptSource: "script_aware" | "template" = "template";
+
+  if (resolvedScriptText && resolvedScriptText.length > 20) {
+    const aiPrompts = await generateScriptAwareBrollPrompts(
+      resolvedScriptText,
+      productLabel,
+      product.category,
+      scenes,
+    );
+
+    if (aiPrompts && aiPrompts.length >= scenes) {
+      scenePrompts = aiPrompts.map((p) => ({
+        label: p.label,
+        prompt: p.prompt,
+      }));
+      promptSource = "script_aware";
+      console.log(`[broll] Using ${scenePrompts.length} script-aware prompts for ${productLabel}`);
+    } else {
+      // AI generation failed or returned too few — fall back to templates
+      scenePrompts = SCENE_TEMPLATES.slice(0, scenes).map((scene) => ({
+        label: scene.label,
+        prompt: scene.template
+          .replace(/\{product\}/g, productLabel)
+          .replace(/\{setting\}/g, setting)
+          .replace(/\{action\}/g, action),
+      }));
+    }
+  } else {
+    // No script text — use generic templates
+    scenePrompts = SCENE_TEMPLATES.slice(0, scenes).map((scene) => ({
+      label: scene.label,
+      prompt: scene.template
+        .replace(/\{product\}/g, productLabel)
+        .replace(/\{setting\}/g, setting)
+        .replace(/\{action\}/g, action),
+    }));
+  }
 
   // --- Priority 2: Cross-product library match ---
   // For each scene, check if we already have a reusable clip with matching tags
@@ -512,6 +663,7 @@ export async function POST(request: Request) {
     ok: true,
     reused: reusedFromLibrary.length > 0,
     product: productLabel,
+    prompt_source: promptSource,
     library_hits: reusedFromLibrary.length,
     generated: completed.length,
     timed_out: pending.size,

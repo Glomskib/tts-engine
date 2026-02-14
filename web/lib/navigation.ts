@@ -91,18 +91,18 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
-      { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits' },
+      { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
     ],
   },
   {
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Production Board', href: '/admin/pipeline', icon: Video },
-      { name: 'Review', href: '/admin/review', icon: Eye },
+      { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro' },
+      { name: 'Review', href: '/admin/review', icon: Eye, minPlan: 'creator_pro' },
       { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro' },
-      { name: 'VA Dashboard', href: '/va', icon: Users, external: true, minPlan: 'brand' },
+      { name: 'VA Dashboard', href: '/va', icon: Users, external: true, minPlan: 'creator_pro' },
     ],
   },
   {
@@ -110,7 +110,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Content Ideas', href: '/admin/content-ideas', icon: Lightbulb, minPlan: 'creator_lite' },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
+      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
       { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
@@ -121,7 +121,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
-      { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'brand' },
+      { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
     ],
   },
   {
@@ -139,10 +139,6 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SYSTEM',
     subscriptionType: 'saas',
     items: [
-      { name: 'Automation', href: '/admin/automation', icon: Zap, adminOnly: true },
-      { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen, adminOnly: true },
-      { name: 'Voice Agent', href: '/admin/voice', icon: Mic, adminOnly: true },
-      { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo, adminOnly: true },
       { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
       { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },
@@ -176,18 +172,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Support', href: '/client/support', icon: HelpCircle },
     ],
   },
-  // ========================
-  // SHARED SECTIONS
-  // ========================
-  {
-    title: 'CLIENT SERVICES',
-    showFor: ['admin'],
-    items: [
-      { name: 'Video Editing Queue', href: '/admin/video-editing', icon: Clapperboard },
-      { name: 'Client Management', href: '/admin/clients', icon: Building },
-      { name: 'Editor Management', href: '/admin/client-management', icon: Users },
-    ],
-  },
+  // CLIENT SERVICES section removed — pages still exist but hidden from nav
 ];
 
 /** Resolved section with lock state per item */

@@ -312,6 +312,7 @@ export default function AdminPipelinePage() {
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const { showSuccess, showError } = useToast();
+  const { credits: creditsInfo } = useCredits();
   const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
   const [, setQueueSummary] = useState<QueueSummary | null>(null);
   const [, setClaimedVideos] = useState<ClaimedVideo[]>([]);
@@ -1696,6 +1697,9 @@ export default function AdminPipelinePage() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Upsell Banner */}
+      <UpsellBanner creditsRemaining={creditsInfo?.remaining} />
+
       {/* Incident Mode Banner */}
       <IncidentBanner />
 

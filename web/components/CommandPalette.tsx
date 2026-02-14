@@ -22,18 +22,26 @@ import {
   ListChecks,
   Eye,
   CreditCard,
+  Building2,
+  UserCircle,
+  Lightbulb,
+  Sparkles,
 } from 'lucide-react';
 
 interface SearchResult {
   id: string;
-  type: 'product' | 'script' | 'winner' | 'video' | 'competitor' | 'template';
+  type: 'brand' | 'product' | 'persona' | 'concept' | 'hook' | 'script' | 'winner' | 'video' | 'competitor' | 'template';
   title: string;
   subtitle?: string;
   href: string;
 }
 
 const TYPE_CONFIG: Record<SearchResult['type'], { icon: typeof Search; label: string; color: string }> = {
+  brand: { icon: Building2, label: 'Brands', color: 'text-orange-400' },
   product: { icon: Package, label: 'Products', color: 'text-blue-400' },
+  persona: { icon: UserCircle, label: 'Personas', color: 'text-pink-400' },
+  concept: { icon: Lightbulb, label: 'Concepts', color: 'text-amber-400' },
+  hook: { icon: Sparkles, label: 'Hooks', color: 'text-cyan-400' },
   script: { icon: FileText, label: 'Scripts', color: 'text-green-400' },
   winner: { icon: Trophy, label: 'Winners', color: 'text-yellow-400' },
   video: { icon: Video, label: 'Pipeline', color: 'text-purple-400' },
@@ -142,28 +150,64 @@ export function CommandPalette() {
     setLoading(true);
 
     try {
-      const [productsRes, scriptsRes, winnersRes, videosRes, competitorsRes, templatesRes] = await Promise.all([
-        fetch('/api/products').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
-        fetch('/api/scripts').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
-        fetch('/api/admin/winners-bank').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
-        fetch('/api/admin/videos?limit=50').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
-        fetch('/api/competitors').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
-        fetch('/api/admin/templates').then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] })),
+      const fetchJson = (url: string) => fetch(url).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
+
+      const [brandsRes, productsRes, personasRes, conceptsRes, hooksRes, scriptsRes, winnersRes, videosRes, competitorsRes, templatesRes] = await Promise.all([
+        fetchJson('/api/brands'),
+        fetchJson('/api/products'),
+        fetchJson('/api/audience/personas'),
+        fetchJson('/api/concepts'),
+        fetchJson('/api/hooks'),
+        fetchJson('/api/scripts'),
+        fetchJson('/api/admin/winners-bank'),
+        fetchJson('/api/admin/videos?limit=50'),
+        fetchJson('/api/competitors'),
+        fetchJson('/api/admin/templates'),
       ]);
 
       const matched: SearchResult[] = [];
+      const matches = (text: string | null | undefined) => (text || '').toLowerCase().includes(lower);
+
+      // Brands
+      for (const b of brandsRes.data || []) {
+        if (matches(b.name) || matches(b.description) || matches(b.target_audience)) {
+          matched.push({ id: b.id, type: 'brand', title: b.name, subtitle: b.description?.slice(0, 60) || '', href: '/admin/products' });
+        }
+      }
 
       // Products
       for (const p of productsRes.data || []) {
-        if ((p.name || '').toLowerCase().includes(lower) || (p.brand || '').toLowerCase().includes(lower)) {
-          matched.push({ id: p.id, type: 'product', title: p.name, subtitle: p.brand, href: '/admin/products' });
+        if (matches(p.name) || matches(p.brand) || matches(p.category) || matches(p.description)) {
+          matched.push({ id: p.id, type: 'product', title: p.name, subtitle: p.brand || '', href: '/admin/products' });
+        }
+      }
+
+      // Personas
+      for (const p of personasRes.data || []) {
+        if (matches(p.name) || matches(p.description) || matches(p.life_stage) || (p.interests || []).some((i: string) => matches(i))) {
+          matched.push({ id: p.id, type: 'persona', title: p.name, subtitle: p.description?.slice(0, 60) || '', href: '/admin/audience' });
+        }
+      }
+
+      // Concepts
+      for (const c of conceptsRes.data || []) {
+        const title = c.concept_title || c.title || `Concept ${c.id?.slice(0, 8)}`;
+        if (matches(title) || matches(c.core_angle) || matches(c.notes)) {
+          matched.push({ id: c.id, type: 'concept', title, subtitle: c.core_angle?.slice(0, 60) || '', href: '/admin/content-studio' });
+        }
+      }
+
+      // Hooks
+      for (const h of hooksRes.data || []) {
+        if (matches(h.hook_text) || matches(h.hook_style)) {
+          matched.push({ id: h.id, type: 'hook', title: h.hook_text, subtitle: h.hook_style || '', href: '/admin/content-studio' });
         }
       }
 
       // Scripts
       for (const s of scriptsRes.data || []) {
         const title = s.title || s.hook || `Script ${s.id?.slice(0, 8)}`;
-        if (title.toLowerCase().includes(lower) || (s.hook || '').toLowerCase().includes(lower)) {
+        if (matches(title) || matches(s.hook) || matches(s.spoken_script) || matches(s.product_name)) {
           matched.push({ id: s.id, type: 'script', title, subtitle: s.product_name || '', href: '/admin/skit-library' });
         }
       }
@@ -171,34 +215,34 @@ export function CommandPalette() {
       // Winners
       for (const w of winnersRes.data || []) {
         const title = w.hook || w.title || `Winner ${w.id?.slice(0, 8)}`;
-        if (title.toLowerCase().includes(lower) || (w.product_name || '').toLowerCase().includes(lower)) {
-          matched.push({ id: w.id, type: 'winner', title, subtitle: w.product_name || '', href: '/admin/winners-bank' });
+        if (matches(title) || matches(w.product_name) || matches(w.full_script) || matches(w.hook_type)) {
+          matched.push({ id: w.id, type: 'winner', title, subtitle: w.product_name || '', href: '/admin/winners' });
         }
       }
 
       // Videos (pipeline)
       for (const v of videosRes.data || []) {
         const title = v.video_code || v.title || `Video ${v.id?.slice(0, 8)}`;
-        if (title.toLowerCase().includes(lower) || (v.product_name || '').toLowerCase().includes(lower)) {
-          matched.push({ id: v.id, type: 'video', title, subtitle: v.recording_status || '', href: '/admin/pipeline' });
+        if (matches(title) || matches(v.product_name) || matches(v.brand_name) || matches(v.recording_status)) {
+          matched.push({ id: v.id, type: 'video', title, subtitle: v.product_name || v.recording_status || '', href: '/admin/pipeline' });
         }
       }
 
       // Competitors
       for (const c of competitorsRes.data || []) {
-        if ((c.name || '').toLowerCase().includes(lower) || (c.handle || '').toLowerCase().includes(lower)) {
+        if (matches(c.name) || matches(c.handle) || matches(c.platform)) {
           matched.push({ id: c.id, type: 'competitor', title: c.name || c.handle, subtitle: c.platform || '', href: '/admin/competitors' });
         }
       }
 
       // Templates
       for (const t of templatesRes.data || []) {
-        if ((t.name || '').toLowerCase().includes(lower) || (t.category || '').toLowerCase().includes(lower)) {
+        if (matches(t.name) || matches(t.category) || (t.tags || []).some((tag: string) => matches(tag))) {
           matched.push({ id: t.id, type: 'template', title: t.name, subtitle: t.category || '', href: '/admin/templates' });
         }
       }
 
-      setResults(matched.slice(0, 20));
+      setResults(matched.slice(0, 30));
       setSelectedIndex(0);
     } catch {
       setResults([]);
@@ -262,7 +306,7 @@ export function CommandPalette() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search pages, products, scripts, winners..."
+              placeholder="Search brands, products, scripts, hooks, personas..."
               className="flex-1 py-4 bg-transparent text-white placeholder:text-zinc-500 outline-none text-base"
             />
             <div className="flex items-center gap-2 flex-shrink-0">

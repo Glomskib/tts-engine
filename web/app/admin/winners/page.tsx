@@ -44,7 +44,7 @@ interface ReferenceVideo {
   submitted_by: string;
   notes: string | null;
   category: string | null;
-  status: string;
+  status: string | null;
   error_message: string | null;
   created_at: string;
   reference_extracts: ReferenceExtract[];
@@ -67,7 +67,8 @@ const CATEGORY_OPTIONS = [
 ];
 
 // Muted status badge colors matching Work Queue
-function getStatusBadgeStyle(status: string): { bg: string; text: string } {
+function getStatusBadgeStyle(status: string | null | undefined): { bg: string; text: string } {
+  if (!status) return { bg: "rgba(107, 114, 128, 0.15)", text: "#6b7280" };
   switch (status) {
     case "ready":
       return { bg: "rgba(16, 185, 129, 0.15)", text: "#10b981" };
@@ -83,7 +84,8 @@ function getStatusBadgeStyle(status: string): { bg: string; text: string } {
   }
 }
 
-function getStatusLabel(status: string): string {
+function getStatusLabel(status: string | null | undefined): string {
+  if (!status) return "Unknown";
   if (status === "needs_file" || status === "needs_transcription") return "Needs Data";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -220,7 +222,12 @@ export default function WinnersPage() {
       const res = await fetch(`/api/winners?${params.toString()}`);
       const data = await res.json();
       if (data.ok) {
-        setWinners(data.winners || []);
+        const mapped = (data.winners || []).map((w: ReferenceVideo) => ({
+          ...w,
+          status: w.status || 'processing',
+          category: w.category || null,
+        }));
+        setWinners(mapped);
       }
     } catch (err) {
       console.error("Failed to fetch winners:", err);
@@ -678,7 +685,7 @@ export default function WinnersPage() {
                 transition: "all 0.15s",
               }}
             >
-              {status === "all" ? "All" : status === "needs_data" ? "Needs Data" : status.charAt(0).toUpperCase() + status.slice(1)}
+              {status === "all" ? "All" : status === "needs_data" ? "Needs Data" : (status || 'unknown').charAt(0).toUpperCase() + (status || 'unknown').slice(1)}
             </button>
           ))}
           <span style={{ marginLeft: "auto", fontSize: "12px", color: colors.textMuted, alignSelf: "center" }}>
@@ -1067,7 +1074,7 @@ export default function WinnersPage() {
                   >
                     <option value="">Select...</option>
                     {CATEGORY_OPTIONS.map((cat) => (
-                      <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                      <option key={cat} value={cat}>{((cat || '').charAt(0).toUpperCase() + (cat || '').slice(1)) || 'Uncategorized'}</option>
                     ))}
                   </select>
                 </div>

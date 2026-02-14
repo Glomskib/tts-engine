@@ -334,7 +334,7 @@ export default function ContentCalendarPage() {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 flex-wrap text-xs text-zinc-400">
+        <div className="flex items-center gap-1 md:gap-4 flex-wrap text-xs text-zinc-400">
           {Object.entries(STATUS_COLORS).map(([key, cfg]) => (
             <div key={key} className="flex items-center gap-1.5">
               <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
@@ -350,7 +350,7 @@ export default function ContentCalendarPage() {
         {loading && !data ? (
           <SkeletonVideoList count={7} />
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1 overflow-x-auto">
             {weeks.map((week, weekIdx) => {
               const weekLabel = formatShortDate(week[0]) + ' \u2013 ' + formatShortDate(week[6]);
               const isCurrentWeek = formatDateKey(getMonday(new Date())) === formatDateKey(week[0]);
@@ -368,16 +368,17 @@ export default function ContentCalendarPage() {
 
                   {/* Day name headers - only for first week */}
                   {weekIdx === 0 && (
-                    <div className="grid grid-cols-7 gap-1.5 mb-1">
+                    <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-1">
                       {DAY_NAMES.map(name => (
                         <div key={name} className="text-center text-[10px] text-zinc-600 font-medium">
-                          {name}
+                          <span className="hidden md:inline">{name}</span>
+                          <span className="md:hidden">{name.charAt(0)}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div className="grid grid-cols-7 gap-1.5">
+                  <div className="grid grid-cols-7 gap-0.5 md:gap-1">
                     {week.map((day, dayIdx) => {
                       const dateKey = formatDateKey(day);
                       const videos = data?.calendar[dateKey] || [];
@@ -389,7 +390,7 @@ export default function ContentCalendarPage() {
                         <div
                           key={dateKey}
                           className={`
-                            rounded-xl border min-h-[120px] p-2 transition-all cursor-pointer select-none
+                            rounded-xl border min-h-[80px] md:min-h-[120px] p-1.5 md:p-2 transition-all cursor-pointer select-none
                             ${today
                               ? 'bg-teal-500/5 border-teal-500/30'
                               : isDropping
@@ -443,7 +444,7 @@ export default function ContentCalendarPage() {
                                   onClick={(e) => e.stopPropagation()}
                                   title={`${video.product_name || video.video_code || 'Video'} (${colors.label})`}
                                 >
-                                  <span className={colors.text}>
+                                  <span className={`${colors.text} truncate block max-w-full`}>
                                     {video.product_name || video.video_code || 'Video'}
                                   </span>
                                 </div>

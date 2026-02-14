@@ -59,7 +59,8 @@ export async function generateVideo(
           audio_url: audioUrl,
         },
         background: {
-          type: 'transparent',
+          type: 'color',
+          value: '#00FF00',
         },
       },
     ],

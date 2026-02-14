@@ -17,6 +17,7 @@ import {
   Globe,
   Video,
   Link2,
+  User,
 } from 'lucide-react';
 
 interface ConnectionStatus {
@@ -220,6 +221,195 @@ function ContentPostingSection() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// TikTok Login Kit Section
+// ---------------------------------------------------------------------------
+
+interface LoginConnection {
+  open_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  token_expires_at: string | null;
+  status: string;
+  last_error: string | null;
+}
+
+function TikTokLoginSection() {
+  const { showSuccess, showError } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [appConfigured, setAppConfigured] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [connection, setConnection] = useState<LoginConnection | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('login_connected') === 'true') {
+      showSuccess('TikTok Login connected successfully!');
+      window.history.replaceState({}, '', '/admin/settings/tiktok');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchStatus = useCallback(() => {
+    fetch('/api/tiktok/status')
+      .then(res => res.json())
+      .then(json => {
+        if (json.ok) {
+          setAppConfigured(json.data.app_configured);
+          setConnected(json.data.connected);
+          setConnection(json.data.connection);
+        }
+      })
+      .catch(() => showError('Failed to load TikTok Login status'))
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  const handleConnect = () => {
+    setConnecting(true);
+    window.location.href = '/api/tiktok/connect';
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect your TikTok Login?')) return;
+    setDisconnecting(true);
+    try {
+      const res = await fetch('/api/tiktok/disconnect', { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('TikTok Login disconnected');
+        setConnected(false);
+        setConnection(null);
+      } else {
+        showError(json.error || 'Failed to disconnect');
+      }
+    } catch {
+      showError('Failed to disconnect');
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminCard title="TikTok Login" subtitle="Link your TikTok identity via Login Kit">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+          <span className="ml-2 text-sm text-zinc-500">Loading...</span>
+        </div>
+      </AdminCard>
+    );
+  }
+
+  return (
+    <AdminCard
+      title="TikTok Login"
+      subtitle="Link your TikTok identity via Login Kit (basic profile data)"
+    >
+      <div className="space-y-4">
+        {!appConfigured && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-300">
+              TikTok Login Kit not configured. Set{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_CLIENT_KEY
+              </code>
+              ,{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_CLIENT_SECRET
+              </code>
+              , and{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_REDIRECT_URI
+              </code>{' '}
+              in Vercel environment variables.
+            </p>
+          </div>
+        )}
+
+        {connected && connection ? (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700">
+            <div className="w-3 h-3 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+            {connection.avatar_url ? (
+              <img
+                src={connection.avatar_url}
+                alt=""
+                className="w-8 h-8 rounded-full object-cover bg-zinc-800"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
+                <User className="w-4 h-4 text-zinc-600" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-zinc-200">
+                {connection.display_name || 'TikTok User'}
+              </div>
+              <div className="text-xs text-zinc-500">
+                open_id: {connection.open_id}
+              </div>
+              {connection.token_expires_at && (
+                <div className="text-xs text-zinc-600 mt-0.5">
+                  Token expires: {new Date(connection.token_expires_at).toLocaleDateString()}
+                </div>
+              )}
+              {connection.last_error && (
+                <div className="text-xs text-red-400 mt-1">{connection.last_error}</div>
+              )}
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
+              <Check className="w-3 h-3" />
+              Connected
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700">
+            <div className="w-3 h-3 rounded-full shrink-0 bg-zinc-600" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-zinc-400">Not connected</div>
+              <div className="text-xs text-zinc-600">
+                Connect your TikTok account to link your identity.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-1">
+          {!connected && appConfigured && (
+            <AdminButton onClick={handleConnect} disabled={connecting}>
+              {connecting ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Link2 className="w-4 h-4 mr-1" />
+              )}
+              Connect TikTok
+            </AdminButton>
+          )}
+          {connected && (
+            <AdminButton
+              variant="secondary"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Unlink className="w-4 h-4 mr-2" />
+              )}
+              {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+            </AdminButton>
+          )}
+        </div>
+      </div>
+    </AdminCard>
+  );
+}
+
 export default function TikTokShopSettingsPage() {
   const { showSuccess, showError } = useToast();
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
@@ -370,6 +560,9 @@ export default function TikTokShopSettingsPage() {
         ) : undefined
       }
     >
+      {/* TikTok Login Kit */}
+      <TikTokLoginSection />
+
       {/* Connection Status */}
       <AdminCard title="Connection Status">
         <div className="space-y-4">

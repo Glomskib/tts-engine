@@ -71,8 +71,7 @@ export async function POST(request: NextRequest) {
       .select(
         "id, hook, video_url, view_count, notes, patterns, content_format, hook_type, product_category, engagement_rate, like_count, comment_count, share_count, performance_score, posted_at, created_at"
       )
-      .eq("user_id", userId)
-      .eq("is_active", true);
+      .eq("user_id", userId);
 
     if (winnersError) {
       console.error(

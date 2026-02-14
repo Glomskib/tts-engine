@@ -26,6 +26,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  serverExternalPackages: ['@ffmpeg-installer/ffmpeg'],
   images: {
     remotePatterns: [
       // Replicate AI image generation

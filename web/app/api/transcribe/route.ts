@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -112,9 +113,9 @@ async function prepareAudioFile(videoPath: string): Promise<string> {
     return videoPath;
   }
 
-  // For larger files, extract audio with ffmpeg
+  // For larger files, extract audio with ffmpeg (bundled binary for serverless)
   const audioPath = videoPath.replace('.mp4', '.mp3');
-  await execFileAsync('ffmpeg', [
+  await execFileAsync(ffmpegInstaller.path, [
     '-i', videoPath,
     '-vn',
     '-acodec', 'libmp3lame',

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { textToSpeech } from "@/lib/elevenlabs";
-import { uploadAudio, generateVideo } from "@/lib/heygen";
+import { uploadAudio, generateVideo, getPersona } from "@/lib/heygen";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { logVideoActivity } from "@/lib/videoActivity";
 import { sendTelegramNotification } from "@/lib/telegram";
@@ -15,6 +15,7 @@ const HeyGenSchema = z.object({
   videoId: z.string().uuid(),
   avatarId: z.string().optional(),
   voiceId: z.string().optional(),
+  personaId: z.string().optional(),
 });
 
 /**
@@ -56,7 +57,8 @@ export async function POST(request: Request) {
     });
   }
 
-  const { videoId, avatarId, voiceId } = parsed.data;
+  const { videoId, avatarId, voiceId, personaId } = parsed.data;
+  const persona = getPersona(personaId);
 
   try {
     // --- Fetch video record ---
@@ -132,17 +134,21 @@ export async function POST(request: Request) {
 
     console.log(`[${correlationId}] HeyGen render started for video ${videoId} (${ttsText.length} chars)`);
 
-    // --- Step 1: Generate TTS via ElevenLabs ---
-    const audioBuffer = await textToSpeech(ttsText, voiceId);
-    console.log(`[${correlationId}] TTS generated: ${audioBuffer.byteLength} bytes`);
+    // --- Step 1: Generate TTS via ElevenLabs (persona voice settings) ---
+    const resolvedVoiceId = voiceId || persona.voiceId;
+    const audioBuffer = await textToSpeech(ttsText, resolvedVoiceId, {
+      stability: persona.voiceStability,
+      similarityBoost: persona.voiceSimilarityBoost,
+    });
+    console.log(`[${correlationId}] TTS generated: ${audioBuffer.byteLength} bytes (persona: ${persona.id})`);
 
     // --- Step 2: Upload audio to HeyGen ---
     const { url: audioUrl } = await uploadAudio(audioBuffer);
     console.log(`[${correlationId}] Audio uploaded to HeyGen: ${audioUrl}`);
 
     // --- Step 3: Submit avatar video generation (async — returns immediately) ---
-    const { video_id: heygenVideoId } = await generateVideo(audioUrl, avatarId);
-    console.log(`[${correlationId}] HeyGen video queued: ${heygenVideoId}`);
+    const { video_id: heygenVideoId } = await generateVideo(audioUrl, avatarId, undefined, personaId);
+    console.log(`[${correlationId}] HeyGen video queued: ${heygenVideoId} (persona: ${persona.id})`);
 
     // Save task ID — check-renders cron will poll from here
     await supabaseAdmin
@@ -163,7 +169,7 @@ export async function POST(request: Request) {
 
     const productLabel = await getVideoProductLabel(videoId);
     sendTelegramNotification(
-      `🎬 <b>HeyGen render queued</b>\nProduct: ${productLabel}\nVideo: <code>${videoId}</code>\nAvatar: ${avatarId || "default"}\nHeyGen task: <code>${heygenVideoId}</code>`
+      `🎬 <b>HeyGen render queued</b>\nProduct: ${productLabel}\nVideo: <code>${videoId}</code>\nPersona: ${persona.label}\nAvatar: ${avatarId || persona.avatarId}\nHeyGen task: <code>${heygenVideoId}</code>`
     );
 
     const response = NextResponse.json(

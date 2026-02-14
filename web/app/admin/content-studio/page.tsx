@@ -585,6 +585,11 @@ export default function ContentStudioPage() {
     if (productId) {
       setSelectedProductId(productId);
     }
+    const inspirationParam = searchParams.get('inspiration');
+    if (inspirationParam) {
+      setReferenceScript(decodeURIComponent(inspirationParam));
+      setShowAdvanced(true);
+    }
     const typeParam = searchParams.get('type');
     if (typeParam) {
       // Set the content type

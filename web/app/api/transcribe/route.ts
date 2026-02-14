@@ -21,17 +21,49 @@ const WHISPER_MAX_SIZE = 24 * 1024 * 1024; // 24 MB (Whisper limit is 25MB, keep
 // Rate Limiting (Supabase-backed)
 // ============================================================================
 
-const LIMIT_ANON = 10;
-const LIMIT_LOGGED_IN = 50;
+const TIER_LIMITS: Record<string, number> = {
+  anon: 10,
+  free: 50,
+  creator_lite: 100,
+  creator_pro: 250,
+  brand: 500,
+  agency: -1, // unlimited
+};
+
+async function getLimitForUser(userId: string | null): Promise<number> {
+  if (!userId) return TIER_LIMITS.anon;
+
+  const { data } = await supabaseAdmin
+    .from('user_subscriptions')
+    .select('plan_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!data?.plan_id) return TIER_LIMITS.free;
+
+  const planId = data.plan_id as string;
+  // Match plan_id against tier keys (plan_id may contain the tier name)
+  for (const tier of Object.keys(TIER_LIMITS)) {
+    if (tier !== 'anon' && tier !== 'free' && planId.includes(tier)) {
+      return TIER_LIMITS[tier];
+    }
+  }
+  return TIER_LIMITS.free;
+}
 
 async function checkRateLimit(
   ip: string,
   userId: string | null
 ): Promise<{ allowed: boolean; remaining: number; limit: number; used: number }> {
+  const limit = await getLimitForUser(userId);
+
+  // Unlimited tier
+  if (limit === -1) {
+    return { allowed: true, remaining: -1, limit: -1, used: 0 };
+  }
+
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
-
-  const limit = userId ? LIMIT_LOGGED_IN : LIMIT_ANON;
 
   let query = supabaseAdmin
     .from('transcribe_usage')
@@ -294,7 +326,7 @@ Return this exact JSON structure:
       { transcript, segments, duration, language, analysis },
       {
         headers: {
-          'X-RateLimit-Remaining': String(remaining - 1),
+          'X-RateLimit-Remaining': String(remaining === -1 ? -1 : remaining - 1),
           'X-RateLimit-Limit': String(limit),
         },
       }

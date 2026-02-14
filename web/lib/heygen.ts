@@ -1,5 +1,7 @@
+import type { PersonaConfig } from './heygen-personas';
+import { getPersona } from './heygen-personas';
+
 const HEYGEN_BASE_URL = 'https://api.heygen.com';
-const DEFAULT_AVATAR_ID = 'Daisy-inskirt-20220818';
 
 export function getHeyGenConfig() {
   const apiKey = process.env.HEYGEN_API_KEY?.trim();
@@ -34,25 +36,32 @@ export async function uploadAudio(audioBuffer: ArrayBuffer): Promise<{ url: stri
 
 /**
  * Generate a talking-head avatar video from an audio URL.
+ * Uses persona config for avatar style, expression, and positioning.
  * Returns the video_id used for polling.
  */
 export async function generateVideo(
   audioUrl: string,
-  avatarId: string = DEFAULT_AVATAR_ID,
-  dimension?: { width: number; height: number }
+  avatarId?: string,
+  dimension?: { width: number; height: number },
+  personaId?: string
 ): Promise<{ video_id: string }> {
   const config = getHeyGenConfig();
+  const persona = getPersona(personaId);
+
+  // Allow explicit avatarId override, otherwise use persona's avatar
+  const resolvedAvatarId = avatarId || persona.avatarId;
 
   const body: Record<string, unknown> = {
     video_inputs: [
       {
         character: {
           type: 'avatar',
-          avatar_id: avatarId,
-          avatar_style: 'normal',
-          scale: 1.0,
-          // Push avatar to lower third — leaves room for text overlays and B-roll above
-          offset: { x: 0, y: 0.25 },
+          avatar_id: resolvedAvatarId,
+          avatar_style: persona.avatarStyle,
+          scale: persona.scale,
+          offset: persona.offset,
+          talking_style: persona.talkingStyle,
+          expression: persona.expression,
         },
         voice: {
           type: 'audio',
@@ -147,3 +156,7 @@ export async function pollUntilComplete(
 
   throw new Error(`HeyGen video ${videoId} timed out after ${maxWaitMs / 1000}s`);
 }
+
+// Re-export persona utilities for convenience
+export { getPersona, PERSONAS } from './heygen-personas';
+export type { PersonaConfig } from './heygen-personas';

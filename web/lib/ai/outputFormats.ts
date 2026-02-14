@@ -51,30 +51,32 @@ SPEAK TO THEIR PAIN:
 `;
 
 export const CTA_INSTRUCTIONS = `
-## CALL TO ACTION RULES (CRITICAL — #1 reason scripts fail quality checks)
+## CALL TO ACTION RULES
 
-For social commerce videos, CTAs must be URGENT ACTION COMMANDS, not passive suggestions.
+The CTA is the LAST thing the viewer hears. It must feel like a NATURAL part of the conversation — a friend telling you about something they love and why you should get it too.
 
-BANNED PHRASES (using these = automatic failure):
+BANNED (too passive, zero urgency):
 - "Link in bio" ❌
 - "Check it out" ❌
 - "Learn more" ❌
 - "Click the link" ❌
-- "Try it" ❌
-- "Give it a shot" ❌
-- "Go check" ❌
-- Any CTA without urgency or specific action ❌
 
-REQUIRED: Urgency + specific action + FOMO:
-- "Add to cart before they sell out — seriously, last time they were gone in 2 days"
-- "Tap the yellow basket NOW — this price won't last"
-- "Grab yours while it's still in stock — I'm not kidding"
-- "The yellow button is RIGHT THERE — don't think about it, just tap it"
-- "This deal ends tonight — add to cart or regret it tomorrow"
-- "Don't scroll past this — you'll be mad at yourself later. Add to cart."
+BANNED (too salesy, breaks authenticity):
+- "Tap the yellow basket NOW" ❌
+- "Buy it right now" ❌
+- Anything that sounds like a TV infomercial ❌
 
-The CTA must sound like a friend URGENTLY telling you to buy something before it's gone.
-It should create genuine FOMO — the viewer should feel like waiting = losing out.
+THE SWEET SPOT — authentic urgency:
+The CTA should sound like something you'd genuinely text a friend:
+- "I'm telling you — grab this before they figure out how underpriced it is"
+- "Seriously, I wish someone told me about this sooner. Don't wait like I did."
+- "I stocked up on three. You should at least get one before they sell out."
+- "If you've been going back and forth, this is your sign. Just get it."
+- "I'm never going back to what I was using before. Add to cart — trust me."
+- "Everyone who tries this says the same thing. You'll thank me later."
+
+FORMULA: Personal conviction + gentle urgency + no corporate language.
+The viewer should feel like they're getting insider advice, not being sold to.
 `;
 
 export const BROLL_INSTRUCTIONS = `
@@ -732,8 +734,8 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Not needed — this format is all one continuous scene"],
   "overlays": ["Pain point or benefit text card (3-6 words)", "CTA text card"],
-  "cta_line": "Urgent action command — 'add to cart NOW' or 'tap the yellow basket' (NEVER 'link in bio' or 'check it out')",
-  "cta_overlay": "Action CTA overlay (max 20 chars, e.g. 'ADD TO CART NOW')"
+  "cta_line": "Natural close — like texting a friend: 'seriously just get one, you'll thank me later' (NEVER 'link in bio' or 'tap yellow basket')",
+  "cta_overlay": "Short CTA overlay (max 20 chars, e.g. 'grab yours', 'don't sleep on this')"
 }
 
 HARD RULES:
@@ -748,12 +750,15 @@ HARD RULES:
 - Product appears naturally in beat 2, never in beat 1
 
 CTA RULES (CRITICAL — this is the #1 weakness in generated scripts):
-- The LAST beat MUST end with a clear, urgent call to action
-- NEVER use: "link in bio", "check it out", "learn more", "try it"
-- ALWAYS use action + urgency: "Add to cart before they sell out", "Tap the yellow basket NOW", "Grab yours — this deal ends tonight"
-- The CTA should feel like the person is genuinely telling a friend to act FAST
-- CTA overlay text must match: "ADD TO CART NOW", "TAP YELLOW BASKET", "GRAB YOURS"
-- Think: what would make someone STOP scrolling and BUY right now?
+- The LAST beat MUST end with a natural, convincing close
+- NEVER use passive CTAs: "link in bio", "check it out", "learn more", "try it"
+- NEVER use infomercial CTAs: "tap the yellow basket NOW", "buy it right now"
+- USE authentic urgency — sound like you're texting a friend:
+  "I stocked up on three. Seriously, just get one before they sell out."
+  "I wish someone told me about this sooner. Don't wait like I did."
+  "If you've been going back and forth — just get it. You'll thank me later."
+- The CTA should feel like the NATURAL ending of the person's genuine reaction
+- CTA overlay: short, action-oriented but not screamy (e.g. "grab yours", "don't sleep on this")
 
 EXAMPLE:
 {
@@ -774,14 +779,14 @@ EXAMPLE:
     {
       "t": "0:06-0:10",
       "action": "Slow satisfied smile spreading across her face. Behind her, a cat knocks a water bottle off the shelf — she doesn't even flinch, just keeps sipping with her eyes closed. Pure contentment.",
-      "dialogue": "Why did nobody tell me? Grab yours before they sell out.",
-      "on_screen_text": "add to cart NOW"
+      "dialogue": "Why did nobody tell me about this sooner? Seriously, just get one.",
+      "on_screen_text": "don't sleep on this"
     }
   ],
   "b_roll": [],
-  "overlays": ["I was SO skeptical", "morning game changer", "add to cart NOW"],
-  "cta_line": "Grab yours before they sell out",
-  "cta_overlay": "ADD TO CART NOW"
+  "overlays": ["I was SO skeptical", "morning game changer", "don't sleep on this"],
+  "cta_line": "Seriously, just get one. You'll thank me later.",
+  "cta_overlay": "grab yours"
 }
 `,
 

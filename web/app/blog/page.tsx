@@ -16,6 +16,15 @@ export const metadata: Metadata = {
 export default function BlogPage() {
   const articles = [
     {
+      slug: 'getting-started',
+      title: 'Getting Started with FlashFlow AI — Your First Script in 60 Seconds',
+      excerpt: 'Step-by-step guide to generating your first TikTok script. Add a product, pick a persona, generate, save. No experience needed.',
+      date: 'Feb 14, 2026',
+      readTime: '5 min read',
+      category: 'Tutorial',
+      image: '🚀',
+    },
+    {
       slug: 'how-to-transcribe-tiktok-videos',
       title: 'How to Transcribe TikTok Videos for Free in 2026',
       excerpt: 'Step-by-step guide to transcribing any TikTok video, extracting hooks, and using transcripts to improve your own content strategy.',

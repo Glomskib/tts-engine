@@ -189,6 +189,7 @@ export async function POST(request: NextRequest) {
       product_id: product.id,
       recording_status: 'NOT_RECORDED',
       render_provider: input.renderProvider,
+      google_drive_url: '',
     })
     .select('id, video_code, recording_status')
     .single();
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
     console.error(`[${correlationId}] Video creation error:`, videoError);
     return createApiErrorResponse(
       'DB_ERROR',
-      'Failed to create video record',
+      `Failed to create video record: ${videoError?.message || 'unknown'}`,
       500,
       correlationId
     );

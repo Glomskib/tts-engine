@@ -17,6 +17,7 @@ import { InstallBanner } from '@/components/PWAProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkipLink } from '@/components/ui/SkipLink';
 import { AriaLiveProvider } from '@/components/ui/AriaLive';
+import { PlanDebugBanner } from '@/components/PlanDebugBanner';
 import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
@@ -523,6 +524,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </div>
     <CommandPalette />
     <KeyboardShortcutsModal />
+    <PlanDebugBanner />
     </AriaLiveProvider>
     </ToastProvider>
     </ThemeProvider>

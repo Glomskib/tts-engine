@@ -138,6 +138,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Voice Agent', href: '/admin/voice', icon: Mic, adminOnly: true },
       { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
+      { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },
       { name: 'Settings', href: '/admin/settings', icon: Settings, adminOnly: true },
     ],
   },

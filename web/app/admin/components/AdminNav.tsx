@@ -99,6 +99,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
         <Link href="/admin/brands" style={linkStyle('/admin/brands')}>
           Brands
         </Link>
+        <span style={separatorStyle}>|</span>
+        <Link href="/admin/analytics" style={linkStyle('/admin/analytics')}>
+          Analytics
+        </Link>
       </div>
 
       {showNotificationBadge}

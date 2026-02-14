@@ -122,6 +122,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
       { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
+      { name: 'Briefs', href: '/admin/briefs', icon: FileText, minPlan: 'creator_pro' },
     ],
   },
   {

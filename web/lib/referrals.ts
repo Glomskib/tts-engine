@@ -310,3 +310,15 @@ async function getUserEmail(userId: string): Promise<string | null> {
 export async function recordReferralClick(referralCode: string): Promise<void> {
   // No-op in new system — we track redemptions, not clicks
 }
+
+/**
+ * Record a referral conversion when a referred user upgrades to paid.
+ * Called from the Stripe webhook.
+ * In the new system, rewards are given at signup, so this is a no-op.
+ * Kept for backwards compatibility with the Stripe webhook.
+ */
+export async function recordReferralConversion(referredUserId: string): Promise<void> {
+  // In the new system, both users already received credits at signup.
+  // This function is kept for Stripe webhook compat — future use could
+  // add bonus credits on conversion.
+}

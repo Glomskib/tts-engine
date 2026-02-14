@@ -70,11 +70,17 @@ function LoginForm() {
           return;
         }
 
+        // Build callback URL with ref code if present
+        const callbackParams = new URLSearchParams();
+        if (redirect) callbackParams.set('redirect', redirect);
+        if (refCode) callbackParams.set('ref', refCode);
+        const callbackSuffix = callbackParams.toString() ? `?${callbackParams.toString()}` : '';
+
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}${redirect}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback${callbackSuffix}`,
           },
         });
 

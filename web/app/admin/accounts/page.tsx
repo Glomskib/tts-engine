@@ -22,6 +22,9 @@ interface TikTokAccount {
   status_reason: string | null;
   notes: string | null;
   created_at: string;
+  has_video_list_scope?: boolean;
+  last_video_sync_at?: string | null;
+  total_synced_videos?: number;
 }
 
 export default function AccountsPage() {
@@ -140,7 +143,7 @@ export default function AccountsPage() {
   const getTypeColor = (type: string) => {
     return type === 'affiliate'
       ? 'bg-violet-500/20 text-violet-400 border-violet-500/30'
-      : 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      : 'bg-teal-500/20 text-teal-400 border-teal-500/30';
   };
 
   const handleRefresh = async () => {
@@ -172,12 +175,33 @@ export default function AccountsPage() {
         </div>
         <button
           onClick={() => setShowNewForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors btn-press min-h-[44px]"
+          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors btn-press min-h-[44px]"
         >
           <Plus className="w-4 h-4" />
           Add Account
         </button>
       </div>
+
+      {/* Re-Auth Banner — shown when any account lacks video.list scope */}
+      {accounts.some((a) => a.has_video_list_scope === false) && (
+        <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🔗</span>
+            <div>
+              <h3 className="font-semibold text-amber-400 text-sm">Reconnect TikTok to Unlock Full Analytics</h3>
+              <p className="text-xs text-zinc-400 mt-1">
+                FlashFlow can now sync your entire TikTok video catalog — views, engagement, and performance for ALL your videos, not just ones created here. Reconnect to enable this.
+              </p>
+              <a
+                href="/api/tiktok/connect"
+                className="inline-block mt-2 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg px-4 py-2 transition-colors"
+              >
+                Reconnect TikTok →
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Account Form */}
       {showNewForm && (
@@ -229,7 +253,7 @@ export default function AccountsPage() {
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleCreate}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg btn-press min-h-[44px]"
+              className="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg btn-press min-h-[44px]"
             >
               Create
             </button>
@@ -334,6 +358,13 @@ export default function AccountsPage() {
                 Focus: {account.category_focus}
               </div>
             )}
+
+            {/* Video Sync Status */}
+            {account.last_video_sync_at && (
+              <div className="text-xs text-zinc-500 mt-1">
+                Last synced: {new Date(account.last_video_sync_at).toLocaleDateString()} · {account.total_synced_videos || 0} videos tracked
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -343,7 +374,7 @@ export default function AccountsPage() {
           <div className="text-zinc-500 mb-4">No accounts yet</div>
           <button
             onClick={() => setShowNewForm(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg btn-press min-h-[44px]"
+            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg btn-press min-h-[44px]"
           >
             Add Your First Account
           </button>

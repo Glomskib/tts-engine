@@ -109,7 +109,7 @@ const QUICK_ACTIONS = [
     label: 'Generate Scripts',
     href: '/admin/content-studio',
     icon: Sparkles,
-    color: 'bg-blue-500/20 text-blue-400',
+    color: 'bg-teal-500/20 text-teal-400',
     description: 'AI content studio',
   },
   {
@@ -130,7 +130,7 @@ const QUICK_ACTIONS = [
     label: 'Production Board',
     href: '/admin/pipeline',
     icon: Video,
-    color: 'bg-purple-500/20 text-purple-400',
+    color: 'bg-purple-500/20 text-teal-400',
     description: 'Track video production',
   },
   {
@@ -150,7 +150,7 @@ const QUICK_ACTIONS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  SCRIPT_READY: 'bg-blue-500',
+  SCRIPT_READY: 'bg-teal-500',
   RECORDING: 'bg-purple-500',
   EDITING: 'bg-amber-500',
   REVIEW: 'bg-orange-500',
@@ -194,7 +194,7 @@ const REC_STATUS_COLORS: Record<string, string> = {
   NOT_RECORDED: 'bg-zinc-500',
   AI_RENDERING: 'bg-purple-500',
   READY_FOR_REVIEW: 'bg-emerald-500',
-  RECORDED: 'bg-blue-500',
+  RECORDED: 'bg-teal-500',
   EDITED: 'bg-amber-500',
   READY_TO_POST: 'bg-green-500',
 };
@@ -290,6 +290,7 @@ export default function DashboardPage() {
   const [sotdExpanded, setSotdExpanded] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [sotdGenerating, setSotdGenerating] = useState(false);
+  const [creatorDNA, setCreatorDNA] = useState<any>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -423,6 +424,14 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { fetchData(); fetchRecommendations(); fetchSOTD(); fetchWeeklyData(); }, [fetchData, fetchRecommendations, fetchSOTD, fetchWeeklyData]);
+
+  // Fetch Creator DNA data
+  useEffect(() => {
+    fetch('/api/creator-dna', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setCreatorDNA(d))
+      .catch(() => {});
+  }, []);
 
   const activeStatuses = ['SCRIPT_READY', 'RECORDING', 'EDITING', 'REVIEW', 'SCHEDULED', 'READY_TO_POST'];
   const totalActive = data ? activeStatuses.reduce((sum, s) => sum + (data.pipelineByStatus[s] || 0), 0) : 0;
@@ -678,6 +687,63 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* Creator DNA Widget */}
+        {creatorDNA && creatorDNA.total_videos_analyzed >= 20 ? (
+          <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">🧬</span>
+              <h3 className="font-semibold text-white text-sm">Your Creator DNA</h3>
+              <span className="text-xs bg-teal-500/20 text-teal-400 rounded-full px-2 py-0.5">
+                {creatorDNA.total_videos_analyzed} videos analyzed
+              </span>
+            </div>
+
+            {creatorDNA.winning_formula && (
+              <p className="text-sm text-zinc-300 mb-3">{creatorDNA.winning_formula}</p>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+              {creatorDNA.hook_patterns?.best_performing && (
+                <div className="bg-zinc-900/50 rounded-lg p-2">
+                  <div className="text-xs text-zinc-500">Best Hook</div>
+                  <div className="text-sm font-medium text-teal-400 capitalize">{creatorDNA.hook_patterns.best_performing}</div>
+                </div>
+              )}
+              {creatorDNA.format_patterns?.best_for_engagement && (
+                <div className="bg-zinc-900/50 rounded-lg p-2">
+                  <div className="text-xs text-zinc-500">Best Format</div>
+                  <div className="text-sm font-medium text-teal-400 capitalize">{creatorDNA.format_patterns.best_for_engagement}</div>
+                </div>
+              )}
+              {creatorDNA.performance_patterns?.optimal_video_length?.sweet_spot && (
+                <div className="bg-zinc-900/50 rounded-lg p-2">
+                  <div className="text-xs text-zinc-500">Optimal Length</div>
+                  <div className="text-sm font-medium text-teal-400">{creatorDNA.performance_patterns.optimal_video_length.sweet_spot}s</div>
+                </div>
+              )}
+              {creatorDNA.performance_patterns?.grade_distribution && (
+                <div className="bg-zinc-900/50 rounded-lg p-2">
+                  <div className="text-xs text-zinc-500">A-Grade Videos</div>
+                  <div className="text-sm font-medium text-teal-400">{creatorDNA.performance_patterns.grade_distribution.A || 0}</div>
+                </div>
+              )}
+            </div>
+
+            {creatorDNA.growth_recommendations?.length > 0 && (
+              <div className="mt-3 p-2 bg-teal-500/5 border border-teal-500/20 rounded-lg">
+                <div className="text-xs text-teal-400 font-medium mb-1">💡 Growth Tip</div>
+                <div className="text-xs text-zinc-400">{creatorDNA.growth_recommendations[0]}</div>
+              </div>
+            )}
+          </div>
+        ) : (!creatorDNA || (creatorDNA.total_videos_analyzed || 0) < 20) && !loading ? (
+          <div className="bg-zinc-800/30 border border-dashed border-zinc-700/50 rounded-xl p-4 text-center">
+            <span className="text-2xl">🧬</span>
+            <p className="text-sm text-zinc-400 mt-2">Creator DNA</p>
+            <p className="text-xs text-zinc-600 mt-1">Connect TikTok to unlock AI-powered insights from your entire video catalog</p>
+          </div>
+        ) : null}
+
         {/* Script of the Day */}
         {sotdLoading ? (
           <div className="bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-zinc-800 rounded-xl p-5">
@@ -717,7 +783,7 @@ export default function DashboardPage() {
                       </span>
                     )}
                     {sotd.full_script?.sales_approach && (
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/20">
                         {sotd.full_script.sales_approach}
                       </span>
                     )}
@@ -766,7 +832,7 @@ export default function DashboardPage() {
 
                       {/* Body */}
                       <div className="bg-zinc-800 rounded-lg p-3">
-                        <span className="text-[10px] uppercase tracking-wider text-blue-400 font-semibold block mb-1">
+                        <span className="text-[10px] uppercase tracking-wider text-teal-400 font-semibold block mb-1">
                           Body — The Pitch
                         </span>
                         <p className="text-xs text-zinc-200 leading-relaxed whitespace-pre-line">
@@ -979,8 +1045,8 @@ export default function DashboardPage() {
                 const typeColors: Record<string, string> = {
                   underserved_product: 'bg-red-500/20 text-red-400',
                   winner_remix: 'bg-amber-500/20 text-amber-400',
-                  trending_hook: 'bg-blue-500/20 text-blue-400',
-                  gap_fill: 'bg-purple-500/20 text-purple-400',
+                  trending_hook: 'bg-teal-500/20 text-teal-400',
+                  gap_fill: 'bg-purple-500/20 text-teal-400',
                   content_type_diversify: 'bg-teal-500/20 text-teal-400',
                 };
                 const typeIcons: Record<string, typeof Sparkles> = {

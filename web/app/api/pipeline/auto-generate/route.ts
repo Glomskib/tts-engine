@@ -43,7 +43,7 @@ const DEFAULT_AVATAR = 'Abigail_expressive_2024112501';
 // --- Input Schema ---
 const AutoGenerateSchema = z.object({
   productId: z.string().uuid(),
-  personaId: z.string().uuid().optional(),
+  personaId: z.string().uuid().nullable().optional(),
   renderProvider: z.enum(['heygen', 'runway']).default('heygen'),
 });
 

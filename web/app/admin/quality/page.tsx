@@ -49,14 +49,14 @@ const DIMENSIONS = [
 
 function getScoreColor(score: number): string {
   if (score >= 8) return 'text-emerald-400';
-  if (score >= 6) return 'text-blue-400';
+  if (score >= 6) return 'text-teal-400';
   if (score >= 4) return 'text-amber-400';
   return 'text-red-400';
 }
 
 function getScoreBg(score: number): string {
   if (score >= 8) return 'bg-emerald-500';
-  if (score >= 6) return 'bg-blue-500';
+  if (score >= 6) return 'bg-teal-500';
   if (score >= 4) return 'bg-amber-500';
   return 'bg-red-500';
 }
@@ -348,7 +348,7 @@ export default function QualityPage() {
                         <div className="text-center mb-4">
                           <div className={`inline-flex items-center justify-center w-20 h-20 rounded-2xl ${
                             scores.overall_score >= 8 ? 'bg-emerald-500/20' :
-                            scores.overall_score >= 6 ? 'bg-blue-500/20' :
+                            scores.overall_score >= 6 ? 'bg-teal-500/20' :
                             scores.overall_score >= 4 ? 'bg-amber-500/20' : 'bg-red-500/20'
                           }`}>
                             <span className={`text-4xl font-bold ${getScoreColor(scores.overall_score)}`}>

@@ -200,7 +200,7 @@ export default function AutomationDashboard() {
       offline: 'bg-red-500/20 text-red-400 border-red-500/30',
       error: 'bg-red-500/20 text-red-400 border-red-500/30',
       unhealthy: 'bg-red-500/20 text-red-400 border-red-500/30',
-      running: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      running: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
     };
     return styles[status] || styles.unknown;
   };
@@ -274,7 +274,7 @@ export default function AutomationDashboard() {
               }
             }}
             disabled={deploying}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             <Rocket className={`w-4 h-4 ${deploying ? 'animate-bounce' : ''}`} />
             {deploying ? 'Deploying...' : 'Deploy'}

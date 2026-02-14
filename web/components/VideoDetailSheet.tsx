@@ -169,8 +169,8 @@ export function VideoDetailSheet({
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    'Ready to Record': 'bg-blue-500/20 text-blue-400',
-    'ready_to_record': 'bg-blue-500/20 text-blue-400',
+    'Ready to Record': 'bg-teal-500/20 text-teal-400',
+    'ready_to_record': 'bg-teal-500/20 text-teal-400',
     'Needs Review': 'bg-amber-500/20 text-amber-400',
     'needs_review': 'bg-amber-500/20 text-amber-400',
     'Approved': 'bg-green-500/20 text-green-400',

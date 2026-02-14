@@ -335,11 +335,11 @@ export default function DailyAnalyticsPage() {
           <div className="space-y-5">
             {/* Stat row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
-                <Video className="w-5 h-5 text-blue-400" />
+              <div className="flex items-center gap-3 bg-teal-500/10 border border-teal-500/20 rounded-xl px-4 py-3">
+                <Video className="w-5 h-5 text-teal-400" />
                 <div>
                   <div className="text-xs text-zinc-500 uppercase tracking-wide">Created</div>
-                  <div className="text-xl font-semibold text-blue-300">{todaySummary.videos_created}</div>
+                  <div className="text-xl font-semibold text-teal-300">{todaySummary.videos_created}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
@@ -473,7 +473,7 @@ export default function DailyAnalyticsPage() {
                   </div>
                   <div className="flex items-center gap-4 shrink-0 text-right">
                     <div>
-                      <div className="text-sm font-medium text-blue-400">{s.videos_created}</div>
+                      <div className="text-sm font-medium text-teal-400">{s.videos_created}</div>
                       <div className="text-[10px] text-zinc-600">created</div>
                     </div>
                     <div>

@@ -24,7 +24,7 @@ interface ApiSection {
 
 const METHOD_COLORS: Record<string, string> = {
   GET: 'bg-green-500/20 text-green-400 border-green-500/30',
-  POST: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  POST: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
   PUT: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   PATCH: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   DELETE: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -367,7 +367,7 @@ export default function ApiDocsPage() {
         <h3 className="text-sm font-medium text-white mb-2">Authentication</h3>
         <div className="text-sm text-zinc-400 space-y-1">
           <p><Lock className="w-3.5 h-3.5 inline mr-1 text-yellow-400" /> <strong>Session</strong>: Cookie-based auth via Supabase (automatic in browser)</p>
-          <p><Lock className="w-3.5 h-3.5 inline mr-1 text-blue-400" /> <strong>API Key</strong>: <code className="text-teal-400">Authorization: Bearer ff_ak_...</code> header</p>
+          <p><Lock className="w-3.5 h-3.5 inline mr-1 text-teal-400" /> <strong>API Key</strong>: <code className="text-teal-400">Authorization: Bearer ff_ak_...</code> header</p>
           <p><Unlock className="w-3.5 h-3.5 inline mr-1 text-green-400" /> <strong>Public</strong>: No auth required</p>
         </div>
       </div>

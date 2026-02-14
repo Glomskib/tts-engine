@@ -296,14 +296,14 @@ export default function UpgradePage() {
                     key={plan.id}
                     className={`p-6 rounded-xl border-2 relative ${
                       isPopular
-                        ? 'border-blue-500/50 bg-blue-500/5'
+                        ? 'border-teal-500/50 bg-teal-500/5'
                         : isCurrentPlan
                         ? 'border-emerald-500/50 bg-emerald-500/5'
                         : 'border-white/10 bg-zinc-900/30'
                     }`}
                   >
                     {isPopular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white">
                         Most Popular
                       </div>
                     )}
@@ -315,7 +315,7 @@ export default function UpgradePage() {
                       </div>
                     </div>
 
-                    <div className="text-sm text-blue-400 mb-4">{plan.credits === -1 ? 'Unlimited' : plan.credits} credits{plan.id === 'free' ? ' (one-time)' : '/month'}</div>
+                    <div className="text-sm text-teal-400 mb-4">{plan.credits === -1 ? 'Unlimited' : plan.credits} credits{plan.id === 'free' ? ' (one-time)' : '/month'}</div>
 
                     {isCurrentPlan ? (
                       <div className="text-center text-sm text-emerald-400 py-2.5 font-medium border border-emerald-500/30 rounded-lg bg-emerald-500/10">
@@ -349,7 +349,7 @@ export default function UpgradePage() {
                     <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
                     {SAAS_PLANS.map((plan) => (
                       <th key={plan.id} className={`text-center py-4 px-3 text-sm font-medium ${
-                        plan.id === 'creator_pro' ? 'text-blue-400' : 'text-zinc-400'
+                        plan.id === 'creator_pro' ? 'text-teal-400' : 'text-zinc-400'
                       }`}>
                         {plan.name}
                       </th>
@@ -362,7 +362,7 @@ export default function UpgradePage() {
                       <td className="py-3 px-4 text-sm text-zinc-300">{feature.name}</td>
                       {feature.values.map((val, i) => (
                         <td key={i} className={`py-3 px-3 text-center ${
-                          SAAS_PLANS[i]?.id === 'creator_pro' ? 'bg-blue-500/5' : ''
+                          SAAS_PLANS[i]?.id === 'creator_pro' ? 'bg-teal-500/5' : ''
                         }`}>
                           {renderFeatureValue(val)}
                         </td>
@@ -382,7 +382,7 @@ export default function UpgradePage() {
             <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-2xl p-8 mb-8">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-xl bg-purple-500/30 flex items-center justify-center">
-                  <Video className="w-6 h-6 text-purple-400" />
+                  <Video className="w-6 h-6 text-teal-400" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-white">Hire Our Video Editor Team</h2>
@@ -420,7 +420,7 @@ export default function UpgradePage() {
                       <div className="my-4 pt-4 border-t border-zinc-700">
                         <p className="text-2xl font-bold text-white">${plan.price}</p>
                         <p className="text-zinc-500 text-sm">/month</p>
-                        <p className="text-purple-400 text-xs mt-1">{plan.perVideo}/video</p>
+                        <p className="text-teal-400 text-xs mt-1">{plan.perVideo}/video</p>
                       </div>
 
                       <p className="text-xs text-teal-400 mb-4">
@@ -437,7 +437,7 @@ export default function UpgradePage() {
                           disabled={checkoutLoading === plan.id}
                           className={`w-full py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
                             isPopular
-                              ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                              ? 'bg-teal-600 hover:bg-purple-700 text-white'
                               : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                           }`}
                         >
@@ -466,7 +466,7 @@ export default function UpgradePage() {
                   <tr className="border-b border-white/10">
                     <th className="text-left py-4 px-4 text-sm font-medium text-zinc-400">Feature</th>
                     <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Starter</th>
-                    <th className="text-center py-4 px-4 text-sm font-medium text-purple-400">Growth</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-teal-400">Growth</th>
                     <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Scale</th>
                     <th className="text-center py-4 px-4 text-sm font-medium text-zinc-400">Agency</th>
                   </tr>

@@ -108,8 +108,8 @@ export default function TikTokShopLP() {
           <h2 className="text-2xl font-bold mb-2">The Math is Simple</h2>
           <p className="text-zinc-400">One viral script pays for a year of FlashFlow.</p>
         </div>
-        <div className="max-w-sm mx-auto p-6 rounded-2xl bg-zinc-900/80 border border-blue-500/50 text-center">
-          <div className="px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white inline-block mb-4">
+        <div className="max-w-sm mx-auto p-6 rounded-2xl bg-zinc-900/80 border border-teal-500/50 text-center">
+          <div className="px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white inline-block mb-4">
             Most Popular for TikTok Shop
           </div>
           <h3 className="text-xl font-semibold text-white mb-1">Creator Pro</h3>

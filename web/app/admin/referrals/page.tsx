@@ -139,7 +139,7 @@ export default function ReferralsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {[
-          { icon: Users, value: stats?.totalReferrals || 0, label: "Total Referrals", color: "text-blue-400" },
+          { icon: Users, value: stats?.totalReferrals || 0, label: "Total Referrals", color: "text-teal-400" },
           { icon: Gift, value: stats?.creditsEarned || 0, label: "Credits Earned", color: "text-teal-400" },
           { icon: TrendingUp, value: recent.filter(r => r.reward_given).length, label: "Rewards Given", color: "text-emerald-400" },
         ].map((stat) => (

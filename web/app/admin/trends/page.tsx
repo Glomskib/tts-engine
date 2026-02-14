@@ -224,8 +224,8 @@ export default function TrendsPage() {
             <div className="space-y-2">
               {hashtags.map(h => (
                 <div key={h.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
-                    <Hash className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-lg bg-teal-500/20 flex items-center justify-center shrink-0">
+                    <Hash className="w-5 h-5 text-teal-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -267,7 +267,7 @@ export default function TrendsPage() {
               {sounds.map(s => (
                 <div key={s.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
                   <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
-                    <Music className="w-5 h-5 text-purple-400" />
+                    <Music className="w-5 h-5 text-teal-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

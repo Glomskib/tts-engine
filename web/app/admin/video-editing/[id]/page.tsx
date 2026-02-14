@@ -52,9 +52,9 @@ interface Editor {
 
 const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgColor: string }> = {
   pending: { label: 'Pending', color: '#6b7280', bgColor: 'bg-zinc-700' },
-  assigned: { label: 'Assigned', color: '#3b82f6', bgColor: 'bg-blue-600' },
+  assigned: { label: 'Assigned', color: '#3b82f6', bgColor: 'bg-teal-600' },
   in_progress: { label: 'In Progress', color: '#f59e0b', bgColor: 'bg-amber-600' },
-  review: { label: 'In Review', color: '#8b5cf6', bgColor: 'bg-purple-600' },
+  review: { label: 'In Review', color: '#8b5cf6', bgColor: 'bg-teal-600' },
   revision: { label: 'Needs Revision', color: '#f97316', bgColor: 'bg-orange-600' },
   completed: { label: 'Completed', color: '#10b981', bgColor: 'bg-green-600' },
   cancelled: { label: 'Cancelled', color: '#ef4444', bgColor: 'bg-red-600' },
@@ -310,7 +310,7 @@ export default function VideoRequestDetailPage() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
               >
-                <ExternalLink className="w-5 h-5 text-blue-400" />
+                <ExternalLink className="w-5 h-5 text-teal-400" />
                 <div className="flex-1">
                   <p className="text-white font-medium">Source Files</p>
                   <p className="text-xs text-zinc-500">Raw footage from client</p>
@@ -386,7 +386,7 @@ export default function VideoRequestDetailPage() {
               {request.status === 'pending' && (
                 <button type="button"
                   onClick={() => setShowAssignModal(true)}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2"
                 >
                   <Users className="w-4 h-4" />
                   Assign Editor
@@ -407,7 +407,7 @@ export default function VideoRequestDetailPage() {
               {(request.status === 'in_progress' || request.status === 'revision') && (
                 <button type="button"
                   onClick={() => setShowDeliveryModal(true)}
-                  className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   Submit for Review
@@ -460,7 +460,7 @@ export default function VideoRequestDetailPage() {
                 ) : (
                   <button type="button"
                     onClick={() => setShowAssignModal(true)}
-                    className="text-sm text-blue-400 hover:text-blue-300"
+                    className="text-sm text-teal-400 hover:text-teal-300"
                   >
                     Assign
                   </button>
@@ -626,7 +626,7 @@ export default function VideoRequestDetailPage() {
             <button type="button"
               onClick={handleDelivery}
               disabled={!deliveryLink || updating}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
             >
               {updating && <Loader2 className="w-4 h-4 animate-spin" />}
               Submit

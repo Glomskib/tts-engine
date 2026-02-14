@@ -49,7 +49,7 @@ interface ClientRequest {
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  SUBMITTED: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  SUBMITTED: { bg: 'bg-teal-100', text: 'text-teal-700' },
   IN_REVIEW: { bg: 'bg-amber-100', text: 'text-amber-700' },
   APPROVED: { bg: 'bg-green-100', text: 'text-green-700' },
   REJECTED: { bg: 'bg-red-100', text: 'text-red-700' },

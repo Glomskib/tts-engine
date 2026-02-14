@@ -808,7 +808,7 @@ export default function WinnersBankPage() {
             <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-purple-400" />
+                  <Zap className="w-5 h-5 text-teal-400" />
                   Generate Like This Winner
                 </h2>
                 <p className="text-sm text-zinc-400 mt-1">Create new scripts inspired by this winning pattern</p>
@@ -868,7 +868,7 @@ export default function WinnersBankPage() {
                 type="button"
                 onClick={handleGenerateFromWinner}
                 disabled={!targetProductId || generatingLike}
-                className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-teal-600 hover:bg-purple-500 disabled:bg-teal-600/40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
               >
                 {generatingLike ? (
                   <>
@@ -892,7 +892,7 @@ export default function WinnersBankPage() {
                     return variations.map((v: { skit: { hook_line: string; beats: Array<{ t: string; action: string; dialogue?: string }>; cta_line: string; cta_overlay: string; b_roll: string[]; overlays: string[] }; ai_score?: { overall_score: number } | null }, vIdx: number) => (
                       <div key={vIdx} className="p-4 bg-zinc-800 border border-zinc-700 rounded-lg space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-purple-400 uppercase">Variation {vIdx + 1}</span>
+                          <span className="text-xs font-semibold text-teal-400 uppercase">Variation {vIdx + 1}</span>
                           {v.ai_score && (
                             <span className="text-xs text-zinc-400">Score: {v.ai_score.overall_score}/10</span>
                           )}
@@ -1084,7 +1084,7 @@ function StatCard({
     violet: 'bg-violet-500/10 text-violet-400',
     teal: 'bg-teal-500/10 text-teal-400',
     emerald: 'bg-emerald-500/10 text-emerald-400',
-    blue: 'bg-blue-500/10 text-blue-400',
+    blue: 'bg-teal-500/10 text-teal-400',
   };
 
   return (

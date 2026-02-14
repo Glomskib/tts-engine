@@ -668,7 +668,7 @@ export default function ClientDetailPage() {
                 {report.content_breakdown.length > 0 && (
                   <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                     <div className="flex items-center gap-2 mb-4">
-                      <BarChart3 className="w-5 h-5 text-purple-400" />
+                      <BarChart3 className="w-5 h-5 text-teal-400" />
                       <h2 className="text-lg font-semibold text-white">Content Type Breakdown</h2>
                     </div>
                     <div className="space-y-3">

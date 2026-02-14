@@ -258,7 +258,7 @@ function UploadVideoPage() {
               value={productId}
               onChange={(e) => setProductId(e.target.value)}
               disabled={productsLoading}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
             >
               <option value="">No product linked</option>
               {products.map((p) => (
@@ -280,7 +280,7 @@ function UploadVideoPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Auto-generated from filename if empty"
-            className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+            className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
           />
         </div>
 
@@ -292,7 +292,7 @@ function UploadVideoPage() {
           onClick={() => fileInputRef.current?.click()}
           className={`relative rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
             isDragging
-              ? "border-blue-500 bg-blue-500/10"
+              ? "border-teal-500 bg-teal-500/10"
               : file
                 ? "border-zinc-700 bg-zinc-900"
                 : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-900"
@@ -313,7 +313,7 @@ function UploadVideoPage() {
             <div className="p-8">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-zinc-800">
-                  <FileVideo className="w-6 h-6 text-blue-400" />
+                  <FileVideo className="w-6 h-6 text-teal-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">
@@ -347,7 +347,7 @@ function UploadVideoPage() {
                   </div>
                   <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                      className="h-full rounded-full bg-teal-500 transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -359,7 +359,7 @@ function UploadVideoPage() {
               <Upload className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
               <p className="text-sm text-zinc-400 mb-1">
                 Drag and drop your video here, or{" "}
-                <span className="text-blue-400">browse</span>
+                <span className="text-teal-400">browse</span>
               </p>
               <p className="text-xs text-zinc-600">
                 MP4, MOV, or WebM up to 500 MB

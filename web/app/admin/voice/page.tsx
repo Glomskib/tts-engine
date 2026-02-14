@@ -225,7 +225,7 @@ export default function VoicePage() {
       {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-900/50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-teal-600 flex items-center justify-center">
             <Mic className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -239,7 +239,7 @@ export default function VoicePage() {
               type="checkbox"
               checked={autoSpeak}
               onChange={e => setAutoSpeak(e.target.checked)}
-              className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-indigo-600 focus:ring-indigo-500/50"
+              className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-teal-600 focus:ring-teal-500/50"
             />
             <span className="text-xs text-zinc-400">Auto-speak responses</span>
           </label>
@@ -260,8 +260,8 @@ export default function VoicePage() {
       <div className="flex-1 overflow-auto px-4 py-6 max-w-2xl mx-auto w-full">
         {messages.length === 0 && !isListening && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-20 h-20 rounded-full bg-indigo-600/20 flex items-center justify-center mb-4">
-              <Mic className="w-10 h-10 text-indigo-400" />
+            <div className="w-20 h-20 rounded-full bg-teal-600/20 flex items-center justify-center mb-4">
+              <Mic className="w-10 h-10 text-teal-400" />
             </div>
             <h2 className="text-xl font-semibold mb-2">Hey Brandon!</h2>
             <p className="text-zinc-400 text-sm max-w-sm">
@@ -275,11 +275,11 @@ export default function VoicePage() {
           <div key={msg.id} className={`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
               msg.role === 'user'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-teal-600 text-white'
                 : 'bg-zinc-800 text-zinc-200'
             }`}>
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-              <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-indigo-200' : 'text-zinc-500'}`}>
+              <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-teal-200' : 'text-zinc-500'}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -309,8 +309,8 @@ export default function VoicePage() {
         {/* Live transcript */}
         {isListening && transcript && (
           <div className="mb-4 flex justify-end">
-            <div className="bg-indigo-600/50 rounded-2xl px-4 py-3 border border-indigo-500/30">
-              <p className="text-sm text-indigo-200 italic">{transcript}</p>
+            <div className="bg-teal-600/50 rounded-2xl px-4 py-3 border border-teal-500/30">
+              <p className="text-sm text-teal-200 italic">{transcript}</p>
             </div>
           </div>
         )}
@@ -338,7 +338,7 @@ export default function VoicePage() {
               onChange={e => setTextInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleTextSubmit(); }}
               placeholder="Type a message..."
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 pr-12"
+              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 pr-12"
               disabled={isProcessing}
             />
             {textInput.trim() && (
@@ -346,7 +346,7 @@ export default function VoicePage() {
                 type="button"
                 onClick={handleTextSubmit}
                 disabled={isProcessing}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-teal-600 hover:bg-teal-500"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -377,7 +377,7 @@ export default function VoicePage() {
               type="button"
               onClick={startListening}
               disabled={isProcessing}
-              className="w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-all hover:scale-105"
+              className="w-14 h-14 rounded-full bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-all hover:scale-105"
               title="Start listening"
             >
               <Mic className="w-5 h-5 text-white" />

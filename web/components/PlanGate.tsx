@@ -110,7 +110,7 @@ function UpgradeCard({ feature, requiredPlan, currentPlan }: { feature: string; 
             Current: {currentName}
           </span>
           <ArrowRight className="w-4 h-4 text-zinc-600" />
-          <span className="px-3 py-1 bg-purple-500/20 rounded-full text-purple-400">
+          <span className="px-3 py-1 bg-purple-500/20 rounded-full text-teal-400">
             {planName}{priceLabel && ` — ${priceLabel}`}
           </span>
         </div>
@@ -118,7 +118,7 @@ function UpgradeCard({ feature, requiredPlan, currentPlan }: { feature: string; 
         {requiredPlan !== 'admin' && (
           <Link
             href="/admin/billing"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-500 transition-colors mt-2"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-medium hover:bg-purple-500 transition-colors mt-2"
           >
             Upgrade to {planName}{priceLabel && ` (${priceLabel})`}
             <ArrowRight className="w-4 h-4" />

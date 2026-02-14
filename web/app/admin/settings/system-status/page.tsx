@@ -193,7 +193,7 @@ export default function SystemStatusPage() {
             type="button"
             onClick={handleSendTelegram}
             disabled={sendingTelegram}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-500 disabled:opacity-50 transition-colors"
           >
             <Send className={`w-4 h-4 ${sendingTelegram ? 'animate-pulse' : ''}`} />
             {telegramSent ? 'Sent!' : 'Send to Telegram'}
@@ -297,7 +297,7 @@ export default function SystemStatusPage() {
             <StatCard
               label="Total Users"
               value={data.usage.totalUsers}
-              icon={<Users className="w-5 h-5 text-blue-400" />}
+              icon={<Users className="w-5 h-5 text-teal-400" />}
             />
             <StatCard
               label="Active (7 days)"

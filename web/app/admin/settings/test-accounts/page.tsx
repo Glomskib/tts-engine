@@ -23,8 +23,8 @@ const PLAN_LABELS: Record<string, string> = {
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-zinc-700 text-zinc-300',
-  creator_lite: 'bg-blue-500/20 text-blue-400',
-  creator_pro: 'bg-purple-500/20 text-purple-400',
+  creator_lite: 'bg-teal-500/20 text-teal-400',
+  creator_pro: 'bg-purple-500/20 text-teal-400',
   brand: 'bg-amber-500/20 text-amber-400',
   agency: 'bg-emerald-500/20 text-emerald-400',
 };
@@ -164,7 +164,7 @@ export default function TestAccountsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Users className="w-6 h-6 text-purple-400" />
+            <Users className="w-6 h-6 text-teal-400" />
             Test Accounts
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
@@ -182,7 +182,7 @@ export default function TestAccountsPage() {
           <button
             onClick={handleCreatePreset}
             disabled={actionLoading === 'preset'}
-            className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
           >
             {actionLoading === 'preset' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
             Create Quick Set
@@ -237,7 +237,7 @@ export default function TestAccountsPage() {
             <button
               onClick={handleCreate}
               disabled={!newEmail || actionLoading === 'create'}
-              className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
             >
               {actionLoading === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create
@@ -252,7 +252,7 @@ export default function TestAccountsPage() {
       {/* Accounts Table */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+          <Loader2 className="w-6 h-6 text-teal-400 animate-spin" />
         </div>
       ) : accounts.length === 0 ? (
         <div className="text-center py-12 bg-zinc-900 border border-zinc-800 rounded-xl">

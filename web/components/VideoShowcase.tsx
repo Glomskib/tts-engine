@@ -385,7 +385,7 @@ function VideoModal({
                 href={videoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                className="text-sm text-teal-400 hover:text-teal-300 flex items-center gap-1"
               >
                 Watch <ExternalLink size={12} />
               </a>

@@ -380,7 +380,7 @@ export default function VariantPage() {
               <button type="button"
                 onClick={scaleVariant}
                 disabled={scaling || scalingForm.change_types.length === 0}
-                className="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                className="px-5 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
               >
                 {scaling ? 'Generating...' : 'Generate Scaling Plan'}
               </button>

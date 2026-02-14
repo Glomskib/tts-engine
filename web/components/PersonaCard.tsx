@@ -51,7 +51,7 @@ interface PersonaCardProps {
 
 const AVATAR_COLORS: Record<string, string> = {
   'stressed-mom': 'bg-pink-500/20 text-pink-400',
-  'busy-professional': 'bg-blue-500/20 text-blue-400',
+  'busy-professional': 'bg-teal-500/20 text-teal-400',
   'health-conscious': 'bg-emerald-500/20 text-emerald-400',
   'skeptical-buyer': 'bg-amber-500/20 text-amber-400',
   'budget-conscious': 'bg-violet-500/20 text-violet-400',
@@ -151,7 +151,7 @@ export default function PersonaCard({
             {/* Quick badges */}
             <div className="flex flex-wrap gap-1.5 mt-3">
               {persona.life_stage && (
-                <span className="px-2 py-0.5 text-xs rounded bg-blue-500/10 text-blue-400">
+                <span className="px-2 py-0.5 text-xs rounded bg-teal-500/10 text-teal-400">
                   {persona.life_stage}
                 </span>
               )}

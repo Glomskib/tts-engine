@@ -108,7 +108,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                     placeholder="Your name"
                   />
                 </div>
@@ -119,7 +119,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                     placeholder="you@company.com"
                   />
                 </div>
@@ -133,7 +133,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
                     type="text"
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                     placeholder="Company name"
                   />
                 </div>
@@ -143,7 +143,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                     placeholder="+1 (555) 123-4567"
                   />
                 </div>
@@ -157,7 +157,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
                 <select
                   value={formData.videos_per_month}
                   onChange={(e) => setFormData({ ...formData, videos_per_month: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 >
                   <option value="">Select volume...</option>
                   <option value="1-5">1-5 videos</option>
@@ -177,7 +177,7 @@ export function VideoServiceContact({ isOpen, onClose }: VideoServiceContactProp
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                  className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
                   placeholder="Content types, style preferences, timeline, etc."
                 />
               </div>

@@ -174,10 +174,10 @@ export default function DemographicsPage() {
                     <div key={loc}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-zinc-300">{loc}</span>
-                        <span className="text-blue-400 font-medium">{pct}%</span>
+                        <span className="text-teal-400 font-medium">{pct}%</span>
                       </div>
                       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        <div className="h-full bg-teal-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -227,7 +227,7 @@ export default function DemographicsPage() {
                   {d?.age_breakdown && (
                     <div className="flex gap-1 h-4 rounded overflow-hidden mb-2">
                       {Object.entries(d.age_breakdown).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([age, pct], i) => {
-                        const colors = ['bg-blue-500', 'bg-teal-500', 'bg-amber-500', 'bg-rose-500', 'bg-violet-500'];
+                        const colors = ['bg-teal-500', 'bg-teal-500', 'bg-amber-500', 'bg-rose-500', 'bg-violet-500'];
                         return (
                           <div
                             key={age}

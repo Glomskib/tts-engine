@@ -34,7 +34,7 @@ interface TimelineEvent {
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   NOT_RECORDED: { bg: 'bg-slate-100', text: 'text-slate-600' },
   RECORDED: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  EDITED: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  EDITED: { bg: 'bg-teal-100', text: 'text-teal-700' },
   READY_TO_POST: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
   POSTED: { bg: 'bg-green-100', text: 'text-green-700' },
   REJECTED: { bg: 'bg-red-100', text: 'text-red-700' },
@@ -146,7 +146,7 @@ export default function ClientVideoDetailPage() {
         <div className="mb-4">
           <Link
             href="/client/videos"
-            className="text-sm text-blue-600 hover:text-blue-700"
+            className="text-sm text-teal-600 hover:text-teal-700"
           >
             &larr; Back to Videos
           </Link>
@@ -206,7 +206,7 @@ export default function ClientVideoDetailPage() {
                       href={video.posted_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 text-sm text-blue-600 hover:text-blue-700"
+                      className="mt-1 text-sm text-teal-600 hover:text-teal-700"
                     >
                       View Post &rarr;
                     </a>

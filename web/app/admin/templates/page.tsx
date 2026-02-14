@@ -42,7 +42,7 @@ const iconMap: Record<string, React.ReactNode> = {
 
 const categoryColors: Record<string, string> = {
   ugc: 'from-violet-500 to-purple-600',
-  educational: 'from-blue-500 to-cyan-600',
+  educational: 'from-teal-500 to-cyan-600',
   lifestyle: 'from-pink-500 to-rose-600',
   promotional: 'from-amber-500 to-orange-600',
   trending: 'from-red-500 to-pink-600',

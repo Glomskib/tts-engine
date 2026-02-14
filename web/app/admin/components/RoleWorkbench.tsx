@@ -578,7 +578,7 @@ export default function RoleWorkbench({ role }: RoleWorkbenchProps) {
                 {notifications.map(notif => (
                   <div
                     key={notif.id}
-                    className={`p-3 rounded-md text-sm ${notif.is_read ? 'bg-zinc-800/50' : 'bg-blue-500/10 border border-blue-500/20'}`}
+                    className={`p-3 rounded-md text-sm ${notif.is_read ? 'bg-zinc-800/50' : 'bg-teal-500/10 border border-teal-500/20'}`}
                   >
                     <div className={notif.is_read ? 'text-zinc-400' : 'text-zinc-200 font-medium'}>
                       {notif.type === 'assigned' && 'New assignment'}

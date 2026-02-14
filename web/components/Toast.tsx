@@ -39,7 +39,7 @@ export function Toast({
   const icons = {
     success: <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />,
     error: <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />,
-    info: <Info className="w-5 h-5 text-blue-400 flex-shrink-0" />,
+    info: <Info className="w-5 h-5 text-teal-400 flex-shrink-0" />,
   };
 
   return (

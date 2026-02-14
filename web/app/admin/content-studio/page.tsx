@@ -1427,7 +1427,7 @@ export default function ContentStudioPage() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-white flex items-center gap-3">
-              <Sparkles className="w-7 h-7 text-blue-500" />
+              <Sparkles className="w-7 h-7 text-teal-500" />
               Content Studio
             </h1>
             <p className="mt-1 text-base text-zinc-400">
@@ -1463,12 +1463,12 @@ export default function ContentStudioPage() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)' }}>
-                <Sparkles size={18} className="text-purple-400" />
+                <Sparkles size={18} className="text-teal-400" />
               </div>
               <div>
                 <h3 className="text-white font-medium flex items-center gap-2 text-sm">
                   Clawbot Recommends
-                  <span className="text-xs text-purple-400 px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)' }}>
+                  <span className="text-xs text-teal-400 px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)' }}>
                     Based on your data
                   </span>
                 </h3>
@@ -1633,7 +1633,7 @@ export default function ContentStudioPage() {
                   title={tab.description}
                   className={`flex-shrink-0 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-colors ${
                     isSelected
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-teal-500 text-white'
                       : 'bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700'
                   }`}
                 >
@@ -2466,7 +2466,7 @@ export default function ContentStudioPage() {
                       ? 'bg-zinc-700 cursor-wait'
                       : generating || (!selectedProductId && !manualProductName.trim())
                       ? 'bg-zinc-700 opacity-50'
-                      : 'bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 shadow-blue-500/20'
+                      : 'bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 shadow-blue-500/20'
                   }`}
                 >
                   {generating ? (

@@ -50,8 +50,8 @@ const PLAN_LABELS: Record<string, string> = {
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-zinc-700 text-zinc-300',
-  creator_lite: 'bg-blue-500/20 text-blue-400',
-  creator_pro: 'bg-purple-500/20 text-purple-400',
+  creator_lite: 'bg-teal-500/20 text-teal-400',
+  creator_pro: 'bg-purple-500/20 text-teal-400',
   brand: 'bg-amber-500/20 text-amber-400',
   agency: 'bg-emerald-500/20 text-emerald-400',
 };
@@ -65,7 +65,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-red-500/20 text-red-400',
-  creator: 'bg-blue-500/20 text-blue-400',
+  creator: 'bg-teal-500/20 text-teal-400',
   editor: 'bg-amber-500/20 text-amber-400',
   va: 'bg-teal-500/20 text-teal-400',
 };
@@ -283,7 +283,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Users className="w-6 h-6 text-blue-400" />
+            <Users className="w-6 h-6 text-teal-400" />
             User Management
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
@@ -330,7 +330,7 @@ export default function UsersPage() {
           <button
             onClick={handleCreatePreset}
             disabled={actionLoading === 'preset'}
-            className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
           >
             {actionLoading === 'preset' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
             Create Quick Set (5 plans)
@@ -389,7 +389,7 @@ export default function UsersPage() {
             <button
               onClick={handleCreateCustom}
               disabled={!newEmail || actionLoading === 'create'}
-              className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5"
             >
               {actionLoading === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create
@@ -403,8 +403,8 @@ export default function UsersPage() {
 
       {/* Reset link modal */}
       {resetLink && (
-        <div className="bg-zinc-900 border border-blue-500/30 rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-medium text-blue-400">Password Reset Link Generated</h3>
+        <div className="bg-zinc-900 border border-teal-500/30 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-medium text-teal-400">Password Reset Link Generated</h3>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs text-zinc-300 bg-zinc-800 px-3 py-2 rounded-lg overflow-x-auto break-all">
               {resetLink}
@@ -428,7 +428,7 @@ export default function UsersPage() {
       {/* Users Table */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+          <Loader2 className="w-6 h-6 text-teal-400 animate-spin" />
         </div>
       ) : displayUsers.length === 0 ? (
         <div className="text-center py-16 bg-zinc-900 border border-zinc-800 rounded-xl">
@@ -559,7 +559,7 @@ export default function UsersPage() {
                           <button
                             onClick={() => handleResetPassword(user.id)}
                             disabled={isLoading('reset_password')}
-                            className="p-1.5 text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg"
+                            className="p-1.5 text-zinc-500 hover:text-teal-400 hover:bg-teal-500/10 rounded-lg"
                             title="Reset Password"
                           >
                             {isLoading('reset_password') ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}

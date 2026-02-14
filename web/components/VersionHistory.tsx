@@ -115,7 +115,7 @@ export default function VersionHistory({
                     isCurrent
                       ? 'bg-violet-500 border-violet-500'
                       : isSelected
-                      ? 'bg-blue-500 border-blue-500'
+                      ? 'bg-teal-500 border-teal-500'
                       : 'bg-zinc-900 border-zinc-600'
                   }`}
                 />
@@ -124,7 +124,7 @@ export default function VersionHistory({
                 <div
                   className={`p-4 rounded-lg border transition-colors cursor-pointer ${
                     isSelected
-                      ? 'bg-blue-500/10 border-blue-500/30'
+                      ? 'bg-teal-500/10 border-teal-500/30'
                       : 'bg-zinc-900/50 border-white/10 hover:border-white/20'
                   }`}
                   onClick={() => setExpandedVersion(isExpanded ? null : version.id)}
@@ -180,7 +180,7 @@ export default function VersionHistory({
                         onClick={() => toggleVersionSelect(version.id)}
                         className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                           isSelected
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-teal-600 text-white'
                             : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                         }`}
                       >

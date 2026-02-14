@@ -107,8 +107,8 @@ export default function QuickActionsPage() {
       label: "Generate Script",
       description: "Open Content Studio",
       href: "/admin/content-studio",
-      color: "from-blue-600 to-violet-600",
-      iconColor: "text-blue-300",
+      color: "from-teal-600 to-violet-600",
+      iconColor: "text-teal-300",
     },
     {
       icon: Sun,
@@ -137,8 +137,8 @@ export default function QuickActionsPage() {
   ];
 
   const pipelineStatuses = [
-    { key: "scripted", label: "Scripted", icon: FileText, color: "text-blue-400" },
-    { key: "assigned", label: "Assigned", icon: Users, color: "text-purple-400" },
+    { key: "scripted", label: "Scripted", icon: FileText, color: "text-teal-400" },
+    { key: "assigned", label: "Assigned", icon: Users, color: "text-teal-400" },
     { key: "in_progress", label: "In Progress", icon: Clock, color: "text-amber-400" },
     { key: "review", label: "Review", icon: Eye, color: "text-orange-400" },
     { key: "approved", label: "Approved", icon: Check, color: "text-green-400" },

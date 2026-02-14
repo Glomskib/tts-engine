@@ -308,7 +308,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <button type="button"
                 onClick={() => setUserMenuOpen(true)}
                 aria-label="Open user menu"
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
               >
                 {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
               </button>
@@ -347,7 +347,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 {/* User info - Larger for mobile */}
                 <div className="p-5 border-t border-zinc-800">
                   <div className="flex items-center gap-4 mb-5">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl">
                       {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -375,7 +375,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <div className="w-14 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
 
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-800">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
                     {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -481,7 +481,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     aria-expanded={userMenuOpen}
                     className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white text-sm font-bold">
                       {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <span className="text-sm max-w-[150px] truncate">{auth.userEmail}</span>

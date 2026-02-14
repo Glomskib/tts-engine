@@ -31,20 +31,20 @@ interface AuditResponse {
 // Event type colors for badges (dark theme)
 const EVENT_TYPE_COLORS: Record<string, string> = {
   'video.posted': 'bg-green-500/20 text-green-400',
-  'video.claimed': 'bg-blue-500/20 text-blue-400',
+  'video.claimed': 'bg-teal-500/20 text-teal-400',
   'video.released': 'bg-zinc-500/20 text-zinc-400',
   'hook.winner': 'bg-amber-500/20 text-amber-400',
   'hook.underperform': 'bg-red-500/20 text-red-400',
   'hook.approved': 'bg-emerald-500/20 text-emerald-400',
   'hook.rejected': 'bg-rose-500/20 text-rose-400',
-  'product.updated': 'bg-purple-500/20 text-purple-400',
+  'product.updated': 'bg-purple-500/20 text-teal-400',
 };
 
 // Entity type colors (dark theme)
 const ENTITY_TYPE_COLORS: Record<string, string> = {
-  video: 'bg-blue-500/20 text-blue-400',
+  video: 'bg-teal-500/20 text-teal-400',
   hook: 'bg-amber-500/20 text-amber-400',
-  product: 'bg-purple-500/20 text-purple-400',
+  product: 'bg-purple-500/20 text-teal-400',
 };
 
 export default function AdminAuditLogPage() {

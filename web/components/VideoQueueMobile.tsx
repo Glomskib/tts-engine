@@ -99,8 +99,8 @@ export function VideoQueueMobile({ videos, onVideoClick }: VideoQueueMobileProps
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    'Ready to Record': 'bg-blue-500/20 text-blue-400',
-    'ready_to_record': 'bg-blue-500/20 text-blue-400',
+    'Ready to Record': 'bg-teal-500/20 text-teal-400',
+    'ready_to_record': 'bg-teal-500/20 text-teal-400',
     'Needs Review': 'bg-amber-500/20 text-amber-400',
     'needs_review': 'bg-amber-500/20 text-amber-400',
     'Approved': 'bg-green-500/20 text-green-400',
@@ -109,8 +109,8 @@ function StatusBadge({ status }: { status: string }) {
     'APPROVED_NEEDS_EDITS': 'bg-amber-500/20 text-amber-400',
     'Rejected': 'bg-red-500/20 text-red-400',
     'rejected': 'bg-red-500/20 text-red-400',
-    'In Progress': 'bg-purple-500/20 text-purple-400',
-    'in_progress': 'bg-purple-500/20 text-purple-400',
+    'In Progress': 'bg-purple-500/20 text-teal-400',
+    'in_progress': 'bg-purple-500/20 text-teal-400',
   };
 
   const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

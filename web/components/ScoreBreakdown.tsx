@@ -21,7 +21,7 @@ interface ScoreBreakdownProps {
 
 const SCORE_COLORS = {
   excellent: 'text-emerald-400 bg-emerald-500/20',
-  good: 'text-blue-400 bg-blue-500/20',
+  good: 'text-teal-400 bg-teal-500/20',
   average: 'text-amber-400 bg-amber-500/20',
   poor: 'text-red-400 bg-red-500/20',
 };

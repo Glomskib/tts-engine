@@ -9,14 +9,14 @@ import { useToast } from '@/contexts/ToastContext';
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof Bug; emoji: string; color: string }> = {
   bug: { label: 'Bug', icon: Bug, emoji: '\u{1F41B}', color: 'text-red-400' },
   feature: { label: 'Feature', icon: Lightbulb, emoji: '\u{1F4A1}', color: 'text-amber-400' },
-  improvement: { label: 'Improvement', icon: Sparkles, emoji: '\u2728', color: 'text-blue-400' },
+  improvement: { label: 'Improvement', icon: Sparkles, emoji: '\u2728', color: 'text-teal-400' },
   other: { label: 'Other', icon: MessageSquare, emoji: '\u{1F4AC}', color: 'text-zinc-400' },
 };
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New', color: 'bg-zinc-600' },
   { value: 'reviewed', label: 'Reviewed', color: 'bg-amber-500' },
-  { value: 'planned', label: 'Planned', color: 'bg-blue-500' },
+  { value: 'planned', label: 'Planned', color: 'bg-teal-500' },
   { value: 'in_progress', label: 'In Progress', color: 'bg-purple-500' },
   { value: 'done', label: 'Done', color: 'bg-emerald-500' },
   { value: 'wont_fix', label: "Won't Fix", color: 'bg-zinc-500' },

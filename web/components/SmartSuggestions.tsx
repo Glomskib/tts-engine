@@ -162,7 +162,7 @@ export default function SmartSuggestions({
       case 'hook':
         return 'text-amber-400 bg-amber-500/20';
       case 'beat':
-        return 'text-blue-400 bg-blue-500/20';
+        return 'text-teal-400 bg-teal-500/20';
       case 'cta':
         return 'text-emerald-400 bg-emerald-500/20';
       case 'style':

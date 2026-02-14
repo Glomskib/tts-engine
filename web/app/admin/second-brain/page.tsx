@@ -190,7 +190,7 @@ export default function SecondBrainPage() {
         {/* Header */}
         <div className="p-4 border-b border-zinc-800">
           <div className="flex items-center gap-2 mb-3">
-            <BookOpen className="w-5 h-5 text-indigo-400" />
+            <BookOpen className="w-5 h-5 text-teal-400" />
             <h1 className="text-lg font-semibold">Second Brain</h1>
           </div>
           <div className="relative">
@@ -200,7 +200,7 @@ export default function SecondBrainPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search..."
-              className="w-full pl-8 pr-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              className="w-full pl-8 pr-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-teal-500/50"
             />
           </div>
         </div>
@@ -211,7 +211,7 @@ export default function SecondBrainPage() {
           <button
             type="button"
             onClick={() => { setActiveFolder(''); setActiveTag(''); }}
-            className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 ${!activeFolder ? 'bg-indigo-600/20 text-indigo-300' : 'text-zinc-400 hover:bg-zinc-800'}`}
+            className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 ${!activeFolder ? 'bg-teal-600/20 text-teal-300' : 'text-zinc-400 hover:bg-zinc-800'}`}
           >
             <FolderOpen className="w-3.5 h-3.5" /> All Documents
           </button>
@@ -220,7 +220,7 @@ export default function SecondBrainPage() {
               key={f}
               type="button"
               onClick={() => { setActiveFolder(f); setActiveTag(''); }}
-              className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 ${activeFolder === f ? 'bg-indigo-600/20 text-indigo-300' : 'text-zinc-400 hover:bg-zinc-800'}`}
+              className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 ${activeFolder === f ? 'bg-teal-600/20 text-teal-300' : 'text-zinc-400 hover:bg-zinc-800'}`}
             >
               <FolderOpen className="w-3.5 h-3.5" /> {f}
             </button>
@@ -236,7 +236,7 @@ export default function SecondBrainPage() {
                 key={t.name}
                 type="button"
                 onClick={() => { setActiveTag(activeTag === t.name ? '' : t.name); setActiveFolder(''); }}
-                className={`px-2 py-0.5 rounded text-xs ${activeTag === t.name ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                className={`px-2 py-0.5 rounded text-xs ${activeTag === t.name ? 'bg-teal-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
               >
                 <Hash className="w-2.5 h-2.5 inline mr-0.5" />{t.name} ({t.count})
               </button>
@@ -249,7 +249,7 @@ export default function SecondBrainPage() {
           <button
             type="button"
             onClick={() => setShowNewDoc(true)}
-            className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-sm font-medium flex items-center justify-center gap-2"
+            className="w-full px-3 py-2 bg-teal-600 hover:bg-teal-500 rounded text-sm font-medium flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" /> New Document
           </button>
@@ -317,7 +317,7 @@ export default function SecondBrainPage() {
                     value={newDocFilename}
                     onChange={e => setNewDocFilename(e.target.value)}
                     placeholder="my-document.md"
-                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-teal-500/50"
                   />
                 </div>
               </div>
@@ -327,7 +327,7 @@ export default function SecondBrainPage() {
                   value={newDocContent}
                   onChange={e => setNewDocContent(e.target.value)}
                   rows={20}
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none"
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-teal-500/50 resize-none"
                   placeholder="# My Document&#10;&#10;Write your content here..."
                 />
               </div>
@@ -335,7 +335,7 @@ export default function SecondBrainPage() {
                 type="button"
                 onClick={handleCreateDoc}
                 disabled={saving || !newDocFilename.trim() || !newDocContent.trim()}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 rounded text-sm font-medium flex items-center gap-2"
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 rounded text-sm font-medium flex items-center gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Create Document
@@ -350,7 +350,7 @@ export default function SecondBrainPage() {
                 <span className="text-sm text-zinc-400">
                   {documents.length} document{documents.length !== 1 ? 's' : ''}
                   {activeFolder && <span> in <span className="text-white">{activeFolder}</span></span>}
-                  {activeTag && <span> tagged <span className="text-indigo-400">#{activeTag}</span></span>}
+                  {activeTag && <span> tagged <span className="text-teal-400">#{activeTag}</span></span>}
                 </span>
               </div>
               <button type="button" onClick={() => { fetchDocuments(); fetchTags(); }} className="p-1.5 rounded hover:bg-zinc-800">

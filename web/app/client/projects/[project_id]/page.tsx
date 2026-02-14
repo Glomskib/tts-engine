@@ -38,7 +38,7 @@ interface ProjectData {
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   NOT_RECORDED: { bg: 'bg-slate-100', text: 'text-slate-600' },
   RECORDED: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  EDITED: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  EDITED: { bg: 'bg-teal-100', text: 'text-teal-700' },
   READY_TO_POST: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
   POSTED: { bg: 'bg-green-100', text: 'text-green-700' },
   REJECTED: { bg: 'bg-red-100', text: 'text-red-700' },

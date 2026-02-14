@@ -937,7 +937,7 @@ export default function ProductsPage() {
                       )}
                       <Link
                         href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-xs text-teal-600 hover:underline"
                       >
                         Videos
                       </Link>
@@ -1117,7 +1117,7 @@ export default function ProductsPage() {
                             )}
                             <Link
                               href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
-                              className="text-xs text-blue-600 hover:underline"
+                              className="text-xs text-teal-600 hover:underline"
                             >
                               View Videos
                             </Link>
@@ -1493,7 +1493,7 @@ export default function ProductsPage() {
                             <div className="flex gap-2 mt-1.5">
                               <span className={`px-1.5 py-0.5 text-xs rounded ${
                                 pp.category === 'emotional' ? 'bg-pink-900/50 text-pink-300' :
-                                pp.category === 'practical' ? 'bg-blue-900/50 text-blue-300' :
+                                pp.category === 'practical' ? 'bg-teal-900/50 text-teal-300' :
                                 pp.category === 'social' ? 'bg-purple-900/50 text-purple-300' :
                                 'bg-green-900/50 text-green-300'
                               }`}>

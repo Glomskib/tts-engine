@@ -176,7 +176,7 @@ export default function ScriptGeneratorPage() {
     score && score >= 8
       ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
       : score && score >= 6
-      ? 'text-blue-400 border-blue-500/30 bg-blue-500/10'
+      ? 'text-teal-400 border-teal-500/30 bg-teal-500/10'
       : score && score >= 4
       ? 'text-amber-400 border-amber-500/30 bg-amber-500/10'
       : 'text-zinc-400 border-white/10 bg-white/5';
@@ -211,7 +211,7 @@ export default function ScriptGeneratorPage() {
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
             Generate viral TikTok scripts{' '}
-            <span className="bg-gradient-to-r from-blue-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-teal-400 via-violet-400 to-teal-400 bg-clip-text text-transparent">
               in seconds
             </span>
           </h1>
@@ -325,7 +325,7 @@ export default function ScriptGeneratorPage() {
                       ? tone.color === 'emerald'
                         ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/30'
                         : tone.color === 'blue'
-                        ? 'border-blue-500/50 bg-blue-500/10 ring-1 ring-blue-500/30'
+                        ? 'border-teal-500/50 bg-teal-500/10 ring-1 ring-teal-500/30'
                         : 'border-orange-500/50 bg-orange-500/10 ring-1 ring-orange-500/30'
                       : 'border-white/10 bg-zinc-900/50 hover:border-white/20'
                   }`}
@@ -345,7 +345,7 @@ export default function ScriptGeneratorPage() {
           type="button"
           onClick={handleGenerate}
           disabled={loading || !productName.trim()}
-          className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-white font-semibold text-lg hover:from-violet-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/20 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-600 to-teal-600 text-white font-semibold text-lg hover:from-violet-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/20 flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
@@ -414,7 +414,7 @@ export default function ScriptGeneratorPage() {
             {/* Script Card */}
             <div className="rounded-xl border border-white/10 bg-zinc-900/80 overflow-hidden">
               {/* Hook */}
-              <div className="p-4 bg-gradient-to-r from-violet-500/10 to-blue-500/10 border-b border-white/10">
+              <div className="p-4 bg-gradient-to-r from-violet-500/10 to-teal-500/10 border-b border-white/10">
                 <div className="text-xs font-medium text-violet-400 uppercase tracking-wider mb-1">
                   Hook
                 </div>
@@ -439,7 +439,7 @@ export default function ScriptGeneratorPage() {
                           </p>
                         )}
                         {beat.on_screen_text && (
-                          <p className="text-xs text-blue-400 mt-1 font-medium">
+                          <p className="text-xs text-teal-400 mt-1 font-medium">
                             ON SCREEN: {beat.on_screen_text}
                           </p>
                         )}
@@ -479,7 +479,7 @@ export default function ScriptGeneratorPage() {
             )}
 
             {/* Conversion CTA */}
-            <div className="p-6 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-blue-500/5">
+            <div className="p-6 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-teal-500/5">
               <h3 className="text-base font-semibold text-zinc-200 mb-2">
                 Want more scripts like this?
               </h3>

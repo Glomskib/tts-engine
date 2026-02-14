@@ -40,7 +40,7 @@ interface Editor {
 
 const STATUS_COLUMNS: { key: RequestStatus; label: string; color: string; bgColor: string }[] = [
   { key: 'pending', label: 'Pending', color: '#6b7280', bgColor: 'bg-zinc-800' },
-  { key: 'assigned', label: 'Assigned', color: '#3b82f6', bgColor: 'bg-blue-900/30' },
+  { key: 'assigned', label: 'Assigned', color: '#3b82f6', bgColor: 'bg-teal-900/30' },
   { key: 'in_progress', label: 'In Progress', color: '#f59e0b', bgColor: 'bg-amber-900/30' },
   { key: 'review', label: 'Review', color: '#8b5cf6', bgColor: 'bg-purple-900/30' },
   { key: 'completed', label: 'Completed', color: '#10b981', bgColor: 'bg-green-900/30' },
@@ -595,7 +595,7 @@ function RequestCard({
         {request.status === 'pending' && (
           <button type="button"
             onClick={onAssign}
-            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-2 py-1 text-xs bg-teal-600 text-white rounded hover:bg-teal-700"
           >
             Assign
           </button>
@@ -614,7 +614,7 @@ function RequestCard({
         {(request.status === 'in_progress' || request.status === 'revision') && (
           <button type="button"
             onClick={() => onStatusChange(request.id, 'review')}
-            className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
+            className="px-2 py-1 text-xs bg-teal-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
           >
             <Eye className="w-3 h-3" />
             Submit

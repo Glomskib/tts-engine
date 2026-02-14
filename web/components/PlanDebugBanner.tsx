@@ -6,7 +6,7 @@ import { useCredits } from '@/hooks/useCredits';
 
 const PLANS = [
   { id: 'free', label: 'Free', color: 'bg-zinc-600' },
-  { id: 'creator_lite', label: 'Lite', color: 'bg-blue-600' },
+  { id: 'creator_lite', label: 'Lite', color: 'bg-teal-600' },
   { id: 'creator_pro', label: 'Pro', color: 'bg-violet-600' },
   { id: 'brand', label: 'Brand', color: 'bg-amber-600' },
   { id: 'agency', label: 'Agency', color: 'bg-emerald-600' },

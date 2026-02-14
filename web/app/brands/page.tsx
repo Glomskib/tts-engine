@@ -15,17 +15,17 @@ export const metadata: Metadata = {
 export default function BrandsPage() {
   return (
     <PublicLayout>
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-blue-500/10 via-indigo-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-teal-500/10 via-indigo-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-6xl mx-auto px-6 pb-20">
         {/* Hero */}
         <section className="text-center pt-16 pb-20">
-          <div className="inline-block px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-sm text-blue-400 mb-6">
+          <div className="inline-block px-4 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-full text-sm text-teal-400 mb-6">
             For TikTok Shop Brands
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
             Your affiliates are wasting<br />
-            <span className="text-blue-400">your commission budget.</span>
+            <span className="text-teal-400">your commission budget.</span>
           </h1>
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
             FlashFlow gives every creator product-specific scripts that actually convert.
@@ -69,7 +69,7 @@ export default function BrandsPage() {
               { step: '3', title: 'Scale on-brand content', desc: 'Every creator generates unique scripts that match your product\'s actual benefits. No more generic, off-brand content.' },
             ].map((s) => (
               <div key={s.step} className="bg-zinc-900/60 border border-white/10 rounded-2xl p-6">
-                <div className="w-10 h-10 mb-4 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold">
+                <div className="w-10 h-10 mb-4 rounded-full bg-teal-500/10 flex items-center justify-center text-teal-400 font-bold">
                   {s.step}
                 </div>
                 <h3 className="text-lg font-semibold text-zinc-100 mb-2">{s.title}</h3>
@@ -116,7 +116,7 @@ export default function BrandsPage() {
               { title: 'Product updates sync', desc: 'Update a product once and every creator sees the latest selling points, pricing, and talking points.' },
             ].map((f) => (
               <div key={f.title} className="flex gap-3">
-                <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 flex-shrink-0" />
+                <div className="w-2 h-2 mt-2 rounded-full bg-teal-400 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-zinc-200 mb-1">{f.title}</h3>
                   <p className="text-sm text-zinc-400">{f.desc}</p>

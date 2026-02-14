@@ -662,7 +662,7 @@ export default function IngestionPage() {
                     <span className="text-red-400">Failed: {tiktokResult.counts.failed}</span>
                     <span className="text-amber-400">Duplicates: {tiktokResult.counts.duplicate}</span>
                     {tiktokResult.counts.committed !== undefined && (
-                      <span className="text-blue-400">Committed: {tiktokResult.counts.committed}</span>
+                      <span className="text-teal-400">Committed: {tiktokResult.counts.committed}</span>
                     )}
                   </div>
                 )}
@@ -840,7 +840,7 @@ export default function IngestionPage() {
                         <span className="text-red-400">Failed: {csvResult.counts.failed}</span>
                         <span className="text-amber-400">Duplicates: {csvResult.counts.duplicate}</span>
                         {csvResult.counts.committed !== undefined && (
-                          <span className="text-blue-400">Committed: {csvResult.counts.committed}</span>
+                          <span className="text-teal-400">Committed: {csvResult.counts.committed}</span>
                         )}
                       </div>
                     )}
@@ -999,7 +999,7 @@ export default function IngestionPage() {
                                 : video.status === 'error'
                                 ? 'bg-red-500/20 text-red-400'
                                 : video.status === 'processing'
-                                ? 'bg-blue-500/20 text-blue-400'
+                                ? 'bg-teal-500/20 text-teal-400'
                                 : 'bg-amber-500/20 text-amber-400'
                             }`}
                           >

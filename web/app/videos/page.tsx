@@ -80,7 +80,7 @@ export default function VideosPage() {
             <tr key={video.id}>
               <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-800 dark:text-gray-200">{video.id}</td>
               <td className="border border-gray-300 dark:border-gray-600 p-2">
-                <a href={video.google_drive_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                <a href={video.google_drive_url} target="_blank" rel="noopener noreferrer" className="text-teal-600 dark:text-teal-400 hover:underline">
                   {video.google_drive_url}
                 </a>
               </td>
@@ -97,7 +97,7 @@ export default function VideosPage() {
                 />
               </td>
               <td className="border border-gray-300 dark:border-gray-600 p-2">
-                <button type="button" onClick={() => markPosted(video.id)} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <button type="button" onClick={() => markPosted(video.id)} className="px-3 py-1 bg-teal-600 text-white rounded hover:bg-teal-700">
                   Mark Posted
                 </button>
               </td>

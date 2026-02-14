@@ -28,7 +28,7 @@ export function DevTools() {
       {/* Toggle Button */}
       <button type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 z-[9999] w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+        className="fixed bottom-4 right-4 z-[9999] w-10 h-10 bg-teal-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
         title="Toggle Dev Tools"
         aria-label="Toggle Dev Tools"
       >
@@ -62,7 +62,7 @@ export function DevTools() {
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'text-purple-400 border-b-2 border-purple-400'
+                    ? 'text-teal-400 border-b-2 border-purple-400'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -133,7 +133,7 @@ function EnvTab({ onCopy, copied }: { onCopy: (text: string) => void; copied: bo
       ) : (
         publicEnvVars.map(({ key, value }) => (
           <div key={key} className="text-xs">
-            <span className="text-purple-400 font-mono">{key}</span>
+            <span className="text-teal-400 font-mono">{key}</span>
             <p className="text-zinc-400 font-mono text-[10px] truncate">{value || '(empty)'}</p>
           </div>
         ))

@@ -318,11 +318,11 @@ export default function SubmitVideoPage() {
                     }}
                     className={`p-4 rounded-xl border text-left transition-all ${
                       isSelected
-                        ? 'bg-white/10 border-blue-500/50 ring-1 ring-blue-500/50'
+                        ? 'bg-white/10 border-teal-500/50 ring-1 ring-teal-500/50'
                         : 'bg-zinc-900 border-white/10 hover:border-white/20'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 mb-2 ${isSelected ? 'text-blue-400' : 'text-zinc-500'}`} />
+                    <Icon className={`w-5 h-5 mb-2 ${isSelected ? 'text-teal-400' : 'text-zinc-500'}`} />
                     <div className={`text-sm font-medium ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
                       {type.name}
                     </div>
@@ -342,7 +342,7 @@ export default function SubmitVideoPage() {
               <select
                 value={scriptId || ''}
                 onChange={(e) => setScriptId(e.target.value || null)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+                className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
                 disabled={scriptsLoading}
               >
                 <option value="">No script linked</option>
@@ -368,7 +368,7 @@ export default function SubmitVideoPage() {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
               placeholder="e.g., Product demo - Blue Widget"
             />
           </div>
@@ -382,7 +382,7 @@ export default function SubmitVideoPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm resize-none"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm resize-none"
               placeholder="Any notes for the editor: style preferences, pacing, etc."
             />
           </div>
@@ -399,7 +399,7 @@ export default function SubmitVideoPage() {
                 required
                 value={sourceDriveLink}
                 onChange={(e) => setSourceDriveLink(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+                className="w-full pl-11 pr-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
                 placeholder="https://drive.google.com/..."
               />
             </div>
@@ -416,7 +416,7 @@ export default function SubmitVideoPage() {
             <select
               value={priority}
               onChange={(e) => setPriority(parseInt(e.target.value))}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
             >
               {PRIORITY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -437,7 +437,7 @@ export default function SubmitVideoPage() {
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-sm"
             />
           </div>
 
@@ -471,7 +471,7 @@ export default function SubmitVideoPage() {
 
           {videosRemaining !== null && videosRemaining <= 0 && (
             <p className="text-center text-sm text-zinc-500">
-              <Link href="/upgrade" className="text-blue-400 hover:underline">
+              <Link href="/upgrade" className="text-teal-400 hover:underline">
                 Upgrade your plan
               </Link>{' '}
               to submit more videos

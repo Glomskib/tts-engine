@@ -60,7 +60,7 @@ interface ContentIdeasData {
 /* ------------------------------------------------------------------ */
 
 const HOOK_TYPE_STYLES: Record<string, { label: string; classes: string }> = {
-  question:  { label: 'Question',   classes: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+  question:  { label: 'Question',   classes: 'text-teal-400 bg-teal-500/10 border-teal-500/20' },
   story:     { label: 'Story',      classes: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
   problem:   { label: 'Problem',    classes: 'text-red-400 bg-red-500/10 border-red-500/20' },
   direct:    { label: 'Direct',     classes: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
@@ -71,7 +71,7 @@ const HOOK_TYPE_STYLES: Record<string, { label: string; classes: string }> = {
 const SUGGESTION_ICONS: Record<string, React.ReactNode> = {
   stale_product: <Package size={16} className="text-amber-400" />,
   hot_persona:   <TrendingUp size={16} className="text-emerald-400" />,
-  need_personas: <Users size={16} className="text-blue-400" />,
+  need_personas: <Users size={16} className="text-teal-400" />,
   need_winners:  <Trophy size={16} className="text-violet-400" />,
 };
 
@@ -136,7 +136,7 @@ export default function ContentIdeasPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Winners',  value: data.stats.totalWinners,  icon: Trophy,   color: 'text-amber-400' },
-              { label: 'Personas', value: data.stats.totalPersonas, icon: Users,    color: 'text-blue-400' },
+              { label: 'Personas', value: data.stats.totalPersonas, icon: Users,    color: 'text-teal-400' },
               { label: 'Products', value: data.stats.totalProducts, icon: Package,  color: 'text-emerald-400' },
               { label: 'Scripts',  value: data.stats.totalScripts,  icon: FileText, color: 'text-violet-400' },
             ].map(stat => (

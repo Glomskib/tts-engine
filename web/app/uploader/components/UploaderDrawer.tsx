@@ -178,7 +178,7 @@ export default function UploaderDrawer({
               {/* Badges row */}
               <div className="flex gap-2 flex-wrap items-center">
                 {video.target_account && (
-                  <span className="px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-medium">
+                  <span className="px-2 py-1 rounded bg-teal-100 text-teal-700 text-xs font-medium">
                     {video.target_account}
                   </span>
                 )}
@@ -235,7 +235,7 @@ export default function UploaderDrawer({
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 py-2 px-2 text-sm flex items-center justify-center gap-1 ${
                 activeTab === tab.key
-                  ? 'border-b-2 border-blue-500 text-blue-600 font-bold bg-slate-50'
+                  ? 'border-b-2 border-teal-500 text-teal-600 font-bold bg-slate-50'
                   : 'text-slate-500'
               }`}
             >
@@ -288,7 +288,7 @@ export default function UploaderDrawer({
                           {copiedField === 'hashtags' ? 'Copied!' : 'Copy'}
                         </button>
                       </div>
-                      <div className="p-3 bg-slate-50 rounded-md text-sm text-blue-600">
+                      <div className="p-3 bg-slate-50 rounded-md text-sm text-teal-600">
                         {video.hashtags.join(' ')}
                       </div>
                     </div>
@@ -302,7 +302,7 @@ export default function UploaderDrawer({
                         href={video.product_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block p-3 bg-blue-50 rounded-md text-sm text-blue-600 hover:bg-blue-100 truncate"
+                        className="block p-3 bg-teal-50 rounded-md text-sm text-teal-600 hover:bg-teal-100 truncate"
                       >
                         {video.product_link}
                       </a>
@@ -367,7 +367,7 @@ export default function UploaderDrawer({
                           className={`px-3 py-1 text-xs font-bold rounded ${
                             copiedField === 'fullScript'
                               ? 'bg-green-100 text-green-700'
-                              : 'bg-blue-500 text-white'
+                              : 'bg-teal-500 text-white'
                           }`}
                         >
                           {copiedField === 'fullScript' ? 'Copied!' : 'Copy Script'}
@@ -399,7 +399,7 @@ export default function UploaderDrawer({
                       {details.events.map((event) => (
                         <div
                           key={event.id}
-                          className="p-3 bg-slate-50 rounded-md border-l-2 border-blue-400"
+                          className="p-3 bg-slate-50 rounded-md border-l-2 border-teal-400"
                         >
                           <div className="flex justify-between items-start">
                             <div>
@@ -451,7 +451,7 @@ export default function UploaderDrawer({
               <button type="button"
                 onClick={handleMarkDone}
                 disabled={actionLoading}
-                className="flex-1 py-3 bg-blue-500 text-white rounded-md font-bold text-sm hover:bg-blue-600 disabled:opacity-50"
+                className="flex-1 py-3 bg-teal-500 text-white rounded-md font-bold text-sm hover:bg-teal-600 disabled:opacity-50"
               >
                 {actionLoading ? '...' : 'Mark Done'}
               </button>

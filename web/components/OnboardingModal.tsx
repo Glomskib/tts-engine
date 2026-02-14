@@ -32,7 +32,7 @@ const steps: OnboardingStep[] = [
     title: 'Add a Product',
     description: 'Tell FlashFlow what you sell — product name, brand, benefits, and pain points. The more detail you give, the better your AI scripts will be.',
     icon: (
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
         <Package className="w-8 h-8 text-white" />
       </div>
     ),

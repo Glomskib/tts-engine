@@ -109,7 +109,7 @@ function FeatureLockedPrompt({ featureKey, compact }: { featureKey: string; comp
     return (
       <Link
         href="/upgrade"
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg text-white text-sm font-medium transition-all"
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 rounded-lg text-white text-sm font-medium transition-all"
       >
         <Lock className="w-4 h-4" />
         Upgrade to unlock

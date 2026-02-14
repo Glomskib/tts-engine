@@ -317,7 +317,7 @@ function VACard({ metric, rank }: { metric: VAMetric; rank: number }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
             <MetricBox label="Videos Assigned" value={metric.assigned} icon={Target} />
             <MetricBox label="Completed" value={metric.completed} icon={CheckCircle} color="text-green-400" />
-            <MetricBox label="In Progress" value={metric.in_progress} icon={Activity} color="text-blue-400" />
+            <MetricBox label="In Progress" value={metric.in_progress} icon={Activity} color="text-teal-400" />
             <MetricBox label="Overdue" value={metric.overdue_count} icon={AlertTriangle} color={metric.overdue_count > 0 ? 'text-red-400' : 'text-zinc-500'} />
             <MetricBox label="Completion Rate" value={`${metric.completion_rate}%`} icon={BarChart3} color={getRatingColor(metric.completion_rate)} />
             <MetricBox label="Avg Turnaround" value={`${metric.avg_turnaround_hours}h`} icon={Clock} />

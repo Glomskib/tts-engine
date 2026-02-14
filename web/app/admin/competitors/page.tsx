@@ -211,7 +211,7 @@ export default function CompetitorsPage() {
           <h1 className="text-xl font-bold">Competitor Tracker</h1>
           <p className="text-sm text-zinc-400 mt-1">Monitor competitor TikTok accounts and steal their winning patterns</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm transition-colors btn-press min-h-[44px]">
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm transition-colors btn-press min-h-[44px]">
           <Plus className="w-4 h-4" /> Add Competitor
         </button>
       </div>
@@ -226,7 +226,7 @@ export default function CompetitorsPage() {
               <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="Category (optional)" className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm" />
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={handleAdd} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm">Add</button>
+              <button onClick={handleAdd} className="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm">Add</button>
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm">Cancel</button>
             </div>
           </div>
@@ -245,7 +245,7 @@ export default function CompetitorsPage() {
                 key={c.id}
                 onClick={() => selectCompetitor(c.id)}
                 className={`p-4 rounded-xl border cursor-pointer transition-colors card-press ${
-                  selectedId === c.id ? 'bg-zinc-800 border-indigo-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                  selectedId === c.id ? 'bg-zinc-800 border-teal-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -324,7 +324,7 @@ export default function CompetitorsPage() {
                     <button
                       onClick={handleTrackVideo}
                       disabled={tracking || !trackUrl.trim()}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm btn-press min-h-[44px]"
+                      className="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 rounded-lg text-sm btn-press min-h-[44px]"
                     >
                       {tracking ? 'Adding...' : 'Track'}
                     </button>
@@ -383,7 +383,7 @@ export default function CompetitorsPage() {
                           <ul className="space-y-1">
                             {analysis.remix_ideas.map((r, i) => (
                               <li key={i} className="text-sm text-zinc-300 flex items-start gap-1.5">
-                                <span className="text-blue-400 mt-0.5">-</span> {r}
+                                <span className="text-teal-400 mt-0.5">-</span> {r}
                               </li>
                             ))}
                           </ul>
@@ -410,7 +410,7 @@ export default function CompetitorsPage() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium truncate">{v.title || v.tiktok_url}</div>
-                              {v.hook_text && <div className="text-xs text-indigo-400 mt-0.5 truncate">Hook: {v.hook_text}</div>}
+                              {v.hook_text && <div className="text-xs text-teal-400 mt-0.5 truncate">Hook: {v.hook_text}</div>}
                             </div>
                             <div className="flex gap-1 shrink-0">
                               <a href={v.tiktok_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-zinc-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center" title="Open on TikTok">

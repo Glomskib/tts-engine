@@ -22,7 +22,7 @@ export default function RoadmapPage() {
       <div className="text-center mb-16">
         <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
           Product{' '}
-          <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-teal-400 to-violet-400 bg-clip-text text-transparent">
             Roadmap
           </span>
         </h1>
@@ -36,7 +36,7 @@ export default function RoadmapPage() {
       <RoadmapItems />
 
       {/* CTA */}
-      <div className="mt-16 text-center bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-2xl p-8 sm:p-12">
+      <div className="mt-16 text-center bg-gradient-to-r from-teal-500/10 to-violet-500/10 border border-teal-500/20 rounded-2xl p-8 sm:p-12">
         <h2 className="text-2xl font-bold text-white mb-3">
           Have a feature idea?
         </h2>
@@ -46,7 +46,7 @@ export default function RoadmapPage() {
         </p>
         <Link
           href="/contact"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
         >
           Request a Feature
         </Link>

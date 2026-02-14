@@ -177,7 +177,7 @@ export default function LandingPage() {
       <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
 
       {/* Gradient orb */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-blue-500/8 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-teal-500/8 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
       {/* Referral Banner */}
       {referralBanner && (
@@ -394,8 +394,8 @@ export default function LandingPage() {
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-xl font-bold text-blue-400">{item.step}</span>
+                <div className="w-14 h-14 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-xl font-bold text-teal-400">{item.step}</span>
                 </div>
                 <h3 className="text-lg font-semibold text-zinc-200 mb-2">{item.title}</h3>
                 <p className="text-sm text-zinc-500 leading-relaxed">{item.desc}</p>
@@ -440,7 +440,7 @@ export default function LandingPage() {
                 type="button"
                 onClick={handleMiniGenerate}
                 disabled={miniLoading || !miniProduct.trim()}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-white font-semibold hover:from-violet-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-teal-600 text-white font-semibold hover:from-violet-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
               >
                 {miniLoading ? 'Generating...' : 'Generate'}
               </button>
@@ -453,7 +453,7 @@ export default function LandingPage() {
             {miniResult && (
               <div className="mt-6 space-y-4">
                 {/* Hook */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/20">
+                <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-teal-500/10 border border-violet-500/20">
                   <div className="text-xs font-medium text-violet-400 uppercase tracking-wider mb-1">Hook</div>
                   <p className="text-lg font-semibold text-zinc-100">&ldquo;{miniResult.hook_line}&rdquo;</p>
                 </div>
@@ -791,9 +791,9 @@ function PricingCard({
   badge?: string;
 }) {
   return (
-    <div className={`relative p-6 rounded-2xl border ${highlight ? 'bg-zinc-900/80 border-blue-500/50' : 'bg-zinc-900/30 border-white/5'} flex flex-col`}>
+    <div className={`relative p-6 rounded-2xl border ${highlight ? 'bg-zinc-900/80 border-teal-500/50' : 'bg-zinc-900/30 border-white/5'} flex flex-col`}>
       {badge && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white">
           {badge}
         </div>
       )}
@@ -805,7 +805,7 @@ function PricingCard({
         <span className="text-4xl font-bold text-white">${price}</span>
         <span className="text-zinc-500 text-sm">{period}</span>
       </div>
-      <p className="text-sm text-blue-400 mb-6">{credits}</p>
+      <p className="text-sm text-teal-400 mb-6">{credits}</p>
       <ul className="space-y-3 mb-8 flex-grow">
         {features.map((feature, i) => (
           <li key={i} className="flex items-start gap-2 text-sm text-zinc-400">

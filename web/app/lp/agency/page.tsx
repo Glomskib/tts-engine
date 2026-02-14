@@ -18,12 +18,12 @@ export default function AgencyLP() {
     <div className="max-w-4xl mx-auto px-6">
       {/* Hero */}
       <section className="pt-16 pb-12 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 mb-6">
           Built for Agencies
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-6">
           Scale Client Content{' '}
-          <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
             Without Scaling Headcount
           </span>
         </h1>
@@ -115,8 +115,8 @@ export default function AgencyLP() {
           <h2 className="text-2xl font-bold mb-2">The ROI is Clear</h2>
           <p className="text-zinc-400">$149/month. Unlimited everything. Do the math.</p>
         </div>
-        <div className="max-w-md mx-auto p-6 rounded-2xl bg-zinc-900/80 border border-blue-500/50 text-center">
-          <div className="px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white inline-block mb-4">
+        <div className="max-w-md mx-auto p-6 rounded-2xl bg-zinc-900/80 border border-teal-500/50 text-center">
+          <div className="px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white inline-block mb-4">
             Agency Plan
           </div>
           <h3 className="text-xl font-semibold text-white mb-1">Agency</h3>

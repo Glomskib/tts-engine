@@ -530,7 +530,7 @@ function ComparisonStats({ scriptA, scriptB }: { scriptA: Script; scriptB: Scrip
               </div>
               <div className="h-1 flex-1 bg-zinc-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 rounded-full"
+                  className="h-full bg-teal-500 rounded-full"
                   style={{ width: `${Math.min(100, (stat.b / Math.max(stat.a, stat.b, 1)) * 100)}%` }}
                 />
               </div>

@@ -80,9 +80,9 @@ export default function PerformancePage() {
       label: 'Avg Turnaround',
       value: `${stats.avgTurnaroundHours}h`,
       icon: Clock,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-400/10',
-      borderColor: 'border-blue-500/20',
+      color: 'text-teal-400',
+      bgColor: 'bg-teal-400/10',
+      borderColor: 'border-teal-500/20',
     },
     {
       label: 'SLA Breaches',
@@ -96,7 +96,7 @@ export default function PerformancePage() {
       label: 'Active Clients',
       value: stats.activeClients,
       icon: Users,
-      color: 'text-purple-400',
+      color: 'text-teal-400',
       bgColor: 'bg-purple-400/10',
       borderColor: 'border-purple-500/20',
     },
@@ -228,7 +228,7 @@ export default function PerformancePage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">In Production</span>
-              <span className="text-blue-400 font-medium">{stats.inProgress}</span>
+              <span className="text-teal-400 font-medium">{stats.inProgress}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">Completed Today</span>

@@ -46,7 +46,7 @@ export function MobileTestChecklist() {
     <div className="fixed bottom-24 right-4 z-[200]">
       <button type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg flex items-center gap-2 btn-press"
+        className="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg flex items-center gap-2 btn-press"
       >
         <ClipboardCheck className="w-4 h-4" />
         Test {passCount}/{TESTS.length}
@@ -57,7 +57,7 @@ export function MobileTestChecklist() {
         <div className="absolute bottom-12 right-0 w-72 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl max-h-80 overflow-y-auto">
           <div className="p-3 border-b border-zinc-800 sticky top-0 bg-zinc-900">
             <h3 className="font-semibold text-white flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4 text-purple-400" />
+              <ClipboardCheck className="w-4 h-4 text-teal-400" />
               Mobile Test Checklist
             </h3>
             <p className="text-xs text-zinc-500 mt-1">

@@ -126,7 +126,7 @@ export function WinnersIntelligencePanel({ className = '' }: WinnersIntelligence
           {/* Stats Row */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-zinc-800/50 rounded-lg text-center">
-              <Eye className="w-4 h-4 text-blue-400 mx-auto mb-1" />
+              <Eye className="w-4 h-4 text-teal-400 mx-auto mb-1" />
               <p className="text-lg font-semibold text-white">{formatNumber(intelligence.avgViews)}</p>
               <p className="text-xs text-zinc-500">Avg Views</p>
             </div>

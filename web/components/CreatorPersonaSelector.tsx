@@ -21,8 +21,8 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   comedy: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30' },
   lifestyle: { bg: 'bg-pink-500/20', text: 'text-pink-400', border: 'border-pink-500/30' },
-  authentic: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
-  trendy: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
+  authentic: { bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30' },
+  trendy: { bg: 'bg-purple-500/20', text: 'text-teal-400', border: 'border-purple-500/30' },
   educational: { bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30' },
 };
 

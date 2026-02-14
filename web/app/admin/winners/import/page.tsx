@@ -215,7 +215,7 @@ export default function WinnerImportPage() {
         {(['input', 'preview', 'transcript', 'done'] as const).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              step === s ? 'bg-indigo-600 text-white' :
+              step === s ? 'bg-teal-600 text-white' :
               (['input', 'preview', 'transcript', 'done'].indexOf(step) > i) ? 'bg-green-600 text-white' :
               'bg-zinc-800 text-zinc-500'
             }`}>
@@ -251,7 +251,7 @@ export default function WinnerImportPage() {
                   value={tiktokUrl}
                   onChange={e => setTiktokUrl(e.target.value)}
                   placeholder="https://tiktok.com/@creator/video/..."
-                  className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
+                  className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500"
                   onKeyDown={e => { if (e.key === 'Enter') handleFetchPreview(); }}
                 />
               </div>
@@ -265,7 +265,7 @@ export default function WinnerImportPage() {
               <button
                 type="button"
                 onClick={() => { setCreateNewBrand(!createNewBrand); setBrandName(''); }}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs text-teal-400 hover:text-teal-300"
               >
                 {createNewBrand ? 'Select existing' : '+ Create new'}
               </button>
@@ -276,13 +276,13 @@ export default function WinnerImportPage() {
                 value={brandName}
                 onChange={e => setBrandName(e.target.value)}
                 placeholder="Enter new brand name"
-                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               />
             ) : (
               <select
                 value={brandName}
                 onChange={e => setBrandName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               >
                 <option value="">Skip (use creator name)</option>
                 {brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
@@ -297,7 +297,7 @@ export default function WinnerImportPage() {
               <button
                 type="button"
                 onClick={() => { setCreateNewProduct(!createNewProduct); setProductName(''); }}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs text-teal-400 hover:text-teal-300"
               >
                 {createNewProduct ? 'Select existing' : '+ Create new'}
               </button>
@@ -308,13 +308,13 @@ export default function WinnerImportPage() {
                 value={productName}
                 onChange={e => setProductName(e.target.value)}
                 placeholder="Enter new product name"
-                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               />
             ) : (
               <select
                 value={productName}
                 onChange={e => setProductName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               >
                 <option value="">Skip</option>
                 {filteredProducts.map(p => <option key={p.id} value={p.name}>{p.name} ({p.brand})</option>)}
@@ -330,7 +330,7 @@ export default function WinnerImportPage() {
               onChange={e => setNotes(e.target.value)}
               placeholder="Why is this a winner? What makes the hook work?"
               rows={2}
-              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none"
             />
           </div>
 
@@ -339,7 +339,7 @@ export default function WinnerImportPage() {
             type="button"
             onClick={handleFetchPreview}
             disabled={!tiktokUrl.trim() || fetching}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {fetching ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Fetching...</>
@@ -394,7 +394,7 @@ export default function WinnerImportPage() {
               type="button"
               onClick={handleTranscribe}
               disabled={transcribing}
-              className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-teal-600 hover:bg-purple-500 disabled:bg-teal-600/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {transcribing ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Generating Script...</>
@@ -432,7 +432,7 @@ export default function WinnerImportPage() {
                 <div key={i} className="p-3 bg-zinc-900 rounded-lg">
                   <p className="text-xs text-zinc-500 mb-1">Scene {i + 1}{scene.timestamp ? ` (${scene.timestamp})` : ''}</p>
                   {scene.action && <p className="text-sm text-zinc-300">{scene.action}</p>}
-                  {scene.dialogue && <p className="text-sm text-indigo-300 mt-1">&ldquo;{scene.dialogue}&rdquo;</p>}
+                  {scene.dialogue && <p className="text-sm text-teal-300 mt-1">&ldquo;{scene.dialogue}&rdquo;</p>}
                 </div>
               ))}
               <div className="p-3 bg-zinc-900/50 rounded-lg">
@@ -477,7 +477,7 @@ export default function WinnerImportPage() {
               </a>
               <a
                 href="/admin/pipeline"
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors inline-flex items-center gap-2"
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium rounded-lg transition-colors inline-flex items-center gap-2"
               >
                 <Video className="w-4 h-4" /> View Pipeline
               </a>

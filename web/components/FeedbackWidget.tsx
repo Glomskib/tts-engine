@@ -16,7 +16,7 @@ const FEEDBACK_TYPES = [
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   new: { label: 'New', color: 'bg-zinc-600' },
   reviewed: { label: 'Reviewed', color: 'bg-amber-500' },
-  planned: { label: 'Planned', color: 'bg-blue-500' },
+  planned: { label: 'Planned', color: 'bg-teal-500' },
   in_progress: { label: 'In Progress', color: 'bg-purple-500' },
   done: { label: 'Done', color: 'bg-emerald-500' },
   wont_fix: { label: "Won't Fix", color: 'bg-zinc-500' },

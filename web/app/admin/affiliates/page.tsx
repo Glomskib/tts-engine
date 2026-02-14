@@ -165,7 +165,7 @@ export default function AdminAffiliatesPage() {
           { label: 'Pending', value: pending.length, color: 'text-amber-400' },
           { label: 'Active', value: active.length, color: 'text-emerald-400' },
           { label: 'Total Earned', value: `$${affiliates.reduce((s, a) => s + (a.total_earned || 0), 0).toFixed(0)}`, color: 'text-teal-400' },
-          { label: 'Total Paid', value: `$${affiliates.reduce((s, a) => s + (a.total_paid || 0), 0).toFixed(0)}`, color: 'text-blue-400' },
+          { label: 'Total Paid', value: `$${affiliates.reduce((s, a) => s + (a.total_paid || 0), 0).toFixed(0)}`, color: 'text-teal-400' },
         ].map((stat) => (
           <div key={stat.label} className="rounded-xl border border-white/10 bg-zinc-900/50 p-4 text-center">
             <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>

@@ -362,7 +362,7 @@ export default function PostingQueuePage() {
                           setScheduleDate('');
                         }}
                         disabled={isActioning}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 rounded-lg transition-colors disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-teal-600/20 text-teal-400 border border-teal-500/30 hover:bg-teal-600/30 rounded-lg transition-colors disabled:opacity-50"
                       >
                         <Calendar className="w-4 h-4" />
                         Schedule
@@ -504,7 +504,7 @@ export default function PostingQueuePage() {
                 value={scheduleDate}
                 onChange={e => setScheduleDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-lg text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 [color-scheme:dark]"
+                className="w-full px-3 py-2 text-sm bg-zinc-800 border border-white/10 rounded-lg text-zinc-200 focus:outline-none focus:ring-1 focus:ring-teal-500 [color-scheme:dark]"
               />
             </div>
 
@@ -523,7 +523,7 @@ export default function PostingQueuePage() {
                 type="button"
                 onClick={handleSchedule}
                 disabled={!scheduleDate || actionLoading !== null}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-teal-600 text-white hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {actionLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

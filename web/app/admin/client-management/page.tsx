@@ -143,7 +143,7 @@ export default function ClientManagementPage() {
         </div>
         <button
           onClick={() => setShowInviteModal(true)}
-          className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm flex items-center gap-2"
+          className="px-4 py-2 bg-purple-500 hover:bg-teal-600 text-white rounded-lg text-sm flex items-center gap-2"
         >
           <UserPlus className="w-4 h-4" />
           Invite Editor
@@ -285,7 +285,7 @@ export default function ClientManagementPage() {
                 <button
                   onClick={handleInviteEditor}
                   disabled={inviting || !inviteEmail.trim()}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded text-sm flex items-center gap-2"
+                  className="px-4 py-2 bg-purple-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded text-sm flex items-center gap-2"
                 >
                   {inviting ? 'Sending...' : (
                     <>

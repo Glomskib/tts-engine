@@ -163,11 +163,11 @@ export function AppSidebar({
                   >
                     <IconComponent
                       size={18}
-                      className={active ? 'text-blue-400' : ''}
+                      className={active ? 'text-teal-400' : ''}
                     />
                     <span className="text-sm font-medium">{item.name}</span>
                     {item.href === '/admin/whats-new' && hasUnreadChangelog && (
-                      <span className="ml-auto w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      <span className="ml-auto w-2 h-2 rounded-full bg-teal-500 shrink-0" />
                     )}
                   </Link>
                 );

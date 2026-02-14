@@ -142,10 +142,10 @@ export default function WeeklyWrapCard() {
       {selectedUser && (
         <div className="space-y-4">
           {/* Scripts Generated */}
-          <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex justify-between items-center p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-800">
             <div>
               <p className="text-sm text-slate-600 dark:text-slate-400">Scripts Generated</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{selectedUser.scripts_generated}</p>
+              <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">{selectedUser.scripts_generated}</p>
             </div>
             <div className="text-3xl">🎬</div>
           </div>
@@ -156,7 +156,7 @@ export default function WeeklyWrapCard() {
               <div>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Top Scoring Script</p>
                 <p className="font-mono text-sm text-slate-700 dark:text-slate-300">{selectedUser.top_script_title}</p>
-                <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                <p className="text-lg font-bold text-purple-600 dark:text-teal-400">
                   {selectedUser.top_script_score}/10
                 </p>
               </div>
@@ -186,13 +186,13 @@ export default function WeeklyWrapCard() {
 
           {/* Retainer Progress */}
           {selectedUser.retainer_videos_goal && (
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+            <div className="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-800">
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Retainer Progress</p>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-3">
+                  <div className="w-full bg-teal-200 dark:bg-teal-800 rounded-full h-3">
                     <div
-                      className="bg-indigo-600 dark:bg-indigo-400 h-3 rounded-full transition-all"
+                      className="bg-teal-600 dark:bg-teal-400 h-3 rounded-full transition-all"
                       style={{
                         width: `${Math.min(
                           (((selectedUser.retainer_videos_posted || 0) / selectedUser.retainer_videos_goal) * 100),
@@ -202,7 +202,7 @@ export default function WeeklyWrapCard() {
                     />
                   </div>
                 </div>
-                <span className="text-sm font-mono text-indigo-600 dark:text-indigo-400">
+                <span className="text-sm font-mono text-teal-600 dark:text-teal-400">
                   {selectedUser.retainer_videos_posted || 0}/{selectedUser.retainer_videos_goal}
                 </span>
               </div>

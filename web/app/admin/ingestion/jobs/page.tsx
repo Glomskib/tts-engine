@@ -21,7 +21,7 @@ interface AuthUser {
 
 const STATUS_COLORS: Record<JobStatus, { bg: string; text: string }> = {
   pending: { bg: 'bg-slate-100', text: 'text-slate-700' },
-  validated: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  validated: { bg: 'bg-teal-100', text: 'text-teal-700' },
   committed: { bg: 'bg-green-100', text: 'text-green-700' },
   failed: { bg: 'bg-red-100', text: 'text-red-700' },
   partial: { bg: 'bg-amber-100', text: 'text-amber-700' },
@@ -130,7 +130,7 @@ export default function IngestionJobsPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-2">Forbidden</h1>
           <p className="text-slate-600 mb-4">Admin access required.</p>
-          <Link href="/admin/pipeline" className="text-blue-600 hover:underline">
+          <Link href="/admin/pipeline" className="text-teal-600 hover:underline">
             Go to Work Queue
           </Link>
         </div>
@@ -221,7 +221,7 @@ export default function IngestionJobsPage() {
         ) : jobs.length === 0 ? (
           <div className="p-8 text-center text-slate-500">
             No jobs found.{' '}
-            <Link href="/admin/ingestion" className="text-blue-600 hover:underline">
+            <Link href="/admin/ingestion" className="text-teal-600 hover:underline">
               Create one
             </Link>
           </div>
@@ -275,7 +275,7 @@ export default function IngestionJobsPage() {
                       <td className="px-4 py-3 text-right">
                         <Link
                           href={`/admin/ingestion/jobs/${job.id}`}
-                          className="text-blue-600 hover:underline text-sm"
+                          className="text-teal-600 hover:underline text-sm"
                         >
                           View
                         </Link>

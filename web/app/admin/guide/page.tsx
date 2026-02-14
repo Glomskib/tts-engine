@@ -228,12 +228,12 @@ export default function GuidePage() {
           {/* Content Calendar */}
           <Link
             href="/admin/calendar"
-            className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-blue-500/30 transition-colors"
+            className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-teal-500/30 transition-colors"
           >
-            <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center mb-3">
-              <Calendar className="w-4.5 h-4.5 text-blue-400" />
+            <div className="w-9 h-9 rounded-lg bg-teal-500/15 flex items-center justify-center mb-3">
+              <Calendar className="w-4.5 h-4.5 text-teal-400" />
             </div>
-            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-blue-400 transition-colors">
+            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-teal-400 transition-colors">
               Stay Consistent
             </h3>
             <p className="text-xs text-zinc-500 leading-relaxed">
@@ -337,13 +337,13 @@ export default function GuidePage() {
 
           <Link
             href="/admin/help"
-            className="group flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-blue-500/30 transition-colors"
+            className="group flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-teal-500/30 transition-colors"
           >
-            <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4.5 h-4.5 text-blue-400" />
+            <div className="w-9 h-9 rounded-lg bg-teal-500/15 flex items-center justify-center shrink-0">
+              <MessageSquare className="w-4.5 h-4.5 text-teal-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Submit a Ticket</p>
+              <p className="text-sm font-medium text-white group-hover:text-teal-400 transition-colors">Submit a Ticket</p>
               <p className="text-xs text-zinc-500">Report bugs or request features</p>
             </div>
           </Link>

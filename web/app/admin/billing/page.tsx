@@ -319,9 +319,9 @@ export default function BillingPage() {
       case 'purchase':
         return <Package className="w-4 h-4 text-emerald-400" />;
       case 'bonus':
-        return <Sparkles className="w-4 h-4 text-purple-400" />;
+        return <Sparkles className="w-4 h-4 text-teal-400" />;
       case 'subscription_renewal':
-        return <TrendingUp className="w-4 h-4 text-blue-400" />;
+        return <TrendingUp className="w-4 h-4 text-teal-400" />;
       default:
         return <Coins className="w-4 h-4 text-zinc-400" />;
     }
@@ -612,16 +612,16 @@ export default function BillingPage() {
           {/* Billing Cycle */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-blue-400" />
+              <Clock className="w-4 h-4 text-teal-400" />
               <div className="text-sm text-zinc-400">Billing Cycle</div>
             </div>
             {daysUntilReset !== null ? (
               <>
-                <div className="text-3xl font-bold text-blue-400">{daysUntilReset}</div>
+                <div className="text-3xl font-bold text-teal-400">{daysUntilReset}</div>
                 <div className="text-xs text-zinc-500 mt-1">days until credits reset</div>
                 <div className="w-full h-1.5 bg-zinc-800 rounded-full mt-2 overflow-hidden">
                   <div
-                    className="h-full bg-blue-500 rounded-full transition-all"
+                    className="h-full bg-teal-500 rounded-full transition-all"
                     style={{ width: `${Math.max(100 - (daysUntilReset / 30) * 100, 5)}%` }}
                   />
                 </div>

@@ -32,9 +32,9 @@ const variantConfig = {
   },
   info: {
     icon: Info,
-    iconBg: 'bg-blue-500/10',
-    iconColor: 'text-blue-400',
-    confirmBg: 'bg-blue-600 hover:bg-blue-700',
+    iconBg: 'bg-teal-500/10',
+    iconColor: 'text-teal-400',
+    confirmBg: 'bg-teal-600 hover:bg-teal-700',
   },
   confirm: {
     icon: HelpCircle,

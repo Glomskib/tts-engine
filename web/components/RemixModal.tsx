@@ -224,7 +224,7 @@ export function RemixModal({
                 )}
                 {result.remixed_script.body && (
                   <div>
-                    <span className="text-[10px] font-bold text-blue-400 uppercase">Body</span>
+                    <span className="text-[10px] font-bold text-teal-400 uppercase">Body</span>
                     <p className="text-sm text-zinc-300 mt-0.5 whitespace-pre-wrap">{result.remixed_script.body}</p>
                   </div>
                 )}
@@ -252,8 +252,8 @@ export function RemixModal({
               </div>
 
               {result.remixed_script.remix_notes && (
-                <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-                  <span className="text-[10px] font-bold text-blue-400 uppercase">Remix Notes</span>
+                <div className="p-3 bg-teal-500/5 border border-teal-500/20 rounded-lg">
+                  <span className="text-[10px] font-bold text-teal-400 uppercase">Remix Notes</span>
                   <p className="text-xs text-zinc-400 mt-0.5">{result.remixed_script.remix_notes}</p>
                 </div>
               )}

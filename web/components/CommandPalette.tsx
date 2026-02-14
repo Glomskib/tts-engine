@@ -38,13 +38,13 @@ interface SearchResult {
 
 const TYPE_CONFIG: Record<SearchResult['type'], { icon: typeof Search; label: string; color: string }> = {
   brand: { icon: Building2, label: 'Brands', color: 'text-orange-400' },
-  product: { icon: Package, label: 'Products', color: 'text-blue-400' },
+  product: { icon: Package, label: 'Products', color: 'text-teal-400' },
   persona: { icon: UserCircle, label: 'Personas', color: 'text-pink-400' },
   concept: { icon: Lightbulb, label: 'Concepts', color: 'text-amber-400' },
   hook: { icon: Sparkles, label: 'Hooks', color: 'text-cyan-400' },
   script: { icon: FileText, label: 'Scripts', color: 'text-green-400' },
   winner: { icon: Trophy, label: 'Winners', color: 'text-yellow-400' },
-  video: { icon: Video, label: 'Pipeline', color: 'text-purple-400' },
+  video: { icon: Video, label: 'Pipeline', color: 'text-teal-400' },
   competitor: { icon: Users, label: 'Competitors', color: 'text-red-400' },
   template: { icon: LayoutTemplate, label: 'Templates', color: 'text-teal-400' },
 };

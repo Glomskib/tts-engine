@@ -53,7 +53,7 @@ export function LowCreditBanner({ threshold = 5, className = '' }: LowCreditBann
           ? 'bg-red-500/10 border-red-500/30 text-red-400'
           : isCritical
           ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-          : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+          : 'bg-teal-500/10 border-teal-500/30 text-teal-400'
       } border rounded-lg px-4 py-3 ${className}`}
     >
       <div className="flex items-center justify-between gap-4">
@@ -87,7 +87,7 @@ export function LowCreditBanner({ threshold = 5, className = '' }: LowCreditBann
                 ? 'bg-red-500 text-white hover:bg-red-600'
                 : isCritical
                 ? 'bg-amber-500 text-zinc-900 hover:bg-amber-400'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-teal-500 text-white hover:bg-teal-600'
             }`}
           >
             {isFreeUser ? 'Upgrade' : 'Get Credits'}

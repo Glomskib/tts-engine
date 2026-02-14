@@ -30,7 +30,7 @@ interface VideoRequest {
 
 const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgColor: string }> = {
   pending: { label: 'Pending', color: 'text-zinc-600', bgColor: 'bg-zinc-100' },
-  assigned: { label: 'Assigned', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  assigned: { label: 'Assigned', color: 'text-teal-600', bgColor: 'bg-teal-100' },
   in_progress: { label: 'In Progress', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   review: { label: 'Ready for Review', color: 'text-purple-600', bgColor: 'bg-purple-100' },
   revision: { label: 'Revision Requested', color: 'text-orange-600', bgColor: 'bg-orange-100' },
@@ -136,7 +136,7 @@ export default function ClientVideoReviewPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -201,7 +201,7 @@ export default function ClientVideoReviewPage() {
                 href={request.edited_drive_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors mb-4"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-purple-700 transition-colors mb-4"
               >
                 <ExternalLink className="w-4 h-4" />
                 View Edited Video
@@ -288,12 +288,12 @@ export default function ClientVideoReviewPage() {
 
         {/* In Progress Status */}
         {(request.status === 'pending' || request.status === 'assigned' || request.status === 'in_progress' || request.status === 'revision') && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+          <div className="bg-teal-50 border border-teal-200 rounded-xl p-6 mb-6">
             <div className="flex items-center gap-3 mb-2">
-              <Clock className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-blue-900">In Progress</h2>
+              <Clock className="w-5 h-5 text-teal-600" />
+              <h2 className="text-lg font-semibold text-teal-900">In Progress</h2>
             </div>
-            <p className="text-blue-700">
+            <p className="text-teal-700">
               {request.status === 'revision'
                 ? "Your revision request has been received. Our editor is working on the changes."
                 : "Your video is currently being edited. We'll notify you when it's ready for review."
@@ -330,7 +330,7 @@ export default function ClientVideoReviewPage() {
               href={request.source_drive_link}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800"
+              className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-800"
             >
               <ExternalLink className="w-4 h-4" />
               View Original Files

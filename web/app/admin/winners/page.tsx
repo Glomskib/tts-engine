@@ -1220,7 +1220,7 @@ export default function WinnersPage() {
         {/* Quick Import Floating Action Button */}
         <Link
           href="/admin/winners/import"
-          className="fixed bottom-20 right-6 lg:bottom-8 lg:right-8 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-indigo-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-10"
+          className="fixed bottom-20 right-6 lg:bottom-8 lg:right-8 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-teal-600 shadow-lg shadow-indigo-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-10"
           title="Quick Import TikTok Winner"
         >
           <Upload className="w-6 h-6 text-white" />

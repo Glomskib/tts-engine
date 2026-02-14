@@ -20,7 +20,7 @@ interface AgentTask {
 
 const STATUS_STYLES: Record<AgentTask['status'], { bg: string; text: string }> = {
   pending: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
-  approved: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  approved: { bg: 'bg-teal-500/15', text: 'text-teal-400' },
   in_progress: { bg: 'bg-violet-500/15', text: 'text-violet-400' },
   done: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
   verified: { bg: 'bg-teal-500/15', text: 'text-teal-400' },

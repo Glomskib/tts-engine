@@ -186,7 +186,7 @@ export default function WinnerPatternsPage() {
               This usually takes 10-20 seconds.
             </p>
             <div className="mt-4 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full animate-indeterminate" />
+              <div className="h-full bg-gradient-to-r from-violet-500 to-teal-500 rounded-full animate-indeterminate" />
             </div>
           </div>
         </div>
@@ -322,14 +322,14 @@ export default function WinnerPatternsPage() {
                             <span className="text-zinc-500">
                               {format.count} video{format.count !== 1 ? 's' : ''}
                             </span>
-                            <span className="text-blue-400 font-semibold">
+                            <span className="text-teal-400 font-semibold">
                               {format.win_rate}%
                             </span>
                           </div>
                         </div>
                         <div className="h-2.5 bg-zinc-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-500 transition-all duration-500"
                             style={{ width: `${widthPct}%` }}
                           />
                         </div>
@@ -361,7 +361,7 @@ export default function WinnerPatternsPage() {
                     'bg-violet-500/15 text-violet-300 border-violet-500/20',
                     'bg-emerald-500/15 text-emerald-300 border-emerald-500/20',
                     'bg-amber-500/15 text-amber-300 border-amber-500/20',
-                    'bg-blue-500/15 text-blue-300 border-blue-500/20',
+                    'bg-teal-500/15 text-teal-300 border-teal-500/20',
                     'bg-rose-500/15 text-rose-300 border-rose-500/20',
                     'bg-cyan-500/15 text-cyan-300 border-cyan-500/20',
                     'bg-orange-500/15 text-orange-300 border-orange-500/20',
@@ -439,18 +439,18 @@ export default function WinnerPatternsPage() {
           </AdminCard>
 
           {/* Recommendations */}
-          <div className="relative overflow-hidden rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent">
-            <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-500/5 rounded-full blur-2xl translate-y-12 -translate-x-12" />
+          <div className="relative overflow-hidden rounded-xl border border-teal-500/20 bg-gradient-to-br from-teal-500/10 via-indigo-500/5 to-transparent">
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-500/5 rounded-full blur-2xl translate-y-12 -translate-x-12" />
             <div className="relative p-6">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <Star className="w-5 h-5 text-blue-400" />
+                <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+                  <Star className="w-5 h-5 text-teal-400" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-blue-300">
+                  <h2 className="text-base font-semibold text-teal-300">
                     Recommendations
                   </h2>
-                  <p className="text-xs text-blue-500/70">
+                  <p className="text-xs text-teal-500/70">
                     Actionable tips to improve your next videos
                   </p>
                 </div>
@@ -459,7 +459,7 @@ export default function WinnerPatternsPage() {
                 <ol className="space-y-3">
                   {analysis.recommendations.map((tip, idx) => (
                     <li key={idx} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-blue-500/15 text-blue-400 text-sm font-bold flex items-center justify-center mt-0.5">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-teal-500/15 text-teal-400 text-sm font-bold flex items-center justify-center mt-0.5">
                         {idx + 1}
                       </span>
                       <p className="text-sm leading-relaxed text-zinc-200 pt-1">

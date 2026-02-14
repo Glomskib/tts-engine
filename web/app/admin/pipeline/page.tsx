@@ -158,7 +158,7 @@ const BOARD_STATUS_CONFIG: Record<string, { label: string; emoji: string; color:
   NEEDS_SCRIPT:        { label: 'Needs Script',     emoji: '📝', color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
   GENERATING_SCRIPT:   { label: 'Generating',       emoji: '🤖', color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
   NOT_RECORDED:        { label: 'Scripted',          emoji: '📄', color: 'text-zinc-400',   bg: 'bg-zinc-500/10 border-zinc-500/20' },
-  AI_RENDERING:        { label: 'AI Rendering',      emoji: '🎬', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
+  AI_RENDERING:        { label: 'AI Rendering',      emoji: '🎬', color: 'text-teal-400', bg: 'bg-purple-500/10 border-purple-500/20' },
   READY_FOR_REVIEW:    { label: 'Ready for Review',  emoji: '👀', color: 'text-emerald-400',bg: 'bg-emerald-500/10 border-emerald-500/20' },
   RECORDED:            { label: 'Recorded',          emoji: '🎙️', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20' },
   APPROVED_NEEDS_EDITS:{ label: 'Needs Edits',       emoji: '✂️', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },

@@ -14,9 +14,9 @@ interface ChangelogEntry {
 
 const CATEGORY_CONFIG = {
   feature: { label: 'Feature', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20', icon: Sparkles },
-  improvement: { label: 'Improvement', color: 'bg-blue-500/15 text-blue-400 border-blue-500/20', icon: Wrench },
+  improvement: { label: 'Improvement', color: 'bg-teal-500/15 text-teal-400 border-teal-500/20', icon: Wrench },
   fix: { label: 'Fix', color: 'bg-orange-500/15 text-orange-400 border-orange-500/20', icon: Bug },
-  announcement: { label: 'Announcement', color: 'bg-purple-500/15 text-purple-400 border-purple-500/20', icon: Megaphone },
+  announcement: { label: 'Announcement', color: 'bg-purple-500/15 text-teal-400 border-purple-500/20', icon: Megaphone },
 } as const;
 
 function formatDate(dateStr: string): string {

@@ -64,7 +64,7 @@ function engBg(rate: number) {
 }
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-const GENDER_COLORS: Record<string, string> = { male: 'bg-blue-500', female: 'bg-pink-500', other: 'bg-zinc-500' };
+const GENDER_COLORS: Record<string, string> = { male: 'bg-teal-500', female: 'bg-pink-500', other: 'bg-zinc-500' };
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -188,7 +188,7 @@ function ResultCard({ item, onRemove, videos, products, onVideoChange, onProduct
           )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <StatBox icon={<Eye className="w-4 h-4" />} label="Views" value={fmt(r.views)} color="text-blue-400" />
+            <StatBox icon={<Eye className="w-4 h-4" />} label="Views" value={fmt(r.views)} color="text-teal-400" />
             <StatBox icon={<Heart className="w-4 h-4" />} label="Likes" value={fmt(r.likes)} color="text-pink-400" />
             <StatBox icon={<MessageCircle className="w-4 h-4" />} label="Comments" value={fmt(r.comments)} color="text-amber-400" />
             <StatBox icon={<Share2 className="w-4 h-4" />} label="Shares" value={fmt(r.shares)} color="text-teal-400" />

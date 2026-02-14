@@ -42,7 +42,7 @@ export function PainPointChecklist({
   const getCategoryColor = (category?: string) => {
     switch (category) {
       case 'emotional': return 'bg-pink-900/50 text-pink-300';
-      case 'practical': return 'bg-blue-900/50 text-blue-300';
+      case 'practical': return 'bg-teal-900/50 text-teal-300';
       case 'social': return 'bg-purple-900/50 text-purple-300';
       case 'financial': return 'bg-green-900/50 text-green-300';
       default: return 'bg-zinc-700 text-zinc-300';

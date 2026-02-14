@@ -30,12 +30,12 @@ interface VAVideo {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   NEEDS_SCRIPT: { label: "Needs Script", color: "text-zinc-400", bg: "bg-zinc-700" },
-  GENERATING_SCRIPT: { label: "Writing Script...", color: "text-blue-400", bg: "bg-blue-900/50" },
+  GENERATING_SCRIPT: { label: "Writing Script...", color: "text-teal-400", bg: "bg-teal-900/50" },
   NOT_RECORDED: { label: "Ready to Record", color: "text-yellow-400", bg: "bg-yellow-900/40" },
-  AI_RENDERING: { label: "AI Rendering...", color: "text-purple-400", bg: "bg-purple-900/40" },
+  AI_RENDERING: { label: "AI Rendering...", color: "text-teal-400", bg: "bg-purple-900/40" },
   RECORDED: { label: "Recorded — Edit Now", color: "text-amber-400", bg: "bg-amber-900/40" },
   EDITED: { label: "Edited — Review", color: "text-blue-400", bg: "bg-blue-900/40" },
-  READY_FOR_REVIEW: { label: "In Review", color: "text-indigo-400", bg: "bg-indigo-900/40" },
+  READY_FOR_REVIEW: { label: "In Review", color: "text-blue-400", bg: "bg-blue-900/40" },
   APPROVED_NEEDS_EDITS: { label: "Approved — Needs Edits", color: "text-amber-400", bg: "bg-amber-900/40" },
   READY_TO_POST: { label: "Ready to Post", color: "text-green-400", bg: "bg-green-900/40" },
   POSTED: { label: "Posted", color: "text-emerald-400", bg: "bg-emerald-900/40" },
@@ -45,7 +45,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 const ACTION_BUTTONS: Record<string, { label: string; nextStatus: string; color: string }> = {
   NOT_RECORDED: { label: "Start Recording", nextStatus: "RECORDED", color: "bg-yellow-600 hover:bg-yellow-500" },
   RECORDED: { label: "Start Editing", nextStatus: "EDITED", color: "bg-blue-600 hover:bg-blue-500" },
-  EDITED: { label: "Submit for Review", nextStatus: "READY_TO_POST", color: "bg-teal-600 hover:bg-teal-500" },
+  EDITED: { label: "Submit for Review", nextStatus: "READY_TO_POST", color: "bg-blue-600 hover:bg-blue-500" },
   APPROVED_NEEDS_EDITS: { label: "Submit Edits", nextStatus: "READY_TO_POST", color: "bg-amber-600 hover:bg-amber-500" },
   READY_TO_POST: { label: "Mark as Posted", nextStatus: "POSTED", color: "bg-green-600 hover:bg-green-500" },
 };
@@ -353,7 +353,7 @@ function VideoCard({
 
           {/* Trending sound tip for ready-to-post videos */}
           {video.recording_status === "READY_TO_POST" && (
-            <div className="p-4 bg-blue-900/20 border border-blue-800/40 rounded-xl text-sm text-blue-300">
+            <div className="p-4 bg-teal-900/20 border border-teal-800/40 rounded-xl text-sm text-teal-300">
               <span className="font-semibold">TikTok tip:</span> After uploading, add a trending original sound in the TikTok app if the video is eligible. Shop-tagged videos can use original sounds but NOT commercial music.
             </div>
           )}

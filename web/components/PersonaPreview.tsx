@@ -24,7 +24,7 @@ export default function PersonaPreview({
     const colorClasses: Record<string, string> = {
       zinc: 'bg-zinc-800 text-zinc-300',
       violet: 'bg-violet-500/10 text-violet-400',
-      blue: 'bg-blue-500/10 text-blue-400',
+      blue: 'bg-teal-500/10 text-teal-400',
       emerald: 'bg-emerald-500/10 text-emerald-400',
       amber: 'bg-amber-500/10 text-amber-400',
       pink: 'bg-pink-500/10 text-pink-400',

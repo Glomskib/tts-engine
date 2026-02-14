@@ -522,7 +522,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
         <div className={`${isPortal ? 'max-w-4xl' : 'max-w-3xl mx-auto px-6'} text-center`}>
           {/* Badge — public only */}
           {!isPortal && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-sm mb-6">
               <Zap size={14} />
               100% Free — No signup required
             </div>
@@ -534,7 +534,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             ) : (
               <>
                 Free TikTok Video{' '}
-                <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-teal-400 to-violet-400 bg-clip-text text-transparent">
                   Transcriber
                 </span>
               </>
@@ -555,13 +555,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && handleTranscribe()}
                 placeholder="https://www.tiktok.com/@user/video/..."
-                className="flex-1 h-14 px-5 bg-zinc-900 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-base"
+                className="flex-1 h-14 px-5 bg-zinc-900 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-base"
                 disabled={loading}
               />
               <button
                 onClick={handleTranscribe}
                 disabled={loading || !url.trim()}
-                className="h-14 px-8 bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px]"
+                className="h-14 px-8 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px]"
               >
                 {loading ? (
                   <>
@@ -591,7 +591,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             <p className={`text-sm mt-4 ${usageRemaining === 0 ? 'text-red-400' : 'text-zinc-500'}`}>
               {usageRemaining} of {usageLimit} {isLoggedIn ? '' : 'free '}AI use{usageLimit === 1 ? '' : 's'} remaining today
               {!isPortal && !isLoggedIn && usageRemaining <= 3 && (
-                <> &mdash; <Link href="/signup" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">sign up</Link> for more /day</>
+                <> &mdash; <Link href="/signup" className="text-teal-400 hover:text-teal-300 underline underline-offset-2">sign up</Link> for more /day</>
               )}
             </p>
           )}
@@ -632,7 +632,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <MessageSquareText size={18} className="text-blue-400" />
+                  <MessageSquareText size={18} className="text-teal-400" />
                   Full Transcript
                 </h2>
                 <CopyButton
@@ -1202,7 +1202,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         <span className="px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-medium">
                           {rewriteResult.persona_used}
                         </span>
-                        <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium">
+                        <span className="px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 text-xs font-medium">
                           {rewriteResult.tone_used}
                         </span>
                       </div>
@@ -1427,7 +1427,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       </div>
                     )}
 
-                    <div className="bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-xl p-8 text-center">
+                    <div className="bg-gradient-to-r from-teal-500/10 to-violet-500/10 border border-teal-500/20 rounded-xl p-8 text-center">
                       <h3 className="text-xl font-bold text-white mb-2">
                         Want to write scripts like this?
                       </h3>
@@ -1436,7 +1436,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       </p>
                       <Link
                         href="/signup"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
                       >
                         Generate your first script free
                         <ArrowRight size={16} />
@@ -1488,8 +1488,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   key={item.step}
                   className="text-center p-6 rounded-xl bg-zinc-900/30 border border-white/5"
                 >
-                  <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                    <item.icon size={20} className="text-blue-400" />
+                  <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mx-auto mb-4">
+                    <item.icon size={20} className="text-teal-400" />
                   </div>
                   <h3 className="font-semibold text-white mb-2">{item.title}</h3>
                   <p className="text-sm text-zinc-400">{item.desc}</p>
@@ -1505,7 +1505,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
         <section className={`relative ${isPortal ? 'py-8' : 'py-16'}`}>
           <div className={`${isPortal ? 'max-w-md' : 'max-w-md mx-auto px-6'} text-center`}>
             <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-8">
-              <Loader2 size={32} className="animate-spin text-blue-400 mx-auto mb-4" />
+              <Loader2 size={32} className="animate-spin text-teal-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-white mb-2">Transcribing video...</h3>
               <p className="text-sm text-zinc-400">
                 Downloading audio, running AI transcription, and analyzing content. This usually

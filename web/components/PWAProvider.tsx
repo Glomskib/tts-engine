@@ -117,20 +117,20 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
 function UpdateNotification({ onUpdate, onDismiss }: { onUpdate: () => void; onDismiss: () => void }) {
   return (
     <div className="fixed top-4 left-4 right-4 lg:left-auto lg:right-6 lg:w-80 z-[100] animate-slide-in-up">
-      <div className="bg-blue-600 text-white rounded-xl p-4 shadow-xl flex items-center gap-3">
+      <div className="bg-teal-600 text-white rounded-xl p-4 shadow-xl flex items-center gap-3">
         <RefreshCw className="w-5 h-5 flex-shrink-0" />
         <div className="flex-1">
           <p className="text-sm font-medium">Update available</p>
-          <p className="text-xs text-blue-200">Refresh to get the latest version</p>
+          <p className="text-xs text-teal-200">Refresh to get the latest version</p>
         </div>
         <button
           type="button"
           onClick={onUpdate}
-          className="h-8 px-3 bg-white text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 btn-press"
+          className="h-8 px-3 bg-white text-teal-600 rounded-lg text-sm font-medium hover:bg-teal-50 btn-press"
         >
           Refresh
         </button>
-        <button type="button" onClick={onDismiss} className="p-1 hover:bg-blue-500 rounded" aria-label="Dismiss">
+        <button type="button" onClick={onDismiss} className="p-1 hover:bg-teal-500 rounded" aria-label="Dismiss">
           <X className="w-4 h-4" />
         </button>
       </div>

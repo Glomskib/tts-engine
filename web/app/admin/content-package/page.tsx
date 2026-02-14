@@ -66,7 +66,7 @@ function getScoreBg(score: number): string {
 function getStatusConfig(status: string): { label: string; color: string; bg: string } {
   switch (status) {
     case 'generating':
-      return { label: 'Generating...', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' };
+      return { label: 'Generating...', color: 'text-teal-400', bg: 'bg-teal-400/10 border-teal-400/20' };
     case 'complete':
       return { label: 'Complete', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20' };
     case 'failed':
@@ -497,7 +497,7 @@ export default function ContentPackagePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-zinc-900/50 rounded-xl border border-white/10">
             <div className="flex items-center gap-3">
               {pkg.status === 'generating' && (
-                <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
+                <Loader2 className="w-5 h-5 text-teal-400 animate-spin flex-shrink-0" />
               )}
               {pkg.status === 'complete' && (
                 <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0">

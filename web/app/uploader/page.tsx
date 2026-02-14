@@ -607,7 +607,7 @@ export default function UploaderPage() {
                       <td className="px-4 py-3">
                         <button type="button"
                           onClick={() => openDrawer(video)}
-                          className="font-mono text-xs text-blue-600 hover:underline bg-transparent border-none cursor-pointer p-0"
+                          className="font-mono text-xs text-teal-600 hover:underline bg-transparent border-none cursor-pointer p-0"
                         >
                           {video.video_id.slice(0, 8)}...
                         </button>
@@ -617,7 +617,7 @@ export default function UploaderPage() {
                       </td>
                       <td className="px-4 py-3">
                         {video.target_account ? (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                          <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs font-medium">
                             {video.target_account}
                           </span>
                         ) : (
@@ -631,7 +631,7 @@ export default function UploaderPage() {
                             href={video.product_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline truncate block max-w-[150px]"
+                            className="text-xs text-teal-600 hover:underline truncate block max-w-[150px]"
                           >
                             {video.product_link}
                           </a>
@@ -672,7 +672,7 @@ export default function UploaderPage() {
               <p className="text-sm text-slate-500 mt-1">
                 Video: {markPostedVideo.video_id.slice(0, 8)}...
                 {markPostedVideo.target_account && (
-                  <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                  <span className="ml-2 px-2 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
                     {markPostedVideo.target_account}
                   </span>
                 )}
@@ -689,7 +689,7 @@ export default function UploaderPage() {
                   value={postedUrl}
                   onChange={(e) => setPostedUrl(e.target.value)}
                   placeholder="https://www.tiktok.com/@account/video/123..."
-                  className="w-full p-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   autoFocus
                 />
               </div>
@@ -701,7 +701,7 @@ export default function UploaderPage() {
                 <select
                   value={postedPlatform}
                   onChange={(e) => setPostedPlatform(e.target.value as 'tiktok' | 'instagram' | 'youtube' | 'other')}
-                  className="w-full p-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 >
                   {PLATFORM_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>

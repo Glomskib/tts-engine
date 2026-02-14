@@ -19,7 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  feature: 'bg-blue-500/10 text-blue-400',
+  feature: 'bg-teal-500/10 text-teal-400',
   improvement: 'bg-violet-500/10 text-violet-400',
   bug: 'bg-amber-500/10 text-amber-400',
   other: 'bg-zinc-700 text-zinc-400',
@@ -61,7 +61,7 @@ export function RoadmapItems() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+        <Loader2 className="w-6 h-6 text-teal-400 animate-spin" />
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function RoadmapItems() {
       {/* In Progress */}
       {inProgress.length > 0 && (
         <Section
-          icon={<Rocket className="w-5 h-5 text-blue-400" />}
+          icon={<Rocket className="w-5 h-5 text-teal-400" />}
           title="In Progress"
           description="Currently being built"
           color="blue"
@@ -130,14 +130,14 @@ function Section({
 }) {
   const borderColor =
     color === 'blue'
-      ? 'border-blue-500/20'
+      ? 'border-teal-500/20'
       : color === 'violet'
         ? 'border-violet-500/20'
         : 'border-green-500/20';
 
   const dotColor =
     color === 'blue'
-      ? 'bg-blue-400'
+      ? 'bg-teal-400'
       : color === 'violet'
         ? 'bg-violet-400'
         : 'bg-green-400';

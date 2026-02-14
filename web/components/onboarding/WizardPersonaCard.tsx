@@ -10,7 +10,7 @@ interface WizardPersonaCardProps {
 
 const CATEGORY_COLORS: Record<string, string> = {
   lifestyle: 'bg-pink-500',
-  tech: 'bg-blue-500',
+  tech: 'bg-teal-500',
   comedy: 'bg-amber-500',
   educational: 'bg-emerald-500',
   beauty: 'bg-fuchsia-500',

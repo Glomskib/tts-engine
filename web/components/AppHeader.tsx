@@ -83,7 +83,7 @@ export function AppHeader({
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-medium">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-violet-600 flex items-center justify-center text-white text-sm font-medium">
               {userEmail?.charAt(0).toUpperCase() || 'U'}
             </div>
             <span className="hidden md:inline text-sm max-w-[150px] truncate">

@@ -114,7 +114,7 @@ export default function PersonaPreviewCard({
           {/* Communication Style Summary */}
           <div className="flex flex-wrap gap-1.5">
             {tone && (
-              <span className="px-2 py-0.5 text-xs rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <span className="px-2 py-0.5 text-xs rounded bg-teal-500/10 text-teal-400 border border-teal-500/20">
                 Tone: {tone}
               </span>
             )}

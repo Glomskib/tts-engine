@@ -676,7 +676,7 @@ export default function ReviewPage() {
                   type="button"
                   onClick={() => handleRegenerate(video.id)}
                   disabled={regenLoading === video.id}
-                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 rounded-lg transition-colors disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium bg-teal-600/20 text-teal-400 border border-teal-500/30 hover:bg-teal-600/30 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {regenLoading === video.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

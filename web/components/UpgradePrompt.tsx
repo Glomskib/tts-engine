@@ -39,13 +39,13 @@ export function UpgradePrompt({
 
   if (variant === 'banner') {
     return (
-      <div className="relative bg-gradient-to-r from-blue-600/20 via-violet-600/20 to-blue-600/20 border-y border-blue-500/20 py-3 px-4">
+      <div className="relative bg-gradient-to-r from-teal-600/20 via-violet-600/20 to-teal-600/20 border-y border-teal-500/20 py-3 px-4">
         <div className="flex items-center justify-center gap-4 text-sm">
-          <Zap size={16} className="text-blue-400" />
+          <Zap size={16} className="text-teal-400" />
           <span className="text-zinc-200">{title}</span>
           <Link
             href="/upgrade"
-            className="px-3 py-1 rounded-full bg-blue-500 text-white text-xs font-medium hover:bg-blue-600 transition-colors"
+            className="px-3 py-1 rounded-full bg-teal-500 text-white text-xs font-medium hover:bg-teal-600 transition-colors"
           >
             {cta}
           </Link>
@@ -65,12 +65,12 @@ export function UpgradePrompt({
 
   if (variant === 'inline') {
     return (
-      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-        <Zap size={14} className="text-blue-400" />
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20">
+        <Zap size={14} className="text-teal-400" />
         <span className="text-xs text-zinc-300">{title}</span>
         <Link
           href="/upgrade"
-          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+          className="text-xs text-teal-400 hover:text-teal-300 font-medium transition-colors"
         >
           {cta} →
         </Link>
@@ -80,7 +80,7 @@ export function UpgradePrompt({
 
   // Default: card variant
   return (
-    <div className="relative p-6 rounded-xl bg-gradient-to-br from-blue-600/10 via-violet-600/10 to-blue-600/10 border border-blue-500/20">
+    <div className="relative p-6 rounded-xl bg-gradient-to-br from-teal-600/10 via-violet-600/10 to-teal-600/10 border border-teal-500/20">
       {dismissible && (
         <button type="button"
           onClick={handleDismiss}
@@ -92,15 +92,15 @@ export function UpgradePrompt({
       )}
 
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
-          <Zap size={20} className="text-blue-400" />
+        <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center flex-shrink-0">
+          <Zap size={20} className="text-teal-400" />
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-white mb-1">{title}</h4>
           <p className="text-sm text-zinc-400 mb-4">{description}</p>
           <Link
             href="/upgrade"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-500 text-white text-sm font-medium hover:bg-teal-600 transition-colors"
           >
             {cta}
             <span aria-hidden="true">→</span>

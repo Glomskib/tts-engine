@@ -235,7 +235,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const renderStep1 = () => (
     <>
       <div className="flex justify-center mb-6">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
           <Package className="w-8 h-8 text-white" />
         </div>
       </div>
@@ -477,10 +477,10 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
       {/* Quick links grid */}
       <div className="grid grid-cols-2 gap-2 mb-6 text-left">
         {[
-          { label: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, color: 'text-blue-400' },
+          { label: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, color: 'text-teal-400' },
           { label: 'Products', href: '/admin/products', icon: Package, color: 'text-cyan-400' },
           { label: 'Winners Bank', href: '/admin/winners', icon: Trophy, color: 'text-amber-400' },
-          { label: 'Pipeline', href: '/admin/pipeline', icon: Video, color: 'text-purple-400' },
+          { label: 'Pipeline', href: '/admin/pipeline', icon: Video, color: 'text-teal-400' },
         ].map(link => {
           const Icon = link.icon;
           return (

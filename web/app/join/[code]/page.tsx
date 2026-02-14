@@ -85,7 +85,7 @@ export default function BrandJoinPage({
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
       <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-blue-500/10 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-teal-500/10 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
       <main className="relative z-10 flex items-center justify-center min-h-screen p-4">
         <div className="w-full max-w-md">
@@ -100,7 +100,7 @@ export default function BrandJoinPage({
                 className="mx-auto mb-4 rounded-xl"
               />
             ) : (
-              <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl">
                 {invite.brand_name.charAt(0).toUpperCase()}
               </div>
             )}

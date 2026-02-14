@@ -330,7 +330,7 @@ export default function ScriptOfTheDayPage() {
                       </span>
                     )}
                     {scriptOfTheDay.full_script?.sales_approach && (
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/20">
                         {scriptOfTheDay.full_script.sales_approach}
                       </span>
                     )}
@@ -375,7 +375,7 @@ export default function ScriptOfTheDayPage() {
 
                   {/* Body */}
                   <div className="bg-zinc-800 rounded-lg p-4">
-                    <span className="text-xs uppercase tracking-wider text-blue-400 font-semibold mb-1.5 block">
+                    <span className="text-xs uppercase tracking-wider text-teal-400 font-semibold mb-1.5 block">
                       Body — The Pitch
                     </span>
                     <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">

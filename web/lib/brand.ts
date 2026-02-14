@@ -61,7 +61,7 @@ export const BRAND = {
     btnGhost: 'text-zinc-400 hover:text-white hover:bg-white/5',
 
     // Inputs
-    input: 'bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+    input: 'bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent',
 
     // Cards
     card: 'bg-zinc-900/50 border border-white/10 rounded-xl',
@@ -70,8 +70,8 @@ export const BRAND = {
 
 // Legacy exports for backwards compatibility
 export const brandName = BRAND.name;
-export const accentColorClass = 'bg-blue-600';
-export const accentTextClass = 'text-blue-500';
+export const accentColorClass = 'bg-teal-600';
+export const accentTextClass = 'text-teal-500';
 export const logoText = 'FF';
 export const supportEmail = BRAND.supportEmail;
 

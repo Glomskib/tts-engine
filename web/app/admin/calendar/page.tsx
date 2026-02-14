@@ -48,9 +48,9 @@ function getStatusGroup(recordingStatus: string): StatusGroup {
 const STATUS_COLORS: Record<StatusGroup, { dot: string; bg: string; border: string; text: string; label: string }> = {
   approved:  { dot: 'bg-green-400',  bg: 'bg-green-400/10',  border: 'border-green-400/30',  text: 'text-green-400',  label: 'Approved' },
   review:    { dot: 'bg-amber-400',  bg: 'bg-amber-400/10',  border: 'border-amber-400/30',  text: 'text-amber-400',  label: 'Ready for Review' },
-  posted:    { dot: 'bg-blue-400',   bg: 'bg-blue-400/10',   border: 'border-blue-400/30',   text: 'text-blue-400',   label: 'Posted' },
+  posted:    { dot: 'bg-teal-400',   bg: 'bg-teal-400/10',   border: 'border-teal-400/30',   text: 'text-teal-400',   label: 'Posted' },
   rejected:  { dot: 'bg-red-400',    bg: 'bg-red-400/10',    border: 'border-red-400/30',    text: 'text-red-400',    label: 'Rejected' },
-  rendering: { dot: 'bg-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/30', text: 'text-purple-400', label: 'In Production' },
+  rendering: { dot: 'bg-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/30', text: 'text-teal-400', label: 'In Production' },
 };
 
 // --- Date helpers ---
@@ -326,7 +326,7 @@ export default function ContentCalendarPage() {
             <div className="text-2xl font-bold text-white">{toReview}</div>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
-            <div className="flex items-center justify-center gap-1 text-xs text-purple-400 mb-1">
+            <div className="flex items-center justify-center gap-1 text-xs text-teal-400 mb-1">
               <Video className="w-3 h-3" /> In Production
             </div>
             <div className="text-2xl font-bold text-white">{inProduction}</div>

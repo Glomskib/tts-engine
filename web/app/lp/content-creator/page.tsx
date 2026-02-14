@@ -134,8 +134,8 @@ export default function ContentCreatorLP() {
           </div>
 
           {/* Creator Pro */}
-          <div className="p-6 rounded-2xl bg-zinc-900/80 border border-blue-500/50 relative">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-500 text-xs font-medium text-white">
+          <div className="p-6 rounded-2xl bg-zinc-900/80 border border-teal-500/50 relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white">
               Most Popular
             </div>
             <h3 className="text-lg font-semibold text-white mb-1">Creator Pro</h3>

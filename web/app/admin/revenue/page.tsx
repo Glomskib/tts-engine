@@ -113,7 +113,7 @@ export default function RevenuePage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const productColors = ['bg-blue-500', 'bg-teal-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-green-500'];
+  const productColors = ['bg-teal-500', 'bg-teal-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-green-500'];
   const accountColors = ['bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-cyan-500', 'bg-rose-500'];
 
   // Simple SVG timeline chart

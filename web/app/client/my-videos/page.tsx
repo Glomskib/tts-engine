@@ -29,7 +29,7 @@ interface Stats {
 
 const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgColor: string; icon: typeof Clock }> = {
   pending: { label: 'Pending', color: 'text-zinc-600', bgColor: 'bg-zinc-100', icon: Clock },
-  assigned: { label: 'Assigned', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Clock },
+  assigned: { label: 'Assigned', color: 'text-teal-600', bgColor: 'bg-teal-100', icon: Clock },
   in_progress: { label: 'In Progress', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: Clock },
   review: { label: 'Ready for Review', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: Eye },
   revision: { label: 'Revision', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: Clock },
@@ -77,7 +77,7 @@ export default function ClientMyVideosPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -93,7 +93,7 @@ export default function ClientMyVideosPage() {
           </div>
           <Link
             href="/client/requests/new"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
           >
             New Request
           </Link>
@@ -111,7 +111,7 @@ export default function ClientMyVideosPage() {
             </div>
             <button type="button"
               onClick={() => setFilter('review')}
-              className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+              className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-purple-700"
             >
               View
             </button>
@@ -153,7 +153,7 @@ export default function ClientMyVideosPage() {
               onClick={() => setFilter(f.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filter === f.key
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-teal-600 text-white'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -169,7 +169,7 @@ export default function ClientMyVideosPage() {
             <p className="text-slate-600 mb-4">No video requests found</p>
             <Link
               href="/client/requests/new"
-              className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="inline-block px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
             >
               Submit Your First Request
             </Link>

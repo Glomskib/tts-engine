@@ -142,6 +142,26 @@ export async function POST(request: Request) {
     );
   }
 
+  // ── Deduct credits BEFORE generation (fail-fast, atomic) ──
+  const SCRIPT_CREDIT_COST = 3;
+  let creditsRemaining: number | undefined;
+  if (!isAdmin) {
+    const spend = await spendCredits(
+      auth.user.id,
+      SCRIPT_CREDIT_COST,
+      "generation",
+      "Script generation",
+      false,
+    );
+    if (!spend.success) {
+      return NextResponse.json(
+        { ok: false, error: spend.error || "Insufficient credits", creditsRemaining: spend.remaining },
+        { status: 402 }
+      );
+    }
+    creditsRemaining = spend.remaining;
+  }
+
   try {
     // ── Generate script via unified generator ──
     const result = await generateUnifiedScript({
@@ -153,59 +173,59 @@ export async function POST(request: Request) {
       callerContext: 'scripts_generate',
     });
 
-    // Get next version number for this concept
-    const { data: maxVersionRow } = await supabaseAdmin
-      .from("scripts")
-      .select("version")
-      .eq("concept_id", concept_id.trim())
-      .order("version", { ascending: false })
-      .limit(1)
-      .single();
+    // Insert script with retry logic for version collisions.
+    // Uses DB function for version number, retries up to 3 times on conflict.
+    let insertedScript: Record<string, unknown> | null = null;
+    let insertError: { message: string } | null = null;
 
-    const nextVersion = (maxVersionRow?.version ?? 0) + 1;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      // Get next version atomically via RPC
+      const { data: versionNum } = await supabaseAdmin.rpc("next_script_version", {
+        p_concept_id: concept_id.trim(),
+      });
 
-    // Insert script into database using existing schema columns
-    const insertPayload: Record<string, unknown> = {
-      concept_id: concept_id.trim(),
-      on_screen_text: result.onScreenText.join(" | "),
-      caption: result.caption || "Generated caption",
-      hashtags: result.hashtags.join(" "),
-      cta: result.cta || "Check it out!",
-      version: nextVersion,
-      spoken_script: result.spokenScript || "Generated script",
-    };
+      const nextVersion = versionNum ?? 1;
 
-    const { data: insertedScript, error: insertError } = await supabaseAdmin
-      .from("scripts")
-      .insert(insertPayload)
-      .select()
-      .single();
+      const insertPayload: Record<string, unknown> = {
+        concept_id: concept_id.trim(),
+        on_screen_text: result.onScreenText.join(" | "),
+        caption: result.caption || "Generated caption",
+        hashtags: result.hashtags.join(" "),
+        cta: result.cta || "Check it out!",
+        version: nextVersion,
+        spoken_script: result.spokenScript || "Generated script",
+      };
 
-    if (insertError) {
+      const { data, error } = await supabaseAdmin
+        .from("scripts")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (!error) {
+        insertedScript = data;
+        insertError = null;
+        break;
+      }
+
+      // Retry on unique constraint violation (version collision)
+      if (error.code === "23505" && attempt < 2) {
+        continue;
+      }
+
+      insertError = error;
+    }
+
+    if (insertError || !insertedScript) {
       console.error("Script insertion error:", insertError);
       return NextResponse.json(
         {
           ok: false,
           error: "Failed to save generated script",
-          details: insertError.message,
-          payload: insertPayload
+          details: insertError?.message,
         },
         { status: 500 }
       );
-    }
-
-    // ── Deduct credits (3 per script, admins bypass) ──
-    const SCRIPT_CREDIT_COST = 3;
-    let creditsRemaining: number | undefined;
-    if (!isAdmin) {
-      const spend = await spendCredits(
-        auth.user.id,
-        SCRIPT_CREDIT_COST,
-        "generation",
-        "Script generation",
-        false,
-      );
-      creditsRemaining = spend.remaining;
     }
 
     return NextResponse.json({

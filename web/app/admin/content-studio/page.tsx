@@ -1403,8 +1403,8 @@ export default function ContentStudioPage() {
               Generate viral short-form video scripts
             </p>
           </div>
-          {/* Action buttons - horizontal scroll on mobile */}
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
+          {/* Action buttons - wrap on mobile */}
+          <div className="flex gap-2 flex-wrap">
             <Link
               href="/admin/script-of-the-day"
               className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"

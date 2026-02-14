@@ -740,9 +740,9 @@ export default function ProductsPage() {
                 const textColor = pct >= 100 ? 'text-red-400' : pct >= 80 ? 'text-amber-400' : 'text-teal-400';
                 return (
                   <div key={brand.id} className="p-3 bg-zinc-800/50 border border-white/5 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-zinc-200 truncate">{brand.name}</span>
-                      <span className={`text-xs font-semibold ${textColor}`}>{used}/{quota}</span>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-medium text-zinc-200 truncate min-w-0">{brand.name}</span>
+                      <span className={`text-xs font-semibold shrink-0 ${textColor}`}>{used}/{quota}</span>
                     </div>
                     <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
                       <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -779,8 +779,8 @@ export default function ProductsPage() {
             ) : undefined}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-xs sm:text-sm min-w-[640px]">
               <thead>
                 <tr className="bg-zinc-800/50 border-b border-white/10">
                   {isAdmin && (

@@ -174,8 +174,8 @@ export default function AgentTasksPage() {
             No tasks found. Tasks created by Bolt will appear here.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-xs sm:text-sm min-w-[540px]">
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="px-4 py-3 text-left font-medium text-zinc-500">Type</th>

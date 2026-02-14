@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -12,6 +13,8 @@ import {
   type NavItemResolved,
 } from '@/lib/navigation';
 import { useToast } from '@/contexts/ToastContext';
+
+const CHANGELOG_LAST_SEEN_KEY = 'ffai-changelog-last-seen';
 
 interface AppSidebarProps {
   isAdmin: boolean;
@@ -36,6 +39,28 @@ export function AppSidebar({
   const router = useRouter();
   const { showInfo } = useToast();
   const navSections = getFilteredNavSections({ planId, isAdmin, subscriptionType });
+  const [hasUnreadChangelog, setHasUnreadChangelog] = useState(false);
+
+  useEffect(() => {
+    const lastSeen = localStorage.getItem(CHANGELOG_LAST_SEEN_KEY);
+    if (!lastSeen) {
+      // Never visited — show dot
+      setHasUnreadChangelog(true);
+      return;
+    }
+    // Show dot if last seen > 3 days ago (new content likely)
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    if (new Date(lastSeen).getTime() < threeDaysAgo) {
+      setHasUnreadChangelog(true);
+    }
+  }, []);
+
+  // Clear dot when user navigates to whats-new
+  useEffect(() => {
+    if (pathname === '/admin/whats-new') {
+      setHasUnreadChangelog(false);
+    }
+  }, [pathname]);
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -141,6 +166,9 @@ export function AppSidebar({
                       className={active ? 'text-blue-400' : ''}
                     />
                     <span className="text-sm font-medium">{item.name}</span>
+                    {item.href === '/admin/whats-new' && hasUnreadChangelog && (
+                      <span className="ml-auto w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                    )}
                   </Link>
                 );
               })}

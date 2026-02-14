@@ -34,6 +34,7 @@ import {
   Search,
   Hash,
   DollarSign,
+  Lightbulb,
   Send,
   Sun,
   Camera,
@@ -44,6 +45,7 @@ import {
   Eye,
   MessageSquare,
   Plug,
+  Gift,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -107,6 +109,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'INSIGHTS',
     subscriptionType: 'saas',
     items: [
+      { name: 'Content Ideas', href: '/admin/content-ideas', icon: Lightbulb, minPlan: 'creator_lite' },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
       { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
@@ -125,6 +128,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SETTINGS',
     subscriptionType: 'saas',
     items: [
+      { name: 'What\'s New', href: '/admin/whats-new', icon: Gift },
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
       { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },
       { name: 'Billing', href: '/admin/billing', icon: Wallet },
@@ -312,6 +316,7 @@ export const Icons = {
   Mic,
   Search,
   MessageSquare,
+  Lightbulb,
 };
 
 // Constants

@@ -210,6 +210,11 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [selectedTone, setSelectedTone] = useState('conversational');
   const [customPersona, setCustomPersona] = useState('');
 
+  // Save to Content Studio state
+  const [savingToStudio, setSavingToStudio] = useState(false);
+  const [savedConceptId, setSavedConceptId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState('');
+
   const isPaid = usageLimit === -1;
   const isRateLimited = usageRemaining !== null && usageRemaining <= 0 && !isPaid;
 
@@ -250,6 +255,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     setRewriteResult(null);
     setRecsOpen(false);
     setRewriteOpen(false);
+    setSavedConceptId(null);
+    setSaveError('');
 
     try {
       const res = await fetch('/api/transcribe', {
@@ -417,10 +424,39 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     }
   }
 
-  function handleSaveToContentStudio() {
+  async function handleSaveToContentStudio() {
     if (!rewriteResult) return;
-    const script = encodeURIComponent(rewriteResult.rewritten_script);
-    router.push(`/admin/content-studio?inspiration=${script}`);
+    setSavingToStudio(true);
+    setSaveError('');
+
+    try {
+      const res = await fetch('/api/transcribe/save-to-studio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rewritten_hook: rewriteResult.rewritten_hook,
+          rewritten_script: rewriteResult.rewritten_script,
+          on_screen_text: rewriteResult.on_screen_text,
+          cta: rewriteResult.cta,
+          persona_used: rewriteResult.persona_used,
+          tone_used: rewriteResult.tone_used,
+          source_url: url.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSaveError(data.error || 'Failed to save to Content Studio');
+        return;
+      }
+
+      setSavedConceptId(data.concept_id);
+    } catch {
+      setSaveError('Network error. Please try again.');
+    } finally {
+      setSavingToStudio(false);
+    }
   }
 
   return (
@@ -1094,13 +1130,37 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           label="Copy All"
                         />
                         {isPortal && isLoggedIn && isPaid && (
-                          <button
-                            onClick={handleSaveToContentStudio}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 text-sm rounded-lg transition-colors"
-                          >
-                            <FileText size={14} />
-                            Save to Content Studio
-                          </button>
+                          savedConceptId ? (
+                            <Link
+                              href={`/admin/content-studio?concept=${savedConceptId}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-lg transition-colors hover:bg-green-500/20"
+                            >
+                              <Check size={14} />
+                              Saved! View in Content Studio
+                              <ArrowRight size={14} />
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={handleSaveToContentStudio}
+                              disabled={savingToStudio}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {savingToStudio ? (
+                                <>
+                                  <Loader2 size={14} className="animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <FileText size={14} />
+                                  Save to Content Studio
+                                </>
+                              )}
+                            </button>
+                          )
+                        )}
+                        {saveError && (
+                          <p className="text-red-400 text-sm w-full">{saveError}</p>
                         )}
                       </div>
                     </div>

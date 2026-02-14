@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
-  Package, Sparkles, Video, Trophy, CheckCircle2,
+  Package, Sparkles, Video, CheckCircle2,
   ChevronDown, ChevronUp, X,
 } from 'lucide-react';
 
@@ -34,30 +34,23 @@ const STEPS: ChecklistStep[] = [
   },
   {
     id: 'video',
-    label: 'Send a video to the pipeline',
+    label: 'Review in pipeline',
     description: 'Track a video from script to TikTok',
     href: '/admin/pipeline',
     icon: Video,
-  },
-  {
-    id: 'winner',
-    label: 'Save a winning video',
-    description: 'AI learns from your best performers',
-    href: '/admin/winners-bank',
-    icon: Trophy,
   },
 ];
 
 interface SetupChecklistProps {
   scriptsCount: number;
   totalVideos: number;
-  winnersCount: number;
 }
 
-export default function SetupChecklist({ scriptsCount, totalVideos, winnersCount }: SetupChecklistProps) {
+export default function SetupChecklist({ scriptsCount, totalVideos }: SetupChecklistProps) {
   const [dismissed, setDismissed] = useState(true); // default hidden until we check
   const [collapsed, setCollapsed] = useState(false);
   const [productCount, setProductCount] = useState<number | null>(null);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     const wasDismissed = localStorage.getItem(DISMISSED_KEY) === 'true';
@@ -83,6 +76,8 @@ export default function SetupChecklist({ scriptsCount, totalVideos, winnersCount
   const handleDismiss = () => {
     localStorage.setItem(DISMISSED_KEY, 'true');
     setDismissed(true);
+    // Also persist server-side
+    fetch('/api/onboarding/dismiss', { method: 'POST' }).catch(() => {});
   };
 
   // Determine which steps are complete based on real data
@@ -90,10 +85,17 @@ export default function SetupChecklist({ scriptsCount, totalVideos, winnersCount
   if (productCount !== null && productCount > 0) completedSteps.add('product');
   if (scriptsCount > 0) completedSteps.add('script');
   if (totalVideos > 0) completedSteps.add('video');
-  if (winnersCount > 0) completedSteps.add('winner');
 
   const completedCount = completedSteps.size;
   const allDone = completedCount === STEPS.length;
+
+  // Auto-mark onboarding complete when all 3 steps are done
+  useEffect(() => {
+    if (allDone && !completedRef.current) {
+      completedRef.current = true;
+      fetch('/api/onboarding/complete', { method: 'POST' }).catch(() => {});
+    }
+  }, [allDone]);
 
   // Don't render if dismissed or all done
   if (dismissed || allDone) return null;

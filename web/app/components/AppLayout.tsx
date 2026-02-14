@@ -5,7 +5,6 @@ import { useCredits } from '@/hooks/useCredits';
 import { SIDEBAR_STORAGE_KEY, MOBILE_BREAKPOINT } from '@/lib/navigation';
 import { AppSidebar } from '@/components/AppSidebar';
 import { AppHeader } from '@/components/AppHeader';
-import OnboardingModal, { useOnboarding } from '@/components/OnboardingModal';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 
@@ -30,8 +29,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const { shouldShow: showOnboarding, markComplete: completeOnboarding } = useOnboarding();
-
   // Handle responsive behavior
   useEffect(() => {
     const checkMobile = () => {
@@ -137,10 +134,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </main>
       </div>
 
-      {/* Onboarding modal for new users */}
-      {showOnboarding && (
-        <OnboardingModal onComplete={completeOnboarding} />
-      )}
     </div>
   );
 }

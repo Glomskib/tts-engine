@@ -14,35 +14,22 @@ export async function POST(request: Request) {
 
     const userId = authContext.user.id;
 
-    // Check if caller also wants to mark onboarding as complete
-    let complete = false;
     try {
-      const body = await request.json();
-      complete = body?.complete === true;
-    } catch {
-      // No body or invalid JSON — just dismiss
-    }
-
-    try {
-      const upsertData: Record<string, unknown> = {
-        user_id: userId,
-        onboarding_dismissed: true,
-        updated_at: new Date().toISOString(),
-      };
-      if (complete) {
-        upsertData.onboarding_complete = true;
-      }
-
       await supabaseAdmin
         .from('user_profiles')
-        .upsert(upsertData, { onConflict: 'user_id' });
+        .upsert({
+          user_id: userId,
+          onboarding_complete: true,
+          onboarding_dismissed: true,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
     } catch (dbError) {
       console.error('[Onboarding] Could not update user_profiles:', dbError);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Dismiss onboarding error:', error);
-    return createApiErrorResponse('INTERNAL', 'Failed to dismiss', 500, correlationId);
+    console.error('Complete onboarding error:', error);
+    return createApiErrorResponse('INTERNAL', 'Failed to complete onboarding', 500, correlationId);
   }
 }

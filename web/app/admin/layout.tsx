@@ -86,7 +86,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/automation': 'Automation',
       '/admin/settings': 'Settings',
       '/admin/api-docs': 'API Docs',
-      '/admin/onboarding': 'Getting Started',
       '/admin/help': 'Help',
     };
     const title = PAGE_TITLES[pathname] || 'Admin';

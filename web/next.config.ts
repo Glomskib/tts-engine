@@ -30,7 +30,11 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+  },
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       // Replicate AI image generation
       {

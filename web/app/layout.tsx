@@ -137,6 +137,8 @@ export default function RootLayout({
         {/* Performance: Preconnect to external APIs */}
         <link rel="preconnect" href="https://api.openai.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://replicate.delivery" crossOrigin="anonymous" />
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
         <link rel="dns-prefetch" href="https://flashflowai.com" />
         
         {/* Performance: Prefetch critical navigation */}

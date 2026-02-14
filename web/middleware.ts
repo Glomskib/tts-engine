@@ -9,12 +9,23 @@ const CORS_HEADERS = {
 }
 
 export async function middleware(request: NextRequest) {
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+  const path = request.nextUrl.pathname
+  const isApiRoute = path.startsWith('/api/')
 
   // Handle CORS preflight for API routes (no session needed)
   if (isApiRoute && request.method === 'OPTIONS') {
     return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
   }
+
+  // Skip session refresh for public pages and API routes that use API keys (not cookies)
+  const skipSession =
+    path.startsWith('/api/cron/') ||
+    path.startsWith('/api/webhooks/') ||
+    path === '/pricing' ||
+    path === '/features' ||
+    path === '/about' ||
+    path === '/transcribe' ||
+    path === '/tools'
 
   let response = NextResponse.next({
     request: {
@@ -22,36 +33,40 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // Session refresh for ALL routes (including /api/auth/me which uses cookies)
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
+  // Only refresh Supabase session for routes that need it
+  let user = null
+  if (!skipSession) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => {
+              request.cookies.set(name, value)
+            })
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            })
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options)
+            })
+          },
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value)
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
+      }
+    )
 
-  // Refresh session if needed
-  const { data: { user } } = await supabase.auth.getUser()
+    // Refresh session if needed
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  }
 
-  // Add CORS headers to API responses (after session refresh so cookies are set)
+  // Add CORS headers to API responses
   if (isApiRoute) {
     for (const [key, value] of Object.entries(CORS_HEADERS)) {
       response.headers.set(key, value)
@@ -60,7 +75,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users from landing page to their role-appropriate dashboard
-  if (user && request.nextUrl.pathname === '/') {
+  if (user && path === '/') {
     const adminEmails = (process.env.ADMIN_USERS || '').split(',').map(e => e.trim().toLowerCase())
     if (user.email && adminEmails.includes(user.email.toLowerCase())) {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url))

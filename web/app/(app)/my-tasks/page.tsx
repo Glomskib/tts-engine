@@ -2,9 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useHydrated, getTimeAgo } from '@/lib/useHydrated';
-import VideoDrawer from '@/app/admin/pipeline/components/VideoDrawer';
 import { getStatusBadgeColor, getSlaColor } from '@/app/admin/pipeline/types';
+
+const VideoDrawer = dynamic(() => import('@/app/admin/pipeline/components/VideoDrawer'), {
+  loading: () => <div className="animate-pulse bg-zinc-800 rounded-xl h-64" />,
+  ssr: false,
+});
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 
 type UserRole = 'admin' | 'recorder' | 'editor' | 'uploader' | null;

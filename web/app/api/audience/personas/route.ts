@@ -120,6 +120,8 @@ export async function GET(request: Request) {
       ok: true,
       data: data || [],
       correlation_id: correlationId,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' },
     });
   } catch (error) {
     const err = error as Error;

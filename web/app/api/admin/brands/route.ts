@@ -33,7 +33,9 @@ export async function GET(request: Request) {
   // Extract unique brands
   const brands = Array.from(new Set(data.map((p) => p.brand))).filter(Boolean);
 
-  return NextResponse.json({ ok: true, data: brands });
+  return NextResponse.json({ ok: true, data: brands }, {
+    headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' },
+  });
 }
 
 /**

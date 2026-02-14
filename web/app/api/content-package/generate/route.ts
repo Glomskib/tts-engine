@@ -6,10 +6,8 @@ import {
   createApiErrorResponse,
 } from "@/lib/api-errors";
 import { CONTENT_TYPES } from "@/lib/content-types";
-import {
-  expandBriefToScript, pickPersona, pickSalesApproach,
-  type ScriptBrief,
-} from "@/lib/script-expander";
+import { generateUnifiedScript } from "@/lib/unified-script-generator";
+import { PERSONAS, SALES_APPROACHES } from "@/lib/script-expander";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -373,15 +371,6 @@ export async function POST(request: Request) {
       _expansionDebug.itemCount = insertedItems?.length ?? 0;
 
       if (insertedItems && insertedItems.length > 0) {
-        const productIds = [...new Set(insertedItems.map(i => i.product_id))];
-        const { data: productDetails } = await supabaseAdmin
-          .from("products")
-          .select("id, name, brand, category, notes, pain_points")
-          .in("id", productIds);
-        const productMap = new Map(
-          (productDetails || []).map(p => [p.id, p])
-        );
-
         const usedPersonas: string[] = [];
         const usedApproaches: string[] = [];
         const CONCURRENCY = 5;
@@ -390,30 +379,39 @@ export async function POST(request: Request) {
           const batch = insertedItems.slice(i, i + CONCURRENCY);
           const batchPromises = batch.map(async (item) => {
             try {
-              const persona = pickPersona(usedPersonas);
-              const approach = pickSalesApproach(item.content_type, usedApproaches);
-              usedPersonas.push(persona.id);
-              usedApproaches.push(approach.id);
-
-              const product = productMap.get(item.product_id);
               const ct = CONTENT_TYPES.find(c => c.id === item.content_type);
 
-              const brief: ScriptBrief = {
-                hook: item.hook,
-                content_type: item.content_type,
-                content_type_name: ct?.name || item.content_type,
-                product_name: item.product_name,
-                brand: item.brand,
-                product_notes: product?.notes || null,
-                product_category: product?.category || null,
-                pain_points: Array.isArray(product?.pain_points)
-                  ? product.pain_points.map((pp: { point?: string }) =>
-                      typeof pp === 'string' ? pp : pp.point || ''
-                    ).filter(Boolean)
-                  : null,
-              };
+              const result = await generateUnifiedScript({
+                productId: item.product_id,
+                productName: item.product_name,
+                productBrand: item.brand,
+                hookText: item.hook,
+                contentType: item.content_type,
+                contentTypeName: ct?.name || item.content_type,
+                userId: authContext.user!.id,
+                usedPersonaIds: [...usedPersonas],
+                usedApproachIds: [...usedApproaches],
+                callerContext: 'content_package',
+              });
 
-              const fullScript = await expandBriefToScript(brief, persona, approach);
+              // Track used personas/approaches for variety
+              const personaId = PERSONAS.find(p => p.name === result.persona)?.id;
+              const approachId = SALES_APPROACHES.find(a => a.name === result.salesApproach)?.id;
+              if (personaId) usedPersonas.push(personaId);
+              if (approachId) usedApproaches.push(approachId);
+
+              // Map unified output → FullScript shape for content_package_items.full_script
+              const fullScript = {
+                hook: result.hook,
+                setup: result.setup,
+                body: result.body,
+                cta: result.cta,
+                on_screen_text: result.onScreenText,
+                filming_notes: result.filmingNotes,
+                persona: result.persona,
+                sales_approach: result.salesApproach,
+                estimated_length: result.estimatedLength,
+              };
 
               const { error: updateErr } = await supabaseAdmin
                 .from("content_package_items")

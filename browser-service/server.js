@@ -136,8 +136,9 @@ function runOsascript(script, timeoutMs = 120000) {
   });
 }
 
-// ─── Adobe Express PWA (Chrome on this Mac Mini) ──────────────────────────────
-// The PWA is already open and logged in — we control it via Chrome AppleScript.
+// ─── Adobe Express via Chrome (on this Mac Mini) ────────────────────────────
+// Chrome is open to the Adobe Express animate-from-audio page, already logged in.
+// JS execution uses Chrome's AppleScript bridge targeting window 1.
 // NEVER use Playwright to log into Google or Adobe.
 
 // Navigate the PWA to any Adobe Express URL
@@ -145,9 +146,9 @@ app.post('/desktop/adobe-express-navigate', async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'url is required' });
-    await runOsascript(`tell application "Google Chrome" to set URL of active tab of window 1 to "${url}"`);
+    await chromeJS(`window.location.assign("${url}"); "ok"`);
     await new Promise(r => setTimeout(r, 3000));
-    const currentUrl = await runOsascript('tell application "Google Chrome" to get URL of active tab of window 1');
+    const currentUrl = await chromeJS('window.location.href');
     res.json({ ok: true, url: currentUrl });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -157,9 +158,8 @@ app.post('/desktop/adobe-express-navigate', async (req, res) => {
 // Get current Adobe Express PWA state
 app.get('/desktop/adobe-express-status', async (req, res) => {
   try {
-    const url = await runOsascript('tell application "Google Chrome" to get URL of active tab of window 1');
-    const title = await runOsascript('tell application "Google Chrome" to get title of active tab of window 1');
-    res.json({ ok: true, url, title });
+    const info = JSON.parse(await chromeJS('JSON.stringify({url: window.location.href, title: document.title})'));
+    res.json({ ok: true, ...info });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -170,9 +170,7 @@ app.post('/desktop/adobe-express-exec', async (req, res) => {
   try {
     const { js } = req.body;
     if (!js) return res.status(400).json({ error: 'js is required' });
-    const result = await runOsascript(
-      `tell application "Google Chrome" to execute active tab of window 1 javascript "${js.replace(/"/g, '\\"')}"`
-    );
+    const result = await chromeJS(js);
     res.json({ ok: true, result });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -352,12 +350,51 @@ function delay(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-// Execute JS in Chrome active tab and return result
-function chromeJS(js) {
+// Execute JS in Chrome via AppleScript bridge, targeting active tab of window 1
+function chromeJS(js, windowSpec = 'window 1') {
   const escaped = js.replace(/"/g, '\\"');
   return runOsascript(
-    `tell application "Google Chrome" to execute active tab of window 1 javascript "${escaped}"`
+    `tell application "Google Chrome" to execute active tab of ${windowSpec} javascript "${escaped}"`
   );
+}
+
+// Activate a Chrome tab by URL pattern (makes it the active tab in its window)
+// Returns { window, tab } or null
+async function activateChromeTab(urlPattern) {
+  const result = await runOsascript(`
+tell application "Google Chrome"
+  set winCount to count of windows
+  repeat with w from 1 to winCount
+    set tabCount to count of tabs of window w
+    repeat with t from 1 to tabCount
+      if URL of tab t of window w contains "${urlPattern}" then
+        set active tab index of window w to t
+        return (w as text) & ":" & (t as text)
+      end if
+    end repeat
+  end repeat
+  return "none"
+end tell`);
+  if (result === 'none') return null;
+  const [w, t] = result.split(':');
+  return { window: `window ${w}`, tab: parseInt(t) };
+}
+
+// Find the window containing a specific shadow DOM element
+async function findWindowWithElement(tag, text) {
+  for (let w = 1; w <= 8; w++) {
+    try {
+      const result = await chromeJS(`
+        (function() {
+          ${SHADOW_FIND_FN}
+          var el = findInShadow(document, "${tag}", "${text}");
+          return el ? "found" : "no";
+        })()
+      `, `window ${w}`);
+      if (result === 'found') return `window ${w}`;
+    } catch (_) { break; }
+  }
+  return null;
 }
 
 // Shadow DOM helper JS — finds an element by tag+text through nested shadow roots
@@ -377,19 +414,22 @@ function findInShadow(root, tag, text) {
   return null;
 }`;
 
-// Get Chrome viewport offset (screen Y where viewport starts)
+// Get Chrome viewport offset (screen coords where viewport content starts)
 async function getViewportOffset() {
   const info = JSON.parse(await chromeJS(
-    'JSON.stringify({innerHeight:window.innerHeight,outerHeight:window.outerHeight,screenY:window.screenY})'
+    'JSON.stringify({innerHeight:window.innerHeight,outerHeight:window.outerHeight,screenX:window.screenX,screenY:window.screenY})'
   ));
   const chromeUI = info.outerHeight - info.innerHeight;
-  return { x: 0, y: info.screenY + chromeUI };
+  return { x: info.screenX, y: info.screenY + chromeUI };
 }
 
 // ─── POST /adobe/create-animated-video ───────────────────────────────────────
-// Automates Adobe Express "Animate from Audio" via Chrome PWA.
-// Uses cliclick for file dialog, JS for shadow DOM buttons, screencapture for verification.
-// Character/category/background use whatever is currently set in the PWA.
+// Automates Adobe Express "Animate from Audio" via Chrome.
+// Uses cliclick for file dialog, JS (via Chrome AppleScript bridge) for shadow DOM
+// buttons, screencapture for verification.
+// Character/category/background use whatever is currently set in Chrome.
+// IMPORTANT: Requires "Allow JavaScript from Apple Events" enabled in Chrome
+// (View > Developer > Allow JavaScript from Apple Events).
 
 app.post('/adobe/create-animated-video', async (req, res) => {
   const screenshots = {};
@@ -398,17 +438,35 @@ app.post('/adobe/create-animated-video', async (req, res) => {
     if (!audioPath) return res.status(400).json({ error: 'audioPath is required' });
     if (!fs.existsSync(audioPath)) return res.status(400).json({ error: `Audio file not found: ${audioPath}` });
 
-    const audioBasename = path.basename(audioPath, path.extname(audioPath));
     const finalOutput = outputPath || `/tmp/screenshots/animated-${Date.now()}.mp4`;
     const finalDir = path.dirname(finalOutput);
     if (!fs.existsSync(finalDir)) fs.mkdirSync(finalDir, { recursive: true });
 
     console.log(`create-animated-video: audio="${audioPath}" output="${finalOutput}"`);
 
-    // Step 1: Navigate to animate-from-audio page
-    console.log('Step 1: Navigating to animate-from-audio...');
-    await runOsascript('tell application "Google Chrome" to set URL of active tab of window 1 to "https://new.express.adobe.com/home/tools/animate-from-audio"');
-    await delay(8000);
+    // Step 1: Activate Chrome and find/switch to the animate-from-audio tab
+    console.log('Step 1: Activating Chrome...');
+    await runOsascript('tell application "Google Chrome" to activate');
+    await delay(1000);
+
+    // Find and activate the animate-from-audio tab (may not be the active tab)
+    let tabInfo = await activateChromeTab('animate-from-audio');
+    let toolWindow = tabInfo ? tabInfo.window : 'window 1';
+
+    if (tabInfo) {
+      console.log(`  Found animate tab in ${toolWindow}, tab ${tabInfo.tab}`);
+    } else {
+      // No existing tab — navigate window 1's active tab there
+      console.log('  No animate tab found, navigating window 1...');
+      const animateURL = 'https://new.express.adobe.com/home/tools/animate-from-audio';
+      await runOsascript(`tell application "Google Chrome" to set URL of active tab of window 1 to "${animateURL}"`);
+      toolWindow = 'window 1';
+      await delay(12000);
+    }
+
+    // Dismiss any premium popups
+    await runOsascript('tell application "System Events" to key code 53'); // Escape
+    await delay(500);
 
     // Wait for animate component to load (poll up to 30s)
     for (let i = 0; i < 6; i++) {
@@ -424,20 +482,15 @@ app.post('/adobe/create-animated-video', async (req, res) => {
           }
           return check(document) ? "true" : "false";
         })()
-      `);
+      `, toolWindow);
       if (hasComponent === 'true') break;
       await delay(5000);
     }
 
     // Step 2: Click Browse to open file dialog
     console.log('Step 2: Clicking Browse...');
-    await runOsascript('tell application "Google Chrome" to activate');
-    await delay(500);
-
-    // Get viewport offset for coordinate mapping
     const offset = await getViewportOffset();
 
-    // Find Browse link position via JS
     const browseInfo = await chromeJS(`
       (function() {
         ${SHADOW_FIND_FN}
@@ -446,7 +499,7 @@ app.post('/adobe/create-animated-video', async (req, res) => {
         var r = el.getBoundingClientRect();
         return JSON.stringify({x: r.x + r.width/2, y: r.y + r.height/2});
       })()
-    `);
+    `, toolWindow);
 
     if (browseInfo === 'null') {
       throw new Error('Browse link not found on page');
@@ -459,7 +512,6 @@ app.post('/adobe/create-animated-video', async (req, res) => {
     await cliclick(`c:${screenX},${screenY}`);
     await delay(2000);
 
-    // Verify file dialog opened (take screenshot)
     const dialogShot = `/tmp/screenshots/dialog-${Date.now()}.png`;
     await new Promise((resolve, reject) => {
       exec(`screencapture -x "${dialogShot}"`, { timeout: 5000 }, (err) => {
@@ -479,34 +531,23 @@ app.post('/adobe/create-animated-video', async (req, res) => {
     await delay(500);
     await runOsascript('tell application "System Events" to keystroke return');
     await delay(1500);
-    // Press Enter again to select the file
     await runOsascript('tell application "System Events" to keystroke return');
     await delay(5000);
 
-    // Step 4: Wait for rendering to complete (poll for download button, up to 3 min)
+    // Step 4: Wait for rendering to complete (poll for download button, up to 5 min)
+    // After rendering, the result may open in a NEW window, so we check all windows.
     console.log('Step 4: Waiting for rendering...');
-    let downloadFound = false;
-    for (let i = 0; i < 18; i++) {
+    let downloadWindow = null;
+    for (let i = 0; i < 30; i++) {
       await delay(10000);
-      const result = await chromeJS(`
-        (function() {
-          ${SHADOW_FIND_FN}
-          var dl = findInShadow(document, "sp-button", "download");
-          if (dl) {
-            var r = dl.getBoundingClientRect();
-            return r.width > 0 ? "ready" : "hidden";
-          }
-          return "rendering";
-        })()
-      `);
-      console.log(`  Render poll ${i + 1}: ${result}`);
-      if (result === 'ready') {
-        downloadFound = true;
-        break;
-      }
+
+      // Check all windows for the download button
+      downloadWindow = await findWindowWithElement('sp-button', 'download');
+      console.log(`  Render poll ${i + 1}: ${downloadWindow ? 'ready in ' + downloadWindow : 'rendering'}`);
+      if (downloadWindow) break;
     }
 
-    if (!downloadFound) {
+    if (!downloadWindow) {
       const renderShot = `/tmp/screenshots/render-timeout-${Date.now()}.png`;
       await new Promise((resolve, reject) => {
         exec(`screencapture -x "${renderShot}"`, { timeout: 5000 }, (err) => {
@@ -515,10 +556,9 @@ app.post('/adobe/create-animated-video', async (req, res) => {
         });
       });
       screenshots.renderTimeout = renderShot;
-      throw new Error('Rendering timed out after 3 minutes');
+      throw new Error('Rendering timed out after 5 minutes');
     }
 
-    // Take post-render screenshot
     const renderShot = `/tmp/screenshots/render-done-${Date.now()}.png`;
     await new Promise((resolve, reject) => {
       exec(`screencapture -x "${renderShot}"`, { timeout: 5000 }, (err) => {
@@ -528,8 +568,8 @@ app.post('/adobe/create-animated-video', async (req, res) => {
     });
     screenshots.renderComplete = renderShot;
 
-    // Step 5: Click Download via JS
-    console.log('Step 5: Clicking Download...');
+    // Step 5: Click Download via JS (on the correct window)
+    console.log(`Step 5: Clicking Download in ${downloadWindow}...`);
     const clickResult = await chromeJS(`
       (function() {
         ${SHADOW_FIND_FN}
@@ -538,7 +578,7 @@ app.post('/adobe/create-animated-video', async (req, res) => {
         btn.click();
         return "clicked";
       })()
-    `);
+    `, downloadWindow);
 
     if (clickResult !== 'clicked') {
       throw new Error('Download button not found or not clickable');
@@ -570,7 +610,7 @@ app.post('/adobe/create-animated-video', async (req, res) => {
 
     console.log(`Downloaded: ${downloadedFile}`);
 
-    // Step 7: Move to output path
+    // Step 7: Copy to output path
     fs.copyFileSync(downloadedFile, finalOutput);
     const stats = fs.statSync(finalOutput);
     console.log(`Output: ${finalOutput} (${stats.size} bytes)`);
@@ -584,7 +624,6 @@ app.post('/adobe/create-animated-video', async (req, res) => {
     });
   } catch (e) {
     console.error('create-animated-video error:', e.message);
-    // Try to capture error state screenshot
     try {
       const errShot = `/tmp/screenshots/error-${Date.now()}.png`;
       exec(`screencapture -x "${errShot}"`);
@@ -598,6 +637,7 @@ app.post('/adobe/create-animated-video', async (req, res) => {
 app.get('/health', (req, res) => res.json({ ok: true, status: 'browser service running' }));
 
 const PORT = 8100;
+const HOST = '0.0.0.0';
 initBrowser().then(() => {
-  app.listen(PORT, () => console.log(`Browser service on http://localhost:${PORT}`));
+  app.listen(PORT, HOST, () => console.log(`Browser service on http://${HOST}:${PORT}`));
 });

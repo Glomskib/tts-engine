@@ -402,7 +402,7 @@ export default function TikTokShopSettingsPage() {
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center">
               <span className="text-sm font-semibold text-violet-400">1</span>
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-medium text-zinc-200">
                 Register as a TikTok Shop Partner
               </h4>
@@ -428,19 +428,19 @@ export default function TikTokShopSettingsPage() {
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center">
               <span className="text-sm font-semibold text-violet-400">2</span>
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-medium text-zinc-200">
                 Configure environment variables
               </h4>
               <p className="text-xs text-zinc-500 mt-1">
                 Add these to your Vercel project settings:
               </p>
-              <div className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-700 font-mono text-xs text-zinc-300 space-y-1">
-                <div>
+              <div className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-700 font-mono text-xs text-zinc-300 space-y-1 overflow-x-auto">
+                <div className="whitespace-nowrap">
                   <span className="text-violet-400">TIKTOK_SHOP_APP_KEY</span>=
                   <span className="text-zinc-500">your_app_key</span>
                 </div>
-                <div>
+                <div className="whitespace-nowrap">
                   <span className="text-violet-400">TIKTOK_SHOP_APP_SECRET</span>=
                   <span className="text-zinc-500">your_app_secret</span>
                 </div>
@@ -453,7 +453,7 @@ export default function TikTokShopSettingsPage() {
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center">
               <span className="text-sm font-semibold text-violet-400">3</span>
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-medium text-zinc-200">
                 Set your OAuth callback URL
               </h4>
@@ -461,8 +461,8 @@ export default function TikTokShopSettingsPage() {
                 In your TikTok Shop Partner Center app settings, set the OAuth redirect
                 URL to:
               </p>
-              <div className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-700 font-mono text-xs text-zinc-300 break-all">
-                https://flashflowai.com/api/tiktok-shop/callback
+              <div className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-700 font-mono text-xs text-zinc-300 overflow-x-auto">
+                <span className="whitespace-nowrap">https://flashflowai.com/api/tiktok-shop/callback</span>
               </div>
             </div>
           </div>
@@ -472,7 +472,7 @@ export default function TikTokShopSettingsPage() {
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center">
               <span className="text-sm font-semibold text-violet-400">4</span>
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-medium text-zinc-200">Connect your shop</h4>
               <p className="text-xs text-zinc-500 mt-1">
                 After deploying with the env vars, click the &quot;Connect TikTok

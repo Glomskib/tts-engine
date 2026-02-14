@@ -330,7 +330,7 @@ export const VIDEO_PLANS = {
     perVideo: '$1.15',
     tagline: 'Full production team',
     aiIncluded: 'Unlimited AI credits',
-    stripePriceId: process.env.STRIPE_PRICE_VIDEO_AGENCY || null,
+    stripePriceId: process.env.STRIPE_PRICE_VIDEO_AGENCY?.trim() || null,
   },
 } as const;
 

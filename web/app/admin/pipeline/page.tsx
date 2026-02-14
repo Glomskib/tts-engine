@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import IncidentBanner from '../components/IncidentBanner';
@@ -137,6 +137,60 @@ interface AuthUser {
   role: 'admin' | 'recorder' | 'editor' | 'uploader' | null;
 }
 
+
+// ============================================================================
+// BOARD VIEW — Monday.com-style grouped table constants
+// ============================================================================
+const BOARD_STATUS_ORDER = [
+  'NEEDS_SCRIPT',
+  'GENERATING_SCRIPT',
+  'NOT_RECORDED',
+  'AI_RENDERING',
+  'READY_FOR_REVIEW',
+  'RECORDED',
+  'APPROVED_NEEDS_EDITS',
+  'READY_TO_POST',
+  'POSTED',
+  'REJECTED',
+];
+
+const BOARD_STATUS_CONFIG: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
+  NEEDS_SCRIPT:        { label: 'Needs Script',     emoji: '📝', color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
+  GENERATING_SCRIPT:   { label: 'Generating',       emoji: '🤖', color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
+  NOT_RECORDED:        { label: 'Scripted',          emoji: '📄', color: 'text-zinc-400',   bg: 'bg-zinc-500/10 border-zinc-500/20' },
+  AI_RENDERING:        { label: 'AI Rendering',      emoji: '🎬', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
+  READY_FOR_REVIEW:    { label: 'Ready for Review',  emoji: '👀', color: 'text-emerald-400',bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  RECORDED:            { label: 'Recorded',          emoji: '🎙️', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20' },
+  APPROVED_NEEDS_EDITS:{ label: 'Needs Edits',       emoji: '✂️', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
+  READY_TO_POST:       { label: 'Ready to Post',     emoji: '✅', color: 'text-teal-400',   bg: 'bg-teal-500/10 border-teal-500/20' },
+  POSTED:              { label: 'Posted',            emoji: '🟢', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
+  REJECTED:            { label: 'Rejected',          emoji: '❌', color: 'text-red-500',    bg: 'bg-red-500/10 border-red-500/20' },
+};
+
+// Next status map for the "▶ Next" quick-advance button
+const BOARD_NEXT_STATUS: Record<string, string> = {
+  NEEDS_SCRIPT: 'NOT_RECORDED',
+  GENERATING_SCRIPT: 'NOT_RECORDED',
+  NOT_RECORDED: 'RECORDED',
+  AI_RENDERING: 'READY_FOR_REVIEW',
+  READY_FOR_REVIEW: 'READY_TO_POST',
+  RECORDED: 'READY_TO_POST',
+  APPROVED_NEEDS_EDITS: 'READY_TO_POST',
+  READY_TO_POST: 'POSTED',
+};
+
+function getBoardSLAInfo(video: QueueVideo): { label: string; color: string } {
+  const changedAt = video.last_status_changed_at || video.created_at;
+  if (!changedAt) return { label: '—', color: 'text-zinc-500' };
+
+  const hours = Math.floor((Date.now() - new Date(changedAt).getTime()) / 3600000);
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+
+  if (days > 2) return { label: `${days}d ${remainingHours}h`, color: 'text-red-400' };
+  if (days >= 1) return { label: `${days}d ${remainingHours}h`, color: 'text-amber-400' };
+  return { label: `${hours}h`, color: 'text-green-400' };
+}
 
 // ============================================================================
 // PRIMARY ACTION LOGIC - Single source of truth for "what should VA do next"
@@ -411,8 +465,12 @@ export default function AdminPipelinePage() {
   // View mode state (simple vs advanced) - simple is default for VA usability
   const [simpleView, setSimpleView] = useState(true);
   // Board vs list view
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('board');
   const [boardFilters, setBoardFilters] = useState<BoardFilters>({ brand: '', product: '', account: '' });
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    POSTED: true,
+    REJECTED: true,
+  });
 
   // Drawer state - which video is open in the details drawer
   const [drawerVideo, setDrawerVideo] = useState<QueueVideo | null>(null);
@@ -663,7 +721,9 @@ export default function AdminPipelinePage() {
 
         // Load view mode preference
         const savedViewMode = localStorage.getItem(VIEW_MODE_KEY);
-        if (savedViewMode === 'board') {
+        if (savedViewMode === 'list') {
+          setViewMode('list');
+        } else if (savedViewMode === 'board') {
           setViewMode('board');
         }
 
@@ -1695,6 +1755,23 @@ export default function AdminPipelinePage() {
     return videos;
   };
 
+  // Board view: group filtered videos by recording_status
+  const getGroupedVideos = () => {
+    const groups: Record<string, QueueVideo[]> = {};
+    for (const status of BOARD_STATUS_ORDER) {
+      groups[status] = [];
+    }
+    for (const video of getIntentFilteredVideos()) {
+      const status = video.recording_status || 'NEEDS_SCRIPT';
+      if (groups[status]) {
+        groups[status].push(video);
+      } else {
+        groups['NEEDS_SCRIPT'].push(video);
+      }
+    }
+    return groups;
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Upsell Banner */}
@@ -2430,29 +2507,154 @@ export default function AdminPipelinePage() {
         )}
       </div>
 
-      {/* Desktop: Board View */}
+      {/* Desktop: Board View — Monday.com-style grouped table */}
       {viewMode === 'board' && (
-        <div className="hidden lg:block">
-          <BoardView
-            videos={getIntentFilteredVideos()}
-            simpleMode={simpleView}
-            activeUser={activeUser}
-            isAdmin={isAdminMode}
-            onClaimVideo={claimVideo}
-            onReleaseVideo={releaseVideo}
-            onExecuteTransition={executeTransition}
-            onOpenAttachModal={openAttachModal}
-            onOpenPostModal={openPostModal}
-            onOpenHandoffModal={isAdminMode ? openHandoffModal : undefined}
-            onRejectVideo={openRejectModal}
-            onRefresh={fetchQueueVideos}
-            filters={boardFilters}
-            onFiltersChange={setBoardFilters}
-            brands={brands}
-            products={products}
-            accounts={accounts}
-            onShowToast={showToast}
-          />
+        <div className="hidden lg:block space-y-3">
+          {(() => {
+            const grouped = getGroupedVideos();
+            return BOARD_STATUS_ORDER.map(status => {
+              const videos = grouped[status] || [];
+              const config = BOARD_STATUS_CONFIG[status];
+              const isCollapsed = collapsedGroups[status];
+
+              // Hide empty REJECTED group
+              if (videos.length === 0 && status === 'REJECTED') return null;
+
+              return (
+                <div key={status} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${colors.border}` }}>
+                  {/* Group Header */}
+                  <button
+                    onClick={() => setCollapsedGroups(prev => ({ ...prev, [status]: !prev[status] }))}
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 ${config.bg} hover:brightness-110 transition-all`}
+                    style={{ border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span className="text-base">{config.emoji}</span>
+                    <span className={`font-semibold text-sm ${config.color}`}>{config.label}</span>
+                    <span className="text-xs text-zinc-500 bg-zinc-800/50 rounded-full px-2 py-0.5">
+                      {videos.length}
+                    </span>
+                    <svg
+                      className={`w-4 h-4 ml-auto text-zinc-500 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Videos Table */}
+                  {!isCollapsed && videos.length > 0 && (
+                    <>
+                      {/* Desktop table */}
+                      <div className="hidden md:block">
+                        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                              <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Video</th>
+                              <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Brand / Product</th>
+                              <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Assigned</th>
+                              <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>SLA</th>
+                              <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Created</th>
+                              <th className="text-right px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {videos.map((video) => {
+                              const sla = getBoardSLAInfo(video);
+                              const assigneeName = video.claimed_by
+                                ? (video.claimed_by === activeUser ? 'You' : (userMap[video.claimed_by] || video.claimed_by.slice(0, 8)))
+                                : '—';
+                              return (
+                                <tr
+                                  key={video.id}
+                                  className="cursor-pointer transition-colors"
+                                  style={{ borderBottom: `1px solid ${colors.border}` }}
+                                  onClick={(e) => handleRowClick(e, video)}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.surface2; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                >
+                                  <td className="px-4 py-2.5">
+                                    <div className="font-medium truncate max-w-[200px]" style={{ color: colors.text }}>
+                                      {getVideoDisplayTitle(video)}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <div className="text-xs" style={{ color: colors.textSecondary }}>{video.brand_name || '—'}</div>
+                                    <div className="text-xs truncate max-w-[150px]" style={{ color: colors.textMuted }}>{video.product_name || '—'}</div>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-xs" style={{ color: colors.textSecondary }}>
+                                    {assigneeName}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <span className={`text-xs font-mono ${sla.color}`}>{sla.label}</span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-xs" style={{ color: colors.textMuted }}>
+                                    {video.created_at ? new Date(video.created_at).toLocaleDateString() : '—'}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {/* Quick advance button */}
+                                    {video.next_status && status !== 'POSTED' && status !== 'REJECTED' && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          executeTransition(video.id, video.next_status!);
+                                        }}
+                                        className="text-xs text-white rounded px-2 py-1 transition-colors"
+                                        style={{ backgroundColor: colors.surface2, border: `1px solid ${colors.border}` }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.accent; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.surface2; }}
+                                        title={`Move to ${BOARD_STATUS_CONFIG[video.next_status!]?.label || BOARD_STATUS_CONFIG[BOARD_NEXT_STATUS[status]]?.label || 'next'}`}
+                                      >
+                                        ▶ {video.next_action || 'Next'}
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile cards */}
+                      <div className="md:hidden divide-y" style={{ borderColor: colors.border }}>
+                        {videos.map((video) => {
+                          const sla = getBoardSLAInfo(video);
+                          const assigneeName = video.claimed_by
+                            ? (video.claimed_by === activeUser ? 'You' : (userMap[video.claimed_by] || video.claimed_by.slice(0, 8)))
+                            : null;
+                          return (
+                            <div
+                              key={video.id}
+                              className="px-4 py-3 cursor-pointer transition-colors"
+                              onClick={(e) => handleRowClick(e, video)}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.surface2; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                            >
+                              <div className="font-medium text-sm truncate" style={{ color: colors.text }}>
+                                {getVideoDisplayTitle(video)}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: colors.textMuted }}>
+                                {video.brand_name && <span>{video.brand_name}</span>}
+                                {assigneeName && <span>→ {assigneeName}</span>}
+                                <span className={sla.color}>⏱ {sla.label}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Empty state */}
+                  {!isCollapsed && videos.length === 0 && (
+                    <div className="px-4 py-6 text-center text-sm" style={{ color: colors.textMuted }}>
+                      No videos in {config.label.toLowerCase()}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 

@@ -99,38 +99,61 @@ function isValidTikTokUrl(url: string): boolean {
 }
 
 // ============================================================================
-// Download TikTok video via tikwm.com API
+// Download TikTok video via tikwm.com API (with retry)
 // ============================================================================
 
+class DownloadServiceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DownloadServiceError';
+  }
+}
+
 async function downloadTikTokVideo(tiktokUrl: string): Promise<Buffer> {
-  const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}&hd=0`;
+  const attempts = 2;
+  let lastError: Error | null = null;
 
-  const metaRes = await fetch(apiUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      Accept: 'application/json',
-    },
-    signal: AbortSignal.timeout(10000),
-  });
+  for (let i = 0; i < attempts; i++) {
+    try {
+      if (i > 0) await new Promise((r) => setTimeout(r, 1500));
 
-  if (!metaRes.ok) throw new Error(`TikTok metadata API returned ${metaRes.status}`);
+      const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}&hd=0`;
 
-  const meta = await metaRes.json();
-  if (meta.code !== 0 || !meta.data?.play) {
-    throw new Error(meta.msg || 'Could not fetch video metadata');
+      const metaRes = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!metaRes.ok) {
+        throw new DownloadServiceError(`TikTok download service returned ${metaRes.status}`);
+      }
+
+      const meta = await metaRes.json();
+      if (meta.code !== 0 || !meta.data?.play) {
+        throw new DownloadServiceError(meta.msg || 'Could not fetch video metadata');
+      }
+
+      const videoRes = await fetch(meta.data.play, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Referer: 'https://www.tikwm.com/',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!videoRes.ok) throw new Error(`Video download returned ${videoRes.status}`);
+
+      return Buffer.from(await videoRes.arrayBuffer());
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[transcribe] Download attempt ${i + 1}/${attempts} failed:`, lastError.message);
+    }
   }
 
-  const videoRes = await fetch(meta.data.play, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      Referer: 'https://www.tikwm.com/',
-    },
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!videoRes.ok) throw new Error(`Video download returned ${videoRes.status}`);
-
-  return Buffer.from(await videoRes.arrayBuffer());
+  throw lastError!;
 }
 
 // ============================================================================
@@ -341,6 +364,13 @@ Return this exact JSON structure:
       return NextResponse.json(
         { error: 'The download timed out. The video may be too long or the connection is slow.' },
         { status: 504 }
+      );
+    }
+
+    if (err instanceof DownloadServiceError) {
+      return NextResponse.json(
+        { error: 'TikTok download service is temporarily unavailable. Please try again in a few minutes.' },
+        { status: 503 }
       );
     }
 

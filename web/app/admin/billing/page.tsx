@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCredits } from '@/hooks/useCredits';
 import {
-  Check, Zap, CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle,
-  Plus, Coins, TrendingUp, Package, Clock, PieChart, Sparkles,
+  Check, Minus, Zap, CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle,
+  Plus, Coins, TrendingUp, Package, Clock, PieChart, Sparkles, Infinity,
 } from 'lucide-react';
 import { PLANS_LIST } from '@/lib/plans';
+import type { PlanLimitKey } from '@/lib/plans';
 import UpsellBanner from '@/components/UpsellBanner';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -60,6 +61,37 @@ const CREDIT_COSTS = [
   { name: 'Script Refinement', cost: 1, icon: '✨' },
   { name: 'Winner Analysis', cost: 2, icon: '🏆' },
 ];
+
+// Feature comparison rows for plan cards
+interface FeatureRow {
+  label: string;
+  key: PlanLimitKey;
+  /** For numeric limits, format the value (e.g. "3", "20", "Unlimited") */
+  numeric?: boolean;
+}
+
+const COMPARISON_FEATURES: FeatureRow[] = [
+  { label: 'Products', key: 'products', numeric: true },
+  { label: 'Script Library', key: 'scriptLibrary' },
+  { label: 'Script of the Day', key: 'scriptOfTheDay' },
+  { label: 'Winners Bank', key: 'winnersBank' },
+  { label: 'Winner Patterns', key: 'winnerPatterns' },
+  { label: 'Custom Personas', key: 'customPersonas' },
+  { label: 'Production Board', key: 'productionBoard' },
+  { label: 'Content Calendar', key: 'contentCalendar' },
+  { label: 'Analytics', key: 'analytics' },
+  { label: 'Templates', key: 'templates' },
+  { label: 'Content Packages', key: 'contentPackages' },
+  { label: 'Referrals', key: 'referrals' },
+  { label: 'API Access', key: 'apiAccess' },
+];
+
+function formatLimitValue(value: number | boolean): string {
+  if (typeof value === 'boolean') return '';
+  if (value === -1) return 'Unlimited';
+  if (value === 0) return '—';
+  return String(value);
+}
 
 // ─── Usage Pie Chart ────────────────────────────────────────────────────────
 
@@ -437,6 +469,7 @@ export default function BillingPage() {
       {/* Plan comparison cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {PLANS_LIST.filter(p => p.id !== 'free').map((plan) => {
+          const limits = plan.limits as Record<PlanLimitKey, number | boolean>;
           const planIndex = PLAN_ORDER.indexOf(plan.id as typeof PLAN_ORDER[number]);
           const isCurrent = plan.id === currentPlanId;
           const isDowngrade = planIndex < currentPlanIndex;
@@ -465,18 +498,61 @@ export default function BillingPage() {
               )}
 
               <h3 className="text-lg font-bold text-white mt-1">{plan.name}</h3>
-              <div className="mt-2 mb-4">
+              <div className="mt-2 mb-1">
                 <span className="text-3xl font-bold text-white">${plan.price}</span>
                 <span className="text-zinc-500 text-sm">/mo</span>
               </div>
 
-              <ul className="space-y-2 mb-6 flex-1">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-                    <span className="text-zinc-300">{feature}</span>
-                  </li>
-                ))}
+              {/* Credits + Scripts headline */}
+              <div className="flex items-center gap-1.5 mb-4 text-sm">
+                {plan.credits === -1 ? (
+                  <span className="text-teal-400 font-medium flex items-center gap-1">
+                    <Infinity className="w-3.5 h-3.5" /> Unlimited credits
+                  </span>
+                ) : (
+                  <span className="text-zinc-400">{plan.credits} credits/mo</span>
+                )}
+              </div>
+
+              {/* Feature comparison list */}
+              <ul className="space-y-1.5 mb-6 flex-1">
+                {/* Scripts line */}
+                <li className="flex items-center gap-2 text-sm">
+                  <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <span className="text-zinc-300">
+                    {limits.scriptsPerMonth === -1 ? 'Unlimited' : String(limits.scriptsPerMonth)} scripts/mo
+                  </span>
+                </li>
+                {/* Personas line */}
+                <li className="flex items-center gap-2 text-sm">
+                  <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <span className="text-zinc-300">
+                    {limits.personas === -1
+                      ? 'All personas + custom'
+                      : limits.personas === 0
+                      ? 'Built-in personas'
+                      : `${limits.personas} personas`}
+                  </span>
+                </li>
+                {/* Dynamic features from comparison list */}
+                {COMPARISON_FEATURES.map((feat) => {
+                  const value = limits[feat.key];
+                  const included = typeof value === 'boolean' ? value : value !== 0;
+                  return (
+                    <li key={feat.key} className="flex items-center gap-2 text-sm">
+                      {included ? (
+                        <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                      ) : (
+                        <Minus className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
+                      )}
+                      <span className={included ? 'text-zinc-300' : 'text-zinc-600'}>
+                        {feat.numeric && typeof value === 'number'
+                          ? `${formatLimitValue(value)} ${feat.label.toLowerCase()}`
+                          : feat.label}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
 
               <button

@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS broll_clips (
   render_provider TEXT DEFAULT 'runway',
   source TEXT DEFAULT 'runway' CHECK (source IN ('runway', 'library', 'upload')),
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'rendering', 'done', 'failed')),
+  tags JSONB DEFAULT NULL,
+  reusable BOOLEAN DEFAULT TRUE,
+  used_count INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX idx_broll_clips_product ON broll_clips(product_id);
 CREATE INDEX idx_broll_clips_product_done ON broll_clips(product_id) WHERE status = 'done';
+CREATE INDEX idx_broll_clips_reusable ON broll_clips(status, reusable) WHERE status = 'done' AND reusable = TRUE;

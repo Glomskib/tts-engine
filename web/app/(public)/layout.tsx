@@ -28,6 +28,12 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex items-center gap-6">
             <Link
+              href="/script-generator"
+              className="text-sm text-zinc-400 hover:text-white transition-colors"
+            >
+              Script Generator
+            </Link>
+            <Link
               href="/transcribe"
               className="text-sm text-zinc-400 hover:text-white transition-colors"
             >
@@ -66,6 +72,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
           <span>&copy; {new Date().getFullYear()} {BRAND.name}. All rights reserved.</span>
           <div className="flex gap-6">
+            <Link href="/roadmap" className="hover:text-zinc-300 transition-colors">Roadmap</Link>
             <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>
             <Link href="/" className="hover:text-zinc-300 transition-colors">Home</Link>

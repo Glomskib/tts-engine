@@ -1190,12 +1190,12 @@ export default function AudiencePage() {
                       <input
                         value={personaForm.name || ""}
                         onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })}
-                        placeholder="e.g., Budget-Conscious Deal Hunter, Transformation Chaser"
+                        placeholder="e.g. Budget-Conscious Deal Hunter"
                         style={inputStyle}
                       />
-                      <div style={{ fontSize: "10px", color: colors.textMuted, marginTop: "4px" }}>
-                        Descriptive name that captures their mindset, not a human name
-                      </div>
+                      <p style={{ fontSize: "11px", color: colors.textMuted, marginTop: "4px", margin: "4px 0 0 0" }}>
+                        Use descriptive names like &ldquo;Budget-Conscious Deal Hunter&rdquo; instead of plain names like &ldquo;Dave.&rdquo; This appears in all dropdowns.
+                      </p>
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>

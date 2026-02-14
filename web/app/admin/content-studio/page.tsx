@@ -309,6 +309,9 @@ export default function ContentStudioPage() {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedPainPoints, setSelectedPainPoints] = useState<string[]>([]);
   const [personaExpanded, setPersonaExpanded] = useState(true);
+  const [personaDropdownOpen, setPersonaDropdownOpen] = useState(false);
+  const [personaSearchText, setPersonaSearchText] = useState('');
+  const personaDropdownRef = useRef<HTMLDivElement>(null);
 
   // Product pain points
   const [productPainPoints, setProductPainPoints] = useState<string[]>([]);
@@ -443,6 +446,16 @@ export default function ContentStudioPage() {
     return audiencePersonas.find(p => p.id === selectedPersonaId) || null;
   }, [audiencePersonas, selectedPersonaId]);
 
+  const filteredPersonas = useMemo(() => {
+    if (!personaSearchText.trim()) return audiencePersonas;
+    const q = personaSearchText.toLowerCase();
+    return audiencePersonas.filter((p: AudiencePersona) =>
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
+      (p.tone || '').toLowerCase().includes(q)
+    );
+  }, [audiencePersonas, personaSearchText]);
+
   const filteredProducts = useMemo(() => {
     if (!selectedBrand) return products;
     return products.filter(p => p.brand?.trim() === selectedBrand.trim());
@@ -453,6 +466,17 @@ export default function ContentStudioPage() {
   }, [selectedContentTypeId, selectedLengthId]);
 
   // --- Effects ---
+
+  // Close persona dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (personaDropdownRef.current && !personaDropdownRef.current.contains(e.target as Node)) {
+        setPersonaDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Auth check
   useEffect(() => {
@@ -1939,19 +1963,138 @@ export default function ContentStudioPage() {
                   <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional)</span>
                 </div>
                 {audiencePersonas.length > 0 ? (
-                  <select
-                    value={selectedPersonaId}
-                    onChange={(e) => {
-                      setSelectedPersonaId(e.target.value);
-                      setSelectedPainPoints([]);
-                    }}
-                    style={inputStyle}
-                  >
-                    <option value="">No specific persona</option>
-                    {audiencePersonas.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                  <div ref={personaDropdownRef} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPersonaDropdownOpen(!personaDropdownOpen)}
+                      style={{
+                        ...inputStyle,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '8px' }}>
+                        {selectedPersonaId
+                          ? (audiencePersonas.find((p) => p.id === selectedPersonaId)?.name || 'Select persona...')
+                          : 'Select target persona...'}
+                      </span>
+                      <ChevronDown size={16} style={{ flexShrink: 0, color: 'rgba(255,255,255,0.4)', transition: 'transform 0.2s', transform: personaDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                    </button>
+
+                    {personaDropdownOpen && (
+                      <div style={{
+                        position: 'absolute',
+                        zIndex: 50,
+                        marginTop: '4px',
+                        width: '100%',
+                        backgroundColor: '#18181b',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '12px',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                        maxHeight: '288px',
+                        overflow: 'hidden',
+                      }}>
+                        {/* Search input */}
+                        <div style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                          <input
+                            type="text"
+                            value={personaSearchText}
+                            onChange={(e) => setPersonaSearchText(e.target.value)}
+                            placeholder="Search personas..."
+                            autoFocus
+                            style={{
+                              width: '100%',
+                              backgroundColor: '#09090b',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              borderRadius: '8px',
+                              padding: '8px 12px',
+                              fontSize: '14px',
+                              color: '#fff',
+                              outline: 'none',
+                            }}
+                          />
+                        </div>
+
+                        {/* Options list */}
+                        <div style={{ overflowY: 'auto', maxHeight: '208px' }}>
+                          {/* "None" option */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPersonaId('');
+                              setSelectedPainPoints([]);
+                              setPersonaDropdownOpen(false);
+                              setPersonaSearchText('');
+                            }}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '10px 12px',
+                              fontSize: '14px',
+                              background: !selectedPersonaId ? 'rgba(255,255,255,0.05)' : 'transparent',
+                              color: !selectedPersonaId ? '#2dd4bf' : 'rgba(255,255,255,0.5)',
+                              border: 'none',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = !selectedPersonaId ? 'rgba(255,255,255,0.05)' : 'transparent'; }}
+                          >
+                            No specific persona
+                          </button>
+
+                          {filteredPersonas.map((p) => (
+                            <button
+                              type="button"
+                              key={p.id}
+                              onClick={() => {
+                                setSelectedPersonaId(p.id);
+                                setSelectedPainPoints([]);
+                                setPersonaDropdownOpen(false);
+                                setPersonaSearchText('');
+                              }}
+                              style={{
+                                width: '100%',
+                                textAlign: 'left',
+                                padding: '10px 12px',
+                                background: selectedPersonaId === p.id ? 'rgba(255,255,255,0.05)' : 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'background 0.15s',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = selectedPersonaId === p.id ? 'rgba(255,255,255,0.05)' : 'transparent'; }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 500, color: selectedPersonaId === p.id ? '#2dd4bf' : '#fff' }}>
+                                  {p.name}
+                                </span>
+                              </div>
+                              {p.description && (
+                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                                  {p.description.slice(0, 80)}
+                                </div>
+                              )}
+                              {p.tone && (
+                                <div style={{ fontSize: '10px', color: 'rgba(45,212,191,0.5)', marginTop: '2px' }}>
+                                  Tone: {p.tone}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+
+                          {filteredPersonas.length === 0 && (
+                            <div style={{ padding: '24px 12px', fontSize: '14px', color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+                              No personas match &ldquo;{personaSearchText}&rdquo;
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div style={{
                     padding: '16px',

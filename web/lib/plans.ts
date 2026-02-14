@@ -353,6 +353,25 @@ export function getVideoPlanByStringId(planId: string) {
   return key ? VIDEO_PLANS[key] : undefined;
 }
 
+// ─────────────────────────────────────────────────────
+// Plan Hierarchy / Gating
+// ─────────────────────────────────────────────────────
+
+export const PLAN_RANK: Record<string, number> = {
+  free: 0,
+  creator_lite: 1,
+  creator_pro: 2,
+  brand: 3,
+  agency: 4,
+};
+
+/**
+ * Check if a user's plan meets or exceeds a minimum required plan.
+ */
+export function meetsMinPlan(userPlan: string, minPlan: string): boolean {
+  return (PLAN_RANK[userPlan] ?? 0) >= (PLAN_RANK[minPlan] ?? 0);
+}
+
 /**
  * Check if a plan ID belongs to a video editing plan.
  */

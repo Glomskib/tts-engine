@@ -44,6 +44,7 @@ import {
   Eye,
   type LucideIcon,
 } from 'lucide-react';
+import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
 
 export type SubscriptionType = 'saas' | 'video_editing';
 export type PlanTier = 'free' | 'starter' | 'creator' | 'business' | 'pro' | 'agency' | 'video_client' | 'admin';
@@ -58,6 +59,14 @@ export interface NavItem {
   external?: boolean;
   /** Only visible to admin users */
   adminOnly?: boolean;
+  /** Minimum plan required to access (shown locked if user doesn't meet it) */
+  minPlan?: 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
+}
+
+/** Nav item with resolved lock state for rendering */
+export interface NavItemResolved extends NavItem {
+  locked?: boolean;
+  requiredPlanName?: string;
 }
 
 export interface NavSection {
@@ -87,9 +96,9 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Production Board', href: '/admin/pipeline', icon: Video },
       { name: 'Review', href: '/admin/review', icon: Eye },
-      { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar },
-      { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send },
-      { name: 'VA Dashboard', href: '/va', icon: Users, external: true },
+      { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro' },
+      { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro' },
+      { name: 'VA Dashboard', href: '/va', icon: Users, external: true, minPlan: 'brand' },
     ],
   },
   {
@@ -99,7 +108,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, featureKey: 'winners_bank' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
       { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
-      { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity },
+      { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
     ],
   },
   {
@@ -107,7 +116,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
-      { name: 'Brands', href: '/admin/brands', icon: Building },
+      { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'brand' },
     ],
   },
   {
@@ -115,7 +124,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
-      { name: 'Referrals', href: '/admin/referrals', icon: Link2 },
+      { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },
       { name: 'Billing', href: '/admin/billing', icon: Wallet },
       { name: 'Credits', href: '/admin/credits', icon: CreditCard },
     ],
@@ -123,14 +132,13 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'SYSTEM',
     subscriptionType: 'saas',
-    showFor: ['agency', 'admin'],
     items: [
-      { name: 'Automation', href: '/admin/automation', icon: Zap },
-      { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen },
-      { name: 'Voice Agent', href: '/admin/voice', icon: Mic },
-      { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo },
-      { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen },
-      { name: 'Settings', href: '/admin/settings', icon: Settings },
+      { name: 'Automation', href: '/admin/automation', icon: Zap, adminOnly: true },
+      { name: 'Second Brain', href: '/admin/second-brain', icon: BookOpen, adminOnly: true },
+      { name: 'Voice Agent', href: '/admin/voice', icon: Mic, adminOnly: true },
+      { name: 'Task Queue', href: '/admin/tasks', icon: ListTodo, adminOnly: true },
+      { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
+      { name: 'Settings', href: '/admin/settings', icon: Settings, adminOnly: true },
     ],
   },
   // ========================
@@ -172,15 +180,26 @@ export const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+/** Resolved section with lock state per item */
+export interface NavSectionResolved {
+  title: string;
+  items: NavItemResolved[];
+  showFor?: PlanTier[];
+  subscriptionType?: SubscriptionType;
+}
+
 // Filter sections based on user type and subscription
 export function getFilteredNavSections(options: {
   planId?: string | null;
   isAdmin: boolean;
   subscriptionType?: SubscriptionType;
-}): NavSection[] {
+}): NavSectionResolved[] {
   const { planId, isAdmin, subscriptionType = 'saas' } = options;
 
-  // Determine user tier
+  // Resolve user's actual plan ID (handles old plan IDs)
+  const resolvedPlanId = planId ? migrateOldPlanId(planId) : 'free';
+
+  // Determine user tier (for section-level showFor)
   let userTier: PlanTier = 'free';
   if (isAdmin) {
     userTier = 'admin';
@@ -204,7 +223,7 @@ export function getFilteredNavSections(options: {
         return false;
       }
 
-      // Check plan tier filter
+      // Check plan tier filter (section-level)
       if (section.showFor && !section.showFor.includes(userTier)) {
         return false;
       }
@@ -212,10 +231,25 @@ export function getFilteredNavSections(options: {
       return true;
     })
     .map((section) => {
-      // Filter out adminOnly items for non-admin users
-      if (isAdmin) return section;
-      const filteredItems = section.items.filter((item) => !item.adminOnly);
-      return { ...section, items: filteredItems };
+      // Admin sees everything unlocked
+      if (isAdmin) return { ...section, items: section.items.map(item => ({ ...item })) };
+
+      // Filter out adminOnly items, mark minPlan-gated items as locked
+      const resolvedItems: NavItemResolved[] = section.items
+        .filter((item) => !item.adminOnly)
+        .map((item) => {
+          if (item.minPlan && !meetsMinPlan(resolvedPlanId, item.minPlan)) {
+            const requiredPlan = getPlanByStringId(item.minPlan);
+            return {
+              ...item,
+              locked: true,
+              requiredPlanName: requiredPlan?.name || item.minPlan,
+            };
+          }
+          return { ...item };
+        });
+
+      return { ...section, items: resolvedItems };
     })
     .filter((section) => section.items.length > 0);
 }

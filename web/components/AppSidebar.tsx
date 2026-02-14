@@ -2,14 +2,16 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { X, Bell } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { X, Bell, Lock } from 'lucide-react';
 import {
   getFilteredNavSections,
   isNavItemActive,
   BRAND,
   type SubscriptionType,
+  type NavItemResolved,
 } from '@/lib/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface AppSidebarProps {
   isAdmin: boolean;
@@ -31,12 +33,20 @@ export function AppSidebar({
   isMobile,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { showInfo } = useToast();
   const navSections = getFilteredNavSections({ planId, isAdmin, subscriptionType });
 
   const handleLinkClick = () => {
     if (isMobile) {
       onClose();
     }
+  };
+
+  const handleLockedClick = (item: NavItemResolved) => {
+    showInfo(`Upgrade to ${item.requiredPlanName} to unlock ${item.name}`);
+    router.push('/admin/billing');
+    if (isMobile) onClose();
   };
 
   return (
@@ -97,8 +107,24 @@ export function AppSidebar({
                 {section.title}
               </div>
               {section.items.map((item) => {
-                const active = isNavItemActive(pathname, item.href);
+                const active = !item.locked && isNavItemActive(pathname, item.href);
                 const IconComponent = item.icon;
+
+                if (item.locked) {
+                  return (
+                    <button
+                      key={item.href}
+                      type="button"
+                      onClick={() => handleLockedClick(item)}
+                      className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg transition-all text-zinc-600 hover:bg-white/[0.02] w-[calc(100%-16px)] text-left"
+                    >
+                      <IconComponent size={18} className="opacity-50" />
+                      <span className="text-sm font-medium flex-1">{item.name}</span>
+                      <Lock size={14} className="opacity-40 shrink-0" />
+                    </button>
+                  );
+                }
+
                 return (
                   <Link
                     key={item.href}

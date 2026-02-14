@@ -15,6 +15,8 @@ import {
   DollarSign,
   Store,
   Globe,
+  Video,
+  Link2,
 } from 'lucide-react';
 
 interface ConnectionStatus {
@@ -41,6 +43,181 @@ interface TikTokProduct {
     price: { amount: string; currency: string };
     inventory?: { quantity: number };
   }[];
+}
+
+// ---------------------------------------------------------------------------
+// Content Posting Section (separate from Shop)
+// ---------------------------------------------------------------------------
+
+interface ContentAccount {
+  account_id: string;
+  account_name: string;
+  account_handle: string;
+  content_connection: {
+    status: string;
+    display_name: string | null;
+    privacy_level: string | null;
+    token_expires_at: string | null;
+    last_error: string | null;
+  } | null;
+}
+
+function ContentPostingSection() {
+  const { showSuccess, showError } = useToast();
+  const [accounts, setAccounts] = useState<ContentAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [appConfigured, setAppConfigured] = useState(false);
+  const [connecting, setConnecting] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('content_connected') === 'true') {
+      showSuccess('TikTok Content Posting connected successfully!');
+      window.history.replaceState({}, '', '/admin/settings/tiktok');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetch('/api/tiktok-content/status')
+      .then(res => res.json())
+      .then(json => {
+        if (json.ok) {
+          setAccounts(json.data.accounts || []);
+          setAppConfigured(json.data.app_configured);
+        }
+      })
+      .catch(() => showError('Failed to load content posting status'))
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleConnect = (accountId: string) => {
+    setConnecting(accountId);
+    window.location.href = `/api/tiktok-content/connect?account_id=${accountId}`;
+  };
+
+  if (loading) {
+    return (
+      <AdminCard title="Content Posting" subtitle="Auto-post videos to TikTok via Content Posting API">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+          <span className="ml-2 text-sm text-zinc-500">Loading...</span>
+        </div>
+      </AdminCard>
+    );
+  }
+
+  return (
+    <AdminCard
+      title="Content Posting"
+      subtitle="Auto-post videos to TikTok via Content Posting API (separate from Shop)"
+    >
+      <div className="space-y-4">
+        {!appConfigured && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-300">
+              Content Posting API not configured. Set{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_CONTENT_APP_KEY
+              </code>{' '}
+              and{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_CONTENT_APP_SECRET
+              </code>{' '}
+              in Vercel environment variables.
+            </p>
+          </div>
+        )}
+
+        <div className="text-xs text-zinc-500 mb-2">
+          Connect your TikTok posting accounts to enable auto-posting. Videos at READY_TO_POST will be submitted automatically every 15 minutes.
+        </div>
+
+        {accounts.length === 0 ? (
+          <div className="text-center py-6">
+            <Video className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+            <p className="text-sm text-zinc-500">No TikTok accounts found.</p>
+            <p className="text-xs text-zinc-600 mt-1">
+              Add TikTok accounts first (they are managed separately from Shop connections).
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {accounts.map((account) => {
+              const conn = account.content_connection;
+              const isConnected = conn?.status === 'active';
+              const isExpired = conn?.status === 'expired';
+
+              return (
+                <div
+                  key={account.account_id}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700"
+                >
+                  <div
+                    className={`w-3 h-3 rounded-full shrink-0 ${
+                      isConnected
+                        ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+                        : isExpired
+                          ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+                          : 'bg-zinc-600'
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-zinc-200">
+                      {account.account_name}
+                    </div>
+                    <div className="text-xs text-zinc-500">
+                      {account.account_handle}
+                      {isConnected && conn?.display_name && ` — ${conn.display_name}`}
+                      {isConnected && conn?.privacy_level && (
+                        <span className="ml-2 text-zinc-600">
+                          ({conn.privacy_level.replace(/_/g, ' ').toLowerCase()})
+                        </span>
+                      )}
+                    </div>
+                    {conn?.last_error && (
+                      <div className="text-xs text-red-400 mt-1">{conn.last_error}</div>
+                    )}
+                    {isExpired && (
+                      <div className="text-xs text-amber-400 mt-1">Token expired — reconnect to refresh</div>
+                    )}
+                    {isConnected && conn?.token_expires_at && (
+                      <div className="text-xs text-zinc-600 mt-1">
+                        Token expires: {new Date(conn.token_expires_at).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                  {isConnected ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
+                      <Check className="w-3 h-3" />
+                      Connected
+                    </span>
+                  ) : appConfigured ? (
+                    <AdminButton
+                      variant="secondary"
+                      onClick={() => handleConnect(account.account_id)}
+                      disabled={connecting === account.account_id}
+                    >
+                      {connecting === account.account_id ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Link2 className="w-4 h-4 mr-1" />
+                      )}
+                      {isExpired ? 'Reconnect' : 'Connect'}
+                    </AdminButton>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="pt-2 text-xs text-zinc-600">
+          Note: Posts will be <span className="text-zinc-400 font-medium">SELF_ONLY</span> (private) until the TikTok developer app passes audit review (1-2 weeks).
+        </div>
+      </div>
+    </AdminCard>
+  );
 }
 
 export default function TikTokShopSettingsPage() {
@@ -434,6 +611,9 @@ export default function TikTokShopSettingsPage() {
         </AdminCard>
       )}
 
+      {/* Content Posting Section */}
+      <ContentPostingSection />
+
       {/* Setup Instructions */}
       <AdminCard
         title="Setup Instructions"
@@ -581,3 +761,4 @@ export default function TikTokShopSettingsPage() {
     </AdminPageLayout>
   );
 }
+

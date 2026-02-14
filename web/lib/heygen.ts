@@ -50,6 +50,9 @@ export async function generateVideo(
           type: 'avatar',
           avatar_id: avatarId,
           avatar_style: 'normal',
+          scale: 1.0,
+          // Push avatar to lower third — leaves room for text overlays and B-roll above
+          offset: { x: 0, y: 0.25 },
         },
         voice: {
           type: 'audio',
@@ -57,7 +60,8 @@ export async function generateVideo(
         },
       },
     ],
-    dimension: dimension ?? { width: 720, height: 1280 },
+    // 9:16 vertical — matches TikTok/Reels/Shorts format
+    dimension: dimension ?? { width: 1080, height: 1920 },
   };
 
   const response = await fetch(`${HEYGEN_BASE_URL}/v2/video/generate`, {

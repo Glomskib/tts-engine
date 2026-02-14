@@ -1,16 +1,22 @@
 /**
- * Cron: Poll Runway render tasks and auto-compose completed videos.
+ * Cron: Poll render tasks (Runway + HeyGen) and auto-compose completed videos.
  * Runs every 2 minutes via Vercel Cron.
  *
- * Flow:
+ * Flow (Runway):
  *   AI_RENDERING → poll Runway → SUCCEEDED → re-host video → generate TTS →
  *   submit Shotstack compose → update video with compose_render_id →
  *   (next cron tick checks Shotstack) → set final_video_url →
  *   quality check → READY_FOR_REVIEW or REJECTED
+ *
+ * Flow (HeyGen):
+ *   AI_RENDERING → poll HeyGen → completed → re-host video →
+ *   if overlays: submit Shotstack compose → cron Phase 1 finalizes
+ *   if no overlays: set final_video_url → READY_FOR_REVIEW
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTaskStatus } from "@/lib/runway";
+import { getVideoStatus as getHeyGenStatus } from "@/lib/heygen";
 import { getRenderStatus } from "@/lib/shotstack";
 import { textToSpeech } from "@/lib/elevenlabs";
 import { submitCompose } from "@/lib/compose";
@@ -28,6 +34,9 @@ export async function GET() {
 
   // --- Phase 2: Check Runway renders and trigger compose ---
   await checkRunwayRenders(results);
+
+  // --- Phase 3: Check HeyGen renders ---
+  await checkHeyGenRenders(results);
 
   return NextResponse.json({
     ok: true,
@@ -245,15 +254,120 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
   }
 }
 
+/**
+ * Phase 3: Videos rendered via HeyGen (render_provider='heygen').
+ * Poll HeyGen, re-host video, then compose (if overlays) or finalize directly.
+ * HeyGen videos have TTS audio baked in — no separate audio track needed.
+ */
+async function checkHeyGenRenders(results: Record<string, unknown>[]) {
+  const { data: rendering } = await supabaseAdmin
+    .from("videos")
+    .select("id, render_task_id, render_provider")
+    .eq("recording_status", "AI_RENDERING")
+    .eq("render_provider", "heygen")
+    .not("render_task_id", "is", null)
+    .is("compose_render_id", null)
+    .is("runway_video_url", null) // Not yet re-hosted
+    .limit(20);
+
+  if (!rendering?.length) return;
+
+  for (const video of rendering) {
+    try {
+      const status = await getHeyGenStatus(video.render_task_id);
+
+      if (status.status === "completed" && status.video_url) {
+        console.log(`[check-renders] HeyGen completed for ${video.id}: ${status.video_url}`);
+
+        // Re-host HeyGen video to Supabase (HeyGen URLs may expire)
+        const rehostedUrl = await rehostVideo(status.video_url, video.id, "heygen");
+
+        // Fetch linked skit for overlays
+        const { onScreenText, cta } = await getSkitOverlays(video.id);
+        const hasOverlays = !!(onScreenText || cta);
+
+        if (hasOverlays) {
+          // Submit Shotstack compose for text overlays (no additional audio — HeyGen bakes it in)
+          const compose = await submitCompose({
+            videoUrl: rehostedUrl,
+            // No audioUrl — HeyGen video already has audio
+            onScreenText,
+            cta,
+            duration: status.duration ?? 15,
+          });
+
+          await supabaseAdmin
+            .from("videos")
+            .update({
+              compose_render_id: compose.renderId,
+              runway_video_url: rehostedUrl,
+            })
+            .eq("id", video.id);
+
+          results.push({
+            id: video.id,
+            phase: "heygen",
+            status: "composing",
+            composeRenderId: compose.renderId,
+          });
+        } else {
+          // No overlays — HeyGen video IS the final video
+          await supabaseAdmin
+            .from("videos")
+            .update({
+              runway_video_url: rehostedUrl,
+              final_video_url: rehostedUrl,
+              recording_status: "READY_FOR_REVIEW",
+            })
+            .eq("id", video.id);
+
+          const productLabel = await getVideoProductLabel(video.id);
+          sendTelegramNotification(
+            `🎬 <b>HeyGen video ready for review</b>\nProduct: ${productLabel}\nVideo: <code>${video.id}</code>`
+          );
+
+          results.push({
+            id: video.id,
+            phase: "heygen",
+            status: "done",
+            finalUrl: rehostedUrl,
+          });
+        }
+      } else if (status.status === "failed" || status.status === "error") {
+        console.error(`[check-renders] HeyGen FAILED for ${video.id}: ${status.status}`);
+
+        await supabaseAdmin
+          .from("videos")
+          .update({
+            recording_status: "REJECTED",
+            recording_notes: `HeyGen render failed: ${status.status}`,
+          })
+          .eq("id", video.id);
+
+        const productLabel = await getVideoProductLabel(video.id);
+        sendTelegramNotification(`❌ HeyGen render failed: ${productLabel}`);
+
+        results.push({ id: video.id, phase: "heygen", status: "failed" });
+      } else {
+        // Still processing (pending/processing)
+        results.push({ id: video.id, phase: "heygen", status: status.status });
+      }
+    } catch (err) {
+      console.error(`[check-renders] HeyGen poll error for ${video.id}:`, err);
+      results.push({ id: video.id, phase: "heygen", status: "error", error: String(err) });
+    }
+  }
+}
+
 // --- Helpers ---
 
-async function rehostVideo(sourceUrl: string, videoId: string): Promise<string> {
+async function rehostVideo(sourceUrl: string, videoId: string, provider: string = "runway"): Promise<string> {
   const resp = await fetch(sourceUrl);
-  if (!resp.ok) throw new Error(`Failed to download Runway video: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Failed to download ${provider} video: ${resp.status}`);
 
   const buffer = await resp.arrayBuffer();
   const blob = new Blob([buffer], { type: "video/mp4" });
-  const path = `runway/${videoId}_${Date.now()}.mp4`;
+  const path = `${provider}/${videoId}_${Date.now()}.mp4`;
 
   const { error } = await supabaseAdmin.storage
     .from("renders")

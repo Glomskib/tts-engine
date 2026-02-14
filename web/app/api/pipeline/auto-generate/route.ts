@@ -189,8 +189,6 @@ export async function POST(request: NextRequest) {
       product_id: product.id,
       recording_status: 'NOT_RECORDED',
       render_provider: input.renderProvider,
-      source: 'auto_pipeline',
-      priority: 70,
     })
     .select('id, video_code, recording_status')
     .single();

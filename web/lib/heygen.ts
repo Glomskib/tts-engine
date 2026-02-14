@@ -58,6 +58,9 @@ export async function generateVideo(
           type: 'audio',
           audio_url: audioUrl,
         },
+        background: {
+          type: 'transparent',
+        },
       },
     ],
     // 9:16 vertical — matches TikTok/Reels/Shorts format

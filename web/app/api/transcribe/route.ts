@@ -84,6 +84,11 @@ async function checkRateLimit(
 }
 
 // ============================================================================
+// TikTok download (resilient fallback chain)
+// ============================================================================
+import { downloadTikTokVideo } from '@/lib/tiktok-downloader';
+
+// ============================================================================
 // TikTok URL validation
 // ============================================================================
 
@@ -98,179 +103,7 @@ function isValidTikTokUrl(url: string): boolean {
   }
 }
 
-// ============================================================================
-// Download TikTok video — multi-service fallback chain
-// ============================================================================
-
-class DownloadServiceError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'DownloadServiceError';
-  }
-}
-
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-/** Strategy 1: tikwm.com — fast, reliable most of the time */
-async function downloadViaTikwm(tiktokUrl: string): Promise<Buffer> {
-  const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}&hd=0`;
-
-  const metaRes = await fetch(apiUrl, {
-    headers: { 'User-Agent': UA, Accept: 'application/json' },
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!metaRes.ok) throw new Error(`tikwm returned ${metaRes.status}`);
-
-  const meta = await metaRes.json();
-  if (meta.code !== 0 || !meta.data?.play) {
-    throw new Error(meta.msg || 'tikwm: no video URL');
-  }
-
-  const videoRes = await fetch(meta.data.play, {
-    headers: { 'User-Agent': UA, Referer: 'https://www.tikwm.com/' },
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!videoRes.ok) throw new Error(`tikwm video download returned ${videoRes.status}`);
-  return Buffer.from(await videoRes.arrayBuffer());
-}
-
-/** Strategy 2: TikTok page scraping — extract video from SSR data */
-async function downloadViaTikTokDirect(tiktokUrl: string): Promise<Buffer> {
-  // Resolve short URLs (vm.tiktok.com, vt.tiktok.com) to full URLs
-  let resolvedUrl = tiktokUrl;
-  const parsed = new URL(tiktokUrl);
-  if (['vm.tiktok.com', 'vt.tiktok.com'].includes(parsed.hostname)) {
-    const headRes = await fetch(tiktokUrl, {
-      method: 'HEAD',
-      redirect: 'follow',
-      headers: { 'User-Agent': UA },
-      signal: AbortSignal.timeout(5000),
-    });
-    resolvedUrl = headRes.url || tiktokUrl;
-  }
-
-  // Fetch the page HTML
-  const pageRes = await fetch(resolvedUrl, {
-    headers: {
-      'User-Agent': UA,
-      Accept: 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!pageRes.ok) throw new Error(`TikTok page returned ${pageRes.status}`);
-  const html = await pageRes.text();
-
-  // Extract __UNIVERSAL_DATA_FOR_REHYDRATION__ JSON
-  const dataMatch = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!dataMatch) throw new Error('No SSR data found in TikTok page');
-
-  const universalData = JSON.parse(dataMatch[1]);
-  const videoDetail = universalData?.__DEFAULT_SCOPE__?.['webapp.video-detail'];
-
-  if (!videoDetail || videoDetail.statusCode !== 0) {
-    throw new Error(`TikTok video detail status: ${videoDetail?.statusCode || 'missing'}`);
-  }
-
-  const itemStruct = videoDetail.itemInfo?.itemStruct;
-  const video = itemStruct?.video;
-  if (!video) throw new Error('No video data in TikTok response');
-
-  // Try multiple video URL sources
-  const videoUrl =
-    video.downloadAddr ||
-    video.playAddr ||
-    video.bitrateInfo?.[0]?.PlayAddr?.UrlList?.[0] ||
-    null;
-
-  if (!videoUrl) throw new Error('No video download URL found');
-
-  const videoRes = await fetch(videoUrl, {
-    headers: {
-      'User-Agent': UA,
-      Referer: 'https://www.tiktok.com/',
-    },
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!videoRes.ok) throw new Error(`TikTok direct video download returned ${videoRes.status}`);
-  return Buffer.from(await videoRes.arrayBuffer());
-}
-
-/** Strategy 3: @tobyg74/tiktok-api-dl npm package — multiple backends */
-async function downloadViaNpmPackage(tiktokUrl: string): Promise<Buffer> {
-  // Dynamic import to avoid issues if package is missing
-  const { Downloader } = await import('@tobyg74/tiktok-api-dl');
-
-  // Try v1, then v3 (v2 is less reliable)
-  for (const version of ['v1', 'v3'] as const) {
-    try {
-      const result = await Downloader(tiktokUrl, { version });
-
-      if (!result.result) continue;
-
-      // Extract video URL — structure varies by version, use type assertion
-      const r = result.result as Record<string, unknown>;
-      const videoUrl =
-        (r.video1 as string) ||
-        (r.videoHD as string) ||
-        (r.videoSD as string) ||
-        (typeof r.video === 'string' ? r.video : null) ||
-        (Array.isArray(r.video) ? (r.video[0] as string) : null);
-
-      if (!videoUrl || typeof videoUrl !== 'string') continue;
-
-      const videoRes = await fetch(videoUrl, {
-        headers: { 'User-Agent': UA },
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (!videoRes.ok) continue;
-      return Buffer.from(await videoRes.arrayBuffer());
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error('npm package: all versions failed');
-}
-
-/**
- * Main download function — tries services in order:
- * 1. tikwm.com (fastest, most reliable)
- * 2. TikTok page scraping (no external dependency)
- * 3. npm package (multiple backends)
- */
-async function downloadTikTokVideo(tiktokUrl: string): Promise<Buffer> {
-  const strategies: { name: string; fn: (url: string) => Promise<Buffer> }[] = [
-    { name: 'tikwm', fn: downloadViaTikwm },
-    { name: 'tiktok-direct', fn: downloadViaTikTokDirect },
-    { name: 'npm-package', fn: downloadViaNpmPackage },
-  ];
-
-  const errors: string[] = [];
-
-  for (const strategy of strategies) {
-    try {
-      console.log(`[transcribe] Trying ${strategy.name}...`);
-      const buffer = await strategy.fn(tiktokUrl);
-      if (buffer.length < 1000) throw new Error('Downloaded file too small');
-      console.log(`[transcribe] ${strategy.name} succeeded: ${(buffer.length / 1024 / 1024).toFixed(1)} MB`);
-      return buffer;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[transcribe] ${strategy.name} failed: ${msg}`);
-      errors.push(`${strategy.name}: ${msg}`);
-    }
-  }
-
-  throw new DownloadServiceError(
-    `All download services failed: ${errors.join(' | ')}`
-  );
-}
+// Download logic moved to lib/tiktok-downloader.ts (5-service fallback chain)
 
 // ============================================================================
 // Prepare audio file for Whisper
@@ -483,7 +316,7 @@ Return this exact JSON structure:
       );
     }
 
-    if (err instanceof DownloadServiceError) {
+    if (message.includes('All download services failed')) {
       return NextResponse.json(
         { error: 'TikTok download service is temporarily unavailable. Please try again in a few minutes.' },
         { status: 503 }

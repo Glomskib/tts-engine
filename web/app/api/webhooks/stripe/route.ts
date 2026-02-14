@@ -3,6 +3,7 @@ import { generateCorrelationId } from "@/lib/api-errors";
 import { recordReferralConversion } from "@/lib/referrals";
 import { recordCommission } from "@/lib/affiliates";
 import { queueEmailSequence } from "@/lib/email/scheduler";
+import { sendTelegramNotification } from "@/lib/telegram";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -233,6 +234,14 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     console.error(`[${correlationId}] Failed to initialize credits:`, creditError);
   }
 
+  // Telegram notification
+  const planName = plan?.name || planId;
+  const amount = session.amount_total ? `$${(session.amount_total / 100).toFixed(0)}` : 'N/A';
+  const customerEmail = session.customer_details?.email || 'unknown';
+  sendTelegramNotification(
+    `💰 New subscriber! <b>${customerEmail}</b> → ${planName} (${amount}/mo)`
+  ).catch(() => {});
+
   // Process referral conversion — credit the referrer if this user was referred
   try {
     const { data: userSub } = await supabaseAdmin
@@ -351,6 +360,11 @@ async function handleSubscriptionCancelled(correlationId: string, subscription: 
     }
   }
 
+  // Telegram notification
+  sendTelegramNotification(
+    `📉 Canceled: subscription ${subscription.id}${cancelledSub?.user_id ? ` (user ${cancelledSub.user_id.slice(0, 8)})` : ''} — downgraded to free`
+  ).catch(() => {});
+
   // Queue winback email sequence for churned users (non-fatal)
   try {
     const { data: userSub } = await supabaseAdmin
@@ -451,6 +465,12 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
     type: "credit",
     description: `Monthly credits - ${planId} plan`,
   });
+
+  // Telegram notification
+  const customerEmail = (invoice as unknown as { customer_email?: string }).customer_email || 'unknown';
+  sendTelegramNotification(
+    `🔄 Renewal: <b>${customerEmail}</b> on ${plan?.name || planId} — ${creditsToAdd} credits refreshed`
+  ).catch(() => {});
 
   // Record affiliate commission if this user was referred
   try {
@@ -563,4 +583,10 @@ async function handlePaymentFailed(correlationId: string, invoice: Stripe.Invoic
   if (error) {
     console.error(`[${correlationId}] Failed to update subscription status:`, error);
   }
+
+  // Telegram notification
+  const failedEmail = (invoice as unknown as { customer_email?: string }).customer_email || 'unknown';
+  sendTelegramNotification(
+    `⚠️ Payment failed: <b>${failedEmail}</b> — marked past_due (3-day grace)`
+  ).catch(() => {});
 }

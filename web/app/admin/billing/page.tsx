@@ -13,6 +13,7 @@ export default function BillingPage() {
   const { credits, subscription, isLoading, refetch } = useCredits();
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [banner, setBanner] = useState<{ type: 'success' | 'canceled'; plan?: string } | null>(null);
 
   // Show banners for redirect from Stripe checkout
@@ -138,15 +139,29 @@ export default function BillingPage() {
         )}
 
         {subscription?.stripeCustomerId && (
-          <a
-            href="https://billing.stripe.com/p/login/test_28o4gC4Ry1Zy7ew144"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3 text-xs text-teal-400 hover:text-teal-300 transition-colors"
+          <button
+            onClick={async () => {
+              setPortalLoading(true);
+              try {
+                const res = await fetch('/api/subscriptions/portal', { method: 'POST' });
+                const data = await res.json();
+                if (data.ok && data.url) {
+                  window.open(data.url, '_blank');
+                } else {
+                  setCheckoutError(data.error || 'Failed to open billing portal');
+                }
+              } catch {
+                setCheckoutError('Failed to open billing portal');
+              } finally {
+                setPortalLoading(false);
+              }
+            }}
+            disabled={portalLoading}
+            className="inline-flex items-center gap-1.5 mt-3 text-xs text-teal-400 hover:text-teal-300 transition-colors disabled:opacity-50"
           >
-            Manage payment method
-            <ExternalLink className="w-3 h-3" />
-          </a>
+            {portalLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ExternalLink className="w-3 h-3" />}
+            Manage subscription
+          </button>
         )}
       </div>
 

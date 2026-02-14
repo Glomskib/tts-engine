@@ -1,69 +1,96 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { blogPosts } from '@/content/blog/posts';
-import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
-  title: 'Blog — TikTok Shop Script Tips & Strategies | FlashFlow AI',
-  description: 'Learn how to create viral TikTok Shop content. Script templates, hook formulas, creator strategies, and more.',
+  title: 'Blog | FlashFlow AI - TikTok Content Tips & Guides',
+  description:
+    'Learn how to transcribe TikTok videos, master viral hooks, and reverse-engineer winning content. Free guides for creators and TikTok Shop sellers.',
   openGraph: {
-    title: 'FlashFlow AI Blog',
-    description: 'TikTok Shop script tips, hook formulas, and creator strategies.',
+    title: 'Blog | FlashFlow AI',
+    description: 'TikTok content creation guides, hook formulas, and strategy insights.',
     type: 'website',
+    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
   },
 };
 
-export default function BlogIndexPage() {
-  return (
-    <PublicLayout>
-      <div className="max-w-4xl mx-auto px-6 pb-20">
-        <section className="pt-12 pb-8">
-          <h1 className="text-4xl font-bold mb-3">Blog</h1>
-          <p className="text-zinc-400">
-            TikTok Shop script tips, hook formulas, and creator strategies.
-          </p>
-        </section>
+export default function BlogPage() {
+  const articles = [
+    {
+      slug: 'how-to-transcribe-tiktok-videos',
+      title: 'How to Transcribe TikTok Videos for Free in 2026',
+      excerpt: 'Step-by-step guide to transcribing any TikTok video, extracting hooks, and using transcripts to improve your own content strategy.',
+      date: 'Feb 14, 2026',
+      readTime: '8 min read',
+      category: 'Tools',
+      image: '📝',
+    },
+    {
+      slug: '10-tiktok-hook-formulas',
+      title: '10 TikTok Hook Formulas That Actually Go Viral',
+      excerpt: 'Proven hook structures that stop the scroll. Data-backed patterns from 50,000+ viral TikTok videos analyzed.',
+      date: 'Feb 14, 2026',
+      readTime: '12 min read',
+      category: 'Strategy',
+      image: '🎯',
+    },
+    {
+      slug: 'reverse-engineer-winning-tiktok-shop-videos',
+      title: 'How to Reverse-Engineer Winning TikTok Shop Videos',
+      excerpt: 'Analyze competitor TikTok Shop videos to find conversion patterns, product angles, and content structures that sell.',
+      date: 'Feb 14, 2026',
+      readTime: '10 min read',
+      category: 'Selling',
+      image: '🛍️',
+    },
+  ];
 
-        <div className="space-y-6">
-          {blogPosts.map((post) => (
+  return (
+    <div className="min-h-screen bg-[#09090b] text-white">
+      {/* Hero */}
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-5xl font-bold mb-6">Content Strategy Guides</h1>
+        <p className="text-xl text-gray-300">
+          Learn how to analyze, create, and scale viral TikTok content. Free guides for creators and TikTok Shop sellers.
+        </p>
+      </div>
+
+      {/* Articles Grid */}
+      <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {articles.map((article) => (
             <Link
-              key={post.slug}
-              href={`/blog/${post.slug}`}
-              className="block bg-zinc-900/60 border border-white/10 rounded-xl p-6 hover:border-teal-500/30 transition-colors group"
+              key={article.slug}
+              href={`/blog/${article.slug}`}
+              className="group rounded-xl p-6 bg-gray-800/30 border border-gray-700 hover:border-teal-500 hover:bg-teal-500/5 transition"
             >
-              <div className="flex items-center gap-3 mb-3">
-                <span className="px-2.5 py-0.5 rounded text-xs font-medium bg-teal-500/10 text-teal-400">
-                  {post.category}
+              <div className="text-5xl mb-4">{article.image}</div>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs bg-teal-500/20 text-teal-300 px-2 py-1 rounded">
+                  {article.category}
                 </span>
-                <span className="text-xs text-zinc-500">{post.readingTime}</span>
-                <span className="text-xs text-zinc-600">
-                  {new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </span>
+                <span className="text-xs text-gray-500">{article.readTime}</span>
               </div>
-              <h2 className="text-xl font-semibold text-zinc-100 group-hover:text-teal-400 transition-colors mb-2">
-                {post.title}
-              </h2>
-              <p className="text-sm text-zinc-400 line-clamp-2">
-                {post.description}
-              </p>
-              <div className="mt-4 text-sm text-teal-400 group-hover:text-teal-300 transition-colors">
-                Read article &rarr;
-              </div>
+              <h3 className="text-lg font-bold mb-2 group-hover:text-teal-300 transition">
+                {article.title}
+              </h3>
+              <p className="text-gray-400 text-sm mb-4">{article.excerpt}</p>
+              <div className="text-xs text-gray-500">{article.date}</div>
             </Link>
           ))}
         </div>
-
-        {/* Lead Magnet CTA */}
-        <div className="mt-12 bg-zinc-900/60 border border-teal-500/20 rounded-xl p-6 text-center">
-          <h3 className="text-lg font-semibold text-zinc-100 mb-2">Want more?</h3>
-          <p className="text-sm text-zinc-400 mb-4">
-            Download the full UGC Script Vault &mdash; 50 proven hooks + 10 ready-to-film templates.
-          </p>
-          <Link href="/free-scripts" className="inline-block px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg transition-colors">
-            Download Free Script Vault
-          </Link>
-        </div>
       </div>
-    </PublicLayout>
+
+      {/* CTA */}
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center border-t border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">Ready to level up your content?</h2>
+        <p className="text-gray-300 mb-8">Start with our free TikTok transcriber to analyze winning videos.</p>
+        <Link
+          href="/transcribe"
+          className="inline-block px-8 py-4 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
+        >
+          Try Free Transcriber
+        </Link>
+      </div>
+    </div>
   );
 }

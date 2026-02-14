@@ -81,6 +81,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/brands': 'Brands',
       '/admin/notifications': 'Notifications',
       '/admin/referrals': 'Referrals',
+      '/admin/billing': 'Billing',
       '/admin/credits': 'Credits',
       '/admin/tasks': 'Task Queue',
       '/admin/automation': 'Automation',
@@ -370,7 +371,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     Account Settings
                   </Link>
                   <Link
-                    href="/upgrade"
+                    href="/admin/billing"
                     onClick={() => setUserMenuOpen(false)}
                     className="flex items-center gap-4 px-5 py-5 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
                   >
@@ -482,7 +483,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                             Account Settings
                           </Link>
                           <Link
-                            href="/upgrade"
+                            href="/admin/billing"
                             onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
                           >

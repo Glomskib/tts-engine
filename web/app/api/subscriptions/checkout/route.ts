@@ -119,9 +119,9 @@ export async function POST(request: Request) {
     // Determine success URL based on plan type
     const successUrl = isVideo
       ? `${baseUrl}/onboarding/video-client?session_id={CHECKOUT_SESSION_ID}&plan=${planId}`
-      : `${baseUrl}/admin/content-studio?upgraded=true&plan=${planId}`;
+      : `${baseUrl}/admin/billing?upgraded=true&plan=${planId}`;
 
-    const cancelUrl = `${baseUrl}/upgrade?canceled=true`;
+    const cancelUrl = `${baseUrl}/admin/billing?canceled=true`;
 
     // Validate URLs before passing to Stripe
     try {

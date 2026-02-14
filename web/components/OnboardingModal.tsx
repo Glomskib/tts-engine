@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Sparkles, Video, X } from 'lucide-react';
+import { Package, Sparkles, Video, X, Mic } from 'lucide-react';
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -58,8 +58,19 @@ const steps: OnboardingStep[] = [
         <Video className="w-8 h-8 text-white" />
       </div>
     ),
-    primaryLabel: 'Go to Products',
-    primaryHref: '/admin/products',
+    primaryLabel: 'Open Pipeline',
+    primaryHref: '/admin/pipeline',
+  },
+  {
+    title: 'Try the Transcriber',
+    description: 'Paste any TikTok URL and get the full script in seconds. Save the best ones to your Winners Bank for AI-powered analysis.',
+    icon: (
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+        <Mic className="w-8 h-8 text-white" />
+      </div>
+    ),
+    primaryLabel: 'Open Transcriber',
+    primaryHref: '/admin/transcribe',
   },
 ];
 
@@ -169,10 +180,10 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               <>
                 <button
                   type="button"
-                  onClick={() => handleFinish('/admin/products')}
+                  onClick={() => handleFinish(step.primaryHref || '/admin/products')}
                   className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-semibold rounded-lg transition-all shadow-lg shadow-teal-500/25"
                 >
-                  Go to Products
+                  {step.primaryLabel || 'Get Started'}
                 </button>
                 <button
                   type="button"

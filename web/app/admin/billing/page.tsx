@@ -1,423 +1,268 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { EmptyState } from '../components/AdminPageLayout';
-import { useToast } from '@/contexts/ToastContext';
+import { useSearchParams } from 'next/navigation';
+import { useCredits } from '@/hooks/useCredits';
+import { Check, Zap, CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { PLANS_LIST } from '@/lib/plans';
 
-interface OrgInvoicePreview {
-  org_id: string;
-  org_name: string;
-  plan: string;
-  billing_status: string;
-  period_start: string;
-  period_end: string;
-  included_videos: number;
-  posted_videos: number;
-  base_fee_cents: number;
-  overage_videos: number;
-  overage_fee_cents: number;
-  rollover_in_videos: number;
-  rollover_out_videos: number;
-  effective_included_videos: number;
-  estimated_total_cents: number;
-  notes: string[];
-}
+const PLAN_ORDER = ['free', 'creator_lite', 'creator_pro', 'brand', 'agency'] as const;
 
-interface BillingData {
-  year: number;
-  month: number;
-  period_label: string;
-  orgs: OrgInvoicePreview[];
-  totals: {
-    org_count: number;
-    total_posted_videos: number;
-    total_overage_videos: number;
-    total_base_fee_cents: number;
-    total_overage_fee_cents: number;
-    total_estimated_cents: number;
-  };
-}
+export default function BillingPage() {
+  const searchParams = useSearchParams();
+  const { credits, subscription, isLoading, refetch } = useCredits();
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ type: 'success' | 'canceled'; plan?: string } | null>(null);
 
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function getMonthOptions(): { year: number; month: number; label: string }[] {
-  const options: { year: number; month: number; label: string }[] = [];
-  const now = new Date();
-
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    options.push({
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    });
-  }
-
-  return options;
-}
-
-export default function AdminBillingPage() {
-  const router = useRouter();
-  const { showError } = useToast();
-  const [authLoading, setAuthLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [data, setData] = useState<BillingData | null>(null);
-  const [exporting, setExporting] = useState(false);
-
-  const monthOptions = getMonthOptions();
-  const [selectedPeriod, setSelectedPeriod] = useState(monthOptions[0]);
-
-  // Fetch authenticated user and check admin status
+  // Show banners for redirect from Stripe checkout
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
+    if (searchParams.get('upgraded') === 'true') {
+      setBanner({ type: 'success', plan: searchParams.get('plan') || undefined });
+      refetch();
+    } else if (searchParams.get('canceled') === 'true') {
+      setBanner({ type: 'canceled' });
+    }
+  }, [searchParams, refetch]);
 
-        if (error || !user) {
-          router.push('/login?redirect=/admin/billing');
-          return;
-        }
+  const currentPlanId = subscription?.planId || 'free';
 
-        // Check if admin
-        const roleRes = await fetch('/api/auth/me');
-        const roleData = await roleRes.json();
+  const handleSubscribe = async (planId: string) => {
+    if (planId === 'free' || planId === currentPlanId) return;
 
-        if (roleData.role !== 'admin') {
-          router.push('/admin/pipeline');
-          return;
-        }
-
-        setIsAdmin(true);
-      } catch (err) {
-        console.error('Auth error:', err);
-        router.push('/login?redirect=/admin/billing');
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  // Fetch billing data
-  const fetchData = async (year: number, month: number) => {
-    setLoading(true);
-    setError('');
+    setCheckoutLoading(planId);
+    setCheckoutError(null);
 
     try {
-      const res = await fetch(`/api/admin/billing/orgs?year=${year}&month=${month}`);
-      const result = await res.json();
+      const res = await fetch('/api/subscriptions/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId }),
+      });
 
-      if (result.ok) {
-        setData(result.data);
-      } else {
-        setError(result.error || 'Failed to load billing data');
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Checkout failed');
       }
-    } catch {
-      setError('Network error');
-    } finally {
-      setLoading(false);
+
+      if (!data.url) {
+        throw new Error('No checkout URL received');
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setCheckoutLoading(null);
     }
   };
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchData(selectedPeriod.year, selectedPeriod.month);
-    }
-  }, [isAdmin, selectedPeriod]);
+  // Find current plan index for comparison
+  const currentPlanIndex = PLAN_ORDER.indexOf(currentPlanId as typeof PLAN_ORDER[number]);
 
-  // Export CSV
-  const exportCsv = async () => {
-    setExporting(true);
-    try {
-      const res = await fetch(
-        `/api/admin/billing/export?year=${selectedPeriod.year}&month=${selectedPeriod.month}&type=csv`
-      );
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const monthStr = selectedPeriod.month.toString().padStart(2, '0');
-        a.download = `billing-${selectedPeriod.year}-${monthStr}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        showError('Export failed');
-      }
-    } catch {
-      showError('Export error');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+      </div>
+    );
   }
 
-  if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
-  }
+  const isUnlimited = credits?.remaining === -1 || credits?.isUnlimited;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }} className="pb-24 lg:pb-6">
-
+    <div className="max-w-5xl mx-auto pb-24 lg:pb-6">
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px',
-        flexWrap: 'wrap',
-        gap: '10px',
-      }}>
-        <h1 style={{ margin: 0 }}>Billing</h1>
-
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* Month Selector */}
-          <select
-            value={`${selectedPeriod.year}-${selectedPeriod.month}`}
-            onChange={(e) => {
-              const [y, m] = e.target.value.split('-').map(Number);
-              const opt = monthOptions.find((o) => o.year === y && o.month === m);
-              if (opt) setSelectedPeriod(opt);
-            }}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '4px',
-              border: '1px solid #dee2e6',
-              fontSize: '14px',
-            }}
-          >
-            {monthOptions.map((opt) => (
-              <option key={`${opt.year}-${opt.month}`} value={`${opt.year}-${opt.month}`}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Export Button */}
-          <button type="button"
-            onClick={exportCsv}
-            disabled={exporting || loading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: exporting ? '#adb5bd' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: exporting ? 'not-allowed' : 'pointer',
-              fontSize: '13px',
-            }}
-          >
-            {exporting ? 'Exporting...' : 'Export CSV'}
-          </button>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">Billing</h1>
+        <p className="text-zinc-500 mt-1">Manage your plan and usage</p>
       </div>
 
-      {/* Loading/Error */}
-      {loading && (
-        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-          Loading billing data...
-        </div>
-      )}
-
-      {error && (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          borderRadius: '4px',
-          color: '#721c24',
-          marginBottom: '20px',
-        }}>
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && data && (
-        <>
-          {/* Summary Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '15px',
-            marginBottom: '20px',
-          }}>
-            {[
-              { label: 'Organizations', value: data.totals.org_count, color: '#495057' },
-              { label: 'Total Videos', value: data.totals.total_posted_videos, color: '#1971c2' },
-              { label: 'Overage Videos', value: data.totals.total_overage_videos, color: '#e67700' },
-              { label: 'Total Revenue', value: formatCents(data.totals.total_estimated_cents), color: '#2b8a3e' },
-            ].map((item) => (
-              <div
-                key={item.label}
-                style={{
-                  padding: '15px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  border: '1px solid #dee2e6',
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{
-                  fontSize: typeof item.value === 'number' ? '28px' : '24px',
-                  fontWeight: 'bold',
-                  color: item.color,
-                }}>
-                  {item.value}
-                </div>
-                <div style={{ fontSize: '13px', color: '#6c757d' }}>{item.label}</div>
-              </div>
-            ))}
+      {/* Current Plan Card */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-8">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <CreditCard className="w-4 h-4 text-teal-400" />
+              <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Current Plan</span>
+            </div>
+            <h2 className="text-xl font-bold text-white">
+              {subscription?.planName || 'Free'}
+            </h2>
+            {subscription?.status && subscription.status !== 'active' && (
+              <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400 font-medium">
+                {subscription.status.replace(/_/g, ' ')}
+              </span>
+            )}
           </div>
 
-          {/* Orgs Table */}
-          <div style={{
-            border: '1px solid #dee2e6',
-            borderRadius: '8px',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              padding: '12px 16px',
-              backgroundColor: '#f8f9fa',
-              borderBottom: '1px solid #dee2e6',
-              fontWeight: 'bold',
-            }}>
-              Organization Billing - {data.period_label}
+          <div className="text-right">
+            <div className="text-sm text-zinc-500">Credits remaining</div>
+            <div className="text-2xl font-bold text-white">
+              {isUnlimited ? 'Unlimited' : (credits?.remaining ?? 0)}
             </div>
-
-            {data.orgs.length === 0 ? (
-              <EmptyState
-                title="No organizations"
-                description="No organizations found for this billing period."
-              />
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f8f9fa' }}>
-                      <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Organization</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Plan</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '1px solid #dee2e6' }}>Status</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>Included</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>Posted</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>Overage</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>Base Fee</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>Overage Fee</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'right', borderBottom: '1px solid #dee2e6' }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.orgs.map((org) => (
-                      <tr key={org.org_id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                        <td style={{ padding: '10px 16px' }}>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{org.org_name}</div>
-                          <div style={{ fontSize: '11px', color: '#adb5bd', fontFamily: 'monospace' }}>
-                            {org.org_id.slice(0, 8)}...
-                          </div>
-                        </td>
-                        <td style={{ padding: '10px 16px' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            backgroundColor: org.plan === 'enterprise' ? '#f3d9fa' :
-                              org.plan === 'pro' ? '#d3f9d8' : '#e9ecef',
-                            color: org.plan === 'enterprise' ? '#862e9c' :
-                              org.plan === 'pro' ? '#2b8a3e' : '#495057',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            textTransform: 'capitalize',
-                          }}>
-                            {org.plan}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px 16px' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            backgroundColor: org.billing_status === 'active' ? '#d3f9d8' :
-                              org.billing_status === 'trial' ? '#e7f5ff' :
-                              org.billing_status === 'past_due' ? '#f8d7da' : '#e9ecef',
-                            color: org.billing_status === 'active' ? '#2b8a3e' :
-                              org.billing_status === 'trial' ? '#1971c2' :
-                              org.billing_status === 'past_due' ? '#c92a2a' : '#495057',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            textTransform: 'capitalize',
-                          }}>
-                            {org.billing_status.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontSize: '13px' }}>
-                          {org.effective_included_videos}
-                          {org.rollover_in_videos > 0 && (
-                            <span style={{ color: '#adb5bd', fontSize: '11px' }}>
-                              {' '}(+{org.rollover_in_videos})
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontSize: '13px', fontWeight: 'bold' }}>
-                          {org.posted_videos}
-                        </td>
-                        <td style={{
-                          padding: '10px 16px',
-                          textAlign: 'right',
-                          fontSize: '13px',
-                          color: org.overage_videos > 0 ? '#e67700' : '#adb5bd',
-                        }}>
-                          {org.overage_videos || '-'}
-                        </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontSize: '13px', fontFamily: 'monospace' }}>
-                          {formatCents(org.base_fee_cents)}
-                        </td>
-                        <td style={{
-                          padding: '10px 16px',
-                          textAlign: 'right',
-                          fontSize: '13px',
-                          fontFamily: 'monospace',
-                          color: org.overage_fee_cents > 0 ? '#e67700' : '#adb5bd',
-                        }}>
-                          {org.overage_fee_cents > 0 ? formatCents(org.overage_fee_cents) : '-'}
-                        </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontSize: '14px', fontWeight: 'bold', fontFamily: 'monospace' }}>
-                          {formatCents(org.estimated_total_cents)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold' }}>
-                      <td colSpan={4} style={{ padding: '10px 16px', textAlign: 'right' }}>Totals:</td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right' }}>{data.totals.total_posted_videos}</td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: '#e67700' }}>
-                        {data.totals.total_overage_videos || '-'}
-                      </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'monospace' }}>
-                        {formatCents(data.totals.total_base_fee_cents)}
-                      </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'monospace', color: '#e67700' }}>
-                        {data.totals.total_overage_fee_cents > 0 ? formatCents(data.totals.total_overage_fee_cents) : '-'}
-                      </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: '16px', color: '#2b8a3e' }}>
-                        {formatCents(data.totals.total_estimated_cents)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+            {!isUnlimited && subscription?.creditsPerMonth && subscription.creditsPerMonth > 0 && (
+              <div className="text-xs text-zinc-600 mt-0.5">
+                of {subscription.creditsPerMonth}/month
               </div>
             )}
           </div>
-        </>
+        </div>
+
+        {/* Usage bar */}
+        {!isUnlimited && subscription?.creditsPerMonth && subscription.creditsPerMonth > 0 && (
+          <div className="mt-4">
+            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-teal-500 rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, ((credits?.usedThisPeriod ?? 0) / subscription.creditsPerMonth) * 100)}%`,
+                }}
+              />
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-xs text-zinc-600">{credits?.usedThisPeriod ?? 0} used</span>
+              <span className="text-xs text-zinc-600">{subscription.creditsPerMonth} total</span>
+            </div>
+          </div>
+        )}
+
+        {subscription?.currentPeriodEnd && (
+          <p className="text-xs text-zinc-600 mt-3">
+            Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </p>
+        )}
+
+        {subscription?.stripeCustomerId && (
+          <a
+            href="https://billing.stripe.com/p/login/test_28o4gC4Ry1Zy7ew144"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-3 text-xs text-teal-400 hover:text-teal-300 transition-colors"
+          >
+            Manage payment method
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+
+      {/* Success/Cancel Banners */}
+      {banner?.type === 'success' && (
+        <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-teal-300">Welcome to your new plan!</p>
+            <p className="text-xs text-teal-400/70 mt-0.5">Your credits have been updated. It may take a moment to reflect.</p>
+          </div>
+          <button type="button" onClick={() => setBanner(null)} className="ml-auto text-teal-500/50 hover:text-teal-400">
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
       )}
+      {banner?.type === 'canceled' && (
+        <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <XCircle className="w-5 h-5 text-zinc-500 shrink-0" />
+          <p className="text-sm text-zinc-400">Checkout was canceled. No changes were made.</p>
+          <button type="button" onClick={() => setBanner(null)} className="ml-auto text-zinc-600 hover:text-zinc-400">
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {checkoutError && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6">
+          <p className="text-sm text-red-400">{checkoutError}</p>
+        </div>
+      )}
+
+      {/* Plan Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {PLANS_LIST.filter(p => p.id !== 'free').map((plan) => {
+          const planIndex = PLAN_ORDER.indexOf(plan.id as typeof PLAN_ORDER[number]);
+          const isCurrent = plan.id === currentPlanId;
+          const isDowngrade = planIndex < currentPlanIndex;
+          const isPopular = 'popular' in plan && plan.popular;
+
+          return (
+            <div
+              key={plan.id}
+              className={`relative bg-zinc-900 border rounded-xl p-5 flex flex-col ${
+                isCurrent
+                  ? 'border-teal-500/50 ring-1 ring-teal-500/20'
+                  : isPopular
+                  ? 'border-violet-500/50'
+                  : 'border-zinc-800'
+              }`}
+            >
+              {isPopular && !isCurrent && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-violet-500 text-white text-xs font-semibold rounded-full">
+                  Most Popular
+                </div>
+              )}
+              {isCurrent && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-teal-500 text-white text-xs font-semibold rounded-full">
+                  Current Plan
+                </div>
+              )}
+
+              <h3 className="text-lg font-bold text-white mt-1">{plan.name}</h3>
+              <div className="mt-2 mb-4">
+                <span className="text-3xl font-bold text-white">${plan.price}</span>
+                <span className="text-zinc-500 text-sm">/mo</span>
+              </div>
+
+              <ul className="space-y-2 mb-6 flex-1">
+                {plan.features.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                    <span className="text-zinc-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                onClick={() => handleSubscribe(plan.id)}
+                disabled={isCurrent || checkoutLoading !== null}
+                className={`w-full py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors ${
+                  isCurrent
+                    ? 'bg-zinc-800 text-zinc-500 cursor-default'
+                    : isDowngrade
+                    ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                    : isPopular
+                    ? 'bg-violet-600 text-white hover:bg-violet-500'
+                    : 'bg-teal-600 text-white hover:bg-teal-500'
+                }`}
+              >
+                {checkoutLoading === plan.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                ) : isCurrent ? (
+                  'Current Plan'
+                ) : isDowngrade ? (
+                  'Downgrade'
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 inline mr-1" />
+                    Upgrade
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Promo Code Hint */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-center">
+        <p className="text-sm text-zinc-400">
+          Have a promo code? Enter it during checkout — Stripe will apply the discount automatically.
+        </p>
+      </div>
     </div>
   );
 }

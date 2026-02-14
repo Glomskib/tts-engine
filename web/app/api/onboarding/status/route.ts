@@ -27,8 +27,8 @@ export async function GET(request: Request) {
       // Table may not exist yet
     }
 
-    // Check what's been completed — 3 steps: product, script, pipeline video
-    const [productsResult, scriptsResult, videosResult] = await Promise.all([
+    // Check what's been completed — 4 steps: product, script, pipeline video, transcriber
+    const [productsResult, scriptsResult, videosResult, winnersResult] = await Promise.all([
       supabaseAdmin
         .from('products')
         .select('*', { count: 'exact', head: true })
@@ -41,11 +41,16 @@ export async function GET(request: Request) {
         .from('videos')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId),
+      supabaseAdmin
+        .from('winners_bank')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId),
     ]);
 
     const productsCount = productsResult.count || 0;
     const scriptsCount = scriptsResult.count || 0;
     const videosCount = videosResult.count || 0;
+    const winnersCount = winnersResult.count || 0;
 
     const steps = [
       {
@@ -69,6 +74,13 @@ export async function GET(request: Request) {
         href: '/admin/pipeline',
         completed: videosCount > 0,
       },
+      {
+        id: 'transcribe',
+        title: 'Try the Transcriber',
+        description: 'Grab a winning TikTok script in seconds',
+        href: '/admin/transcribe',
+        completed: winnersCount > 0,
+      },
     ];
 
     return NextResponse.json({
@@ -83,6 +95,7 @@ export async function GET(request: Request) {
         { id: 'product', title: 'Add a product', description: 'Tell FlashFlow what you sell', href: '/admin/products', completed: false },
         { id: 'script', title: 'Generate a script', description: 'Let AI write your first video script', href: '/admin/content-studio', completed: false },
         { id: 'pipeline', title: 'Review in pipeline', description: 'Track a video from script to TikTok', href: '/admin/pipeline', completed: false },
+        { id: 'transcribe', title: 'Try the Transcriber', description: 'Grab a winning TikTok script in seconds', href: '/admin/transcribe', completed: false },
       ],
       dismissed: false,
       onboarding_complete: false,

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Package, Sparkles, Video, CheckCircle2,
-  ChevronDown, ChevronUp, X,
+  ChevronDown, ChevronUp, X, Mic,
 } from 'lucide-react';
 
 const DISMISSED_KEY = 'ff-setup-checklist-dismissed';
@@ -39,6 +39,13 @@ const STEPS: ChecklistStep[] = [
     href: '/admin/pipeline',
     icon: Video,
   },
+  {
+    id: 'transcribe',
+    label: 'Try the Transcriber',
+    description: 'Grab a winning TikTok script in seconds',
+    href: '/admin/transcribe',
+    icon: Mic,
+  },
 ];
 
 interface SetupChecklistProps {
@@ -50,6 +57,7 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
   const [dismissed, setDismissed] = useState(true); // default hidden until we check
   const [collapsed, setCollapsed] = useState(false);
   const [productCount, setProductCount] = useState<number | null>(null);
+  const [winnersCount, setWinnersCount] = useState<number | null>(null);
   const completedRef = useRef(false);
 
   useEffect(() => {
@@ -57,21 +65,33 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
     setDismissed(wasDismissed);
   }, []);
 
-  const fetchProductCount = useCallback(async () => {
+  const fetchCounts = useCallback(async () => {
     try {
-      const res = await fetch('/api/products');
-      if (res.ok) {
-        const json = await res.json();
+      const [productsRes, winnersRes] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/api/winners?limit=1'),
+      ]);
+      if (productsRes.ok) {
+        const json = await productsRes.json();
         setProductCount(json.data?.length ?? 0);
+      } else {
+        setProductCount(0);
+      }
+      if (winnersRes.ok) {
+        const json = await winnersRes.json();
+        setWinnersCount(json.meta?.total ?? json.data?.length ?? 0);
+      } else {
+        setWinnersCount(0);
       }
     } catch {
       setProductCount(0);
+      setWinnersCount(0);
     }
   }, []);
 
   useEffect(() => {
-    fetchProductCount();
-  }, [fetchProductCount]);
+    fetchCounts();
+  }, [fetchCounts]);
 
   const handleDismiss = () => {
     localStorage.setItem(DISMISSED_KEY, 'true');
@@ -85,6 +105,7 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
   if (productCount !== null && productCount > 0) completedSteps.add('product');
   if (scriptsCount > 0) completedSteps.add('script');
   if (totalVideos > 0) completedSteps.add('video');
+  if (winnersCount !== null && winnersCount > 0) completedSteps.add('transcribe');
 
   const completedCount = completedSteps.size;
   const allDone = completedCount === STEPS.length;
@@ -100,8 +121,8 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
   // Don't render if dismissed or all done
   if (dismissed || allDone) return null;
 
-  // Still loading product count
-  if (productCount === null) return null;
+  // Still loading counts
+  if (productCount === null || winnersCount === null) return null;
 
   const progress = (completedCount / STEPS.length) * 100;
 

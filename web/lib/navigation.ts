@@ -116,6 +116,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
       { name: 'Referrals', href: '/admin/referrals', icon: Link2 },
+      { name: 'Billing', href: '/admin/billing', icon: Wallet },
       { name: 'Credits', href: '/admin/credits', icon: CreditCard },
     ],
   },

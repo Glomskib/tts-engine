@@ -75,6 +75,20 @@ export interface CreatorInfo {
   max_video_post_duration_sec: number;
 }
 
+export interface TikTokVideoItem {
+  id: string;
+  title: string;
+  video_description: string;
+  create_time: number;
+  cover_image_url: string;
+  share_url: string;
+  duration: number;
+  like_count: number;
+  comment_count: number;
+  share_count: number;
+  view_count: number;
+}
+
 // ---------------------------------------------------------------------------
 // PKCE Helpers
 // ---------------------------------------------------------------------------
@@ -116,7 +130,7 @@ export class TikTokContentClient {
     const params = new URLSearchParams({
       client_key: this.clientKey,
       response_type: 'code',
-      scope: 'user.info.basic,video.publish,video.upload',
+      scope: 'user.info.basic,video.publish,video.upload,video.list',
       redirect_uri: redirectUri,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
@@ -273,6 +287,81 @@ export class TikTokContentClient {
     }
 
     return json.data as CreatorInfo;
+  }
+
+  // -------------------------------------------------------------------------
+  // Video List API
+  // -------------------------------------------------------------------------
+
+  /**
+   * List videos from a creator's TikTok account.
+   * Requires video.list scope.
+   * Returns up to 20 videos per call with cursor pagination.
+   */
+  async listUserVideos(
+    accessToken: string,
+    cursor?: number,
+    maxCount: number = 20
+  ): Promise<{ videos: TikTokVideoItem[]; cursor: number; has_more: boolean }> {
+    const fields = [
+      'id', 'title', 'video_description', 'create_time',
+      'cover_image_url', 'share_url', 'duration',
+      'like_count', 'comment_count', 'share_count', 'view_count',
+    ];
+
+    const res = await fetch(`${BASE_URL}/v2/video/list/?fields=${fields.join(',')}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        max_count: Math.min(maxCount, 20),
+        ...(cursor ? { cursor } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('[tiktok-content] listUserVideos error:', res.status, errText);
+      throw new Error(`TikTok API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const videoData = data.data || {};
+
+    return {
+      videos: (videoData.videos || []) as TikTokVideoItem[],
+      cursor: videoData.cursor || 0,
+      has_more: videoData.has_more || false,
+    };
+  }
+
+  /**
+   * Fetch ALL videos from a creator's account by paginating through listUserVideos.
+   * Use for initial sync. For incremental syncs, compare create_time.
+   */
+  async fetchAllUserVideos(
+    accessToken: string,
+    maxVideos: number = 1000
+  ): Promise<TikTokVideoItem[]> {
+    const allVideos: TikTokVideoItem[] = [];
+    let cursor: number | undefined;
+    let hasMore = true;
+
+    while (hasMore && allVideos.length < maxVideos) {
+      const result = await this.listUserVideos(accessToken, cursor, 20);
+      allVideos.push(...result.videos);
+      cursor = result.cursor;
+      hasMore = result.has_more;
+
+      // Rate limit safety: small delay between pages
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+
+    return allVideos;
   }
 }
 

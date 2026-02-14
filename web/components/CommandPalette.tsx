@@ -13,6 +13,15 @@ import {
   Clock,
   X,
   ArrowRight,
+  LayoutDashboard,
+  MessageSquareText,
+  Clapperboard,
+  BookOpen,
+  Settings,
+  CalendarClock,
+  ListChecks,
+  Eye,
+  CreditCard,
 } from 'lucide-react';
 
 interface SearchResult {
@@ -31,6 +40,29 @@ const TYPE_CONFIG: Record<SearchResult['type'], { icon: typeof Search; label: st
   competitor: { icon: Users, label: 'Competitors', color: 'text-red-400' },
   template: { icon: LayoutTemplate, label: 'Templates', color: 'text-teal-400' },
 };
+
+interface PageEntry {
+  name: string;
+  href: string;
+  icon: typeof Search;
+  keywords: string[];
+}
+
+const PAGES: PageEntry[] = [
+  { name: 'Transcriber', href: '/transcribe', icon: MessageSquareText, keywords: ['transcribe', 'tiktok', 'video', 'transcript'] },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, keywords: ['home', 'overview', 'stats'] },
+  { name: 'Pipeline', href: '/admin/pipeline', icon: Video, keywords: ['videos', 'render', 'queue', 'recording'] },
+  { name: 'Content Studio', href: '/admin/content-studio', icon: Clapperboard, keywords: ['studio', 'compose', 'create', 'content'] },
+  { name: 'Skit Library', href: '/admin/skit-library', icon: BookOpen, keywords: ['scripts', 'skits', 'library', 'browse'] },
+  { name: 'Products', href: '/admin/products', icon: Package, keywords: ['product', 'brand', 'catalog'] },
+  { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, keywords: ['winners', 'bank', 'winning', 'hooks'] },
+  { name: 'Audience', href: '/admin/audience', icon: Users, keywords: ['audience', 'persona', 'target', 'demographic'] },
+  { name: 'Settings', href: '/admin/settings', icon: Settings, keywords: ['settings', 'config', 'preferences', 'account'] },
+  { name: 'Posting Queue', href: '/admin/posting-queue', icon: CalendarClock, keywords: ['posting', 'queue', 'schedule', 'post'] },
+  { name: 'Tasks', href: '/admin/tasks', icon: ListChecks, keywords: ['tasks', 'todo', 'checklist'] },
+  { name: 'Review', href: '/admin/review', icon: Eye, keywords: ['review', 'approve', 'moderate'] },
+  { name: 'Billing', href: '/admin/billing', icon: CreditCard, keywords: ['billing', 'plan', 'subscription', 'payment', 'upgrade'] },
+];
 
 const RECENT_KEY = 'ff_recent_searches';
 const MAX_RECENT = 5;
@@ -53,11 +85,15 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [matchedPages, setMatchedPages] = useState<PageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Total navigable items = pages + content results
+  const totalItems = matchedPages.length + results.length;
 
   // Listen for Cmd+K / Ctrl+K
   useEffect(() => {
@@ -90,11 +126,20 @@ export function CommandPalette() {
   const search = useCallback(async (q: string) => {
     if (q.length < 2) {
       setResults([]);
+      setMatchedPages([]);
       return;
     }
 
-    setLoading(true);
     const lower = q.toLowerCase();
+
+    // Filter pages instantly (no API call needed)
+    const pages = PAGES.filter(p =>
+      p.name.toLowerCase().includes(lower) ||
+      p.keywords.some(k => k.includes(lower))
+    );
+    setMatchedPages(pages);
+
+    setLoading(true);
 
     try {
       const [productsRes, scriptsRes, winnersRes, videosRes, competitorsRes, templatesRes] = await Promise.all([
@@ -168,21 +213,26 @@ export function CommandPalette() {
     return () => clearTimeout(timer);
   }, [query, search]);
 
-  const navigate = (result: SearchResult) => {
-    saveRecentSearch(query);
+  const navigateTo = (href: string) => {
+    if (query) saveRecentSearch(query);
     setOpen(false);
-    router.push(result.href);
+    router.push(href);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(i => Math.min(i + 1, results.length - 1));
+      setSelectedIndex(i => Math.min(i + 1, totalItems - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && results[selectedIndex]) {
-      navigate(results[selectedIndex]);
+    } else if (e.key === 'Enter' && totalItems > 0) {
+      if (selectedIndex < matchedPages.length) {
+        navigateTo(matchedPages[selectedIndex].href);
+      } else {
+        const result = results[selectedIndex - matchedPages.length];
+        if (result) navigateTo(result.href);
+      }
     }
   };
 
@@ -212,7 +262,7 @@ export function CommandPalette() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search products, scripts, winners, pipeline..."
+              placeholder="Search pages, products, scripts, winners..."
               className="flex-1 py-4 bg-transparent text-white placeholder:text-zinc-500 outline-none text-base"
             />
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -241,13 +291,43 @@ export function CommandPalette() {
               </div>
             )}
 
-            {query.length >= 2 && results.length === 0 && !loading && (
+            {query.length >= 2 && matchedPages.length === 0 && results.length === 0 && !loading && (
               <div className="py-12 text-center text-zinc-500">
                 <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No results for &quot;{query}&quot;</p>
               </div>
             )}
 
+            {/* Pages / Go to... */}
+            {matchedPages.length > 0 && (
+              <div className="p-2">
+                <p className="text-xs font-medium uppercase px-3 py-1 text-teal-400">
+                  Go to...
+                </p>
+                {matchedPages.map((page, i) => {
+                  const PageIcon = page.icon;
+                  return (
+                    <button
+                      key={page.href}
+                      onClick={() => navigateTo(page.href)}
+                      className={`flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-colors ${
+                        i === selectedIndex
+                          ? 'bg-teal-500/20 text-white'
+                          : 'text-zinc-300 hover:bg-zinc-800'
+                      }`}
+                    >
+                      <PageIcon className="w-4 h-4 flex-shrink-0 text-teal-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{page.name}</p>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Content results */}
             {Object.entries(grouped).map(([type, items]) => {
               const config = TYPE_CONFIG[type as SearchResult['type']];
               const Icon = config.icon;
@@ -257,11 +337,11 @@ export function CommandPalette() {
                     {config.label}
                   </p>
                   {items.map((result) => {
-                    const globalIdx = results.indexOf(result);
+                    const globalIdx = results.indexOf(result) + matchedPages.length;
                     return (
                       <button
                         key={result.id}
-                        onClick={() => navigate(result)}
+                        onClick={() => navigateTo(result.href)}
                         className={`flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-colors ${
                           globalIdx === selectedIndex
                             ? 'bg-teal-500/20 text-white'

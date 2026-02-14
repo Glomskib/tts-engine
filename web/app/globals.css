@@ -124,7 +124,7 @@ body {
 }
 
 /* Prevent horizontal overflow on all containers */
-main, section, article, .container {
+section, article, .container {
   max-width: 100%;
   overflow-x: hidden;
 }

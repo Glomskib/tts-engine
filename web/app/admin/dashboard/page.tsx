@@ -42,6 +42,7 @@ interface SOTDItem {
   id: string;
   product_id: string;
   product_name: string;
+  product_brand?: string;
   brand: string;
   content_type: string;
   hook: string;
@@ -49,6 +50,8 @@ interface SOTDItem {
   full_script?: FullScript | null;
   score: number;
   added_to_pipeline: boolean;
+  status?: string;
+  script_date?: string;
 }
 
 interface Recommendation {
@@ -230,6 +233,7 @@ export default function DashboardPage() {
   const [weeklyData, setWeeklyData] = useState<Array<{ day: string; scripts: number; posted: number }>>([]);
   const [sotdExpanded, setSotdExpanded] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
+  const [sotdGenerating, setSotdGenerating] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -268,23 +272,34 @@ export default function DashboardPage() {
   const fetchSOTD = useCallback(async () => {
     setSotdLoading(true);
     try {
-      const response = await fetch('/api/content-package/generate');
+      const response = await fetch('/api/script-of-the-day');
       if (response.ok) {
         const json = await response.json();
-        const items: SOTDItem[] = json.data?.items || [];
-        if (items.length > 0) {
-          const sorted = [...items].sort((a, b) => b.score - a.score);
-          const seen = new Set<string>();
-          const topPicks: SOTDItem[] = [];
-          for (const item of sorted) {
-            if (!seen.has(item.product_name)) {
-              seen.add(item.product_name);
-              topPicks.push(item);
-              if (topPicks.length >= 2) break;
-            }
-          }
-          setSotd(topPicks[0] || null);
-          setSotdRunnerUp(topPicks[1] || null);
+        const item = json.data;
+        if (item) {
+          // Map SOTD record to SOTDItem shape for the card
+          const fullScript = typeof item.full_script === 'string'
+            ? JSON.parse(item.full_script)
+            : item.full_script;
+          setSotd({
+            id: item.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_brand: item.product_brand,
+            brand: item.product_brand || '',
+            content_type: '',
+            hook: item.hook,
+            script_body: '',
+            full_script: fullScript,
+            score: item.compound_score || 0,
+            added_to_pipeline: item.status === 'accepted' || item.status === 'filmed',
+            status: item.status,
+            script_date: item.script_date,
+          });
+          setSotdRunnerUp(null);
+        } else {
+          setSotd(null);
+          setSotdRunnerUp(null);
         }
       }
     } catch (error) {
@@ -293,6 +308,40 @@ export default function DashboardPage() {
       setSotdLoading(false);
     }
   }, []);
+
+  const handleGenerateAnother = useCallback(async () => {
+    setSotdGenerating(true);
+    try {
+      const res = await fetch('/api/script-of-the-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        showSuccess('New script generated!');
+        await fetchSOTD();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        showError(json.message || 'Failed to generate');
+      }
+    } catch {
+      showError('Failed to generate script');
+    } finally {
+      setSotdGenerating(false);
+    }
+  }, [fetchSOTD, showSuccess, showError]);
+
+  const handleSkipSOTD = useCallback(async () => {
+    if (!sotd) return;
+    try {
+      await fetch('/api/script-of-the-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_status', id: sotd.id, status: 'rejected' }),
+      });
+      setSotd(null);
+    } catch { /* silent */ }
+  }, [sotd]);
 
   const fetchWeeklyData = useCallback(async () => {
     try {
@@ -729,42 +778,40 @@ export default function DashboardPage() {
                       href={`/admin/content-studio?product=${sotd.product_id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors"
                     >
-                      <Sparkles className="w-3 h-3" /> Film This
+                      <Sparkles className="w-3 h-3" /> Use This Script
                     </Link>
                   </div>
                 </div>
               ) : (
                 <>
-                  {/* Fallback: Hook + script body preview */}
+                  {/* Fallback: Hook only */}
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-3">
                     <span className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold block mb-1">
                       Hook
                     </span>
                     <p className="text-white font-medium text-sm leading-snug">&ldquo;{sotd.hook}&rdquo;</p>
                   </div>
-                  {sotd.script_body && (
-                    <div className="bg-zinc-800/50 rounded-lg p-3 mb-3">
-                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">
-                        Script Brief
-                      </span>
-                      <p className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed line-clamp-3">
-                        {sotd.script_body}
-                      </p>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href="/admin/script-of-the-day"
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium hover:bg-zinc-700 transition-colors"
-                    >
-                      View Full Script
-                    </Link>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Link
                       href={`/admin/content-studio?product=${sotd.product_id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/30 transition-colors"
                     >
-                      <Sparkles className="w-3 h-3" /> Film This
+                      <Sparkles className="w-3 h-3" /> Use This Script
                     </Link>
+                    <button
+                      onClick={handleGenerateAnother}
+                      disabled={sotdGenerating}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      {sotdGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      {sotdGenerating ? 'Generating...' : 'Generate Another'}
+                    </button>
+                    <button
+                      onClick={handleSkipSOTD}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-500 hover:text-zinc-400 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      Skip Today
+                    </button>
                   </div>
                 </>
               )}
@@ -796,13 +843,15 @@ export default function DashboardPage() {
               <h2 className="text-sm font-semibold text-white">Script of the Day</h2>
             </div>
             <div className="text-center py-4">
-              <p className="text-sm text-zinc-500 mb-3">Generate today&apos;s content plan to see top picks</p>
-              <Link
-                href="/admin/content-package"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500/20 text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-500/30 transition-colors"
+              <p className="text-sm text-zinc-500 mb-3">No script yet today — generate one now</p>
+              <button
+                onClick={handleGenerateAnother}
+                disabled={sotdGenerating}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500/20 text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-500/30 transition-colors disabled:opacity-50"
               >
-                <Package className="w-4 h-4" /> Generate Package
-              </Link>
+                {sotdGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {sotdGenerating ? 'Generating...' : 'Generate Script'}
+              </button>
             </div>
           </div>
         )}

@@ -31,6 +31,7 @@ interface UserSettings {
     email: boolean;
     push: boolean;
     weekly_digest: boolean;
+    script_of_the_day_email: boolean;
   };
   defaults: {
     video_aspect_ratio: string;
@@ -699,6 +700,18 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={settings.notifications.weekly_digest}
                     onChange={(e) => updateSettings({ notifications: { ...settings.notifications, weekly_digest: e.target.checked } })}
+                    className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
+                  />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <div className="text-sm font-medium text-zinc-200">Script of the Day email</div>
+                    <div className="text-sm text-zinc-500">Daily email with your generated script angle and hook</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.notifications.script_of_the_day_email}
+                    onChange={(e) => updateSettings({ notifications: { ...settings.notifications, script_of_the_day_email: e.target.checked } })}
                     className="w-5 h-5 rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
                   />
                 </label>

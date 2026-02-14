@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/auto-post",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/script-of-the-day",
+      "schedule": "0 15 * * *"
     }
   ]
 }

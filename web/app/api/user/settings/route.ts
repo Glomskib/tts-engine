@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
     email: true,
     push: false,
     weekly_digest: true,
+    script_of_the_day_email: true,
   },
   defaults: {
     video_aspect_ratio: '9:16',

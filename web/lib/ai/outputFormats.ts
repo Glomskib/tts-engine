@@ -797,6 +797,23 @@ CHARACTER FORMAT: SINGLE PERSON — NATURAL AND CONVERSATIONAL
 - Their face and body AMPLIFY the words — expressions match the dialogue
 - Think "someone telling their friend about something" not "content creator filming"
 - Tone: genuine surprise, casual discovery, real enthusiasm — not scripted
+
+THE FINAL LINE (CTA) — THIS IS THE MOST IMPORTANT LINE IN THE SCRIPT:
+The last line must be the person reflecting on their OWN behavior — what they did, how they changed, what they can't go back to. It is NOT a command to the viewer. It's testimony.
+
+WRITE THE LAST LINE AS IF THE PERSON IS SAYING:
+- "I'm on my third bottle. That should tell you everything."
+- "I literally haven't touched [old thing] since I found this."
+- "My only regret is not finding this sooner."
+- "I keep buying extras to give to people. That's where I'm at with it."
+- "I don't even think about [the old problem] anymore. Wild."
+
+DO NOT WRITE THE LAST LINE AS:
+- "Stock up" / "Grab yours" / "Add to cart" / "Trust me" / "Link in bio"
+- ANY instruction to the viewer about what to do
+- ANY generic urgency phrase
+
+The close is the person looking at the product, satisfied, reflecting on how it changed things. Not selling.
 `,
 };
 

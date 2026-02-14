@@ -41,6 +41,7 @@ import {
   type Winner,
   type WinnersIntelligence,
 } from "@/lib/winners";
+import { buildCreatorDNAContext, type CreatorDNA } from '@/lib/creator-dna';
 import {
   fetchBrandContext,
   buildBrandContextPrompt,
@@ -1340,6 +1341,21 @@ export async function POST(request: Request) {
       winnersIntelligence = await fetchWinnersIntelligence(authContext.user.id);
     }
 
+    // Fetch Creator DNA profile
+    let creatorDNA: CreatorDNA | null = null;
+    try {
+      const { data: dnaData } = await supabaseAdmin
+        .from('creator_dna')
+        .select('*')
+        .eq('user_id', authContext.user.id)
+        .single();
+      if (dnaData) {
+        creatorDNA = dnaData as CreatorDNA;
+      }
+    } catch {
+      // DNA not yet built — that's fine, continue without it
+    }
+
     // Fetch render pipeline winner patterns for this product
     let renderWinnersPrompt = "";
     if (product.id) {
@@ -1387,7 +1403,12 @@ export async function POST(request: Request) {
 
     // Enforce duration by content type:
     // BOF = always quick (10-15s), slideshow_story = always extended (45-60s)
-    let effectiveDuration: TargetDuration = input.target_duration ?? "standard";
+    // If user didn't set duration and Creator DNA has an optimal length, use it
+    const dnaSweetSpot = creatorDNA?.performance_patterns?.optimal_video_length?.sweet_spot;
+    const dnaDefaultDuration: TargetDuration | null = dnaSweetSpot
+      ? (dnaSweetSpot <= 15 ? "quick" : dnaSweetSpot <= 30 ? "standard" : dnaSweetSpot <= 45 ? "extended" : "long")
+      : null;
+    let effectiveDuration: TargetDuration = input.target_duration ?? dnaDefaultDuration ?? "standard";
     if (input.content_type_id === "bof") {
       effectiveDuration = "quick";
     } else if (input.content_type_id === "slideshow_story") {
@@ -1467,6 +1488,7 @@ export async function POST(request: Request) {
       useAudienceLanguage: input.use_audience_language ?? true,
       winnersIntelligence,
       winnerVariation,
+      creatorDNAContext: buildCreatorDNAContext(creatorDNA),
       brandContextPrompt,
       painPointsPrompt,
       contentTypeId: input.content_type_id || null,
@@ -1675,6 +1697,8 @@ interface PromptParams {
   // Winners Bank Intelligence
   winnersIntelligence: WinnersIntelligence | null;
   winnerVariation: Winner | null; // If generating variation of specific winner
+  // Creator DNA
+  creatorDNAContext: string;
   // Brand Context
   brandContextPrompt: string;
   // Product Pain Points
@@ -1689,7 +1713,7 @@ interface PromptParams {
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt, renderWinnersPrompt } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, creatorDNAContext, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt, renderWinnersPrompt } = params;
 
   // Get content-type-aware prompt config (defaults to skit if unset)
   const formatConfig = getOutputFormatConfig(contentTypeId, contentSubtypeId);
@@ -1739,6 +1763,7 @@ CTA OVERLAY TO USE: "${ctaOverlay}"
 ${creativeDirectionSection}
 ${winnerVariationSection}
 ${winnersContext}
+${creatorDNAContext}
 ${renderWinnersPrompt}
 ${audienceContext}
 ${demographicPrompt}

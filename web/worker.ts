@@ -39,7 +39,7 @@ async function claimTask() {
     .select('*')
     .eq('status', 'pending')
     .order('priority', { ascending: false })
-    .limit(1);
+    .limit(10);  // Get more tasks to filter by dependencies
 
   if (error) {
     console.error(`❌ [${TERMINAL_ID}] Query error:`, error.message);
@@ -51,25 +51,45 @@ async function claimTask() {
     return null;
   }
 
-  const task = tasks[0];
-  console.log(`📋 [${TERMINAL_ID}] Found task: ${task.task_name} (priority: ${task.priority})`);
+  // Find first task whose dependency (if any) is completed
+  for (const task of tasks) {
+    // If task has a dependency, check if it's completed
+    if (task.depends_on) {
+      const { data: depTask, error: depError } = await supabase
+        .from('task_queue')
+        .select('status')
+        .eq('id', task.depends_on)
+        .single();
 
-  // Claim the task
-  const { error: updateError } = await supabase
-    .from('task_queue')
-    .update({
-      status: 'claimed',
-      assigned_terminal: TERMINAL_ID,
-      claimed_at: new Date().toISOString(),
-    })
-    .eq('id', task.id);
+      if (depError || !depTask || depTask.status !== 'completed') {
+        console.log(`⏳ [${TERMINAL_ID}] Task "${task.task_name}" waiting for dependency...`);
+        continue;  // Skip this task, try the next one
+      }
+    }
 
-  if (updateError) {
-    console.error(`❌ [${TERMINAL_ID}] Failed to claim task:`, updateError.message);
-    return null;
+    // Task is ready to claim (no dependency or dependency is completed)
+    console.log(`📋 [${TERMINAL_ID}] Found task: ${task.task_name} (priority: ${task.priority})`);
+
+    // Claim the task
+    const { error: updateError } = await supabase
+      .from('task_queue')
+      .update({
+        status: 'claimed',
+        assigned_terminal: TERMINAL_ID,
+        claimed_at: new Date().toISOString(),
+      })
+      .eq('id', task.id);
+
+    if (updateError) {
+      console.error(`❌ [${TERMINAL_ID}] Failed to claim task:`, updateError.message);
+      continue;  // Try next task
+    }
+
+    return task;
   }
 
-  return task;
+  console.log(`⏳ [${TERMINAL_ID}] All pending tasks have unmet dependencies. Waiting...`);
+  return null;
 }
 
 // ============================================================================
@@ -150,18 +170,20 @@ async function executeTask(task: any): Promise<boolean> {
 // ============================================================================
 
 function runClaudeCode(promptText: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Escape prompt for shell
-    const escapedPrompt = promptText.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-    
-    // Command: cd to repo and pipe prompt to `claude --print`
-    const cmd = `cd ${REPO_PATH}/web && echo "${escapedPrompt}" | claude --print`;
-    
+  return new Promise(async (resolve, reject) => {
+    // Write prompt to a temp file to avoid shell escaping issues
+    const tmpFile = path.join('/tmp', `claude-prompt-${TERMINAL_ID}-${Date.now()}.txt`);
+    await fs.writeFile(tmpFile, promptText, 'utf-8');
+
+    // Command: cd to repo and pipe temp file to `claude --print`
+    const cmd = `cd ${REPO_PATH}/web && cat "${tmpFile}" | claude --print`;
+
     console.log(`🔷 [${TERMINAL_ID}] Running: claude --print (headless mode)`);
-    
+
     const proc = spawn('sh', ['-c', cmd], {
       cwd: REPO_PATH,
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, CLAUDECODE: undefined },
     });
 
     let stdout = '';
@@ -177,7 +199,9 @@ function runClaudeCode(promptText: string): Promise<string> {
       process.stderr.write(`[${TERMINAL_ID}] ERROR: ${chunk}`);
     });
 
-    proc.on('close', (code) => {
+    proc.on('close', async (code) => {
+      // Clean up temp file
+      await fs.unlink(tmpFile).catch(() => {});
       if (code === 0) {
         resolve(stdout);
       } else {
@@ -185,7 +209,8 @@ function runClaudeCode(promptText: string): Promise<string> {
       }
     });
 
-    proc.on('error', (err) => {
+    proc.on('error', async (err) => {
+      await fs.unlink(tmpFile).catch(() => {});
       reject(new Error(`Failed to spawn Claude Code: ${err.message}`));
     });
   });

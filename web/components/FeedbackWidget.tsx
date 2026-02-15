@@ -153,7 +153,7 @@ export function FeedbackWidget() {
       {!isOpen && (
         <button
           onClick={handleOpen}
-          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-full shadow-lg shadow-violet-500/25 transition-all hover:scale-105 active:scale-95"
+          className="fixed bottom-24 right-4 lg:bottom-6 lg:right-6 z-[60] flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-full shadow-lg shadow-violet-500/25 transition-all hover:scale-105 active:scale-95"
         >
           <MessageSquare className="w-4 h-4" />
           Feedback

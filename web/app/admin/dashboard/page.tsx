@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Sparkles, FileText, Video, Calendar, Trophy, BarChart3,
-  Package, Folder, CreditCard, X, Settings
+  Package, Folder, CreditCard, X, Settings, Target, TrendingUp
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,6 +91,11 @@ export default function DashboardPage() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [customizingQuickLinks, setCustomizingQuickLinks] = useState(false);
   const [selectedQuickLinks, setSelectedQuickLinks] = useState<string[]>(DEFAULT_QUICK_LINKS);
+  const [incomeGoal, setIncomeGoal] = useState(5000);
+  const [videosGoal, setVideosGoal] = useState(50);
+  const [currentIncome, setCurrentIncome] = useState(0);
+  const [currentVideos, setCurrentVideos] = useState(0);
+  const [editingGoals, setEditingGoals] = useState(false);
 
   // Check if onboarding was dismissed
   useEffect(() => {
@@ -107,6 +112,18 @@ export default function DashboardPage() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           setSelectedQuickLinks(parsed.slice(0, 8)); // Max 8 items
         }
+      } catch (e) {
+        // Invalid JSON, use defaults
+      }
+    }
+
+    // Load saved monthly goals
+    const savedGoals = localStorage.getItem('flashflow_monthly_goals');
+    if (savedGoals) {
+      try {
+        const parsed = JSON.parse(savedGoals);
+        if (parsed.incomeGoal) setIncomeGoal(parsed.incomeGoal);
+        if (parsed.videosGoal) setVideosGoal(parsed.videosGoal);
       } catch (e) {
         // Invalid JSON, use defaults
       }
@@ -132,7 +149,29 @@ export default function DashboardPage() {
           activeBrands = brandsData.data?.length || 0;
         }
 
+        // Fetch current month's income from analytics
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const daysSinceMonthStart = Math.ceil((now.getTime() - firstDayOfMonth.getTime()) / (1000 * 60 * 60 * 24));
+        const revenueRes = await fetch(`/api/analytics?type=revenue&days=${daysSinceMonthStart}`);
+        let monthlyIncome = 0;
+        if (revenueRes.ok) {
+          const revenueData = await revenueRes.json();
+          monthlyIncome = revenueData.data?.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0) || 0;
+        }
+
+        // Fetch current month's video count
+        const videosRes = await fetch('/api/videos');
+        let monthlyVideos = 0;
+        if (videosRes.ok) {
+          const videosData = await videosRes.json();
+          const monthStart = firstDayOfMonth.toISOString();
+          monthlyVideos = videosData.data?.filter((v: any) => v.created_at >= monthStart).length || 0;
+        }
+
         setStats({ scriptsCount, activeBrands });
+        setCurrentIncome(monthlyIncome);
+        setCurrentVideos(monthlyVideos);
       } catch (error) {
         console.error('Failed to fetch dashboard stats:', error);
       } finally {
@@ -164,6 +203,11 @@ export default function DashboardPage() {
   const handleSaveQuickLinks = () => {
     localStorage.setItem('flashflow_quick_links', JSON.stringify(selectedQuickLinks));
     setCustomizingQuickLinks(false);
+  };
+
+  const handleSaveGoals = () => {
+    localStorage.setItem('flashflow_monthly_goals', JSON.stringify({ incomeGoal, videosGoal }));
+    setEditingGoals(false);
   };
 
   // Show onboarding if: not loading, not dismissed, AND (no brands OR no scripts)
@@ -291,6 +335,132 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Monthly Goals Widget */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Target className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-lg font-semibold text-white">Monthly Goals</h2>
+          </div>
+          <button
+            onClick={() => setEditingGoals(true)}
+            className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            Edit Goals
+          </button>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Income Goal */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-zinc-400">Income Goal</span>
+              <span className="text-sm font-semibold text-white">
+                ${currentIncome.toLocaleString()} / ${incomeGoal.toLocaleString()}
+              </span>
+            </div>
+            <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500 rounded-full"
+                style={{ width: `${Math.min((currentIncome / incomeGoal) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="mt-1 text-xs text-zinc-500">
+              {Math.round((currentIncome / incomeGoal) * 100)}% complete
+            </div>
+          </div>
+
+          {/* Videos Goal */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-zinc-400">Videos Goal</span>
+              <span className="text-sm font-semibold text-white">
+                {currentVideos} / {videosGoal}
+              </span>
+            </div>
+            <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 rounded-full"
+                style={{ width: `${Math.min((currentVideos / videosGoal) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="mt-1 text-xs text-zinc-500">
+              {Math.round((currentVideos / videosGoal) * 100)}% complete
+            </div>
+          </div>
+        </div>
+
+        {/* Accountability Text */}
+        <div className="mt-4 pt-4 border-t border-zinc-800">
+          <div className="flex items-start gap-2">
+            <TrendingUp className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-zinc-400">
+              {currentIncome >= incomeGoal && currentVideos >= videosGoal
+                ? 'Amazing work! You have crushed your monthly goals!'
+                : currentIncome >= incomeGoal * 0.8 || currentVideos >= videosGoal * 0.8
+                ? 'You are on track! Keep up the momentum to hit your goals.'
+                : 'Stay focused! Consistency is the key to achieving your targets.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Goals Modal */}
+      {editingGoals && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <div className="bg-zinc-900 rounded-xl border border-zinc-800 max-w-md w-full">
+            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Edit Monthly Goals</h3>
+              <button
+                onClick={() => setEditingGoals(false)}
+                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Income Goal Input */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Income Goal ($)
+                </label>
+                <input
+                  type="number"
+                  value={incomeGoal}
+                  onChange={(e) => setIncomeGoal(Math.max(0, Number(e.target.value)))}
+                  min="0"
+                  step="100"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:border-teal-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Videos Goal Input */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Videos Goal
+                </label>
+                <input
+                  type="number"
+                  value={videosGoal}
+                  onChange={(e) => setVideosGoal(Math.max(0, Number(e.target.value)))}
+                  min="0"
+                  step="1"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:border-teal-500 focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4">
+              <button
+                onClick={handleSaveGoals}
+                className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
+              >
+                Save Goals
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Nav Grid */}
       <div className="relative">

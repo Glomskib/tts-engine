@@ -64,7 +64,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [customizeNavOpen, setCustomizeNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
   const [unreadCount, setUnreadCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
   const [feedbackCount, setFeedbackCount] = useState(0);
 
   // Set page title based on pathname
@@ -74,7 +73,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/content-studio': 'Content Studio',
       '/admin/skit-library': 'Script Library',
       '/admin/pipeline': 'Production Board',
-      '/admin/review': 'Video Review',
       '/admin/calendar': 'Content Calendar',
       '/admin/posting-queue': 'Posting Queue',
       '/admin/winners': 'Winners Bank',
@@ -146,7 +144,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [auth.loading, auth.authenticated, router]);
 
-  // Fetch notifications + review count
+  // Fetch notifications + feedback count
   useEffect(() => {
     if (!auth.authenticated) return;
     const fetchNotifications = async () => {
@@ -155,17 +153,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setUnreadCount(data.data?.unread_count || data.meta?.unread_count || 0);
-        }
-      } catch {
-        // ignore
-      }
-    };
-    const fetchReviewCount = async () => {
-      try {
-        const res = await fetch('/api/videos/queue?recording_status=READY_FOR_REVIEW&limit=1');
-        if (res.ok) {
-          const data = await res.json();
-          setReviewCount(data.meta?.total || data.data?.length || 0);
         }
       } catch {
         // ignore
@@ -184,9 +171,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       }
     };
     fetchNotifications();
-    fetchReviewCount();
     fetchFeedbackCount();
-    const interval = setInterval(() => { fetchNotifications(); fetchReviewCount(); fetchFeedbackCount(); }, 30000);
+    const interval = setInterval(() => { fetchNotifications(); fetchFeedbackCount(); }, 30000);
     return () => clearInterval(interval);
   }, [auth.authenticated, auth.isAdmin]);
 
@@ -254,11 +240,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   {item.href === '/admin/notifications' && unreadCount > 0 && (
                     <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
                       {unreadCount}
-                    </span>
-                  )}
-                  {item.href === '/admin/review' && reviewCount > 0 && (
-                    <span className={`ml-auto px-2 py-0.5 font-medium bg-emerald-600 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
-                      {reviewCount}
                     </span>
                   )}
                   {item.href === '/admin/feedback' && feedbackCount > 0 && (

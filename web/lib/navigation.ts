@@ -102,10 +102,8 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro' },
-      { name: 'Review', href: '/admin/review', icon: Eye, minPlan: 'creator_pro' },
       { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro' },
-      { name: 'VA Dashboard', href: '/va', icon: Users, external: true, minPlan: 'creator_pro' },
     ],
   },
   {
@@ -167,7 +165,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Submit Video', href: '/client/requests/new', icon: Upload },
       { name: 'My Videos', href: '/client/videos', icon: Play },
       { name: 'All Requests', href: '/client/requests', icon: FileText },
-      { name: 'Review', href: '/client/review', icon: Shield },
       { name: 'Analytics', href: '/client/analytics', icon: BarChart },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
@@ -321,5 +318,5 @@ export const SIDEBAR_STORAGE_KEY = 'ffai-sidebar-open';
 // Brand config
 export const BRAND = {
   name: 'FlashFlow AI',
-  logo: '/FFAI.png',
+  logo: '/logo.svg',
 };

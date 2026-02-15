@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Calendar, DollarSign } from 'lucide-react';
 
 export default function AffiliateCalculator() {
   const [monthlyGMV, setMonthlyGMV] = useState(10000);
@@ -9,17 +9,16 @@ export default function AffiliateCalculator() {
   const [videosPerMonth, setVideosPerMonth] = useState(50);
   const [retainerFee, setRetainerFee] = useState(0);
   const [flatFeePerVideo, setFlatFeePerVideo] = useState(0);
+  const [itemsSold, setItemsSold] = useState(400); // Now editable
 
   // Calculations
-  const avgOrderValue = 25;
-  const itemsSold = Math.round(monthlyGMV / avgOrderValue);
   const estCommission = monthlyGMV * (commissionRate / 100);
   const estFlatFee = flatFeePerVideo * videosPerMonth;
   const commissionBase = monthlyGMV;
-  const productViews = Math.round(itemsSold * 35); // ~3% conversion
-  const productClicks = Math.round(productViews * 0.15);
   const totalMonthlyEarnings = estCommission + estFlatFee + retainerFee;
   const projectedAnnual = totalMonthlyEarnings * 12;
+  const dailyEarnings = totalMonthlyEarnings / 30;
+  const avgEarningsPerVideo = videosPerMonth > 0 ? totalMonthlyEarnings / videosPerMonth : 0;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -100,6 +99,19 @@ export default function AffiliateCalculator() {
             <div className="text-right text-zinc-300 font-semibold mt-1">{videosPerMonth}</div>
           </div>
 
+          {/* Items Sold - NOW EDITABLE */}
+          <div>
+            <label className="block text-sm text-zinc-400 mb-2">Items Sold</label>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              value={itemsSold}
+              onChange={(e) => setItemsSold(Number(e.target.value))}
+              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-zinc-300 focus:border-teal-500 focus:outline-none"
+            />
+          </div>
+
           {/* Retainer Fee */}
           <div>
             <label className="block text-sm text-zinc-400 mb-2">Monthly Retainer ($)</label>
@@ -149,36 +161,54 @@ export default function AffiliateCalculator() {
           {/* Commission Base */}
           <StatCard label="Commission Base" value={formatCurrency(commissionBase)} trend="+12.5%" />
 
-          {/* Product Views */}
-          <StatCard label="Product Views" value={formatNumber(productViews)} trend="+9.7%" />
-
-          {/* Product Clicks */}
-          <StatCard label="Product Clicks" value={formatNumber(productClicks)} trend="+11.2%" />
-
           {/* Monthly Retainer */}
           <StatCard label="Monthly Retainer" value={formatCurrency(retainerFee)} />
 
-          {/* Total Monthly Earnings - Full Width, Highlighted */}
-          <div className="sm:col-span-2 lg:col-span-1">
-            <StatCard
-              label="Total Monthly Earnings"
-              value={formatCurrency(totalMonthlyEarnings)}
-              trend="+18.4%"
-              highlight
-              large
-            />
-          </div>
+          {/* Daily Earnings - NEW */}
+          <StatCard label="Daily Earnings" value={formatCurrency(dailyEarnings)} trend="+10.2%" />
+
+          {/* Avg Earnings per Video - NEW */}
+          <StatCard
+            label="Avg per Video"
+            value={formatCurrency(avgEarningsPerVideo)}
+            trend="+7.8%"
+          />
+
+          {/* Total Monthly Earnings - Highlighted */}
+          <StatCard
+            label="Total Monthly Earnings"
+            value={formatCurrency(totalMonthlyEarnings)}
+            trend="+18.4%"
+            highlight
+            large
+          />
         </div>
 
-        {/* Annual Projection */}
-        <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-emerald-400" />
-            <span className="text-sm font-medium text-zinc-400 uppercase tracking-wide">
-              Projected Annual Earnings
-            </span>
+        {/* Monthly + Annual Projection Side by Side */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Calendar className="w-5 h-5 text-emerald-400" />
+              <span className="text-sm font-medium text-zinc-400 uppercase tracking-wide">
+                Monthly Earnings
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-emerald-400">
+              {formatCurrency(totalMonthlyEarnings)}
+            </div>
           </div>
-          <div className="text-4xl font-bold text-emerald-400">{formatCurrency(projectedAnnual)}</div>
+
+          <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <span className="text-sm font-medium text-zinc-400 uppercase tracking-wide">
+                Annual Projection
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-emerald-400">
+              {formatCurrency(projectedAnnual)}
+            </div>
+          </div>
         </div>
       </div>
     </div>

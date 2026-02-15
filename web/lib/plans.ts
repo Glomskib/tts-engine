@@ -79,13 +79,13 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     name: 'Brand',
     contactUs: true,
     contactEmail: 'brandon@flashflowai.com',
-    features: ['AI challenge generator', 'Creator marketplace', 'Campaign analytics'],
+    features: ['AI challenge generator (Coming Soon)', 'Creator marketplace (Coming Soon)', 'Campaign analytics'],
   },
   agency: {
     name: 'Agency',
     contactUs: true,
     contactEmail: 'brandon@flashflowai.com',
-    features: ['Multi-brand management', 'Team seats', 'White-label options'],
+    features: ['Multi-brand management', 'Team seats', 'White-label options (Coming Soon)'],
   },
 };
 

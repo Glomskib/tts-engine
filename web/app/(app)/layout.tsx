@@ -51,17 +51,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [sidebarOpen, isMobile]);
 
-  // Redirect to login if not authenticated, or to /my-tasks for non-admins on root
+  // Redirect to login if not authenticated, or to dashboard on root
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.authenticated) {
       router.replace('/login');
       return;
     }
-    if (auth.role !== 'admin' && pathname === '/') {
-      router.replace('/my-tasks');
+    if (pathname === '/') {
+      router.replace('/admin/dashboard');
     }
-  }, [auth.loading, auth.authenticated, auth.role, pathname, router]);
+  }, [auth.loading, auth.authenticated, pathname, router]);
 
   // Fetch notifications count
   useEffect(() => {

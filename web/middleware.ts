@@ -74,13 +74,9 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Redirect authenticated users from landing page to their role-appropriate dashboard
+  // Redirect authenticated users from landing page to dashboard
   if (user && path === '/') {
-    const adminEmails = (process.env.ADMIN_USERS || '').split(',').map(e => e.trim().toLowerCase())
-    if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-    }
-    return NextResponse.redirect(new URL('/my-tasks', request.url))
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url))
   }
 
   return response

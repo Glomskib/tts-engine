@@ -112,25 +112,8 @@ function LoginForm() {
           return;
         }
 
-        try {
-          const roleRes = await fetch('/api/auth/me');
-          const roleData = await roleRes.json();
-
-          if (roleData.ok) {
-            if (roleData.isAdmin) {
-              window.location.href = '/admin/dashboard';
-            } else if (roleData.isUploader) {
-              window.location.href = '/uploader';
-            } else {
-              window.location.href = '/my-tasks';
-            }
-            return;
-          }
-        } catch {
-          // Fallback if role check fails
-        }
-
-        window.location.href = '/my-tasks';
+        // Redirect to dashboard
+        window.location.href = '/admin/dashboard';
       }
     } catch (err) {
       console.error('Auth error:', err);

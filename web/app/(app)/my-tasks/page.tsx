@@ -100,12 +100,14 @@ export default function MyTasksPage() {
 
   // Fetch videos for my role
   const fetchVideos = useCallback(async () => {
-    if (!role || role === 'admin') return;
+    if (!role || role === 'admin' || !userId) return;
 
     setLoading(true);
     try {
       const statusFilter = ROLE_STATUS_FILTER[role] || '';
-      const res = await fetch(`/api/videos/queue?recording_status=${statusFilter}`);
+      // Fetch with claimed=any to see all videos in this status, then filter client-side
+      // This is needed to show available videos and videos locked by others
+      const res = await fetch(`/api/videos/queue?recording_status=${statusFilter}&claimed=any`);
       if (res.ok) {
         const data = await res.json();
         if (data.ok) {

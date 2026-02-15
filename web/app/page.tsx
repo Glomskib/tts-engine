@@ -202,6 +202,9 @@ export default function LandingPage() {
             <span className="font-semibold text-lg tracking-tight">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/transcriber" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Free Transcriber
+            </Link>
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
               Pricing
             </Link>
@@ -225,7 +228,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Free — no credit card required
+            Get Started — No CC Required
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
@@ -533,77 +536,15 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Pricing cards — Agency first (anchor), Creator Pro highlighted */}
+          {/* Pricing cards — 4 tiers: Free, Lite, Creator Pro (Most Popular), Business */}
           <div className="grid lg:grid-cols-4 gap-6">
-            {/* Agency — $149 (Anchor) */}
+            {/* Free Trial */}
             <PricingCard
-              name={PLANS.AGENCY.name}
-              description="For agencies & teams"
-              price={billingPeriod === 'monthly' ? PLANS.AGENCY.price : yearlyPrice(PLANS.AGENCY.price)}
-              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
-              credits="Unlimited"
-              features={[
-                'Unlimited scripts & edits',
-                'All 20 personas',
-                'Unlimited products & brands',
-                'Client portal',
-                'API access',
-                'Priority support',
-              ]}
-              cta="Start Trial"
-              ctaLink="/signup?plan=agency"
-              highlight={false}
-            />
-
-            {/* Brand — $49 */}
-            <PricingCard
-              name={PLANS.BRAND.name}
-              description="For multi-brand affiliates"
-              price={billingPeriod === 'monthly' ? PLANS.BRAND.price : yearlyPrice(PLANS.BRAND.price)}
-              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
-              credits={`${PLANS.BRAND.credits} credits/mo`}
-              features={[
-                'Unlimited scripts',
-                'All 20 personas',
-                'Full Winners Bank access',
-                'Unlimited products & brands',
-                'Retainer tracking (3+ brands)',
-                'Team accounts (3 seats)',
-              ]}
-              cta="Start Trial"
-              ctaLink="/signup?plan=brand"
-              highlight={false}
-            />
-
-            {/* Pro — $29 (Most Popular) */}
-            <PricingCard
-              name={PLANS.CREATOR_PRO.name}
-              description="For serious affiliates"
-              price={billingPeriod === 'monthly' ? PLANS.CREATOR_PRO.price : yearlyPrice(PLANS.CREATOR_PRO.price)}
-              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
-              credits={`${PLANS.CREATOR_PRO.credits} credits/mo`}
-              features={[
-                'Unlimited scripts',
-                'All 20 personas',
-                'Full Winners Bank',
-                'Unlimited products',
-                'Content Calendar (multi-brand)',
-                'Retainer goal tracking',
-                'Advanced analytics',
-              ]}
-              cta="Start Trial"
-              ctaLink="/signup?plan=creator_pro"
-              highlight={true}
-              badge="Most Popular"
-            />
-
-            {/* Free */}
-            <PricingCard
-              name={PLANS.FREE.name}
+              name="Free Trial"
               description="Try the platform"
               price={0}
               period=""
-              credits={`${PLANS.FREE.credits} scripts/mo`}
+              credits="5 credits"
               features={[
                 '5 scripts per month',
                 '3 personas',
@@ -614,20 +555,80 @@ export default function LandingPage() {
               ctaLink="/signup"
               highlight={false}
             />
+
+            {/* Lite — $9 */}
+            <PricingCard
+              name="Lite"
+              description="For new creators"
+              price={billingPeriod === 'monthly' ? 9 : yearlyPrice(9)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              credits="50 credits"
+              features={[
+                '50 scripts per month',
+                '20 products',
+                'Script Library',
+                'Built-in personas',
+                'Referral program',
+              ]}
+              cta="Start Trial"
+              ctaLink="/signup?plan=creator_lite"
+              highlight={false}
+            />
+
+            {/* Creator Pro — $29 (Most Popular) */}
+            <PricingCard
+              name="Creator Pro"
+              description="For serious affiliates"
+              price={billingPeriod === 'monthly' ? 29 : yearlyPrice(29)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              credits="Unlimited"
+              features={[
+                'Unlimited scripts',
+                'All 20 personas',
+                'Full Winners Bank',
+                'Unlimited products',
+                'Content Calendar',
+                'Retainer tracking',
+                'Advanced analytics',
+              ]}
+              cta="Start Trial"
+              ctaLink="/signup?plan=creator_pro"
+              highlight={true}
+              badge="Most Popular"
+            />
+
+            {/* Business — $59 */}
+            <PricingCard
+              name="Business"
+              description="For multi-brand affiliates"
+              price={billingPeriod === 'monthly' ? 59 : yearlyPrice(59)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              credits="Unlimited"
+              features={[
+                'Everything in Creator Pro',
+                'Content Packages',
+                'Multi-brand tracking',
+                'Team accounts (3 seats)',
+                'Priority support',
+              ]}
+              cta="Start Trial"
+              ctaLink="/signup?plan=brand"
+              highlight={false}
+            />
           </div>
 
-          {/* Enterprise CTA */}
+          {/* Brand & Agency — Contact Us */}
           <div className="mt-10 p-6 rounded-2xl bg-zinc-900/50 border border-white/5 text-center">
-            <h3 className="text-lg font-semibold mb-2">Need a custom plan?</h3>
+            <h3 className="text-lg font-semibold mb-2">Brand & Agency Plans</h3>
             <p className="text-zinc-400 text-sm mb-4">
-              Enterprise pricing, white-label, and managed video production available.
+              Custom pricing for brands, agencies, and enterprise teams. White-label and managed video production available.
             </p>
             <button
               type="button"
               onClick={() => setContactOpen(true)}
               className="inline-flex items-center px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 hover:border-white/20 transition-all"
             >
-              Contact Sales
+              Contact Us
             </button>
           </div>
         </div>

@@ -383,3 +383,22 @@ DO NOT WAIT FOR FURTHER INSTRUCTIONS. EXECUTE NOW.
 
 Timestamp: 2026-02-14T21:52:00Z
 
+---
+
+⚠️ PRIORITY: INSTRUCTION FROM BRANDON (Feb 14, 4:33 PM PST)
+
+**DO NOT DO THESE SEQUENTIALLY.** Fix all 3 mobile blockers in ONE commit.
+
+Batch in same edit:
+1. Mobile nav fix (hamburger menu)
+2. Pricing cards stacking
+3. Table collapse on mobile
+
+All are CSS/Tailwind responsive changes (10-20 lines each). Same file edits. One commit, one push.
+
+Then I turn auto-deploy back on → one build → live tonight.
+
+Stop being cautious. Ship all 3 at once.
+
+Timestamp: 2026-02-15T00:33:00Z
+

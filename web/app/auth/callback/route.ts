@@ -143,18 +143,8 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}${explicitRedirect}`);
       }
 
-      // Role-aware default redirect
-      const adminEmails = (process.env.ADMIN_USERS || '').split(',').map(e => e.trim().toLowerCase());
-      const uploaderEmails = (process.env.UPLOADER_USERS || '').split(',').map(e => e.trim().toLowerCase());
-      const userEmail = data.user.email?.toLowerCase() || '';
-
-      if (adminEmails.includes(userEmail)) {
-        return NextResponse.redirect(`${origin}/admin/dashboard`);
-      } else if (uploaderEmails.includes(userEmail)) {
-        return NextResponse.redirect(`${origin}/uploader`);
-      } else {
-        return NextResponse.redirect(`${origin}/my-tasks`);
-      }
+      // Default redirect to dashboard
+      return NextResponse.redirect(`${origin}/admin/dashboard`);
     }
   }
 

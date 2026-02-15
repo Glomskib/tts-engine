@@ -1177,28 +1177,58 @@ export default function VideoDrawer({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div style={{ flex: 1 }}>
-              {/* Video Code with copy + Copy Pack */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  color: colors.text,
+              {/* Video Title + ID */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <h3 style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  margin: 0,
+                  letterSpacing: '-0.01em',
                 }}>
                   {getVideoDisplayTitle(video)}
-                </span>
+                </h3>
+                {video.video_code && (
+                  <span style={{
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '11px',
+                    color: '#71717a',
+                    padding: '2px 6px',
+                    backgroundColor: '#27272a',
+                    borderRadius: '4px',
+                  }} title={video.id}>
+                    {video.id.slice(0, 8)}
+                  </span>
+                )}
+              </div>
+
+              {/* Copy Buttons Row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                 <button type="button"
                   onClick={() => copyToClipboard(video.video_code || video.id, 'videoCode')}
                   style={{
-                    padding: '2px 6px',
-                    fontSize: '10px',
-                    backgroundColor: copiedField === 'videoCode' ? '#d3f9d8' : '#e9ecef',
-                    border: 'none',
-                    borderRadius: '3px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    backgroundColor: copiedField === 'videoCode' ? '#10b981' : '#27272a',
+                    border: `1px solid ${copiedField === 'videoCode' ? '#10b981' : '#3f3f46'}`,
+                    borderRadius: '6px',
                     cursor: 'pointer',
-                    color: copiedField === 'videoCode' ? '#2b8a3e' : '#495057',
+                    color: copiedField === 'videoCode' ? '#ffffff' : '#a1a1aa',
+                    fontWeight: 500,
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
                   }}
+                  title="Copy video code"
+                  onMouseEnter={(e) => { if (copiedField !== 'videoCode') e.currentTarget.style.borderColor = '#52525b'; }}
+                  onMouseLeave={(e) => { if (copiedField !== 'videoCode') e.currentTarget.style.borderColor = '#3f3f46'; }}
                 >
-                  {copiedField === 'videoCode' ? 'Copied!' : 'Copy'}
+                  {copiedField === 'videoCode' ? (
+                    <>✓ Copied</>
+                  ) : (
+                    <>📋 Copy Code</>
+                  )}
                 </button>
                 <button type="button"
                   onClick={() => {
@@ -1227,24 +1257,22 @@ export default function VideoDrawer({
                     setTimeout(() => setCopiedField(null), 2000);
                   }}
                   style={{
-                    padding: '2px 8px',
-                    fontSize: '10px',
-                    backgroundColor: copiedField === 'copyPack' ? '#d3f9d8' : '#e7f5ff',
-                    border: '1px solid #74c0fc',
-                    borderRadius: '3px',
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    backgroundColor: copiedField === 'copyPack' ? '#10b981' : '#14b8a6',
+                    border: 'none',
+                    borderRadius: '6px',
                     cursor: 'pointer',
-                    color: copiedField === 'copyPack' ? '#2b8a3e' : '#1971c2',
-                    fontWeight: 'bold',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    transition: 'all 0.2s',
                   }}
                   title="Copy all essentials: code, brand, hooks, script, drive link"
+                  onMouseEnter={(e) => { if (copiedField !== 'copyPack') e.currentTarget.style.backgroundColor = '#0d9488'; }}
+                  onMouseLeave={(e) => { if (copiedField !== 'copyPack') e.currentTarget.style.backgroundColor = '#14b8a6'; }}
                 >
-                  {copiedField === 'copyPack' ? 'Copied!' : 'Copy All'}
+                  {copiedField === 'copyPack' ? '✓ Copied!' : '📋 Copy All'}
                 </button>
-                {video.video_code && (
-                  <span style={{ fontSize: '10px', color: '#868e96' }} title={video.id}>
-                    ID: {video.id.slice(0, 8)}
-                  </span>
-                )}
               </div>
 
               {/* Badges row */}
@@ -1252,12 +1280,12 @@ export default function VideoDrawer({
                 {/* Brand badge */}
                 {(video.brand_name || details?.video.brand_name) && (
                   <span style={{
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    backgroundColor: '#e7f5ff',
-                    color: '#1971c2',
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
                     fontSize: '11px',
-                    fontWeight: 'bold',
+                    fontWeight: 600,
                   }}>
                     {video.brand_name || details?.video.brand_name}
                   </span>
@@ -1313,24 +1341,25 @@ export default function VideoDrawer({
                 ) : null}
                 {/* Status badge */}
                 <span style={{
-                  padding: '3px 8px',
-                  borderRadius: '12px',
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
                   backgroundColor: statusColors.badge,
-                  color: 'white',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
                 }}>
                   {(video.recording_status || 'NOT_RECORDED').replace(/_/g, ' ')}
                 </span>
                 {/* SLA badge */}
                 <span style={{
-                  padding: '3px 6px',
-                  borderRadius: '4px',
-                  backgroundColor: slaColors.bg,
-                  color: slaColors.text,
-                  border: `1px solid ${slaColors.border}`,
-                  fontSize: '9px',
-                  fontWeight: 'bold',
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  backgroundColor: video.sla_status === 'overdue' || video.sla_status === 'due_soon' ? '#ef4444' : '#3b82f6',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
                 }}>
                   {video.sla_status === 'overdue' ? 'OVERDUE' : video.sla_status === 'due_soon' ? 'DUE SOON' : video.sla_status === 'no_due_date' ? 'NO DUE DATE' : 'ON TRACK'}
                 </span>

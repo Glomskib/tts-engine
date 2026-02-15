@@ -124,6 +124,7 @@ interface AudiencePersona {
   id: string;
   name: string;
   description?: string;
+  persona_type?: 'creator' | 'customer';
   age_range?: string;
   gender?: string;
   income_level?: string;
@@ -310,7 +311,15 @@ export default function ContentStudioPage() {
   const [manualBrandName, setManualBrandName] = useState<string>('');
   const [productDescription] = useState<string>('');
 
-  // STEP 4: Target Audience
+  // STEP 4a: Creator Voice (Creator Persona)
+  const [selectedCreatorPersonaId, setSelectedCreatorPersonaId] = useState<string>('');
+  const [creatorPersonas, setCreatorPersonas] = useState<AudiencePersona[]>([]);
+  const [creatorPersonaExpanded, setCreatorPersonaExpanded] = useState(true);
+  const [creatorPersonaDropdownOpen, setCreatorPersonaDropdownOpen] = useState(false);
+  const [creatorPersonaSearchText, setCreatorPersonaSearchText] = useState('');
+  const creatorPersonaDropdownRef = useRef<HTMLDivElement>(null);
+
+  // STEP 4b: Target Audience (Customer Archetype)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedPainPoints, setSelectedPainPoints] = useState<string[]>([]);
   const [personaExpanded, setPersonaExpanded] = useState(true);
@@ -534,7 +543,12 @@ export default function ContentStudioPage() {
 
         if (personasRes.ok) {
           const data = await personasRes.json();
-          setAudiencePersonas(data.data || []);
+          const allPersonas = data.data || [];
+          // Separate creator personas from customer archetypes
+          const creators = allPersonas.filter((p: AudiencePersona) => p.persona_type === 'creator');
+          const customers = allPersonas.filter((p: AudiencePersona) => p.persona_type !== 'creator');
+          setCreatorPersonas(creators);
+          setAudiencePersonas(customers);
         } else {
           console.error('Failed to fetch personas:', personasRes.status);
         }
@@ -932,7 +946,10 @@ export default function ContentStudioPage() {
       brand_name: selectedProductId ? undefined : manualBrandName.trim() || undefined,
       product_context: productDescription.trim() || undefined,
 
-      // Audience info
+      // Creator voice (speaking style)
+      creator_persona_id: selectedCreatorPersonaId || undefined,
+
+      // Audience info (target customer)
       audience_persona_id: selectedPersonaId || undefined,
       pain_point_focus: selectedPainPoints.length > 0 ? selectedPainPoints : undefined,
       use_audience_language: true,
@@ -1988,12 +2005,111 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
-              {/* STEP 4: Target Audience (hidden in Simple Mode) */}
+              {/* STEP 4a: Creator Voice (hidden in Simple Mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4</span>
+                  <span style={{ backgroundColor: '#14b8a6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4a</span>
+                  Creator Voice
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional - your speaking style)</span>
+                </div>
+                {creatorPersonas.length > 0 ? (
+                  <div ref={creatorPersonaDropdownRef} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setCreatorPersonaDropdownOpen(!creatorPersonaDropdownOpen)}
+                      style={{
+                        ...inputStyle,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '8px' }}>
+                        {selectedCreatorPersonaId
+                          ? (creatorPersonas.find((p) => p.id === selectedCreatorPersonaId)?.name || 'Select voice...')
+                          : 'Select creator voice...'}
+                      </span>
+                      <ChevronDown size={16} style={{ flexShrink: 0, color: 'rgba(255,255,255,0.4)', transition: 'transform 0.2s', transform: creatorPersonaDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                    </button>
+
+                    {creatorPersonaDropdownOpen && (
+                      <div style={{
+                        position: 'absolute',
+                        zIndex: 50,
+                        marginTop: '4px',
+                        width: '100%',
+                        backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '8px',
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                      }}>
+                        <div style={{ padding: '8px' }}>
+                          {creatorPersonas.map((persona) => (
+                            <button
+                              key={persona.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCreatorPersonaId(persona.id);
+                                setCreatorPersonaDropdownOpen(false);
+                              }}
+                              style={{
+                                width: '100%',
+                                textAlign: 'left',
+                                padding: '10px 12px',
+                                marginBottom: '4px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                backgroundColor: selectedCreatorPersonaId === persona.id ? '#14b8a6' : 'transparent',
+                                color: selectedCreatorPersonaId === persona.id ? 'white' : colors.text,
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (selectedCreatorPersonaId !== persona.id) {
+                                  e.currentTarget.style.backgroundColor = '#27272a';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (selectedCreatorPersonaId !== persona.id) {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }
+                              }}
+                            >
+                              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{persona.name}</div>
+                              {persona.description && (
+                                <div style={{ fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                                  {persona.description}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        {creatorPersonas.length === 0 && (
+                          <div style={{ padding: '12px', textAlign: 'center', color: colors.textSecondary, fontSize: '12px' }}>
+                            No creator voices available
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px', textAlign: 'center', color: colors.textSecondary, fontSize: '12px' }}>
+                    No creator voices available. System voices will be available after setup.
+                  </div>
+                )}
+              </div>}
+
+              {/* STEP 4b: Target Audience (hidden in Simple Mode) */}
+              {!simpleMode && <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>
+                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4b</span>
                   Target Audience
-                  <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional)</span>
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional - who you're talking to)</span>
                 </div>
                 {audiencePersonas.length > 0 ? (
                   <div ref={personaDropdownRef} style={{ position: 'relative' }}>

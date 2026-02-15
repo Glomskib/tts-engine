@@ -228,7 +228,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Get Started — No CC Required
+            Get Started — No Credit Card Required
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
@@ -382,18 +382,18 @@ export default function LandingPage() {
             {[
               {
                 step: '01',
-                title: 'Paste your product',
-                desc: 'Enter a product name and optional description. The AI learns what you\'re selling instantly.',
+                title: 'Add Your Brand',
+                desc: 'Upload your brand brief or enter details manually. Our AI learns your voice.',
               },
               {
                 step: '02',
-                title: 'Pick a persona',
-                desc: 'Choose from 20 creator voices — skeptical reviewer, Gen-Z trendsetter, hype machine, and more.',
+                title: 'Generate Scripts',
+                desc: 'Choose your content type, target audience, and tone. Get scroll-stopping scripts in seconds.',
               },
               {
                 step: '03',
-                title: 'Generate',
-                desc: 'Get a ready-to-film script with scroll-stopping hook, beat-by-beat dialogue, and CTA in 60 seconds.',
+                title: 'Post & Track',
+                desc: 'Use the content calendar to schedule, track winners, and refine your strategy.',
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
@@ -402,11 +402,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-zinc-200 mb-2">{item.title}</h3>
                 <p className="text-sm text-zinc-500 leading-relaxed">{item.desc}</p>
-
-                {/* Screenshot placeholder */}
-                <div className="mt-4 aspect-[4/3] rounded-xl bg-zinc-800/50 border border-white/5 flex items-center justify-center">
-                  <span className="text-xs text-zinc-600">Screenshot: {item.title}</span>
-                </div>
               </div>
             ))}
           </div>
@@ -414,7 +409,62 @@ export default function LandingPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 5 — LIVE MINI SCRIPT GENERATOR */}
+      {/* SECTION 5 — FEATURES GRID */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Features</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Everything you need to scale content
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                icon: '✨',
+                title: 'AI Script Generator',
+                desc: '7 content types with 3-part hooks designed to stop the scroll',
+              },
+              {
+                icon: '🎙️',
+                title: 'Free Transcriber',
+                desc: 'Paste any video URL, get a complete transcript instantly',
+              },
+              {
+                icon: '📅',
+                title: 'Content Calendar',
+                desc: 'Plan and schedule your content pipeline',
+              },
+              {
+                icon: '🏆',
+                title: 'Winners Bank',
+                desc: 'Save and analyze your top-performing content',
+              },
+              {
+                icon: '📊',
+                title: 'Production Board',
+                desc: 'Track videos from script to posted',
+              },
+              {
+                icon: '📈',
+                title: 'Analytics',
+                desc: 'Track what\'s working and double down',
+              },
+            ].map((feature) => (
+              <div key={feature.title} className="p-6 rounded-xl bg-zinc-900/50 border border-white/10 hover:border-white/20 transition-all">
+                <div className="text-4xl mb-4">{feature.icon}</div>
+                <h3 className="text-lg font-semibold text-zinc-200 mb-2">{feature.title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 6 — LIVE MINI SCRIPT GENERATOR */}
       {/* ================================================================ */}
       <section className="relative py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto">

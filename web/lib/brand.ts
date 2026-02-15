@@ -7,7 +7,7 @@
 export const BRAND = {
   name: 'FlashFlow AI',
   tagline: 'Ideas move faster here',
-  logo: '/FFAI.png',
+  logo: '/logo.svg',
   supportEmail: 'support@flashflow.ai',
 
   colors: {

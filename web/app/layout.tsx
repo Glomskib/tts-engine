@@ -25,11 +25,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com"),
   title: {
-    default: "FlashFlow AI - AI-Powered Video Script Generator",
+    default: "FlashFlow AI — AI-Powered TikTok & Instagram Scripts",
     template: "%s | FlashFlow AI",
   },
-  description: "Create engaging TikTok and short-form video scripts in seconds. AI-powered script generation for creators, marketers, and teams.",
-  keywords: ["AI script generator", "TikTok scripts", "video scripts", "content creation", "UGC scripts", "marketing scripts", "short-form video"],
+  description: "Generate viral short-form video scripts personalized to your brand voice. 3-part scroll-stopping hooks, free transcriber, content calendar. Try free — No Credit Card Required.",
+  keywords: ["AI script generator", "TikTok scripts", "Instagram scripts", "video scripts", "content creation", "UGC scripts", "3-part hooks", "scroll-stopping hooks", "short-form video"],
   authors: [{ name: "FlashFlow AI" }],
   creator: "FlashFlow AI",
   publisher: "FlashFlow AI",
@@ -45,26 +45,26 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "FlashFlow AI - AI-Powered Video Script Generator",
-    description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
-    url: process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com",
+    title: "FlashFlow AI — Scripts That Stop The Scroll",
+    description: "AI-powered script generator for TikTok & Instagram creators. 7 content types, 3-part hooks, free transcriber.",
+    url: "https://flashflowai.com",
     siteName: "FlashFlow AI",
     type: "website",
     locale: "en_US",
     images: [
       {
-        url: "/FFAI.png",
-        width: 512,
-        height: 512,
-        alt: "FlashFlow AI Logo",
+        url: "https://flashflowai.com/logo.png",
+        width: 1024,
+        height: 1024,
+        alt: "FlashFlow AI - Teal Lightning Bolt Logo",
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "FlashFlow AI - AI-Powered Video Script Generator",
-    description: "Create engaging TikTok and short-form video scripts in seconds using AI.",
-    images: ["/FFAI.png"],
+    card: "summary",
+    title: "FlashFlow AI — Scripts That Stop The Scroll",
+    description: "AI-powered script generator for TikTok & Instagram. Try free.",
+    images: ["https://flashflowai.com/logo.png"],
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -86,7 +86,7 @@ export default function RootLayout({
     '@type': 'Organization',
     name: 'FlashFlow AI',
     url: 'https://flashflowai.com',
-    logo: 'https://flashflowai.com/FFAI.png',
+    logo: 'https://flashflowai.com/logo.png',
     description: 'AI-powered TikTok Shop video content creation platform',
     sameAs: [
       'https://twitter.com/flashflowai',
@@ -116,9 +116,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/FFAI.png" type="image/png" />
+        <link rel="icon" href="/logo.png" type="image/png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/FFAI.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="FlashFlow" />

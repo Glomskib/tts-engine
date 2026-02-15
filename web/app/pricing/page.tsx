@@ -75,7 +75,7 @@ export default function PricingPage() {
               <span className="text-4xl font-bold">$0</span>
               <span className="text-gray-400">/month</span>
             </div>
-            <p className="text-sm text-emerald-400 mb-6">Start free — No CC Required</p>
+            <p className="text-sm text-emerald-400 mb-6">Start free — No Credit Card Required</p>
 
             <Link
               href="/signup"

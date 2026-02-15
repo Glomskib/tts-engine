@@ -112,7 +112,7 @@ async function executeTask(task: any): Promise<boolean> {
     const { prompt_text } = task;
     
     // Dispatch to Claude Code
-    console.log(`📝 [${TERMINAL_ID}] Piping prompt to claude -p --model sonnet...`);
+    console.log(`📝 [${TERMINAL_ID}] Piping prompt to claude -p --model sonnet --dangerously-skip-permissions...`);
     const claudeOutput = await runClaudeCode(prompt_text);
     
     // Get latest commit
@@ -175,10 +175,10 @@ function runClaudeCode(promptText: string): Promise<string> {
     const tmpFile = path.join('/tmp', `claude-prompt-${TERMINAL_ID}-${Date.now()}.txt`);
     await fs.writeFile(tmpFile, promptText, 'utf-8');
 
-    // Command: cd to repo and pipe temp file to `claude -p --model sonnet`
-    const cmd = `cd ${REPO_PATH}/web && cat "${tmpFile}" | claude -p --model sonnet`;
+    // Command: cd to repo and pipe temp file to `claude -p --model sonnet --dangerously-skip-permissions`
+    const cmd = `cd ${REPO_PATH}/web && cat "${tmpFile}" | claude -p --model sonnet --dangerously-skip-permissions`;
 
-    console.log(`🔷 [${TERMINAL_ID}] Running: claude -p --model sonnet (headless mode)`);
+    console.log(`🔷 [${TERMINAL_ID}] Running: claude -p --model sonnet --dangerously-skip-permissions (headless mode)`);
 
     const proc = spawn('sh', ['-c', cmd], {
       cwd: REPO_PATH,

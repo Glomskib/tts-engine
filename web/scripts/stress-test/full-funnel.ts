@@ -152,8 +152,8 @@ async function main() {
       await page!.locator('input[type="password"]').first().fill(TEST_PASSWORD);
       await page!.locator('button[type="submit"]').click();
 
-      // Wait for redirect to dashboard (could be /admin or /my-tasks)
-      await page!.waitForURL(/\/(admin|my-tasks)/, { timeout: 15000 });
+      // Wait for redirect to dashboard
+      await page!.waitForURL(/\/admin/, { timeout: 15000 });
     });
 
     // Step 6: Signup page renders correctly
@@ -180,7 +180,7 @@ async function main() {
       }
       // Verify we're on an authenticated page
       const url = page!.url();
-      if (!url.includes('/admin') && !url.includes('/my-tasks')) {
+      if (!url.includes('/admin')) {
         throw new Error(`Not on authenticated page: ${url}`);
       }
     });

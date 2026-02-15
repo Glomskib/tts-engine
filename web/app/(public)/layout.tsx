@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const { loading, authenticated, isAdmin } = useAuth();
 
-  const dashboardHref = isAdmin ? '/admin/dashboard' : '/my-tasks';
+  const dashboardHref = '/admin/dashboard';
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col">

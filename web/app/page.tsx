@@ -58,7 +58,7 @@ interface SkitResult {
 }
 
 export default function LandingPage() {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [contactOpen, setContactOpen] = useState(false);
   const [referralBanner, setReferralBanner] = useState(false);
 
@@ -526,13 +526,13 @@ export default function LandingPage() {
             <span className={`text-sm ${billingPeriod === 'monthly' ? 'text-white' : 'text-zinc-500'}`}>Monthly</span>
             <button
               type="button"
-              onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'yearly' : 'monthly')}
+              onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
               className="relative w-14 h-7 rounded-full bg-zinc-800 border border-white/10 transition-colors"
             >
-              <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${billingPeriod === 'yearly' ? 'left-8' : 'left-1'}`} />
+              <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${billingPeriod === 'annual' ? 'left-8' : 'left-1'}`} />
             </button>
-            <span className={`text-sm ${billingPeriod === 'yearly' ? 'text-white' : 'text-zinc-500'}`}>
-              Yearly <span className="text-emerald-500 font-medium">Save 20%</span>
+            <span className={`text-sm ${billingPeriod === 'annual' ? 'text-white' : 'text-zinc-500'}`}>
+              Annual <span className="text-emerald-500 font-medium">Save 20%</span>
             </span>
           </div>
 
@@ -556,12 +556,13 @@ export default function LandingPage() {
               highlight={false}
             />
 
-            {/* Lite — $9 */}
+            {/* Lite */}
             <PricingCard
               name="Lite"
               description="For new creators"
-              price={billingPeriod === 'monthly' ? 9 : yearlyPrice(9)}
-              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              price={billingPeriod === 'monthly' ? 9 : Math.floor(85 / 12)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed annually'}
+              savings={billingPeriod === 'annual' ? 'Save $23/yr' : undefined}
               credits="50 credits"
               features={[
                 '50 scripts per month',
@@ -575,12 +576,13 @@ export default function LandingPage() {
               highlight={false}
             />
 
-            {/* Creator Pro — $29 (Most Popular) */}
+            {/* Creator Pro — Most Popular */}
             <PricingCard
               name="Creator Pro"
               description="For serious affiliates"
-              price={billingPeriod === 'monthly' ? 29 : yearlyPrice(29)}
-              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              price={billingPeriod === 'monthly' ? 29 : Math.floor(279 / 12)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed annually'}
+              savings={billingPeriod === 'annual' ? 'Save $69/yr' : undefined}
               credits="Unlimited"
               features={[
                 'Unlimited scripts',
@@ -597,12 +599,13 @@ export default function LandingPage() {
               badge="Most Popular"
             />
 
-            {/* Business — $59 */}
+            {/* Business */}
             <PricingCard
               name="Business"
               description="For multi-brand affiliates"
-              price={billingPeriod === 'monthly' ? 59 : yearlyPrice(59)}
-              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed yearly'}
+              price={billingPeriod === 'monthly' ? 59 : Math.floor(565 / 12)}
+              period={billingPeriod === 'monthly' ? '/mo' : '/mo, billed annually'}
+              savings={billingPeriod === 'annual' ? 'Save $143/yr' : undefined}
               credits="Unlimited"
               features={[
                 'Everything in Creator Pro',
@@ -773,6 +776,7 @@ function PricingCard({
   description,
   price,
   period,
+  savings,
   credits,
   features,
   cta,
@@ -784,6 +788,7 @@ function PricingCard({
   description: string;
   price: number;
   period: string;
+  savings?: string;
   credits: string;
   features: string[];
   cta: string;
@@ -806,6 +811,9 @@ function PricingCard({
         <span className="text-4xl font-bold text-white">${price}</span>
         <span className="text-zinc-500 text-sm">{period}</span>
       </div>
+      {savings && (
+        <p className="text-xs text-emerald-400 mb-2">{savings}</p>
+      )}
       <p className="text-sm text-teal-400 mb-6">{credits}</p>
       <ul className="space-y-3 mb-8 flex-grow">
         {features.map((feature, i) => (

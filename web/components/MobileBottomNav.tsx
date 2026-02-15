@@ -3,19 +3,19 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Video,
+  Home,
   Sparkles,
-  Send,
-  Bell,
+  FileText,
+  Folder,
   Menu
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/admin/pipeline', icon: Video, label: 'Board' },
-  { href: '/admin/content-studio', icon: Sparkles, label: 'Studio' },
-  { href: '/admin/posting-queue', icon: Send, label: 'Posting' },
-  { href: '/admin/notifications', icon: Bell, label: 'Alerts' },
-  { href: '#more', icon: Menu, label: 'More', isDrawerTrigger: true },
+  { href: '/admin/dashboard', icon: Home, label: 'Home' },
+  { href: '/admin/content-studio', icon: Sparkles, label: 'Create' },
+  { href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
+  { href: '/admin/skit-library', icon: Folder, label: 'Library' },
+  { href: '#more', icon: Menu, label: 'Menu', isDrawerTrigger: true },
 ];
 
 interface MobileBottomNavProps {

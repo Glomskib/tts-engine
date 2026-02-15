@@ -111,6 +111,8 @@ export default function DashboardPage() {
 
   const userName = user?.email?.split('@')[0] || '';
 
+  const showOnboarding = !loading && stats.scriptsCount === 0 && stats.activeBrands === 0;
+
   return (
     <div className="pt-6 pb-24 lg:pb-8 space-y-8 max-w-7xl mx-auto">
       {/* Welcome Header */}
@@ -120,6 +122,62 @@ export default function DashboardPage() {
         </h1>
         <p className="text-zinc-400 text-sm mt-1">Here's what's happening with your content today</p>
       </div>
+
+      {/* Onboarding Card - Show when user has 0 brands AND 0 scripts */}
+      {showOnboarding && (
+        <div className="bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-purple-500/10 border border-teal-500/20 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <Sparkles className="w-6 h-6 text-teal-400 shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-white mb-2">Welcome! Get started in 3 steps:</h3>
+              <div className="space-y-4 mt-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 font-bold flex-shrink-0">
+                    1
+                  </div>
+                  <div className="flex-1 flex items-center justify-between gap-4">
+                    <span className="text-zinc-200">Add Your First Brand</span>
+                    <Link
+                      href="/admin/brands"
+                      className="px-4 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors whitespace-nowrap"
+                    >
+                      Create Brand
+                    </Link>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold flex-shrink-0">
+                    2
+                  </div>
+                  <div className="flex-1 flex items-center justify-between gap-4">
+                    <span className="text-zinc-200">Generate a Script</span>
+                    <Link
+                      href="/admin/content-studio"
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors whitespace-nowrap"
+                    >
+                      Content Studio
+                    </Link>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold flex-shrink-0">
+                    3
+                  </div>
+                  <div className="flex-1 flex items-center justify-between gap-4">
+                    <span className="text-zinc-200">Try the Transcriber</span>
+                    <Link
+                      href="/admin/transcribe"
+                      className="px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-colors whitespace-nowrap"
+                    >
+                      Open Transcriber
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

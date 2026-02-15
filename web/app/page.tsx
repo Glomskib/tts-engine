@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { BRAND } from '@/lib/brand';
 import { PLANS } from '@/lib/plans';
 import { VideoServiceContact } from '@/components/VideoServiceContact';
+import AffiliateCalculator from '@/components/AffiliateCalculator';
 
 // ============================================================================
 // FLASHFLOW AI — CONVERSION FUNNEL HOMEPAGE
@@ -286,30 +287,10 @@ export default function LandingPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 2 — SOCIAL PROOF (TikTok embed placeholders) */}
+      {/* SECTION 2 — TIKTOK SHOP EARNINGS CALCULATOR */}
       {/* ================================================================ */}
-      <section className="relative py-16 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-center text-sm font-medium text-zinc-500 uppercase tracking-widest mb-8">
-            Real scripts. Real results.
-          </p>
-          <div className="grid sm:grid-cols-3 gap-6">
-            {['Product Demo', 'UGC Testimonial', 'Trend Reaction'].map((label) => (
-              <div
-                key={label}
-                className="aspect-[9/16] rounded-2xl bg-zinc-900 border border-white/5 flex flex-col items-center justify-center gap-3 overflow-hidden"
-              >
-                <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-zinc-500">{label}</span>
-                <span className="text-xs text-zinc-700">Coming soon</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="relative py-20 px-6 border-t border-white/5">
+        <AffiliateCalculator />
       </section>
 
       {/* ================================================================ */}

@@ -249,7 +249,7 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold mb-2">What's the difference between the tiers?</h3>
             <p className="text-gray-300">
-              Free is for testing. Lite ($9) is for 1-2 brands with retainer tracking. Pro ($29) is unlimited scripts + full Winners Bank + multi-brand tracking. Business ($59) adds priority support + custom integrations. Brand & Agency are custom enterprise plans.
+              Free is for testing. Lite ($9) is for 1-2 brands with retainers & bonuses. Pro ($29) is unlimited scripts + full Winners Bank + multi-brand tracking. Business ($59) adds priority support + custom integrations. Brand & Agency are custom enterprise plans.
             </p>
           </div>
           <div>

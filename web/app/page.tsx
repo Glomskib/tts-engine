@@ -351,7 +351,7 @@ export default function LandingPage() {
 
           <div className="text-center">
             <p className="text-lg text-zinc-300 mb-4">
-              FlashFlow solves all three — with Winners Bank, authentic personas, and retainer tracking.
+              FlashFlow solves all three — with Winners Bank, authentic personas, and retainers & bonuses.
             </p>
             <Link
               href="/script-generator"

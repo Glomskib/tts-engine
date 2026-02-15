@@ -241,7 +241,7 @@ export default function GuidePage() {
             </p>
           </Link>
 
-          {/* Retainer Tracking */}
+          {/* Retainers & Bonuses */}
           <Link
             href="/admin/brands"
             className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-violet-500/30 transition-colors"

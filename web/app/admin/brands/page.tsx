@@ -509,9 +509,9 @@ export default function BrandsPage() {
                   </div>
                 )}
 
-                {brand.monthly_video_quota === 0 && (
+                {brand.monthly_video_quota === 0 && (!brand.retainer_type || brand.retainer_type === 'none') && (
                   <div className="mt-3 pt-3 border-t border-white/10">
-                    <span className="text-xs text-zinc-500">Unlimited videos</span>
+                    <span className="text-xs text-zinc-500">Not on retainer</span>
                   </div>
                 )}
 

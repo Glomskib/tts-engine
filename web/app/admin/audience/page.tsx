@@ -707,10 +707,10 @@ export default function AudiencePage() {
         {/* Header */}
         <div style={{ marginBottom: "24px" }}>
           <h1 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, margin: 0 }}>
-            Audience Intelligence
+            Customer Archetypes
           </h1>
           <p style={{ fontSize: "13px", color: colors.textMuted, marginTop: "4px" }}>
-            Build personas and understand customer pain points for authentic content
+            Build target audience personas and understand customer pain points for authentic content
           </p>
         </div>
 
@@ -732,7 +732,7 @@ export default function AudiencePage() {
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: `1px solid ${colors.border}`, marginBottom: "20px" }}>
           <button type="button" style={tabStyle(activeTab === "personas")} onClick={() => setActiveTab("personas")}>
-            Personas ({personas.length})
+            Customer Personas ({personas.length})
           </button>
           <button type="button" style={tabStyle(activeTab === "pain-points")} onClick={() => setActiveTab("pain-points")}>
             Pain Points ({painPoints.length})

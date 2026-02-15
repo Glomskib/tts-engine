@@ -93,7 +93,7 @@ export default function RetainersPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-white">Retainer Tracking</h1>
+        <h1 className="text-2xl font-bold text-white">Retainers & Bonuses</h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="h-24 bg-zinc-800/50 rounded-xl animate-pulse" />
@@ -111,7 +111,7 @@ export default function RetainersPage() {
   if (!data || data.retainers.length === 0) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-white">Retainer Tracking</h1>
+        <h1 className="text-2xl font-bold text-white">Retainers & Bonuses</h1>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Target className="w-16 h-16 text-zinc-600 mb-4" />
           <h2 className="text-xl font-semibold text-zinc-300 mb-2">No active retainers yet</h2>
@@ -135,7 +135,7 @@ export default function RetainersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Retainer Tracking</h1>
+      <h1 className="text-2xl font-bold text-white">Retainers & Bonuses</h1>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

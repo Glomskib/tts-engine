@@ -13,7 +13,7 @@ FlashFlow is an AI-powered script generation and intelligence platform built spe
 - **Script Generation** — AI writes TikTok scripts (hooks, beats, CTAs) in 60 seconds
 - **Winners Bank** — Competitive intelligence database of winning products with engagement metrics
 - **Content Calendar** — Schedule and track videos across multiple brands
-- **Retainer Tracking** — Monitor brand partnership goals and payout progress
+- **Retainers & Bonuses** — Monitor brand partnership goals and payout progress
 - **Transcriber** — Convert TikTok videos to transcripts and rewrite as scripts
 - **Script of the Day** — Daily recommended script based on trending angles
 
@@ -141,7 +141,7 @@ If assigned to a brand with a retainer (e.g., "50 videos/month"):
 
 ---
 
-### Retainer Tracking
+### Retainers & Bonuses
 
 **What is a Retainer:**
 A brand partnership where you commit to post X videos/month in exchange for a guaranteed payout + bonus tiers.
@@ -257,7 +257,7 @@ Daily recommendation from FlashFlow AI based on trending angles, winning product
 - 5 personas
 - Unlimited transcriptions
 - Full Content Calendar
-- Basic retainer tracking
+- Basic retainers & bonuses
 - Script of the Day (full access)
 - Email support
 
@@ -274,7 +274,7 @@ Daily recommendation from FlashFlow AI based on trending angles, winning product
 - Unlimited Winners Bank access
 - Unlimited transcriptions
 - Multi-brand Content Calendar
-- Full retainer tracking (unlimited brands)
+- Full retainers & bonuses (unlimited brands)
 - Advanced analytics (engagement trends, hook performance)
 - Priority support
 
@@ -499,7 +499,7 @@ Currency for AI operations. Most features cost 1 credit per use.
 ### "Retainer tracking shows wrong numbers"
 **Fix:**
 1. Check if you linked videos to correct brand (Content Calendar)
-2. Verify brand has active retainer (Retainer Tracking page)
+2. Verify brand has active retainer (Retainers & Bonuses page)
 3. Refresh page (2-minute sync delay possible)
 4. Check if retainer period has ended
 

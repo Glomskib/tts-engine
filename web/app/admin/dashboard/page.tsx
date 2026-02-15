@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Sparkles, FileText, Video, Calendar, Trophy, BarChart3,
-  Package, Folder, CreditCard
+  Package, Folder, CreditCard, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -78,6 +78,15 @@ export default function DashboardPage() {
   const { credits } = useCredits();
   const [stats, setStats] = useState<DashboardStats>({ scriptsCount: 0, activeBrands: 0 });
   const [loading, setLoading] = useState(true);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  // Check if onboarding was dismissed
+  useEffect(() => {
+    const dismissed = localStorage.getItem('flashflow_onboarding_dismissed');
+    if (dismissed === 'true') {
+      setOnboardingDismissed(true);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -111,7 +120,13 @@ export default function DashboardPage() {
 
   const userName = user?.email?.split('@')[0] || '';
 
-  const showOnboarding = !loading && stats.scriptsCount === 0 && stats.activeBrands === 0;
+  const handleDismissOnboarding = () => {
+    localStorage.setItem('flashflow_onboarding_dismissed', 'true');
+    setOnboardingDismissed(true);
+  };
+
+  // Show onboarding if: not loading, not dismissed, AND (no brands OR no scripts)
+  const showOnboarding = !loading && !onboardingDismissed && (stats.scriptsCount === 0 || stats.activeBrands === 0);
 
   return (
     <div className="pt-6 pb-24 lg:pb-8 space-y-8 max-w-7xl mx-auto">
@@ -123,12 +138,19 @@ export default function DashboardPage() {
         <p className="text-zinc-400 text-sm mt-1">Here's what's happening with your content today</p>
       </div>
 
-      {/* Onboarding Card - Show when user has 0 brands AND 0 scripts */}
+      {/* Onboarding Card - Show when user has 0 brands OR 0 scripts, dismissable */}
       {showOnboarding && (
-        <div className="bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-purple-500/10 border border-teal-500/20 rounded-xl p-6">
+        <div className="bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-purple-500/10 border border-teal-500/20 rounded-xl p-6 relative">
+          <button
+            onClick={handleDismissOnboarding}
+            className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 rounded-lg transition-colors"
+            aria-label="Dismiss onboarding"
+          >
+            <X className="w-5 h-5" />
+          </button>
           <div className="flex items-start gap-4">
             <Sparkles className="w-6 h-6 text-teal-400 shrink-0 mt-1" />
-            <div className="flex-1">
+            <div className="flex-1 pr-8">
               <h3 className="text-xl font-bold text-white mb-2">Welcome! Get started in 3 steps:</h3>
               <div className="space-y-4 mt-4">
                 <div className="flex items-center gap-4">

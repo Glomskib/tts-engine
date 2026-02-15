@@ -24,21 +24,29 @@ export async function GET(request: NextRequest) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
-    // Fetch all posted videos with revenue data
-    const { data: videos, error } = await supabaseAdmin
+    // Fetch all posted videos with revenue data (with data isolation)
+    let query = supabaseAdmin
       .from('videos')
       .select(`
         id, video_code, recording_status, created_at, last_status_changed_at,
         tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares,
         tiktok_revenue, tiktok_sales, tiktok_clicks,
         actual_revenue, estimated_revenue, production_cost,
-        account_id, product_id,
+        account_id, product_id, client_user_id,
         product:product_id(id, name, brand, category),
         account:account_id(id, name, handle, type)
       `)
       .in('recording_status', ['POSTED', 'LIVE'])
-      .gte('created_at', cutoff.toISOString())
-      .order('created_at', { ascending: true });
+      .gte('created_at', cutoff.toISOString());
+
+    // Data isolation: Non-admin users only see their own videos
+    if (!authContext.isAdmin) {
+      query = query.eq('client_user_id', authContext.user.id);
+    }
+
+    query = query.order('created_at', { ascending: true });
+
+    const { data: videos, error } = await query;
 
     if (error) {
       console.error(`[${correlationId}] Revenue fetch error:`, error);

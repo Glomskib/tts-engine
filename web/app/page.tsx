@@ -747,6 +747,7 @@ export default function LandingPage() {
               <span className="font-medium text-sm text-zinc-400">{BRAND.name}</span>
             </Link>
             <div className="flex items-center gap-6 text-sm text-zinc-500">
+              <Link href="/transcriber" className="hover:text-zinc-300 transition-colors">Free Transcriber</Link>
               <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>
               <button type="button" onClick={() => setContactOpen(true)} className="hover:text-zinc-300 transition-colors">Contact</button>

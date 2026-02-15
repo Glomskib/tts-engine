@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
   if (typeof body.product_name === 'string') payload.product_name = body.product_name;
   if (typeof body.brand_name === 'string') payload.brand_name = body.brand_name;
   if (typeof body.notes === 'string') payload.notes = body.notes;
+  if (typeof body.source_script_id === 'string') payload.source_script_id = body.source_script_id;
+  if (typeof body.source_script_title === 'string') payload.source_script_title = body.source_script_title;
 
   const { data, error } = await supabaseAdmin
     .from('saved_hooks')

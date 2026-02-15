@@ -5,6 +5,47 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 
 export const runtime = 'nodejs';
 
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const correlationId = generateCorrelationId();
+
+  const authContext = await getApiAuthContext(request);
+  if (!authContext.user) {
+    return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
+  }
+
+  const { id } = await params;
+
+  // Verify ownership
+  const { data: hook } = await supabaseAdmin
+    .from('saved_hooks')
+    .select('times_used')
+    .eq('id', id)
+    .eq('user_id', authContext.user.id)
+    .single();
+
+  if (!hook) {
+    return createApiErrorResponse('NOT_FOUND', 'Hook not found', 404, correlationId);
+  }
+
+  // Increment times_used
+  const { data, error } = await supabaseAdmin
+    .from('saved_hooks')
+    .update({ times_used: (hook.times_used || 0) + 1 })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error(`[${correlationId}] Saved Hooks POST error:`, error);
+    return createApiErrorResponse('DB_ERROR', 'Failed to increment usage', 500, correlationId);
+  }
+
+  return NextResponse.json({ hook: data });
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -71,10 +71,11 @@ export default function PricingPage() {
             <h3 className="text-2xl font-bold mb-1">{PRICING_PLANS.free.name}</h3>
             <p className="text-gray-400 text-sm mb-6">Perfect for testing scripts</p>
 
-            <div className="mb-6">
+            <div className="mb-2">
               <span className="text-4xl font-bold">$0</span>
               <span className="text-gray-400">/month</span>
             </div>
+            <p className="text-sm text-emerald-400 mb-6">Start free — No CC Required</p>
 
             <Link
               href="/signup"

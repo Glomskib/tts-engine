@@ -317,6 +317,7 @@ export default function ContentStudioPage() {
   const [personaDropdownOpen, setPersonaDropdownOpen] = useState(false);
   const [personaSearchText, setPersonaSearchText] = useState('');
   const personaDropdownRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // Product pain points
   const [productPainPoints, setProductPainPoints] = useState<string[]>([]);
@@ -1385,12 +1386,22 @@ export default function ContentStudioPage() {
         setResult(resp.data);
         showSuccess(`Generated "${preset.name}" script!`);
         refetchCredits();
+        // Auto-scroll to results
+        setTimeout(() => {
+          resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
       }
     } catch {
       showError('Generation failed');
     } finally {
       setQuickGenerating(false);
     }
+  };
+
+  const handleGenerateMore = async () => {
+    if (!hasCredits) { noCreditsModal.open(); return; }
+    // Re-generate with same settings, keeping variation count at 3
+    await handleGenerate();
   };
 
   const handleBatchQuickGenerate = async () => {
@@ -2640,7 +2651,7 @@ export default function ContentStudioPage() {
 
           {/* Results Display */}
           {result && currentSkit && (
-            <div>
+            <div ref={resultsRef}>
               {/* Variation Tabs */}
               {result.variations && result.variations.length > 1 && (
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -3747,6 +3758,51 @@ export default function ContentStudioPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Generate More Button */}
+              <div style={{
+                marginTop: '24px',
+                padding: '20px',
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '12px',
+                textAlign: 'center',
+              }}>
+                <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary }}>
+                  Want more variations with the same settings?
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGenerateMore}
+                  disabled={generating}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: generating ? colors.bg : '#3b82f6',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: 'white',
+                    cursor: generating ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    opacity: generating ? 0.5 : 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Generate More ({variationCount} more variations)
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}

@@ -70,6 +70,24 @@ interface SavedSkit {
   marked_winner_at?: string | null;
 }
 
+interface SavedHook {
+  id: string;
+  user_id: string;
+  hook_text: string;
+  source: string;
+  content_type: string | null;
+  content_format: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  brand_name: string | null;
+  performance_score: number | null;
+  notes: string | null;
+  times_used: number;
+  source_script_id: string | null;
+  source_script_title: string | null;
+  created_at: string;
+}
+
 interface Pagination {
   total: number;
   limit: number;
@@ -125,10 +143,20 @@ export default function SkitLibraryPage() {
   const [skits, setSkits] = useState<SavedSkit[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'scripts' | 'hooks'>('scripts');
+
+  // Saved hooks state
+  const [hooks, setHooks] = useState<SavedHook[]>([]);
+  const [hooksLoading, setHooksLoading] = useState(false);
+
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300); // Debounce search by 300ms
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [productFilter, setProductFilter] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -264,6 +292,25 @@ export default function SkitLibraryPage() {
         );
       }
 
+      // Client-side product filtering
+      if (productFilter) {
+        fetchedSkits = fetchedSkits.filter((s: SavedSkit) =>
+          s.product_name?.toLowerCase() === productFilter.toLowerCase()
+        );
+      }
+
+      // Client-side date range filtering
+      if (startDate || endDate) {
+        fetchedSkits = fetchedSkits.filter((s: SavedSkit) => {
+          const created = new Date(s.created_at);
+          const start = startDate ? new Date(startDate) : null;
+          const end = endDate ? new Date(endDate) : null;
+          if (start && created < start) return false;
+          if (end && created > end) return false;
+          return true;
+        });
+      }
+
       setSkits(fetchedSkits);
       setPagination(data.pagination || null);
     } catch (err) {
@@ -272,20 +319,39 @@ export default function SkitLibraryPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly, brandFilter]);
+  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly, brandFilter, productFilter, startDate, endDate]);
+
+  // Fetch saved hooks
+  const fetchHooks = useCallback(async () => {
+    setHooksLoading(true);
+    try {
+      const res = await fetch('/api/saved-hooks');
+      const data = await res.json();
+      setHooks(data.hooks || []);
+    } catch (err) {
+      console.error('Failed to fetch saved hooks:', err);
+      setError('Failed to load saved hooks');
+    } finally {
+      setHooksLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchSkits();
-  }, [fetchSkits]);
+    if (activeTab === 'scripts') {
+      fetchSkits();
+    } else {
+      fetchHooks();
+    }
+  }, [activeTab, fetchSkits, fetchHooks]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly]);
+  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly, productFilter, startDate, endDate]);
 
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly]);
+  }, [statusFilter, debouncedSearchTerm, sortBy, aiScoreMin, aiScoreMax, showWinnersOnly, productFilter, startDate, endDate]);
 
   const handleExpand = async (skitId: string) => {
     if (expandedId === skitId) {
@@ -665,6 +731,13 @@ export default function SkitLibraryPage() {
     return Array.from(brands).sort();
   }, [skits]);
 
+  // Unique products for filter dropdown
+  const uniqueProducts = useMemo(() => {
+    const products = new Set<string>();
+    skits.forEach(s => { if (s.product_name) products.add(s.product_name); });
+    return Array.from(products).sort();
+  }, [skits]);
+
   // Library stats calculations (memoized)
   const stats = useMemo(() => ({
     total: skits.length,
@@ -857,18 +930,59 @@ export default function SkitLibraryPage() {
         </div>
       )}
 
-      {/* Controls */}
-      <div style={{ ...cardStyle, padding: "16px", marginBottom: "24px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="Search by title..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ ...inputStyle, flex: "1 1 140px", minWidth: "0" }}
-            aria-label="Search scripts by title"
-          />
+      {/* Tabs */}
+      <div style={{ ...cardStyle, padding: "0", marginBottom: "16px", overflow: "hidden" }}>
+        <div style={{ display: "flex", borderBottom: `1px solid ${colors.border}` }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('scripts')}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              border: "none",
+              background: activeTab === 'scripts' ? colors.card : "transparent",
+              borderBottom: activeTab === 'scripts' ? `2px solid ${colors.accent}` : "none",
+              color: activeTab === 'scripts' ? colors.text : colors.textMuted,
+              fontWeight: activeTab === 'scripts' ? 600 : 400,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            All Scripts ({totalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('hooks')}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              border: "none",
+              background: activeTab === 'hooks' ? colors.card : "transparent",
+              borderBottom: activeTab === 'hooks' ? `2px solid ${colors.accent}` : "none",
+              color: activeTab === 'hooks' ? colors.text : colors.textMuted,
+              fontWeight: activeTab === 'hooks' ? 600 : 400,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            Saved Hooks ({hooks.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Controls - Only show for Scripts tab */}
+      {activeTab === 'scripts' && (
+        <div style={{ ...cardStyle, padding: "16px", marginBottom: "24px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+            {/* Search */}
+            <input
+              type="text"
+              placeholder="Search by title..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ ...inputStyle, flex: "1 1 140px", minWidth: "0" }}
+              aria-label="Search scripts by title"
+            />
 
           {/* Status Filter */}
           <select
@@ -896,6 +1010,21 @@ export default function SkitLibraryPage() {
               <option value="">All Brands</option>
               {uniqueBrands.map((b) => (
                 <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Product Filter */}
+          {uniqueProducts.length > 0 && (
+            <select
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              style={{ ...inputStyle, minWidth: "0", flex: "1 1 120px" }}
+              aria-label="Filter by product"
+            >
+              <option value="">All Products</option>
+              {uniqueProducts.map((p) => (
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
           )}
@@ -996,37 +1125,85 @@ export default function SkitLibraryPage() {
                 Clear
               </button>
             )}
+
+            <div style={{ height: "20px", width: "1px", backgroundColor: colors.border }} />
+
+            <span id="date-range-label" style={{ fontSize: "12px", color: colors.textMuted, fontWeight: 500 }}>Date Range:</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }} role="group" aria-labelledby="date-range-label">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={{ ...inputStyle, width: "130px", padding: "4px 8px", fontSize: "12px" }}
+                aria-label="Start date"
+              />
+              <span style={{ color: colors.textMuted }}>to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                style={{ ...inputStyle, width: "130px", padding: "4px 8px", fontSize: "12px" }}
+                aria-label="End date"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <button type="button"
+                onClick={() => { setStartDate(""); setEndDate(""); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "11px" }}
+              >
+                Clear
+              </button>
+            )}
           </div>
         )}
 
-        {/* Active Filters */}
-        {(searchTerm || statusFilter || aiScoreMin || aiScoreMax) && (
-          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${colors.border}`, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "12px", color: colors.textMuted }}>Filters:</span>
-            {searchTerm && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
-                {searchTerm}
-                <button type="button" onClick={() => setSearchTerm("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
-              </span>
-            )}
-            {statusFilter && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text, textTransform: "capitalize" }}>
-                {statusFilter}
-                <button type="button" onClick={() => setStatusFilter("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
-              </span>
-            )}
-            {(aiScoreMin || aiScoreMax) && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
-                AI: {aiScoreMin || "0"}-{aiScoreMax || "10"}
-                <button type="button" onClick={() => { setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
-              </span>
-            )}
-            <button type="button" onClick={() => { setSearchTerm(""); setStatusFilter(""); setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "12px" }}>
-              Clear all
-            </button>
-          </div>
-        )}
-      </div>
+          {/* Active Filters */}
+          {(searchTerm || statusFilter || brandFilter || productFilter || aiScoreMin || aiScoreMax || startDate || endDate) && (
+            <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${colors.border}`, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "12px", color: colors.textMuted }}>Filters:</span>
+              {searchTerm && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
+                  {searchTerm}
+                  <button type="button" onClick={() => setSearchTerm("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                </span>
+              )}
+              {statusFilter && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text, textTransform: "capitalize" }}>
+                  {statusFilter}
+                  <button type="button" onClick={() => setStatusFilter("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                </span>
+              )}
+              {brandFilter && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
+                  Brand: {brandFilter}
+                  <button type="button" onClick={() => setBrandFilter("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                </span>
+              )}
+              {productFilter && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
+                  Product: {productFilter}
+                  <button type="button" onClick={() => setProductFilter("")} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                </span>
+              )}
+              {(aiScoreMin || aiScoreMax) && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
+                  AI: {aiScoreMin || "0"}-{aiScoreMax || "10"}
+                  <button type="button" onClick={() => { setAiScoreMin(""); setAiScoreMax(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                </span>
+              )}
+              {(startDate || endDate) && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", backgroundColor: colors.surface2, borderRadius: "4px", fontSize: "12px", color: colors.text }}>
+                  Date: {startDate || "..."} to {endDate || "..."}
+                  <button type="button" onClick={() => { setStartDate(""); setEndDate(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textMuted, padding: "0 2px" }}>×</button>
+                </span>
+              )}
+              <button type="button" onClick={() => { setSearchTerm(""); setStatusFilter(""); setBrandFilter(""); setProductFilter(""); setAiScoreMin(""); setAiScoreMax(""); setStartDate(""); setEndDate(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: colors.danger, fontSize: "12px" }}>
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -1036,8 +1213,8 @@ export default function SkitLibraryPage() {
         </div>
       )}
 
-      {/* Bulk Actions Bar */}
-      {!loading && skits.length > 0 && (
+      {/* Bulk Actions Bar - Only for Scripts tab */}
+      {activeTab === 'scripts' && !loading && skits.length > 0 && (
         <div style={{ ...cardStyle, padding: "12px 16px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
             <input
@@ -1096,8 +1273,8 @@ export default function SkitLibraryPage() {
         </div>
       )}
 
-      {/* Content */}
-      {loading ? (
+      {/* Content - Scripts Tab */}
+      {activeTab === 'scripts' && loading ? (
         <div>
           {/* Skeleton loaders */}
           {[1, 2, 3].map((i) => (
@@ -1128,7 +1305,7 @@ export default function SkitLibraryPage() {
             }
           `}</style>
         </div>
-      ) : skits.length === 0 ? (
+      ) : activeTab === 'scripts' && skits.length === 0 ? (
         <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
           <div style={{ fontSize: "32px", marginBottom: "16px" }}>📝</div>
           <h3 style={{ fontSize: "18px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
@@ -1143,7 +1320,7 @@ export default function SkitLibraryPage() {
             </Link>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'scripts' ? (
         <div>
           {skits.map((skit) => (
             <div key={skit.id} style={cardStyle}>
@@ -1664,10 +1841,130 @@ export default function SkitLibraryPage() {
             </div>
           ))}
         </div>
-      )}
+      ) : activeTab === 'hooks' ? (
+        <div>
+          {hooksLoading ? (
+            <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
+              <div style={{ fontSize: "14px", color: colors.textMuted }}>Loading saved hooks...</div>
+            </div>
+          ) : hooks.length === 0 ? (
+            <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
+              <div style={{ fontSize: "32px", marginBottom: "16px" }}>🪝</div>
+              <h3 style={{ fontSize: "18px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
+                No saved hooks yet
+              </h3>
+              <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "16px" }}>
+                Save your best hooks from Content Studio to reuse them later.
+              </p>
+              <Link href="/admin/content-studio" style={primaryButtonStyle}>
+                Go to Content Studio
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "16px" }}>
+              {hooks.map((hook) => (
+                <div key={hook.id} style={{ ...cardStyle, padding: "16px" }}>
+                  <div style={{ marginBottom: "12px" }}>
+                    <div style={{ fontSize: "16px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
+                      {hook.hook_text}
+                    </div>
+                    <div style={{ fontSize: "13px", color: colors.textMuted, display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                      {hook.brand_name && <span>Brand: {hook.brand_name}</span>}
+                      {hook.product_name && <span>Product: {hook.product_name}</span>}
+                      {hook.source_script_title && (
+                        <span>From: {hook.source_script_title}</span>
+                      )}
+                      <span>Used {hook.times_used || 0} times</span>
+                      <span>•</span>
+                      <span>{formatDate(hook.created_at)}</span>
+                    </div>
+                  </div>
 
-      {/* Pagination */}
-      {pagination && pagination.total > ITEMS_PER_PAGE && (
+                  {hook.notes && (
+                    <div style={{ fontSize: "13px", color: colors.textMuted, marginBottom: "12px", fontStyle: "italic" }}>
+                      Note: {hook.notes}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(hook.hook_text);
+                        showSuccess('Copied to clipboard');
+                      }}
+                      style={{
+                        ...secondaryButtonStyle,
+                        padding: "6px 12px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      Copy
+                    </button>
+                    <Link
+                      href={`/admin/content-studio?hook=${encodeURIComponent(hook.hook_text)}`}
+                      style={{
+                        ...secondaryButtonStyle,
+                        padding: "6px 12px",
+                        fontSize: "13px",
+                        textDecoration: "none",
+                        backgroundColor: colors.accent,
+                        color: "#fff",
+                        border: "none",
+                      }}
+                      onClick={async () => {
+                        // Increment usage count
+                        await fetch(`/api/saved-hooks/${hook.id}`, { method: 'POST' });
+                      }}
+                    >
+                      Use in New Script
+                    </Link>
+                    {hook.source_script_id && (
+                      <Link
+                        href={`/admin/skit-generator?load=${hook.source_script_id}`}
+                        style={{
+                          ...secondaryButtonStyle,
+                          padding: "6px 12px",
+                          fontSize: "13px",
+                          textDecoration: "none",
+                        }}
+                      >
+                        View Source Script
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm('Delete this saved hook?')) return;
+                        try {
+                          await fetch(`/api/saved-hooks/${hook.id}`, { method: 'DELETE' });
+                          setHooks(prev => prev.filter(h => h.id !== hook.id));
+                          showSuccess('Hook deleted');
+                        } catch {
+                          showError('Failed to delete hook');
+                        }
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: colors.danger,
+                        fontSize: "13px",
+                        marginLeft: "auto",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Pagination - Only for Scripts tab */}
+      {activeTab === 'scripts' && pagination && pagination.total > ITEMS_PER_PAGE && (
         <div style={{ ...cardStyle, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: "14px", color: colors.textMuted }}>
             Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, pagination.total)} of {pagination.total}

@@ -260,8 +260,7 @@ export default function AdminUsersPage() {
                           <option value="" disabled>Upgrade to...</option>
                           <option value="creator_lite">Creator Lite ($9)</option>
                           <option value="creator_pro">Creator Pro ($29)</option>
-                          <option value="brand">Brand ($49)</option>
-                          <option value="agency">Agency ($149)</option>
+                          <option value="business">Business ($59)</option>
                         </select>
                       ) : (
                         <button type="button"

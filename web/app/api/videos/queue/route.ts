@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
   const user = authContext.user;
+  const isAdmin = authContext.isAdmin;
   const { searchParams } = new URL(request.url);
 
   const statusParam = searchParams.get("status");
@@ -117,6 +118,12 @@ export async function GET(request: Request) {
     // Filter by account_id if provided
     if (accountId) {
       query = query.eq("account_id", accountId);
+    }
+
+    // Data isolation: Non-admin users only see their own videos
+    // Check if client_user_id column exists
+    if (existingColumns.has("client_user_id") && !isAdmin) {
+      query = query.eq("client_user_id", user.id);
     }
 
     // Apply claimed filter only if columns exist

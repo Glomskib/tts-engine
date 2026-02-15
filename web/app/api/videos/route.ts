@@ -50,10 +50,20 @@ export async function GET(request: Request) {
   const variant_id = searchParams.get("variant_id");
 
   try {
+    // Check if client_user_id column exists for data isolation
+    const existingColumns = await getVideosColumns();
+    const hasClientUserId = existingColumns.has("client_user_id");
+
     let query = supabaseAdmin
       .from("videos")
       .select("*")
       .order("created_at", { ascending: false });
+
+    // Data isolation: Filter by user ID if not service key auth
+    // Service key auth (from external tools) has full access
+    if (hasClientUserId && auth.authType !== 'service_key') {
+      query = query.eq("client_user_id", auth.userId);
+    }
 
     // Filter by account_id if provided (required for portal, optional for API)
     if (account_id) {

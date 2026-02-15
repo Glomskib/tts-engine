@@ -194,12 +194,44 @@ export const PLANS = {
       'Referral program',
     ],
   },
+  BUSINESS: {
+    id: 'business',
+    name: 'Business',
+    price: 59,
+    credits: -1, // unlimited
+    stripePriceId: process.env.STRIPE_PRICE_BUSINESS?.trim() || null,
+    limits: {
+      scriptsPerMonth: -1,
+      products: -1,
+      brands: -1,
+      personas: -1,
+      scriptLibrary: true,
+      scriptOfTheDay: true,
+      contentPackages: false,
+      winnersBank: true,
+      winnerPatterns: true,
+      customPersonas: true,
+      productionBoard: true,
+      contentCalendar: true,
+      analytics: true,
+      templates: true,
+      apiAccess: false,
+      referrals: true,
+    },
+    features: [
+      'Everything in Creator Pro',
+      'Priority support',
+      'Custom integrations',
+      'Unlimited brands',
+    ],
+  },
+  // Contact-only tiers (no checkout)
   BRAND: {
     id: 'brand',
     name: 'Brand',
-    price: 49,
+    price: 0, // contact us
     credits: -1, // unlimited
-    stripePriceId: process.env.STRIPE_PRICE_BRAND?.trim() || null,
+    stripePriceId: null,
     limits: {
       scriptsPerMonth: -1,
       products: -1,
@@ -219,18 +251,17 @@ export const PLANS = {
       referrals: true,
     },
     features: [
-      'Everything in Creator Pro',
-      'Content Packages',
-      'Priority support',
+      'AI challenge generator',
+      'Creator marketplace',
+      'Campaign analytics',
     ],
   },
-  // TODO: convert to base + usage-based pricing
   AGENCY: {
     id: 'agency',
     name: 'Agency',
-    price: 149,
+    price: 0, // contact us
     credits: -1, // unlimited
-    stripePriceId: process.env.STRIPE_PRICE_AGENCY?.trim() || null,
+    stripePriceId: null,
     limits: {
       scriptsPerMonth: -1,
       products: -1,
@@ -250,9 +281,9 @@ export const PLANS = {
       referrals: true,
     },
     features: [
-      'Everything in Brand',
-      'API access',
-      'Dedicated support',
+      'Multi-brand management',
+      'Team seats',
+      'White-label options',
     ],
   },
 } as const;
@@ -303,6 +334,7 @@ export const PLANS_LIST = [
   PLANS.FREE,
   PLANS.CREATOR_LITE,
   PLANS.CREATOR_PRO,
+  PLANS.BUSINESS,
   PLANS.BRAND,
   PLANS.AGENCY,
 ] as const;
@@ -455,8 +487,9 @@ export const PLAN_RANK: Record<string, number> = {
   free: 0,
   creator_lite: 1,
   creator_pro: 2,
-  brand: 3,
-  agency: 4,
+  business: 3,
+  brand: 4,
+  agency: 5,
 };
 
 /**

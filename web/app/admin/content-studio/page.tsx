@@ -322,6 +322,10 @@ export default function ContentStudioPage() {
   const [productPainPoints, setProductPainPoints] = useState<string[]>([]);
   const [generatingPainPoints, setGeneratingPainPoints] = useState(false);
 
+  // Saved pain points
+  const [savedPainPoints, setSavedPainPoints] = useState<Array<{ id: string; pain_point_text: string; category: string | null; times_used: number }>>([]);
+  const [loadingSavedPainPoints, setLoadingSavedPainPoints] = useState(false);
+
   // STEP 5: Presentation Style
   const [selectedPresentationStyleId, setSelectedPresentationStyleId] = useState<string>('talking_head');
 
@@ -510,10 +514,11 @@ export default function ContentStudioPage() {
     const loadData = async () => {
       setLoadingData(true);
       try {
-        const [productsRes, personasRes, suppressionsRes] = await Promise.all([
+        const [productsRes, personasRes, suppressionsRes, painPointsRes] = await Promise.all([
           fetch('/api/products', { credentials: 'include' }),
           fetch('/api/audience/personas', { credentials: 'include' }),
           fetch('/api/clawbot/summaries/latest', { credentials: 'include' }).catch(() => null),
+          fetch('/api/pain-points', { credentials: 'include' }).catch(() => null),
         ]);
 
         if (productsRes.ok) {
@@ -558,6 +563,18 @@ export default function ContentStudioPage() {
                 angle: winner.angle,
                 reason: `Your "${winner.angle}" content is performing well (+${winner.winners} winners)`,
               });
+            }
+          } catch {
+            // Ignore parse errors for non-critical data
+          }
+        }
+
+        // Load saved pain points
+        if (painPointsRes?.ok) {
+          try {
+            const ppData = await painPointsRes.json();
+            if (ppData.ok && ppData.data) {
+              setSavedPainPoints(ppData.data);
             }
           } catch {
             // Ignore parse errors for non-critical data

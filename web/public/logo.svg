@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2DD4BF"/>
+      <stop offset="100%" style="stop-color:#14B8A6"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0E1419"/>
+      <stop offset="100%" style="stop-color:#0B0F14"/>
+    </linearGradient>
+    <!-- Subtle inner glow behind bolt -->
+    <radialGradient id="glow" cx="50%" cy="48%" r="35%">
+      <stop offset="0%" style="stop-color:#2DD4BF; stop-opacity:0.12"/>
+      <stop offset="100%" style="stop-color:#2DD4BF; stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Background with iOS-style rounded rect -->
+  <rect width="1024" height="1024" fill="url(#bgGrad)" rx="224"/>
+  
+  <!-- Subtle glow -->
+  <circle cx="512" cy="480" r="360" fill="url(#glow)"/>
+  
+  <!-- Lightning bolt - clean, geometric, centered -->
+  <path d="M 588 148 L 390 500 L 488 500 L 440 876 L 680 440 L 564 440 L 644 148 Z" 
+        fill="url(#tealGrad)"/>
+</svg>

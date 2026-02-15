@@ -61,6 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [customizeNavOpen, setCustomizeNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
   const [unreadCount, setUnreadCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
@@ -355,13 +356,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       <p className="text-base text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
                     </div>
                   </div>
-                  <button type="button"
-                    onClick={handleLogout}
-                    className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
-                  >
-                    <LogOut className="w-7 h-7" />
-                    Logout
-                  </button>
+                  <div className="space-y-2">
+                    <button type="button"
+                      onClick={() => {
+                        setSidebarOpen(false);
+                        setCustomizeNavOpen(true);
+                      }}
+                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
+                    >
+                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                      </svg>
+                      Customize Navigation
+                    </button>
+                    <button type="button"
+                      onClick={handleLogout}
+                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
+                    >
+                      <LogOut className="w-7 h-7" />
+                      Logout
+                    </button>
+                  </div>
                 </div>
               </aside>
             </div>
@@ -407,6 +422,51 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   >
                     <LogOut className="w-7 h-7" />
                     Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Customize Mobile Nav Modal */}
+          {customizeNavOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+              <div className="bg-zinc-900 rounded-xl border border-zinc-800 max-w-md w-full max-h-[80vh] overflow-y-auto">
+                <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Customize Bottom Nav</h3>
+                  <button
+                    onClick={() => setCustomizeNavOpen(false)}
+                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-4">
+                  <p className="text-sm text-zinc-400 mb-4">
+                    Home and Menu are fixed. Select 3 items for the middle slots.
+                  </p>
+                  <p className="text-xs text-zinc-500 mb-4">
+                    Changes are saved automatically to your browser.
+                  </p>
+                  <div className="bg-zinc-800/50 rounded-lg p-3 text-xs text-zinc-400">
+                    <p>To customize, edit localStorage key:</p>
+                    <code className="block mt-2 text-teal-400 font-mono">flashflow_bottom_nav</code>
+                    <p className="mt-2">Example value (3 item IDs):</p>
+                    <code className="block mt-1 text-teal-400 font-mono break-all">
+                      ["content-studio", "transcribe", "script-library"]
+                    </code>
+                    <p className="mt-2">Available IDs:</p>
+                    <code className="block mt-1 text-teal-400 font-mono text-[10px] break-all">
+                      content-studio, transcribe, script-library, pipeline, calendar, winners, analytics, brands
+                    </code>
+                  </div>
+                </div>
+                <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4">
+                  <button
+                    onClick={() => setCustomizeNavOpen(false)}
+                    className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
+                  >
+                    Close
                   </button>
                 </div>
               </div>

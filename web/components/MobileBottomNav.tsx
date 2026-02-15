@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -7,16 +8,27 @@ import {
   Sparkles,
   FileText,
   Folder,
-  Menu
+  Menu,
+  Video,
+  Calendar,
+  Trophy,
+  BarChart3,
+  Package
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { href: '/admin/dashboard', icon: Home, label: 'Home' },
-  { href: '/admin/content-studio', icon: Sparkles, label: 'Create' },
-  { href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
-  { href: '/admin/skit-library', icon: Folder, label: 'Library' },
-  { href: '#more', icon: Menu, label: 'Menu', isDrawerTrigger: true },
+// All available nav items for middle slots
+const AVAILABLE_NAV_ITEMS = [
+  { id: 'content-studio', href: '/admin/content-studio', icon: Sparkles, label: 'Create' },
+  { id: 'transcribe', href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
+  { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Library' },
+  { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Pipeline' },
+  { id: 'calendar', href: '/admin/calendar', icon: Calendar, label: 'Calendar' },
+  { id: 'winners', href: '/admin/winners', icon: Trophy, label: 'Winners' },
+  { id: 'analytics', href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+  { id: 'brands', href: '/admin/brands', icon: Package, label: 'Brands' },
 ];
+
+const DEFAULT_MIDDLE_SLOTS = ['content-studio', 'transcribe', 'script-library'];
 
 interface MobileBottomNavProps {
   onMoreClick: () => void;
@@ -25,6 +37,34 @@ interface MobileBottomNavProps {
 
 export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNavProps) {
   const pathname = usePathname();
+  const [middleSlots, setMiddleSlots] = useState<string[]>(DEFAULT_MIDDLE_SLOTS);
+
+  // Load saved nav config
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('flashflow_bottom_nav');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === 3) {
+            setMiddleSlots(parsed);
+          }
+        } catch (e) {
+          // Invalid JSON, use defaults
+        }
+      }
+    }
+  }, []);
+
+  const middleItems = middleSlots
+    .map(id => AVAILABLE_NAV_ITEMS.find(item => item.id === id))
+    .filter((item): item is typeof AVAILABLE_NAV_ITEMS[0] => item !== undefined);
+
+  const NAV_ITEMS = [
+    { href: '/admin/dashboard', icon: Home, label: 'Home', isDrawerTrigger: false },
+    ...middleItems.map(item => ({ ...item, isDrawerTrigger: false })),
+    { href: '#more', icon: Menu, label: 'Menu', isDrawerTrigger: true },
+  ];
 
   return (
     <nav

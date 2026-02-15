@@ -154,7 +154,12 @@ interface AudiencePersona {
 }
 
 interface SkitData {
-  hook_line: string;
+  // 3-part hook system
+  visual_hook?: string;
+  text_on_screen_hook?: string;
+  verbal_hook?: string;
+  // Legacy field (deprecated but kept for backwards compat)
+  hook_line?: string;
   beats: Array<{
     t: string;
     action: string;
@@ -2288,6 +2293,16 @@ export default function ContentStudioPage() {
                         BALANCED: '#f59e0b',
                         SPICY: '#ef4444',
                       };
+                      const tierLabels: Record<RiskTier, string> = {
+                        SAFE: 'Safe',
+                        BALANCED: 'Edgy',
+                        SPICY: 'Bold',
+                      };
+                      const tierDescriptions: Record<RiskTier, string> = {
+                        SAFE: 'Mainstream-friendly, no controversy. Good for brand partnerships.',
+                        BALANCED: 'Pushes boundaries slightly, uses humor/sarcasm. Higher engagement potential.',
+                        SPICY: 'Provocative takes, strong opinions. Viral potential but may polarize.',
+                      };
                       return (
                         <button type="button"
                           key={tier}
@@ -2302,9 +2317,21 @@ export default function ContentStudioPage() {
                             cursor: 'pointer',
                             fontSize: '12px',
                             fontWeight: isSelected ? 600 : 400,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            textAlign: 'left',
                           }}
+                          title={tierDescriptions[tier]}
                         >
-                          {tier}
+                          <span style={{ fontWeight: isSelected ? 600 : 500 }}>{tierLabels[tier]}</span>
+                          <span style={{
+                            fontSize: '10px',
+                            opacity: 0.8,
+                            lineHeight: '1.3',
+                          }}>
+                            {tierDescriptions[tier]}
+                          </span>
                         </button>
                       );
                     })}
@@ -2870,20 +2897,59 @@ export default function ContentStudioPage() {
                         </div>
                       </div>
                     ) : (
-                      <div
-                        onClick={() => { setEditedHookLine(currentSkit.hook_line); setEditingHook(true); }}
-                        style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', cursor: 'pointer', position: 'relative' }}
-                        title="Click to edit"
-                      >
-                        {currentSkit.hook_line}
-                        <Pencil size={12} style={{ marginLeft: '8px', opacity: 0.4, verticalAlign: 'middle' }} />
+                      <div>
+                        {/* 3-Part Hook System */}
+                        {(currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook) ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {currentSkit.visual_hook && (
+                              <div>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>
+                                  🎬 Visual Hook
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6' }}>
+                                  {currentSkit.visual_hook}
+                                </div>
+                              </div>
+                            )}
+                            {currentSkit.text_on_screen_hook && (
+                              <div>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>
+                                  📝 Text on Screen Hook
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6', fontStyle: 'italic' }}>
+                                  "{currentSkit.text_on_screen_hook}"
+                                </div>
+                              </div>
+                            )}
+                            {currentSkit.verbal_hook && (
+                              <div>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>
+                                  🗣️ Verbal Hook
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6' }}>
+                                  {currentSkit.verbal_hook}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Legacy single hook_line display */
+                          <div
+                            onClick={() => { setEditedHookLine(currentSkit.hook_line || ''); setEditingHook(true); }}
+                            style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', cursor: 'pointer', position: 'relative' }}
+                            title="Click to edit"
+                          >
+                            {currentSkit.hook_line}
+                            <Pencil size={12} style={{ marginLeft: '8px', opacity: 0.4, verticalAlign: 'middle' }} />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                   {!editingHook && (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button type="button"
-                        onClick={() => handleSaveHook(currentSkit.hook_line)}
+                        onClick={() => handleSaveHook(currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || '')}
                         disabled={savingHook}
                         style={{
                           padding: '6px 12px',
@@ -2909,7 +2975,7 @@ export default function ContentStudioPage() {
                         )}
                       </button>
                       <button type="button"
-                        onClick={() => copyToClipboard(currentSkit.hook_line, 'hook')}
+                        onClick={() => copyToClipboard(currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || '', 'hook')}
                         style={{
                           padding: '6px 12px',
                           backgroundColor: copiedField === 'hook' ? '#10b981' : colors.bg,
@@ -3397,7 +3463,8 @@ export default function ContentStudioPage() {
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `script-${currentSkit.hook_line.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.txt`;
+                      const hookForFilename = currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || 'script';
+                      a.download = `script-${hookForFilename.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.txt`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
@@ -3439,7 +3506,8 @@ export default function ContentStudioPage() {
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `script-${currentSkit.hook_line.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.docx`;
+                      const hookForDocxFilename = currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || 'script';
+                      a.download = `script-${hookForDocxFilename.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.docx`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);

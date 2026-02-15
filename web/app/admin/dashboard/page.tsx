@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Sparkles, FileText, Video, Calendar, Trophy, BarChart3,
-  Package, Folder, CreditCard, X
+  Package, Folder, CreditCard, X, Settings
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,8 +14,9 @@ interface DashboardStats {
   activeBrands: number;
 }
 
-const QUICK_NAV_ITEMS = [
+const ALL_QUICK_NAV_ITEMS = [
   {
+    id: 'content-studio',
     label: 'Content Studio',
     href: '/admin/content-studio',
     icon: Sparkles,
@@ -23,6 +24,7 @@ const QUICK_NAV_ITEMS = [
     description: 'Generate AI scripts',
   },
   {
+    id: 'transcriber',
     label: 'Transcriber',
     href: '/admin/transcriber',
     icon: FileText,
@@ -30,6 +32,7 @@ const QUICK_NAV_ITEMS = [
     description: 'Transcribe videos',
   },
   {
+    id: 'script-library',
     label: 'Script Library',
     href: '/admin/script-library',
     icon: Folder,
@@ -37,6 +40,7 @@ const QUICK_NAV_ITEMS = [
     description: 'Browse scripts',
   },
   {
+    id: 'production-board',
     label: 'Production Board',
     href: '/admin/pipeline',
     icon: Video,
@@ -44,6 +48,7 @@ const QUICK_NAV_ITEMS = [
     description: 'Track production',
   },
   {
+    id: 'calendar',
     label: 'Content Calendar',
     href: '/admin/calendar',
     icon: Calendar,
@@ -51,6 +56,7 @@ const QUICK_NAV_ITEMS = [
     description: 'Plan schedule',
   },
   {
+    id: 'winners-bank',
     label: 'Winners Bank',
     href: '/admin/winners',
     icon: Trophy,
@@ -58,6 +64,7 @@ const QUICK_NAV_ITEMS = [
     description: 'Winning videos',
   },
   {
+    id: 'analytics',
     label: 'Analytics',
     href: '/admin/analytics',
     icon: BarChart3,
@@ -65,6 +72,7 @@ const QUICK_NAV_ITEMS = [
     description: 'View insights',
   },
   {
+    id: 'brands',
     label: 'Brands',
     href: '/admin/brands',
     icon: Package,
@@ -73,18 +81,35 @@ const QUICK_NAV_ITEMS = [
   },
 ];
 
+const DEFAULT_QUICK_LINKS = ['content-studio', 'transcriber', 'script-library', 'production-board', 'calendar', 'winners-bank', 'analytics', 'brands'];
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { credits } = useCredits();
   const [stats, setStats] = useState<DashboardStats>({ scriptsCount: 0, activeBrands: 0 });
   const [loading, setLoading] = useState(true);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [customizingQuickLinks, setCustomizingQuickLinks] = useState(false);
+  const [selectedQuickLinks, setSelectedQuickLinks] = useState<string[]>(DEFAULT_QUICK_LINKS);
 
   // Check if onboarding was dismissed
   useEffect(() => {
     const dismissed = localStorage.getItem('flashflow_onboarding_dismissed');
     if (dismissed === 'true') {
       setOnboardingDismissed(true);
+    }
+
+    // Load saved quick links
+    const saved = localStorage.getItem('flashflow_quick_links');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSelectedQuickLinks(parsed.slice(0, 8)); // Max 8 items
+        }
+      } catch (e) {
+        // Invalid JSON, use defaults
+      }
     }
   }, []);
 
@@ -125,8 +150,26 @@ export default function DashboardPage() {
     setOnboardingDismissed(true);
   };
 
+  const handleToggleQuickLink = (id: string) => {
+    setSelectedQuickLinks(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(item => item !== id);
+      } else if (prev.length < 8) {
+        return [...prev, id];
+      }
+      return prev;
+    });
+  };
+
+  const handleSaveQuickLinks = () => {
+    localStorage.setItem('flashflow_quick_links', JSON.stringify(selectedQuickLinks));
+    setCustomizingQuickLinks(false);
+  };
+
   // Show onboarding if: not loading, not dismissed, AND (no brands OR no scripts)
   const showOnboarding = !loading && !onboardingDismissed && (stats.scriptsCount === 0 || stats.activeBrands === 0);
+
+  const displayedQuickLinks = ALL_QUICK_NAV_ITEMS.filter(item => selectedQuickLinks.includes(item.id));
 
   return (
     <div className="pt-6 pb-24 lg:pb-8 space-y-8 max-w-7xl mx-auto">
@@ -250,26 +293,35 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Nav Grid */}
-      <div>
-        <h2 className="text-xl font-semibold text-white mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {QUICK_NAV_ITEMS.map((item) => {
+      <div className="relative">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Quick Actions</h2>
+          <button
+            onClick={() => setCustomizingQuickLinks(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden sm:inline">Customize</span>
+          </button>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          {displayedQuickLinks.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group bg-zinc-900 border ${item.color} rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 active:scale-[0.98]`}
+                className={`group bg-zinc-900 border ${item.color} rounded-xl p-4 md:p-6 hover:scale-[1.02] transition-all duration-200 active:scale-[0.98] min-h-[80px] md:min-h-0`}
               >
-                <div className="flex flex-col items-start gap-3">
-                  <div className={`w-12 h-12 rounded-lg ${item.color} flex items-center justify-center`}>
-                    <Icon className="w-6 h-6" />
+                <div className="flex flex-col items-start gap-2 md:gap-3">
+                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${item.color} flex items-center justify-center flex-shrink-0`}>
+                    <Icon className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white group-hover:text-teal-400 transition-colors">
+                    <h3 className="font-semibold text-white group-hover:text-teal-400 transition-colors text-sm md:text-base">
                       {item.label}
                     </h3>
-                    <p className="text-xs text-zinc-500 mt-0.5">{item.description}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5 hidden sm:block">{item.description}</p>
                   </div>
                 </div>
               </Link>
@@ -277,6 +329,66 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
+
+      {/* Customize Quick Links Modal */}
+      {customizingQuickLinks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <div className="bg-zinc-900 rounded-xl border border-zinc-800 max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Customize Quick Actions</h3>
+              <button
+                onClick={() => setCustomizingQuickLinks(false)}
+                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-zinc-400 mb-4">
+                Select up to 8 items to display. Selected items: {selectedQuickLinks.length}/8
+              </p>
+              {ALL_QUICK_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isSelected = selectedQuickLinks.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleToggleQuickLink(item.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                      isSelected
+                        ? 'bg-teal-500/10 border-teal-500/30 text-white'
+                        : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center flex-shrink-0`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-medium text-sm">{item.label}</p>
+                      <p className="text-xs text-zinc-500">{item.description}</p>
+                    </div>
+                    {isSelected && (
+                      <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4">
+              <button
+                onClick={handleSaveQuickLinks}
+                className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Getting Started Tip */}
       <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-6">

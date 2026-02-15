@@ -13,7 +13,12 @@ interface Beat {
 }
 
 interface SkitData {
-  hook_line: string;
+  // 3-part hook system (new)
+  visual_hook?: string;
+  text_on_screen_hook?: string;
+  verbal_hook?: string;
+  // Legacy hook (deprecated but kept for backwards compat)
+  hook_line?: string;
   beats: Beat[];
   cta_line: string;
   cta_overlay?: string;
@@ -77,7 +82,7 @@ export async function generateDocx(options: DocxExportOptions): Promise<Blob> {
     })
   );
 
-  // Hook
+  // Hook (support both new 3-part and legacy single hook)
   children.push(
     new Paragraph({
       text: 'HOOK',
@@ -85,12 +90,51 @@ export async function generateDocx(options: DocxExportOptions): Promise<Blob> {
       spacing: { before: 200 },
     })
   );
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: skit.hook_line, bold: true, size: 28 })],
-      spacing: { after: 300 },
-    })
-  );
+
+  if (skit.visual_hook || skit.text_on_screen_hook || skit.verbal_hook) {
+    // New 3-part hook system
+    if (skit.visual_hook) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: '🎬 Visual Hook: ', bold: true, size: 24 }),
+            new TextRun({ text: skit.visual_hook, size: 24 }),
+          ],
+          spacing: { after: 100 },
+        })
+      );
+    }
+    if (skit.text_on_screen_hook) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: '📝 Text on Screen: ', bold: true, size: 24 }),
+            new TextRun({ text: skit.text_on_screen_hook, size: 24 }),
+          ],
+          spacing: { after: 100 },
+        })
+      );
+    }
+    if (skit.verbal_hook) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: '🗣️ Verbal Hook: ', bold: true, size: 24 }),
+            new TextRun({ text: skit.verbal_hook, size: 24 }),
+          ],
+          spacing: { after: 300 },
+        })
+      );
+    }
+  } else if (skit.hook_line) {
+    // Legacy single hook
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: skit.hook_line, bold: true, size: 28 })],
+        spacing: { after: 300 },
+      })
+    );
+  }
 
   // Beats / Scenes
   children.push(

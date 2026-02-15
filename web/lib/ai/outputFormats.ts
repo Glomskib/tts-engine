@@ -112,10 +112,28 @@ const SKIT_CONFIG: OutputFormatConfig = {
   creativePrinciples: `
 CREATIVE PRINCIPLES - MAKE CONTENT THAT SLAPS:
 
-1. HOOKS MUST STOP THE SCROLL (<1 second)
+1. 3-PART HOOK SYSTEM - ALL THREE MUST WORK TOGETHER:
+
+   A) VISUAL HOOK: The physical action/motion that stops the scroll
+      - Be SPECIFIC: "At the store, on your phone calculator, counting change. Craft beer in cart, looking at prices."
+      - NOT generic: "Person shopping"
+      - Show movement, setting, and specific visual elements
+
+   B) TEXT ON SCREEN HOOK: Overlay text that creates curiosity
+      - Use "POV:", "When you...", or provocative statements
+      - Example: "POV: You're calculating if you can afford groceries AND scratch your craft beer itch this week…"
+      - Must relate directly to target audience's pain point
+
+   C) VERBAL HOOK: The opening spoken line
+      - Must immediately resonate with customer archetype's core pain point
+      - Example: "Stranger says: are you seriously sacrificing eggs for craft beer?! I've been drinking hop water and it's all the good about craft beer without the bad..."
+      - Sound like a real person, not an ad
+
+   All three hooks work together as a pattern interrupt that stops the target customer archetype from scrolling.
+
+   HOOKS MUST STOP THE SCROLL (<1 second)
    - Use pattern interrupts: unexpected visuals, provocative statements, or jarring cuts
    - Open mid-action, mid-sentence, or with something visually bizarre
-   - Examples: "I finally did it..." (mystery), "NOBODY talks about this..." (forbidden knowledge), starting with the punchline
 
 2. CHAOS IS GOOD
    - Absurdist humor, unexpected turns, and breaking the 4th wall all work
@@ -150,7 +168,10 @@ CREATIVE PRINCIPLES - MAKE CONTENT THAT SLAPS:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Opening line that grabs attention (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",

@@ -91,7 +91,7 @@ export default function DashboardPage() {
         }
 
         // Fetch brands count
-        const brandsRes = await fetch('/api/products/brands');
+        const brandsRes = await fetch('/api/brands');
         let activeBrands = 0;
         if (brandsRes.ok) {
           const brandsData = await brandsRes.json();

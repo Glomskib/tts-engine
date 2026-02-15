@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   let query = supabaseAdmin
     .from("scripts")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false });
 
   // Filter by ownership: admins see all, others see only their own
@@ -48,13 +48,18 @@ export async function GET(request: Request) {
     query = query.eq("template_id", templateId);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
     return createApiErrorResponse("DB_ERROR", error.message, 500, correlationId);
   }
 
-  return NextResponse.json({ ok: true, data, correlation_id: correlationId });
+  return NextResponse.json({
+    ok: true,
+    data,
+    meta: { total: count || data?.length || 0 },
+    correlation_id: correlationId
+  });
 }
 
 export async function POST(request: Request) {

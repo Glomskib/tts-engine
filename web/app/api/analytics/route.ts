@@ -15,9 +15,29 @@ export async function GET(request: Request) {
   const correlationId = generateCorrelationId();
 
   try {
-    const { user } = await getApiAuthContext(request);
-    if (!user) {
+    const authContext = await getApiAuthContext(request);
+    if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
+    }
+
+    // Analytics is admin-only for now (videos don't have user_id, would need complex product joins)
+    // TODO: Add user filtering via product_id -> products.user_id join for non-admin users
+    if (!authContext.isAdmin) {
+      return NextResponse.json({
+        ok: true,
+        data: {
+          throughput: [],
+          velocity: [],
+          top_content: [],
+          revenue: [],
+          hooks: [],
+          va_performance: [],
+          accounts: [],
+          total: 0,
+          message: 'Analytics available in Pro plan and above'
+        },
+        correlation_id: correlationId
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -30,7 +50,7 @@ export async function GET(request: Request) {
     switch (type) {
       case 'throughput': {
         // Videos per status per day
-        const { data: videos, error } = await db
+        const { data: videos, error} = await db
           .from('videos')
           .select('status, recording_status, created_at, last_status_changed_at')
           .gte('created_at', since);
@@ -152,7 +172,8 @@ export async function GET(request: Request) {
         // Hook type performance
         const { data: winners, error } = await db
           .from('winners_bank')
-          .select('hook_type, content_format, view_count, engagement_rate');
+          .select('hook_type, content_format, view_count, engagement_rate')
+          .eq('user_id', authContext.user.id);
 
         if (error) throw error;
 

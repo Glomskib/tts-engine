@@ -232,6 +232,11 @@ export async function POST(request: Request) {
       insertPayload.product_id = product_id.trim();
     }
 
+    // CRITICAL: Set client_user_id for data isolation
+    if (existingColumns.has("client_user_id")) {
+      insertPayload.client_user_id = auth.userId;
+    }
+
     // Add optional fields only if they exist in schema
     if (caption_used !== undefined && existingColumns.has("caption_used")) {
       insertPayload.caption_used = caption_used;

@@ -40,6 +40,7 @@ export async function GET(
       .from("pain_points")
       .select("*")
       .eq("id", id)
+      .eq("user_id", authContext.user.id)
       .single();
 
     if (error || !data) {
@@ -94,6 +95,7 @@ export async function PATCH(
       .from("pain_points")
       .update(updates)
       .eq("id", id)
+      .eq("user_id", authContext.user.id)
       .select()
       .single();
 
@@ -132,7 +134,8 @@ export async function DELETE(
     const { error } = await supabaseAdmin
       .from("pain_points")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", authContext.user.id);
 
     if (error) {
       console.error(`[${correlationId}] Failed to delete pain point:`, error);

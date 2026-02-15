@@ -46,6 +46,7 @@ export async function GET(request: Request) {
     let query = supabaseAdmin
       .from("pain_points")
       .select("*")
+      .eq("user_id", authContext.user.id)
       .order("times_used", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -111,6 +112,7 @@ export async function POST(request: Request) {
       .from("pain_points")
       .insert({
         ...input,
+        user_id: authContext.user.id,
         created_by: authContext.user.id,
       })
       .select()

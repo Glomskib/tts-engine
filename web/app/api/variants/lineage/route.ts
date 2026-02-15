@@ -66,6 +66,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Verify concept ownership for data isolation
+    const { data: concept } = await supabaseAdmin
+      .from('concepts')
+      .select('id,user_id')
+      .eq('id', targetVariant.concept_id)
+      .single();
+
+    if (!concept || concept.user_id !== auth.user.id) {
+      return NextResponse.json(
+        { ok: false, error: 'Variant not found' },
+        { status: 404 }
+      );
+    }
+
     let rootVariant = targetVariant;
     let parentVariant = null;
     let childVariants: DatabaseRecord[] = [];
@@ -160,6 +174,7 @@ export async function GET(request: NextRequest) {
           id,variant_id,account_id,status,google_drive_url,created_at,updated_at,
           accounts(name, platform)
         `)
+        .eq('client_user_id', auth.user.id)
         .in('variant_id', variantIds)
         .order('created_at', { ascending: false });
 

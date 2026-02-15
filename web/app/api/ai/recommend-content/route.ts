@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
     const { data: winners } = await supabaseAdmin
       .from('winners_bank')
       .select('id, hook, hook_type, content_format, product_category, view_count, engagement_rate, performance_score, patterns, video_url')
+      .eq('user_id', authContext.user.id)
       .eq('is_active', true)
       .order('performance_score', { ascending: false })
       .limit(50);
@@ -45,18 +46,21 @@ export async function GET(request: NextRequest) {
     // 2. Fetch all products
     const { data: products } = await supabaseAdmin
       .from('products')
-      .select('id, name, brand, category, pain_points');
+      .select('id, name, brand, category, pain_points')
+      .eq('user_id', authContext.user.id);
 
     // 3. Fetch pipeline videos (to find gaps)
     const { data: pipelineVideos } = await supabaseAdmin
       .from('videos')
       .select('id, product_id, status, scheduled_date, created_at')
+      .eq('client_user_id', authContext.user.id)
       .not('status', 'eq', 'ARCHIVED');
 
     // 4. Fetch recent scripts to know what's already been generated
     const { data: recentScripts } = await supabaseAdmin
       .from('saved_skits')
       .select('id, product_id, created_at')
+      .eq('user_id', authContext.user.id)
       .order('created_at', { ascending: false })
       .limit(30);
 

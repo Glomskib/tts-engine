@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
       const { data: videos } = await supabaseAdmin
         .from('videos')
         .select('id, title, status, recording_status, priority_score, scheduled_date, tiktok_url, tiktok_views, tiktok_likes, tiktok_comments, tiktok_shares, created_at, last_status_changed_at, product:product_id(name,brand)')
+        .eq('client_user_id', authContext.user.id)
         .order('created_at', { ascending: false })
         .limit(5000);
 
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
       const { data: scripts } = await supabaseAdmin
         .from('saved_skits')
         .select('id, title, skit_data, product:product_id(name), created_at')
+        .eq('user_id', authContext.user.id)
         .order('created_at', { ascending: false })
         .limit(5000);
 
@@ -100,6 +102,7 @@ export async function GET(request: NextRequest) {
       const { data: winners } = await supabaseAdmin
         .from('winners_bank')
         .select('id, hook, video_url, view_count, source_type, notes, patterns, created_at')
+        .eq('user_id', authContext.user.id)
         .order('created_at', { ascending: false })
         .limit(5000);
 
@@ -120,6 +123,7 @@ export async function GET(request: NextRequest) {
       const { data: products } = await supabaseAdmin
         .from('products')
         .select('id, name, brand, category, description, price, is_active, created_at')
+        .eq('user_id', authContext.user.id)
         .order('created_at', { ascending: false })
         .limit(5000);
 

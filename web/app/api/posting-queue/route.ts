@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         product:product_id(id, name, brand),
         account:account_id(id, name, handle)
       `)
+      .eq('client_user_id', authContext.user.id)
       .in('recording_status', ['READY_TO_POST']);
 
     if (accountFilter) {
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
         product:product_id(id, name, brand),
         account:account_id(id, name, handle)
       `)
+      .eq('client_user_id', authContext.user.id)
       .eq('recording_status', 'POSTED')
       .gte('last_status_changed_at', recentCutoff.toISOString())
       .order('last_status_changed_at', { ascending: false })

@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         product:product_id(id,name,brand),
         account:scheduled_account_id(id,name,handle)
       `)
+      .eq('client_user_id', authContext.user.id)
       .gte('scheduled_date', startDate)
       .lte('scheduled_date', endDate)
       .order('scheduled_date', { ascending: true });

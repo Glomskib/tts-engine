@@ -7,6 +7,89 @@
  * agencies manage multiple brands.
  */
 
+// New pricing structure with monthly/annual billing
+export interface PricingBilling {
+  price: number;
+  display: string;
+  monthlyEquiv?: string;
+  stripePriceId: string | null;
+  savings?: string;
+}
+
+export interface PricingPlan {
+  name: string;
+  monthly?: PricingBilling;
+  annual?: PricingBilling;
+  credits?: number | null;
+  features: string[];
+  badge?: string;
+  contactUs?: boolean;
+  contactEmail?: string;
+}
+
+export const PRICING_PLANS: Record<string, PricingPlan> = {
+  free: {
+    name: 'Free Trial',
+    monthly: { price: 0, display: 'Free', stripePriceId: null },
+    annual: { price: 0, display: 'Free', stripePriceId: null },
+    credits: 5,
+    features: ['5 AI scripts', 'Basic transcriber', '1 brand'],
+  },
+  lite: {
+    name: 'Lite',
+    monthly: { price: 9, display: '$9', stripePriceId: 'price_1T0XzpKXraIWnC5D79InCCm4' },
+    annual: {
+      price: 85,
+      display: '$85',
+      monthlyEquiv: '$7.08',
+      stripePriceId: 'price_1T0zgkKXraIWnC5DZX4Ps5vs',
+      savings: '$23',
+    },
+    credits: 50,
+    features: ['50 AI scripts/mo', 'Full transcriber', '3 brands', 'Content calendar'],
+  },
+  pro: {
+    name: 'Creator Pro',
+    monthly: { price: 29, display: '$29', stripePriceId: 'price_1T0XzqKXraIWnC5Dwsdf6evK' },
+    annual: {
+      price: 279,
+      display: '$279',
+      monthlyEquiv: '$23.25',
+      stripePriceId: 'price_1T0zhPKXraIWnC5D35M1stDL',
+      savings: '$69',
+    },
+    credits: null, // unlimited
+    badge: 'Most Popular',
+    features: ['Unlimited scripts', 'Video pipeline', 'Winners bank', 'Analytics', '10 brands'],
+  },
+  business: {
+    name: 'Business',
+    monthly: { price: 59, display: '$59', stripePriceId: 'price_1SwB7iKXraIWnC5Dxc8nmxVP' },
+    annual: {
+      price: 565,
+      display: '$565',
+      monthlyEquiv: '$47.08',
+      stripePriceId: 'price_1T0zhuKXraIWnC5D3gL2rm8r',
+      savings: '$143',
+    },
+    credits: null,
+    features: ['Everything in Pro', 'Priority support', 'Custom integrations', 'Unlimited brands'],
+  },
+  brand: {
+    name: 'Brand',
+    contactUs: true,
+    contactEmail: 'brandon@flashflowai.com',
+    features: ['AI challenge generator', 'Creator marketplace', 'Campaign analytics'],
+  },
+  agency: {
+    name: 'Agency',
+    contactUs: true,
+    contactEmail: 'brandon@flashflowai.com',
+    features: ['Multi-brand management', 'Team seats', 'White-label options'],
+  },
+};
+
+// Legacy plan structure for backwards compatibility
 export const PLANS = {
   FREE: {
     id: 'free',

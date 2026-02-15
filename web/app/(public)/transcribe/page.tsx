@@ -4,16 +4,23 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import TranscriberCore from '@/components/TranscriberCore';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function TranscribePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
     supabase.auth.getUser().then(({ data }) => {
-      setIsLoggedIn(!!data.user);
+      if (data.user) {
+        // Redirect logged-in users to admin transcriber
+        router.push('/admin/transcribe');
+      } else {
+        setIsLoggedIn(false);
+      }
     });
-  }, []);
+  }, [router]);
 
   return (
     <div className="w-full">

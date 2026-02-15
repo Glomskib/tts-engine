@@ -26,7 +26,7 @@ const ALL_QUICK_NAV_ITEMS = [
   {
     id: 'transcriber',
     label: 'Transcriber',
-    href: '/admin/transcriber',
+    href: '/admin/transcribe',
     icon: FileText,
     color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     description: 'Transcribe videos',

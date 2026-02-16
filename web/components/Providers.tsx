@@ -5,7 +5,6 @@ import { ErrorBoundary } from './ui/ErrorBoundary';
 import { ThemeProvider } from '@/app/components/ThemeProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
-import PWAProvider, { InstallBanner } from './PWAProvider';
 import { OfflineIndicator } from './ui/OfflineIndicator';
 
 interface ProvidersProps {
@@ -18,11 +17,8 @@ export function Providers({ children }: ProvidersProps) {
       <ThemeProvider>
         <AuthProvider>
         <ToastProvider>
-          <PWAProvider>
             <OfflineIndicator />
             {children}
-            <InstallBanner />
-          </PWAProvider>
         </ToastProvider>
         </AuthProvider>
       </ThemeProvider>

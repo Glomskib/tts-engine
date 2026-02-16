@@ -13,7 +13,6 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
-import { InstallBanner } from '@/components/PWAProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkipLink } from '@/components/ui/SkipLink';
 import { AriaLiveProvider } from '@/components/ui/AriaLive';
@@ -478,8 +477,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Development Test Checklist */}
           <MobileTestChecklist />
 
-          {/* PWA Install Banner */}
-          <InstallBanner />
         </>
       )}
 

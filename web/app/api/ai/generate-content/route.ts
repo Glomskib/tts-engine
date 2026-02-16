@@ -430,7 +430,10 @@ For each variation, output valid JSON with this structure:
   "variations": [
     {
       "skit": {
-        "hook_line": "Opening hook that stops the scroll",
+        "visual_hook": "A physical action, movement, or prop that catches the eye and stops scrolling (Scene Direction)",
+        "text_on_screen_hook": "A curiosity-driving text overlay that makes viewers NEED to keep watching",
+        "verbal_hook": "The first spoken words that create an open loop",
+        "hook_line": "Combine the verbal hook here for backwards compatibility",
         "beats": [
           {
             "t": "0:00",
@@ -439,7 +442,7 @@ For each variation, output valid JSON with this structure:
             "on_screen_text": "Text overlay (optional)"
           }
         ],
-        "cta_line": "Call to action spoken",
+        "cta_line": "Call to action spoken — use TikTok Shop language: tap the orange cart, linked below, etc.",
         "cta_overlay": "CTA text overlay",
         "b_roll": ["b-roll suggestion 1"],
         "overlays": ["additional text overlay"]
@@ -449,6 +452,12 @@ For each variation, output valid JSON with this structure:
     }
   ]
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye. Examples: "Close-up of hand hesitating over beer in fridge", "Walking through store counting change"
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching. Examples: "POV: calculating if you can afford groceries AND craft beer this week"
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop. Examples: "Stranger says: are you seriously sacrificing eggs for craft beer?!"
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 CRITICAL QUALITY RULES:
 1. HOOKS: Each hook MUST be a pattern-interrupt — something that makes the viewer stop scrolling. NOT generic openers like "Did you know..." or "Are you tired of...". Use specific, unexpected, or polarizing statements. The hook should feel like overhearing something wild.
@@ -461,7 +470,10 @@ CRITICAL QUALITY RULES:
 4. DIALOGUE: Write how real people ACTUALLY talk. Use incomplete sentences, filler words, natural reactions. No one says "This product has changed my life" — they say "bro I literally can't go back to the other stuff"
 5. PRODUCT INTEGRATION: The product should feel like a natural part of the story, never the main character. Viewer should think "that's cool" not "this is an ad"
 6. Include timing markers for each beat
-7. CTA should feel organic — like a friend recommending something, not a sales pitch
+7. CTA RULES — TIKTOK SHOP ONLY:
+   - NEVER use "link in bio", "link in profile", or any bio-link language
+   - ALL CTAs must use TikTok Shop affiliate language: "Tap the orange cart below", "Orange shopping cart is right there", "Link is right below this video", "Linked below for you", "Check the product link below"
+   - CTA should feel organic — like a friend recommending something, not a sales pitch
 
 Generate ${variationCount} truly unique variations now:`;
 
@@ -539,24 +551,36 @@ ${input.creative_direction ? `CREATIVE DIRECTION: ${input.creative_direction}` :
 Output valid JSON with this structure:
 {
   "script": {
-    "hook": "Opening hook that stops the scroll (1-2 sentences)",
+    "visual_hook": "A physical action, movement, or prop that catches the eye (Scene Direction)",
+    "text_on_screen_hook": "A curiosity-driving text overlay that makes viewers NEED to keep watching",
+    "verbal_hook": "The first spoken words that create an open loop",
+    "hook": "Opening hook that stops the scroll (1-2 sentences) — backwards compatible",
     "body": [
       "First paragraph/section",
       "Second paragraph/section",
       "Third paragraph/section"
     ],
-    "cta": "Clear call to action",
+    "cta": "Clear call to action — use TikTok Shop language (tap the orange cart, linked below, etc.)",
     "talking_points": ["Key point 1", "Key point 2"],
     "visual_suggestions": ["Visual idea 1", "Visual idea 2"],
     "pain_points_covered": ["Which pain points are addressed and where"]
   }
 }
 
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
+
 CRITICAL QUALITY RULES:
 1. HOOK: Must be a pattern-interrupt. NOT "Did you know" or "Are you tired of". Use something specific, unexpected, or polarizing that makes the viewer NEED to keep watching.
 2. PAIN POINTS: If pain points are listed above, weave them into the narrative naturally. Show don't tell — demonstrate how the product addresses each pain point through story, not exposition.
 3. DIALOGUE: Write how real people actually talk. Incomplete sentences, natural reactions, conversational rhythm. This should sound like a friend talking, not a copywriter writing.
-4. CTA: Should feel organic — like recommending something to a friend, not selling
+4. CTA RULES — TIKTOK SHOP ONLY:
+   - NEVER use "link in bio", "link in profile", or any bio-link language
+   - ALL CTAs must use TikTok Shop affiliate language: "Tap the orange cart below", "Linked below for you", "Check the product link below"
+   - Should feel organic — like recommending something to a friend, not selling
 5. Body should flow naturally when read aloud — read it back to yourself
 6. Product mention should feel incidental, not forced
 

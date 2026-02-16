@@ -204,7 +204,7 @@ Return ONLY valid JSON with this exact structure:
     }
   ],
   "cta_line": "the call to action",
-  "cta_overlay": "Link in bio!",
+  "cta_overlay": "Tap the orange cart",
   "b_roll": ["suggested b-roll shot 1", "shot 2"],
   "overlays": ["text overlay suggestion 1"]
 }`;

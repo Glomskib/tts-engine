@@ -609,7 +609,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
 
         // Populate CTA fields (script line vs overlay)
         setCtaScript(draft.selected_cta_script || draft.cta_script_options?.[0] || '');
-        setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Link in bio!');
+        setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Tap the orange cart');
 
         // Populate standard fields
         setSelectedAngle(draft.selected_angle || draft.angle_options?.[0] || '');
@@ -716,7 +716,7 @@ export default function CreateVideoDrawer({ onClose, onSuccess, onShowToast }: C
           setCtaScript(draft.selected_cta_script || draft.cta_script_options?.[0] || '');
         }
         if (!userModifiedFields.has('onScreenTextCta')) {
-          setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Link in bio!');
+          setOnScreenTextCta(draft.selected_cta_overlay || draft.on_screen_text_cta || 'Tap the orange cart');
         }
         if (!userModifiedFields.has('selectedAngle')) {
           setSelectedAngle(draft.selected_angle);

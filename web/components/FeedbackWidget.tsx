@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Bug, Lightbulb, Sparkles, MessageSquare, Paperclip, Loader2, ChevronRight } from 'lucide-react';
+import { X, Bug, Lightbulb, Sparkles, MessageSquare, Paperclip, Loader2, ChevronRight, Zap, Mail, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
@@ -47,6 +47,19 @@ export function FeedbackWidget() {
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch user's previous feedback when drawer opens
   const fetchPreviousFeedback = useCallback(async () => {
@@ -149,15 +162,44 @@ export function FeedbackWidget() {
 
   return (
     <>
-      {/* Floating Feedback Button */}
+      {/* Floating FlashFlow Logo Button with Menu */}
       {!isOpen && (
-        <button
-          onClick={handleOpen}
-          className="fixed bottom-24 right-4 lg:bottom-6 lg:right-6 z-[60] flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-full shadow-lg shadow-violet-500/25 transition-all hover:scale-105 active:scale-95"
-        >
-          <MessageSquare className="w-4 h-4" />
-          Feedback
-        </button>
+        <div ref={menuRef} className="fixed bottom-24 right-4 lg:bottom-6 lg:right-6 z-[60]">
+          {/* Menu */}
+          {menuOpen && (
+            <div className="absolute bottom-14 right-0 w-48 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden mb-2">
+              <button
+                onClick={() => { setMenuOpen(false); handleOpen(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors text-left"
+              >
+                <MessageSquare className="w-4 h-4 text-violet-400" />
+                Send Feedback
+              </button>
+              <a
+                href="mailto:brandon@flashflowai.com"
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+              >
+                <Mail className="w-4 h-4 text-teal-400" />
+                Contact Us
+              </a>
+              <a
+                href="/admin/help"
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+              >
+                <HelpCircle className="w-4 h-4 text-blue-400" />
+                Help
+              </a>
+            </div>
+          )}
+          {/* Logo Icon Button */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/25 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            title="FlashFlow AI"
+          >
+            <Zap className="w-5 h-5 text-white" />
+          </button>
+        </div>
       )}
 
       {/* Backdrop */}

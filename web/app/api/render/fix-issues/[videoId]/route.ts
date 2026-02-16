@@ -112,7 +112,7 @@ Beats needing text:
 ${JSON.stringify(beatsToFill)}
 
 Return ONLY a JSON object mapping index to text string. No markdown.
-Example: {"0": "Try this hack!", "2": "Link in bio"}`;
+Example: {"0": "Try this hack!", "2": "Tap the orange cart"}`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {

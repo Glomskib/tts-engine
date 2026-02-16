@@ -99,12 +99,12 @@ IMPROVEMENT CRITERIA:
 - Make it feel like part of the bit, not a sales pitch
 - Keep it quick (under 10 words ideal)
 - Match the tone of the skit (funny skit = funny CTA)
-- Be specific about what to do (link in bio, tap to shop, etc.)
+- Be specific about what to do (tap the orange cart, tap to shop, etc.)
 
 EXAMPLES OF GOOD CTAs:
-- "Anyway, link's right there if you want it."
-- "I mean... you saw what happened. Link in bio."
-- "Don't be like me. Link below."`;
+- "Anyway, tap the orange cart if you want it."
+- "I mean... you saw what happened. Tap the cart."
+- "Don't be like me. Get yours before it's gone."`;
       break;
 
     case "cta_overlay":
@@ -119,7 +119,7 @@ IMPROVEMENT CRITERIA:
 - Use urgency sparingly and authentically
 
 EXAMPLES:
-- "Link in bio"
+- "Tap the orange cart"
 - "Tap to shop"
 - "You know what to do"`;
       break;

@@ -1394,7 +1394,7 @@ export async function POST(request: Request) {
 
     // Build the prompt
     const productName = input.product_display_name || product.name || "the product";
-    const ctaOverlay = input.cta_overlay || "Link in bio!";
+    const ctaOverlay = input.cta_overlay || "Tap the orange cart";
 
     // Look up creator persona if specified
     const creatorPersona = input.creator_persona_id

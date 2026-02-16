@@ -32,7 +32,7 @@ export const onboardingEmails = [
       <p><strong>Hook</strong> &mdash; Grab attention in 1.5 seconds. "I can't believe this $12 product replaced my $200 one."</p>
       <p><strong>Setup</strong> &mdash; Establish the problem. "I've tried everything for my back pain..."</p>
       <p><strong>Body</strong> &mdash; Show the solution. Demo the product, share your experience.</p>
-      <p><strong>CTA</strong> &mdash; Drive the sale. "Link in bio. Trust me, your future self will thank you."</p>
+      <p><strong>CTA</strong> &mdash; Drive the sale. "Tap the orange cart. Trust me, your future self will thank you."</p>
       <p>FlashFlow builds this structure into every script automatically. You just pick the persona and product &mdash; the formula is baked in.</p>
       <a href="https://flashflowai.com/admin/content-studio" class="btn">Try It Now</a>
     `, 'Hook, Setup, Body, CTA: the formula that works', data.unsubscribeUrl),

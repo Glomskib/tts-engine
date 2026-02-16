@@ -200,7 +200,7 @@ export default function AIToolsArticle() {
                 <strong>Thumbnail:</strong> Use Adobe Firefly to generate a custom thumbnail.
               </li>
               <li>
-                <strong>Post:</strong> Upload to TikTok Shop and link in bio.
+                <strong>Post:</strong> Upload to TikTok Shop with product tagged via the orange cart.
               </li>
               <li>
                 <strong>Monitor:</strong> Use Kalodata + TikTok analytics to see how it performs. Repeat with winning hooks.

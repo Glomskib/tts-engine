@@ -498,7 +498,7 @@ export default function TemplatesPage() {
                   <textarea
                     value={formCta}
                     onChange={(e) => setFormCta(e.target.value)}
-                    placeholder="e.g. Link in bio for {{benefit}} — limited time {{price}}"
+                    placeholder="e.g. Tap the orange cart for {{benefit}} — limited time {{price}}"
                     rows={2}
                     className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                   />

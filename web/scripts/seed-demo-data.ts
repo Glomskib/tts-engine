@@ -80,7 +80,7 @@ async function seedScripts(userId: string) {
       skit_data: {
         hook: 'POV: Your morning skincare just got 10x better',
         body: 'Show ice roller in freezer. Pull out, demonstrate rolling on face. Show before/after puffiness comparison.',
-        cta: 'Link in bio for 50% off today only',
+        cta: 'Tap the orange cart — 50% off today only',
         tone: 'energetic',
         duration: '30s',
       },
@@ -120,7 +120,7 @@ async function seedScripts(userId: string) {
       skit_data: {
         hook: 'I was only drinking 2 cups of water a day and didn\'t even know',
         body: 'Show bottle glowing reminder. Track daily intake on bottle display. Show energy level difference after 1 week.',
-        cta: 'Your body is begging you to hydrate — link in bio',
+        cta: 'Your body is begging you to hydrate — tap the orange cart',
         tone: 'educational',
         duration: '45s',
       },

@@ -121,7 +121,7 @@ Or with manual product info:
       ],
       "b_roll": ["Close-up of product bottle", "Peaceful sleeping face"],
       "overlays": ["Product name", "Key benefit"],
-      "cta_line": "Link in bio to try it yourself",
+      "cta_line": "Tap the orange cart to try it yourself",
       "cta_overlay": "Use code SLEEP20"
     },
     "risk_tier": "BALANCED",

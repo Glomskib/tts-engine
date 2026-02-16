@@ -34,7 +34,7 @@ export const blogPosts: BlogPost[] = [
 <p><strong>Hook:</strong> "I rolled my eyes when [someone] told me to try [product]. Then [timeframe] happened."</p>
 <p><strong>Setup:</strong> "I'd tried everything for [problem]. Nothing worked. But [person/situation] wouldn't stop talking about it, so I caved."</p>
 <p><strong>Body:</strong> "[Specific experience]. [Specific result]. [Specific detail that proves it's real]."</p>
-<p><strong>CTA:</strong> "Link in bio. Your future self will thank you."</p>
+<p><strong>CTA:</strong> "Tap the orange cart. Your future self will thank you."</p>
 </blockquote>
 
 <h2>Template 2: The Honest Review</h2>
@@ -52,7 +52,7 @@ export const blogPosts: BlogPost[] = [
 <p><strong>Hook:</strong> "OKAY I need to talk about this $[price] [product] because WHAT is happening to my [result area] right now."</p>
 <p><strong>Setup:</strong> "I found this on TikTok Shop and the reviews were insane so I had to try it."</p>
 <p><strong>Body:</strong> "[What it does]. [How it feels]. [The surprising result]. I've tried $[expensive] alternatives that didn't do this."</p>
-<p><strong>CTA:</strong> "I already bought [more]. Link in bio before it sells out."</p>
+<p><strong>CTA:</strong> "I already bought [more]. Tap the orange cart before it sells out."</p>
 </blockquote>
 
 <h2>Template 4: The Storyteller</h2>
@@ -61,7 +61,7 @@ export const blogPosts: BlogPost[] = [
 <p><strong>Hook:</strong> "So [specific moment/incident]. That was the moment I knew something had to change."</p>
 <p><strong>Setup:</strong> "[Paint the scene]. [The frustration or pain point]."</p>
 <p><strong>Body:</strong> "I found [product]. [How you set it up]. [The transformation]."</p>
-<p><strong>CTA:</strong> "Best $[price] I've spent. Link in bio."</p>
+<p><strong>CTA:</strong> "Best $[price] I've spent. Tap the orange cart."</p>
 </blockquote>
 
 <h2>Template 5: The Authority Expert</h2>

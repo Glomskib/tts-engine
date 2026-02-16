@@ -325,21 +325,21 @@ function buildFallbackResult(productName: string, brand: string): DraftVideoBrie
     on_screen_text_hook_options: ["Must see"],
     selected_on_screen_text_hook: "Must see",
     mid_overlays: ["Watch this", "Real talk"],
-    cta_script_options: ["Link in my bio if you want to try it!"],
-    selected_cta_script: "Link in my bio if you want to try it!",
-    cta_overlay_options: ["Link in bio", "Tap the cart"],
-    selected_cta_overlay: "Link in bio",
+    cta_script_options: ["Tap the orange cart if you want to try it!"],
+    selected_cta_script: "Tap the orange cart if you want to try it!",
+    cta_overlay_options: ["Tap the orange cart", "Shop it here"],
+    selected_cta_overlay: "Tap the orange cart",
     on_screen_text_mid: ["Watch this"],
-    on_screen_text_cta: "Link in bio",
+    on_screen_text_cta: "Tap the orange cart",
     angle_options: ["Personal story"],
     selected_angle: "Personal story",
     proof_type: "testimonial",
     notes: "",
     broll_ideas: ["Product unboxing", "Using the product"],
-    script_draft: `${fallbackHook}\n\nI've been using ${productName} and wanted to share my thoughts.\n\nLink in my bio!`,
+    script_draft: `${fallbackHook}\n\nI've been using ${productName} and wanted to share my thoughts.\n\nTap the orange cart!`,
     hook_options: [fallbackHook],
     selected_hook: fallbackHook,
-    on_screen_text: ["Must see", "Watch this", "Link in bio"],
+    on_screen_text: ["Must see", "Watch this", "Tap the orange cart"],
   };
 }
 
@@ -1083,7 +1083,7 @@ CTA SCRIPT LINE (persuasive copy for script body):
 
 CTA OVERLAY (mechanical action only - final seconds):
 14. cta_overlay_options: Array of 5 mechanical CTAs (2-6 words max)
-    - ONLY the action: "Tap the orange cart", "Link in bio", "Shop it here"
+    - ONLY the action: "Tap the orange cart", "Shop it here", "Add to cart"
     - NO hype, NO product names, NO benefits
     - Simple instruction for viewer action
 15. selected_cta_overlay: Best CTA overlay
@@ -1151,7 +1151,7 @@ function readjustBrief(
     selected_cta_script: original.selected_cta_script || "This is selling out fast - grab yours!",
 
     // CTA Overlay (mechanical action only)
-    cta_overlay_options: original.cta_overlay_options || ["Tap the orange cart", "Link in bio", "Shop it here"],
+    cta_overlay_options: original.cta_overlay_options || ["Tap the orange cart", "Shop it here", "Add to cart"],
     selected_cta_overlay: original.selected_cta_overlay || original.on_screen_text_cta || "Tap the orange cart",
     on_screen_text_mid: original.on_screen_text_mid || [],
     on_screen_text_cta: original.on_screen_text_cta || "Tap the orange cart",
@@ -1236,14 +1236,14 @@ function readjustBrief(
   // CTA Overlay based on tone (mechanical action only, 2-6 words)
   if (!isLocked("onScreenTextCta")) {
     if (tonePreset === "soft_sell") {
-      result.selected_cta_overlay = "Link in bio";
-      result.cta_overlay_options = ["Link in bio", "Check it out", "Details below", "Tap to learn more", "Bio link"];
+      result.selected_cta_overlay = "Tap the orange cart";
+      result.cta_overlay_options = ["Tap the orange cart", "Check it out", "Details below", "Tap to learn more", "Shop it here"];
     } else if (tonePreset === "fast_paced") {
       result.selected_cta_overlay = "Tap the cart NOW";
       result.cta_overlay_options = ["Tap the cart NOW", "Shop it", "Get it fast", "Tap here", "Go go go"];
     } else {
       result.selected_cta_overlay = "Tap the orange cart";
-      result.cta_overlay_options = ["Tap the orange cart", "Link in bio", "Shop it here", "Tap to shop", "Get yours"];
+      result.cta_overlay_options = ["Tap the orange cart", "Shop it here", "Tap to shop", "Get yours", "Add to cart"];
     }
     result.on_screen_text_cta = result.selected_cta_overlay;
   } else if (currentState?.onScreenTextCta) {
@@ -1900,7 +1900,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
       selected_cta_script: String(aiResult.selected_cta_script || ctaScriptOptions[0] || "This is selling out fast - grab yours!"),
 
       // CTA Overlay (mechanical action only)
-      cta_overlay_options: ctaOptions.length > 0 ? ctaOptions : ["Tap the orange cart", "Link in bio", "Shop it here", "Get it now", "Tap to shop"],
+      cta_overlay_options: ctaOptions.length > 0 ? ctaOptions : ["Tap the orange cart", "Shop it here", "Get it now", "Tap to shop", "Add to cart"],
       selected_cta_overlay: ctaOptions[0] || "Tap the orange cart",
 
       // Legacy fields

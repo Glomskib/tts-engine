@@ -44,7 +44,7 @@ COMMENT ON COLUMN public.concepts.cta_script_options IS
 -- =============================================================================
 -- The existing selected_cta_overlay should be mechanical only (2-6 words)
 COMMENT ON COLUMN public.videos.selected_cta_overlay IS
-'Mechanical CTA overlay (2-6 words). Final action only: "Tap the orange cart", "Link in bio". No hype, no product names.';
+'Mechanical CTA overlay (2-6 words). Final action only: "Tap the orange cart", "Shop it here". No hype, no product names.';
 
 -- =============================================================================
 -- E) Add product_display_name_options to concepts for AI generation

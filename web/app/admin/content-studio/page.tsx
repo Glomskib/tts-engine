@@ -380,6 +380,20 @@ export default function ContentStudioPage() {
   const [approvingToPipeline, setApprovingToPipeline] = useState(false);
   const [approvedToPipeline, setApprovedToPipeline] = useState(false);
 
+  // Per-variation action state
+  const [savedVariations, setSavedVariations] = useState<Set<number>>(new Set());
+  const [approvedVariations, setApprovedVariations] = useState<Set<number>>(new Set());
+  const [savingVariation, setSavingVariation] = useState<number | null>(null);
+  const [approvingVariation, setApprovingVariation] = useState<number | null>(null);
+  const [sharingVariation, setSharingVariation] = useState<number | null>(null);
+
+  // Pipeline success modal
+  const [pipelineSuccessOpen, setPipelineSuccessOpen] = useState(false);
+
+  // Share URL state
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
   // CTA editing state
   const [editingCTA, setEditingCTA] = useState(false);
   const [editedCTALine, setEditedCTALine] = useState('');
@@ -674,9 +688,29 @@ export default function ContentStudioPage() {
     }
   }, [selectedMainTabId, filteredContentTypes]);
 
-  // Reset product pain points when product changes
+  // Starred pain points (persisted across session)
+  const [starredPainPoints, setStarredPainPoints] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ff-starred-pain-points');
+        return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+      } catch { return new Set<string>(); }
+    }
+    return new Set<string>();
+  });
+
+  // Save starred pain points to localStorage
+  useEffect(() => {
+    localStorage.setItem('ff-starred-pain-points', JSON.stringify([...starredPainPoints]));
+  }, [starredPainPoints]);
+
+  // Auto-load pain points when product changes
   useEffect(() => {
     setProductPainPoints([]);
+    setSelectedPainPoints([]);
+    if (selectedProductId) {
+      fetchOrGeneratePainPoints();
+    }
   }, [selectedProductId]);
 
   // --- Handlers ---
@@ -1249,6 +1283,8 @@ export default function ContentStudioPage() {
       }
 
       setApprovedToPipeline(true);
+      setPipelineSuccessOpen(true);
+      showSuccess('Script approved and sent to pipeline!');
     } catch (err) {
       console.error('Approve and send failed:', err);
       setError({
@@ -1261,6 +1297,164 @@ export default function ContentStudioPage() {
     } finally {
       setApprovingToPipeline(false);
     }
+  };
+
+  // Per-variation save handler
+  const handleSaveVariation = async (variationIndex: number) => {
+    if (!result) return;
+    setSavingVariation(variationIndex);
+    try {
+      const skit = result.variations?.[variationIndex]?.skit;
+      if (!skit) return;
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Manual Entry';
+      const productBrand = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.brand || ''
+        : manualBrandName || '';
+
+      const res = await postJson('/api/skits', {
+        title: `${productName} - V${variationIndex + 1} - ${new Date().toLocaleDateString()}`,
+        status: 'draft',
+        product_id: selectedProductId || null,
+        product_name: productName,
+        product_brand: productBrand,
+        skit_data: skit,
+        generation_config: {
+          content_type: selectedContentTypeId,
+          presentation_style: selectedPresentationStyleId,
+          risk_tier: riskTier,
+        },
+        ai_score: result.variations![variationIndex]?.ai_score || null,
+        strategy_metadata: result.strategy_metadata || null,
+      });
+
+      if (!isApiError(res)) {
+        setSavedVariations(prev => new Set([...prev, variationIndex]));
+        showSuccess(`Variation ${variationIndex + 1} saved to library`);
+      }
+    } catch (err) {
+      console.error('Save variation failed:', err);
+      showError('Failed to save variation');
+    } finally {
+      setSavingVariation(null);
+    }
+  };
+
+  // Per-variation approve handler
+  const handleApproveVariation = async (variationIndex: number) => {
+    if (!result) return;
+    setApprovingVariation(variationIndex);
+    try {
+      const skit = result.variations?.[variationIndex]?.skit;
+      if (!skit) return;
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Manual Entry';
+      const productBrand = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.brand || ''
+        : manualBrandName || '';
+
+      const saveRes = await postJson<{ id: string }>('/api/skits', {
+        title: `${productName} - V${variationIndex + 1} - ${new Date().toLocaleDateString()}`,
+        status: 'approved',
+        product_id: selectedProductId || undefined,
+        product_name: productName,
+        product_brand: productBrand,
+        skit_data: skit,
+        generation_config: {
+          content_type: selectedContentTypeId,
+          presentation_style: selectedPresentationStyleId,
+          risk_tier: riskTier,
+        },
+        ai_score: result.variations![variationIndex]?.ai_score || null,
+        strategy_metadata: result.strategy_metadata || null,
+      });
+
+      if (isApiError(saveRes)) throw new Error(saveRes.message || 'Failed to save');
+
+      const savedSkitId = saveRes.data?.id;
+      if (!savedSkitId) throw new Error('No script ID returned');
+
+      if (selectedProductId) {
+        await postJson(`/api/skits/${savedSkitId}/send-to-video`, { priority: 'normal' });
+      } else {
+        await postJson('/api/videos/create-from-script', {
+          script_id: savedSkitId,
+          title: (skit.hook_line || skit.visual_hook || skit.verbal_hook || 'Untitled').substring(0, 50),
+          product_name: productName,
+          product_brand: productBrand,
+          hook_line: skit.hook_line || skit.verbal_hook,
+        });
+      }
+
+      setApprovedVariations(prev => new Set([...prev, variationIndex]));
+      setPipelineSuccessOpen(true);
+      showSuccess(`Variation ${variationIndex + 1} approved and sent to pipeline!`);
+    } catch (err) {
+      console.error('Approve variation failed:', err);
+      showError('Failed to approve variation');
+    } finally {
+      setApprovingVariation(null);
+    }
+  };
+
+  // Share variation handler
+  const handleShareVariation = async (variationIndex: number) => {
+    if (!result) return;
+    setSharingVariation(variationIndex);
+    try {
+      const skit = result.variations?.[variationIndex]?.skit;
+      if (!skit) return;
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Manual Entry';
+
+      // Save the script first if not saved
+      const saveRes = await postJson<{ id: string }>('/api/skits', {
+        title: `${productName} - V${variationIndex + 1} - Shared`,
+        status: 'draft',
+        product_id: selectedProductId || null,
+        product_name: productName,
+        skit_data: skit,
+        is_public: true,
+      });
+
+      if (!isApiError(saveRes) && saveRes.data?.id) {
+        const url = `${window.location.origin}/s/${saveRes.data.id}`;
+        setShareUrl(url);
+        setShareModalOpen(true);
+        await navigator.clipboard.writeText(url).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+      showError('Failed to create share link');
+    } finally {
+      setSharingVariation(null);
+    }
+  };
+
+  // Copy variation to clipboard
+  const handleCopyVariation = (variationIndex: number) => {
+    const skit = result?.variations?.[variationIndex]?.skit;
+    if (!skit) return;
+    const hookText = skit.visual_hook
+      ? `VISUAL HOOK: ${skit.visual_hook}\nTEXT ON SCREEN: ${skit.text_on_screen_hook || ''}\nVERBAL HOOK: ${skit.verbal_hook || ''}`
+      : `HOOK: ${skit.hook_line}`;
+    const fullScript = [
+      hookText,
+      '',
+      ...skit.beats.map((b) => {
+        let beatText = `[${b.t}] ${b.action}`;
+        if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+        if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+        return beatText;
+      }),
+      '',
+      `CTA: ${skit.cta_line}`,
+      skit.cta_overlay ? `OVERLAY: ${skit.cta_overlay}` : '',
+    ].filter(Boolean).join('\n');
+    copyToClipboard(fullScript, `var-${variationIndex}`);
   };
 
   // --- Styles ---
@@ -1555,7 +1749,7 @@ export default function ContentStudioPage() {
                 <div style={sectionStyle}>
                   <div style={sectionTitleStyle}>
                     <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>2</span>
-                    Content Format
+                    Urgency Style
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {selectedContentType.subtypes.map((sub) => {
@@ -1696,7 +1890,18 @@ export default function ContentStudioPage() {
                 {/* Pain Points - show when product is selected */}
                 {selectedProductId && (
                   <div style={{ marginTop: '12px' }}>
-                    {productPainPoints.length === 0 ? (
+                    {generatingPainPoints ? (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        color: '#8b5cf6',
+                        fontSize: '12px',
+                      }}>
+                        <Loader2 size={14} className="animate-spin" /> Loading pain points...
+                      </div>
+                    ) : productPainPoints.length === 0 ? (
                       <button
                         type="button"
                         onClick={fetchOrGeneratePainPoints}
@@ -1712,52 +1917,151 @@ export default function ContentStudioPage() {
                           color: '#8b5cf6',
                           fontSize: '12px',
                           fontWeight: 500,
-                          cursor: generatingPainPoints ? 'not-allowed' : 'pointer',
-                          opacity: generatingPainPoints ? 0.7 : 1,
+                          cursor: 'pointer',
                         }}
                       >
-                        {generatingPainPoints ? (
-                          <><Loader2 size={14} className="animate-spin" /> Generating pain points...</>
-                        ) : (
-                          <><Zap size={14} /> Generate Pain Points</>
-                        )}
+                        <Zap size={14} /> Generate Pain Points
                       </button>
                     ) : (
                       <div>
-                        <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '6px' }}>
-                          Pain points (click to focus):
+                        <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>Pain points (click to focus, star to keep):</span>
+                          <button
+                            type="button"
+                            onClick={fetchOrGeneratePainPoints}
+                            style={{ fontSize: '11px', color: '#8b5cf6', cursor: 'pointer', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
+                          >
+                            <RefreshCw size={10} /> Refresh
+                          </button>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                           {productPainPoints.map((point, idx) => {
                             const isSelected = selectedPainPoints.includes(point);
+                            const isStarred = starredPainPoints.has(point);
                             return (
-                              <button
-                                type="button"
+                              <div
                                 key={idx}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setSelectedPainPoints(prev => prev.filter(p => p !== point));
-                                  } else {
-                                    setSelectedPainPoints(prev => [...prev, point]);
-                                  }
-                                }}
                                 style={{
-                                  padding: '4px 10px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  padding: '4px 6px 4px 10px',
                                   backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
                                   border: `1px solid ${isSelected ? '#8b5cf6' : colors.border}`,
                                   borderRadius: '6px',
-                                  color: isSelected ? '#8b5cf6' : colors.textSecondary,
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
                                   transition: 'all 0.15s ease',
                                 }}
                               >
-                                {isSelected && <Check size={10} style={{ marginRight: '4px', display: 'inline' }} />}
-                                {point}
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedPainPoints(prev => prev.filter(p => p !== point));
+                                    } else {
+                                      setSelectedPainPoints(prev => [...prev, point]);
+                                    }
+                                  }}
+                                  style={{
+                                    color: isSelected ? '#8b5cf6' : colors.textSecondary,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: 0,
+                                  }}
+                                >
+                                  {isSelected && <Check size={10} style={{ marginRight: '4px', display: 'inline' }} />}
+                                  {point}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setStarredPainPoints(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(point)) next.delete(point);
+                                      else next.add(point);
+                                      return next;
+                                    });
+                                  }}
+                                  style={{
+                                    color: isStarred ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+                                    cursor: 'pointer',
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '2px',
+                                    fontSize: '11px',
+                                    lineHeight: 1,
+                                  }}
+                                  title={isStarred ? 'Unstar (will be cleared on exit)' : 'Star to keep permanently'}
+                                >
+                                  <Star size={12} fill={isStarred ? '#f59e0b' : 'none'} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProductPainPoints(prev => prev.filter((_, i) => i !== idx));
+                                    setSelectedPainPoints(prev => prev.filter(p => p !== point));
+                                    setStarredPainPoints(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(point);
+                                      return next;
+                                    });
+                                  }}
+                                  style={{
+                                    color: 'rgba(255,255,255,0.2)',
+                                    cursor: 'pointer',
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '2px',
+                                    fontSize: '11px',
+                                    lineHeight: 1,
+                                  }}
+                                  title="Remove pain point"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
                             );
                           })}
                         </div>
+                        {/* Saved pain points from database */}
+                        {savedPainPoints.length > 0 && (
+                          <div style={{ marginTop: '8px' }}>
+                            <div style={{ fontSize: '11px', color: '#10b981', marginBottom: '4px' }}>Saved pain points:</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {savedPainPoints
+                                .filter(sp => !productPainPoints.includes(sp.pain_point_text))
+                                .map((sp) => {
+                                  const isSelected = selectedPainPoints.includes(sp.pain_point_text);
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={sp.id}
+                                      onClick={() => {
+                                        if (isSelected) {
+                                          setSelectedPainPoints(prev => prev.filter(p => p !== sp.pain_point_text));
+                                        } else {
+                                          setSelectedPainPoints(prev => [...prev, sp.pain_point_text]);
+                                        }
+                                      }}
+                                      style={{
+                                        padding: '4px 10px',
+                                        backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${isSelected ? '#10b981' : colors.border}`,
+                                        borderRadius: '6px',
+                                        color: isSelected ? '#10b981' : colors.textSecondary,
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      {isSelected && <Check size={10} style={{ marginRight: '4px', display: 'inline' }} />}
+                                      {sp.pain_point_text}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2527,36 +2831,105 @@ export default function ContentStudioPage() {
           {/* Results Display */}
           {result && currentSkit && (
             <div ref={resultsRef}>
-              {/* Variation Tabs */}
+              {/* Variation Tabs with Per-Variation Actions */}
               {result.variations && result.variations.length > 1 && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  {result.variations.map((v, idx) => (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    {result.variations.map((v, idx) => (
+                      <button type="button"
+                        key={idx}
+                        onClick={() => setSelectedVariationIndex(idx)}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: selectedVariationIndex === idx ? '#3b82f6' : colors.bg,
+                          border: `1px solid ${selectedVariationIndex === idx ? '#3b82f6' : colors.border}`,
+                          borderRadius: '8px',
+                          color: selectedVariationIndex === idx ? 'white' : colors.text,
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                        }}
+                      >
+                        V{idx + 1}
+                        {v.variation_angle && (
+                          <span style={{ marginLeft: '6px', fontSize: '11px', opacity: 0.7 }}>
+                            {v.variation_angle}
+                          </span>
+                        )}
+                        {v.ai_score && (
+                          <span style={{ marginLeft: '8px', opacity: 0.8 }}>
+                            ({v.ai_score.overall_score}/10)
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Per-variation action buttons */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <button type="button"
-                      key={idx}
-                      onClick={() => setSelectedVariationIndex(idx)}
+                      onClick={() => handleSaveVariation(selectedVariationIndex)}
+                      disabled={savingVariation === selectedVariationIndex || savedVariations.has(selectedVariationIndex)}
                       style={{
-                        padding: '8px 16px',
-                        backgroundColor: selectedVariationIndex === idx ? '#3b82f6' : colors.bg,
-                        border: `1px solid ${selectedVariationIndex === idx ? '#3b82f6' : colors.border}`,
+                        padding: '6px 12px',
+                        backgroundColor: savedVariations.has(selectedVariationIndex) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                        border: `1px solid ${savedVariations.has(selectedVariationIndex) ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
                         borderRadius: '8px',
-                        color: selectedVariationIndex === idx ? 'white' : colors.text,
-                        cursor: 'pointer',
-                        fontSize: '13px',
+                        color: savedVariations.has(selectedVariationIndex) ? '#10b981' : '#f59e0b',
+                        fontSize: '12px', fontWeight: 500, cursor: savedVariations.has(selectedVariationIndex) ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '4px',
                       }}
                     >
-                      V{idx + 1}
-                      {v.variation_angle && (
-                        <span style={{ marginLeft: '6px', fontSize: '11px', opacity: 0.7 }}>
-                          {v.variation_angle}
-                        </span>
-                      )}
-                      {v.ai_score && (
-                        <span style={{ marginLeft: '8px', opacity: 0.8 }}>
-                          ({v.ai_score.overall_score}/10)
-                        </span>
-                      )}
+                      {savedVariations.has(selectedVariationIndex) ? <><Check size={12} /> Saved</> :
+                       savingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Saving...</> :
+                       <><Star size={12} /> Save</>}
                     </button>
-                  ))}
+                    <button type="button"
+                      onClick={() => handleApproveVariation(selectedVariationIndex)}
+                      disabled={approvingVariation === selectedVariationIndex || approvedVariations.has(selectedVariationIndex)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: approvedVariations.has(selectedVariationIndex) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                        border: `1px solid rgba(16, 185, 129, 0.3)`,
+                        borderRadius: '8px',
+                        color: '#10b981',
+                        fontSize: '12px', fontWeight: 500, cursor: approvedVariations.has(selectedVariationIndex) ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                      }}
+                    >
+                      {approvedVariations.has(selectedVariationIndex) ? <><Check size={12} /> In Pipeline</> :
+                       approvingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sending...</> :
+                       <><Zap size={12} /> Approve</>}
+                    </button>
+                    <button type="button"
+                      onClick={() => handleCopyVariation(selectedVariationIndex)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: copiedField === `var-${selectedVariationIndex}` ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '8px',
+                        color: copiedField === `var-${selectedVariationIndex}` ? '#10b981' : colors.textSecondary,
+                        fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                      }}
+                    >
+                      {copiedField === `var-${selectedVariationIndex}` ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                    </button>
+                    <button type="button"
+                      onClick={() => handleShareVariation(selectedVariationIndex)}
+                      disabled={sharingVariation === selectedVariationIndex}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        border: '1px solid rgba(99, 102, 241, 0.3)',
+                        borderRadius: '8px',
+                        color: '#a5b4fc',
+                        fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                      }}
+                    >
+                      {sharingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sharing...</> :
+                       <><Send size={12} /> Share</>}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -3779,6 +4152,140 @@ export default function ContentStudioPage() {
         }}>
           <Check size={16} />
           Saved to Library
+        </div>
+      )}
+
+      {/* Pipeline Success Modal */}
+      {pipelineSuccessOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}
+          onClick={() => setPipelineSuccessOpen(false)}
+        >
+          <div style={{
+            backgroundColor: colors.card,
+            borderRadius: '16px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '400px',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            textAlign: 'center',
+          }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ width: '56px', height: '56px', margin: '0 auto 16px', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Check size={28} style={{ color: '#10b981' }} />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', color: colors.text, fontSize: '18px' }}>Script Sent to Pipeline!</h3>
+            <p style={{ margin: '0 0 24px 0', color: colors.textSecondary, fontSize: '14px' }}>
+              Your script has been approved and added to the production pipeline.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button type="button"
+                onClick={() => setPipelineSuccessOpen(false)}
+                style={{
+                  flex: 1, padding: '12px',
+                  backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                  borderRadius: '10px', color: colors.text, cursor: 'pointer', fontSize: '14px',
+                }}
+              >
+                Keep Creating
+              </button>
+              <Link
+                href="/admin/pipeline"
+                style={{
+                  flex: 1, padding: '12px',
+                  backgroundColor: '#10b981', border: 'none',
+                  borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+                  textDecoration: 'none', textAlign: 'center',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                }}
+              >
+                View in Pipeline <ChevronRight size={16} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {shareModalOpen && shareUrl && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}
+          onClick={() => setShareModalOpen(false)}
+        >
+          <div style={{
+            backgroundColor: colors.card,
+            borderRadius: '16px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '420px',
+            border: `1px solid ${colors.border}`,
+          }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 16px 0', color: colors.text, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Send size={18} style={{ color: '#6366f1' }} />
+              Share Script
+            </h3>
+            <div style={{
+              padding: '12px',
+              backgroundColor: colors.bg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <input
+                value={shareUrl}
+                readOnly
+                style={{ flex: 1, background: 'none', border: 'none', color: colors.text, fontSize: '13px', outline: 'none' }}
+              />
+              <button type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(shareUrl);
+                  showSuccess('Link copied!');
+                }}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#6366f1',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                }}
+              >
+                Copy
+              </button>
+            </div>
+            <button type="button"
+              onClick={() => setShareModalOpen(false)}
+              style={{
+                width: '100%', padding: '10px',
+                backgroundColor: colors.bg, border: `1px solid ${colors.border}`,
+                borderRadius: '10px', color: colors.text, cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 

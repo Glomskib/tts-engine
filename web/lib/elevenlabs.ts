@@ -33,7 +33,7 @@ export function formatForTTS(text: string): string {
 
   // 4. Add pre-CTA pause before common CTA trigger phrases
   const ctaPhrases = [
-    'link in bio',
+    'tap the cart',
     'tap the link',
     'grab yours',
     'use code',

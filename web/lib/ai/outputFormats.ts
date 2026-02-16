@@ -55,27 +55,36 @@ export const CTA_INSTRUCTIONS = `
 
 The CTA is NOT a sales pitch. It's the organic ending of someone's genuine experience.
 
-The best CTAs are PERSONAL TESTIMONY that makes the viewer want to act on their own:
+CRITICAL CTA RULES — TIKTOK SHOP AFFILIATES ONLY:
+- NEVER use "link in bio", "link in profile", or any bio-link language
+- ALL CTAs must use TikTok Shop affiliate language ONLY:
+  - "Tap the orange cart below"
+  - "Orange shopping cart is right there"
+  - "Link is right below this video"
+  - "Linked below for you"
+  - "Check the product link below"
+- This is for TikTok Shop affiliates — every CTA drives to the in-app product link
 
-TIER 1 (score 9-10) — Personal conviction, no commands:
-- "I'm on my third bottle. Just saying."
-- "I literally can't go back to how I was doing it before."
-- "I wish someone had told me about this six months ago."
-- "This is the one thing I tell everyone about. Do with that what you will."
-- "I grabbed two more just in case. That should tell you everything."
+The best CTAs COMBINE personal testimony with a TikTok Shop direction:
+
+TIER 1 (score 9-10) — Personal conviction + shop direction:
+- "I'm on my third bottle. Just saying. It's linked right below."
+- "I literally can't go back. Orange cart is right there if you want it."
+- "I wish someone had told me about this six months ago. Linked below for you."
+- "I grabbed two more just in case. Tap the orange cart below."
 
 TIER 2 (score 7-8) — Gentle nudge with personality:
-- "If you've been on the fence, get off it. Trust me on this one."
-- "I'm not saying you NEED this. But... you kind of need this."
-- "All I'm saying is, I haven't looked back. Not once."
+- "If you've been on the fence, get off it. Product link is right below."
+- "I'm not saying you NEED this. But... orange cart is right there."
+- "All I'm saying is, I haven't looked back. Check the link below."
 
 TIER 3 (score 4-6) — Avoid these:
+- "Link in bio" — BANNED, never use this
 - "Add to cart now" — too corporate
-- "Tap the yellow basket" — platform mechanic, breaks immersion
+- "Tap the yellow basket" — wrong color, wrong vibe
 - "Grab yours before they sell out" — generic urgency
-- "Link in bio" — lazy, zero conviction
 
-The CTA should feel like the LAST LINE of someone's genuine reaction — not a pivot to selling.
+The CTA should feel like the LAST LINE of someone's genuine reaction with a natural mention of where to find it.
 `;
 
 export const BROLL_INSTRUCTIONS = `
@@ -247,7 +256,10 @@ CREATIVE PRINCIPLES - STOP THE SCROLL:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Scroll-stopping opening line (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -258,15 +270,21 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Suggested B-roll shot 1", "Shot 2"],
   "overlays": ["Text overlay suggestion 1", "Text overlay 2"],
-  "cta_line": "Call to action spoken line",
+  "cta_line": "Call to action spoken line — use TikTok Shop language (tap the orange cart, linked below, etc.)",
   "cta_overlay": "CTA text overlay (max 40 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 TIMING GUIDELINES:
 - Hook: First 1 second (pattern interrupt, must stop the scroll)
 - Value/entertainment: Build curiosity or deliver quick payoff
 - Product moment: Brief, organic, never the focus
-- CTA: Quick, subtle, not preachy
+- CTA: Quick, subtle, not preachy — use TikTok Shop affiliate language only
 
 BEAT QUALITY CHECKLIST:
 - Would someone share this even without the product?
@@ -323,7 +341,10 @@ CREATIVE PRINCIPLES - TELL A STORY THAT MOVES PEOPLE:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Emotionally compelling opening (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -334,9 +355,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Suggested visual/shot 1", "Shot 2"],
   "overlays": ["Text overlay suggestion 1", "Text overlay 2"],
-  "cta_line": "Heartfelt call to action",
+  "cta_line": "Heartfelt call to action — use TikTok Shop language (tap the orange cart, linked below, etc.)",
   "cta_overlay": "CTA text overlay (max 40 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 STORY ARC GUIDELINES:
 - Hook (0-3s): Emotional pull, vulnerability, or intrigue
@@ -400,7 +427,10 @@ CREATIVE PRINCIPLES - SHOW, DON'T JUST TELL:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Problem-aware opening line (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -411,9 +441,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Product shot 1", "Close-up detail 2"],
   "overlays": ["Key feature callout 1", "Benefit text 2"],
-  "cta_line": "Call to action",
+  "cta_line": "Call to action — use TikTok Shop language (tap the orange cart, linked below, etc.)",
   "cta_overlay": "CTA text overlay (max 40 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 DEMO FLOW GUIDELINES:
 - Hook (0-3s): Problem or curiosity trigger
@@ -477,7 +513,10 @@ CREATIVE PRINCIPLES - KEEP IT REAL:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Authentic, casual opening (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -488,9 +527,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Product in real-life setting 1", "Shot 2"],
   "overlays": ["Text overlay suggestion 1", "Text overlay 2"],
-  "cta_line": "Natural recommendation",
+  "cta_line": "Natural recommendation — use TikTok Shop language (tap the orange cart, linked below, etc.)",
   "cta_overlay": "CTA text overlay (max 40 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 TESTIMONIAL FLOW GUIDELINES:
 - Hook (0-3s): Casual, attention-grabbing opener
@@ -554,7 +599,10 @@ CREATIVE PRINCIPLES - TEACH WITH AUTHORITY:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Knowledge-gap opening line (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -565,9 +613,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Visual aid 1", "Example shot 2"],
   "overlays": ["Key takeaway 1", "Numbered point 2"],
-  "cta_line": "Value-driven call to action",
+  "cta_line": "Value-driven call to action — use TikTok Shop language (tap the orange cart, linked below, etc.)",
   "cta_overlay": "CTA text overlay (max 40 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 EDUCATIONAL FLOW GUIDELINES:
 - Hook (0-3s): Knowledge gap or bold claim
@@ -631,7 +685,10 @@ SCENE TRANSITION STYLES:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Opening visual hook that establishes the story (max 100 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:05",
@@ -666,9 +723,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["5-8 specific visual scene descriptions"],
   "overlays": ["Emotional text overlays at key moments"],
-  "cta_line": "Soft CTA that fits the story (not pushy)",
+  "cta_line": "Soft CTA that fits the story — use TikTok Shop language (tap the orange cart, linked below, etc.)",
   "cta_overlay": "CTA text (max 30 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 HARD RULES:
 - 5-8 beats, total time 30-60 seconds
@@ -731,7 +794,10 @@ BAD VIDEO DIRECTION:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "Opening line that grabs attention — the first beat's dialogue (max 150 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -754,9 +820,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["Not needed — this format is all one continuous scene"],
   "overlays": ["Pain point or benefit text card (3-6 words)", "CTA text card"],
-  "cta_line": "Personal testimony close — what YOU did/feel, not what the viewer should do. e.g. 'I'm on my third bottle. Just saying.' (NEVER 'link in bio', 'add to cart', 'tap yellow basket')",
+  "cta_line": "Personal testimony close — use TikTok Shop language (tap the orange cart, linked below, etc.). e.g. 'I'm on my third bottle. Orange cart is right there.' (NEVER 'link in bio', 'add to cart', 'tap yellow basket')",
   "cta_overlay": "Casual overlay, 2-4 words (e.g. 'just saying', 'trust me on this', 'you're welcome')"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 HARD RULES:
 - 3-4 beats depending on duration
@@ -880,7 +952,10 @@ URGENCY PHRASES TO USE:
   structureTemplate: `
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "hook_line": "2-5 word shocked/urgent opener (max 80 chars)",
+  "visual_hook": "The physical scene/action that creates a scroll-stopping pattern interrupt. Be specific about movements, settings, and visual elements. (max 200 chars)",
+  "text_on_screen_hook": "The overlay text that creates curiosity and relates to the target audience's pain point. Use 'POV:', 'When you...', or provocative statements. (max 150 chars)",
+  "verbal_hook": "The opening spoken line. This should immediately resonate with the customer archetype's core pain point. (max 150 chars)",
+  "hook_line": "DEPRECATED: Use visual_hook, text_on_screen_hook, and verbal_hook instead. For backwards compatibility only.",
   "beats": [
     {
       "t": "0:00-0:03",
@@ -909,9 +984,15 @@ OUTPUT FORMAT (JSON only, no markdown):
   ],
   "b_roll": ["1-2 quick product cuts only"],
   "overlays": ["Deal/price overlay", "Timer/urgency text"],
-  "cta_line": "Direct action command (5 words max)",
+  "cta_line": "Direct action command — use TikTok Shop language (tap the orange cart, linked below, etc.) (5 words max)",
   "cta_overlay": "Short CTA text (max 25 chars)"
 }
+
+EVERY script MUST begin with a 3-PART HOOK designed to stop scrolling:
+1. VISUAL HOOK (Scene Direction): A physical action, movement, or prop that catches the eye
+2. TEXT ON SCREEN: A curiosity-driving overlay that makes viewers NEED to keep watching
+3. VERBAL HOOK (Opening Line): The first spoken words that create an open loop
+All three hooks must work TOGETHER as a scroll-stopping pattern interrupt.
 
 HARD RULES:
 - EXACTLY 3-4 beats, total time 10-15 seconds

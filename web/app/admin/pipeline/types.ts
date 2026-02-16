@@ -217,13 +217,23 @@ export function getPrimaryAction(video: QueueVideo): PrimaryAction {
     };
   }
 
-  // If READY_TO_POST: primary = Post
+  // If READY_TO_POST: primary = Post (only if can_mark_posted is true)
   if (video.recording_status === 'READY_TO_POST') {
+    if (video.can_mark_posted) {
+      return {
+        type: 'post',
+        label: 'Post Video',
+        shortLabel: 'Post',
+        color: '#1971c2',
+        icon: '',
+      };
+    }
+    // READY_TO_POST but missing requirements - show disabled state
     return {
-      type: 'post',
-      label: 'Post Video',
-      shortLabel: 'Post',
-      color: '#1971c2',
+      type: 'done',
+      label: 'Awaiting Post Requirements',
+      shortLabel: 'Waiting',
+      color: '#94a3b8',
       icon: '',
     };
   }

@@ -230,7 +230,7 @@ export default function VoicePage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold">Voice Assistant</h1>
-            <p className="text-xs text-zinc-500">Talk to Bolt — push the mic to speak</p>
+            <p className="text-xs text-zinc-500">Talk to FlashFlow — push the mic to speak</p>
           </div>
         </div>
         <div className="flex items-center gap-4">

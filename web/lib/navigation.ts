@@ -95,6 +95,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
+      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
     ],
   },
   {
@@ -102,20 +103,16 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro' },
-      { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro' },
     ],
   },
   {
-    title: 'INSIGHTS',
+    title: 'AUDIENCE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
-      { name: 'Creator Personas', href: '/admin/personas', icon: Users },
+      { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro' },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
-      { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
-      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
     ],
   },
   {
@@ -125,7 +122,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
       { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
       { name: 'Retainers & Bonuses', href: '/admin/retainers', icon: Target, minPlan: 'creator_pro' },
-      { name: 'Briefs', href: '/admin/briefs', icon: FileText, minPlan: 'creator_pro' },
     ],
   },
   {

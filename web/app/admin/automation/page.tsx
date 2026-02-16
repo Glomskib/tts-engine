@@ -91,7 +91,7 @@ const CRON_TASKS: CronTask[] = [
 ];
 
 const AGENTS: AgentInfo[] = [
-  { id: 'main', name: 'Bolt', emoji: '⚡', status: 'active', skills: ['General', 'Telegram'] },
+  { id: 'main', name: 'FlashFlow', emoji: '⚡', status: 'active', skills: ['General', 'Telegram'] },
   { id: 'flashflow-work', name: 'FlashFlow', emoji: '🎬', status: 'active', skills: ['API', 'Content Strategy', 'VA Management', 'Daily Reports', 'Pipeline', 'Scripts', 'Winners', 'Products', 'System'] },
   { id: 'research-bot', name: 'ResearchBot', emoji: '🔬', status: 'idle', skills: ['Research', 'Trend Analysis'] },
   { id: 'scraper-bot', name: 'ScraperBot', emoji: '🤖', status: 'idle', skills: ['Scraping', 'Stats Collection'] },

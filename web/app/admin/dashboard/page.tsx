@@ -48,12 +48,12 @@ const ALL_QUICK_NAV_ITEMS = [
     description: 'Track production',
   },
   {
-    id: 'calendar',
-    label: 'Content Calendar',
-    href: '/admin/calendar',
-    icon: Calendar,
+    id: 'retainers',
+    label: 'Retainers',
+    href: '/admin/retainers',
+    icon: Target,
     color: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
-    description: 'Plan schedule',
+    description: 'Track retainers',
   },
   {
     id: 'winners-bank',
@@ -81,7 +81,7 @@ const ALL_QUICK_NAV_ITEMS = [
   },
 ];
 
-const DEFAULT_QUICK_LINKS = ['content-studio', 'transcriber', 'script-library', 'production-board', 'calendar', 'winners-bank', 'analytics', 'brands'];
+const DEFAULT_QUICK_LINKS = ['content-studio', 'transcriber', 'script-library', 'production-board', 'retainers', 'winners-bank', 'analytics', 'brands'];
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -96,6 +96,9 @@ export default function DashboardPage() {
   const [currentIncome, setCurrentIncome] = useState(0);
   const [currentVideos, setCurrentVideos] = useState(0);
   const [editingGoals, setEditingGoals] = useState(false);
+  const [autoCalcVideos, setAutoCalcVideos] = useState<number | null>(null);
+  const [autoCalcIncome, setAutoCalcIncome] = useState<number | null>(null);
+  const [goalsOverridden, setGoalsOverridden] = useState(false);
 
   // Check if onboarding was dismissed
   useEffect(() => {
@@ -117,17 +120,58 @@ export default function DashboardPage() {
       }
     }
 
-    // Load saved monthly goals
+    // Load saved monthly goals (user overrides)
     const savedGoals = localStorage.getItem('flashflow_monthly_goals');
     if (savedGoals) {
       try {
         const parsed = JSON.parse(savedGoals);
         if (parsed.incomeGoal) setIncomeGoal(parsed.incomeGoal);
         if (parsed.videosGoal) setVideosGoal(parsed.videosGoal);
-      } catch (e) {
+        if (parsed.overridden) setGoalsOverridden(true);
+      } catch {
         // Invalid JSON, use defaults
       }
     }
+  }, []);
+
+  // Auto-calculate goals from brand quotas + retainer targets
+  useEffect(() => {
+    const fetchAutoCalc = async () => {
+      try {
+        // Fetch brand quotas
+        const brandsRes = await fetch('/api/brands');
+        let totalQuotaVideos = 0;
+        if (brandsRes.ok) {
+          const brandsData = await brandsRes.json();
+          totalQuotaVideos = (brandsData.data || []).reduce((sum: number, b: { monthly_video_quota?: number }) => sum + (b.monthly_video_quota || 0), 0);
+        }
+
+        // Fetch retainer targets
+        const retainersRes = await fetch('/api/admin/retainers', { credentials: 'include' });
+        let retainerVideos = 0;
+        let retainerIncome = 0;
+        if (retainersRes.ok) {
+          const retainerData = await retainersRes.json();
+          if (retainerData.summary) {
+            retainerVideos = retainerData.summary.total_videos_needed || 0;
+            retainerIncome = (retainerData.summary.total_base || 0) + (retainerData.summary.total_potential || 0);
+          }
+        }
+
+        const calcVideos = Math.max(totalQuotaVideos, retainerVideos);
+        setAutoCalcVideos(calcVideos);
+        setAutoCalcIncome(retainerIncome);
+
+        // If not overridden, use auto-calculated values
+        if (!localStorage.getItem('flashflow_monthly_goals') || !JSON.parse(localStorage.getItem('flashflow_monthly_goals') || '{}').overridden) {
+          if (calcVideos > 0) setVideosGoal(calcVideos);
+          if (retainerIncome > 0) setIncomeGoal(retainerIncome);
+        }
+      } catch {
+        // Silent fail — keep manual goals
+      }
+    };
+    fetchAutoCalc();
   }, []);
 
   useEffect(() => {
@@ -206,7 +250,16 @@ export default function DashboardPage() {
   };
 
   const handleSaveGoals = () => {
-    localStorage.setItem('flashflow_monthly_goals', JSON.stringify({ incomeGoal, videosGoal }));
+    localStorage.setItem('flashflow_monthly_goals', JSON.stringify({ incomeGoal, videosGoal, overridden: true }));
+    setGoalsOverridden(true);
+    setEditingGoals(false);
+  };
+
+  const handleResetToAuto = () => {
+    if (autoCalcVideos !== null && autoCalcVideos > 0) setVideosGoal(autoCalcVideos);
+    if (autoCalcIncome !== null && autoCalcIncome > 0) setIncomeGoal(autoCalcIncome);
+    setGoalsOverridden(false);
+    localStorage.removeItem('flashflow_monthly_goals');
     setEditingGoals(false);
   };
 
@@ -339,9 +392,19 @@ export default function DashboardPage() {
       {/* Monthly Goals Widget */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Target className="w-5 h-5 text-emerald-400" />
             <h2 className="text-lg font-semibold text-white">Monthly Goals</h2>
+            {autoCalcVideos !== null && autoCalcVideos > 0 && !goalsOverridden && (
+              <span className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+                Auto-calculated: {autoCalcVideos} videos needed
+              </span>
+            )}
+            {goalsOverridden && (
+              <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20">
+                Custom override
+              </span>
+            )}
           </div>
           <button
             onClick={() => setEditingGoals(true)}
@@ -450,13 +513,21 @@ export default function DashboardPage() {
                 />
               </div>
             </div>
-            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4">
+            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4 space-y-2">
               <button
                 onClick={handleSaveGoals}
                 className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
               >
                 Save Goals
               </button>
+              {autoCalcVideos !== null && autoCalcVideos > 0 && (
+                <button
+                  onClick={handleResetToAuto}
+                  className="w-full py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                  Reset to auto-calculated ({autoCalcVideos} videos, ${autoCalcIncome?.toLocaleString() || '0'})
+                </button>
+              )}
             </div>
           </div>
         </div>

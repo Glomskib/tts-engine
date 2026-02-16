@@ -1356,7 +1356,7 @@ export default function ProductsPage() {
               <div className="pt-4 border-t border-white/10">
                 <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Product Image
-                  <span className="text-zinc-500 font-normal ml-1">(for Bolt AI video generation)</span>
+                  <span className="text-zinc-500 font-normal ml-1">(for AI video generation)</span>
                 </label>
 
                 {/* Current Image Preview */}

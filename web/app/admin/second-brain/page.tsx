@@ -366,7 +366,7 @@ export default function SecondBrainPage() {
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <FileText className="w-10 h-10 text-zinc-700 mb-3" />
                 <p className="text-zinc-500 text-sm mb-1">No documents found</p>
-                <p className="text-zinc-600 text-xs">Documents will appear here as Bolt creates journal entries and research reports.</p>
+                <p className="text-zinc-600 text-xs">Documents will appear here as FlashFlow creates journal entries and research reports.</p>
               </div>
             ) : (
               <div className="divide-y divide-zinc-800/50">

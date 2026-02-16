@@ -191,6 +191,19 @@ export default function VideoDrawer({
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<string | null>(null);
 
+  // Make Similar state
+  const [showMakeSimilarModal, setShowMakeSimilarModal] = useState(false);
+  const [similarTweaks, setSimilarTweaks] = useState<Record<string, boolean>>({
+    hook: false,
+    cta: false,
+    persona: false,
+    pain_points: false,
+    tone: false,
+  });
+  const [similarGenerating, setSimilarGenerating] = useState(false);
+  const [similarVariations, setSimilarVariations] = useState<{ title: string; script: string; hook?: string; cta?: string }[]>([]);
+  const [similarApprovingIdx, setSimilarApprovingIdx] = useState<number | null>(null);
+
   // Reject quick tags configuration
   const REJECT_TAGS = [
     { code: 'too_generic', label: 'Too Generic' },
@@ -1161,7 +1174,7 @@ export default function VideoDrawer({
           right: 0,
           bottom: 0,
           width: simpleMode ? '380px' : '520px',
-          backgroundColor: colors.surface,
+          backgroundColor: '#111827',
           boxShadow: '-4px 0 20px rgba(0,0,0,0.15)',
           zIndex: 1000,
           display: 'flex',
@@ -1172,8 +1185,8 @@ export default function VideoDrawer({
         {/* Header */}
         <div style={{
           padding: '16px 20px',
-          borderBottom: `1px solid ${colors.border}`,
-          backgroundColor: colors.surface,
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          backgroundColor: '#1f2937',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div style={{ flex: 1 }}>
@@ -1444,31 +1457,32 @@ export default function VideoDrawer({
             </div>
           </div>
 
-          {/* Next Action Section */}
+          {/* Next Action Section - only show when there's an actionable step */}
+          {primaryAction.type !== 'done' ? (
           <div style={{
             padding: '12px',
-            backgroundColor: '#e7f5ff',
-            borderRadius: '8px',
-            border: '1px solid #74c0fc',
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+            borderRadius: '16px',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
           }}>
-            <div style={{ fontSize: '10px', color: '#1971c2', marginBottom: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '10px', color: '#10b981', marginBottom: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
               Next Step
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#212529' }}>
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffffff' }}>
                 {primaryAction.icon} {primaryAction.label}
               </span>
               <button
                 type="button"
                 onClick={handlePrimaryAction}
-                disabled={loading || primaryAction.type === 'done' || isClaimedByOther}
+                disabled={loading || isClaimedByOther}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: loading || primaryAction.type === 'done' || isClaimedByOther ? '#ccc' : primaryAction.color,
+                  backgroundColor: loading || isClaimedByOther ? '#374151' : '#10b981',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
-                  cursor: loading || primaryAction.type === 'done' || isClaimedByOther ? 'not-allowed' : 'pointer',
+                  cursor: loading || isClaimedByOther ? 'not-allowed' : 'pointer',
                   fontSize: '13px',
                   fontWeight: 'bold',
                 }}
@@ -1490,6 +1504,60 @@ export default function VideoDrawer({
               </div>
             )}
           </div>
+          ) : video.recording_status === 'POSTED' ? (
+          <div style={{
+            padding: '12px',
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+            borderRadius: '16px',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>{'\u2705'}</span>
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#10b981' }}>
+                Video Posted Successfully
+              </span>
+            </div>
+            {video.posted_url && (
+              <a
+                href={video.posted_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  marginTop: '8px',
+                  fontSize: '12px',
+                  color: '#60a5fa',
+                  textDecoration: 'underline',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {video.posted_url}
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSimilarTweaks({ hook: false, cta: false, persona: false, pain_points: false, tone: false });
+                setSimilarVariations([]);
+                setShowMakeSimilarModal(true);
+              }}
+              style={{
+                marginTop: '10px',
+                width: '100%',
+                padding: '10px 16px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+              }}
+            >
+              Make Similar
+            </button>
+          </div>
+          ) : null}
 
           {/* TikTok Posting Status */}
           {video.tiktok_post_status && (
@@ -1840,7 +1908,7 @@ export default function VideoDrawer({
         {/* Tabs */}
         <div style={{
           display: 'flex',
-          borderBottom: '2px solid #e0e0e0',
+          borderBottom: '2px solid rgba(255,255,255,0.08)',
           gap: '2px',
           padding: '0 12px',
         }}>
@@ -1852,13 +1920,13 @@ export default function VideoDrawer({
                 flex: 1,
                 padding: '14px 10px',
                 border: 'none',
-                borderBottom: activeTab === tab.key ? '3px solid #2563eb' : '3px solid transparent',
-                backgroundColor: activeTab === tab.key ? 'rgba(37, 99, 235, 0.06)' : 'transparent',
+                borderBottom: activeTab === tab.key ? '3px solid #10b981' : '3px solid transparent',
+                backgroundColor: activeTab === tab.key ? 'rgba(16, 185, 129, 0.06)' : 'transparent',
                 borderRadius: '6px 6px 0 0',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: activeTab === tab.key ? '600' : '500',
-                color: activeTab === tab.key ? '#2563eb' : '#64748b',
+                color: activeTab === tab.key ? '#10b981' : '#9ca3af',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -3504,7 +3572,7 @@ export default function VideoDrawer({
                   style={{
                     width: '100%',
                     padding: '14px 20px',
-                    backgroundColor: loading ? '#94a3b8' : primaryAction.color,
+                    backgroundColor: loading ? '#94a3b8' : '#10b981',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
@@ -3515,6 +3583,31 @@ export default function VideoDrawer({
                   }}
                 >
                   {loading ? 'Processing...' : primaryAction.label}
+                </button>
+              )}
+
+              {/* Make Similar button for POSTED videos */}
+              {video.recording_status === 'POSTED' && (
+                <button type="button"
+                  onClick={() => {
+                    setSimilarTweaks({ hook: false, cta: false, persona: false, pain_points: false, tone: false });
+                    setSimilarVariations([]);
+                    setShowMakeSimilarModal(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px 20px',
+                    backgroundColor: '#8b5cf6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '12px',
+                  }}
+                >
+                  Make Similar
                 </button>
               )}
 
@@ -3590,6 +3683,263 @@ export default function VideoDrawer({
           )}
         </div>
       </div>
+
+      {/* Make Similar Modal */}
+      {showMakeSimilarModal && (
+        <>
+          <div
+            onClick={() => setShowMakeSimilarModal(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              zIndex: 1100,
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: colors.bg,
+              borderRadius: '12px',
+              padding: '24px',
+              width: '480px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              zIndex: 1101,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: colors.text, fontSize: '18px' }}>
+                Make Similar Video
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowMakeSimilarModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: colors.textMuted,
+                  padding: '0',
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            </div>
+
+            <p style={{ margin: '0 0 16px 0', color: colors.textMuted, fontSize: '13px' }}>
+              Generate variations of this video&apos;s script. Select what to tweak:
+            </p>
+
+            {/* Tweak checkboxes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              {[
+                { key: 'hook', label: 'Hook', desc: 'Generate a new attention-grabbing opening' },
+                { key: 'cta', label: 'CTA', desc: 'Try a different call-to-action' },
+                { key: 'persona', label: 'Persona', desc: 'Shift the character voice or style' },
+                { key: 'pain_points', label: 'Pain Points', desc: 'Target different customer pain points' },
+                { key: 'tone', label: 'Tone', desc: 'Adjust the overall tone and energy' },
+              ].map((item) => (
+                <label
+                  key={item.key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: `1px solid ${similarTweaks[item.key] ? '#8b5cf6' : colors.border}`,
+                    backgroundColor: similarTweaks[item.key] ? 'rgba(139, 92, 246, 0.08)' : colors.card,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={similarTweaks[item.key] || false}
+                    onChange={(e) => setSimilarTweaks((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                    style={{ marginTop: '2px', accentColor: '#8b5cf6' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text }}>{item.label}</div>
+                    <div style={{ fontSize: '12px', color: colors.textMuted }}>{item.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Generate button */}
+            <button
+              type="button"
+              disabled={similarGenerating || !Object.values(similarTweaks).some(Boolean)}
+              onClick={async () => {
+                setSimilarGenerating(true);
+                setSimilarVariations([]);
+                try {
+                  const scriptText = video.script_locked_text || details?.script?.text || '';
+                  const tweakList = Object.entries(similarTweaks)
+                    .filter(([, v]) => v)
+                    .map(([k]) => k);
+
+                  const res = await fetch('/api/ai/generate-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      content_type: 'script',
+                      product_id: video.product_id || undefined,
+                      product_name: video.product_name || details?.video.product_name || undefined,
+                      brand_name: video.brand_name || details?.video.brand_name || undefined,
+                      variation_count: 3,
+                      creative_direction: [
+                        `Create 3 variations of this existing script. Keep the core message but tweak: ${tweakList.join(', ')}.`,
+                        `Original script:\n${scriptText}`,
+                        details?.brief?.hook_options?.[0] ? `Original hook: ${details.brief.hook_options[0]}` : '',
+                        details?.brief?.angle ? `Angle: ${details.brief.angle}` : '',
+                      ].filter(Boolean).join('\n\n'),
+                    }),
+                  });
+
+                  const data = await res.json();
+                  if (data.ok && data.data) {
+                    // Parse the AI response into variations
+                    const content = data.data.content || data.data.script || data.data.text || '';
+                    // Split by common variation markers
+                    const sections = content.split(/(?:---|\*\*Variation \d+\*\*|## Variation \d+|### Variation \d+|VARIATION \d+)/i)
+                      .map((s: string) => s.trim())
+                      .filter((s: string) => s.length > 50);
+
+                    if (sections.length >= 2) {
+                      setSimilarVariations(sections.slice(0, 3).map((s: string, i: number) => ({
+                        title: `Variation ${i + 1}`,
+                        script: s,
+                      })));
+                    } else {
+                      // If we can't split, show the entire response as one variation
+                      setSimilarVariations([{
+                        title: 'Variation 1',
+                        script: content,
+                      }]);
+                    }
+                  } else {
+                    showError(data.error || 'Failed to generate variations');
+                  }
+                } catch {
+                  showError('Network error generating variations');
+                } finally {
+                  setSimilarGenerating(false);
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '12px 20px',
+                backgroundColor: similarGenerating || !Object.values(similarTweaks).some(Boolean) ? '#94a3b8' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: similarGenerating || !Object.values(similarTweaks).some(Boolean) ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                marginBottom: '16px',
+              }}
+            >
+              {similarGenerating ? 'Generating Variations...' : 'Generate Variations'}
+            </button>
+
+            {/* Variation results */}
+            {similarVariations.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {similarVariations.map((variation, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '14px',
+                      borderRadius: '8px',
+                      border: `1px solid ${colors.border}`,
+                      backgroundColor: colors.card,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#8b5cf6' }}>
+                        {variation.title}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={similarApprovingIdx === idx}
+                        onClick={async () => {
+                          setSimilarApprovingIdx(idx);
+                          try {
+                            const res = await fetch('/api/videos/create-from-product', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                product_id: video.product_id,
+                                script_path: 'existing',
+                                brief: {
+                                  hook: details?.brief?.hook_options?.[0] || undefined,
+                                  angle: details?.brief?.angle || undefined,
+                                  proof_type: details?.brief?.proof_type || undefined,
+                                  notes: `Variation of video ${video.video_code || video.id.slice(0, 8)}`,
+                                },
+                                script_draft: variation.script,
+                                posting_account_id: video.posting_account_id || undefined,
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.ok) {
+                              setSimilarVariations((prev) =>
+                                prev.map((v, i) => i === idx ? { ...v, title: `${v.title} - Approved` } : v)
+                              );
+                              onRefresh();
+                            } else {
+                              showError(data.error || 'Failed to create video');
+                            }
+                          } catch {
+                            showError('Network error creating video');
+                          } finally {
+                            setSimilarApprovingIdx(null);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 14px',
+                          backgroundColor: variation.title.includes('Approved') ? '#16a34a' : '#8b5cf6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: similarApprovingIdx === idx || variation.title.includes('Approved') ? 'not-allowed' : 'pointer',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          opacity: variation.title.includes('Approved') ? 0.7 : 1,
+                        }}
+                      >
+                        {similarApprovingIdx === idx ? 'Adding...' : variation.title.includes('Approved') ? 'Added to Pipeline' : 'Approve to Pipeline'}
+                      </button>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      color: colors.textMuted,
+                      lineHeight: '1.5',
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                    }}>
+                      {variation.script.slice(0, 500)}{variation.script.length > 500 ? '...' : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }

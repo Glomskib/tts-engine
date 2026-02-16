@@ -41,35 +41,34 @@ export function generateAccountSlug(accountName: string | null | undefined): str
 }
 
 /**
- * Format date as MM-DD-YY in America/New_York timezone (filesystem-safe for video_code storage)
- * Stored with hyphens to be filesystem-safe
+ * Format date as YYYYMMDD in America/New_York timezone
+ * Example: 20260215
  */
 export function formatDateForVideoCode(date: Date = new Date()): string {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
-    year: "2-digit",
+    year: "numeric",
     month: "2-digit",
     day: "2-digit",
   });
   const parts = formatter.formatToParts(date);
-  const year = parts.find(p => p.type === "year")?.value || "00";
-  const month = parts.find(p => p.type === "month")?.value || "00";
-  const day = parts.find(p => p.type === "day")?.value || "00";
-  // Use hyphens for storage (filesystem-safe)
-  return `${month}-${day}-${year}`;
+  const year = parts.find(p => p.type === "year")?.value || "2026";
+  const month = parts.find(p => p.type === "month")?.value || "01";
+  const day = parts.find(p => p.type === "day")?.value || "01";
+  return `${year}${month}${day}`;
 }
 
 /**
- * Convert stored video_code date (MM-DD-YY) to display format (MM/DD/YY)
- * Example: BKADV0-OXYENG-MT001-01-27-26-001 → BKADV0-OXYENG-MT001-01/27/26-001
+ * Format video code for display (no transformation needed with new YYYYMMDD format)
+ * Kept for backwards compatibility with old MM-DD-YY codes
  */
 export function formatVideoCodeForDisplay(videoCode: string): string {
-  // Match the date pattern MM-DD-YY in the code and convert to MM/DD/YY
-  // Pattern: look for -XX-XX-XX- where X is digit
-  return videoCode.replace(
+  // Old format: convert MM-DD-YY to MM/DD/YY
+  const oldFormatResult = videoCode.replace(
     /-(\d{2})-(\d{2})-(\d{2})-/,
     (_, month, day, year) => `-${month}/${day}/${year}-`
   );
+  return oldFormatResult;
 }
 
 /**
@@ -106,9 +105,8 @@ async function getAccountCode(postingAccountId: string | null | undefined): Prom
 }
 
 /**
- * Generate a unique video code: ACCOUNT-BRAND-SKU-MM-DD-YY-###
- * Uses account_code from posting_accounts table if posting_account_id provided
- * Date stored with hyphens (filesystem-safe), display as MM/DD/YY in UI
+ * Generate a unique video code: BRAND-PRODUCT-YYYYMMDD-V#
+ * Example: NINJA-BLENDER-20260215-V3 (3rd video of the day)
  * Retries on conflict with incrementing sequence
  */
 async function generateVideoCode(
@@ -119,23 +117,12 @@ async function generateVideoCode(
   productSlug: string | null,
   correlationId: string
 ): Promise<string | null> {
-  // Try to get account_code from posting_accounts table first
-  let accountCode: string;
-  if (postingAccountId) {
-    accountCode = await getAccountCode(postingAccountId);
-  } else if (accountNameFallback) {
-    // Fallback to generating slug from name (backwards compatibility)
-    accountCode = generateAccountSlug(accountNameFallback);
-  } else {
-    accountCode = "UNMAPD";
-  }
-
-  const brandSlug = generateSlug(brandName, 6);
-  const skuSlug = productSlug ? productSlug.toUpperCase().slice(0, 6) : generateSlug(productName, 6);
+  const brandSlug = generateSlug(brandName, 8);
+  const productSlugVal = productSlug ? productSlug.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) : generateSlug(productName, 8);
   const dateCode = formatDateForVideoCode();
 
-  // Prefix for querying: ACCOUNT-BRAND-SKU-MM-DD-YY (hyphens throughout)
-  const prefix = `${accountCode}-${brandSlug}-${skuSlug}-${dateCode}`;
+  // Prefix for querying: BRAND-PRODUCT-YYYYMMDD
+  const prefix = `${brandSlug}-${productSlugVal}-${dateCode}`;
 
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
@@ -143,7 +130,7 @@ async function generateVideoCode(
       const { data: existing } = await supabaseAdmin
         .from("videos")
         .select("video_code")
-        .like("video_code", `${prefix}-%`)
+        .like("video_code", `${prefix}-V%`)
         .order("video_code", { ascending: false })
         .limit(1);
 
@@ -151,14 +138,17 @@ async function generateVideoCode(
       let sequence = 1;
       if (existing && existing.length > 0 && existing[0].video_code) {
         const lastCode = existing[0].video_code;
-        const lastSeq = parseInt(lastCode.split("-").pop() || "0", 10);
-        sequence = lastSeq + 1;
+        // Extract number after V (e.g., "V3" → 3)
+        const match = lastCode.match(/-V(\d+)$/);
+        if (match) {
+          sequence = parseInt(match[1], 10) + 1;
+        }
       }
 
       // Add attempt offset for retry
       sequence += attempt;
 
-      const videoCode = `${prefix}-${String(sequence).padStart(3, "0")}`;
+      const videoCode = `${prefix}-V${sequence}`;
       return videoCode;
     } catch (error) {
       console.error(`[${correlationId}] Video code generation attempt ${attempt + 1} failed:`, error);

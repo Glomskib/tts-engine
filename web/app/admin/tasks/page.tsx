@@ -122,7 +122,7 @@ export default function AgentTasksPage() {
     <PlanGate minPlan="agency" feature="Agent Tasks" adminOnly>
     <AdminPageLayout
       title="Agent Tasks"
-      subtitle="Bolt → Claude Code task queue"
+      subtitle="FlashFlow → Claude Code task queue"
       headerActions={
         <AdminButton variant="secondary" onClick={fetchTasks} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -173,7 +173,7 @@ export default function AgentTasksPage() {
           <div className="p-8 text-center text-zinc-500">Loading tasks...</div>
         ) : tasks.length === 0 ? (
           <div className="p-8 text-center text-zinc-500">
-            No tasks found. Tasks created by Bolt will appear here.
+            No tasks found. Tasks created by FlashFlow will appear here.
           </div>
         ) : (
           <div className="overflow-x-auto -mx-4 sm:mx-0">

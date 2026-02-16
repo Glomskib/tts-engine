@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import {
@@ -90,7 +90,7 @@ interface PainPoint {
   created_at: string;
 }
 
-type TabType = "personas" | "pain-points";
+type TabType = "archetypes" | "creative";
 
 // Pain point category options (not in persona-options.ts as they're pain-point specific)
 const CATEGORY_OPTIONS = ["sleep", "energy", "stress", "weight", "skin", "digestion", "focus", "mood", "pain", "immunity", "aging", "fitness", "other"];
@@ -98,6 +98,7 @@ const INTENSITY_OPTIONS = ["low", "medium", "high", "extreme"];
 
 export default function AudiencePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
 
@@ -105,8 +106,9 @@ export default function AudiencePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPlan, setUserPlan] = useState<string>("free");
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<TabType>("personas");
+  // Tab state — ?tab=creator maps to "creative" tab (from /admin/personas redirect)
+  const initialTab = searchParams.get("tab") === "creator" ? "creative" : "archetypes";
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab as TabType);
 
   // Personas state
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -707,10 +709,10 @@ export default function AudiencePage() {
         {/* Header */}
         <div style={{ marginBottom: "24px" }}>
           <h1 style={{ fontSize: "20px", fontWeight: 600, color: colors.text, margin: 0 }}>
-            Customer Archetypes
+            Speak To Your Audience
           </h1>
           <p style={{ fontSize: "13px", color: colors.textMuted, marginTop: "4px" }}>
-            Build target audience personas and understand customer pain points for authentic content
+            Define WHO you&apos;re talking to and HOW you deliver your content
           </p>
         </div>
 
@@ -731,16 +733,16 @@ export default function AudiencePage() {
 
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: `1px solid ${colors.border}`, marginBottom: "20px" }}>
-          <button type="button" style={tabStyle(activeTab === "personas")} onClick={() => setActiveTab("personas")}>
-            Customer Personas ({personas.length})
+          <button type="button" style={tabStyle(activeTab === "archetypes")} onClick={() => setActiveTab("archetypes")}>
+            Customer Archetypes ({personas.filter(p => !p.is_system).length})
           </button>
-          <button type="button" style={tabStyle(activeTab === "pain-points")} onClick={() => setActiveTab("pain-points")}>
-            Pain Points ({painPoints.length})
+          <button type="button" style={tabStyle(activeTab === "creative")} onClick={() => setActiveTab("creative")}>
+            Creative Approach ({personas.filter(p => p.is_system).length})
           </button>
         </div>
 
         {/* PERSONAS TAB */}
-        {activeTab === "personas" && (
+        {activeTab === "archetypes" && (
           <div>
             {/* Add Persona Button */}
             <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -764,14 +766,14 @@ export default function AudiencePage() {
             {/* Personas Grid */}
             {personasLoading ? (
               <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>Loading...</div>
-            ) : personas.length === 0 ? (
+            ) : personas.filter(p => !p.is_system).length === 0 ? (
               <div style={{ ...cardStyle, textAlign: "center", padding: "40px" }}>
-                <div style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "8px" }}>No personas yet</div>
+                <div style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "8px" }}>No customer archetypes yet</div>
                 <div style={{ fontSize: "12px", color: colors.textMuted }}>Create your first audience persona to get started.</div>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
-                {personas.map((persona) => {
+                {personas.filter(p => !p.is_system).map((persona) => {
                   const painPointCount = persona.primary_pain_points?.length || persona.pain_points?.length || 0;
                   const displayTone = persona.tone_preference || persona.tone;
                   const isBuiltIn = !!persona.is_system;
@@ -834,8 +836,8 @@ export default function AudiencePage() {
           </div>
         )}
 
-        {/* PAIN POINTS TAB */}
-        {activeTab === "pain-points" && (
+        {/* PAIN POINTS — shown under Customer Archetypes tab */}
+        {activeTab === "archetypes" && (
           <div>
             {/* Filters and Add Button */}
             <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
@@ -1138,6 +1140,67 @@ export default function AudiencePage() {
           </div>
         )}
 
+        {/* CREATIVE APPROACH TAB — Built-in creator persona styles */}
+        {activeTab === "creative" && (
+          <div>
+            <div style={{ marginBottom: "16px" }}>
+              <p style={{ fontSize: "13px", color: colors.textMuted }}>
+                Built-in creator persona styles that define HOW your content is delivered. These are used during script generation to shape voice, tone, and presentation.
+              </p>
+            </div>
+            {personasLoading ? (
+              <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>Loading...</div>
+            ) : personas.filter(p => p.is_system).length === 0 ? (
+              <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "10px", textAlign: "center", padding: "40px" }}>
+                <div style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "8px" }}>No built-in presets found</div>
+                <div style={{ fontSize: "12px", color: colors.textMuted }}>Creator persona presets will appear here.</div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
+                {personas.filter(p => p.is_system).map((persona) => {
+                  const displayTone = persona.tone_preference || persona.tone;
+                  return (
+                    <div
+                      key={persona.id}
+                      style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "10px", padding: "16px", cursor: "pointer" }}
+                      onClick={() => openPersonaModal(persona)}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{ fontSize: "15px", fontWeight: 600, color: colors.text }}>{persona.name}</div>
+                          <span style={{ fontSize: "10px", padding: "2px 6px", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderRadius: "4px", fontWeight: 500 }}>
+                            Preset
+                          </span>
+                        </div>
+                        {persona.times_used != null && persona.times_used > 0 && (
+                          <span style={{ fontSize: "11px", color: colors.textMuted }}>Used {persona.times_used}x</span>
+                        )}
+                      </div>
+                      {persona.description && (
+                        <div style={{ fontSize: "12px", color: colors.textMuted, marginBottom: "12px" }}>
+                          {persona.description.slice(0, 120)}{persona.description.length > 120 ? "..." : ""}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {displayTone && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", borderRadius: "4px" }}>
+                            {displayTone}
+                          </span>
+                        )}
+                        {persona.humor_style && (
+                          <span style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderRadius: "4px" }}>
+                            {persona.humor_style}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* PERSONA EDIT MODAL */}
         {editingPersona && (
           <div
@@ -1215,7 +1278,7 @@ export default function AudiencePage() {
                 {/* ===== DEMOGRAPHICS ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#3b82f6", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Customer Archetypes
+                    Demographics
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                     <div>

@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
-import { generateSlug, generateAccountSlug, formatDateForVideoCode } from "@/lib/createVideoFromProduct";
+import { generateSlug, formatDateForVideoCode } from "@/lib/createVideoFromProduct";
 
 export const runtime = "nodejs";
 
@@ -37,7 +37,7 @@ async function getAccountCodeById(postingAccountId: string): Promise<string | nu
 
 /**
  * Generate a unique video code with retry on conflict
- * New format: ACCOUNT-BRAND-SKU-MM-DD-YY-### (all hyphens, filesystem-safe)
+ * New format: BRAND-PRODUCT-YYYYMMDD-V# (e.g., NINJA-BLENDER-20260215-V3)
  */
 async function generateAndSetVideoCode(
   videoId: string,
@@ -48,27 +48,16 @@ async function generateAndSetVideoCode(
   productSlug: string | null,
   createdAt: string
 ): Promise<{ success: boolean; videoCode: string | null; error?: string }> {
-  // Get account code: try posting_accounts table first, then fallback to slug generation
-  let accountCode: string;
-  if (postingAccountId) {
-    const code = await getAccountCodeById(postingAccountId);
-    accountCode = code || generateAccountSlug(accountNameFallback);
-  } else if (accountNameFallback) {
-    accountCode = generateAccountSlug(accountNameFallback);
-  } else {
-    accountCode = "UNMAPD";
-  }
-
-  const brandSlug = brandName ? generateSlug(brandName, 6) : "UNMAPD";
-  const skuSlug = productSlug
-    ? productSlug.toUpperCase().slice(0, 6)
+  const brandSlug = brandName ? generateSlug(brandName, 8) : "UNMAPD";
+  const productSlugVal = productSlug
+    ? productSlug.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)
     : productName
-      ? generateSlug(productName, 6)
+      ? generateSlug(productName, 8)
       : "UNMAPD";
 
   const videoDate = new Date(createdAt);
-  const dateCode = formatDateForVideoCode(videoDate); // Now returns MM-DD-YY
-  const prefix = `${accountCode}-${brandSlug}-${skuSlug}-${dateCode}`;
+  const dateCode = formatDateForVideoCode(videoDate);
+  const prefix = `${brandSlug}-${productSlugVal}-${dateCode}`;
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -76,20 +65,22 @@ async function generateAndSetVideoCode(
       const { data: existing } = await supabaseAdmin
         .from("videos")
         .select("video_code")
-        .like("video_code", `${prefix}-%`)
+        .like("video_code", `${prefix}-V%`)
         .order("video_code", { ascending: false })
         .limit(1);
 
       let sequence = 1;
       if (existing && existing.length > 0 && existing[0].video_code) {
         const lastCode = existing[0].video_code;
-        const lastSeq = parseInt(lastCode.split("-").pop() || "0", 10);
-        sequence = lastSeq + 1;
+        const match = lastCode.match(/-V(\d+)$/);
+        if (match) {
+          sequence = parseInt(match[1], 10) + 1;
+        }
       }
 
       // Add attempt offset for retry
       sequence += attempt;
-      const videoCode = `${prefix}-${String(sequence).padStart(3, "0")}`;
+      const videoCode = `${prefix}-V${sequence}`;
 
       // Try to update the video with this code
       const { error } = await supabaseAdmin
@@ -206,25 +197,17 @@ export async function POST(request: Request) {
 
       if (dryRun) {
         // In dry run, just show what would be generated
-        let accountCode: string;
-        if (postingAccountId) {
-          const code = await getAccountCodeById(postingAccountId);
-          accountCode = code || generateAccountSlug(accountNameFallback);
-        } else {
-          accountCode = accountNameFallback ? generateAccountSlug(accountNameFallback) : "UNMAPD";
-        }
-
-        const brandSlug = product?.brand ? generateSlug(product.brand, 6) : "UNMAPD";
-        const skuSlug = product?.slug
-          ? product.slug.toUpperCase().slice(0, 6)
+        const brandSlug = product?.brand ? generateSlug(product.brand, 8) : "UNMAPD";
+        const productSlugVal = product?.slug
+          ? product.slug.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)
           : product?.name
-            ? generateSlug(product.name, 6)
+            ? generateSlug(product.name, 8)
             : "UNMAPD";
         const dateCode = formatDateForVideoCode(new Date(video.created_at));
 
         results.push({
           videoId: video.id,
-          videoCode: `${accountCode}-${brandSlug}-${skuSlug}-${dateCode}-???`,
+          videoCode: `${brandSlug}-${productSlugVal}-${dateCode}-V?`,
           success: true,
         });
       } else {

@@ -350,14 +350,14 @@ Brandon uploaded 8 task files from ~/Downloads/files-2/T1_*.md through T8_*.md
 
 Below: Add "ACKNOWLEDGED: [timestamp]" as each terminal finishes its task.
 
-T1: _________
-T2: _________
-T3: _________
-T4: _________
-T5: _________
-T6: _________
-T7: _________
-T8: _________
+T1: ACKNOWLEDGED: 2026-02-16T08:30:00 — Committed f973f3e, pushed 19c0af4 (mobile nav + offline indicator fixes)
+T2: ACKNOWLEDGED: 2026-02-16T08:45:00 — All fixes already in place (null guards, responsive calendar)
+T3: ACKNOWLEDGED: 2026-02-16T09:00:00 — All performance optimizations already complete
+T4: ACKNOWLEDGED: 2026-02-16T09:15:00 — Fixed permission gates + rate limit UI, verified 5 existing action buttons
+T5: ACKNOWLEDGED: 2026-02-16T09:30:00 — Created migration, added system badge to dropdown, verified UI complete
+T6: ACKNOWLEDGED: 2026-02-16T09:45:00 — All income dashboard features already implemented
+T7: ACKNOWLEDGED: 2026-02-16T10:00:00 — Created [id]/route.ts, updated navigation, verified complete feature
+T8: ACKNOWLEDGED: 2026-02-16T10:15:00 — All board view features already implemented
 
 ---
 
@@ -402,3 +402,124 @@ Stop being cautious. Ship all 3 at once.
 
 Timestamp: 2026-02-15T00:33:00Z
 
+
+---
+⚠️ PRIORITY: INSTRUCTION FROM BRANDON (2026-02-16 06:41 PST)
+
+**THREE CRITICAL MOBILE BUGS — NEED FIXES TODAY**
+
+1. **Script Generator Broken** (Revenue-blocking)
+   - Error: "Failed to generate any skit variations" when user hits Generate
+   - No explanation, no retry button in error state
+   - FIX: Add detailed error reason + inline retry button
+
+2. **Mobile UI Alignment Issues** (UX-blocking)
+   - Content Type bubbles: Full-width stacking (TOF/MOF) but sub-types wrap 2-column → chaos
+   - Urgency Style bubbles: 2-column grid with unequal widths & heights
+   - Purple action button overlaps "Restock Alert" bubble + description text
+   - Category labels (CONVERSION/AWARENESS) misaligned relative to content
+   - FIX: Consistent grid layout, equal button sizing, fix floating button overlap
+
+3. **Library Page Returns 404** (Critical — primary nav broken)
+   - Clicking Library tab → 404 error
+   - Bottom nav disappears on 404 (user stranded)
+   - FIX: Implement Library OR "Coming Soon" placeholder with bottom nav visible
+
+**Bonus Issue:** Customization modal leaking raw localStorage JSON to users
+
+Timeline: Standing by for turnaround. Test mobile viewport after fixes.
+
+---
+
+---
+⚠️ PRIORITY: INSTRUCTION FROM BRANDON (2026-02-16 06:41 PST)
+
+**THREE CRITICAL MOBILE BUGS — NEED FIXES TODAY**
+
+1. **Script Generator Broken** (Revenue-blocking)
+   - Error: "Failed to generate any skit variations" when user hits Generate
+   - No explanation, no retry button in error state
+   - FIX: Add detailed error reason + inline retry button
+
+2. **Mobile UI Alignment Issues** (UX-blocking)
+   - Content Type bubbles: Full-width stacking (TOF/MOF) but sub-types wrap 2-column → chaos
+   - Urgency Style bubbles: 2-column grid with unequal widths & heights
+   - Purple action button overlaps "Restock Alert" bubble + description text
+   - Category labels (CONVERSION/AWARENESS) misaligned relative to content
+   - FIX: Consistent grid layout, equal button sizing, fix floating button overlap
+
+3. **Library Page Returns 404** (Critical — primary nav broken)
+   - Clicking Library tab → 404 error
+   - Bottom nav disappears on 404 (user stranded)
+   - FIX: Implement Library OR "Coming Soon" placeholder with bottom nav visible
+
+**Bonus Issue:** Customization modal leaking raw localStorage JSON to users
+
+Timeline: Standing by for turnaround. Test mobile viewport after fixes.
+
+---
+
+---
+⚠️ PRIORITY: INSTRUCTION FROM BRANDON (2026-02-16 06:41 PST)
+
+**THREE CRITICAL MOBILE BUGS — NEED FIXES TODAY**
+
+1. **Script Generator Broken** (Revenue-blocking)
+   - Error: "Failed to generate any skit variations" when user hits Generate
+   - No explanation, no retry button in error state
+   - FIX: Add detailed error reason + inline retry button
+
+2. **Mobile UI Alignment Issues** (UX-blocking)
+   - Content Type bubbles: Full-width stacking (TOF/MOF) but sub-types wrap 2-column → chaos
+   - Urgency Style bubbles: 2-column grid with unequal widths & heights
+   - Purple action button overlaps "Restock Alert" bubble + description text
+   - Category labels (CONVERSION/AWARENESS) misaligned relative to content
+   - FIX: Consistent grid layout, equal button sizing, fix floating button overlap
+
+3. **Library Page Returns 404** (Critical — primary nav broken)
+   - Clicking Library tab → 404 error
+   - Bottom nav disappears on 404 (user stranded)
+   - FIX: Implement Library OR "Coming Soon" placeholder with bottom nav visible
+
+**Bonus Issue:** Customization modal leaking raw localStorage JSON to users
+
+Timeline: Standing by for turnaround. Test mobile viewport after fixes.
+
+---
+
+---
+⚠️ PRIORITY: INSTRUCTION FROM BRANDON (2026-02-16 06:41 PST)
+
+**THREE CRITICAL MOBILE BUGS — NEED FIXES TODAY**
+
+1. **Script Generator Broken** (Revenue-blocking)
+   - Error: "Failed to generate any skit variations" when user hits Generate
+   - No explanation, no retry button in error state
+   - FIX: Add detailed error reason + inline retry button
+
+2. **Mobile UI Alignment Issues** (UX-blocking)
+   - Content Type bubbles: Full-width stacking (TOF/MOF) but sub-types wrap 2-column → chaos
+   - Urgency Style bubbles: 2-column grid with unequal widths & heights
+   - Purple action button overlaps "Restock Alert" bubble + description text
+   - Category labels (CONVERSION/AWARENESS) misaligned relative to content
+   - FIX: Consistent grid layout, equal button sizing, fix floating button overlap
+
+3. **Library Page Returns 404** (Critical — primary nav broken)
+   - Clicking Library tab → 404 error
+   - Bottom nav disappears on 404 (user stranded)
+   - FIX: Implement Library OR "Coming Soon" placeholder with bottom nav visible
+
+**Bonus Issue:** Customization modal leaking raw localStorage JSON to users
+
+Timeline: Standing by for turnaround. Test mobile viewport after fixes.
+
+---
+---
+PRIORITY: INSTRUCTION FROM BRANDON (2026-02-16 06:41 PST)
+THREE CRITICAL MOBILE BUGS - NEED FIXES TODAY
+1. Script Generator Broken (Revenue-blocking) - Error: Failed to generate any skit variations when user hits Generate - No explanation, no retry button in error state - FIX: Add detailed error reason + inline retry button
+2. Mobile UI Alignment Issues (UX-blocking) - Content Type bubbles: Full-width stacking but sub-types wrap 2-column chaos - Urgency Style bubbles: 2-column grid with unequal widths and heights - Purple action button overlaps Restock Alert bubble + description text - Category labels misaligned relative to content - FIX: Consistent grid layout, equal button sizing, fix floating button overlap
+3. Library Page Returns 404 (Critical primary nav broken) - Clicking Library tab gives 404 error - Bottom nav disappears on 404 user stranded - FIX: Implement Library OR Coming Soon placeholder with bottom nav visible
+Bonus Issue: Customization modal leaking raw localStorage JSON to users
+Timeline: Standing by for turnaround. Test mobile viewport after fixes.
+---

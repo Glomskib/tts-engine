@@ -88,6 +88,7 @@ export default function ScriptGeneratorPage() {
   // Generation state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorDetails, setErrorDetails] = useState('');
   const [result, setResult] = useState<SkitResult | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -106,6 +107,7 @@ export default function ScriptGeneratorPage() {
 
     setLoading(true);
     setError('');
+    setErrorDetails('');
     setResult(null);
     setScore(null);
     setShowSignup(false);
@@ -128,10 +130,30 @@ export default function ScriptGeneratorPage() {
         if (data.signup) {
           setShowSignup(true);
           setError(data.error);
+          setErrorDetails('');
         } else if (data.upgrade) {
           setError(data.error);
+          setErrorDetails('');
         } else {
-          setError(data.error || 'Generation failed');
+          // Determine error details based on error type
+          const errorMessage = data.error || 'Generation failed';
+          setError(errorMessage);
+
+          let details = 'An unexpected error occurred. If this persists, please contact support.';
+
+          if (errorMessage.toLowerCase().includes('timeout')) {
+            details = 'The AI took too long to respond. This usually means high server load. Please try again in a moment.';
+          } else if (errorMessage.toLowerCase().includes('incomplete') || errorMessage.toLowerCase().includes('validation')) {
+            details = 'The AI generated an incomplete response. Try adjusting your product description or using a different tone.';
+          } else if (res.status === 429) {
+            details = 'Too many requests detected. Please wait a moment before trying again.';
+          } else if (errorMessage.toLowerCase().includes('failed to generate any skit variations')) {
+            details = 'The script generation service encountered an error. This is usually temporary - please try again.';
+          } else if (res.status >= 500) {
+            details = 'The script generation service encountered an error. This is usually temporary - please try again.';
+          }
+
+          setErrorDetails(details);
         }
         return;
       }
@@ -146,8 +168,9 @@ export default function ScriptGeneratorPage() {
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
-    } catch {
+    } catch (err) {
       setError('Network error. Please check your connection and try again.');
+      setErrorDetails('Unable to reach the server. Check your internet connection and firewall settings.');
     } finally {
       setLoading(false);
     }
@@ -371,16 +394,31 @@ export default function ScriptGeneratorPage() {
         {/* ================================================================ */}
         {error && (
           <div className="mt-6 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
-            <p className="text-red-400 text-sm">{error}</p>
-            {showSignup && (
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors"
-              >
-                Create free account for 5 daily generations
-                <ArrowRight size={14} />
-              </Link>
+            <p className="text-red-400 text-sm font-medium">{error}</p>
+            {errorDetails && (
+              <p className="text-zinc-400 text-sm mt-2">{errorDetails}</p>
             )}
+            <div className="flex items-center gap-3 mt-4 flex-wrap">
+              {!showSignup && (
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={loading || !productName.trim()}
+                  className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
+              )}
+              {showSignup && (
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  Create free account for 5 daily generations
+                  <ArrowRight size={14} />
+                </Link>
+              )}
+            </div>
           </div>
         )}
 

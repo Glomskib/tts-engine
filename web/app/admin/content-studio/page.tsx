@@ -1694,7 +1694,7 @@ export default function ContentStudioPage() {
                   Content Type
                 </div>
                 {simpleMode && <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '10px', marginTop: '-8px' }}>What style of TikTok video do you want? (Skit = comedy, Testimonial = review style, etc.)</p>}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
                   {filteredContentTypes.map((type) => {
                     const Icon = CONTENT_TYPE_ICONS[type.icon];
                     const isSelected = selectedContentTypeId === type.id;
@@ -1708,8 +1708,9 @@ export default function ContentStudioPage() {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '6px',
-                          padding: '8px 14px',
+                          padding: '10px 14px',
                           backgroundColor: isSelected ? '#3b82f6' : colors.bg,
                           border: `1px solid ${isSelected ? '#3b82f6' : colors.border}`,
                           borderRadius: '8px',
@@ -1718,18 +1719,20 @@ export default function ContentStudioPage() {
                           fontWeight: isSelected ? 600 : 400,
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
+                          minHeight: '42px',
                         }}
                       >
                         {Icon && <Icon size={14} />}
-                        {type.name}
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{type.name}</span>
                         {isSelected && <Check size={12} />}
                       </button>
                     );
                   })}
                 </div>
                 {selectedContentType && (
-                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ marginTop: '8px' }}>
                     <span style={{
+                      display: 'inline-block',
                       padding: '2px 8px',
                       backgroundColor: FUNNEL_STAGE_COLORS[selectedContentType.funnelStage]?.bg,
                       color: FUNNEL_STAGE_COLORS[selectedContentType.funnelStage]?.text,
@@ -1737,10 +1740,11 @@ export default function ContentStudioPage() {
                       fontSize: '10px',
                       fontWeight: 600,
                       textTransform: 'uppercase',
+                      marginBottom: '4px',
                     }}>
                       {selectedContentType.funnelStage}
                     </span>
-                    <span style={{ fontSize: '12px', color: colors.textSecondary }}>{selectedContentType.description}</span>
+                    <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>{selectedContentType.description}</div>
                   </div>
                 )}
               </div>
@@ -1752,7 +1756,7 @@ export default function ContentStudioPage() {
                     <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>2</span>
                     Urgency Style
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
                     {selectedContentType.subtypes.map((sub) => {
                       const isSelected = selectedSubtypeId === sub.id;
                       return (
@@ -1761,7 +1765,7 @@ export default function ContentStudioPage() {
                           onClick={() => setSelectedSubtypeId(sub.id)}
                           title={sub.description}
                           style={{
-                            padding: '8px 14px',
+                            padding: '10px 14px',
                             backgroundColor: isSelected ? '#3b82f6' : colors.bg,
                             border: `1px solid ${isSelected ? '#3b82f6' : colors.border}`,
                             borderRadius: '8px',
@@ -1770,6 +1774,11 @@ export default function ContentStudioPage() {
                             fontWeight: isSelected ? 600 : 400,
                             cursor: 'pointer',
                             transition: 'all 0.15s ease',
+                            minHeight: '42px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
                           }}
                         >
                           {sub.name}
@@ -1778,7 +1787,7 @@ export default function ContentStudioPage() {
                     })}
                   </div>
                   {selectedSubtypeId && (
-                    <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                    <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
                       {selectedContentType.subtypes.find(s => s.id === selectedSubtypeId)?.description}
                     </p>
                   )}
@@ -2359,7 +2368,7 @@ export default function ContentStudioPage() {
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>5</span>
                   Presentation Style
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
                   {PRESENTATION_STYLES.map((style) => {
                     const Icon = PRESENTATION_STYLE_ICONS[style.icon];
                     const isSelected = selectedPresentationStyleId === style.id;

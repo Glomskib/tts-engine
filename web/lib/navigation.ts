@@ -110,14 +110,12 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'INSIGHTS',
     subscriptionType: 'saas',
     items: [
-      { name: 'Content Ideas', href: '/admin/content-ideas', icon: Lightbulb, minPlan: 'creator_lite' },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro' },
-      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
       { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck },
+      { name: 'Creator Personas', href: '/admin/personas', icon: Users },
+      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro' },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
-      { name: 'Revenue', href: '/admin/revenue', icon: DollarSign, minPlan: 'creator_pro' },
-      { name: 'Report Card', href: '/admin/report-card', icon: GraduationCap },
-      { name: 'Export & Reports', href: '/admin/export', icon: Download },
+      { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
+      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
     ],
   },
   {
@@ -134,12 +132,9 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SETTINGS',
     subscriptionType: 'saas',
     items: [
-      { name: 'Getting Started', href: '/admin/guide', icon: BookOpen },
-      { name: 'What\'s New', href: '/admin/whats-new', icon: Gift },
-      { name: 'Notifications', href: '/admin/notifications', icon: Bell },
+      { name: 'Settings', href: '/admin/settings', icon: Settings },
       { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },
-      { name: 'Billing & Credits', href: '/admin/billing', icon: Wallet },
-      { name: 'Help', href: '/admin/help', icon: HelpCircle },
+      { name: 'Export & Reports', href: '/admin/export', icon: Download },
     ],
   },
   {
@@ -151,7 +146,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },
       { name: 'Integrations', href: '/admin/settings/integrations', icon: Plug, adminOnly: true },
-      { name: 'Settings', href: '/admin/settings', icon: Settings, adminOnly: true },
     ],
   },
   // ========================

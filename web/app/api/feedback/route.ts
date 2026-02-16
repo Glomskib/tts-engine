@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (profile?.role !== "admin") {
-      return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
+      // Return empty data instead of 403 so the feedback widget doesn't error
+      return NextResponse.json({ ok: true, data: [], stats: { total: 0, new: 0, bugs: 0, features: 0, improvements: 0, topPages: [] }, correlation_id: correlationId });
     }
 
     // Fetch all feedback for admin

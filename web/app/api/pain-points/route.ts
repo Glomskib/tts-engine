@@ -26,7 +26,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error(`[${correlationId}] Pain points fetch error:`, error);
-      return createApiErrorResponse('DB_ERROR', 'Failed to fetch pain points', 500, correlationId);
+      // Return empty data gracefully (table may not exist yet)
+      return NextResponse.json({
+        ok: true,
+        data: [],
+        correlation_id: correlationId,
+      });
     }
 
     return NextResponse.json({

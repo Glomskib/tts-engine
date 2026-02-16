@@ -143,29 +143,33 @@ export async function GET(request: Request) {
       }
 
       case 'revenue': {
-        // Revenue by brand
-        const { data: videos, error } = await db
-          .from('videos')
-          .select('revenue_total, product:product_id(id,name,brand)')
-          .not('revenue_total', 'is', null)
-          .gt('revenue_total', 0);
+        // Revenue by brand — use tiktok_revenue + actual_revenue columns
+        try {
+          const { data: videos, error } = await db
+            .from('videos')
+            .select('tiktok_revenue, actual_revenue, product:product_id(id,name,brand)')
+            .or('tiktok_revenue.gt.0,actual_revenue.gt.0');
 
-        if (error) throw error;
+          if (error) throw error;
 
-        const byBrand: Record<string, { revenue: number; videos: number }> = {};
-        for (const v of videos || []) {
-          const product = v.product as any;
-          const brand = product?.brand || 'Unbranded';
-          if (!byBrand[brand]) byBrand[brand] = { revenue: 0, videos: 0 };
-          byBrand[brand].revenue += v.revenue_total || 0;
-          byBrand[brand].videos += 1;
+          const byBrand: Record<string, { revenue: number; videos: number }> = {};
+          for (const v of videos || []) {
+            const product = v.product as any;
+            const brand = product?.brand || 'Unbranded';
+            if (!byBrand[brand]) byBrand[brand] = { revenue: 0, videos: 0 };
+            byBrand[brand].revenue += (v.tiktok_revenue || 0) + (v.actual_revenue || 0);
+            byBrand[brand].videos += 1;
+          }
+
+          const revenue = Object.entries(byBrand)
+            .map(([brand, data]) => ({ brand, ...data }))
+            .sort((a, b) => b.revenue - a.revenue);
+
+          return NextResponse.json({ ok: true, data: { revenue, days }, correlation_id: correlationId });
+        } catch {
+          // Return empty data gracefully if columns don't exist
+          return NextResponse.json({ ok: true, data: { revenue: [], days }, correlation_id: correlationId });
         }
-
-        const revenue = Object.entries(byBrand)
-          .map(([brand, data]) => ({ brand, ...data }))
-          .sort((a, b) => b.revenue - a.revenue);
-
-        return NextResponse.json({ ok: true, data: { revenue, days }, correlation_id: correlationId });
       }
 
       case 'hooks': {

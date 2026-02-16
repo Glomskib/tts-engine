@@ -76,7 +76,7 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
         pb-[env(safe-area-inset-bottom)]
       "
     >
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-stretch justify-between h-16">
         {NAV_ITEMS.map((item) => {
           const isActive = item.href !== '#more' && pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -88,10 +88,10 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
                 key={item.label}
                 onClick={onMoreClick}
                 aria-label="Open menu"
-                className="flex flex-col items-center justify-center w-16 h-14 gap-1"
+                className="flex-1 flex flex-col items-center justify-center gap-1 relative group"
               >
-                <Icon className="w-6 h-6 text-zinc-400" aria-hidden="true" />
-                <span className="text-[11px] text-zinc-400">{item.label}</span>
+                <Icon className="w-5 h-5 text-zinc-400 group-hover:text-zinc-300" aria-hidden="true" />
+                <span className="text-[10px] text-zinc-400 group-hover:text-zinc-300">{item.label}</span>
               </button>
             );
           }
@@ -101,22 +101,33 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
               key={item.href}
               href={item.href}
               aria-current={isActive ? 'page' : undefined}
-              className="relative flex flex-col items-center justify-center w-16 h-14 gap-1"
+              className="flex-1 flex flex-col items-center justify-center gap-1 relative group"
             >
               <div className="relative">
-                <Icon className={`w-6 h-6 ${isActive ? 'text-teal-400' : 'text-zinc-400'}`} aria-hidden="true" />
+                <Icon
+                  className={`w-5 h-5 transition-colors ${
+                    isActive ? 'text-teal-400' : 'text-zinc-400 group-hover:text-zinc-300'
+                  }`}
+                  aria-hidden="true"
+                />
                 {item.href === '/admin/notifications' && unreadCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white"
                     aria-label={`${unreadCount} unread notifications`}
                   >
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </div>
-              <span className={`text-[11px] ${isActive ? 'text-teal-400' : 'text-zinc-400'}`}>
+              <span
+                className={`text-[10px] transition-colors ${
+                  isActive ? 'text-teal-400 font-medium' : 'text-zinc-400 group-hover:text-zinc-300'
+                }`}
+              >
                 {item.label}
               </span>
+              {/* Active indicator line */}
+              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-400" />}
             </Link>
           );
         })}

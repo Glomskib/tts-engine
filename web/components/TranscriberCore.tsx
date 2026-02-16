@@ -227,6 +227,10 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [pipelineAddedIndexes, setPipelineAddedIndexes] = useState<Set<number>>(new Set());
   const [pipelineAddingIndex, setPipelineAddingIndex] = useState<number | null>(null);
 
+  // GAP 7: Rate limit state
+  const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(-1);
+  const [rateLimitTotal, setRateLimitTotal] = useState<number>(-1);
+
   const isPaid = usageLimit === -1;
   const isRateLimited = usageRemaining !== null && usageRemaining <= 0 && !isPaid;
 
@@ -251,8 +255,18 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   function updateRateLimits(res: Response) {
     const rlRemaining = res.headers.get('X-RateLimit-Remaining');
     const rlLimit = res.headers.get('X-RateLimit-Limit');
-    if (rlRemaining !== null) setUsageRemaining(parseInt(rlRemaining, 10));
-    if (rlLimit !== null) setUsageLimit(parseInt(rlLimit, 10));
+    if (rlRemaining !== null) {
+      const remaining = parseInt(rlRemaining, 10);
+      setUsageRemaining(remaining);
+      // GAP 7: Update rate limit state
+      if (remaining >= 0) setRateLimitRemaining(remaining);
+    }
+    if (rlLimit !== null) {
+      const limit = parseInt(rlLimit, 10);
+      setUsageLimit(limit);
+      // GAP 7: Update rate limit total
+      if (limit > 0) setRateLimitTotal(limit);
+    }
   }
 
   async function handleTranscribe() {
@@ -282,8 +296,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       const data = await res.json();
 
       if (!res.ok) {
+        // GAP 7: Handle 429 rate limit response
+        if (res.status === 429) {
+          setError(data.error || 'Rate limit reached');
+          setUsageRemaining(0);
+          setRateLimitRemaining(0);
+          return;
+        }
         setError(data.error || 'Something went wrong. Please try again.');
-        if (res.status === 429) setUsageRemaining(0);
         return;
       }
 
@@ -424,8 +444,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       const data = await res.json();
 
       if (!res.ok) {
+        // GAP 7: Handle 429 for recommendations
+        if (res.status === 429) {
+          setRecsError(data.error || 'Rate limit reached');
+          setUsageRemaining(0);
+          setRateLimitRemaining(0);
+          return;
+        }
         setRecsError(data.error || 'Failed to generate recommendations.');
-        if (res.status === 429) setUsageRemaining(0);
         return;
       }
 
@@ -461,8 +487,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       const data = await res.json();
 
       if (!res.ok) {
+        // GAP 7: Handle 429 for rewrite
+        if (res.status === 429) {
+          setRewriteError(data.error || 'Rate limit reached');
+          setUsageRemaining(0);
+          setRateLimitRemaining(0);
+          return;
+        }
         setRewriteError(data.error || 'Failed to rewrite script.');
-        if (res.status === 429) setUsageRemaining(0);
         return;
       }
 
@@ -560,8 +592,10 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               />
               <button
                 onClick={handleTranscribe}
-                disabled={loading || !url.trim()}
-                className="h-14 px-8 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px]"
+                disabled={loading || !url.trim() || rateLimitRemaining === 0}
+                className={`h-14 px-8 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px] ${
+                  rateLimitRemaining === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 {loading ? (
                   <>
@@ -582,6 +616,16 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-left">
                 <AlertCircle size={18} className="text-red-400 mt-0.5 shrink-0" />
                 <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* GAP 7: Rate limit UI */}
+            {rateLimitTotal > 0 && (
+              <div className="text-xs text-zinc-500 mt-2">
+                {rateLimitRemaining > 0
+                  ? `${rateLimitRemaining} of ${rateLimitTotal} uses remaining today`
+                  : <span className="text-amber-400">Daily limit reached — resets tomorrow</span>
+                }
               </div>
             )}
           </div>
@@ -1367,7 +1411,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             ) : (
               <div className="space-y-4">
                 {/* Portal action buttons */}
-                {isPortal && isLoggedIn && (
+                {/* GAP 3: Fixed permission gate - changed from isPortal && isLoggedIn to just isLoggedIn */}
+                {isLoggedIn && (
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     <button
                       onClick={handleAddToWinners}

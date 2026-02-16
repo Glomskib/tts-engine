@@ -152,6 +152,7 @@ interface AudiencePersona {
   platforms?: string[];
   best_posting_times?: string;
   times_used?: number;
+  is_system?: boolean;
 }
 
 interface SkitData {
@@ -2284,6 +2285,9 @@ export default function ContentStudioPage() {
                                 <span style={{ fontSize: '14px', fontWeight: 500, color: selectedPersonaId === p.id ? '#2dd4bf' : '#fff' }}>
                                   {p.name}
                                 </span>
+                                {p.is_system && (
+                                  <span style={{ fontSize: '10px', backgroundColor: '#3f3f46', color: '#a1a1aa', borderRadius: '4px', padding: '2px 6px' }}>Built-in</span>
+                                )}
                               </div>
                               {p.description && (
                                 <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>

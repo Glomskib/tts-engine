@@ -1,220 +1,158 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import OpenAI from 'openai';
 
-export const runtime = "nodejs";
-export const maxDuration = 300;
-export async function POST(request: Request) {
-  const auth = await getApiAuthContext(request);
-  if (!auth.user) {
-    return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Rate limiting by IP (simple in-memory cache)
+const ipUsage = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string, isAuthenticated: boolean): { allowed: boolean; remaining: number } {
+  if (isAuthenticated) {
+    return { allowed: true, remaining: 999 };
   }
 
-  let body: unknown;
+  const now = Date.now();
+  const usage = ipUsage.get(ip);
+
+  if (!usage || usage.resetAt < now) {
+    ipUsage.set(ip, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
+    return { allowed: true, remaining: 2 };
+  }
+
+  if (usage.count >= 3) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  usage.count += 1;
+  return { allowed: true, remaining: 3 - usage.count };
+}
+
+const PLATFORM_CONTEXT = {
+  tiktok: 'TikTok Shop affiliate videos - Maximum pattern interrupt, controversy-adjacent, fast pacing. Focus on scroll-stopping moments.',
+  youtube_shorts: 'YouTube Shorts - Promise value upfront, slightly more context than TikTok, retention-focused. Build curiosity.',
+  instagram_reels: 'Instagram Reels - Aesthetic-forward visuals, aspirational tone, relatable moments. Visual appeal is critical.',
+};
+
+export async function POST(request: NextRequest) {
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON" },
-      { status: 400 }
-    );
-  }
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const isAuthenticated = !!user;
 
-  const { concept_id, count = 20, style_preset, category_risk } = body as Record<string, unknown>;
+    // Get IP for rate limiting
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    const rateLimit = checkRateLimit(ip, isAuthenticated);
 
-  if (typeof concept_id !== "string" || concept_id.trim() === "") {
-    return NextResponse.json(
-      { ok: false, error: "concept_id is required and must be a non-empty string" },
-      { status: 400 }
-    );
-  }
-
-  // Fetch concept from database
-  const { data: concept, error: conceptError } = await supabaseAdmin
-    .from("concepts")
-    .select("*")
-    .eq("id", concept_id.trim())
-    .single();
-
-  if (conceptError || !concept) {
-    return NextResponse.json(
-      { ok: false, error: "Concept not found" },
-      { status: 404 }
-    );
-  }
-
-  // Determine AI provider
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-
-  if (!anthropicKey && !openaiKey) {
-    return NextResponse.json(
-      { ok: false, error: "No AI API key configured" },
-      { status: 500 }
-    );
-  }
-
-  try {
-    let generatedHooks: Array<{ hook_text: string; hook_style: string; angle: string }> = [];
-
-    const hookCount = typeof count === "number" ? Math.min(Math.max(count, 1), 50) : 20;
-    
-    const prompt = `Generate exactly ${hookCount} TikTok Shop viral hooks for this concept:
-
-Title: ${concept.concept_title || concept.title}
-Core Angle: ${concept.core_angle}
-Category: ${category_risk || "general"}
-Style: ${style_preset || "viral"}
-
-Requirements:
-- Each hook must be 5-12 words maximum
-- Designed for A/B testing (only hook changes)
-- TikTok Shop oriented for product promotion
-- For supplements: NO medical claims, avoid "cure", "treat", "diagnose", "guaranteed"
-- Focus on curiosity, social proof, transformation, urgency
-- Vary hook styles: curiosity, social_proof, transformation, urgency, educational, emotional
-
-Return ONLY valid JSON in this exact format:
-{
-  "hooks": [
-    { "hook_text": "This supplement hack went viral", "hook_style": "curiosity", "angle": "viral_trend" },
-    { "hook_text": "Why everyone's buying this supplement", "hook_style": "social_proof", "angle": "popularity" }
-  ]
-}`;
-
-    if (anthropicKey) {
-      // Use Anthropic Claude
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 2000,
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Anthropic API error: ${response.status}`);
-      }
-
-      const anthropicResult = await response.json();
-      const content = anthropicResult.content?.[0]?.text;
-      
-      if (!content) {
-        throw new Error("No content returned from Anthropic");
-      }
-
-      const parsed = JSON.parse(content);
-      generatedHooks = parsed.hooks;
-
-    } else if (openaiKey) {
-      // Use OpenAI
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          max_tokens: 2000,
-          temperature: 0.8,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const openaiResult = await response.json();
-      const content = openaiResult.choices?.[0]?.message?.content;
-      
-      if (!content) {
-        throw new Error("No content returned from OpenAI");
-      }
-
-      const parsed = JSON.parse(content);
-      generatedHooks = parsed.hooks;
-    }
-
-    // Validate generated hooks
-    if (!Array.isArray(generatedHooks) || generatedHooks.length === 0) {
-      throw new Error("Invalid hooks format returned from AI");
-    }
-
-    // Insert hooks into database
-    const hooksToInsert = generatedHooks.map(hook => ({
-      hook_text: hook.hook_text,
-      hook_style: hook.hook_style,
-      concept_id: concept_id.trim(),
-    }));
-
-    const { data: insertedHooks, error: insertError } = await supabaseAdmin
-      .from("hooks")
-      .insert(hooksToInsert)
-      .select();
-
-    if (insertError) {
-      console.error("Hook insertion error:", insertError);
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { ok: false, error: "Failed to save generated hooks" },
+        { error: 'Rate limit exceeded. Sign up for unlimited access.' },
+        { status: 429 }
+      );
+    }
+
+    const body = await request.json();
+    const { product, platform = 'tiktok', niche = '' } = body;
+
+    if (!product || typeof product !== 'string' || product.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Product or topic is required' },
+        { status: 400 }
+      );
+    }
+
+    const platformContext = PLATFORM_CONTEXT[platform as keyof typeof PLATFORM_CONTEXT] || PLATFORM_CONTEXT.tiktok;
+    const nicheContext = niche ? `Niche/Category: ${niche}` : '';
+
+    const systemPrompt = `You are an expert short-form video hook strategist.
+
+Generate exactly 5 scroll-stopping hooks for the given product/topic.
+
+Each hook MUST have exactly 3 parts designed to work together:
+
+1. VISUAL HOOK (Scene Direction): A specific physical action, movement, prop interaction, or visual pattern interrupt that catches the eye in the first 0.5 seconds. Be specific — not "person talking to camera" but "Close-up of hand slamming laptop shut" or "POV: walking past 6 identical products to grab the one at the end"
+
+2. TEXT ON SCREEN: Curiosity-driving overlay text that creates an open loop. Must make the viewer NEED to keep watching. Examples: "I was mass producing 3,000 of these a day until..." or "Day 1 vs Day 30 (wait for it)"
+
+3. VERBAL HOOK (Opening Line): The first spoken words that either create intrigue, challenge a belief, or start a story. Must pair with the visual. Examples: "Okay but why is nobody talking about this?" or "I got fired for saying this on camera"
+
+Platform context: ${platformContext}
+${nicheContext}
+
+Return ONLY a valid JSON array of 5 hooks in this exact format:
+[
+  {
+    "visual_hook": "...",
+    "text_on_screen": "...",
+    "verbal_hook": "...",
+    "strategy_note": "one sentence explaining why this combination works"
+  }
+]
+
+Do not include any markdown formatting or additional text - only the JSON array.`;
+
+    const userPrompt = `Product/Topic: ${product.trim()}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.8,
+      max_tokens: 2000,
+    });
+
+    const responseText = completion.choices[0]?.message?.content?.trim() || '';
+    
+    // Try to parse JSON from response
+    let hooks;
+    try {
+      // Remove markdown code blocks if present
+      const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      hooks = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', responseText);
+      return NextResponse.json(
+        { error: 'Failed to generate valid hooks. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    if (!Array.isArray(hooks) || hooks.length === 0) {
+      return NextResponse.json(
+        { error: 'Failed to generate hooks. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    // Validate hook structure
+    const validHooks = hooks.filter(hook => 
+      hook.visual_hook && 
+      hook.text_on_screen && 
+      hook.verbal_hook && 
+      hook.strategy_note
+    );
+
+    if (validHooks.length === 0) {
+      return NextResponse.json(
+        { error: 'Generated hooks were invalid. Please try again.' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      ok: true,
-      data: insertedHooks,
-      meta: {
-        count: insertedHooks?.length || 0,
-        concept_id: concept_id.trim(),
-        ai_provider: anthropicKey ? "anthropic" : "openai",
-      },
+      hooks: validHooks.slice(0, 5),
+      remaining: rateLimit.remaining,
     });
 
   } catch (error) {
-    console.error("Hook generation error:", error);
+    console.error('Error in hook generation:', error);
     return NextResponse.json(
-      { ok: false, error: `Hook generation failed: ${String(error)}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
-/*
-PowerShell Test Plan:
-
-# 1. Get existing concept_id from concepts table
-$conceptResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/concepts" -Method GET
-$conceptId = $conceptResponse.data[0].id
-
-# 2. Create hook manually via POST /api/hooks
-$hookBody = "{`"concept_id`": `"$conceptId`", `"hook_text`": `"Try this viral supplement hack`", `"hook_style`": `"curiosity`", `"angle`": `"educational`"}"
-$hookResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/hooks" -Method POST -ContentType "application/json" -Body $hookBody
-$hookResponse
-
-# 3. Generate 10 hooks via POST /api/hooks/generate
-$generateBody = "{`"concept_id`": `"$conceptId`", `"count`": 10, `"style_preset`": `"viral`", `"category_risk`": `"supplements`"}"
-$generateResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/hooks/generate" -Method POST -ContentType "application/json" -Body $generateBody
-$generateResponse
-
-# 4. Fetch hooks via GET /api/hooks?concept_id=...
-$getHooksResponse = Invoke-RestMethod -Uri "http://localhost:3000/api/hooks?concept_id=$conceptId" -Method GET
-$getHooksResponse
-*/

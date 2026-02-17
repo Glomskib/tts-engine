@@ -94,6 +94,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
+      { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
       { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
     ],

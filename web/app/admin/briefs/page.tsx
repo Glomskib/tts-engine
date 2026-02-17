@@ -131,6 +131,11 @@ export default function BriefsPage() {
   const [briefId, setBriefId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
+  // File upload state
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadType, setUploadType] = useState<'text' | 'image' | 'pdf'>('text');
+
   // Past briefs
   const [pastBriefs, setPastBriefs] = useState<PastBrief[]>([]);
   const [loadingBriefs, setLoadingBriefs] = useState(true);
@@ -165,29 +170,72 @@ export default function BriefsPage() {
     }
   }, []);
 
+  const handleFileUpload = async (file: File) => {
+    setUploadedFile(file);
+    
+    if (file.type.startsWith('image/')) {
+      setUploadType('image');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setUploadPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      setUploadType('pdf');
+      setUploadPreview(null);
+      showError('PDF parsing coming soon. For now, copy text from PDF and paste it.');
+    } else {
+      showError('Please upload an image (PNG/JPG) or PDF file');
+      setUploadedFile(null);
+    }
+  };
+
   const analyzeBrief = async () => {
     setAnalyzing(true);
     setError('');
     setAnalysis(null);
     setBriefId(null);
+    
     try {
-      const res = await fetch('/api/brand-briefs/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          brief_text: briefText,
-          brand_id: selectedBrandId || undefined,
-          brief_type: briefType,
-          title: briefTitle || undefined,
-          source_url: sourceUrl || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setAnalysis(data.analysis);
-      setBriefId(data.brief_id);
-      showSuccess('Brief analyzed successfully!');
+      let analysisData;
+
+      // If there's an uploaded image, use the new /api/briefs/analyze endpoint
+      if (uploadType === 'image' && uploadPreview) {
+        const res = await fetch('/api/briefs/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            type: 'image',
+            image: uploadPreview,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        analysisData = data.analysis;
+        showSuccess('Brief extracted from image and analyzed!');
+      } else {
+        // Use existing endpoint for text-based analysis
+        const res = await fetch('/api/brand-briefs/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            brief_text: briefText,
+            brand_id: selectedBrandId || undefined,
+            brief_type: briefType,
+            title: briefTitle || undefined,
+            source_url: sourceUrl || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        analysisData = data.analysis;
+        setBriefId(data.brief_id);
+        showSuccess('Brief analyzed successfully!');
+      }
+
+      setAnalysis(analysisData);
       fetchPastBriefs();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Analysis failed';
@@ -302,6 +350,63 @@ export default function BriefsPage() {
             />
           </div>
 
+          {/* Upload Brief Image/Screenshot */}
+          <div>
+            <label className="block text-sm text-zinc-400 mb-2">Upload Brief (Optional)</label>
+            <div className="flex gap-4">
+              <label className="flex-1 cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                  className="hidden"
+                />
+                <div className="border-2 border-dashed border-zinc-700 hover:border-teal-500 rounded-lg p-6 text-center transition-colors">
+                  {uploadPreview ? (
+                    <div className="space-y-2">
+                      <img src={uploadPreview} alt="Brief preview" className="max-h-32 mx-auto rounded" />
+                      <p className="text-xs text-zinc-400">{uploadedFile?.name}</p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setUploadedFile(null);
+                          setUploadPreview(null);
+                          setUploadType('text');
+                        }}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <FileText className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
+                      <p className="text-sm text-zinc-300">Click to upload image or PDF</p>
+                      <p className="text-xs text-zinc-500 mt-1">Screenshot, photo, or PDF of brief</p>
+                    </>
+                  )}
+                </div>
+              </label>
+            </div>
+            {uploadPreview && (
+              <p className="text-xs text-teal-400 mt-2 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                AI will extract text from this image
+              </p>
+            )}
+          </div>
+
+          {/* Or paste text */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-zinc-700"></div>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Or Paste Text</span>
+            <div className="flex-1 h-px bg-zinc-700"></div>
+          </div>
+
           {/* Brief text */}
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Brief Text</label>
@@ -310,7 +415,8 @@ export default function BriefsPage() {
               onChange={e => setBriefText(e.target.value)}
               rows={10}
               placeholder="Paste the full brand brief here..."
-              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
+              disabled={!!uploadPreview}
+              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-zinc-500 mt-1">{briefText.length} characters (min 50)</p>
           </div>
@@ -324,7 +430,7 @@ export default function BriefsPage() {
 
           <button
             onClick={analyzeBrief}
-            disabled={analyzing || briefText.length < 50}
+            disabled={analyzing || (briefText.length < 50 && !uploadPreview)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
           >
             {analyzing ? (

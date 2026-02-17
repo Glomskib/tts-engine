@@ -49,6 +49,9 @@ import {
   RefreshCw,
   MessageCircle,
   Send,
+  Video,
+  Clapperboard,
+  Camera,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -298,6 +301,9 @@ export default function ContentStudioPage() {
 
   // Main Tab (top-level category filter)
   const [selectedMainTabId, setSelectedMainTabId] = useState<string>('all');
+
+  // Platform Selection
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('tiktok');
 
   // STEP 1: Content Type
   const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>('tof');
@@ -968,6 +974,9 @@ export default function ContentStudioPage() {
 
     // Build payload with correct API field names
     const payload: Record<string, unknown> = {
+      // Platform selection
+      platform: selectedPlatform,
+
       // Product info
       product_id: selectedProductId || undefined,
       product_name: selectedProductId ? undefined : manualProductName.trim(),
@@ -1617,6 +1626,45 @@ export default function ContentStudioPage() {
 
       {/* Content Type Filter Bar (hidden in Simple Mode) */}
       {!simpleMode && <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
+        {/* Platform Selector */}
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: 'rgba(16, 185, 129, 0.05)',
+          border: '1px solid rgba(16, 185, 129, 0.15)',
+          borderRadius: '14px',
+          marginBottom: '16px',
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+            Target Platform
+          </div>
+          <div className="flex gap-2">
+            {[
+              { id: 'tiktok', label: 'TikTok', icon: Smartphone },
+              { id: 'youtube_shorts', label: 'YouTube Shorts', icon: Video },
+              { id: 'youtube_long', label: 'YouTube Long-form', icon: Clapperboard },
+              { id: 'instagram', label: 'Instagram Reels', icon: Camera },
+            ].map((platform) => {
+              const Icon = platform.icon;
+              const isSelected = selectedPlatform === platform.id;
+              return (
+                <button
+                  key={platform.id}
+                  type="button"
+                  onClick={() => setSelectedPlatform(platform.id)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                    isSelected
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-zinc-800/60 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                  }`}
+                >
+                  <Icon size={14} />
+                  <span className="hidden sm:inline">{platform.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div style={{
           padding: '12px 16px',
           backgroundColor: 'rgba(59, 130, 246, 0.05)',
@@ -3594,6 +3642,58 @@ export default function ContentStudioPage() {
 
               {/* Export & Action Buttons */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Repurpose for Other Platforms */}
+                {!generating && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    borderRadius: '10px',
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '8px' }}>
+                      Repurpose for...
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                      {[
+                        { id: 'tiktok', label: 'TikTok' },
+                        { id: 'youtube_shorts', label: 'YT Shorts' },
+                        { id: 'youtube_long', label: 'YT Long' },
+                        { id: 'instagram', label: 'IG Reels' },
+                      ].filter(p => p.id !== selectedPlatform).map((platform) => (
+                        <button
+                          key={platform.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPlatform(platform.id);
+                            handleGenerate();
+                          }}
+                          style={{
+                            padding: '8px',
+                            backgroundColor: '#1f2937',
+                            border: '1px solid #374151',
+                            borderRadius: '6px',
+                            color: '#d1d5db',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.backgroundColor = '#374151';
+                            e.currentTarget.style.borderColor = '#10b981';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = '#1f2937';
+                            e.currentTarget.style.borderColor = '#374151';
+                          }}
+                        >
+                          {platform.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Regenerate Button */}
                 <button type="button"
                   onClick={() => { handleGenerate(); }}

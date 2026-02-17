@@ -1,20 +1,8 @@
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Free AI Hook Generator for TikTok, YouTube Shorts & Reels | FlashFlow',
-  description: 'Generate scroll-stopping 3-part hooks for your short-form videos. AI-powered visual hooks, text overlays, and verbal openers that stop thumbs and keep viewers watching.',
-  keywords: 'hook generator, tiktok hook ideas, youtube shorts hooks, instagram reels hooks, video hooks, scroll stopping hooks, ai hook generator',
-  openGraph: {
-    title: 'Hook Doctor - Free AI Hook Generator',
-    description: 'Generate 3-part scroll-stopping hooks for TikTok, YouTube Shorts, and Instagram Reels',
-    type: 'website',
-  },
-};
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Head from 'next/head';
 import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, Lock, CheckCircle } from 'lucide-react';
 
 interface Hook {
@@ -94,7 +82,16 @@ export default function HookDoctorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <>
+      <Head>
+        <title>Free AI Hook Generator for TikTok, YouTube Shorts & Reels | FlashFlow</title>
+        <meta name="description" content="Generate scroll-stopping 3-part hooks for your short-form videos. AI-powered visual hooks, text overlays, and verbal openers that stop thumbs and keep viewers watching." />
+        <meta name="keywords" content="hook generator, tiktok hook ideas, youtube shorts hooks, instagram reels hooks, video hooks, scroll stopping hooks, ai hook generator" />
+        <meta property="og:title" content="Hook Doctor - Free AI Hook Generator" />
+        <meta property="og:description" content="Generate 3-part scroll-stopping hooks for TikTok, YouTube Shorts, and Instagram Reels" />
+        <meta property="og:type" content="website" />
+      </Head>
+      <div className="min-h-screen bg-gray-900 text-white">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-emerald-900/20 to-gray-900 py-20 px-4">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
@@ -328,6 +325,7 @@ export default function HookDoctorPage() {
           </Link>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

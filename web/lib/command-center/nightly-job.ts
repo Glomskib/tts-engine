@@ -57,14 +57,13 @@ export async function runNightlyIdeaResearch(
   }
 
   if (!ideas || ideas.length === 0) {
-    log.push('[nightly] No ideas to process.');
-    return { processed: 0, queued_runs: 0, errors: 0, artifacts_ingested: 0, log };
+    log.push('[nightly] No ideas to research.');
+  } else {
+    log.push(`[nightly] Found ${ideas.length} ideas to process.`);
   }
 
-  log.push(`[nightly] Found ${ideas.length} ideas to process.`);
-
   // 2. Process each idea
-  for (const idea of ideas) {
+  for (const idea of ideas ?? []) {
     try {
       log.push(`[nightly] Processing idea "${idea.title}" (${idea.id}) score=${idea.score ?? 'none'}`);
 

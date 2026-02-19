@@ -21,6 +21,7 @@ import { requirePlan } from "@/lib/plan-gate";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createImageToVideo, getTaskStatus } from "@/lib/runway";
 import { sendTelegramNotification } from "@/lib/telegram";
+import { callAnthropicJSON } from "@/lib/ai/anthropic";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 min — polling Runway takes time
@@ -130,9 +131,9 @@ async function generateScriptAwareBrollPrompts(
   productName: string,
   productCategory: string | null,
   sceneCount: number,
+  correlationId?: string,
 ): Promise<ScriptAwarePrompt[] | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+  if (!process.env.ANTHROPIC_API_KEY) return null;
 
   const setting = inferSetting(productCategory);
 
@@ -166,44 +167,19 @@ Return ONLY a JSON array (no markdown, no explanation):
 ]`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        temperature: 0.5,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const { parsed } = await callAnthropicJSON<Array<Record<string, unknown>>>(prompt, {
+      model: 'claude-haiku-4-5-20251001',
+      maxTokens: 1000,
+      temperature: 0.5,
+      correlationId,
+      requestType: 'broll_prompt_generation',
+      agentId: 'broll',
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!response.ok) {
-      console.warn('[broll] Script-aware prompt generation failed:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    const rawText: string = data.content?.[0]?.text || '';
-
-    // Parse JSON array from response
-    let text = rawText.trim();
-    if (text.startsWith('```')) {
-      text = text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    }
-
-    const firstBracket = text.indexOf('[');
-    const lastBracket = text.lastIndexOf(']');
-    if (firstBracket === -1 || lastBracket === -1) return null;
-
-    const parsed = JSON.parse(text.substring(firstBracket, lastBracket + 1));
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
 
-    return parsed.slice(0, sceneCount).map((item: Record<string, unknown>) => ({
+    return parsed.slice(0, sceneCount).map((item) => ({
       label: String(item.label || 'scene'),
       prompt: String(item.prompt || ''),
       beat: String(item.beat || ''),
@@ -431,6 +407,7 @@ export async function POST(request: Request) {
       productLabel,
       product.category,
       scenes,
+      correlationId,
     );
 
     if (aiPrompts && aiPrompts.length >= scenes) {
@@ -544,7 +521,8 @@ export async function POST(request: Request) {
         prompt,
         "gen3a_turbo",
         5,
-        "768:1280"
+        "768:1280",
+        { correlationId, agentId: "broll" },
       );
 
       if (!result?.id) {

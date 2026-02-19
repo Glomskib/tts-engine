@@ -2,6 +2,8 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
+import { callAnthropicAPI } from "@/lib/ai/anthropic";
+import { trackUsage } from "@/lib/command-center/ingest";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -85,31 +87,19 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
     let response: string = "";
 
     if (anthropicKey) {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 500,
-          temperature: 0.7,
-          system: systemPrompt,
-          messages: [{ role: "user", content: message.trim() }],
-        }),
+      const result = await callAnthropicAPI(message.trim(), {
+        model: "claude-3-haiku-20240307",
+        maxTokens: 500,
+        temperature: 0.7,
+        systemPrompt,
+        correlationId,
+        requestType: "chat",
+        agentId: "ai-chat",
       });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Anthropic API error: ${res.status} - ${errorText}`);
-      }
-
-      const result = await res.json();
-      response = result.content?.[0]?.text || "Sorry, I couldn't generate a response.";
+      response = result.text || "Sorry, I couldn't generate a response.";
 
     } else if (openaiKey) {
+      const start = Date.now();
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -127,13 +117,39 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
         }),
       });
 
+      const latencyMs = Date.now() - start;
+
       if (!res.ok) {
         const errorText = await res.text();
+        trackUsage({
+          provider: "openai",
+          model: "gpt-3.5-turbo",
+          input_tokens: 0,
+          output_tokens: 0,
+          latency_ms: latencyMs,
+          status: "error",
+          error_code: `HTTP_${res.status}`,
+          request_type: "chat",
+          agent_id: "ai-chat",
+          correlation_id: correlationId,
+        }).catch(() => {});
         throw new Error(`OpenAI API error: ${res.status} - ${errorText}`);
       }
 
       const result = await res.json();
       response = result.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
+
+      // Track OpenAI usage
+      trackUsage({
+        provider: "openai",
+        model: "gpt-3.5-turbo",
+        input_tokens: result.usage?.prompt_tokens ?? 0,
+        output_tokens: result.usage?.completion_tokens ?? 0,
+        latency_ms: latencyMs,
+        request_type: "chat",
+        agent_id: "ai-chat",
+        correlation_id: correlationId,
+      }).catch((e) => console.error("[ai-chat] openai usage tracking failed:", e));
     }
 
     const successResponse = NextResponse.json({

@@ -40,7 +40,10 @@ export async function POST(request: Request) {
 
   try {
     // Generate audio via ElevenLabs
-    const audioBuffer = await textToSpeech(text, voiceId);
+    const audioBuffer = await textToSpeech(text, voiceId, {
+      correlationId,
+      agentId: "tts-render",
+    });
 
     // Upload to Supabase storage so Shotstack can fetch it
     const filename = `tts/${Date.now()}_${correlationId}.mp3`;

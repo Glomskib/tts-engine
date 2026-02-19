@@ -11,6 +11,7 @@ import { FLASHFLOW_KNOWLEDGE_BASE } from "@/lib/flashflow-knowledge";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { enforceRateLimits } from "@/lib/rate-limit";
+import { callAnthropicAPI } from "@/lib/ai/anthropic";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -82,31 +83,24 @@ export async function POST(request: Request) {
   ];
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 512,
-        system: SYSTEM_PROMPT,
-        messages,
-      }),
+    // callAnthropicAPI expects a single prompt; combine the last user message
+    // For multi-turn, we pass the conversation via the prompt since the wrapper
+    // uses a single user message. The system prompt is handled separately.
+    const conversationPrompt = messages.length > 1
+      ? messages.map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n\n")
+      : message.trim();
+
+    const result = await callAnthropicAPI(conversationPrompt, {
+      model: "claude-haiku-4-5-20251001",
+      maxTokens: 512,
+      systemPrompt: SYSTEM_PROMPT,
+      correlationId,
+      requestType: "help_chat",
+      agentId: "help-bot",
       signal: AbortSignal.timeout(25000),
     });
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      console.error(`[${correlationId}] Anthropic API error ${response.status}:`, errText.slice(0, 300));
-      return createApiErrorResponse("INTERNAL", "Failed to generate response", 500, correlationId);
-    }
-
-    const data = await response.json();
-    const assistantText: string =
-      data.content?.[0]?.text || "Sorry, I couldn't generate a response. Please try again.";
+    const assistantText = result.text || "Sorry, I couldn't generate a response. Please try again.";
 
     return NextResponse.json({
       ok: true,

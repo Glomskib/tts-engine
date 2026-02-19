@@ -11,6 +11,8 @@
  */
 
 import { callOllama, isOllamaAvailable } from "./ollama";
+import { callAnthropicAPI } from "./anthropic";
+import { trackUsage } from "@/lib/command-center/ingest";
 
 // ---------------------------------------------------------------------------
 // Task types — determines which provider handles the request
@@ -39,7 +41,7 @@ const OLLAMA_TASKS: TaskType[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Internal Claude caller (raw fetch, same pattern as existing endpoints)
+// Internal Claude caller — delegates to centralized anthropic.ts (tracked)
 // ---------------------------------------------------------------------------
 
 async function callClaude(
@@ -49,46 +51,20 @@ async function callClaude(
     temperature?: number;
     maxTokens?: number;
     model?: string;
+    correlationId?: string;
   },
-): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
-
+): Promise<{ text: string; model: string }> {
   const model = options?.model || "claude-sonnet-4-20250514";
-  const messages: { role: string; content: string }[] = [];
-
-  if (options?.systemPrompt) {
-    messages.push({ role: "user", content: options.systemPrompt + "\n\n" + prompt });
-  } else {
-    messages.push({ role: "user", content: prompt });
-  }
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: options?.maxTokens || 2048,
-      temperature: options?.temperature ?? 0.7,
-      messages,
-    }),
-    signal: AbortSignal.timeout(90000),
+  const result = await callAnthropicAPI(prompt, {
+    model,
+    systemPrompt: options?.systemPrompt,
+    temperature: options?.temperature,
+    maxTokens: options?.maxTokens || 2048,
+    agentId: "ai-router",
+    requestType: "routed_chat",
+    correlationId: options?.correlationId,
   });
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "");
-    throw new Error(`Claude API error ${response.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const data = await response.json();
-  const textBlock = data.content?.find(
-    (b: { type: string; text?: string }) => b.type === "text",
-  );
-  return textBlock?.text || "";
+  return { text: result.text, model: result.model };
 }
 
 // ---------------------------------------------------------------------------
@@ -109,21 +85,34 @@ export async function routeAIRequest(
     temperature?: number;
     maxTokens?: number;
     forceProvider?: "claude" | "ollama";
+    correlationId?: string;
   },
 ): Promise<AIRouterResult> {
   // Force provider override
   if (options?.forceProvider === "ollama") {
+    const start = Date.now();
     const response = await callOllama(prompt, {
       system: options.systemPrompt,
       temperature: options.temperature,
       maxTokens: options.maxTokens,
     });
+    trackUsage({
+      provider: "ollama",
+      model: "llama3.1:8b",
+      input_tokens: 0,
+      output_tokens: 0,
+      latency_ms: Date.now() - start,
+      request_type: taskType,
+      agent_id: "ai-router",
+      correlation_id: options?.correlationId,
+      meta: { note: "local inference, no token metering" },
+    }).catch(() => {});
     return { response, model: "llama3.1:8b", provider: "ollama" };
   }
 
   if (options?.forceProvider === "claude") {
-    const response = await callClaude(prompt, options);
-    return { response, model: "claude-sonnet-4-20250514", provider: "claude" };
+    const result = await callClaude(prompt, { ...options, correlationId: options?.correlationId });
+    return { response: result.text, model: result.model, provider: "claude" };
   }
 
   // Auto-route based on task type
@@ -131,11 +120,23 @@ export async function routeAIRequest(
     const ollamaUp = await isOllamaAvailable();
     if (ollamaUp) {
       try {
+        const start = Date.now();
         const response = await callOllama(prompt, {
           system: options?.systemPrompt,
           temperature: options?.temperature,
           maxTokens: options?.maxTokens,
         });
+        trackUsage({
+          provider: "ollama",
+          model: "llama3.1:8b",
+          input_tokens: 0,
+          output_tokens: 0,
+          latency_ms: Date.now() - start,
+          request_type: taskType,
+          agent_id: "ai-router",
+          correlation_id: options?.correlationId,
+          meta: { note: "local inference, no token metering" },
+        }).catch(() => {});
         return { response, model: "llama3.1:8b", provider: "ollama" };
       } catch {
         // Fall through to Claude as fallback
@@ -145,6 +146,6 @@ export async function routeAIRequest(
   }
 
   // Use Claude for quality-critical tasks or as fallback
-  const response = await callClaude(prompt, options);
-  return { response, model: "claude-sonnet-4-20250514", provider: "claude" };
+  const result = await callClaude(prompt, { ...options, correlationId: options?.correlationId });
+  return { response: result.text, model: result.model, provider: "claude" };
 }

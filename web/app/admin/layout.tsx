@@ -92,6 +92,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/transcribe': 'Transcriber',
       '/admin/help': 'Help',
       '/admin/settings/system-status': 'System Status',
+      '/admin/command-center': 'Command Center',
+      '/admin/command-center/usage': 'API Usage',
+      '/admin/command-center/projects': 'Projects & Tasks',
+      '/admin/command-center/ideas': 'Idea Dump',
+      '/admin/command-center/finance': 'Finance',
+      '/admin/command-center/agents': 'Agent Scoreboard',
     };
     const title = PAGE_TITLES[pathname] || 'Admin';
     document.title = `${title} | FlashFlow AI`;
@@ -203,7 +209,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return <ToastProvider>{children}</ToastProvider>;
   }
 
-  const navSections = getFilteredNavSections({ planId: subscription?.planId, isAdmin: auth.isAdmin });
+  // Owner check for Command Center visibility
+  const ownerEmails = (process.env.NEXT_PUBLIC_OWNER_EMAILS || 'spiderbuttons@gmail.com').split(',').map(s => s.trim().toLowerCase());
+  const isOwner = !!auth.userEmail && ownerEmails.includes(auth.userEmail.toLowerCase());
+  const navSections = getFilteredNavSections({ planId: subscription?.planId, isAdmin: auth.isAdmin, isOwner });
 
   // Sidebar content (shared between mobile and desktop)
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (

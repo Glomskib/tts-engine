@@ -66,6 +66,8 @@ export interface NavItem {
   external?: boolean;
   /** Only visible to admin users */
   adminOnly?: boolean;
+  /** Only visible to owner (OWNER_EMAILS allowlist) — hidden + 404 for everyone else */
+  ownerOnly?: boolean;
   /** Minimum plan required to access (shown locked if user doesn't meet it) */
   minPlan?: 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
 }
@@ -171,6 +173,21 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   // CLIENT SERVICES section removed — pages still exist but hidden from nav
+  // ========================
+  // OWNER-ONLY: COMMAND CENTER
+  // ========================
+  {
+    title: 'COMMAND CENTER',
+    subscriptionType: 'saas',
+    items: [
+      { name: 'Overview', href: '/admin/command-center', icon: Activity, ownerOnly: true },
+      { name: 'API Usage', href: '/admin/command-center/usage', icon: BarChart, ownerOnly: true },
+      { name: 'Projects & Tasks', href: '/admin/command-center/projects', icon: ListTodo, ownerOnly: true },
+      { name: 'Idea Dump', href: '/admin/command-center/ideas', icon: Lightbulb, ownerOnly: true },
+      { name: 'Finance', href: '/admin/command-center/finance', icon: DollarSign, ownerOnly: true },
+      { name: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap, ownerOnly: true },
+    ],
+  },
 ];
 
 /** Resolved section with lock state per item */
@@ -185,9 +202,10 @@ export interface NavSectionResolved {
 export function getFilteredNavSections(options: {
   planId?: string | null;
   isAdmin: boolean;
+  isOwner?: boolean;
   subscriptionType?: SubscriptionType;
 }): NavSectionResolved[] {
-  const { planId, isAdmin, subscriptionType = 'saas' } = options;
+  const { planId, isAdmin, isOwner = false, subscriptionType = 'saas' } = options;
 
   // Resolve user's actual plan ID (handles old plan IDs)
   const resolvedPlanId = planId ? migrateOldPlanId(planId) : 'free';
@@ -224,12 +242,19 @@ export function getFilteredNavSections(options: {
       return true;
     })
     .map((section) => {
-      // Admin sees everything unlocked
-      if (isAdmin) return { ...section, items: section.items.map(item => ({ ...item })) };
+      // Admin sees everything unlocked (but filter ownerOnly items if not owner)
+      if (isAdmin) {
+        return {
+          ...section,
+          items: section.items
+            .filter(item => !item.ownerOnly || isOwner)
+            .map(item => ({ ...item })),
+        };
+      }
 
-      // Filter out adminOnly items, mark minPlan-gated items as locked
+      // Filter out adminOnly and ownerOnly items, mark minPlan-gated items as locked
       const resolvedItems: NavItemResolved[] = section.items
-        .filter((item) => !item.adminOnly)
+        .filter((item) => !item.adminOnly && !(item.ownerOnly && !isOwner))
         .map((item) => {
           if (item.minPlan && !meetsMinPlan(resolvedPlanId, item.minPlan)) {
             const requiredPlan = getPlanByStringId(item.minPlan);

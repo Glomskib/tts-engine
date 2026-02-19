@@ -1,5 +1,6 @@
 // lib/replicate.ts - Replicate AI image generation client
 import Replicate from 'replicate';
+import { trackUsage } from '@/lib/command-center/ingest';
 
 // Lazy-initialize Replicate client
 let replicateClient: Replicate | null = null;
@@ -112,6 +113,8 @@ export interface GenerateImageParams {
   aspectRatio?: string;
   negativePrompt?: string;
   numOutputs?: number;
+  correlationId?: string;
+  agentId?: string;
 }
 
 // Generate images using Replicate
@@ -165,6 +168,7 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
   }
 
   let output: unknown;
+  const start = Date.now();
   try {
     output = await replicate.run(modelConfig.id as `${string}/${string}`, { input });
   } catch (runError) {
@@ -208,17 +212,43 @@ export async function generateImages(params: GenerateImageParams): Promise<strin
     return null;
   };
 
+  const latencyMs = Date.now() - start;
+
+  // Fire-and-forget usage tracking for successful generation
+  const trackReplicateUsage = (imageCount: number) => {
+    trackUsage({
+      provider: 'replicate',
+      model: modelConfig.id,
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+      latency_ms: latencyMs,
+      request_type: 'image_generation',
+      agent_id: params.agentId,
+      correlation_id: params.correlationId,
+      meta: {
+        images_generated: imageCount,
+        model_key: model,
+        aspect_ratio: aspectRatio,
+        style: style || null,
+        note: 'cost depends on Replicate plan; reconcile later',
+      },
+    }).catch((e) => console.error('[replicate] usage tracking failed:', e));
+  };
+
   if (Array.isArray(output)) {
     const urls = output.map(extractUrl).filter((url): url is string => url !== null);
     if (urls.length === 0) {
       console.error('[Replicate] Could not extract any URLs from array output:', JSON.stringify(output).substring(0, 500));
       throw new Error('Failed to extract image URLs from Replicate response');
     }
+    trackReplicateUsage(urls.length);
     return urls;
   }
 
   const singleUrl = extractUrl(output);
   if (singleUrl) {
+    trackReplicateUsage(1);
     return [singleUrl];
   }
 
@@ -250,6 +280,8 @@ export interface GenerateImageFromImageParams {
   style?: string;
   aspectRatio?: string;
   negativePrompt?: string;
+  correlationId?: string;
+  agentId?: string;
 }
 
 export async function generateImageFromImage(params: GenerateImageFromImageParams): Promise<string[]> {
@@ -284,6 +316,7 @@ export async function generateImageFromImage(params: GenerateImageFromImageParam
   };
 
   let output: unknown;
+  const img2imgStart = Date.now();
   try {
     output = await replicate.run(
       "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
@@ -320,17 +353,41 @@ export async function generateImageFromImage(params: GenerateImageFromImageParam
     return null;
   };
 
+  const img2imgLatency = Date.now() - img2imgStart;
+
+  const trackImg2ImgUsage = (imageCount: number) => {
+    trackUsage({
+      provider: 'replicate',
+      model: 'stability-ai/sdxl',
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+      latency_ms: img2imgLatency,
+      request_type: 'image_to_image',
+      agent_id: params.agentId,
+      correlation_id: params.correlationId,
+      meta: {
+        images_generated: imageCount,
+        strength,
+        style: style || null,
+        note: 'cost depends on Replicate plan; reconcile later',
+      },
+    }).catch((e) => console.error('[replicate] img2img usage tracking failed:', e));
+  };
+
   if (Array.isArray(output)) {
     const urls = output.map(extractUrl).filter((url): url is string => url !== null);
     if (urls.length === 0) {
       console.error('[Replicate] Could not extract any URLs from img2img output');
       throw new Error('Failed to extract image URL from response');
     }
+    trackImg2ImgUsage(urls.length);
     return urls;
   }
 
   const singleUrl = extractUrl(output);
   if (singleUrl) {
+    trackImg2ImgUsage(1);
     return [singleUrl];
   }
 

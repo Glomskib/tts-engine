@@ -76,4 +76,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION deduct_credit IS 'Deduct credits for Free/Lite plans. Pro/Business/Brand/Agency have unlimited credits.';
+COMMENT ON FUNCTION deduct_credit(UUID, TEXT, UUID) IS 'Deduct credits for Free/Lite plans. Pro/Business/Brand/Agency have unlimited credits.';

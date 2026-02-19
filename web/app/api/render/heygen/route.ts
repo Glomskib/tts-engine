@@ -139,6 +139,8 @@ export async function POST(request: Request) {
     const audioBuffer = await textToSpeech(formatForTTS(ttsText), resolvedVoiceId, {
       stability: persona.voiceStability,
       similarityBoost: persona.voiceSimilarityBoost,
+      correlationId,
+      agentId: "heygen-render",
     });
     console.log(`[${correlationId}] TTS generated: ${audioBuffer.byteLength} bytes (persona: ${persona.id})`);
 
@@ -147,7 +149,10 @@ export async function POST(request: Request) {
     console.log(`[${correlationId}] Audio uploaded to HeyGen: ${audioUrl}`);
 
     // --- Step 3: Submit avatar video generation (async — returns immediately) ---
-    const { video_id: heygenVideoId } = await generateVideo(audioUrl, avatarId, undefined, personaId);
+    const { video_id: heygenVideoId } = await generateVideo(audioUrl, avatarId, undefined, personaId, {
+      correlationId,
+      agentId: "heygen-render",
+    });
     console.log(`[${correlationId}] HeyGen video queued: ${heygenVideoId} (persona: ${persona.id})`);
 
     // Save task ID — check-renders cron will poll from here

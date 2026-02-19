@@ -1,5 +1,6 @@
 import type { PersonaConfig } from './heygen-personas';
 import { getPersona } from './heygen-personas';
+import { trackUsage } from '@/lib/command-center/ingest';
 
 const HEYGEN_BASE_URL = 'https://api.heygen.com';
 
@@ -43,7 +44,8 @@ export async function generateVideo(
   audioUrl: string,
   avatarId?: string,
   dimension?: { width: number; height: number },
-  personaId?: string
+  personaId?: string,
+  trackingOptions?: { correlationId?: string; agentId?: string },
 ): Promise<{ video_id: string }> {
   const config = getHeyGenConfig();
   const persona = getPersona(personaId);
@@ -77,6 +79,8 @@ export async function generateVideo(
     dimension: dimension ?? { width: 1080, height: 1920 },
   };
 
+  const start = Date.now();
+
   const response = await fetch(`${HEYGEN_BASE_URL}/v2/video/generate`, {
     method: 'POST',
     headers: {
@@ -86,14 +90,49 @@ export async function generateVideo(
     body: JSON.stringify(body),
   });
 
+  const latencyMs = Date.now() - start;
+
   if (!response.ok) {
     const error = await response.text();
+    trackUsage({
+      provider: 'heygen',
+      model: 'avatar_v2',
+      input_tokens: 0,
+      output_tokens: 0,
+      latency_ms: latencyMs,
+      status: 'error',
+      error_code: `HTTP_${response.status}`,
+      request_type: 'video_generation',
+      agent_id: trackingOptions?.agentId,
+      correlation_id: trackingOptions?.correlationId,
+      meta: { avatar_id: resolvedAvatarId, persona_id: personaId },
+    }).catch(() => {});
     throw new Error(`HeyGen generate ${response.status}: ${error}`);
   }
 
   const data = await response.json();
   const videoId = data.data?.video_id ?? data.video_id;
   if (!videoId) throw new Error('HeyGen generate returned no video_id');
+
+  // HeyGen charges by credit/minute — exact cost known after completion
+  trackUsage({
+    provider: 'heygen',
+    model: 'avatar_v2',
+    input_tokens: 0,
+    output_tokens: 0,
+    cost_usd: 0,
+    latency_ms: latencyMs,
+    request_type: 'video_generation',
+    agent_id: trackingOptions?.agentId,
+    correlation_id: trackingOptions?.correlationId,
+    meta: {
+      heygen_video_id: videoId,
+      avatar_id: resolvedAvatarId,
+      persona_id: personaId,
+      note: 'cost depends on video duration; reconcile after completion',
+    },
+  }).catch((e) => console.error('[heygen] usage tracking failed:', e));
+
   return { video_id: videoId };
 }
 

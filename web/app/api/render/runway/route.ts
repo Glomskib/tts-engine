@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { runwayRequest } from "@/lib/runway";
+import { createImageToVideo } from "@/lib/runway";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { z } from "zod";
 
@@ -68,16 +68,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await runwayRequest("/v1/image_to_video", {
-      method: "POST",
-      body: JSON.stringify({
-        model,
-        promptImage: promptImageUrl,
-        promptText,
-        duration: Number(duration),
-        ratio,
-      }),
-    });
+    const response = await createImageToVideo(
+      promptImageUrl,
+      promptText,
+      model as import("@/lib/runway").RunwayModel,
+      Number(duration),
+      ratio,
+      { correlationId, agentId: "runway-render" },
+    );
 
     // Save task ID after successful Runway call
     if (videoId && response.id) {

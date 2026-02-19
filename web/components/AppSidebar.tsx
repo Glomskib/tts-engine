@@ -18,6 +18,7 @@ const CHANGELOG_LAST_SEEN_KEY = 'ffai-changelog-last-seen';
 
 interface AppSidebarProps {
   isAdmin: boolean;
+  isOwner?: boolean;
   planId?: string | null;
   subscriptionType?: SubscriptionType;
   unreadNotifications?: number;
@@ -28,6 +29,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({
   isAdmin,
+  isOwner = false,
   planId,
   subscriptionType = 'saas',
   unreadNotifications = 0,
@@ -38,7 +40,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { showInfo } = useToast();
-  const navSections = getFilteredNavSections({ planId, isAdmin, subscriptionType });
+  const navSections = getFilteredNavSections({ planId, isAdmin, isOwner, subscriptionType });
   const [hasUnreadChangelog, setHasUnreadChangelog] = useState(false);
 
   useEffect(() => {

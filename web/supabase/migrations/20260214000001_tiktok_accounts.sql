@@ -144,11 +144,20 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_update_account_engagement ON public.videos;
-CREATE TRIGGER trigger_update_account_engagement
-  AFTER UPDATE OF views_total, likes_total, comments_total, shares_total ON public.videos
-  FOR EACH ROW
-  WHEN (NEW.account_id IS NOT NULL)
-  EXECUTE FUNCTION update_account_engagement();
+DO $$
+BEGIN
+  -- Only create trigger if the expected columns exist on videos
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'views_total'
+  ) THEN
+    CREATE TRIGGER trigger_update_account_engagement
+      AFTER UPDATE OF views_total, likes_total, comments_total, shares_total ON public.videos
+      FOR EACH ROW
+      WHEN (NEW.account_id IS NOT NULL)
+      EXECUTE FUNCTION update_account_engagement();
+  END IF;
+END $$;
 
 -- ============================================================================
 -- SEED DATA: Brandon's 6 TikTok Accounts

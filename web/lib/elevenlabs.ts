@@ -1,3 +1,5 @@
+import { trackUsage } from '@/lib/command-center/ingest';
+
 const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io/v1';
 const DEFAULT_VOICE_ID = 'TX3LPaxmHKxFdv7VOQHJ'; // Liam - Energetic, Social Media Creator
 
@@ -68,10 +70,14 @@ export async function textToSpeech(
     modelId?: string;
     stability?: number;
     similarityBoost?: number;
+    correlationId?: string;
+    agentId?: string;
   }
 ): Promise<ArrayBuffer> {
   const config = getElevenLabsConfig();
   const url = `${ELEVENLABS_BASE_URL}/text-to-speech/${voiceId}`;
+  const modelId = options?.modelId ?? 'eleven_multilingual_v2';
+  const start = Date.now();
 
   const response = await fetch(url, {
     method: 'POST',
@@ -82,7 +88,7 @@ export async function textToSpeech(
     },
     body: JSON.stringify({
       text,
-      model_id: options?.modelId ?? 'eleven_multilingual_v2',
+      model_id: modelId,
       voice_settings: {
         stability: options?.stability ?? 0.5,
         similarity_boost: options?.similarityBoost ?? 0.75,
@@ -90,10 +96,46 @@ export async function textToSpeech(
     }),
   });
 
+  const latencyMs = Date.now() - start;
+
   if (!response.ok) {
     const error = await response.text();
+    trackUsage({
+      provider: 'elevenlabs',
+      model: modelId,
+      input_tokens: 0,
+      output_tokens: 0,
+      latency_ms: latencyMs,
+      status: 'error',
+      error_code: `HTTP_${response.status}`,
+      request_type: 'tts',
+      agent_id: options?.agentId,
+      correlation_id: options?.correlationId,
+      meta: { characters: text.length, voice_id: voiceId },
+    }).catch(() => {});
     throw new Error(`ElevenLabs ${response.status}: ${error}`);
   }
 
-  return response.arrayBuffer();
+  const audioBuffer = await response.arrayBuffer();
+
+  // ElevenLabs charges by character count — store in meta for reconciliation
+  trackUsage({
+    provider: 'elevenlabs',
+    model: modelId,
+    input_tokens: text.length, // characters as proxy for "input units"
+    output_tokens: 0,
+    cost_usd: 0, // per-character pricing varies by plan; reconcile later
+    latency_ms: latencyMs,
+    request_type: 'tts',
+    agent_id: options?.agentId,
+    correlation_id: options?.correlationId,
+    meta: {
+      characters: text.length,
+      voice_id: voiceId,
+      audio_bytes: audioBuffer.byteLength,
+      note: 'cost depends on ElevenLabs plan tier',
+    },
+  }).catch((e) => console.error('[elevenlabs] usage tracking failed:', e));
+
+  return audioBuffer;
 }

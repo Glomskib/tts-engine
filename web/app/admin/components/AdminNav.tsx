@@ -64,7 +64,7 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
           Studio
         </Link>
         <span style={separatorStyle}>|</span>
-        <Link href="/admin/skit-library" style={linkStyle('/admin/skit-library')}>
+        <Link href="/admin/script-library" style={linkStyle('/admin/script-library')}>
           Scripts
         </Link>
       </div>

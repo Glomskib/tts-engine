@@ -97,7 +97,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
       { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
-      { name: 'Script Library', href: '/admin/skit-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
+      { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
     ],
   },
@@ -282,8 +282,8 @@ export function getVideoClientNavSections(): NavSection[] {
 
 // Helper to check if a nav item is active
 export function isNavItemActive(pathname: string, href: string): boolean {
-  if (href === '/admin/skit-generator') {
-    return pathname === '/admin/skit-generator';
+  if (href === '/admin/content-studio') {
+    return pathname === '/admin/content-studio';
   }
   // Exact match for short paths
   if (href === '/va') return pathname === '/va';

@@ -22,14 +22,10 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   try {
-    // Auth check - admin only
+    // Auth check
     const authContext = await getApiAuthContext(request);
     if (!authContext.user) {
       return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
-    }
-
-    if (!authContext.isAdmin) {
-      return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
     }
 
     // Parse and validate input

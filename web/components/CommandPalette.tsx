@@ -61,7 +61,7 @@ const PAGES: PageEntry[] = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, keywords: ['home', 'overview', 'stats'] },
   { name: 'Pipeline', href: '/admin/pipeline', icon: Video, keywords: ['videos', 'render', 'queue', 'recording'] },
   { name: 'Content Studio', href: '/admin/content-studio', icon: Clapperboard, keywords: ['studio', 'compose', 'create', 'content'] },
-  { name: 'Skit Library', href: '/admin/skit-library', icon: BookOpen, keywords: ['scripts', 'skits', 'library', 'browse'] },
+  { name: 'Skit Library', href: '/admin/script-library', icon: BookOpen, keywords: ['scripts', 'skits', 'library', 'browse'] },
   { name: 'Products', href: '/admin/products', icon: Package, keywords: ['product', 'brand', 'catalog'] },
   { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, keywords: ['winners', 'bank', 'winning', 'hooks'] },
   { name: 'Audience', href: '/admin/audience', icon: Users, keywords: ['audience', 'persona', 'target', 'demographic'] },
@@ -208,7 +208,7 @@ export function CommandPalette() {
       for (const s of scriptsRes.data || []) {
         const title = s.title || s.hook || `Script ${s.id?.slice(0, 8)}`;
         if (matches(title) || matches(s.hook) || matches(s.spoken_script) || matches(s.product_name)) {
-          matched.push({ id: s.id, type: 'script', title, subtitle: s.product_name || '', href: '/admin/skit-library' });
+          matched.push({ id: s.id, type: 'script', title, subtitle: s.product_name || '', href: '/admin/script-library' });
         }
       }
 

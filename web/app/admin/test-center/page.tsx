@@ -387,7 +387,7 @@ export default function TestCenterPage() {
             Open Skit Generator
           </Link>
           <Link
-            href="/admin/skit-library"
+            href="/admin/script-library"
             style={{
               padding: '8px 14px',
               backgroundColor: colors.card,
@@ -567,7 +567,7 @@ export default function TestCenterPage() {
           <Link href="/admin/skit-generator" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
             Skit Generator
           </Link>
-          <Link href="/admin/skit-library" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
+          <Link href="/admin/script-library" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>
             Script Library
           </Link>
           <Link href="/admin/pipeline" style={{ padding: '6px 12px', backgroundColor: colors.surface2, borderRadius: '4px', fontSize: '12px', color: colors.text, textDecoration: 'none' }}>

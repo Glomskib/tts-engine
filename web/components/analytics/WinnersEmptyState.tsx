@@ -27,7 +27,7 @@ export function WinnersEmptyState({ hasScripts = false }: WinnersEmptyStateProps
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         {hasScripts ? (
           <Link
-            href="/admin/skit-library"
+            href="/admin/script-library"
             className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-black font-medium rounded-lg hover:bg-amber-400 transition-colors"
           >
             Go to Script Library

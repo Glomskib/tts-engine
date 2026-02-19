@@ -93,6 +93,8 @@ export default function ProductsPage() {
   const [addForm, setAddForm] = useState<Partial<Product>>({});
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [addImageUrl, setAddImageUrl] = useState<string | null>(null);
+  const [addImageUploading, setAddImageUploading] = useState(false);
 
   // Image upload state
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -310,6 +312,7 @@ export default function ProductsPage() {
   const handleAddOpen = () => {
     setAddForm({ name: '', brand: '', brand_id: null, category: '' });
     setAddError(null);
+    setAddImageUrl(null);
     setAddDrawerOpen(true);
   };
 
@@ -345,6 +348,7 @@ export default function ProductsPage() {
           category: addForm.category.trim(),
           category_risk: addForm.category_risk || null,
           notes: addForm.notes?.trim() || null,
+          product_image_url: addImageUrl || null,
         }),
       });
       const data = await res.json();
@@ -529,6 +533,26 @@ export default function ProductsPage() {
       ...prev,
       pain_points: prev.pain_points?.filter((_, i) => i !== index) || [],
     }));
+  };
+
+  // Handle image upload for Add Product drawer
+  const handleAddImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) { setAddError('Image must be smaller than 5MB'); return; }
+    setAddImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'product-images');
+      const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Upload failed');
+      setAddImageUrl(data.data.url);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setAddImageUploading(false);
+    }
   };
 
   // Handle image file upload
@@ -1710,6 +1734,42 @@ export default function ProductsPage() {
                   placeholder="Product-specific notes, talking points..."
                   className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
+              </div>
+
+              {/* Product Image */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  Product Image
+                </label>
+                {addImageUrl ? (
+                  <div className="relative inline-block">
+                    <img src={addImageUrl} alt="Product" className="w-20 h-20 object-cover rounded-md border border-white/10" />
+                    <button type="button" onClick={() => setAddImageUrl(null)} className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      &times;
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="add-product-image"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAddImageUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <label
+                      htmlFor="add-product-image"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-300 hover:bg-zinc-700 cursor-pointer"
+                    >
+                      {addImageUploading ? 'Uploading...' : 'Upload Image'}
+                    </label>
+                    <p className="text-xs text-zinc-500 mt-1">JPG, PNG, WebP. Max 5MB.</p>
+                  </div>
+                )}
               </div>
             </div>
 

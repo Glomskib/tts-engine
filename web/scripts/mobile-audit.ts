@@ -144,7 +144,7 @@ const PAGES: PageDef[] = [
   { path: '/admin/scripts', section: 'admin', auth: 'admin' },
   { path: '/admin/second-brain', section: 'admin', auth: 'admin' },
   { path: '/admin/skit-generator', section: 'admin', auth: 'admin' },
-  { path: '/admin/skit-library', section: 'admin', auth: 'admin' },
+  { path: '/admin/script-library', section: 'admin', auth: 'admin' },
   { path: '/admin/status', section: 'admin', auth: 'admin' },
   { path: '/admin/submit-video', section: 'admin', auth: 'admin' },
   { path: '/admin/templates', section: 'admin', auth: 'admin' },

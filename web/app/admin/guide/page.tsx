@@ -68,7 +68,7 @@ function useCompletedSteps() {
 
 const QUICK_LINKS = [
   { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, desc: 'Generate AI scripts in 60 seconds' },
-  { name: 'Script Library', href: '/admin/skit-library', icon: FileText, desc: 'Browse and manage saved scripts' },
+  { name: 'Script Library', href: '/admin/script-library', icon: FileText, desc: 'Browse and manage saved scripts' },
   { name: 'Products', href: '/admin/products', icon: Package, desc: 'Add and manage your product catalog' },
   { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck, desc: 'Create target audience personas' },
   { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, desc: 'Study top-performing viral content' },

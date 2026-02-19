@@ -175,7 +175,7 @@ export default function CollectionsPage() {
                 {/* Actions */}
                 <div className="flex gap-2">
                   <Link
-                    href={`/admin/skit-library?collection=${collection.id}`}
+                    href={`/admin/script-library?collection=${collection.id}`}
                     className="flex-1 py-2 text-center bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm transition-colors"
                   >
                     View Scripts

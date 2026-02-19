@@ -102,6 +102,7 @@ const PresentationStyleSchema = z.enum([
 ]);
 
 const GenerateSkitInputSchema = z.object({
+  platform: z.string().max(50).optional(),
   video_id: z.string().uuid().optional(),
   product_id: z.string().uuid().optional(),
   product_name: z.string().min(3).max(100).optional(),

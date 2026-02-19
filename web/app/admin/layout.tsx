@@ -70,7 +70,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     const PAGE_TITLES: Record<string, string> = {
       '/admin': 'Dashboard',
       '/admin/content-studio': 'Content Studio',
-      '/admin/skit-library': 'Script Library',
+      '/admin/script-library': 'Script Library',
       '/admin/pipeline': 'Production Board',
       '/admin/calendar': 'Content Calendar',
       '/admin/posting-queue': 'Posting Queue',
@@ -117,12 +117,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Block non-admin users from all admin routes
-  useEffect(() => {
-    if (!auth.loading && auth.authenticated && !auth.isAdmin) {
-      router.replace('/');
-    }
-  }, [auth.loading, auth.authenticated, auth.isAdmin, router]);
+  // Note: /admin/ is the authenticated app area, not admin-only.
+  // Nav filtering + plan gating handles per-page access control.
+  // Command Center routes are owner-gated separately.
 
   // Close sidebar on route change
   useEffect(() => {

@@ -111,7 +111,7 @@ export async function POST(request: Request) {
         tags: parsed.data.tags,
         mode: parsed.data.mode,
         priority: parsed.data.priority,
-        created_by: parsed.data.created_by ?? auth.user.email ?? null,
+        created_by: parsed.data.created_by ?? auth.user?.email ?? null,
       })
       .select('*')
       .single();

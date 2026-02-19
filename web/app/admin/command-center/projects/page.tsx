@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, RefreshCw, LayoutGrid, Table } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, LayoutGrid, Table, ListPlus } from 'lucide-react';
 import Link from 'next/link';
 import InitiativeFilter from '../_components/InitiativeFilter';
 import BoardView from './_components/BoardView';
 import TableView from './_components/TableView';
 import TaskDrawer from './_components/TaskDrawer';
+import { AGENTS } from './_components/constants';
 import type { TaskWithProject } from './_components/constants';
 
 interface Project {
@@ -44,6 +45,8 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', type: 'flashflow', status: 'active' });
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', project_id: '', assigned_agent: 'unassigned', priority: 3 });
   const [statusFilter, setStatusFilter] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [initiativeId, setInitiativeId] = useState('');
@@ -96,6 +99,21 @@ export default function ProjectsPage() {
       setShowNewProject(false);
       setNewProject({ name: '', type: 'flashflow', status: 'active' });
       fetchProjects();
+    }
+  }
+
+  async function createTask() {
+    const projectId = newTask.project_id || selectedProject || projects[0]?.id;
+    if (!newTask.title.trim() || !projectId) return;
+    const res = await fetch('/api/admin/cc-projects/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...newTask, project_id: projectId }),
+    });
+    if (res.ok) {
+      setShowNewTask(false);
+      setNewTask({ title: '', project_id: '', assigned_agent: 'unassigned', priority: 3 });
+      fetchTasks();
     }
   }
 
@@ -154,6 +172,9 @@ export default function ProjectsPage() {
         <button onClick={() => { fetchProjects(); fetchTasks(); }} className="p-2 text-zinc-400 hover:text-white">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
+        <button onClick={() => setShowNewTask(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-amber-600 hover:bg-amber-500 text-white rounded-lg">
+          <ListPlus className="w-4 h-4" /> New Task
+        </button>
         <button onClick={() => setShowNewProject(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-lg">
           <Plus className="w-4 h-4" /> New Project
         </button>
@@ -174,6 +195,56 @@ export default function ProjectsPage() {
             <div className="flex gap-2">
               <button onClick={createProject} disabled={!newProject.name} className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded disabled:opacity-50">Create</button>
               <button onClick={() => setShowNewProject(false)} className="px-4 py-2 text-sm bg-zinc-700 text-zinc-300 rounded">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New task form */}
+      {showNewTask && (
+        <div className="border border-zinc-700 rounded-lg p-4 bg-zinc-900">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-center">
+            <input
+              placeholder="Task title"
+              value={newTask.title}
+              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter') createTask(); }}
+              autoFocus
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+            />
+            <select
+              value={newTask.project_id || selectedProject || projects[0]?.id || ''}
+              onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <select
+              value={newTask.assigned_agent}
+              onChange={(e) => setNewTask({ ...newTask, assigned_agent: e.target.value })}
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+            >
+              <option value="unassigned">Unassigned</option>
+              {AGENTS.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+            <select
+              value={newTask.priority}
+              onChange={(e) => setNewTask({ ...newTask, priority: Number(e.target.value) })}
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+            >
+              <option value={1}>P1 Critical</option>
+              <option value={2}>P2 High</option>
+              <option value={3}>P3 Medium</option>
+              <option value={4}>P4 Low</option>
+              <option value={5}>P5 Nice-to-have</option>
+            </select>
+            <div className="flex gap-2">
+              <button onClick={createTask} disabled={!newTask.title.trim() || projects.length === 0} className="px-4 py-2 text-sm bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50">Create</button>
+              <button onClick={() => setShowNewTask(false)} className="px-4 py-2 text-sm bg-zinc-700 text-zinc-300 rounded">Cancel</button>
             </div>
           </div>
         </div>

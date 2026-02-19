@@ -39,7 +39,7 @@ export const CreateIdeaSchema = z.object({
 export type CreateIdeaInput = z.infer<typeof CreateIdeaSchema>;
 
 export const UpdateIdeaSchema = z.object({
-  status: z.enum(['queued', 'researched', 'building', 'shipped', 'killed']).optional(),
+  status: z.enum(['inbox', 'queued', 'researching', 'researched', 'ready', 'building', 'shipped', 'killed']).optional(),
   mode: z.enum(['research_only', 'research_and_plan', 'research_and_build']).optional(),
   priority: z.number().int().min(1).max(5).optional(),
   tags: z.array(z.string()).optional(),

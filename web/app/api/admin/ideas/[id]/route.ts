@@ -3,7 +3,7 @@
  * PATCH /api/admin/ideas/:id       — update idea status/mode/priority/tags
  */
 import { NextResponse } from 'next/server';
-import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { requireOwner } from '@/lib/command-center/owner-guard';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { UpdateIdeaSchema } from '@/lib/command-center/validators';
@@ -17,13 +17,8 @@ export async function GET(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
 
-  const auth = await getApiAuthContext(request);
-  if (!auth.user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
-  }
-  if (!auth.isAdmin) {
-    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
-  }
+  const denied = await requireOwner(request);
+  if (denied) return denied;
 
   try {
     const [ideaRes, artifactsRes] = await Promise.all([
@@ -62,13 +57,8 @@ export async function PATCH(
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { id } = await params;
 
-  const auth = await getApiAuthContext(request);
-  if (!auth.user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
-  }
-  if (!auth.isAdmin) {
-    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
-  }
+  const denied = await requireOwner(request);
+  if (denied) return denied;
 
   let body: unknown;
   try {

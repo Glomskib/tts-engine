@@ -5,6 +5,7 @@
  * Admin-only CRUD for the ideas pool.
  */
 import { NextResponse } from 'next/server';
+import { requireOwner } from '@/lib/command-center/owner-guard';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -16,13 +17,8 @@ export async function GET(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const { searchParams } = new URL(request.url);
 
-  const auth = await getApiAuthContext(request);
-  if (!auth.user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
-  }
-  if (!auth.isAdmin) {
-    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
-  }
+  const denied = await requireOwner(request);
+  if (denied) return denied;
 
   const statusFilter = searchParams.get('status');
   const tagFilter = searchParams.get('tag');
@@ -86,13 +82,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
+  const denied = await requireOwner(request);
+  if (denied) return denied;
+
+  // Get user email for created_by field
   const auth = await getApiAuthContext(request);
-  if (!auth.user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
-  }
-  if (!auth.isAdmin) {
-    return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
-  }
 
   let body: unknown;
   try {

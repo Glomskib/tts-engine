@@ -213,7 +213,39 @@ interface PlayerResponse {
 }
 
 async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | null> {
-  // Strategy 1: Innertube API (most reliable, no HTML scraping)
+  // Strategy 1: ANDROID client (YouTube blocks unauthenticated WEB client requests)
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.android.youtube/19.02.39 (Linux; U; Android 14) gzip',
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'ANDROID',
+            clientVersion: '19.02.39',
+            androidSdkVersion: 34,
+            hl: 'en',
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const status = data.playabilityStatus?.status;
+      if (data.videoDetails && status === 'OK') return data as PlayerResponse;
+      console.warn('[youtube-transcript] ANDROID client status:', status);
+    }
+  } catch (err) {
+    console.warn('[youtube-transcript] ANDROID innertube failed:', err);
+  }
+
+  // Strategy 2: WEB client (fallback, works with cookies/some videos)
   try {
     const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
       method: 'POST',
@@ -231,18 +263,20 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
           },
         },
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (res.ok) {
       const data = await res.json();
-      if (data.videoDetails) return data as PlayerResponse;
+      if (data.videoDetails && data.playabilityStatus?.status === 'OK') {
+        return data as PlayerResponse;
+      }
     }
   } catch (err) {
-    console.warn('[youtube-transcript] Innertube API failed:', err);
+    console.warn('[youtube-transcript] WEB innertube failed:', err);
   }
 
-  // Strategy 2: Scrape watch page for ytInitialPlayerResponse
+  // Strategy 3: Scrape watch page for ytInitialPlayerResponse
   try {
     const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
       headers: {
@@ -258,7 +292,8 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
 
     const match = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/);
     if (match) {
-      return JSON.parse(match[1]) as PlayerResponse;
+      const data = JSON.parse(match[1]);
+      if (data.playabilityStatus?.status === 'OK') return data as PlayerResponse;
     }
   } catch (err) {
     console.warn('[youtube-transcript] Page scrape failed:', err);
@@ -384,14 +419,22 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
   }
 
   const cobaltUrl = process.env.COBALT_API_URL || 'https://api.cobalt.tools';
+  const cobaltApiKey = process.env.COBALT_API_KEY;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'User-Agent': UA,
+  };
+
+  // Public cobalt instance requires JWT auth; self-hosted may not
+  if (cobaltApiKey) {
+    headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
+  }
 
   const res = await fetch(cobaltUrl, {
     method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'User-Agent': UA,
-    },
+    headers,
     body: JSON.stringify({
       url,
       downloadMode: 'audio',
@@ -401,7 +444,10 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`cobalt returned ${res.status}: ${body.slice(0, 200)}`);
+  }
   const data = await res.json();
 
   if (data.status === 'error') {

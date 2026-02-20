@@ -213,6 +213,8 @@ interface PlayerResponse {
 }
 
 async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | null> {
+  const errors: string[] = [];
+
   // Strategy 1: ANDROID client (YouTube blocks unauthenticated WEB client requests)
   try {
     const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
@@ -239,19 +241,22 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
       const data = await res.json();
       const status = data.playabilityStatus?.status;
       if (data.videoDetails && status === 'OK') return data as PlayerResponse;
-      console.warn('[youtube-transcript] ANDROID client status:', status);
+      errors.push(`ANDROID: status=${status} reason=${data.playabilityStatus?.reason || 'none'}`);
+    } else {
+      errors.push(`ANDROID: HTTP ${res.status}`);
     }
   } catch (err) {
-    console.warn('[youtube-transcript] ANDROID innertube failed:', err);
+    errors.push(`ANDROID: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Strategy 2: WEB client (fallback, works with cookies/some videos)
+  // Strategy 2: WEB client with consent cookie
   try {
     const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': UA,
+        'Cookie': 'CONSENT=PENDING+999',
       },
       body: JSON.stringify({
         videoId,
@@ -268,37 +273,49 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
 
     if (res.ok) {
       const data = await res.json();
-      if (data.videoDetails && data.playabilityStatus?.status === 'OK') {
-        return data as PlayerResponse;
-      }
+      const status = data.playabilityStatus?.status;
+      if (data.videoDetails && status === 'OK') return data as PlayerResponse;
+      errors.push(`WEB: status=${status}`);
+    } else {
+      errors.push(`WEB: HTTP ${res.status}`);
     }
   } catch (err) {
-    console.warn('[youtube-transcript] WEB innertube failed:', err);
+    errors.push(`WEB: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Strategy 3: Scrape watch page for ytInitialPlayerResponse
+  // Strategy 3: Scrape watch page with consent cookie
   try {
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
       headers: {
         'User-Agent': UA,
         'Accept-Language': 'en-US,en;q=0.9',
         Accept: 'text/html,application/xhtml+xml',
+        'Cookie': 'CONSENT=PENDING+999',
       },
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!pageRes.ok) return null;
-    const html = await pageRes.text();
-
-    const match = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/);
-    if (match) {
-      const data = JSON.parse(match[1]);
-      if (data.playabilityStatus?.status === 'OK') return data as PlayerResponse;
+    if (pageRes.ok) {
+      const html = await pageRes.text();
+      // Try multiple patterns for extracting player response
+      const match = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/) ||
+        html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/);
+      if (match) {
+        const data = JSON.parse(match[1]);
+        if (data.playabilityStatus?.status === 'OK') return data as PlayerResponse;
+        errors.push(`Scrape: status=${data.playabilityStatus?.status}`);
+      } else {
+        const isConsent = html.includes('consent.youtube.com') || html.includes('CONSENT');
+        errors.push(`Scrape: no player response found${isConsent ? ' (consent page)' : ''} html=${html.length}chars`);
+      }
+    } else {
+      errors.push(`Scrape: HTTP ${pageRes.status}`);
     }
   } catch (err) {
-    console.warn('[youtube-transcript] Page scrape failed:', err);
+    errors.push(`Scrape: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  console.error('[youtube-transcript] All strategies failed:', errors.join(' | '));
   return null;
 }
 

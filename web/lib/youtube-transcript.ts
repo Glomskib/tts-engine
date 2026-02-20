@@ -188,6 +188,38 @@ function parseJson3ToSegments(json3: Record<string, unknown>): Segment[] {
 }
 
 // ============================================================================
+// YouTube XML timedtext parsing (ANDROID client returns this format)
+// ============================================================================
+
+function parseTimedtextXmlToSegments(xml: string): Segment[] {
+  const segments: Segment[] = [];
+  // Match <p t="ms" d="ms">text</p> elements
+  const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+  let match;
+  while ((match = pRegex.exec(xml)) !== null) {
+    const startMs = parseInt(match[1], 10);
+    const durMs = parseInt(match[2], 10);
+    const rawText = match[3]
+      .replace(/<[^>]+>/g, '')  // strip HTML tags
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/\n/g, ' ')
+      .trim();
+    if (rawText) {
+      segments.push({
+        start: startMs / 1000,
+        end: (startMs + durMs) / 1000,
+        text: rawText,
+      });
+    }
+  }
+  return segments;
+}
+
+// ============================================================================
 // YouTube Innertube API — get player response (no yt-dlp needed)
 // ============================================================================
 
@@ -394,38 +426,54 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
 
     const language = track.languageCode || 'en';
 
-    // Try VTT format first, then JSON3 as fallback
+    // Fetch captions — YouTube may return XML, VTT, or JSON3 regardless of fmt param
     let segments: Segment[] = [];
 
-    // Attempt 1: VTT format
+    // Attempt 1: Fetch raw (no fmt param — let YouTube choose, then detect format)
     try {
-      const vttUrl = track.baseUrl + '&fmt=vtt';
-      const vttRes = await fetch(vttUrl, {
+      const captionRes = await fetch(track.baseUrl, {
         headers: { 'User-Agent': UA },
         signal: AbortSignal.timeout(10000),
       });
-      if (vttRes.ok) {
-        const vttContent = await vttRes.text();
-        segments = parseVttToSegments(vttContent);
+      if (captionRes.ok) {
+        const content = await captionRes.text();
+        if (content.includes('<timedtext') || content.includes('<p t="')) {
+          // XML timedtext format (common with ANDROID client)
+          segments = parseTimedtextXmlToSegments(content);
+        } else if (content.includes('WEBVTT')) {
+          segments = parseVttToSegments(content);
+        } else {
+          // Try JSON3
+          try {
+            const json3Data = JSON.parse(content);
+            segments = parseJson3ToSegments(json3Data);
+          } catch {
+            console.warn('[youtube-transcript] Unknown caption format, length:', content.length);
+          }
+        }
       }
     } catch (err) {
-      console.warn('[youtube-transcript] VTT fetch failed:', err);
+      console.warn('[youtube-transcript] Caption fetch failed:', err);
     }
 
-    // Attempt 2: JSON3 format (more reliable for some videos)
+    // Attempt 2: Explicit VTT format request as fallback
     if (segments.length === 0) {
       try {
-        const json3Url = track.baseUrl + '&fmt=json3';
-        const json3Res = await fetch(json3Url, {
+        const vttUrl = track.baseUrl + '&fmt=vtt';
+        const vttRes = await fetch(vttUrl, {
           headers: { 'User-Agent': UA },
           signal: AbortSignal.timeout(10000),
         });
-        if (json3Res.ok) {
-          const json3Data = await json3Res.json();
-          segments = parseJson3ToSegments(json3Data);
+        if (vttRes.ok) {
+          const vttContent = await vttRes.text();
+          if (vttContent.includes('<timedtext') || vttContent.includes('<p t="')) {
+            segments = parseTimedtextXmlToSegments(vttContent);
+          } else {
+            segments = parseVttToSegments(vttContent);
+          }
         }
       } catch (err) {
-        console.warn('[youtube-transcript] JSON3 fetch failed:', err);
+        console.warn('[youtube-transcript] VTT fetch failed:', err);
       }
     }
 

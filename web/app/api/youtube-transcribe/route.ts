@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { unlink } from 'fs/promises';
+import { createReadStream, existsSync } from 'fs';
+import { randomUUID } from 'crypto';
+import OpenAI from 'openai';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { fetchYouTubeTranscript, isValidYouTubeUrl } from '@/lib/youtube-transcript';
+import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import {
+  isValidYouTubeUrl,
+  extractYouTubeCaptions,
+  downloadYouTubeAudio,
+} from '@/lib/youtube-transcript';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // ============================================================================
-// Rate Limiting (reuses same transcribe_usage table)
+// Rate Limiting (same Supabase-backed system as TikTok)
 // ============================================================================
 
 const TIER_LIMITS: Record<string, number> = {
@@ -42,9 +52,12 @@ async function getLimitForUser(userId: string | null): Promise<number> {
 async function checkRateLimit(
   ip: string,
   userId: string | null
-): Promise<{ allowed: boolean; remaining: number; limit: number }> {
+): Promise<{ allowed: boolean; remaining: number; limit: number; used: number }> {
   const limit = await getLimitForUser(userId);
-  if (limit === -1) return { allowed: true, remaining: -1, limit: -1 };
+
+  if (limit === -1) {
+    return { allowed: true, remaining: -1, limit: -1, used: 0 };
+  }
 
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
@@ -64,7 +77,7 @@ async function checkRateLimit(
   const used = count ?? 0;
   const remaining = Math.max(0, limit - used);
 
-  return { allowed: used < limit, remaining, limit };
+  return { allowed: used < limit, remaining, limit, used };
 }
 
 // ============================================================================
@@ -85,7 +98,7 @@ export async function POST(request: Request) {
       ? "You've reached your daily transcription limit. Check back tomorrow!"
       : "You've reached your daily limit. Sign up for FlashFlow to get more transcriptions!";
     return NextResponse.json(
-      { error: msg },
+      { error: msg, signupUrl: userId ? undefined : '/signup' },
       {
         status: 429,
         headers: {
@@ -95,6 +108,8 @@ export async function POST(request: Request) {
       }
     );
   }
+
+  const requestStart = Date.now();
 
   let body: { url?: string };
   try {
@@ -115,41 +130,87 @@ export async function POST(request: Request) {
     );
   }
 
+  const openaiKey = process.env.OPENAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const requestStart = Date.now();
+
+  const filesToClean: string[] = [];
 
   try {
-    // Step 1: Extract transcript from YouTube captions
-    console.log('[youtube-transcribe] Fetching captions for:', url);
-    const { transcript, segments, videoId } = await fetchYouTubeTranscript(url);
-    console.log('[youtube-transcribe] Got transcript:', transcript.length, 'chars');
+    let transcript = '';
+    let segments: { start: number; end: number; text: string }[] = [];
+    let duration = 0;
+    let language = 'en';
 
-    // Step 2: AI Summary via Claude Haiku
+    // Step 1: Try caption extraction first (fast, free)
+    console.log('[yt-transcribe] Extracting captions for:', url);
+    const captions = await extractYouTubeCaptions(url);
+
+    if (captions) {
+      console.log('[yt-transcribe] Got captions:', captions.transcript.length, 'chars');
+      transcript = captions.transcript;
+      segments = captions.segments;
+      duration = captions.duration;
+      language = captions.language;
+    } else {
+      // Step 2: Whisper fallback — download audio and transcribe
+      console.log('[yt-transcribe] No captions, falling back to Whisper...');
+
+      if (!openaiKey) {
+        console.error('[yt-transcribe] OPENAI_API_KEY not configured');
+        return NextResponse.json({ error: 'Transcription service is not configured.' }, { status: 500 });
+      }
+
+      const { audioPath, duration: audioDuration } = await downloadYouTubeAudio(url);
+      filesToClean.push(audioPath);
+      duration = audioDuration;
+
+      console.log('[yt-transcribe] Sending audio to Whisper...');
+      const openai = new OpenAI({ apiKey: openaiKey });
+
+      const transcription = await openai.audio.transcriptions.create({
+        file: createReadStream(audioPath),
+        model: 'whisper-1',
+        response_format: 'verbose_json',
+        timestamp_granularities: ['segment'],
+      });
+
+      transcript = transcription.text || '';
+      segments = (transcription.segments || []).map((s) => ({
+        start: s.start, end: s.end, text: s.text,
+      }));
+      duration = transcription.duration || duration;
+      language = transcription.language || 'en';
+    }
+
+    // Step 3: AI Analysis via Claude Haiku (best-effort)
     let analysis = null;
 
-    if (anthropicKey && transcript.length > 20) {
-      console.log('[youtube-transcribe] Running AI summary...');
+    if (anthropicKey && transcript.length > 10) {
+      console.log('[yt-transcribe] Running AI analysis...');
       try {
-        const summaryPrompt = `Analyze this YouTube video transcript and provide a structured summary. Return ONLY valid JSON with no markdown formatting or explanation.
+        const analysisPrompt = `Analyze this YouTube video transcript. Return ONLY valid JSON with no markdown formatting or explanation.
 
 TRANSCRIPT:
-${transcript.slice(0, 12000)}
+${transcript}
 
 Return this exact JSON structure:
 {
-  "summary": "<2-3 paragraph overview of what the video covers, key arguments, and conclusions>",
-  "keyPoints": ["<key point 1>", "<key point 2>", ...],
-  "topics": ["<topic tag 1>", "<topic tag 2>", ...],
-  "takeaways": ["<actionable takeaway 1>", "<actionable takeaway 2>", ...],
-  "suggestedQuestions": ["<question a user might ask about this video>", "<another question>", "<third question>", "<fourth question>"]
-}
-
-Guidelines:
-- summary: Write 2-3 paragraphs that capture the main content, arguments, and conclusions
-- keyPoints: 4-8 specific, factual points made in the video
-- topics: 3-6 short topic tags (1-3 words each) representing the main themes
-- takeaways: 3-5 actionable items the viewer can apply
-- suggestedQuestions: 3-4 natural questions someone might want to ask about this content (e.g. "What tools were mentioned?", "What are the main steps?")`;
+  "hook": {
+    "line": "<the first sentence/hook line from the transcript>",
+    "style": "<one of: question, shock, relatable, controversial, curiosity, story, instruction>",
+    "strength": <1-10 integer>
+  },
+  "content": {
+    "format": "<e.g. tutorial, story time, product review, skit, rant, educational, day-in-life>",
+    "pacing": "<e.g. fast and punchy, conversational, slow build, rapid-fire>",
+    "structure": "<e.g. hook-problem-solution, hook-story-cta, list format, before/after>"
+  },
+  "keyPhrases": ["<3-6 memorable phrases or power words used>"],
+  "emotionalTriggers": ["<2-4 emotions the content targets>"],
+  "productMentions": ["<any products/brands mentioned, or empty array>"],
+  "whatWorks": ["<3-5 specific things this creator does well>"],
+  "targetEmotion": "<the primary emotion this content targets>"
+}`;
 
         const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -160,11 +221,11 @@ Guidelines:
           },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
-            max_tokens: 2000,
+            max_tokens: 1000,
             temperature: 0.3,
-            messages: [{ role: 'user', content: summaryPrompt }],
+            messages: [{ role: 'user', content: analysisPrompt }],
           }),
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(15000),
         });
 
         if (claudeRes.ok) {
@@ -173,24 +234,24 @@ Guidelines:
           const jsonMatch = text.match(/\{[\s\S]*\}/);
           if (jsonMatch) analysis = JSON.parse(jsonMatch[0]);
         } else {
-          console.warn('[youtube-transcribe] Claude analysis failed:', claudeRes.status);
+          console.warn('[yt-transcribe] Claude analysis failed:', claudeRes.status);
         }
       } catch (e) {
-        console.warn('[youtube-transcribe] Analysis error (non-fatal):', e);
+        console.warn('[yt-transcribe] Analysis error (non-fatal):', e);
       }
     }
 
+    cleanupFiles(filesToClean);
+
     // Log usage
     const processingTimeMs = Date.now() - requestStart;
-    await supabaseAdmin
+    const { error: insertErr } = await supabaseAdmin
       .from('transcribe_usage')
-      .insert({ ip, user_id: userId, url_transcribed: url, processing_time_ms: processingTimeMs })
-      .then(({ error: insertErr }) => {
-        if (insertErr) console.warn('[youtube-transcribe] Failed to log usage:', insertErr.message);
-      });
+      .insert({ ip, user_id: userId, url_transcribed: url, processing_time_ms: processingTimeMs });
+    if (insertErr) console.warn('[yt-transcribe] Failed to log usage:', insertErr.message);
 
     return NextResponse.json(
-      { transcript, segments, videoId, analysis },
+      { transcript, segments, duration, language, analysis },
       {
         headers: {
           'X-RateLimit-Remaining': String(remaining === -1 ? -1 : remaining - 1),
@@ -199,20 +260,29 @@ Guidelines:
       }
     );
   } catch (err) {
-    console.error('[youtube-transcribe] Error:', err);
+    cleanupFiles(filesToClean);
+    console.error('[yt-transcribe] Error:', err);
+
     const message = err instanceof Error ? err.message : 'Unknown error';
 
-    if (message.includes('No captions available')) {
+    if (message.includes('timed out') || message.includes('ETIMEDOUT') || message.includes('AbortError')) {
       return NextResponse.json(
-        { error: 'No captions available for this video. The video may not have subtitles enabled.' },
+        { error: 'The download timed out. The video may be too long or the connection is slow.' },
+        { status: 504 }
+      );
+    }
+
+    if (message.includes('audio download failed') || message.includes('Unable to download')) {
+      return NextResponse.json(
+        { error: 'Could not download this YouTube video. It may be private, age-restricted, or region-locked.' },
         { status: 422 }
       );
     }
 
-    if (message.includes('Could not extract video ID')) {
+    if (message.includes('max-filesize') || message.includes('File is larger')) {
       return NextResponse.json(
-        { error: 'Could not parse this YouTube URL. Please check the URL and try again.' },
-        { status: 400 }
+        { error: 'This video is too large to process. Try a shorter video.' },
+        { status: 413 }
       );
     }
 
@@ -220,5 +290,13 @@ Guidelines:
       { error: 'Failed to transcribe this video. Please check the URL and try again.' },
       { status: 500 }
     );
+  }
+}
+
+function cleanupFiles(paths: string[]) {
+  for (const p of paths) {
+    try {
+      if (existsSync(p)) unlink(p).catch(() => {});
+    } catch { /* ignore */ }
   }
 }

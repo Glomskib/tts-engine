@@ -1,7 +1,10 @@
 'use client';
 
-import YouTubeTranscriberCore from '@/components/YouTubeTranscriberCore';
+import { useCredits } from '@/hooks/useCredits';
+import TranscriberCore from '@/components/TranscriberCore';
 
-export default function YouTubeTranscribePage() {
-  return <YouTubeTranscriberCore />;
+export default function AdminYouTubeTranscribePage() {
+  const { subscription } = useCredits();
+
+  return <TranscriberCore isPortal={true} isLoggedIn={true} planId={subscription?.planId} platform="youtube" />;
 }

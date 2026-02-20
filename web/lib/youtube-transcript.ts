@@ -1,168 +1,428 @@
-/**
- * YouTube transcript extraction using yt-dlp.
- *
- * Uses youtube-dl-exec with a custom binary path:
- * - Local dev: system-installed yt-dlp (/opt/homebrew/bin/yt-dlp or /usr/local/bin/yt-dlp)
- * - Production (Vercel): standalone yt-dlp binary downloaded at build time to bin/yt-dlp
- */
-import youtubedl from 'youtube-dl-exec';
-import { readFile, unlink, readdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join } from 'path';
 import { tmpdir } from 'os';
+import { join } from 'path';
+import { writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
-import { execSync } from 'child_process';
 
-export interface YouTubeTranscriptResult {
-  transcript: string;
-  segments: { start: number; end: number; text: string }[];
-  videoId: string;
-}
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-interface Json3Event {
-  tStartMs?: number;
-  dDurationMs?: number;
-  segs?: { utf8: string }[];
-}
-
-const YOUTUBE_URL_PATTERNS = [
-  /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-  /^([a-zA-Z0-9_-]{11})$/,
-];
-
-export function extractVideoId(url: string): string | null {
-  for (const pattern of YOUTUBE_URL_PATTERNS) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
+// ============================================================================
+// URL validation
+// ============================================================================
 
 export function isValidYouTubeUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return ['www.youtube.com', 'youtube.com', 'youtu.be', 'm.youtube.com'].includes(parsed.hostname);
+    const validHosts = [
+      'www.youtube.com', 'youtube.com', 'm.youtube.com',
+      'youtu.be', 'www.youtu.be',
+    ];
+    if (!validHosts.includes(parsed.hostname)) return false;
+
+    // Reject playlists, channels, live streams
+    if (parsed.pathname.startsWith('/playlist')) return false;
+    if (parsed.pathname.startsWith('/channel') || parsed.pathname.startsWith('/c/') || parsed.pathname.startsWith('/@')) return false;
+    if (parsed.pathname.startsWith('/live')) return false;
+    if (parsed.searchParams.has('list') && !parsed.searchParams.has('v')) return false;
+
+    // Must be a video: /watch?v=, /shorts/, or youtu.be/ID
+    const isWatch = parsed.pathname === '/watch' && parsed.searchParams.has('v');
+    const isShort = parsed.pathname.startsWith('/shorts/');
+    const isShortUrl = parsed.hostname === 'youtu.be' || parsed.hostname === 'www.youtu.be';
+
+    return isWatch || isShort || isShortUrl;
   } catch {
     return false;
   }
 }
 
-/**
- * Resolve the yt-dlp binary path.
- * Checks: bundled bin/ dir → common system paths → `which yt-dlp`
- */
-function getYtDlpPath(): string {
-  // 1. Bundled binary (for Vercel production)
-  const bundled = join(process.cwd(), 'bin', 'yt-dlp');
-  if (existsSync(bundled)) return bundled;
+// ============================================================================
+// Video ID extraction
+// ============================================================================
 
-  // 2. Common system paths
-  const systemPaths = [
-    '/opt/homebrew/bin/yt-dlp',  // macOS Homebrew ARM
-    '/usr/local/bin/yt-dlp',     // macOS Homebrew Intel / Linux
-    '/usr/bin/yt-dlp',           // Linux system
-  ];
-  for (const p of systemPaths) {
-    if (existsSync(p)) return p;
-  }
-
-  // 3. Fallback: which
+function extractVideoId(url: string): string | null {
   try {
-    return execSync('which yt-dlp', { encoding: 'utf8' }).trim();
+    const parsed = new URL(url);
+    if (parsed.hostname === 'youtu.be' || parsed.hostname === 'www.youtu.be') {
+      return parsed.pathname.slice(1).split('/')[0] || null;
+    }
+    if (parsed.pathname.startsWith('/shorts/')) {
+      return parsed.pathname.split('/')[2] || null;
+    }
+    return parsed.searchParams.get('v') || null;
   } catch {
-    throw new Error('yt-dlp binary not found. Install with: brew install yt-dlp');
+    return null;
   }
 }
 
-// Create a configured youtube-dl-exec instance with the resolved binary
-const ytdlp = youtubedl.create(getYtDlpPath());
+// ============================================================================
+// VTT parsing
+// ============================================================================
 
-export async function fetchYouTubeTranscript(url: string): Promise<YouTubeTranscriptResult> {
-  const videoId = extractVideoId(url);
-  if (!videoId) {
-    throw new Error('Could not extract video ID from URL');
+interface Segment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+function parseTimestamp(ts: string): number {
+  // Handles HH:MM:SS.mmm, MM:SS.mmm, and variants with comma decimal
+  const normalized = ts.replace(',', '.');
+  const parts = normalized.split(':');
+  if (parts.length === 3) {
+    return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+  }
+  if (parts.length === 2) {
+    return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+  }
+  return parseFloat(normalized) || 0;
+}
+
+// Matches both HH:MM:SS.mmm and MM:SS.mmm timestamp pairs
+const VTT_TIMESTAMP_RE = /^(?:\d{1,2}:)?\d{2}:\d{2}[.,]\d{3}\s*-->\s*(?:\d{1,2}:)?\d{2}:\d{2}[.,]\d{3}/;
+
+export function parseVttToSegments(vttContent: string): Segment[] {
+  const lines = vttContent.split('\n');
+  const segments: Segment[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    if (!VTT_TIMESTAMP_RE.test(line)) {
+      i++;
+      continue;
+    }
+
+    // Extract the two timestamps
+    const tsParts = line.split('-->');
+    const start = parseTimestamp(tsParts[0].trim());
+    const end = parseTimestamp(tsParts[1].trim().split(/\s/)[0]); // strip position metadata after timestamp
+    i++;
+
+    const textLines: string[] = [];
+    while (i < lines.length && lines[i].trim() !== '') {
+      textLines.push(lines[i].trim());
+      i++;
+    }
+
+    const text = textLines
+      .join(' ')
+      .replace(/<[^>]+>/g, '') // strip HTML tags (<c>, <c.colorXXXXXX>, etc.)
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+
+    if (text) segments.push({ start, end, text });
   }
 
-  const id = randomUUID();
-  const outputTemplate = join(tmpdir(), `yt-caption-${id}`);
-  const filesToClean: string[] = [];
+  // Deduplicate overlapping auto-caption cues
+  // YouTube auto-captions repeat text with scrolling overlaps
+  const deduped: Segment[] = [];
+  for (const seg of segments) {
+    if (deduped.length === 0) {
+      deduped.push(seg);
+      continue;
+    }
+    const prev = deduped[deduped.length - 1];
+    // If this segment's text is contained in the previous, skip
+    if (prev.text.includes(seg.text)) continue;
+    // If previous text is a prefix of this one, replace with the longer version
+    if (seg.text.startsWith(prev.text)) {
+      prev.text = seg.text;
+      prev.end = seg.end;
+      continue;
+    }
+    // If there's overlap, try to extract only the new part
+    if (seg.text !== prev.text) {
+      // Check if the segment text starts with the tail of the previous
+      const words = seg.text.split(/\s+/);
+      const prevWords = prev.text.split(/\s+/);
+      let overlapLen = 0;
+      for (let k = 1; k <= Math.min(words.length, prevWords.length); k++) {
+        const tail = prevWords.slice(-k).join(' ');
+        const head = words.slice(0, k).join(' ');
+        if (tail === head) overlapLen = k;
+      }
+      if (overlapLen > 0 && overlapLen < words.length) {
+        const newText = words.slice(overlapLen).join(' ');
+        if (newText.trim()) {
+          deduped.push({ start: seg.start, end: seg.end, text: newText.trim() });
+        }
+      } else {
+        deduped.push(seg);
+      }
+    }
+  }
 
+  return deduped;
+}
+
+// ============================================================================
+// YouTube JSON3 caption parsing
+// ============================================================================
+
+function parseJson3ToSegments(json3: Record<string, unknown>): Segment[] {
+  const events = (json3 as { events?: Array<{ tStartMs?: number; dDurationMs?: number; segs?: Array<{ utf8?: string }> }> }).events;
+  if (!Array.isArray(events)) return [];
+
+  const segments: Segment[] = [];
+  for (const event of events) {
+    if (!event.segs) continue;
+    const text = event.segs
+      .map((s) => s.utf8 || '')
+      .join('')
+      .replace(/\n/g, ' ')
+      .trim();
+    if (!text) continue;
+
+    const start = (event.tStartMs || 0) / 1000;
+    const end = start + ((event.dDurationMs || 0) / 1000);
+    segments.push({ start, end, text });
+  }
+
+  return segments;
+}
+
+// ============================================================================
+// YouTube Innertube API — get player response (no yt-dlp needed)
+// ============================================================================
+
+interface PlayerResponse {
+  videoDetails?: {
+    lengthSeconds?: string;
+    title?: string;
+    videoId?: string;
+  };
+  captions?: {
+    playerCaptionsTracklistRenderer?: {
+      captionTracks?: Array<{
+        baseUrl: string;
+        languageCode: string;
+        kind?: string;
+        name?: { simpleText?: string };
+      }>;
+    };
+  };
+  playabilityStatus?: {
+    status?: string;
+    reason?: string;
+  };
+}
+
+async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | null> {
+  // Strategy 1: Innertube API (most reliable, no HTML scraping)
   try {
-    await ytdlp(`https://www.youtube.com/watch?v=${videoId}`, {
-      writeSub: true,
-      writeAutoSub: true,
-      subLang: 'en',
-      subFormat: 'json3',
-      skipDownload: true,
-      noWarnings: true,
-      output: outputTemplate,
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': UA,
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20250101.00.00',
+            hl: 'en',
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
     });
 
-    // Find the generated subtitle file
-    const candidates = [
-      `${outputTemplate}.en.json3`,
-      `${outputTemplate}.en-en.json3`,
-    ];
+    if (res.ok) {
+      const data = await res.json();
+      if (data.videoDetails) return data as PlayerResponse;
+    }
+  } catch (err) {
+    console.warn('[youtube-transcript] Innertube API failed:', err);
+  }
 
-    let subtitlePath: string | null = null;
-    for (const candidate of candidates) {
-      if (existsSync(candidate)) {
-        subtitlePath = candidate;
-        filesToClean.push(candidate);
-        break;
+  // Strategy 2: Scrape watch page for ytInitialPlayerResponse
+  try {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': UA,
+        'Accept-Language': 'en-US,en;q=0.9',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+
+    const match = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/);
+    if (match) {
+      return JSON.parse(match[1]) as PlayerResponse;
+    }
+  } catch (err) {
+    console.warn('[youtube-transcript] Page scrape failed:', err);
+  }
+
+  return null;
+}
+
+// ============================================================================
+// Caption extraction via YouTube API (replaces yt-dlp)
+// ============================================================================
+
+interface CaptionResult {
+  transcript: string;
+  segments: Segment[];
+  duration: number;
+  language: string;
+}
+
+export async function extractYouTubeCaptions(url: string): Promise<CaptionResult | null> {
+  const videoId = extractVideoId(url);
+  if (!videoId) return null;
+
+  try {
+    const player = await fetchPlayerResponse(videoId);
+    if (!player) {
+      console.warn('[youtube-transcript] Could not get player response');
+      return null;
+    }
+
+    // Check playability
+    const status = player.playabilityStatus?.status;
+    if (status && status !== 'OK') {
+      console.warn('[youtube-transcript] Video not playable:', status, player.playabilityStatus?.reason);
+      return null;
+    }
+
+    const duration = parseInt(player.videoDetails?.lengthSeconds || '0', 10);
+    const captionTracks = player.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+    if (!captionTracks || captionTracks.length === 0) {
+      console.log('[youtube-transcript] No caption tracks available');
+      return null;
+    }
+
+    // Find best English caption track (prefer manual over auto-generated)
+    const manualEn = captionTracks.find(t => t.languageCode === 'en' && t.kind !== 'asr');
+    const autoEn = captionTracks.find(t => t.languageCode === 'en');
+    const enTrack = manualEn || autoEn;
+    // Fall back to first available track if no English
+    const track = enTrack || captionTracks[0];
+
+    if (!track?.baseUrl) {
+      console.warn('[youtube-transcript] No caption track URL found');
+      return null;
+    }
+
+    const language = track.languageCode || 'en';
+
+    // Try VTT format first, then JSON3 as fallback
+    let segments: Segment[] = [];
+
+    // Attempt 1: VTT format
+    try {
+      const vttUrl = track.baseUrl + '&fmt=vtt';
+      const vttRes = await fetch(vttUrl, {
+        headers: { 'User-Agent': UA },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (vttRes.ok) {
+        const vttContent = await vttRes.text();
+        segments = parseVttToSegments(vttContent);
       }
+    } catch {
+      // fall through to JSON3
     }
 
-    // Fallback: scan tmpdir for any file matching our prefix
-    if (!subtitlePath) {
-      const dir = tmpdir();
-      const prefix = `yt-caption-${id}`;
-      const files = await readdir(dir);
-      for (const f of files) {
-        if (f.startsWith(prefix) && f.endsWith('.json3')) {
-          subtitlePath = join(dir, f);
-          filesToClean.push(subtitlePath);
-          break;
-        }
-      }
-    }
-
-    if (!subtitlePath) {
-      throw new Error('No captions available for this video. The video may not have subtitles enabled.');
-    }
-
-    const raw = await readFile(subtitlePath, 'utf8');
-    const data = JSON.parse(raw);
-
-    const events: Json3Event[] = data.events || [];
-    const segments = events
-      .filter((e) => e.segs && e.segs.length > 0)
-      .map((e) => {
-        const startMs = e.tStartMs || 0;
-        const durMs = e.dDurationMs || 0;
-        const text = e.segs!
-          .map((s) => s.utf8)
-          .join('')
-          .replace(/\n/g, ' ')
-          .trim();
-        return {
-          start: startMs / 1000,
-          end: (startMs + durMs) / 1000,
-          text,
-        };
-      })
-      .filter((s) => s.text);
-
+    // Attempt 2: JSON3 format (more reliable for some videos)
     if (segments.length === 0) {
-      throw new Error('No captions available for this video. The video may not have subtitles enabled.');
+      try {
+        const json3Url = track.baseUrl + '&fmt=json3';
+        const json3Res = await fetch(json3Url, {
+          headers: { 'User-Agent': UA },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (json3Res.ok) {
+          const json3Data = await json3Res.json();
+          segments = parseJson3ToSegments(json3Data);
+        }
+      } catch {
+        // both formats failed
+      }
     }
 
-    const transcript = segments.map((s) => s.text).join(' ');
+    if (segments.length === 0) return null;
 
-    return { transcript, segments, videoId };
-  } finally {
-    for (const f of filesToClean) {
-      try { await unlink(f); } catch { /* ignore */ }
+    const transcript = segments.map(s => s.text).join(' ');
+    if (!transcript.trim()) return null;
+
+    return { transcript, segments, duration, language };
+  } catch (err) {
+    console.warn('[youtube-transcript] Caption extraction failed:', err);
+    return null;
+  }
+}
+
+// ============================================================================
+// Audio download via cobalt.tools (replaces yt-dlp audio download)
+// ============================================================================
+
+export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: string; duration: number }> {
+  const videoId = extractVideoId(url);
+
+  // Get duration from player response
+  let duration = 0;
+  if (videoId) {
+    try {
+      const player = await fetchPlayerResponse(videoId);
+      duration = parseInt(player?.videoDetails?.lengthSeconds || '0', 10);
+    } catch {
+      // non-fatal — Whisper will provide duration
     }
   }
+
+  const cobaltUrl = process.env.COBALT_API_URL || 'https://api.cobalt.tools';
+
+  const res = await fetch(cobaltUrl, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': UA,
+    },
+    body: JSON.stringify({
+      url,
+      downloadMode: 'audio',
+      audioFormat: 'mp3',
+      filenameStyle: 'basic',
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
+  const data = await res.json();
+
+  if (data.status === 'error') {
+    throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);
+  }
+
+  const audioUrl = data.url;
+  if (!audioUrl) throw new Error('cobalt: no audio URL in response');
+
+  const audioRes = await fetch(audioUrl, {
+    headers: { 'User-Agent': UA },
+    signal: AbortSignal.timeout(120000),
+  });
+
+  if (!audioRes.ok) throw new Error(`Audio download returned ${audioRes.status}`);
+
+  const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+  if (audioBuffer.length < 1000) throw new Error('Downloaded audio file too small');
+
+  const audioPath = join(tmpdir(), `yt-audio-${randomUUID()}.mp3`);
+  await writeFile(audioPath, audioBuffer);
+
+  return { audioPath, duration };
 }

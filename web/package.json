@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "bash scripts/install-yt-dlp.sh && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "type-check": "tsc --noEmit",
@@ -39,8 +39,6 @@
     "replicate": "^1.4.0",
     "resend": "^6.9.2",
     "stripe": "^20.3.0",
-    "youtube-dl-exec": "^3.1.1",
-    "yt-dlp-exec": "^1.0.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -146,9 +146,15 @@ export default function TalkThroughItModal({
 
     recognition.onerror = (event) => {
       if (event.error === 'not-allowed') {
-        setError('Microphone access denied. You can type your idea instead.');
-        setSpeechSupported(false);
+        // Only permanently disable if this was the initial user-gesture start
+        // (not an auto-restart attempt which some browsers block)
+        if (!hasSpoken) {
+          setError('Microphone access was blocked. Check your browser\'s address bar for a mic permission icon, or type your idea below.');
+        }
         setIsListening(false);
+      } else if (event.error === 'no-speech') {
+        // No speech detected — this is normal, not an error
+        // Recognition will auto-end and we'll handle it in onend
       } else if (event.error !== 'aborted') {
         setError(`Speech error: ${event.error}. You can type your idea instead.`);
         setIsListening(false);
@@ -156,15 +162,6 @@ export default function TalkThroughItModal({
     };
 
     recognition.onend = () => {
-      // If user hasn't spoken yet and we're still in recording phase, restart
-      if (!hasSpoken && phase === 'recording') {
-        try {
-          recognition.start();
-          return;
-        } catch {
-          // Can't restart, fall through to stop
-        }
-      }
       setIsListening(false);
       clearSilenceTimer();
     };

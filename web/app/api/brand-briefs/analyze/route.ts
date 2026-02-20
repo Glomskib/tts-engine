@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
     if (!brief_text || brief_text.length < 50) {
       return NextResponse.json({ error: 'Brief text must be at least 50 characters' }, { status: 400 });
     }
-
     // Create brief record with status 'analyzing'
     const { data: brief, error: createErr } = await supabaseAdmin
       .from('brand_briefs')
@@ -169,12 +168,11 @@ CRITICAL RULES:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4000,
         temperature: 0.2,
         messages: [{ role: 'user', content: prompt }],
       }),
-      signal: AbortSignal.timeout(55000),
     });
 
     if (!claudeRes.ok) {
@@ -186,9 +184,12 @@ CRITICAL RULES:
 
     const claudeData = await claudeRes.json();
     const rawText = claudeData.content?.[0]?.text || '';
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    // Strip markdown code fences if present
+    const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
+      console.error('[brief-analyze] No JSON found in response:', rawText.substring(0, 500));
       await supabaseAdmin.from('brand_briefs').update({ status: 'failed' }).eq('id', brief.id);
       return NextResponse.json({ error: 'AI returned invalid response' }, { status: 502 });
     }
@@ -196,7 +197,8 @@ CRITICAL RULES:
     let analysis;
     try {
       analysis = JSON.parse(jsonMatch[0]);
-    } catch {
+    } catch (parseErr) {
+      console.error('[brief-analyze] JSON parse error:', parseErr, 'Raw JSON attempt:', jsonMatch[0].substring(0, 500));
       await supabaseAdmin.from('brand_briefs').update({ status: 'failed' }).eq('id', brief.id);
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 502 });
     }

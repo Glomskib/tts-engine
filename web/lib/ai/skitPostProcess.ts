@@ -271,7 +271,10 @@ export interface SkitBeat {
  * Full skit structure
  */
 export interface Skit {
-  hook_line: string;
+  hook_line?: string;
+  visual_hook?: string;
+  text_on_screen_hook?: string;
+  verbal_hook?: string;
   beats: SkitBeat[];
   b_roll: string[];
   overlays: string[];
@@ -335,7 +338,10 @@ function deriveOnScreenText(dialogue: string, maxLen: number): string {
  */
 function sanitizeSkit(skit: Skit): Skit {
   return {
-    hook_line: sanitizeText(skit.hook_line, MAX_LENGTHS.hook_line),
+    hook_line: skit.hook_line ? sanitizeText(skit.hook_line, MAX_LENGTHS.hook_line) : undefined,
+    visual_hook: skit.visual_hook ? sanitizeText(skit.visual_hook, 200) : undefined,
+    text_on_screen_hook: skit.text_on_screen_hook ? sanitizeText(skit.text_on_screen_hook, 150) : undefined,
+    verbal_hook: skit.verbal_hook ? sanitizeText(skit.verbal_hook, 150) : undefined,
     beats: skit.beats.map((beat) => {
       // Auto-generate on_screen_text from dialogue when missing, spell-check all
       let ost = beat.on_screen_text
@@ -364,7 +370,10 @@ function sanitizeSkit(skit: Skit): Skit {
 function calculateSkitRiskScore(skit: Skit): number {
   let total = 0;
 
-  total += scoreRisk(skit.hook_line);
+  total += scoreRisk(skit.hook_line || '');
+  total += scoreRisk(skit.visual_hook || '');
+  total += scoreRisk(skit.text_on_screen_hook || '');
+  total += scoreRisk(skit.verbal_hook || '');
   total += scoreRisk(skit.cta_line);
   total += scoreRisk(skit.cta_overlay);
 
@@ -397,7 +406,10 @@ function collectSkitRiskFlags(skit: Skit): RiskFlag[] {
     }
   };
 
-  addFlags(skit.hook_line);
+  addFlags(skit.hook_line || '');
+  addFlags(skit.visual_hook || '');
+  addFlags(skit.text_on_screen_hook || '');
+  addFlags(skit.verbal_hook || '');
   addFlags(skit.cta_line);
   addFlags(skit.cta_overlay);
 
@@ -467,7 +479,10 @@ export function validateSkitStructure(obj: unknown): obj is Skit {
 
   const skit = obj as Record<string, unknown>;
 
-  if (typeof skit.hook_line !== "string") return false;
+  // Accept either new 3-part hook format or legacy hook_line
+  const hasNewHook = typeof skit.visual_hook === "string" || typeof skit.verbal_hook === "string";
+  const hasLegacyHook = typeof skit.hook_line === "string";
+  if (!hasNewHook && !hasLegacyHook) return false;
   if (!Array.isArray(skit.beats)) return false;
   if (!Array.isArray(skit.b_roll)) return false;
   if (!Array.isArray(skit.overlays)) return false;

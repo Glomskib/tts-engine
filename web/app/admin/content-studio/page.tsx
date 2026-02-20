@@ -62,6 +62,7 @@ import {
   HUMOR_LEVELS,
   getGenerationCreditCost,
 } from '@/lib/content-types';
+import TalkThroughItModal, { type VoiceBriefParams } from '@/components/TalkThroughItModal';
 
 // Icon mapping for content types
 const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -442,6 +443,9 @@ export default function ContentStudioPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Talk Through It (voice brief) state
+  const [talkThroughItOpen, setTalkThroughItOpen] = useState(false);
 
   // Simple Mode — hides advanced fields for non-power-users
   const [simpleMode, setSimpleMode] = useState(() => {
@@ -905,6 +909,53 @@ export default function ContentStudioPage() {
     }
   };
 
+  // Voice brief handler: maps AI-interpreted params → form state, then generates
+  const handleVoiceBriefApply = (params: VoiceBriefParams) => {
+    // Product
+    if (params.product_id) {
+      setSelectedProductId(params.product_id);
+      setManualProductName('');
+    } else if (params.product_name) {
+      setSelectedProductId('');
+      setManualProductName(params.product_name);
+    }
+
+    // Platform
+    if (params.platform) setSelectedPlatform(params.platform);
+
+    // Content type & subtype
+    if (params.content_type_id) setSelectedContentTypeId(params.content_type_id);
+    if (params.content_subtype_id) setSelectedSubtypeId(params.content_subtype_id);
+
+    // Presentation style
+    if (params.presentation_style_id) setSelectedPresentationStyleId(params.presentation_style_id);
+
+    // Length & tone
+    if (params.target_length_id) setSelectedLengthId(params.target_length_id);
+    if (params.humor_level_id) setSelectedHumorId(params.humor_level_id);
+
+    // Risk tier
+    if (params.risk_tier) setRiskTier(params.risk_tier as RiskTier);
+
+    // Personas
+    if (params.creator_persona_id) setSelectedCreatorPersonaId(params.creator_persona_id);
+    if (params.audience_persona_id) setSelectedPersonaId(params.audience_persona_id);
+
+    // Pain points
+    if (params.pain_points?.length > 0) setSelectedPainPoints(params.pain_points);
+
+    // Creative direction → reference script
+    if (params.creative_direction) setReferenceScript(params.creative_direction);
+
+    // Variation count
+    if (params.variation_count) setVariationCount(params.variation_count);
+
+    // Let React flush state updates, then generate
+    setTimeout(() => {
+      handleGenerate();
+    }, 100);
+  };
+
   const handleGenerate = async () => {
     if (!hasCredits) {
       noCreditsModal.open();
@@ -974,9 +1025,6 @@ export default function ContentStudioPage() {
 
     // Build payload with correct API field names
     const payload: Record<string, unknown> = {
-      // Platform selection
-      platform: selectedPlatform,
-
       // Product info
       product_id: selectedProductId || undefined,
       product_name: selectedProductId ? undefined : manualProductName.trim(),
@@ -1556,6 +1604,13 @@ export default function ContentStudioPage() {
           </div>
           {/* Action buttons - wrap on mobile */}
           <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setTalkThroughItOpen(true)}
+              className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-violet-500 hover:to-indigo-500 transition-colors whitespace-nowrap font-medium"
+            >
+              <Mic size={16} />
+              Talk Through It
+            </button>
             <Link
               href="/admin/script-of-the-day"
               className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"
@@ -4401,6 +4456,16 @@ export default function ContentStudioPage() {
           </div>
         </div>
       )}
+
+      {/* Talk Through It Modal */}
+      <TalkThroughItModal
+        isOpen={talkThroughItOpen}
+        onClose={() => setTalkThroughItOpen(false)}
+        products={products.map(p => ({ id: p.id, name: p.name, brand: p.brand }))}
+        audiencePersonas={audiencePersonas.map(p => ({ id: p.id, name: p.name }))}
+        creatorPersonas={creatorPersonas.map(p => ({ id: p.id, name: p.name }))}
+        onApplyAndGenerate={handleVoiceBriefApply}
+      />
 
       <style>{`
         @keyframes spin {

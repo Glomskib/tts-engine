@@ -1272,7 +1272,7 @@ export async function POST(request: Request) {
     // Cost is based on original requested intensity (user intent) to prevent spam at high values
     const intensityBudget = await applySkitBudgetClamp({
       supabase: supabaseAdmin,
-      orgId: "default", // org_id not available in auth context, use default bucket
+      orgId: "00000000-0000-0000-0000-000000000000", // nil UUID — org_id not available in auth context
       userId: authContext.user.id,
       intensityRequested: originalRequestedIntensity,
       correlationId,
@@ -1888,13 +1888,15 @@ Make this skit DISTINCTLY DIFFERENT from other variations - don't just change wo
     const parsed = JSON.parse(jsonStr.trim());
 
     if (!validateSkitStructure(parsed)) {
-      console.error(`[${correlationId}] Invalid structure for variation ${variationIndex}`);
+      console.error(`[${correlationId}] Invalid structure for variation ${variationIndex}. Keys:`, Object.keys(parsed));
+      console.error(`[${correlationId}] Raw response (first 500 chars):`, content.slice(0, 500));
       return null;
     }
 
     return parsed as Skit;
   } catch (parseErr) {
     console.error(`[${correlationId}] Failed to parse variation ${variationIndex}:`, parseErr);
+    console.error(`[${correlationId}] Raw content (first 500 chars):`, content.slice(0, 500));
     return null;
   }
 }
@@ -1917,7 +1919,7 @@ function buildScoringPrompt(skit: Skit, productName: string, productBrand?: stri
   const productDesc = productBrand ? `${productBrand} ${productName}` : productName;
 
   const skitText = `
-HOOK: "${skit.hook_line}"
+HOOK: "${skit.hook_line || skit.verbal_hook || skit.visual_hook || ''}"
 
 BEATS:
 ${skit.beats.map((beat, i) => `${i + 1}. [${beat.t}] ${beat.action}${beat.dialogue ? `\n   Dialogue: "${beat.dialogue}"` : ''}${beat.on_screen_text ? `\n   Text: "${beat.on_screen_text}"` : ''}`).join('\n\n')}

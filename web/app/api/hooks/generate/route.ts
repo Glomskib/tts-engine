@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { product, platform = 'tiktok', niche = '' } = body;
+    const { product, platform = 'tiktok', niche = '', audience_persona_id } = body;
 
     if (!product || typeof product !== 'string' || product.trim().length === 0) {
       return NextResponse.json(
@@ -65,6 +66,34 @@ export async function POST(request: NextRequest) {
 
     const platformContext = PLATFORM_CONTEXT[platform as keyof typeof PLATFORM_CONTEXT] || PLATFORM_CONTEXT.tiktok;
     const nicheContext = niche ? `Niche/Category: ${niche}` : '';
+
+    // Fetch persona context if provided
+    let personaContext = '';
+    if (audience_persona_id && typeof audience_persona_id === 'string') {
+      const { data: persona } = await supabaseAdmin
+        .from('audience_personas')
+        .select('*')
+        .eq('id', audience_persona_id)
+        .single();
+
+      if (persona) {
+        const parts: string[] = [`Target Audience: "${persona.name}"`];
+        if (persona.description) parts.push(`Who they are: ${persona.description}`);
+        if (persona.age_range) parts.push(`Age: ${persona.age_range}`);
+        if (persona.gender) parts.push(`Gender: ${persona.gender}`);
+        if (persona.job_title) parts.push(`Job: ${persona.job_title}`);
+        if (persona.life_stage) parts.push(`Life stage: ${persona.life_stage}`);
+        if (persona.marital_status) parts.push(`Marital status: ${persona.marital_status}`);
+        if (persona.kids_count) parts.push(`Kids: ${persona.kids_count}`);
+        if (persona.goals?.length) parts.push(`Goals: ${persona.goals.join(', ')}`);
+        if (persona.struggles?.length) parts.push(`Struggles: ${persona.struggles.join(', ')}`);
+        if (persona.primary_pain_points?.length) parts.push(`Pain points: ${persona.primary_pain_points.join(', ')}`);
+        if (persona.phrases_they_use?.length) parts.push(`How they talk: ${persona.phrases_they_use.slice(0, 3).map((p: string) => `"${p}"`).join(', ')}`);
+        if (persona.tone_preference || persona.tone) parts.push(`Preferred tone: ${persona.tone_preference || persona.tone}`);
+        if (persona.emotional_triggers?.length) parts.push(`Emotional triggers: ${persona.emotional_triggers.join(', ')}`);
+        personaContext = `\n\nTARGET AUDIENCE PROFILE:\n${parts.join('\n')}\n\nIMPORTANT: Tailor every hook specifically to THIS person. Use their language, hit their pain points, and match their tone. The hooks should make this specific audience feel "OMG that's exactly me!"`;
+      }
+    }
 
     const systemPrompt = `You are an expert short-form video hook strategist.
 
@@ -79,7 +108,7 @@ Each hook MUST have exactly 3 parts designed to work together:
 3. VERBAL HOOK (Opening Line): The first spoken words that either create intrigue, challenge a belief, or start a story. Must pair with the visual. Examples: "Okay but why is nobody talking about this?" or "I got fired for saying this on camera"
 
 Platform context: ${platformContext}
-${nicheContext}
+${nicheContext}${personaContext}
 
 Return ONLY a valid JSON array of 5 hooks in this exact format:
 [

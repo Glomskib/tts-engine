@@ -297,6 +297,102 @@ export function getOptionDescription(options: SelectOption[], value: string): st
 }
 
 // ============================================
+// GENDER OPTIONS
+// ============================================
+
+export const GENDER_OPTIONS: SelectOption[] = [
+  { value: 'female', label: 'Female', description: 'Female-identifying' },
+  { value: 'male', label: 'Male', description: 'Male-identifying' },
+  { value: 'non-binary', label: 'Non-binary', description: 'Non-binary / genderqueer' },
+  { value: 'prefer-not-to-say', label: 'Prefer not to say', description: 'Not specified' },
+];
+
+// ============================================
+// MARITAL STATUS OPTIONS
+// ============================================
+
+export const MARITAL_STATUS_OPTIONS: SelectOption[] = [
+  { value: 'single', label: 'Single', description: 'Not in a relationship' },
+  { value: 'in-a-relationship', label: 'In a relationship', description: 'Dating, not married' },
+  { value: 'engaged', label: 'Engaged', description: 'Planning to marry' },
+  { value: 'married', label: 'Married', description: 'Legally married' },
+  { value: 'divorced', label: 'Divorced', description: 'Previously married' },
+  { value: 'widowed', label: 'Widowed', description: 'Lost a spouse' },
+  { value: 'separated', label: 'Separated', description: 'Married but living apart' },
+  { value: 'its-complicated', label: "It's complicated", description: 'Complex relationship status' },
+];
+
+// ============================================
+// SEXUAL ORIENTATION OPTIONS
+// ============================================
+
+export const SEXUAL_ORIENTATION_OPTIONS: SelectOption[] = [
+  { value: 'straight', label: 'Straight', description: 'Heterosexual' },
+  { value: 'gay', label: 'Gay', description: 'Gay' },
+  { value: 'lesbian', label: 'Lesbian', description: 'Lesbian' },
+  { value: 'bisexual', label: 'Bisexual', description: 'Attracted to multiple genders' },
+  { value: 'pansexual', label: 'Pansexual', description: 'Attracted regardless of gender' },
+  { value: 'prefer-not-to-say', label: 'Prefer not to say', description: 'Not specified' },
+];
+
+// ============================================
+// KIDS COUNT OPTIONS
+// ============================================
+
+export const KIDS_COUNT_OPTIONS: SelectOption[] = [
+  { value: 'none', label: 'None', description: 'No children' },
+  { value: '1', label: '1', description: 'One child' },
+  { value: '2', label: '2', description: 'Two children' },
+  { value: '3', label: '3', description: 'Three children' },
+  { value: '4+', label: '4+', description: 'Four or more children' },
+  { value: 'expecting', label: 'Expecting', description: 'Expecting a child' },
+];
+
+// ============================================
+// EDUCATION OPTIONS
+// ============================================
+
+export const EDUCATION_OPTIONS: SelectOption[] = [
+  { value: 'high-school', label: 'High school', description: 'High school diploma or GED' },
+  { value: 'some-college', label: 'Some college', description: 'Attended but did not finish' },
+  { value: 'associates', label: "Associate's", description: '2-year degree' },
+  { value: 'bachelors', label: "Bachelor's", description: '4-year degree' },
+  { value: 'masters', label: "Master's", description: 'Graduate degree' },
+  { value: 'doctorate', label: 'Doctorate', description: 'PhD or professional doctorate' },
+  { value: 'trade-school', label: 'Trade school', description: 'Vocational or technical training' },
+  { value: 'self-taught', label: 'Self-taught', description: 'Self-educated, no formal degree' },
+];
+
+// ============================================
+// EMPLOYMENT STATUS OPTIONS
+// ============================================
+
+export const EMPLOYMENT_STATUS_OPTIONS: SelectOption[] = [
+  { value: 'employed-full-time', label: 'Employed full-time', description: 'Working 40+ hours/week' },
+  { value: 'employed-part-time', label: 'Employed part-time', description: 'Working less than 40 hours/week' },
+  { value: 'self-employed', label: 'Self-employed', description: 'Runs own business' },
+  { value: 'freelancer', label: 'Freelancer', description: 'Independent contractor' },
+  { value: 'stay-at-home-parent', label: 'Stay-at-home parent', description: 'Full-time caregiver' },
+  { value: 'student', label: 'Student', description: 'Currently in school' },
+  { value: 'retired', label: 'Retired', description: 'No longer working' },
+  { value: 'unemployed', label: 'Unemployed', description: 'Looking for work' },
+  { value: 'between-jobs', label: 'Between jobs', description: 'Transitioning careers' },
+];
+
+// ============================================
+// AGE RANGE OPTIONS
+// ============================================
+
+export const AGE_RANGE_OPTIONS: SelectOption[] = [
+  { value: '18-24', label: '18-24', description: 'Gen Z, young adults' },
+  { value: '25-34', label: '25-34', description: 'Millennials, early career' },
+  { value: '35-44', label: '35-44', description: 'Established professionals' },
+  { value: '45-54', label: '45-54', description: 'Mid-career, Gen X' },
+  { value: '55-64', label: '55-64', description: 'Pre-retirement' },
+  { value: '65+', label: '65+', description: 'Retirement age' },
+];
+
+// ============================================
 // AI PROMPT TONE GUIDES
 // ============================================
 

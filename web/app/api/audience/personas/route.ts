@@ -57,6 +57,19 @@ const CreatePersonaSchema = z.object({
   platforms: z.array(z.string()).optional(),
   best_posting_times: z.string().max(200).optional(),
 
+  // Custom Persona Builder fields
+  marital_status: z.string().max(50).optional(),
+  sexual_orientation: z.string().max(50).optional(),
+  kids_count: z.string().max(20).optional(),
+  job_title: z.string().max(100).optional(),
+  education: z.string().max(50).optional(),
+  employment_status: z.string().max(50).optional(),
+  goals: z.array(z.string()).optional(),
+  struggles: z.array(z.string()).optional(),
+  daily_routine: z.string().max(1000).optional(),
+  shopping_habits: z.string().max(1000).optional(),
+  full_description: z.string().max(5000).optional(),
+
   // Legacy/Deprecated
   beliefs: z.record(z.string(), z.string()).optional(),
   product_categories: z.array(z.string()).optional(),

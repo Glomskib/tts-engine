@@ -19,6 +19,13 @@ import {
   PURCHASE_MOTIVATORS_OPTIONS,
   CONTENT_OPTIONS,
   PLATFORM_OPTIONS,
+  GENDER_OPTIONS,
+  MARITAL_STATUS_OPTIONS,
+  SEXUAL_ORIENTATION_OPTIONS,
+  KIDS_COUNT_OPTIONS,
+  EDUCATION_OPTIONS,
+  EMPLOYMENT_STATUS_OPTIONS,
+  AGE_RANGE_OPTIONS,
 } from "@/lib/persona-options";
 import { meetsMinPlan } from "@/lib/plans";
 
@@ -41,6 +48,18 @@ interface Persona {
   location_type?: string;
   life_stage?: string;
   lifestyle?: string;
+  // Custom Persona Builder fields
+  marital_status?: string;
+  sexual_orientation?: string;
+  kids_count?: string;
+  job_title?: string;
+  education?: string;
+  employment_status?: string;
+  goals?: string[];
+  struggles?: string[];
+  daily_routine?: string;
+  shopping_habits?: string;
+  full_description?: string;
   // Psychographics
   values?: string[];
   interests?: string[];
@@ -124,6 +143,12 @@ export default function AudiencePage() {
   const [editingPainPoint, setEditingPainPoint] = useState<PainPoint | null>(null);
   const [painPointForm, setPainPointForm] = useState<Partial<PainPoint>>({});
   const [savingPainPoint, setSavingPainPoint] = useState(false);
+
+  // AI Assist state
+  const [showAiAssist, setShowAiAssist] = useState(false);
+  const [aiAssistDescription, setAiAssistDescription] = useState("");
+  const [aiAssistLoading, setAiAssistLoading] = useState(false);
+  const [aiAssistMode, setAiAssistMode] = useState<"customer" | "product">("customer");
 
   // Extract from text state
   const [extractText, setExtractText] = useState("");
@@ -264,6 +289,18 @@ export default function AudiencePage() {
         location_type: "",
         life_stage: "",
         lifestyle: "",
+        // Custom Persona Builder
+        marital_status: "",
+        sexual_orientation: "",
+        kids_count: "",
+        job_title: "",
+        education: "",
+        employment_status: "",
+        goals: [],
+        struggles: [],
+        daily_routine: "",
+        shopping_habits: "",
+        full_description: "",
         // Psychographics
         values: [],
         interests: [],
@@ -317,6 +354,22 @@ export default function AudiencePage() {
       if (personaForm.location_type?.trim()) cleanedForm.location_type = personaForm.location_type.trim();
       if (personaForm.life_stage?.trim()) cleanedForm.life_stage = personaForm.life_stage.trim();
       if (personaForm.lifestyle?.trim()) cleanedForm.lifestyle = personaForm.lifestyle.trim();
+
+      // Custom Persona Builder fields
+      if (personaForm.marital_status?.trim()) cleanedForm.marital_status = personaForm.marital_status.trim();
+      if (personaForm.sexual_orientation?.trim()) cleanedForm.sexual_orientation = personaForm.sexual_orientation.trim();
+      if (personaForm.kids_count?.trim()) cleanedForm.kids_count = personaForm.kids_count.trim();
+      if (personaForm.job_title?.trim()) cleanedForm.job_title = personaForm.job_title.trim();
+      if (personaForm.education?.trim()) cleanedForm.education = personaForm.education.trim();
+      if (personaForm.employment_status?.trim()) cleanedForm.employment_status = personaForm.employment_status.trim();
+      if (personaForm.daily_routine?.trim()) cleanedForm.daily_routine = personaForm.daily_routine.trim();
+      if (personaForm.shopping_habits?.trim()) cleanedForm.shopping_habits = personaForm.shopping_habits.trim();
+      if (personaForm.full_description?.trim()) cleanedForm.full_description = personaForm.full_description.trim();
+
+      const goals = (personaForm.goals || []).filter(Boolean);
+      const struggles = (personaForm.struggles || []).filter(Boolean);
+      if (goals.length > 0) cleanedForm.goals = goals;
+      if (struggles.length > 0) cleanedForm.struggles = struggles;
 
       // Psychographics arrays
       if (personaForm.values && personaForm.values.length > 0) {
@@ -404,6 +457,51 @@ export default function AudiencePage() {
       setMessage({ type: "error", text: `Network error: ${err instanceof Error ? err.message : "Unknown"}` });
     } finally {
       setSavingPersona(false);
+    }
+  };
+
+  // AI Assist handler
+  const runAiAssist = async (mode: "fill_blanks" | "generate_from_description" | "generate_from_product") => {
+    setAiAssistLoading(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/audience/personas/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          description: (mode === "generate_from_description" || mode === "generate_from_product") ? aiAssistDescription : undefined,
+          partial_data: mode === "fill_blanks" ? personaForm : undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok && data.data?.suggestions) {
+        const suggestions = data.data.suggestions;
+        // Merge suggestions into form - only fill empty fields
+        const merged = { ...personaForm };
+        for (const [key, value] of Object.entries(suggestions)) {
+          const currentVal = merged[key as keyof typeof merged];
+          const isEmpty = currentVal === undefined || currentVal === null || currentVal === "" ||
+            (Array.isArray(currentVal) && currentVal.length === 0);
+          if (mode === "generate_from_description" || mode === "generate_from_product" || isEmpty) {
+            (merged as Record<string, unknown>)[key] = value;
+          }
+        }
+        setPersonaForm(merged);
+        setShowAiAssist(false);
+        setAiAssistDescription("");
+        setMessage({ type: "success", text: "AI suggestions applied! Review and adjust as needed." });
+      } else {
+        setMessage({ type: "error", text: data.error || "AI assist failed" });
+      }
+    } catch (err) {
+      console.error("[Audience] AI assist error:", err);
+      setMessage({ type: "error", text: "Network error" });
+    } finally {
+      setAiAssistLoading(false);
     }
   };
 
@@ -1229,21 +1327,132 @@ export default function AudiencePage() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div style={{ padding: "16px 20px", borderBottom: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between" }}>
+              <div style={{ padding: "16px 20px", borderBottom: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: "16px", fontWeight: 600, color: colors.text }}>
-                  {editingPersona.id === "new" ? "New Persona" : "Edit Persona"}
+                  {editingPersona.id === "new" ? "Create Your Customer" : "Edit Customer Persona"}
                 </div>
-                <button type="button" onClick={() => setEditingPersona(null)} style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer" }}>
-                  ×
-                </button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  {!editingPersona.is_system && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAiAssist(!showAiAssist)}
+                      style={{
+                        ...secondaryButton,
+                        fontSize: "11px",
+                        padding: "6px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        backgroundColor: showAiAssist ? "rgba(139, 92, 246, 0.15)" : colors.surface,
+                        borderColor: showAiAssist ? "#8b5cf6" : colors.border,
+                        color: showAiAssist ? "#a78bfa" : colors.text,
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      AI Assist
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { setEditingPersona(null); setShowAiAssist(false); }} style={{ background: "none", border: "none", fontSize: "20px", color: colors.textMuted, cursor: "pointer" }}>
+                    ×
+                  </button>
+                </div>
               </div>
+
+              {/* AI Assist Panel */}
+              {showAiAssist && !editingPersona.is_system && (
+                <div style={{ padding: "16px 20px", borderBottom: `1px solid ${colors.border}`, backgroundColor: "rgba(139, 92, 246, 0.05)" }}>
+                  {/* Mode Tabs */}
+                  <div style={{ display: "flex", gap: "0", marginBottom: "12px", borderRadius: "6px", overflow: "hidden", border: `1px solid ${colors.border}` }}>
+                    <button
+                      type="button"
+                      onClick={() => { setAiAssistMode("customer"); setAiAssistDescription(""); }}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        border: "none",
+                        cursor: "pointer",
+                        backgroundColor: aiAssistMode === "customer" ? "#8b5cf6" : colors.surface,
+                        color: aiAssistMode === "customer" ? "#fff" : colors.textMuted,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      Describe a Customer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAiAssistMode("product"); setAiAssistDescription(""); }}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        border: "none",
+                        borderLeft: `1px solid ${colors.border}`,
+                        cursor: "pointer",
+                        backgroundColor: aiAssistMode === "product" ? "#8b5cf6" : colors.surface,
+                        color: aiAssistMode === "product" ? "#fff" : colors.textMuted,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      Describe Your Product
+                    </button>
+                  </div>
+
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "#a78bfa", marginBottom: "8px" }}>
+                    {aiAssistMode === "customer"
+                      ? "Describe your customer in natural language"
+                      : "Describe your product or solution — AI will generate the ideal buyer"}
+                  </div>
+                  <textarea
+                    value={aiAssistDescription}
+                    onChange={(e) => setAiAssistDescription(e.target.value)}
+                    placeholder={aiAssistMode === "customer"
+                      ? "e.g., 25-year-old single mom working as a nurse, lives in the suburbs, struggles with time management and guilt about not spending enough time with her kid..."
+                      : "e.g., A CBD sleep gummy for people who can't fall asleep without scrolling their phone for 2 hours. Sold on TikTok Shop for $29.99..."
+                    }
+                    rows={3}
+                    style={{ ...inputStyle, resize: "vertical", marginBottom: "10px" }}
+                  />
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => runAiAssist(aiAssistMode === "customer" ? "generate_from_description" : "generate_from_product")}
+                      disabled={aiAssistLoading || !aiAssistDescription.trim()}
+                      style={{ ...primaryButton, fontSize: "12px", opacity: aiAssistLoading || !aiAssistDescription.trim() ? 0.5 : 1, backgroundColor: "#8b5cf6" }}
+                    >
+                      {aiAssistLoading
+                        ? "Generating..."
+                        : aiAssistMode === "customer"
+                          ? "Generate Full Persona"
+                          : "Find My Ideal Customer"}
+                    </button>
+                    {Object.values(personaForm).some(v => v && v !== "" && !(Array.isArray(v) && v.length === 0)) && (
+                      <button
+                        type="button"
+                        onClick={() => runAiAssist("fill_blanks")}
+                        disabled={aiAssistLoading}
+                        style={{ ...secondaryButton, fontSize: "12px", opacity: aiAssistLoading ? 0.5 : 1 }}
+                      >
+                        {aiAssistLoading ? "Filling..." : "Fill Empty Fields"}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "11px", color: colors.textMuted, marginTop: "8px" }}>
+                    {aiAssistMode === "customer"
+                      ? "AI will populate the form fields below. Review and adjust before saving."
+                      : "AI will figure out who your ideal buyer is and fill in every field. Review and tweak before saving."}
+                  </div>
+                </div>
+              )}
 
               {/* Modal Body */}
               <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
-                {/* ===== CORE IDENTITY ===== */}
+                {/* ===== SECTION 1: WHO THEY ARE (Identity) ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: colors.accent, marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Core Identity
+                    Who They Are
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <div>
@@ -1257,47 +1466,119 @@ export default function AudiencePage() {
                         style={inputStyle}
                       />
                       <p style={{ fontSize: "11px", color: colors.textMuted, marginTop: "4px", margin: "4px 0 0 0" }}>
-                        Use descriptive names like &ldquo;Budget-Conscious Deal Hunter&rdquo; instead of plain names like &ldquo;Dave.&rdquo; This appears in all dropdowns.
+                        Use descriptive names like &ldquo;Budget-Conscious Deal Hunter&rdquo; instead of plain names like &ldquo;Dave.&rdquo;
                       </p>
                     </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                        DESCRIPTION
-                      </label>
-                      <textarea
-                        value={personaForm.description || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, description: e.target.value })}
-                        placeholder="Who is this person? What's their life like? What do they struggle with?"
-                        rows={2}
-                        style={{ ...inputStyle, resize: "vertical" }}
-                      />
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>AGE RANGE</label>
+                        <select
+                          value={personaForm.age_range || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, age_range: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select...</option>
+                          {AGE_RANGE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>GENDER</label>
+                        <select
+                          value={personaForm.gender || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, gender: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select...</option>
+                          {GENDER_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>MARITAL STATUS</label>
+                        <select
+                          value={personaForm.marital_status || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, marital_status: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select...</option>
+                          {MARITAL_STATUS_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>ORIENTATION</label>
+                        <select
+                          value={personaForm.sexual_orientation || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, sexual_orientation: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select...</option>
+                          {SEXUAL_ORIENTATION_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>KIDS</label>
+                        <select
+                          value={personaForm.kids_count || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, kids_count: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Select...</option>
+                          {KIDS_COUNT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* ===== DEMOGRAPHICS ===== */}
+                {/* ===== SECTION 2: THEIR LIFE (Lifestyle) ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#3b82f6", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Demographics
+                    Their Life
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                     <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>AGE RANGE</label>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>JOB TITLE</label>
                       <input
-                        value={personaForm.age_range || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, age_range: e.target.value })}
-                        placeholder="25-34"
+                        value={personaForm.job_title || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, job_title: e.target.value })}
+                        placeholder="e.g. ER Nurse, Marketing Manager"
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>GENDER</label>
-                      <input
-                        value={personaForm.gender || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, gender: e.target.value })}
-                        placeholder="Female, Male, Any"
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>EMPLOYMENT</label>
+                      <select
+                        value={personaForm.employment_status || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, employment_status: e.target.value })}
                         style={inputStyle}
-                      />
+                      >
+                        <option value="">Select...</option>
+                        {EMPLOYMENT_STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>EDUCATION</label>
+                      <select
+                        value={personaForm.education || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, education: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Select...</option>
+                        {EDUCATION_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>INCOME LEVEL</label>
@@ -1311,11 +1592,6 @@ export default function AudiencePage() {
                           <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
                         ))}
                       </select>
-                      {personaForm.income_level && (
-                        <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
-                          {INCOME_OPTIONS.find(o => o.value === personaForm.income_level)?.description}
-                        </div>
-                      )}
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LOCATION TYPE</label>
@@ -1329,11 +1605,6 @@ export default function AudiencePage() {
                           <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
                         ))}
                       </select>
-                      {personaForm.location_type && (
-                        <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
-                          {LOCATION_OPTIONS.find(o => o.value === personaForm.location_type)?.description}
-                        </div>
-                      )}
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFE STAGE</label>
@@ -1347,30 +1618,61 @@ export default function AudiencePage() {
                           <option key={opt.value} value={opt.value} title={opt.description}>{opt.label}</option>
                         ))}
                       </select>
-                      {personaForm.life_stage && (
-                        <div style={{ marginTop: "4px", fontSize: "10px", color: colors.textMuted, fontStyle: "italic" }}>
-                          {LIFE_STAGE_OPTIONS.find(o => o.value === personaForm.life_stage)?.description}
-                        </div>
-                      )}
                     </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "12px" }}>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFESTYLE</label>
                       <input
                         value={personaForm.lifestyle || ""}
                         onChange={(e) => setPersonaForm({ ...personaForm, lifestyle: e.target.value })}
-                        placeholder="busy professional"
+                        placeholder="e.g. busy professional, fitness enthusiast"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>DAILY ROUTINE</label>
+                      <input
+                        value={personaForm.daily_routine || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, daily_routine: e.target.value })}
+                        placeholder="e.g. Up at 5am, gym, work 9-5, kids activities"
                         style={inputStyle}
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* ===== PSYCHOGRAPHICS ===== */}
+                {/* ===== SECTION 3: WHAT DRIVES THEM (Psychology) ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#ec4899", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Psychographics
+                    What Drives Them
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        GOALS (one per line)
+                      </label>
+                      <textarea
+                        value={(personaForm.goals || []).join("\n")}
+                        onChange={(e) => setPersonaForm({ ...personaForm, goals: e.target.value.split("\n").filter(Boolean) })}
+                        placeholder="Get promoted at work&#10;Spend more quality time with family&#10;Finally get in shape"
+                        rows={3}
+                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        STRUGGLES (one per line)
+                      </label>
+                      <textarea
+                        value={(personaForm.struggles || []).join("\n")}
+                        onChange={(e) => setPersonaForm({ ...personaForm, struggles: e.target.value.split("\n").filter(Boolean) })}
+                        placeholder="Never enough time in the day&#10;Constant decision fatigue&#10;Feeling guilty about self-care"
+                        rows={3}
+                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                      />
+                    </div>
+
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>VALUES</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
@@ -1473,10 +1775,10 @@ export default function AudiencePage() {
                   </div>
                 </div>
 
-                {/* ===== COMMUNICATION STYLE ===== */}
+                {/* ===== SECTION 4: HOW TO REACH THEM (Communication) ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#10b981", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Communication Style
+                    How to Reach Them
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
@@ -1596,7 +1898,7 @@ export default function AudiencePage() {
                   </div>
                 </div>
 
-                {/* ===== PAIN POINTS & MOTIVATIONS ===== */}
+                {/* ===== SECTION 5: PAIN POINTS & MOTIVATIONS ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#f59e0b", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     Pain Points & Motivations
@@ -1692,10 +1994,19 @@ export default function AudiencePage() {
                         })}
                       </div>
                     </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>SHOPPING HABITS</label>
+                      <input
+                        value={personaForm.shopping_habits || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, shopping_habits: e.target.value })}
+                        placeholder="e.g. Researches online, buys on Amazon, impulse buys on TikTok"
+                        style={inputStyle}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* ===== CONTENT PREFERENCES ===== */}
+                {/* ===== SECTION 6: CONTENT PREFERENCES ===== */}
                 <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "#06b6d4", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     Content Preferences
@@ -1778,6 +2089,42 @@ export default function AudiencePage() {
                     </div>
                   </div>
                 </div>
+
+                {/* ===== SECTION 7: DESCRIPTION / AI SUMMARY ===== */}
+                <div style={{ padding: "16px", backgroundColor: colors.surface, borderRadius: "8px", border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: "#8b5cf6", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Description & Summary
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        SHORT DESCRIPTION
+                      </label>
+                      <textarea
+                        value={personaForm.description || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, description: e.target.value })}
+                        placeholder="Quick summary of who this person is..."
+                        rows={2}
+                        style={{ ...inputStyle, resize: "vertical" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
+                        FULL NARRATIVE (AI-generated or manual)
+                      </label>
+                      <textarea
+                        value={personaForm.full_description || ""}
+                        onChange={(e) => setPersonaForm({ ...personaForm, full_description: e.target.value })}
+                        placeholder="A rich narrative describing this customer's daily life, motivations, and experience. Use AI Assist to generate this automatically."
+                        rows={4}
+                        style={{ ...inputStyle, resize: "vertical" }}
+                      />
+                      <p style={{ fontSize: "11px", color: colors.textMuted, margin: "4px 0 0 0" }}>
+                        This narrative helps AI generators deeply understand your customer when creating content.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Modal Footer */}
@@ -1795,7 +2142,7 @@ export default function AudiencePage() {
                   <div />
                 )}
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button type="button" onClick={() => setEditingPersona(null)} style={secondaryButton}>
+                  <button type="button" onClick={() => { setEditingPersona(null); setShowAiAssist(false); }} style={secondaryButton}>
                     {editingPersona.is_system ? "Close" : "Cancel"}
                   </button>
                   {!editingPersona.is_system && (

@@ -181,6 +181,18 @@ interface AudiencePersona {
   content_types_preferred?: string[];
   platforms?: string[];
   best_posting_times?: string;
+  // Custom Persona Builder fields
+  marital_status?: string;
+  sexual_orientation?: string;
+  kids_count?: string;
+  job_title?: string;
+  education?: string;
+  employment_status?: string;
+  goals?: string[];
+  struggles?: string[];
+  daily_routine?: string;
+  shopping_habits?: string;
+  full_description?: string;
   // Meta
   beliefs?: Record<string, string>;
   times_used?: number;
@@ -328,6 +340,12 @@ ${audiencePersona.description ? `Who they are: ${audiencePersona.description}` :
     if (audiencePersona.income_level) demographics.push(`Income: ${audiencePersona.income_level}`);
     if (audiencePersona.location_type) demographics.push(`Location: ${audiencePersona.location_type}`);
     if (audiencePersona.lifestyle) demographics.push(`Lifestyle: ${audiencePersona.lifestyle}`);
+    if (audiencePersona.marital_status) demographics.push(`Marital status: ${audiencePersona.marital_status}`);
+    if (audiencePersona.sexual_orientation && audiencePersona.sexual_orientation !== 'prefer-not-to-say') demographics.push(`Orientation: ${audiencePersona.sexual_orientation}`);
+    if (audiencePersona.kids_count) demographics.push(`Kids: ${audiencePersona.kids_count}`);
+    if (audiencePersona.job_title) demographics.push(`Job: ${audiencePersona.job_title}`);
+    if (audiencePersona.education) demographics.push(`Education: ${audiencePersona.education}`);
+    if (audiencePersona.employment_status) demographics.push(`Employment: ${audiencePersona.employment_status}`);
     if (demographics.length > 0) {
       context += `DEMOGRAPHICS: ${demographics.join(" | ")}\n`;
     }
@@ -341,6 +359,18 @@ ${audiencePersona.description ? `Who they are: ${audiencePersona.description}` :
     }
     if (audiencePersona.personality_traits && audiencePersona.personality_traits.length > 0) {
       context += `PERSONALITY: ${audiencePersona.personality_traits.join(", ")}\n`;
+    }
+    if (audiencePersona.goals && audiencePersona.goals.length > 0) {
+      context += `THEIR GOALS: ${audiencePersona.goals.join(", ")}\n`;
+    }
+    if (audiencePersona.struggles && audiencePersona.struggles.length > 0) {
+      context += `THEIR STRUGGLES: ${audiencePersona.struggles.join(", ")}\n`;
+    }
+    if (audiencePersona.daily_routine) {
+      context += `DAILY ROUTINE: ${audiencePersona.daily_routine}\n`;
+    }
+    if (audiencePersona.shopping_habits) {
+      context += `SHOPPING HABITS: ${audiencePersona.shopping_habits}\n`;
     }
 
     context += "\n";

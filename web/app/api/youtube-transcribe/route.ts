@@ -287,7 +287,7 @@ Return this exact JSON structure:
     }
 
     return NextResponse.json(
-      { error: 'Failed to transcribe this video. Please check the URL and try again.' },
+      { error: 'Failed to transcribe this video. Please check the URL and try again.', debug: message },
       { status: 500 }
     );
   }

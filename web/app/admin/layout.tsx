@@ -90,6 +90,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/feedback': 'User Feedback',
       '/admin/api-docs': 'API Docs',
       '/admin/transcribe': 'Transcriber',
+      '/admin/youtube-transcribe': 'YouTube Transcriber',
       '/admin/help': 'Help',
       '/admin/settings/system-status': 'System Status',
       '/admin/command-center': 'Command Center',

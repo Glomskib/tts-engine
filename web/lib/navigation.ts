@@ -100,7 +100,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
       { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
-      { name: 'YouTube Summarizer', href: '/admin/youtube-transcribe', icon: Youtube },
+      { name: 'YT Transcriber', href: '/admin/youtube-transcribe', icon: Youtube },
     ],
   },
   {

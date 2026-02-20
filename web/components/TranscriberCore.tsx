@@ -97,7 +97,49 @@ export interface TranscriberCoreProps {
   isPortal: boolean;
   isLoggedIn: boolean;
   planId?: string | null;
+  platform?: 'tiktok' | 'youtube';
 }
+
+// ============================================================================
+// Platform Config
+// ============================================================================
+
+interface PlatformConfig {
+  apiEndpoint: string;
+  name: string;
+  placeholder: string;
+  heroTitle: string;
+  heroDescription: string;
+  socialProof: string;
+  howItWorksStep1: string;
+  productSearchUrl: (query: string) => string;
+  productSearchLabel: string;
+}
+
+const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
+  tiktok: {
+    apiEndpoint: '/api/transcribe',
+    name: 'TikTok',
+    placeholder: 'https://www.tiktok.com/@user/video/...',
+    heroTitle: 'Free TikTok Video',
+    heroDescription: 'Paste any TikTok URL \u2014 get the full transcript, hook analysis, and content breakdown in seconds.',
+    socialProof: 'Works with any public TikTok video. No watermarks, no downloads, no tracking.',
+    howItWorksStep1: 'Copy any public TikTok video link and paste it above.',
+    productSearchUrl: (q: string) => `https://www.tiktok.com/shop/search?q=${encodeURIComponent(q)}`,
+    productSearchLabel: 'Find Products',
+  },
+  youtube: {
+    apiEndpoint: '/api/youtube-transcribe',
+    name: 'YouTube',
+    placeholder: 'https://www.youtube.com/watch?v=...',
+    heroTitle: 'Free YouTube Video',
+    heroDescription: 'Paste any YouTube URL \u2014 get the full transcript, hook analysis, and content breakdown in seconds.',
+    socialProof: 'Works with any public YouTube video. Captions extracted instantly, Whisper fallback for accuracy.',
+    howItWorksStep1: 'Copy any public YouTube video link and paste it above.',
+    productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+    productSearchLabel: 'Search Products',
+  },
+};
 
 // ============================================================================
 // Constants
@@ -179,7 +221,8 @@ function CopyButton({ text, copyKey, copiedKey, copy, size = 'sm', label }: {
 // Component
 // ============================================================================
 
-export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn, planId }: TranscriberCoreProps) {
+export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn, planId, platform = 'tiktok' }: TranscriberCoreProps) {
+  const config = PLATFORM_CONFIG[platform];
   const router = useRouter();
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -287,7 +330,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     setSaveError('');
 
     try {
-      const res = await fetch('/api/transcribe', {
+      const res = await fetch(config.apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim() }),
@@ -565,7 +608,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               'Transcriber'
             ) : (
               <>
-                Free TikTok Video{' '}
+                {config.heroTitle}{' '}
                 <span className="bg-gradient-to-r from-teal-400 to-violet-400 bg-clip-text text-transparent">
                   Transcriber
                 </span>
@@ -574,8 +617,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
           </h1>
 
           <p className={`text-zinc-400 mb-${isPortal ? '6' : '10'} ${isPortal ? 'text-base' : 'text-lg max-w-xl mx-auto'}`}>
-            Paste any TikTok URL &mdash; get the full transcript, hook analysis, and content
-            breakdown in seconds.
+            {config.heroDescription}
           </p>
 
           {/* Input Area */}
@@ -586,7 +628,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && handleTranscribe()}
-                placeholder="https://www.tiktok.com/@user/video/..."
+                placeholder={config.placeholder}
                 className="flex-1 h-14 px-5 bg-zinc-900 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-base"
                 disabled={loading}
               />
@@ -646,7 +688,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
           {/* Social proof — public only */}
           {!isPortal && (
             <p className="text-xs text-zinc-600 mt-4">
-              Works with any public TikTok video. No watermarks, no downloads, no tracking.
+              {config.socialProof}
             </p>
           )}
         </div>
@@ -1108,12 +1150,12 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                     {copiedKey === `cat-${i}` ? <span className="text-green-400">Copied!</span> : '📋 Copy'}
                                   </button>
                                   <a
-                                    href={`https://www.tiktok.com/shop/search?q=${encodeURIComponent(cat.category)}`}
+                                    href={config.productSearchUrl(cat.category)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
                                   >
-                                    🔍 Find Products →
+                                    🔍 {config.productSearchLabel} →
                                   </a>
                                 </div>
                               </div>
@@ -1513,7 +1555,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 {
                   step: '1',
                   title: 'Paste the URL',
-                  desc: 'Copy any public TikTok video link and paste it above.',
+                  desc: config.howItWorksStep1,
                   icon: Clipboard,
                 },
                 {

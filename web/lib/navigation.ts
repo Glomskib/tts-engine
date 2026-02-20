@@ -49,6 +49,7 @@ import {
   Gift,
   Target,
   Download,
+  Youtube,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -99,6 +100,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
       { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
+      { name: 'YouTube Summarizer', href: '/admin/youtube-transcribe', icon: Youtube },
     ],
   },
   {
@@ -325,6 +327,7 @@ export const Icons = {
   Search,
   MessageSquare,
   Lightbulb,
+  Youtube,
 };
 
 // Constants

@@ -88,7 +88,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
 
     if (anthropicKey) {
       const result = await callAnthropicAPI(message.trim(), {
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         maxTokens: 500,
         temperature: 0.7,
         systemPrompt,

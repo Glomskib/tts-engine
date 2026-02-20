@@ -59,7 +59,7 @@ Example: [{"t":"0:00-0:05","action":"Person holds product to camera","dialogue":
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 2000,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -123,7 +123,7 @@ Example: {"0": "Try this hack!", "2": "Tap the orange cart"}`;
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 500,
         messages: [{ role: "user", content: prompt }],
       }),

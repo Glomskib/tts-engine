@@ -169,7 +169,7 @@ CRITICAL RULES:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4000,
         temperature: 0.2,
         messages: [{ role: 'user', content: prompt }],
@@ -178,7 +178,8 @@ CRITICAL RULES:
     });
 
     if (!claudeRes.ok) {
-      console.error('[brief-analyze] Claude error:', claudeRes.status);
+      const errBody = await claudeRes.text().catch(() => '');
+      console.error('[brief-analyze] Claude error:', claudeRes.status, errBody);
       await supabaseAdmin.from('brand_briefs').update({ status: 'failed' }).eq('id', brief.id);
       return NextResponse.json({ error: 'AI analysis failed' }, { status: 502 });
     }

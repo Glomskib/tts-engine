@@ -1598,7 +1598,7 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 4000,
           temperature: 0.3, // Low temperature for reliable JSON output
           system: "You are a JSON API. Output raw JSON only - no markdown, no code fences, no text before or after. Start with { and end with }.",

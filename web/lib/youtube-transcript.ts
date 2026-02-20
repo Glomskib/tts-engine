@@ -263,7 +263,7 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
         context: {
           client: {
             clientName: 'WEB',
-            clientVersion: '2.20250101.00.00',
+            clientVersion: '2.20260220.00.00',
             hl: 'en',
           },
         },
@@ -383,8 +383,8 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
         const vttContent = await vttRes.text();
         segments = parseVttToSegments(vttContent);
       }
-    } catch {
-      // fall through to JSON3
+    } catch (err) {
+      console.warn('[youtube-transcript] VTT fetch failed:', err);
     }
 
     // Attempt 2: JSON3 format (more reliable for some videos)
@@ -399,8 +399,8 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
           const json3Data = await json3Res.json();
           segments = parseJson3ToSegments(json3Data);
         }
-      } catch {
-        // both formats failed
+      } catch (err) {
+        console.warn('[youtube-transcript] JSON3 fetch failed:', err);
       }
     }
 
@@ -461,8 +461,9 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
   });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`cobalt returned ${res.status}: ${body.slice(0, 200)}`);
+    const errText = await res.text().catch(() => '');
+    console.error('[youtube-transcript] cobalt error:', res.status, errText);
+    throw new Error(`cobalt returned ${res.status}: ${errText.slice(0, 200)}`);
   }
   const data = await res.json();
 

@@ -315,8 +315,9 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
     errors.push(`Scrape: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  console.error('[youtube-transcript] All strategies failed:', errors.join(' | '));
-  return null;
+  const errorSummary = errors.join(' | ');
+  console.error('[youtube-transcript] All strategies failed:', errorSummary);
+  throw new Error(`YouTube player response failed: ${errorSummary}`);
 }
 
 // ============================================================================
@@ -336,10 +337,8 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
 
   try {
     const player = await fetchPlayerResponse(videoId);
-    if (!player) {
-      console.warn('[youtube-transcript] Could not get player response');
-      return null;
-    }
+    // fetchPlayerResponse throws if all strategies fail, so this shouldn't happen
+    if (!player) return null;
 
     // Check playability
     const status = player.playabilityStatus?.status;

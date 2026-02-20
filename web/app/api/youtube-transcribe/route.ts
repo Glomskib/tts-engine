@@ -134,6 +134,7 @@ export async function POST(request: Request) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
   const filesToClean: string[] = [];
+  let captionDebug = '';
 
   try {
     let transcript = '';
@@ -143,7 +144,10 @@ export async function POST(request: Request) {
 
     // Step 1: Try caption extraction first (fast, free)
     console.log('[yt-transcribe] Extracting captions for:', url);
-    const captions = await extractYouTubeCaptions(url);
+    const captions = await extractYouTubeCaptions(url).catch((e) => {
+      captionDebug = e instanceof Error ? e.message : String(e);
+      return null;
+    });
 
     if (captions) {
       console.log('[yt-transcribe] Got captions:', captions.transcript.length, 'chars');
@@ -153,7 +157,7 @@ export async function POST(request: Request) {
       language = captions.language;
     } else {
       // Step 2: Whisper fallback — download audio and transcribe
-      console.log('[yt-transcribe] No captions, falling back to Whisper...');
+      console.log('[yt-transcribe] No captions, falling back to Whisper. Caption debug:', captionDebug);
 
       if (!openaiKey) {
         console.error('[yt-transcribe] OPENAI_API_KEY not configured');
@@ -287,7 +291,7 @@ Return this exact JSON structure:
     }
 
     return NextResponse.json(
-      { error: 'Failed to transcribe this video. Please check the URL and try again.', debug: message },
+      { error: 'Failed to transcribe this video. Please check the URL and try again.', debug: `${captionDebug} | ${message}` },
       { status: 500 }
     );
   }

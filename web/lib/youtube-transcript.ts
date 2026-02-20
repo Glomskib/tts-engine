@@ -8,6 +8,126 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 // ============================================================================
+// Supadata transcript API (works from cloud/serverless IPs)
+// ============================================================================
+
+interface SupadataChunk {
+  text: string;
+  offset: number;   // milliseconds
+  duration: number;  // milliseconds
+  lang?: string;
+}
+
+interface SupadataResponse {
+  content: SupadataChunk[] | string;
+  lang?: string;
+  availableLangs?: string[];
+  // Async job fields
+  jobId?: string;
+  status?: 'completed' | 'queued' | 'active' | 'failed';
+  error?: string;
+}
+
+async function fetchTranscriptViaSupadata(
+  url: string,
+  apiKey: string
+): Promise<{ transcript: string; segments: Segment[]; language: string } | null> {
+  const endpoint = `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(url)}&mode=auto`;
+
+  const res = await fetch(endpoint, {
+    headers: { 'x-api-key': apiKey },
+    signal: AbortSignal.timeout(20000),
+  });
+
+  if (res.status === 404) {
+    console.warn('[supadata] Video not found or private');
+    return null;
+  }
+  if (res.status === 403) {
+    console.warn('[supadata] Access forbidden');
+    return null;
+  }
+  if (res.status === 206) {
+    console.warn('[supadata] Transcript unavailable for this video');
+    return null;
+  }
+
+  // Async job — poll for completion
+  if (res.status === 202) {
+    const jobData: SupadataResponse = await res.json();
+    if (!jobData.jobId) throw new Error('supadata: no jobId in 202 response');
+    return await pollSupadataJob(jobData.jobId, apiKey);
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`supadata returned ${res.status}: ${body.slice(0, 200)}`);
+  }
+
+  const data: SupadataResponse = await res.json();
+  return parseSupadataResponse(data);
+}
+
+async function pollSupadataJob(
+  jobId: string,
+  apiKey: string
+): Promise<{ transcript: string; segments: Segment[]; language: string } | null> {
+  const maxAttempts = 60; // 60 seconds max
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+
+    const res = await fetch(`https://api.supadata.ai/v1/transcript/${jobId}`, {
+      headers: { 'x-api-key': apiKey },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!res.ok) continue;
+    const data: SupadataResponse = await res.json();
+
+    if (data.status === 'failed') {
+      throw new Error(`supadata job failed: ${data.error || 'unknown'}`);
+    }
+    if (data.status === 'completed') {
+      return parseSupadataResponse(data);
+    }
+    // queued or active — keep polling
+  }
+  throw new Error('supadata: job timed out after 60s');
+}
+
+function parseSupadataResponse(
+  data: SupadataResponse
+): { transcript: string; segments: Segment[]; language: string } | null {
+  const language = data.lang || 'en';
+
+  // Plain text response
+  if (typeof data.content === 'string') {
+    if (!data.content.trim()) return null;
+    return {
+      transcript: data.content,
+      segments: [{ start: 0, end: 0, text: data.content }],
+      language,
+    };
+  }
+
+  // Timestamped chunks
+  if (!Array.isArray(data.content) || data.content.length === 0) return null;
+
+  const segments: Segment[] = data.content
+    .filter(c => c.text?.trim())
+    .map(c => ({
+      start: (c.offset || 0) / 1000,
+      end: ((c.offset || 0) + (c.duration || 0)) / 1000,
+      text: c.text.trim(),
+    }));
+
+  if (segments.length === 0) return null;
+
+  const transcript = segments.map(s => s.text).join(' ');
+  return { transcript, segments, language };
+}
+
+// ============================================================================
 // URL validation
 // ============================================================================
 
@@ -296,7 +416,7 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
         context: {
           client: {
             clientName: 'WEB',
-            clientVersion: '2.20260220.00.00',
+            clientVersion: '2.20250101.00.00',
             hl: 'en',
           },
         },
@@ -368,60 +488,81 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
   const videoId = extractVideoId(url);
   if (!videoId) return null;
 
-  // Strategy 0: Use youtube-caption-extractor npm package (best for serverless)
+  const errors: string[] = [];
+
+  // Strategy 0: Supadata API (works from cloud/serverless IPs)
+  const supadataKey = process.env.SUPADATA_API_KEY;
+  if (supadataKey) {
+    try {
+      console.log('[youtube-transcript] Trying Supadata API...');
+      const result = await fetchTranscriptViaSupadata(url, supadataKey);
+      if (result) {
+        console.log('[youtube-transcript] Supadata succeeded:', result.transcript.length, 'chars');
+        return { ...result, duration: 0 };
+      }
+      errors.push('Supadata: returned null (unavailable)');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`Supadata: ${msg}`);
+      console.warn('[youtube-transcript] Supadata failed:', msg);
+    }
+  }
+
+  // Strategy 1: youtube-caption-extractor npm package (page scraping, may work for some videos)
   try {
     console.log('[youtube-transcript] Trying youtube-caption-extractor package...');
     const subtitles = await getSubtitles({ videoID: videoId, lang: 'en' });
     if (subtitles && subtitles.length > 0) {
-      const segments: Segment[] = subtitles.map(s => ({
+      const segs: Segment[] = subtitles.map(s => ({
         start: parseFloat(String(s.start)) || 0,
         end: (parseFloat(String(s.start)) || 0) + (parseFloat(String(s.dur)) || 0),
         text: (s.text || '').replace(/\n/g, ' ').trim(),
       })).filter(s => s.text);
 
-      if (segments.length > 0) {
-        const transcript = segments.map(s => s.text).join(' ');
-        const duration = segments.length > 0 ? Math.ceil(segments[segments.length - 1].end) : 0;
-        console.log('[youtube-transcript] Got captions via npm package:', transcript.length, 'chars');
-        return { transcript, segments, duration, language: 'en' };
+      if (segs.length > 0) {
+        const transcript = segs.map(s => s.text).join(' ');
+        const duration = Math.ceil(segs[segs.length - 1].end);
+        console.log('[youtube-transcript] npm package succeeded:', transcript.length, 'chars');
+        return { transcript, segments: segs, duration, language: 'en' };
       }
     }
-    console.log('[youtube-transcript] npm package returned no subtitles, trying manual...');
+    errors.push('npm-package: returned no subtitles');
   } catch (err) {
-    console.warn('[youtube-transcript] npm package failed:', err instanceof Error ? err.message : err);
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`npm-package: ${msg}`);
+    console.warn('[youtube-transcript] npm package failed:', msg);
   }
 
-  // Strategy 1-3: Manual Innertube/scraping approach
+  // Strategy 2-4: Direct YouTube Innertube API (works locally, blocked from cloud IPs)
   try {
     const player = await fetchPlayerResponse(videoId);
-    // fetchPlayerResponse throws if all strategies fail, so this shouldn't happen
-    if (!player) return null;
+    if (!player) {
+      errors.push('Innertube: null response');
+      throw new Error('Innertube: null response');
+    }
 
-    // Check playability
     const status = player.playabilityStatus?.status;
     if (status && status !== 'OK') {
-      console.warn('[youtube-transcript] Video not playable:', status, player.playabilityStatus?.reason);
-      return null;
+      errors.push(`Innertube: ${status} - ${player.playabilityStatus?.reason || 'no reason'}`);
+      throw new Error(`Innertube: video ${status}`);
     }
 
     const duration = parseInt(player.videoDetails?.lengthSeconds || '0', 10);
     const captionTracks = player.captions?.playerCaptionsTracklistRenderer?.captionTracks;
 
     if (!captionTracks || captionTracks.length === 0) {
-      console.log('[youtube-transcript] No caption tracks available');
-      return null;
+      errors.push('Innertube: no caption tracks');
+      throw new Error('Innertube: no caption tracks available');
     }
 
-    // Find best English caption track (prefer manual over auto-generated)
     const manualEn = captionTracks.find(t => t.languageCode === 'en' && t.kind !== 'asr');
     const autoEn = captionTracks.find(t => t.languageCode === 'en');
     const enTrack = manualEn || autoEn;
-    // Fall back to first available track if no English
     const track = enTrack || captionTracks[0];
 
     if (!track?.baseUrl) {
-      console.warn('[youtube-transcript] No caption track URL found');
-      return null;
+      errors.push('Innertube: no caption URL');
+      throw new Error('Innertube: no caption track URL');
     }
 
     const language = track.languageCode || 'en';
@@ -477,15 +618,26 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
       }
     }
 
-    if (segments.length === 0) return null;
+    if (segments.length === 0) {
+      errors.push('Innertube: got tracks but 0 segments from VTT/JSON3');
+      throw new Error('Innertube: caption download yielded 0 segments');
+    }
 
     const transcript = segments.map(s => s.text).join(' ');
-    if (!transcript.trim()) return null;
+    if (!transcript.trim()) {
+      errors.push('Innertube: empty transcript text');
+      throw new Error('Innertube: transcript text is empty');
+    }
 
     return { transcript, segments, duration, language };
   } catch (err) {
-    console.warn('[youtube-transcript] Caption extraction failed:', err);
-    return null;
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!errors.some(e => e.includes(msg))) {
+      errors.push(`Innertube: ${msg}`);
+    }
+    console.warn('[youtube-transcript] All caption strategies failed:', errors.join(' | '));
+    // Re-throw with full error context so the route handler can capture it
+    throw new Error(`Caption extraction failed: ${errors.join(' | ')}`);
   }
 }
 
@@ -534,9 +686,8 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
   });
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    console.error('[youtube-transcript] cobalt error:', res.status, errText);
-    throw new Error(`cobalt returned ${res.status}: ${errText.slice(0, 200)}`);
+    const body = await res.text().catch(() => '');
+    throw new Error(`cobalt returned ${res.status}: ${body.slice(0, 200)}`);
   }
   const data = await res.json();
 

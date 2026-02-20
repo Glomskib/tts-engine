@@ -2,6 +2,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
+import { getSubtitles } from 'youtube-caption-extractor';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -335,6 +336,30 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
   const videoId = extractVideoId(url);
   if (!videoId) return null;
 
+  // Strategy 0: Use youtube-caption-extractor npm package (best for serverless)
+  try {
+    console.log('[youtube-transcript] Trying youtube-caption-extractor package...');
+    const subtitles = await getSubtitles({ videoID: videoId, lang: 'en' });
+    if (subtitles && subtitles.length > 0) {
+      const segments: Segment[] = subtitles.map(s => ({
+        start: parseFloat(String(s.start)) || 0,
+        end: (parseFloat(String(s.start)) || 0) + (parseFloat(String(s.dur)) || 0),
+        text: (s.text || '').replace(/\n/g, ' ').trim(),
+      })).filter(s => s.text);
+
+      if (segments.length > 0) {
+        const transcript = segments.map(s => s.text).join(' ');
+        const duration = segments.length > 0 ? Math.ceil(segments[segments.length - 1].end) : 0;
+        console.log('[youtube-transcript] Got captions via npm package:', transcript.length, 'chars');
+        return { transcript, segments, duration, language: 'en' };
+      }
+    }
+    console.log('[youtube-transcript] npm package returned no subtitles, trying manual...');
+  } catch (err) {
+    console.warn('[youtube-transcript] npm package failed:', err instanceof Error ? err.message : err);
+  }
+
+  // Strategy 1-3: Manual Innertube/scraping approach
   try {
     const player = await fetchPlayerResponse(videoId);
     // fetchPlayerResponse throws if all strategies fail, so this shouldn't happen

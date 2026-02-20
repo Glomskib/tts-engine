@@ -37,7 +37,13 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
               href="/transcribe"
               className="text-sm text-zinc-400 hover:text-white transition-colors"
             >
-              Transcriber
+              TikTok Transcriber
+            </Link>
+            <Link
+              href="/youtube-transcribe"
+              className="text-sm text-zinc-400 hover:text-white transition-colors"
+            >
+              YouTube Transcriber
             </Link>
             <Link
               href="/pricing"

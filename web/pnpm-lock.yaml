@@ -35,6 +35,9 @@ importers:
       '@types/file-saver':
         specifier: ^2.0.7
         version: 2.0.7
+      cheerio:
+        specifier: ^1.2.0
+        version: 1.2.0
       docx:
         specifier: ^9.5.1
         version: 9.5.1
@@ -80,6 +83,9 @@ importers:
       stripe:
         specifier: ^20.3.0
         version: 20.3.1(@types/node@20.19.33)
+      xml-js:
+        specifier: ^1.6.11
+        version: 1.6.11
       youtube-caption-extractor:
         specifier: ^1.9.1
         version: 1.9.1

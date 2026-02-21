@@ -28,6 +28,7 @@ export interface LogGenerationInput {
   model?: string;
   latency_ms?: number;
   token_count?: number;
+  prompt_version_id?: string;
   status?: 'pending' | 'completed' | 'failed' | 'rejected';
   correlation_id?: string;
 }
@@ -43,6 +44,7 @@ export interface GenerationRow {
   model: string | null;
   latency_ms: number | null;
   token_count: number | null;
+  prompt_version_id: string | null;
   status: string;
   correlation_id: string | null;
   created_at: string;
@@ -69,6 +71,7 @@ export async function logGeneration(
         model: input.model ?? null,
         latency_ms: input.latency_ms ?? null,
         token_count: input.token_count ?? null,
+        prompt_version_id: input.prompt_version_id ?? null,
         status: input.status ?? 'completed',
         correlation_id: input.correlation_id ?? null,
       })

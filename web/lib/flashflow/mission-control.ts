@@ -45,7 +45,7 @@ export async function postMCDoc(input: MCDocInput): Promise<MCDocResponse> {
   }
 
   try {
-    const res = await fetch(`${baseUrl}/api/docs`, {
+    const res = await fetch(`${baseUrl}/api/documents`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ export async function postMCDoc(input: MCDocInput): Promise<MCDocResponse> {
         content: input.content,
         category: input.category ?? 'plans',
         lane: input.lane ?? 'FlashFlow',
-        tags: input.tags ?? [],
+        tags: Array.isArray(input.tags) ? input.tags.join(',') : (input.tags ?? ''),
       }),
     });
 

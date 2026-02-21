@@ -21,13 +21,6 @@ export const CYCLING_SOURCES: FeedSource[] = [
     url: 'https://news.google.com/rss/search?q=cycling+news+when:3d&ceid=US:en&hl=en-US&gl=US',
     type: 'rss',
   },
-  {
-    name: 'USA Cycling',
-    url: 'https://usacycling.org/news',
-    type: 'scrape',
-    linkSelector: 'a[href*="/article/"]',
-    titleSelector: 'a[href*="/article/"]',
-  },
 ];
 
 export const EDS_SOURCES: FeedSource[] = [

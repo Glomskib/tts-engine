@@ -6,6 +6,7 @@ import { enforceRateLimits } from '@/lib/rate-limit';
 import { generateCorrelationId } from '@/lib/api-errors';
 import { generateUnifiedScript } from '@/lib/unified-script-generator';
 import { spendCredits } from '@/lib/credits';
+import { logGenerationAsync } from '@/lib/flashflow/generations';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -227,6 +228,17 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Log generation for self-improvement loop (fire-and-forget)
+    logGenerationAsync({
+      user_id: auth.user.id,
+      template_id: 'script_generate',
+      prompt_version: '1.0.0',
+      inputs_json: { concept_id: concept_id.trim(), hook_text: finalHookText, category_risk },
+      output_text: result.spokenScript,
+      model: 'anthropic_sonnet',
+      correlation_id: correlationId,
+    });
 
     return NextResponse.json({
       ok: true,

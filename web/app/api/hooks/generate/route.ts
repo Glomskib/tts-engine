@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import OpenAI from 'openai';
+import { logGenerationAsync } from '@/lib/flashflow/generations';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -170,6 +171,18 @@ Do not include any markdown formatting or additional text - only the JSON array.
         { error: 'Generated hooks were invalid. Please try again.' },
         { status: 500 }
       );
+    }
+
+    // Log generation for self-improvement loop (fire-and-forget)
+    if (user) {
+      logGenerationAsync({
+        user_id: user.id,
+        template_id: 'hook_generate',
+        prompt_version: '1.0.0',
+        inputs_json: { product: product.trim(), platform, niche, audience_persona_id },
+        output_text: JSON.stringify(validHooks.slice(0, 5)),
+        model: 'gpt-4o-mini',
+      });
     }
 
     return NextResponse.json({

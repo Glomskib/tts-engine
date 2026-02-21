@@ -21,13 +21,7 @@ export async function GET(request: NextRequest) {
   const isAdmin = request.nextUrl.searchParams.get("admin") === "true";
 
   if (isAdmin) {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
-    if (profile?.role !== "admin") {
+    if (!authContext.isAdmin) {
       return NextResponse.json({ ok: true, data: [], correlation_id: correlationId });
     }
 

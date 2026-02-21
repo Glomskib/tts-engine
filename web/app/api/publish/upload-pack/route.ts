@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ScriptLockedJson {
+  // Standard fields
   hook?: string;
   body?: string;
   cta?: string;
@@ -28,6 +29,12 @@ interface ScriptLockedJson {
   on_screen_text?: string[];
   b_roll?: string[];
   sections?: { name: string; content: string }[];
+  // HeyGen scene-builder variants
+  hook_line?: string;
+  cta_line?: string;
+  cta_overlay?: string;
+  overlays?: string[];
+  beats?: { dialogue?: string; on_screen_text?: string; action?: string; t?: string }[];
 }
 
 export async function POST(request: NextRequest) {
@@ -109,12 +116,23 @@ export async function POST(request: NextRequest) {
   const lockedJson = (video.script_locked_json || {}) as ScriptLockedJson;
   let caption = "";
   let hashtags: string[] = [];
-  let hook = lockedJson.hook || "";
-  let cta = lockedJson.cta || "";
+  let hook = lockedJson.hook || lockedJson.hook_line || "";
+  let cta = lockedJson.cta || lockedJson.cta_line || "";
   let coverText = "";
 
+  // Cover text: on_screen_text array > overlays array > first beat's on_screen_text
   if (lockedJson.on_screen_text?.length) {
     coverText = lockedJson.on_screen_text[0];
+  } else if (lockedJson.overlays?.length) {
+    coverText = lockedJson.overlays[0];
+  } else if (lockedJson.beats?.length && lockedJson.beats[0].on_screen_text) {
+    coverText = lockedJson.beats[0].on_screen_text;
+  }
+
+  // Build caption from beats dialogue if no body
+  if (lockedJson.beats?.length && !lockedJson.body) {
+    const dialogue = lockedJson.beats.map(b => b.dialogue).filter(Boolean).join(" ");
+    if (dialogue) caption = dialogue;
   }
 
   // Try to get caption/hashtags from the scripts table

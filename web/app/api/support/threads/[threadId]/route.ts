@@ -31,19 +31,10 @@ export async function GET(
 
   // Check access: user owns thread or is admin
   const isOwner = thread.user_id === userId;
-  let isAdmin = false;
+  const isAdmin = authContext.isAdmin;
 
-  if (!isOwner) {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
-    isAdmin = profile?.role === "admin";
-
-    if (!isAdmin) {
-      return createApiErrorResponse("FORBIDDEN", "Access denied", 403, correlationId);
-    }
+  if (!isOwner && !isAdmin) {
+    return createApiErrorResponse("FORBIDDEN", "Access denied", 403, correlationId);
   }
 
   // Fetch messages (admin sees internal notes, users don't)
@@ -83,13 +74,7 @@ export async function PATCH(
   }
 
   // Admin only
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", authContext.user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
+  if (!authContext.isAdmin) {
     return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 

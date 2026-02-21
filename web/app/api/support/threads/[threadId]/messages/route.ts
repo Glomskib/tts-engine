@@ -39,19 +39,10 @@ export async function POST(
     }
 
     const isOwner = thread.user_id === userId;
-    let isAdmin = false;
+    const isAdmin = authContext.isAdmin;
 
-    if (!isOwner) {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
-      isAdmin = profile?.role === "admin";
-
-      if (!isAdmin) {
-        return createApiErrorResponse("FORBIDDEN", "Access denied", 403, correlationId);
-      }
+    if (!isOwner && !isAdmin) {
+      return createApiErrorResponse("FORBIDDEN", "Access denied", 403, correlationId);
     }
 
     // Users can't post internal notes

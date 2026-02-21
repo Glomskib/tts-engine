@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
@@ -12,13 +11,7 @@ export async function GET(request: NextRequest) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
 
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", authContext.user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
+  if (!authContext.isAdmin) {
     return createApiErrorResponse("FORBIDDEN", "Admin access required", 403, correlationId);
   }
 

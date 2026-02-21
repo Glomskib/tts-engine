@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/sync-tiktok-videos",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-trainer",
+      "schedule": "0 17 * * 1"
     }
   ]
 }

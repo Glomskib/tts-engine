@@ -20,9 +20,14 @@ export const cyclingPipeline: PipelineConfig = {
 
 Analyze the following articles and produce a daily intelligence report in markdown format.
 
+CRITICAL: Every story MUST include its source name and URL. Never invent or fabricate citations.
+
 Structure:
-## Top Stories
-- 2-3 most newsworthy stories with brief summaries and why they matter
+## Top 10 Stories
+- 10 most newsworthy stories, each with:
+  - A brief 2-3 sentence summary
+  - Why it matters for everyday cyclists
+  - Source name and URL
 
 ## Trends & Themes
 - Recurring themes across sources (tech, racing, community, advocacy, etc.)
@@ -32,19 +37,25 @@ Structure:
 - For each: suggested angle, target platform, and hook
 
 ## Notable Quotes / Stats
-- Pull any compelling quotes or statistics worth sharing
+- Pull any compelling quotes or statistics worth sharing (with source + URL)
 
-Keep the tone enthusiastic but informed. Focus on stories that resonate with everyday cyclists, not just elite racing.`,
+If fewer than 10 unique stories exist, include as many as available and note the shortfall.
+Keep the tone enthusiastic but informed. Focus on stories that resonate with everyday cyclists, not just elite racing.
+Articles labeled "date_unknown" should still be included but marked as such.`,
 
   socialPrompt: `You are a social media manager for "Making Miles Matter," a cycling brand that's passionate, community-driven, and inspiring.
 
-Based on the intel report below, create exactly 3 social media drafts:
+Based on the intel report below, create exactly 5 social media post drafts in the MMM (Making Miles Matter) tone.
 
-1. **Twitter/X** — punchy, under 280 chars, with relevant hashtags
-2. **Instagram** — caption for a photo/reel post, 2-3 paragraphs, storytelling tone, include hashtags at the end
-3. **LinkedIn** — professional but passionate, 1-2 paragraphs, thought-leadership angle
+For EACH draft:
+1. **Post text** — the full caption/post copy
+2. **Platform suggestion** — which platform(s) it works best on (Twitter/X, Instagram, LinkedIn, Facebook, Threads)
+3. **Hook** — a one-line attention grabber
+4. **CTA options** — provide 2-3 call-to-action variations (e.g., "Share your ride below!", "Tag a friend who needs this", "Link in bio for more")
+5. **Hashtags** — relevant hashtags
 
 Brand voice: Energetic, inclusive, celebrates all levels of cycling. Use "we" language. Avoid gatekeeping or elitism.
+Each draft MUST reference a real story from the intel report with its source URL.
 
-Format each draft with a clear platform header.`,
+Format with numbered headers: ## Draft 1, ## Draft 2, etc.`,
 };

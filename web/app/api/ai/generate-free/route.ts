@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logUsageEventAsync } from '@/lib/finops/log-usage';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -64,6 +65,19 @@ export async function POST(request: NextRequest) {
     });
 
     const text = completion.choices[0]?.message?.content || '';
+
+    // FinOps: log usage (fire-and-forget)
+    logUsageEventAsync({
+      source: 'flashflow',
+      lane: 'FlashFlow',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      input_tokens: completion.usage?.prompt_tokens ?? 0,
+      output_tokens: completion.usage?.completion_tokens ?? 0,
+      endpoint: '/api/ai/generate-free',
+      template_key: 'generate_free',
+      metadata: completion.usage ? {} : { usage: 'missing' },
+    });
 
     return NextResponse.json({
       ok: true,

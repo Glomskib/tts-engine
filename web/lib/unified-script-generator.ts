@@ -629,6 +629,7 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
       cache_read_tokens: anthropicUsage.cache_read_input_tokens ?? 0,
       cache_write_tokens: anthropicUsage.cache_creation_input_tokens ?? 0,
       user_id: input.userId,
+      endpoint: '/api/scripts/generate',
       template_key: `script_${input.callerContext ?? 'other'}`,
       agent_id: 'flash',
       metadata: {

@@ -17,7 +17,17 @@
     "job:daily-intel": "tsx scripts/daily-intel/run.ts",
     "job:daily-intel:dry": "tsx scripts/daily-intel/run.ts --dry-run",
     "job:daily-intel:cycling": "tsx scripts/daily-intel/run.ts --pipeline cycling",
-    "job:daily-intel:eds": "tsx scripts/daily-intel/run.ts --pipeline eds"
+    "job:daily-intel:eds": "tsx scripts/daily-intel/run.ts --pipeline eds",
+    "job:cycling-agent": "tsx scripts/daily-intel/agents/cycling-agent.ts",
+    "job:cycling-agent:dry": "tsx scripts/daily-intel/agents/cycling-agent.ts --dry-run",
+    "job:zebby-agent": "tsx scripts/daily-intel/agents/zebby-agent.ts",
+    "job:zebby-agent:dry": "tsx scripts/daily-intel/agents/zebby-agent.ts --dry-run",
+    "job:weekly-digest": "tsx scripts/daily-intel/agents/weekly-digest.ts",
+    "job:weekly-digest:dry": "tsx scripts/daily-intel/agents/weekly-digest.ts --dry-run",
+    "finops:rollup": "tsx scripts/finops/rollup-daily.ts",
+    "finops:daily": "tsx scripts/finops/daily-report.ts",
+    "finops:weekly": "tsx scripts/finops/weekly-report.ts",
+    "test:finops": "tsx scripts/test-finops/smoke.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

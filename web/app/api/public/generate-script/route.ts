@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { PERSONAS } from "@/lib/personas";
+import { logUsageEventAsync } from "@/lib/finops/log-usage";
 import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
     product_description?: string;
     persona_id?: string;
     risk_tier?: string;
+    creator_style_id?: string;
   };
   try {
     body = await request.json();
@@ -164,6 +166,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // --- Fetch creator style context (if provided) ---
+  let creatorStyleSection = '';
+  if (body.creator_style_id && typeof body.creator_style_id === 'string') {
+    try {
+      const { data: styleCreator } = await supabaseAdmin
+        .from('style_creators')
+        .select('style_fingerprint')
+        .eq('id', body.creator_style_id)
+        .single();
+
+      const fingerprint = styleCreator?.style_fingerprint as { prompt_context?: string } | null;
+      if (fingerprint?.prompt_context) {
+        creatorStyleSection = `\n${fingerprint.prompt_context}\nMatch this creator's style closely — mimic their tone, pacing, and hook patterns.\n`;
+      }
+    } catch {
+      // Non-fatal — proceed without creator style
+    }
+  }
+
   // --- Build prompt ---
   const personaSection = persona
     ? `CREATOR VOICE: Write as a "${persona.name}" — ${persona.fullDescription}. Tone: ${persona.tone}. Style: ${persona.style}.`
@@ -177,7 +198,7 @@ ${productDescription ? `DESCRIPTION: ${productDescription}` : ""}
 ${personaSection}
 
 TONE: ${TIER_PROMPTS[riskTier]}
-
+${creatorStyleSection}
 CRITICAL RULES:
 - NEVER use words: cure, treat, heal, diagnose, guaranteed, 100%
 - NEVER reference medical conditions or make health claims
@@ -249,6 +270,22 @@ Return ONLY valid JSON with this exact structure:
 
     const data = await res.json();
     const text = data.content?.[0]?.text || "";
+
+    // FinOps: log usage (fire-and-forget)
+    const usage = data.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+    logUsageEventAsync({
+      source: 'flashflow',
+      lane: 'FlashFlow',
+      provider: 'anthropic',
+      model: 'claude-haiku-4-5-20251001',
+      input_tokens: usage?.input_tokens ?? 0,
+      output_tokens: usage?.output_tokens ?? 0,
+      user_id: userId ?? undefined,
+      correlation_id: correlationId,
+      endpoint: '/api/public/generate-script',
+      template_key: 'public_generate_script',
+      metadata: usage ? {} : { usage: 'missing' },
+    });
 
     // Parse JSON from response
     let skit;

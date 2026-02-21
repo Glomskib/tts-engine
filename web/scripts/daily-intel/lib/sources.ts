@@ -17,6 +17,16 @@ export const CYCLING_SOURCES: FeedSource[] = [
     type: 'rss',
   },
   {
+    name: 'VeloNews',
+    url: 'https://www.velonews.com/feed/',
+    type: 'rss',
+  },
+  {
+    name: 'BikeRumor',
+    url: 'https://bikerumor.com/feed/',
+    type: 'rss',
+  },
+  {
     name: 'Google News: Cycling',
     url: 'https://news.google.com/rss/search?q=cycling+news+when:3d&ceid=US:en&hl=en-US&gl=US',
     type: 'rss',

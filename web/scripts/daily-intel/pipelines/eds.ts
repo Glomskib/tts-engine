@@ -34,9 +34,14 @@ ${EDS_GUARDRAILS}
 
 Analyze the following articles and produce a daily intelligence report in markdown format.
 
+CRITICAL: Every story MUST include its source name and URL. Never invent or fabricate citations.
+
 Structure:
-## Top Stories
-- 2-3 most relevant stories with brief summaries and why they matter to the EDS/POTS community
+## Top 10 Stories
+- 10 most relevant stories, each with:
+  - A brief 2-3 sentence summary
+  - Why it matters for the EDS/POTS community
+  - Source name and URL
 
 ## Research & Science
 - Any new research findings, clinical trials, or medical developments
@@ -51,21 +56,37 @@ Structure:
 - All content ideas must comply with the guardrails above
 
 ## Notable Quotes / Stats
-- Pull any compelling quotes or statistics worth sharing (with citations)
+- Pull any compelling quotes or statistics worth sharing (with source + URL)
 
-Keep the tone warm, empowering, and educational. Center the lived experience of the community.`,
+If fewer than 10 unique stories exist, include as many as available and note the shortfall.
+Keep the tone warm, empowering, and educational. Center the lived experience of the community.
+Articles labeled "date_unknown" should still be included but marked as such.`,
 
   socialPrompt: `You are a social media manager for "Zebby's World," a brand dedicated to EDS, POTS, and dysautonomia awareness and community support.
 
 ${EDS_GUARDRAILS}
 
-Based on the intel report below, create exactly 3 social media drafts:
+Based on the intel report below, create two sections:
 
-1. **Twitter/X** — informative and supportive, under 280 chars, include awareness hashtags (#EDS #POTS #Dysautonomia #EhlersDanlos #ChronicIllness)
-2. **Instagram** — caption for an educational/supportive post, 2-3 paragraphs, warm and empathetic tone, hashtags at the end
-3. **LinkedIn** — professional advocacy tone, 1-2 paragraphs, focused on awareness and research progress
+## SECTION A: 5 Social Post Drafts (Zebby-style)
+For EACH of the 5 drafts:
+1. **Post text** — full caption in Zebby's warm, empowering voice
+2. **Platform suggestion** — which platform(s) it works best on
+3. **Hook** — one-line attention grabber
+4. **CTA options** — 2-3 call-to-action variations
+5. **Hashtags** — include #EDS #POTS #Dysautonomia #EhlersDanlos #ChronicIllness and topic-specific tags
+Each draft MUST reference a real story from the intel report with its source URL.
+
+## SECTION B: 3 Scene Prompts (Zebby character drafts)
+For EACH of the 3 scenes:
+1. **Scene idea** — which Zebby characters are involved, what they're doing, the setting
+2. **Image prompt sketch** — a brief description of the visual (NOT a full production prompt; just enough for a draft)
+3. **Caption** — the social post caption for this scene
+4. **Educational note** — the key takeaway from the underlying news story
+
+Do NOT write full Zebby scripts. Keep scene prompts at draft level.
 
 Brand voice: Warm, empowering, educational, community-centered. Use "we" and inclusive language. Never pity-driven — always strength-based.
 
-Format each draft with a clear platform header.`,
+Format with numbered headers within each section.`,
 };

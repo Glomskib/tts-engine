@@ -18,6 +18,8 @@ export interface Article {
   source: string;
   publishedAt?: string;
   summary?: string;
+  /** 'fresh' = within 7 days, 'stale' = older than 7 days (filtered out), 'date_unknown' = no date provided */
+  freshness?: 'fresh' | 'date_unknown';
 }
 
 export interface FetchResult {
@@ -41,6 +43,22 @@ export interface PipelineConfig {
 export interface SocialDraft {
   platform: string;
   content: string;
+}
+
+export interface CyclingDraft {
+  platform: string;
+  caption: string;
+  hashtags: string[];
+  hook: string;
+  cta?: string;
+}
+
+export interface ZebbyDraft {
+  scene_idea: string;
+  image_prompt: string;
+  caption: string;
+  educational_note: string;
+  disclaimer: string;
 }
 
 export interface PipelineResult {

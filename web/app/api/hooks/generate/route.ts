@@ -195,6 +195,7 @@ Do not include any markdown formatting or additional text - only the JSON array.
       input_tokens: completion.usage?.prompt_tokens ?? 0,
       output_tokens: completion.usage?.completion_tokens ?? 0,
       user_id: user?.id,
+      endpoint: '/api/hooks/generate',
       template_key: 'hook_generate',
       agent_id: 'flash',
     });

@@ -4,6 +4,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { postMCDoc } from '@/lib/flashflow/mission-control';
 import type { VisualObservation, StyleAnalysis } from './ai-analysis';
 
 // ---------------------------------------------------------------------------
@@ -245,6 +246,46 @@ export async function buildStylePack(creatorId: string): Promise<StylePack> {
       updated_at: new Date().toISOString(),
     })
     .eq('id', creatorId);
+
+  // Post to Mission Control (fire-and-forget)
+  postMCDoc({
+    title: `Creator Style Learned — @${creator.handle}`,
+    category: 'reports',
+    lane: 'FlashFlow',
+    tags: ['creator-style', creator.handle, creator.platform],
+    content: [
+      `## Style Fingerprint: @${creator.handle} (${creator.platform})`,
+      `**Videos analyzed:** ${videos.length}`,
+      `**Generated:** ${stylePack.aggregated_at}`,
+      '',
+      `### Visual`,
+      `- Production: ${visual.production_level}`,
+      `- Lighting: ${visual.lighting_style}`,
+      `- Camera: ${visual.camera_styles.join(', ')}`,
+      '',
+      `### Hooks`,
+      `- Types: ${hooks.dominant_types.join(', ')}`,
+      `- Avg words: ${hooks.avg_word_count}`,
+      hooks.templates.length > 0 ? `- Templates: ${hooks.templates.map(t => `"${t}"`).join(', ')}` : '',
+      '',
+      `### Structure`,
+      `- Format: ${structure.dominant_format}`,
+      `- Pacing: ${structure.pacing}`,
+      `- Avg duration: ${structure.avg_duration_seconds}s`,
+      '',
+      `### Voice`,
+      `- Tone: ${voice.tone}`,
+      `- Person: ${voice.person}`,
+      `- Cadence: ${voice.signature_cadence}`,
+      '',
+      `### Content DNA`,
+      `- Niche: ${content_dna.niche_signals.join(', ')}`,
+      `- Angle: ${content_dna.unique_angle}`,
+      `- Audience relationship: ${content_dna.audience_relationship}`,
+    ].filter(Boolean).join('\n'),
+  }).catch((err) => {
+    console.warn('[creator-style] MC doc post failed:', err);
+  });
 
   return stylePack;
 }

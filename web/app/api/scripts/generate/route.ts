@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { concept_id, hook_id, hook_text, category_risk } = body as Record<string, unknown>;
+  const { concept_id, hook_id, hook_text, category_risk, creator_style_id } = body as Record<string, unknown>;
 
   if (typeof concept_id !== "string" || concept_id.trim() === "") {
     return NextResponse.json(
@@ -172,6 +172,7 @@ export async function POST(request: Request) {
       categoryRisk: (category_risk as string) || 'general',
       userId: auth.user.id,
       callerContext: 'scripts_generate',
+      creatorStyleId: typeof creator_style_id === 'string' ? creator_style_id : undefined,
     });
 
     // Insert script with retry logic for version collisions.
@@ -234,7 +235,7 @@ export async function POST(request: Request) {
       user_id: auth.user.id,
       template_id: 'script_generate',
       prompt_version: '1.0.0',
-      inputs_json: { concept_id: concept_id.trim(), hook_text: finalHookText, category_risk },
+      inputs_json: { concept_id: concept_id.trim(), hook_text: finalHookText, category_risk, creator_style_id: result.creatorStyleRef },
       output_text: result.spokenScript,
       model: 'anthropic_sonnet',
       correlation_id: correlationId,
@@ -253,6 +254,7 @@ export async function POST(request: Request) {
         ai_provider: "anthropic_sonnet",
         persona: result.persona,
         sales_approach: result.salesApproach,
+        creator_style_ref: result.creatorStyleRef,
         creditsRemaining,
       },
     });

@@ -26,11 +26,11 @@ async function run() {
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
-      title: 'CHECKPOINT — Phase 3E: FinOps shipped',
+      title: 'CHECKPOINT — FinOps Usage Tracking & Smoke Tests',
       content,
       category: 'plans',
       lane: 'FlashFlow',
-      tags: 'checkpoint,finops,phase-3e',
+      tags: 'checkpoint,finops,usage-tracking,smoke-tests',
     }),
   });
 
@@ -44,67 +44,84 @@ async function run() {
   console.log('Checkpoint posted to MC:', json.id ?? json.data?.id ?? 'ok');
 }
 
-const content = `# CHECKPOINT — Phase 3E: FinOps / UsageOps
+const content = `# CHECKPOINT — FinOps Usage Tracking & Smoke Tests (${new Date().toISOString().slice(0, 10)})
 
-## What shipped
+## What changed (this session)
 
-### A) Database (Supabase migration)
-- **ff_usage_events** — per-call token usage + estimated cost, linked to ff_generations
-- **ff_usage_rollups_daily** — aggregated daily by lane/provider/model/agent/template
-- **ff_budgets** — configurable spend thresholds with soft alerts
-- RLS: authenticated users read own rows; writes via service role only
+### 1. Schema extension: correlation_id + endpoint
+- New migration: \`20260221000001_finops_extend.sql\`
+- Added \`correlation_id\` (text) — links to ff_generations.correlation_id for cross-system tracing
+- Added \`endpoint\` (text) — tracks which API route generated the cost
+- Indexed on both columns (WHERE NOT NULL)
 
-### B) Cost Calculator (lib/finops/cost.ts)
-- \`costFromUsage()\` with cache token support
-- Centralized PRICING_MAP covering Anthropic, OpenAI, DeepSeek, Google, Ollama
-- Placeholder pricing for gpt-5.1-codex, gpt-4.1-mini, gpt-4.1-nano
-- Single file to update when pricing changes
+### 2. Logger updated (lib/finops/log-usage.ts)
+- \`LogUsageEventInput\` now accepts \`correlation_id\` and \`endpoint\`
+- Both are inserted into ff_usage_events
 
-### C) Usage Logger (lib/finops/log-usage.ts)
-- \`logUsageEvent()\` — inserts into ff_usage_events with auto-computed cost
-- \`logUsageEventAsync()\` — fire-and-forget, non-blocking
+### 3. All generation endpoints now include endpoint field
+- \`/api/ai/generate-free\` → endpoint: '/api/ai/generate-free'
+- \`/api/hooks/generate\` → endpoint: '/api/hooks/generate'
+- \`/api/public/generate-script\` → endpoint + correlation_id
+- \`/api/scripts/generate\` (via unified-script-generator) → endpoint: '/api/scripts/generate'
 
-### D) Wired into Generation Endpoints
-- **hooks/generate** — captures OpenAI gpt-4o-mini token usage
-- **unified-script-generator** — captures Anthropic Sonnet usage (incl. cache tokens)
-- Both endpoints log to ff_usage_events via logUsageEventAsync
+### 4. OpenClaw ingestion accepts new fields
+- \`correlation_id\`, \`endpoint\`, \`user_id\` now accepted in POST body
 
-### E) OpenClaw Ingestion Endpoint
-- POST /api/finops/openclaw/usage — accepts external usage events
-- Auto-computes cost if not provided
-- Auth via FINOPS_INGEST_KEY or CRON_SECRET
+### 5. Daily report includes "Top Endpoints" section
+- Queries ff_usage_events by endpoint for the day
+- Shows calls + cost per endpoint
 
-### F) Rollup + Reports
-- \`scripts/finops/rollup-daily.ts\` — idempotent daily aggregation via SQL function
-- \`scripts/finops/daily-report.ts\` — CLI daily report with spike detection + budget checks
-- \`scripts/finops/weekly-report.ts\` — CLI weekly report with WoW comparison
+### 6. Weekly digest includes cost summary
+- Appends FinOps section: 7-day total, MTD, by-lane, by-model
+- Pulls from ff_usage_rollups_daily
 
-### G) Cron Routes
-- /api/cron/finops-daily — daily at 6 AM UTC (rollup + report + MC post)
-- /api/cron/finops-weekly — Monday 6:30 AM UTC (weekly summary + MC post)
+## How to run smoke tests
 
-### H) Verification
-- \`scripts/test-finops/smoke.ts\` — end-to-end smoke test
-- tsc --noEmit passes clean
-- Also updated llm-pricing.ts with new model entries for consistency
+\`\`\`bash
+cd web
+npm run test:finops          # end-to-end: insert → rollup → verify → cleanup
+npm run type-check           # tsc --noEmit
+\`\`\`
 
-## Files created/modified
-- \`supabase/migrations/20260226000001_finops.sql\` (new)
-- \`lib/finops/cost.ts\` (new)
-- \`lib/finops/log-usage.ts\` (new)
-- \`lib/finops/index.ts\` (new)
-- \`app/api/finops/openclaw/usage/route.ts\` (new)
-- \`app/api/cron/finops-daily/route.ts\` (new)
-- \`app/api/cron/finops-weekly/route.ts\` (new)
-- \`scripts/finops/rollup-daily.ts\` (new)
-- \`scripts/finops/daily-report.ts\` (new)
-- \`scripts/finops/weekly-report.ts\` (new)
-- \`scripts/finops/post-checkpoint.ts\` (new)
-- \`scripts/test-finops/smoke.ts\` (new)
-- \`app/api/hooks/generate/route.ts\` (modified — added FinOps logging)
-- \`lib/unified-script-generator.ts\` (modified — added FinOps logging)
-- \`lib/llm-pricing.ts\` (modified — added new model entries)
-- \`vercel.json\` (modified — added finops-daily + finops-weekly crons)
+## Sample curl calls
+
+\`\`\`bash
+# Report usage from an external agent
+curl -X POST http://localhost:3000/api/finops/openclaw/usage \\
+  -H "Authorization: Bearer $FINOPS_INGEST_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "lane": "FlashFlow",
+    "agent_id": "my-agent",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "input_tokens": 1500,
+    "output_tokens": 800,
+    "endpoint": "/my-endpoint",
+    "correlation_id": "abc-123"
+  }'
+
+# Run daily rollup + report
+cd web && npm run finops:daily
+
+# Run weekly report
+cd web && npm run finops:weekly
+\`\`\`
+
+## Where cost data appears
+- **ff_usage_events** — raw per-call data (Supabase table)
+- **ff_usage_rollups_daily** — aggregated by day/lane/provider/model
+- **ff_budgets** — budget thresholds and alerts
+- **Daily report** → MC doc: "FinOps Daily — YYYY-MM-DD"
+- **Weekly report** → MC doc: "FinOps Weekly — start to end"
+- **Weekly Intel Digest** → Cost Summary section appended
+
+## Existing infrastructure (shipped prior)
+- ff_usage_events, ff_usage_rollups_daily, ff_budgets tables
+- costFromUsage() pricing map (Anthropic, OpenAI, DeepSeek, Google, Ollama)
+- logUsageEvent() / logUsageEventAsync() — auto-computed cost
+- Cron routes: /api/cron/finops-daily, /api/cron/finops-weekly
+- Smoke test: scripts/test-finops/smoke.ts
 `;
 
 run().catch(err => {

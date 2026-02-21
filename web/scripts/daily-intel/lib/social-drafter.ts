@@ -31,7 +31,7 @@ export async function generateSocialDrafts(
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
     }),
@@ -46,25 +46,38 @@ export async function generateSocialDrafts(
   const content = json.content?.[0]?.text;
   if (!content) throw new Error('Empty response from Claude API');
 
-  // Parse the markdown into individual drafts
+  // Parse the markdown into individual drafts (handles both old 3-platform and new 5-draft format)
   const drafts: SocialDraft[] = [];
-  const sections = content.split(/\n##?\s+\*?\*?/);
-  const platformPatterns = [
-    { pattern: /twitter|x\b/i, platform: 'Twitter/X' },
-    { pattern: /instagram/i, platform: 'Instagram' },
-    { pattern: /linkedin/i, platform: 'LinkedIn' },
-  ];
+  const sections = content.split(/\n##\s+/);
 
   for (const section of sections) {
-    for (const { pattern, platform } of platformPatterns) {
-      if (pattern.test(section.slice(0, 50))) {
-        // Strip the header line and clean up
-        const lines = section.split('\n');
-        const body = lines.slice(1).join('\n').trim();
-        if (body) {
-          drafts.push({ platform, content: body });
-        }
-        break;
+    const trimmed = section.trim();
+    if (!trimmed) continue;
+
+    // Match "Draft N" or platform names
+    const draftMatch = trimmed.match(/^(?:Draft\s+\d+|SECTION\s+A)/i);
+    const platformMatch = trimmed.match(/^(?:\*?\*?)?(Twitter|X\b|Instagram|LinkedIn|Facebook|Threads)/i);
+    const sceneMatch = trimmed.match(/^(?:SECTION\s+B|Scene\s+\d+)/i);
+
+    if (draftMatch || platformMatch) {
+      const lines = trimmed.split('\n');
+      const header = lines[0].replace(/\*\*/g, '').trim();
+      const body = lines.slice(1).join('\n').trim();
+      if (body) {
+        // Try to extract platform from body
+        let platform = 'Multi-platform';
+        const platFind = body.match(/\*?\*?Platform[^:]*:\*?\*?\s*(.*)/i);
+        if (platFind) platform = platFind[1].trim();
+        else if (platformMatch) platform = platformMatch[1];
+
+        drafts.push({ platform, content: body });
+      }
+    } else if (sceneMatch) {
+      // Scene prompts get bundled as drafts too
+      const lines = trimmed.split('\n');
+      const body = lines.slice(1).join('\n').trim();
+      if (body) {
+        drafts.push({ platform: 'Scene Prompt', content: body });
       }
     }
   }

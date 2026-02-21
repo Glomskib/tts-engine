@@ -249,6 +249,37 @@ async function run(targetDay: string) {
     }
   }
 
+  // ── Top endpoints (from raw events for today) ──
+  let topEndpointsSection = '_No endpoint data available._';
+  try {
+    const { data: endpointRows } = await supabase
+      .from('ff_usage_events')
+      .select('endpoint, cost_usd')
+      .gte('created_at', targetDay + 'T00:00:00Z')
+      .lt('created_at', new Date(new Date(targetDay).getTime() + 86400000).toISOString().slice(0, 10) + 'T00:00:00Z')
+      .not('endpoint', 'is', null);
+
+    if (endpointRows && endpointRows.length > 0) {
+      const epMap = new Map<string, { cost: number; calls: number }>();
+      for (const r of endpointRows) {
+        const key = r.endpoint || 'unknown';
+        const e = epMap.get(key) ?? { cost: 0, calls: 0 };
+        e.cost += Number(r.cost_usd);
+        e.calls += 1;
+        epMap.set(key, e);
+      }
+      const lines = [...epMap.entries()]
+        .sort((a, b) => b[1].cost - a[1].cost)
+        .slice(0, 10)
+        .map(([ep, d]) => `| ${ep} | ${d.calls} | ${fmt(d.cost)} |`);
+      if (lines.length > 0) {
+        topEndpointsSection = `| Endpoint | Calls | Cost |\n|----------|-------|------|\n${lines.join('\n')}`;
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+
   // ── Cost per winner (join via ff_outcomes) ──
   let costPerWinnerSection = '_No winner data available._';
   try {
@@ -310,6 +341,9 @@ ${laneBreakdown || '| _No data_ | — | — |'}
 
 ## Top 10 Most Expensive (Model/Template)
 ${topCombosSection}
+
+## Top Endpoints
+${topEndpointsSection}
 
 ## Cost Per Winner (MTD)
 ${costPerWinnerSection}

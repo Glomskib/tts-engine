@@ -18,6 +18,8 @@
  *  8. GET /api/flashflow/weekly-report — auth failure (no token)
  */
 
+export {};
+
 const BASE = process.env.SMOKE_TEST_BASE_URL || 'http://localhost:3000';
 const TOKEN = process.env.SMOKE_TEST_TOKEN;
 

@@ -9,7 +9,15 @@
  *   pnpm run job:daily-intel -- --pipeline eds
  *   pnpm run job:daily-intel -- --pipeline cycling --dry-run
  *
- * Requires env vars: ANTHROPIC_API_KEY, MC_API_TOKEN
+ * Outputs per pipeline:
+ *   1. Intel doc → MC (lane-specific, category=intelligence)
+ *   2. Drafts doc → MC (lane-specific, category=drafts)
+ *   3. Local export → ~/DailyDrafts/YYYY-MM-DD/{cycling,eds}/
+ *
+ * Graceful degradation:
+ *   - Missing ANTHROPIC_API_KEY → skip generation, still report fetched articles
+ *   - Missing MC_API_TOKEN → skip MC posts, still export locally
+ *   - Source fetch failures → non-fatal, report and continue
  */
 
 import { config } from 'dotenv';
@@ -21,6 +29,7 @@ import { generateIntelReport } from './lib/intel-generator';
 import { generateSocialDrafts } from './lib/social-drafter';
 import { postToMC } from './lib/mc-poster';
 import { pushToBuffer } from './lib/buffer-client';
+import { exportDrafts } from './lib/draft-exporter';
 import { cyclingPipeline } from './pipelines/cycling';
 import { edsPipeline } from './pipelines/eds';
 
@@ -65,6 +74,8 @@ async function runPipeline(cfg: PipelineConfig, dryRun: boolean): Promise<Pipeli
   };
 
   const date = todayDate();
+  const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
+  const hasMCToken = !!(process.env.MC_API_TOKEN || process.env.MISSION_CONTROL_TOKEN || process.env.MISSION_CONTROL_AGENT_TOKEN);
 
   // 1. Fetch sources
   log('Fetching sources...');
@@ -72,68 +83,108 @@ async function runPipeline(cfg: PipelineConfig, dryRun: boolean): Promise<Pipeli
   result.articlesFound = articles.length;
   result.warnings.push(...fetchErrors);
   for (const e of fetchErrors) log(`  WARN: ${e}`);
-  log(`  Found ${articles.length} articles from ${cfg.sources.length} sources`);
+
+  const dateUnknown = articles.filter(a => a.freshness === 'date_unknown').length;
+  const fresh = articles.filter(a => a.freshness === 'fresh').length;
+  log(`  Found ${articles.length} articles (${fresh} fresh, ${dateUnknown} date_unknown) from ${cfg.sources.length} sources`);
 
   if (articles.length === 0) {
     log('No articles found — skipping generation');
     return result;
   }
 
-  // 2. Generate intel report
-  log('Generating intel report...');
-  const intelReport = await generateIntelReport(articles, cfg.intelPrompt);
-  log(`  Report generated (${intelReport.length} chars)`);
+  // 2. Generate intel report (graceful skip if no API key)
+  let intelReport = '';
+  let draftsMarkdown = '';
+  let drafts: { platform: string; content: string }[] = [];
 
-  // 3. Generate social drafts
-  log('Generating social drafts...');
-  const { markdown: draftsMarkdown, drafts } = await generateSocialDrafts(intelReport, cfg.socialPrompt);
-  log(`  Generated ${drafts.length} drafts`);
+  if (!hasAnthropicKey) {
+    log('WARN: ANTHROPIC_API_KEY not set — skipping AI generation, exporting article list only');
+    result.warnings.push('ANTHROPIC_API_KEY not set — generation skipped');
+
+    // Build a minimal article-list report
+    intelReport = `# Daily ${cfg.name} Intel — ${date}\n\n> AI generation skipped (ANTHROPIC_API_KEY not set)\n\n## Articles Fetched (${articles.length})\n\n`;
+    intelReport += articles.map((a, i) => {
+      let line = `${i + 1}. **${a.title}**\n   - Source: ${a.source}\n   - URL: ${a.url}`;
+      if (a.freshness === 'date_unknown') line += '\n   - Date: unknown';
+      else if (a.publishedAt) line += `\n   - Published: ${a.publishedAt}`;
+      return line;
+    }).join('\n\n');
+
+    draftsMarkdown = `# Drafts — ${cfg.name} — ${date}\n\n> No drafts generated (ANTHROPIC_API_KEY not set). Use article list above for manual drafting.`;
+  } else {
+    log('Generating intel report...');
+    intelReport = await generateIntelReport(articles, cfg.intelPrompt);
+    log(`  Report generated (${intelReport.length} chars)`);
+
+    log('Generating social drafts...');
+    const draftResult = await generateSocialDrafts(intelReport, cfg.socialPrompt);
+    draftsMarkdown = draftResult.markdown;
+    drafts = draftResult.drafts;
+    log(`  Generated ${drafts.length} drafts`);
+  }
+
+  // 3. Export locally (always, even in dry-run)
+  log('Exporting drafts locally...');
+  const exportResult = exportDrafts({
+    pipelineId: cfg.id,
+    date,
+    intelMarkdown: intelReport,
+    draftsMarkdown,
+    draftsJson: drafts.map(d => ({ platform: d.platform, content: d.content })),
+  });
+  log(`  Exported to ${exportResult.dir} (${exportResult.files.length} files)`);
 
   if (dryRun) {
     log('DRY RUN — skipping MC posts and Buffer push');
     log('--- Intel Report Preview ---');
-    console.log(intelReport.slice(0, 500) + '...');
+    console.log(intelReport.slice(0, 800) + (intelReport.length > 800 ? '\n...' : ''));
     log('--- Social Drafts Preview ---');
-    console.log(draftsMarkdown.slice(0, 500) + '...');
+    console.log(draftsMarkdown.slice(0, 800) + (draftsMarkdown.length > 800 ? '\n...' : ''));
     return result;
   }
 
   // 4. Post intel doc to MC
-  log('Posting intel doc to Mission Control...');
-  const intelResult = await postToMC({
-    title: cfg.intelDocTitle(date),
-    content: intelReport,
-    category: 'intelligence',
-    lane: cfg.lane,
-    tags: cfg.intelTags,
-  });
-  if (intelResult.ok) {
-    result.intelDocId = intelResult.id;
-    log(`  Intel doc posted: ${intelResult.id}`);
+  if (!hasMCToken) {
+    log('WARN: No MC token found — skipping MC posts');
+    result.warnings.push('MC token not configured — MC posts skipped');
   } else {
-    result.errors.push(`MC intel post failed: ${intelResult.error}`);
-    log(`  WARN: Intel post failed: ${intelResult.error}`);
-  }
+    log('Posting intel doc to Mission Control...');
+    const intelResult = await postToMC({
+      title: cfg.intelDocTitle(date),
+      content: intelReport,
+      category: 'intelligence',
+      lane: cfg.lane,
+      tags: [...cfg.intelTags, 'daily-intel'],
+    });
+    if (intelResult.ok) {
+      result.intelDocId = intelResult.id;
+      log(`  Intel doc posted: ${intelResult.id}`);
+    } else {
+      result.errors.push(`MC intel post failed: ${intelResult.error}`);
+      log(`  WARN: Intel post failed: ${intelResult.error}`);
+    }
 
-  // 5. Post drafts doc to MC
-  log('Posting drafts doc to Mission Control...');
-  const draftsResult = await postToMC({
-    title: cfg.draftsDocTitle(date),
-    content: draftsMarkdown,
-    category: 'drafts',
-    lane: cfg.lane,
-    tags: cfg.draftsTags,
-  });
-  if (draftsResult.ok) {
-    result.draftsDocId = draftsResult.id;
-    log(`  Drafts doc posted: ${draftsResult.id}`);
-  } else {
-    result.errors.push(`MC drafts post failed: ${draftsResult.error}`);
-    log(`  WARN: Drafts post failed: ${draftsResult.error}`);
+    // 5. Post drafts doc to MC
+    log('Posting drafts doc to Mission Control...');
+    const draftsResult = await postToMC({
+      title: cfg.draftsDocTitle(date),
+      content: draftsMarkdown,
+      category: 'drafts',
+      lane: cfg.lane,
+      tags: [...cfg.draftsTags, 'daily-intel', 'drafts'],
+    });
+    if (draftsResult.ok) {
+      result.draftsDocId = draftsResult.id;
+      log(`  Drafts doc posted: ${draftsResult.id}`);
+    } else {
+      result.errors.push(`MC drafts post failed: ${draftsResult.error}`);
+      log(`  WARN: Drafts post failed: ${draftsResult.error}`);
+    }
   }
 
   // 6. Optional: push to Buffer
-  if (process.env.BUFFER_ACCESS_TOKEN) {
+  if (process.env.BUFFER_ACCESS_TOKEN && drafts.length > 0) {
     log('Pushing drafts to Buffer...');
     const bufferResult = await pushToBuffer(drafts);
     result.bufferPushed = bufferResult.ok;
@@ -142,7 +193,7 @@ async function runPipeline(cfg: PipelineConfig, dryRun: boolean): Promise<Pipeli
       for (const e of bufferResult.errors) log(`  WARN: ${e}`);
     }
     log(`  Buffer: ${bufferResult.pushed} posts queued`);
-  } else {
+  } else if (!process.env.BUFFER_ACCESS_TOKEN) {
     log('Buffer not configured — skipping');
   }
 
@@ -156,10 +207,9 @@ async function main() {
   console.log(`${TAG} Pipelines: ${pipelines.map(p => p.id).join(', ')}`);
   console.log(`${TAG} Dry run: ${dryRun}`);
 
-  // Validate required env vars
+  // Check env vars — warn but don't hard-exit for graceful degradation
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error(`${TAG} ERROR: ANTHROPIC_API_KEY not set`);
-    process.exit(1);
+    console.warn(`${TAG} WARN: ANTHROPIC_API_KEY not set — will skip AI generation`);
   }
 
   const results: PipelineResult[] = [];
@@ -181,9 +231,17 @@ async function main() {
   console.log(`\n${TAG} === Summary ===`);
   for (const r of results) {
     console.log(`${TAG} ${r.pipeline}: ${r.articlesFound} articles, intel=${r.intelDocId ?? 'n/a'}, drafts=${r.draftsDocId ?? 'n/a'}, buffer=${r.bufferPushed}, warnings=${r.warnings.length}, errors=${r.errors.length}`);
+    if (r.warnings.length > 0) {
+      for (const w of r.warnings) console.log(`${TAG}   warn: ${w}`);
+    }
+    if (r.errors.length > 0) {
+      for (const e of r.errors) console.log(`${TAG}   error: ${e}`);
+    }
   }
 
-  process.exit(totalErrors > 0 ? 1 : 0);
+  // Exit 0 if we at least fetched articles (even if generation was skipped)
+  const anyArticles = results.some(r => r.articlesFound > 0);
+  process.exit(totalErrors > 0 && !anyArticles ? 1 : 0);
 }
 
 main().catch((err) => {

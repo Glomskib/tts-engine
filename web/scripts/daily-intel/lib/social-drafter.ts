@@ -46,25 +46,38 @@ export async function generateSocialDrafts(
   const content = json.content?.[0]?.text;
   if (!content) throw new Error('Empty response from Claude API');
 
-  // Parse the markdown into individual drafts (handles both old 3-platform and new 5-draft format)
+  // Parse the markdown into individual drafts.
+  // Splits on ## and ### headers to handle both flat (## Draft 1) and nested
+  // (## SECTION A → ### 1. Draft Title) formats.
   const drafts: SocialDraft[] = [];
-  const sections = content.split(/\n##\s+/);
+  const sections = content.split(/\n#{2,3}\s+/);
 
   for (const section of sections) {
     const trimmed = section.trim();
     if (!trimmed) continue;
 
-    // Match "Draft N" or platform names
-    const draftMatch = trimmed.match(/^(?:Draft\s+\d+|SECTION\s+A)/i);
-    const platformMatch = trimmed.match(/^(?:\*?\*?)?(Twitter|X\b|Instagram|LinkedIn|Facebook|Threads)/i);
-    const sceneMatch = trimmed.match(/^(?:SECTION\s+B|Scene\s+\d+)/i);
-
-    if (draftMatch || platformMatch) {
+    // Skip pure section headers like "SECTION A: 5 SOCIAL POST DRAFTS" that contain subsections
+    const isSectionHeader = /^SECTION\s+[AB]/i.test(trimmed);
+    // Check if this section header has subsections split out already (no real content beyond the title line)
+    if (isSectionHeader) {
       const lines = trimmed.split('\n');
-      const header = lines[0].replace(/\*\*/g, '').trim();
+      const bodyAfterHeader = lines.slice(1).join('\n').trim();
+      // If the body is short or empty, it was just a parent header — skip
+      if (bodyAfterHeader.length < 50) continue;
+    }
+
+    // Match numbered drafts: "1. Title", "Draft N", platform names
+    const numberedMatch = trimmed.match(/^\*?\*?\d+\.?\s+\*?\*?/);
+    const draftMatch = trimmed.match(/^(?:Draft\s+\d+)/i);
+    const platformMatch = trimmed.match(/^(?:\*?\*?)?(Twitter|X\b|Instagram|LinkedIn|Facebook|Threads)/i);
+    const sceneMatch = trimmed.match(/^(?:Scene\s+\d+|\d+\.?\s+\*?\*?Scene)/i);
+
+    const isDraft = numberedMatch || draftMatch || platformMatch || isSectionHeader;
+
+    if (isDraft && !sceneMatch) {
+      const lines = trimmed.split('\n');
       const body = lines.slice(1).join('\n').trim();
-      if (body) {
-        // Try to extract platform from body
+      if (body && body.length > 20) {
         let platform = 'Multi-platform';
         const platFind = body.match(/\*?\*?Platform[^:]*:\*?\*?\s*(.*)/i);
         if (platFind) platform = platFind[1].trim();
@@ -73,10 +86,9 @@ export async function generateSocialDrafts(
         drafts.push({ platform, content: body });
       }
     } else if (sceneMatch) {
-      // Scene prompts get bundled as drafts too
       const lines = trimmed.split('\n');
       const body = lines.slice(1).join('\n').trim();
-      if (body) {
+      if (body && body.length > 20) {
         drafts.push({ platform: 'Scene Prompt', content: body });
       }
     }

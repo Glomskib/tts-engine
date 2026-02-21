@@ -146,6 +146,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, minPlan: 'agency' },
       { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },
+      { name: 'Support', href: '/admin/support', icon: HelpCircle, adminOnly: true },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },
       { name: 'Integrations', href: '/admin/settings/integrations', icon: Plug, adminOnly: true },
     ],

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Bug, Lightbulb, Sparkles, MessageSquare, Paperclip, Loader2, ChevronRight, Zap, Mail, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { SupportWidget } from '@/components/SupportWidget';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -48,6 +49,7 @@ export function FeedbackWidget() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on outside click
@@ -174,6 +176,13 @@ export function FeedbackWidget() {
               >
                 <MessageSquare className="w-4 h-4 text-violet-400" />
                 Send Feedback
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); setSupportOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+              >
+                <HelpCircle className="w-4 h-4 text-cyan-400" />
+                Support Chat
               </button>
               <a
                 href="mailto:brandon@flashflowai.com"
@@ -402,6 +411,7 @@ export function FeedbackWidget() {
           </div>
         </div>
       </div>
+      <SupportWidget isOpen={supportOpen} onClose={() => setSupportOpen(false)} />
     </>
   );
 }

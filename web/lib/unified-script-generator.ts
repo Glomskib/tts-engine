@@ -26,6 +26,9 @@ import {
   pickSalesApproach,
 } from '@/lib/script-expander';
 import type { ScriptScoreResult } from '@/lib/script-scorer';
+import { buildStylePack } from '@/lib/creator-style/style-pack';
+import type { StylePack } from '@/lib/creator-style/style-pack';
+import { logUsageEventAsync } from '@/lib/finops/log-usage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,6 +79,9 @@ export interface UnifiedScriptInput {
 
   /** Caller context for prompt tuning */
   callerContext?: 'scripts_generate' | 'content_package' | 'pipeline' | 'other';
+
+  /** Creator style fingerprint ID — injects style context into prompt */
+  creatorStyleId?: string;
 }
 
 export interface UnifiedScriptOutput {
@@ -117,6 +123,9 @@ export interface UnifiedScriptOutput {
 
   /** Editor notes */
   editorNotes: string[];
+
+  /** Creator style ID used (for traceability) */
+  creatorStyleRef?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +203,32 @@ async function fetchAudiencePersona(personaId: string): Promise<AudiencePersonaD
     .eq('id', personaId)
     .single();
   return data as AudiencePersonaData | null;
+}
+
+async function fetchCreatorStyleContext(
+  creatorStyleId: string
+): Promise<{ promptContext: string; handle: string } | null> {
+  const { data } = await supabaseAdmin
+    .from('style_creators')
+    .select('id, handle, platform, style_fingerprint')
+    .eq('id', creatorStyleId)
+    .single();
+
+  if (!data) return null;
+
+  // Use cached fingerprint if available
+  const fingerprint = data.style_fingerprint as StylePack | null;
+  if (fingerprint?.prompt_context) {
+    return { promptContext: fingerprint.prompt_context, handle: data.handle };
+  }
+
+  // Fall back to rebuilding StylePack
+  try {
+    const pack = await buildStylePack(creatorStyleId);
+    return { promptContext: pack.prompt_context, handle: data.handle };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -381,6 +416,16 @@ export async function generateUnifiedScript(
     }
   }
 
+  // ── Fetch creator style context ──
+  let creatorStyleContext: { promptContext: string; handle: string } | null = null;
+  if (input.creatorStyleId) {
+    try {
+      creatorStyleContext = await fetchCreatorStyleContext(input.creatorStyleId);
+    } catch {
+      // Non-fatal — proceed without creator style
+    }
+  }
+
   // ── Fetch audience persona ──
   let audiencePersona: AudiencePersonaData | null = null;
   if (input.audiencePersonaId) {
@@ -479,6 +524,11 @@ export async function generateUnifiedScript(
     promptParts.push(`\n${buildWinnerPatternsSection(winnerAnalysis)}`);
   }
 
+  // Creator style fingerprint
+  if (creatorStyleContext) {
+    promptParts.push(`\n${creatorStyleContext.promptContext}`);
+  }
+
   // Scorer feedback (for regeneration)
   if (input.previousScore) {
     promptParts.push(`\n${buildScorerFeedbackSection(input.previousScore)}`);
@@ -563,6 +613,31 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
   const data = await response.json();
   const rawText: string = data.content?.[0]?.text || '';
 
+  // ── FinOps: log Anthropic usage (fire-and-forget) ──
+  const anthropicUsage = data.usage as { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number } | undefined;
+  if (anthropicUsage) {
+    const lane = input.callerContext === 'pipeline' ? 'FlashFlow'
+      : input.callerContext === 'content_package' ? 'FlashFlow'
+      : 'FlashFlow';
+    logUsageEventAsync({
+      source: 'flashflow',
+      lane,
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5-20250929',
+      input_tokens: anthropicUsage.input_tokens ?? 0,
+      output_tokens: anthropicUsage.output_tokens ?? 0,
+      cache_read_tokens: anthropicUsage.cache_read_input_tokens ?? 0,
+      cache_write_tokens: anthropicUsage.cache_creation_input_tokens ?? 0,
+      user_id: input.userId,
+      template_key: `script_${input.callerContext ?? 'other'}`,
+      agent_id: 'flash',
+      metadata: {
+        caller_context: input.callerContext,
+        creator_style_id: input.creatorStyleId,
+      },
+    });
+  }
+
   // ── Parse JSON response ──
   const parsed = parseAIResponse(rawText);
 
@@ -601,6 +676,7 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
     editorNotes: Array.isArray(parsed.editor_notes)
       ? parsed.editor_notes.map(String)
       : [],
+    creatorStyleRef: creatorStyleContext ? input.creatorStyleId : undefined,
   };
 }
 

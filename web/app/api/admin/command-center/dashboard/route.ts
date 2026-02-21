@@ -85,6 +85,17 @@ export async function GET(request: Request) {
       supabaseAdmin.from('agent_runs').select('agent_id, action, created_at').eq('status', 'failed').gte('created_at', sevenDaysAgo.toISOString()),
     ]);
 
+    // ── CRM stats ─────────────────────────────────────────────────
+    const { data: crmDeals } = await supabaseAdmin
+      .from('crm_deals')
+      .select('value_cents, probability');
+
+    const crmDealCount = crmDeals?.length ?? 0;
+    const crmWeightedValue = (crmDeals || []).reduce(
+      (sum, d) => sum + Math.round((d.value_cents as number) * ((d.probability as number) / 100)),
+      0,
+    );
+
     const sumCost = (rows: { cost_usd: number }[] | null) =>
       (rows || []).reduce((sum, r) => sum + Number(r.cost_usd), 0);
 
@@ -228,6 +239,10 @@ export async function GET(request: Request) {
           score: i.score,
           last_processed_at: i.last_processed_at,
         })),
+        crm: {
+          deals: crmDealCount,
+          weighted_value: crmWeightedValue,
+        },
       },
     });
   } catch (err) {

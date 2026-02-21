@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import OpenAI from 'openai';
 import { logGenerationAsync } from '@/lib/flashflow/generations';
+import { logUsageEventAsync } from '@/lib/finops/log-usage';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -184,6 +185,19 @@ Do not include any markdown formatting or additional text - only the JSON array.
         model: 'gpt-4o-mini',
       });
     }
+
+    // FinOps: log usage event with token counts from OpenAI response
+    logUsageEventAsync({
+      source: 'flashflow',
+      lane: 'FlashFlow',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      input_tokens: completion.usage?.prompt_tokens ?? 0,
+      output_tokens: completion.usage?.completion_tokens ?? 0,
+      user_id: user?.id,
+      template_key: 'hook_generate',
+      agent_id: 'flash',
+    });
 
     return NextResponse.json({
       hooks: validHooks.slice(0, 5),

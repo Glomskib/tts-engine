@@ -18,12 +18,20 @@ interface ModelPricing {
 const PRICING_MAP: Record<string, ModelPricing> = {
   // ── Anthropic ────────────────────────────────────────────────
   'anthropic/claude-opus-4': { input_per_m: 15.0, output_per_m: 75.0 },
+  'anthropic/claude-opus-4-6': { input_per_m: 15.0, output_per_m: 75.0 },
   'anthropic/claude-sonnet-4': { input_per_m: 3.0, output_per_m: 15.0 },
+  'anthropic/claude-sonnet-4-5': { input_per_m: 3.0, output_per_m: 15.0 },
+  'anthropic/claude-sonnet-4-6': { input_per_m: 3.0, output_per_m: 15.0 },
   'anthropic/claude-3.5-sonnet': { input_per_m: 3.0, output_per_m: 15.0 },
   'anthropic/claude-3.5-haiku': { input_per_m: 0.8, output_per_m: 4.0 },
+  'anthropic/claude-haiku-4-5': { input_per_m: 0.8, output_per_m: 4.0 },
   'anthropic/claude-3-haiku': { input_per_m: 0.25, output_per_m: 1.25 },
 
   // ── OpenAI ───────────────────────────────────────────────────
+  'openai/gpt-5.1-codex': { input_per_m: 5.0, output_per_m: 20.0 },      // PLACEHOLDER
+  'openai/gpt-4.1': { input_per_m: 2.5, output_per_m: 10.0 },            // PLACEHOLDER
+  'openai/gpt-4.1-mini': { input_per_m: 0.4, output_per_m: 1.6 },        // PLACEHOLDER
+  'openai/gpt-4.1-nano': { input_per_m: 0.1, output_per_m: 0.4 },        // PLACEHOLDER
   'openai/gpt-4o': { input_per_m: 2.5, output_per_m: 10.0 },
   'openai/gpt-4o-mini': { input_per_m: 0.15, output_per_m: 0.6 },
   'openai/gpt-4-turbo': { input_per_m: 10.0, output_per_m: 30.0 },

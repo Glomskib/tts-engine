@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   DollarSign, Activity, AlertTriangle, ListTodo,
   Lightbulb, TrendingUp, ChevronRight, RefreshCw,
-  Zap, Target, Bot,
+  Zap, Target, Bot, Handshake,
 } from 'lucide-react';
 import InitiativeFilter from './_components/InitiativeFilter';
 
@@ -143,6 +143,7 @@ export default function CommandCenterDashboard() {
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [processedIdeas, setProcessedIdeas] = useState<ProcessedIdea[]>([]);
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
+  const [crmStats, setCrmStats] = useState<{ deals: number; weighted_value: number } | null>(null);
   const [initiativeId, setInitiativeId] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
@@ -160,6 +161,7 @@ export default function CommandCenterDashboard() {
         setInitiatives(json.data.initiatives || []);
         setProcessedIdeas(json.data.ideas_processed || []);
         setTelemetry(json.data.telemetry || null);
+        setCrmStats(json.data.crm || null);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
@@ -236,6 +238,14 @@ export default function CommandCenterDashboard() {
           icon={Target}
           color="text-cyan-400"
         />
+        <StatCard
+          label="CRM Pipeline"
+          value={crmStats ? crmStats.deals : '--'}
+          sub={crmStats ? `Weighted: $${(crmStats.weighted_value / 100).toLocaleString()}` : undefined}
+          icon={Handshake}
+          color="text-pink-400"
+          href="/admin/command-center/crm"
+        />
       </div>
 
       {/* 7-Day Cost Trend */}
@@ -247,13 +257,14 @@ export default function CommandCenterDashboard() {
       )}
 
       {/* Quick Nav */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
           { label: 'API Usage', href: '/admin/command-center/usage' },
           { label: 'Projects & Tasks', href: '/admin/command-center/projects' },
           { label: 'Idea Dump', href: '/admin/command-center/ideas' },
           { label: 'Finance', href: '/admin/command-center/finance' },
           { label: 'Agent Scoreboard', href: '/admin/command-center/agents' },
+          { label: 'CRM Pipeline', href: '/admin/command-center/crm' },
         ].map((item) => (
           <Link
             key={item.href}

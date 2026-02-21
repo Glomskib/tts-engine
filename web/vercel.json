@@ -39,6 +39,14 @@
     {
       "path": "/api/cron/weekly-trainer",
       "schedule": "0 17 * * 1"
+    },
+    {
+      "path": "/api/cron/finops-daily",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/finops-weekly",
+      "schedule": "30 6 * * 1"
     }
   ]
 }

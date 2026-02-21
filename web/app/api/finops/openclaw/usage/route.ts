@@ -35,6 +35,9 @@ export async function POST(request: NextRequest) {
     cache_read_tokens,
     cache_write_tokens,
     cost_usd,
+    correlation_id,
+    endpoint,
+    user_id,
     metadata,
   } = body as Record<string, unknown>;
 
@@ -68,6 +71,9 @@ export async function POST(request: NextRequest) {
     cache_write_tokens: cacheWrite,
     cost_usd: computedCost,
     agent_id: typeof agent_id === 'string' ? agent_id : undefined,
+    user_id: typeof user_id === 'string' ? user_id : undefined,
+    correlation_id: typeof correlation_id === 'string' ? correlation_id : undefined,
+    endpoint: typeof endpoint === 'string' ? endpoint : undefined,
     metadata: (metadata && typeof metadata === 'object' && !Array.isArray(metadata))
       ? metadata as Record<string, unknown>
       : undefined,

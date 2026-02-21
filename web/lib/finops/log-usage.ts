@@ -22,6 +22,8 @@ export interface LogUsageEventInput {
   agent_id?: string;
   user_id?: string;
   request_id?: string;
+  correlation_id?: string;
+  endpoint?: string;
   template_key?: string;
   prompt_version_id?: string;
   generation_id?: string;
@@ -71,6 +73,8 @@ export async function logUsageEvent(
         agent_id: input.agent_id ?? null,
         user_id: input.user_id ?? null,
         request_id: input.request_id ?? null,
+        correlation_id: input.correlation_id ?? null,
+        endpoint: input.endpoint ?? null,
         template_key: input.template_key ?? null,
         prompt_version_id: input.prompt_version_id ?? null,
         generation_id: input.generation_id ?? null,

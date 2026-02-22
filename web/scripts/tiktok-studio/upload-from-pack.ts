@@ -6,9 +6,17 @@
  * Reads an Upload Pack (local dir or --video-id API fetch) and runs the
  * Phase 3 automation module to upload → fill description → attach product → save draft/post.
  *
- * FAIL-FAST: If not logged in, exits immediately with:
- *   "TikTok session expired — run npm run tiktok:bootstrap (one-time phone approval)."
+ * FAIL-FAST: If not logged in, exits immediately with EXIT CODE 42.
  * NO repeated login attempts. NO human intervention in automated runs.
+ *
+ * Exit codes:
+ *   0  = success (drafted or posted)
+ *   1  = generic error (retryable)
+ *   42 = session invalid — needs manual `npm run tiktok:bootstrap`
+ *
+ * Cooldown: SESSION_INVALID_COOLDOWN_HOURS (default 6) prevents repeated
+ * session-invalid alerts. After the first exit-42 event, subsequent runs
+ * within the window exit silently (still code 42, no error report).
  *
  * Usage:
  *   npx tsx scripts/tiktok-studio/upload-from-pack.ts /path/to/upload-pack
@@ -18,13 +26,14 @@
  *   npx tsx scripts/tiktok-studio/upload-from-pack.ts /path/to/upload-pack --dry-run
  *
  * Env vars:
- *   TIKTOK_BROWSER_PROFILE  — Chromium profile dir (default: data/sessions/tiktok-studio-profile)
- *   TIKTOK_STUDIO_UPLOAD_URL — Upload page URL (default: https://www.tiktok.com/tiktokstudio/upload)
- *   TIKTOK_HEADLESS          — 'true' for headless mode (default: false)
- *   POST_MODE                — 'draft' (default) or 'post' (overridden by --mode)
- *   POST_NOW                 — 'true' to override POST_MODE to 'post'
- *   FF_API_URL               — FlashFlow API base URL for status callbacks
- *   FF_API_TOKEN             — FlashFlow API token for status callbacks
+ *   TIKTOK_BROWSER_PROFILE           — Chromium profile dir (default: data/sessions/tiktok-studio-profile)
+ *   TIKTOK_STUDIO_UPLOAD_URL         — Upload page URL (default: https://www.tiktok.com/tiktokstudio/upload)
+ *   TIKTOK_HEADLESS                  — 'true' for headless mode (default: false)
+ *   POST_MODE                        — 'draft' (default) or 'post' (overridden by --mode)
+ *   POST_NOW                         — 'true' to override POST_MODE to 'post'
+ *   FF_API_URL                       — FlashFlow API base URL for status callbacks
+ *   FF_API_TOKEN                     — FlashFlow API token for status callbacks
+ *   SESSION_INVALID_COOLDOWN_HOURS   — Hours to suppress repeated session-invalid alerts (default: 6)
  */
 
 import { config } from 'dotenv';
@@ -48,6 +57,50 @@ import {
 import * as sel from '../../../skills/tiktok-studio-uploader/selectors.js';
 
 const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
+
+// ─── Session-invalid guardrails ─────────────────────────────────────────────
+// Exit code 42 = "needs manual login" — distinct from generic error (1).
+// Callers (cron, OpenClaw, scripts) should watch for 42 and stop retrying.
+const EXIT_SESSION_INVALID = 42;
+
+// Cooldown lockfile prevents repeated identical "session expired" noise.
+// Set SESSION_INVALID_COOLDOWN_HOURS (default: 6) to control suppression window.
+const COOLDOWN_HOURS = Number(process.env.SESSION_INVALID_COOLDOWN_HOURS) || 6;
+const COOLDOWN_LOCKFILE = path.join(
+  process.cwd(), 'data', 'sessions', '.session-invalid.lock',
+);
+
+/** Returns true if cooldown is active (we already reported session-invalid recently). */
+function isSessionCooldownActive(): boolean {
+  try {
+    const stat = fs.statSync(COOLDOWN_LOCKFILE);
+    const ageMs = Date.now() - stat.mtimeMs;
+    const cooldownMs = COOLDOWN_HOURS * 3_600_000;
+    if (ageMs < cooldownMs) {
+      const hoursAgo = (ageMs / 3_600_000).toFixed(1);
+      console.error(
+        `[session-guard] Session-invalid cooldown active (reported ${hoursAgo}h ago, ` +
+        `window=${COOLDOWN_HOURS}h). Exiting silently.`,
+      );
+      return true;
+    }
+    // Lockfile expired — allow re-report
+    fs.unlinkSync(COOLDOWN_LOCKFILE);
+  } catch {
+    // No lockfile = no cooldown
+  }
+  return false;
+}
+
+/** Write the cooldown lockfile after emitting the first session-invalid event. */
+function setSessionCooldown(): void {
+  try {
+    fs.mkdirSync(path.dirname(COOLDOWN_LOCKFILE), { recursive: true });
+    fs.writeFileSync(COOLDOWN_LOCKFILE, new Date().toISOString() + '\n');
+  } catch (err: any) {
+    console.error(`[session-guard] Failed to write cooldown lockfile: ${err.message}`);
+  }
+}
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -283,7 +336,7 @@ async function runDryRun(): Promise<void> {
   if (!session) {
     console.error('ERROR: Not logged in to TikTok Studio.');
     console.error('TikTok session expired — run `npm run tiktok:bootstrap` (one-time phone approval).');
-    process.exit(1);
+    process.exit(EXIT_SESSION_INVALID);
   }
 
   const { page } = session;
@@ -388,8 +441,27 @@ async function main() {
   console.log('\n--- RESULT ---');
   console.log(JSON.stringify(result, null, 2));
 
-  // Save error report if failed
-  if (result.status === 'error' || result.status === 'login_required') {
+  // ── Session-invalid: exit 42 with cooldown ──
+  if (result.status === 'login_required') {
+    if (isSessionCooldownActive()) {
+      // Already reported recently — exit silently, no error report, no spam
+      process.exit(EXIT_SESSION_INVALID);
+    }
+    // First report in this cooldown window — emit once, then set cooldown
+    saveErrorReport(result.errors.join('; '), {
+      video_id: pack.videoId,
+      product_id: pack.productId,
+      status: result.status,
+    });
+    console.error('\n[session-guard] SESSION INVALID — exit 42.');
+    console.error('[session-guard] Manual login required: npm run tiktok:bootstrap');
+    console.error(`[session-guard] Cooldown set: ${COOLDOWN_HOURS}h (no repeated alerts).`);
+    setSessionCooldown();
+    process.exit(EXIT_SESSION_INVALID);
+  }
+
+  // Save error report if failed (non-login errors)
+  if (result.status === 'error') {
     saveErrorReport(result.errors.join('; '), {
       video_id: pack.videoId,
       product_id: pack.productId,

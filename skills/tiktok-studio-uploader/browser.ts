@@ -387,7 +387,7 @@ async function detectBlocker(page: Page): Promise<BlockerType> {
 /**
  * Returns true if the page shows a logged-in state.
  */
-async function checkLogin(page: Page): Promise<boolean> {
+export async function checkLogin(page: Page): Promise<boolean> {
   const url = page.url();
   if (url.includes('/login') || url.includes('/auth') || url.includes('/signup')) {
     console.log(`${TAG} Login check: URL indicates not logged in (${url})`);

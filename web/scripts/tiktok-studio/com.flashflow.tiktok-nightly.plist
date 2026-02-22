@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.flashflow.tiktok-nightly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/brandonglomski/tts-engine/web/scripts/tiktok-studio/nightly-upload.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/brandonglomski/tts-engine/web</string>
+
+    <!-- Run daily at 02:00 AM local time -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/brandonglomski/tts-engine/web/data/sessions/logs/nightly-upload.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/brandonglomski/tts-engine/web/data/sessions/logs/nightly-upload-error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/brandonglomski</string>
+    </dict>
+
+    <!-- Don't restart on failure — next night will retry -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Allow macOS to delay up to 10 minutes if system is busy -->
+    <key>ThrottleInterval</key>
+    <integer>600</integer>
+</dict>
+</plist>

@@ -11,7 +11,7 @@
 export { CONFIG, TIMEOUTS, getLaunchOptions, STABLE_USER_AGENT } from './types.js';
 export type { StudioUploadInput, StudioUploadResult } from './types.js';
 
-export { openUploadStudio, closeSession, saveSessionBackup } from './browser.js';
+export { openUploadStudio, closeSession, saveSessionBackup, checkLogin } from './browser.js';
 export type { StudioSession, OpenStudioOptions } from './browser.js';
 
 export { uploadVideoFile } from './upload.js';

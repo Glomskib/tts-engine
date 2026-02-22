@@ -58,6 +58,9 @@ export const CONFIG = {
   userAgent: STABLE_USER_AGENT,
   viewport: { width: 1280, height: 900 } as const,
 
+  /** Output directory for nightly upload summary JSON files. */
+  nightlyOutputDir: path.join(process.cwd(), 'data', 'tiktok-uploads'),
+
   /** FlashFlow API URL for status callbacks. */
   flashflowApiUrl:
     process.env.FF_API_URL ||

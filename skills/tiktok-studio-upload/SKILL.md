@@ -1,6 +1,6 @@
-# TikTok Studio Upload (storageState)
+# TikTok Studio Upload (Persistent Profile)
 
-Browser automation that uploads videos to TikTok Studio from a local upload-pack folder. Uses Playwright headed mode with **storageState persistence** — bootstrap once, then upload nightly.
+Browser automation that uploads videos to TikTok Studio from a local upload-pack folder. Uses Playwright headed mode with a **persistent Chromium profile** — bootstrap once, then upload nightly without re-login.
 
 ## Prerequisites
 
@@ -14,10 +14,13 @@ Browser automation that uploads videos to TikTok Studio from a local upload-pack
 ```bash
 cd /Users/brandonglomski/tts-engine/web
 
-# Step 1: Bootstrap session (one-time, repeat when session expires)
+# Step 1: Bootstrap session (one-time)
 npm run tiktok:bootstrap
 
-# Step 2: Upload from pack directory
+# Step 2: Verify login persists
+npm run tiktok:check-session
+
+# Step 3: Upload from pack directory
 npm run tiktok:upload -- --pack-dir ~/FlashFlowUploads/2026-02-21/skeptic/product-slug
 ```
 
@@ -25,26 +28,33 @@ npm run tiktok:upload -- --pack-dir ~/FlashFlowUploads/2026-02-21/skeptic/produc
 
 ### Bootstrap Session
 
-Opens a headed browser for manual login, then saves the Playwright storageState.
+Opens a headed browser with a persistent Chromium profile. Log in once; the profile keeps cookies, localStorage, and IndexedDB across browser restarts.
 
 ```bash
 npm run tiktok:bootstrap
 ```
 
 Flow:
-1. Launches headed Chromium with anti-detection flags
+1. Creates / opens `data/sessions/tiktok-studio-profile/` persistent profile
 2. Navigates to TikTok Studio upload page
-3. Prints instructions — log in via QR code, phone, or email
-4. Press Enter when logged in
-5. Verifies login state (checks for absence of login indicators)
-6. Saves `data/sessions/tiktok-studio.storageState.json` + `tiktok-studio.meta.json`
+3. If already logged in — saves and exits immediately
+4. Otherwise — prints instructions, polls for login every 5s
+5. Auto-detects login, saves storageState backup + meta
+6. Exits cleanly (profile on disk persists)
 
-Session file: `data/sessions/tiktok-studio.storageState.json`
-Metadata file: `data/sessions/tiktok-studio.meta.json` (`{ saved_at: ISO }`)
+### Check Session
+
+Verifies the persistent profile is still logged in without uploading anything.
+
+```bash
+npm run tiktok:check-session
+```
+
+Prints `LOGGED_IN=true` or `LOGGED_IN=false` and exits.
 
 ### Upload
 
-Loads the saved session and uploads a video from a pack directory.
+Opens the same persistent profile and uploads a video from a pack directory.
 
 ```bash
 # Save as draft (default)
@@ -63,14 +73,41 @@ npm run tiktok:upload -- --pack-dir <dir> --video-url <url>
 | `--video-url <url>` | Download video from URL instead of local file |
 | `--post` | Publish immediately (default: save as draft) |
 
-## Remaining Logged In
+## Files Created
 
-- Don't clear cookies or browser data
-- Don't log out of TikTok in any browser
-- Session typically lasts 24-72 hours
-- The upload script checks session age and warns if >72h
-- Re-run `npm run tiktok:bootstrap` when the upload script reports auth failure
-- After each successful upload, the session is re-saved (refreshes expiry)
+```
+web/data/sessions/
+├── tiktok-studio-profile/       # Persistent Chromium user data dir (PRIMARY)
+│   ├── Default/                  # Cookies, localStorage, IndexedDB, cache
+│   └── ...
+├── tiktok-studio.storageState.json  # Backup storageState (SECONDARY)
+└── tiktok-studio.meta.json          # { saved_at, verified, profile_dir }
+```
+
+The `data/sessions/` directory is in `.gitignore`.
+
+## Staying Logged In
+
+The persistent Chromium profile stores the full browser state on disk, just like a regular Chrome installation. This means:
+
+- Cookies survive browser close/reopen
+- No session age timer — the profile stays valid as long as TikTok doesn't expire the session server-side
+- After each upload, a `storageState.json` backup is saved as a fallback
+
+## Troubleshooting: TikTok Forces Re-auth
+
+If the upload script reports "Not logged in":
+
+1. **Run bootstrap again:** `npm run tiktok:bootstrap`
+2. **Common causes:**
+   - TikTok expired the session (typically after 7+ days of inactivity)
+   - TikTok detected unusual activity and forced re-auth
+   - The profile directory was deleted or moved
+3. **Nuclear option:** Delete the profile and re-bootstrap:
+   ```bash
+   rm -rf data/sessions/tiktok-studio-profile
+   npm run tiktok:bootstrap
+   ```
 
 ## Upload Pack Format
 
@@ -97,30 +134,33 @@ npm run tiktok:upload -- --pack-dir <dir> --video-url <url>
 
 ## Steps Performed
 
-1. Load storageState from `data/sessions/tiktok-studio.storageState.json`
-2. Open TikTok Studio upload page (headed Chromium)
-3. Check login — if expired, pause for manual login + re-save session
+1. Open persistent Chromium profile (`data/sessions/tiktok-studio-profile/`)
+2. Navigate to TikTok Studio upload page
+3. Check login — if expired, fail fast with "run bootstrap" message
 4. Upload video file via hidden `<input type="file">`
-5. Fill description field (caption + hashtags) in contenteditable editor
-6. Open product link selector, search by product ID, select first result
-7. Save as draft (default) or click Post (`--post` flag)
-8. Save updated storageState after success
-9. Output JSON result to stdout
+5. Dismiss any overlay modals (TikTok promo/cookie banners)
+6. Fill description field (caption + hashtags) in contenteditable editor
+7. Open product/link selector, search by product ID, select first result
+8. Save as draft (default) or click Post (`--post` flag)
+9. Save storageState backup after success
+10. Output JSON result to stdout
 
 ## Architecture
 
-Two scripts in `web/scripts/publish/tiktok-studio/`:
+Three scripts in `web/scripts/publish/tiktok-studio/`:
 
 ```
 web/scripts/publish/tiktok-studio/
-  bootstrap-session.ts  → manual login, save storageState
-  upload.ts             → load storageState, drive upload automation
+  bootstrap-session.ts  → persistent context login, save profile
+  upload.ts             → persistent context upload automation
+  check-session.ts      → persistent context login check
 ```
 
-Both reuse step-function modules from `skills/tiktok-studio-uploader/`:
+All reuse step-function modules from `skills/tiktok-studio-uploader/`:
 
 ```
 skills/tiktok-studio-uploader/
+  browser.ts      → openUploadStudio()/closeSession() with persistent context
   upload.ts       → uploadVideoFile(page, videoPath)
   description.ts  → fillDescription(page, description)
   product.ts      → attachProductByID(page, productId)
@@ -129,9 +169,13 @@ skills/tiktok-studio-uploader/
   types.ts        → TIMEOUTS, CONFIG, StudioUploadInput, StudioUploadResult
 ```
 
-### Legacy Script
+### Environment Variables
 
-The original single-file script at `web/scripts/publish/tiktok-studio-upload.ts` combines bootstrap + upload in one file (pauses for login on first run). The new split scripts are preferred for automation.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TIKTOK_BROWSER_PROFILE` | `data/sessions/tiktok-studio-profile` | Chromium profile directory |
+| `TIKTOK_STUDIO_UPLOAD_URL` | `https://www.tiktok.com/tiktokstudio/upload` | Upload page URL |
+| `TIKTOK_HEADLESS` | `false` | Set `true` for headless (must already be logged in) |
 
 ## Limitations
 

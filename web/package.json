@@ -34,6 +34,7 @@
     "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts",
     "tiktok:bootstrap": "tsx scripts/publish/tiktok-studio/bootstrap-session.ts",
     "tiktok:upload": "tsx scripts/publish/tiktok-studio/upload.ts",
+    "tiktok:check-session": "tsx scripts/publish/tiktok-studio/check-session.ts",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
     "ff:build": "tsx scripts/creator-style/build.ts"
   },

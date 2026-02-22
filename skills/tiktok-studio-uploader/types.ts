@@ -3,7 +3,6 @@
  */
 
 import * as path from 'path';
-import * as os from 'os';
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 

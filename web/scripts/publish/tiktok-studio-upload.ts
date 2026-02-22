@@ -21,7 +21,6 @@ import { chromium, type BrowserContext, type Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as readline from 'readline';
 
 // Reuse step functions from existing skill modules
 import { uploadVideoFile } from '../../../skills/tiktok-studio-uploader/upload.js';
@@ -41,7 +40,10 @@ import { TIMEOUTS } from '../../../skills/tiktok-studio-uploader/types.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
-const STATE_DIR = path.join(os.homedir(), '.flashflow');
+const PROFILE_DIR =
+  process.env.TIKTOK_BROWSER_PROFILE ||
+  path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile');
+const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
 const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
@@ -186,33 +188,19 @@ async function downloadVideo(url: string, destDir: string): Promise<string> {
 // ─── Browser + login ────────────────────────────────────────────────────────
 
 async function launchBrowser(): Promise<{
-  browser: Awaited<ReturnType<typeof chromium.launch>>;
   context: BrowserContext;
   page: Page;
 }> {
-  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.mkdirSync(PROFILE_DIR, { recursive: true });
 
-  const browser = await chromium.launch({
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
+    viewport: { width: 1280, height: 900 },
     args: ['--disable-blink-features=AutomationControlled'],
   });
 
-  let context: BrowserContext;
-  const ctxOpts: Record<string, any> = { viewport: { width: 1280, height: 900 } };
-
-  if (fs.existsSync(STATE_FILE)) {
-    try {
-      context = await browser.newContext({ ...ctxOpts, storageState: STATE_FILE });
-    } catch {
-      console.log('Saved session invalid, starting fresh...');
-      context = await browser.newContext(ctxOpts);
-    }
-  } else {
-    context = await browser.newContext(ctxOpts);
-  }
-
-  const page = await context.newPage();
-  return { browser, context, page };
+  const page = context.pages()[0] || (await context.newPage());
+  return { context, page };
 }
 
 async function isLoggedIn(page: Page): Promise<boolean> {
@@ -229,82 +217,6 @@ async function isLoggedIn(page: Page): Promise<boolean> {
     }
   }
   return true;
-}
-
-/**
- * Wait for login to complete. Uses polling (checks page every 5s) so it
- * works in both interactive terminals and background/piped contexts.
- * Also accepts Enter on stdin as an early signal when available.
- */
-function waitForLogin(page: Page): Promise<boolean> {
-  const MAX_WAIT_MS = 300_000; // 5 minutes
-  const POLL_INTERVAL = 5_000;
-
-  console.log('\n' + '='.repeat(55));
-  console.log('  LOGIN REQUIRED');
-  console.log('  Log in to TikTok in the browser window.');
-  console.log('  Waiting — will auto-detect when login completes...');
-  console.log('='.repeat(55) + '\n');
-
-  return new Promise((resolve) => {
-    let resolved = false;
-    const startTime = Date.now();
-
-    // Poll page for login completion
-    const pollTimer = setInterval(async () => {
-      if (resolved) return;
-      try {
-        const loggedIn = await isLoggedIn(page);
-        if (loggedIn) {
-          resolved = true;
-          clearInterval(pollTimer);
-          if (rl) rl.close();
-          console.log('Login detected! Continuing...\n');
-          resolve(true);
-          return;
-        }
-      } catch {
-        // page may be navigating — ignore
-      }
-      if (Date.now() - startTime > MAX_WAIT_MS) {
-        resolved = true;
-        clearInterval(pollTimer);
-        if (rl) rl.close();
-        console.log('Timed out waiting for login.');
-        resolve(false);
-      }
-    }, POLL_INTERVAL);
-
-    // Also listen on stdin if available (interactive terminal)
-    let rl: readline.Interface | null = null;
-    try {
-      if (process.stdin.isTTY || !process.stdin.readableEnded) {
-        rl = readline.createInterface({ input: process.stdin });
-        rl.on('line', (line) => {
-          if (resolved) return;
-          if (line.trim().toLowerCase() === 'quit') {
-            resolved = true;
-            clearInterval(pollTimer);
-            rl?.close();
-            resolve(false);
-          } else {
-            resolved = true;
-            clearInterval(pollTimer);
-            rl?.close();
-            resolve(true);
-          }
-        });
-        rl.on('error', () => {}); // ignore stdin errors (e.g. /dev/null)
-      }
-    } catch {
-      // stdin not available — polling only
-    }
-  });
-}
-
-async function saveSession(context: BrowserContext): Promise<void> {
-  await context.storageState({ path: STATE_FILE });
-  console.log(`Session saved to ${STATE_FILE}`);
 }
 
 /**
@@ -443,8 +355,8 @@ async function main() {
   console.log(`Description: ${pack.description.slice(0, 80)}...`);
   console.log(`Product ID:  ${pack.productId}`);
 
-  // 3. Launch browser with storageState
-  const { browser, context, page } = await launchBrowser();
+  // 3. Launch browser with persistent context
+  const { context, page } = await launchBrowser();
 
   try {
     // 4. Navigate to upload page
@@ -454,20 +366,12 @@ async function main() {
     });
     await page.waitForTimeout(3_000);
 
-    // 5. Login check — poll for login completion (works in background tasks too)
+    // 5. Login check — fail fast, direct to bootstrap
     if (!(await isLoggedIn(page))) {
-      const ok = await waitForLogin(page);
-      if (!ok) {
-        console.log('Aborted.');
-        process.exit(1);
-      }
-      await saveSession(context);
-      // Re-navigate after login
-      await page.goto(UPLOAD_URL, {
-        waitUntil: 'domcontentloaded',
-        timeout: TIMEOUTS.navigation,
-      });
-      await page.waitForTimeout(3_000);
+      console.error('\nNot logged in. Run bootstrap first:');
+      console.error('  npm run tiktok:bootstrap\n');
+      await context.close();
+      process.exit(1);
     }
 
     // 6. Upload video
@@ -511,15 +415,18 @@ async function main() {
       }
     }
 
-    // Persist session for next run
-    await saveSession(context);
+    // Save storageState as backup
+    try {
+      fs.mkdirSync(STATE_DIR, { recursive: true });
+      await context.storageState({ path: STATE_FILE });
+    } catch { /* non-critical */ }
 
     console.log('\nDone.');
   } catch (err: any) {
     console.error(`\nError: ${err.message}`);
     process.exit(1);
   } finally {
-    await browser.close();
+    await context.close();
   }
 }
 

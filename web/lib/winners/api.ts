@@ -208,10 +208,14 @@ export async function createWinner(
 export async function updateWinner(
   winnerId: string,
   userId: string,
-  input: UpdateWinnerInput
+  input: UpdateWinnerInput,
+  aiAnalysis?: Record<string, unknown>
 ): Promise<{ winner: Winner | null; error?: string }> {
   try {
     const dbRow = toDbColumns(input);
+    if (aiAnalysis) {
+      dbRow.ai_analysis = aiAnalysis;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('winners_bank')

@@ -42,6 +42,9 @@ const UpdateWinnerSchema = z.object({
 
   // Timestamps
   posted_at: z.string().optional(),
+
+  // AI analysis (JSON object stored directly)
+  ai_analysis: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -116,17 +119,22 @@ export async function PATCH(
 
   // Filter out undefined values to only update what was provided
   const input: UpdateWinnerInput = {};
+  let aiAnalysis: Record<string, unknown> | undefined;
   for (const [key, value] of Object.entries(parsed.data)) {
     if (value !== undefined) {
-      (input as Record<string, unknown>)[key] = value;
+      if (key === 'ai_analysis') {
+        aiAnalysis = value as Record<string, unknown>;
+      } else {
+        (input as Record<string, unknown>)[key] = value;
+      }
     }
   }
 
-  if (Object.keys(input).length === 0) {
+  if (Object.keys(input).length === 0 && !aiAnalysis) {
     return createApiErrorResponse('BAD_REQUEST', 'No valid fields to update', 400, correlationId);
   }
 
-  const { winner, error } = await updateWinner(id, authContext.user.id, input);
+  const { winner, error } = await updateWinner(id, authContext.user.id, input, aiAnalysis);
 
   if (error) {
     console.error(`[${correlationId}] Failed to update winner:`, error);
@@ -142,6 +150,7 @@ export async function PATCH(
   const response = NextResponse.json({
     ok: true,
     winner,
+    message: 'Saved successfully',
     correlation_id: correlationId,
   });
   response.headers.set('x-correlation-id', correlationId);

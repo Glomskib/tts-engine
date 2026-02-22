@@ -211,7 +211,7 @@ export default function WinnersPage() {
     checkAuth();
   }, [router]);
 
-  // Fetch winners
+  // Fetch winners — normalizes winners_bank columns to ReferenceVideo field names
   const fetchWinners = useCallback(async () => {
     setLoading(true);
     try {
@@ -222,10 +222,26 @@ export default function WinnersPage() {
       const res = await fetch(`/api/winners?${params.toString()}`);
       const data = await res.json();
       if (data.ok) {
-        const mapped = (data.winners || []).map((w: ReferenceVideo) => ({
-          ...w,
-          status: w.status || 'processing',
-          category: w.category || null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped = (data.winners || []).map((w: any): ReferenceVideo => ({
+          id: w.id,
+          url: w.url || w.video_url || '',
+          submitted_by: w.submitted_by || w.user_id || '',
+          notes: w.notes || null,
+          category: w.category || w.product_category || null,
+          status: w.status || 'ready',
+          error_message: w.error_message || null,
+          created_at: w.created_at,
+          reference_extracts: w.reference_extracts || [],
+          transcript_text: w.transcript_text || w.full_script || undefined,
+          views: w.views ?? w.view_count ?? undefined,
+          likes: w.likes ?? w.like_count ?? undefined,
+          comments: w.comments ?? w.comment_count ?? undefined,
+          shares: w.shares ?? w.share_count ?? undefined,
+          ai_analysis: w.ai_analysis || undefined,
+          title: w.title || undefined,
+          creator_handle: w.creator_handle || undefined,
+          thumbnail_url: w.thumbnail_url || undefined,
         }));
         setWinners(mapped);
       }
@@ -380,34 +396,34 @@ export default function WinnersPage() {
     setAnalysisError(null);
 
     try {
-      // Build payload with all fields
+      // Build payload with winners_bank column names
       const payload: Record<string, unknown> = {};
 
-      // Transcript
+      // Transcript → full_script (winners_bank column)
       if (editForm.transcript.trim()) {
-        payload.transcript_text = editForm.transcript.trim();
+        payload.full_script = editForm.transcript.trim();
       }
 
-      // Category
+      // Category → product_category (winners_bank column)
       if (editForm.category) {
-        payload.category = editForm.category;
+        payload.product_category = editForm.category;
       }
 
-      // Metrics (convert strings to numbers)
+      // Metrics → *_count fields (winners_bank columns)
       if (editForm.views) {
-        payload.views = parseInt(editForm.views, 10);
+        payload.view_count = parseInt(editForm.views, 10);
       }
       if (editForm.likes) {
-        payload.likes = parseInt(editForm.likes, 10);
+        payload.like_count = parseInt(editForm.likes, 10);
       }
       if (editForm.comments) {
-        payload.comments = parseInt(editForm.comments, 10);
+        payload.comment_count = parseInt(editForm.comments, 10);
       }
       if (editForm.shares) {
-        payload.shares = parseInt(editForm.shares, 10);
+        payload.share_count = parseInt(editForm.shares, 10);
       }
 
-      // AI Analysis (if we have one)
+      // AI Analysis
       if (analysisResult) {
         payload.ai_analysis = analysisResult;
       }

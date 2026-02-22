@@ -231,27 +231,125 @@ async function isLoggedIn(page: Page): Promise<boolean> {
   return true;
 }
 
-function waitForEnter(prompt: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    console.log('\n' + '='.repeat(55));
-    console.log('  ' + prompt);
-    console.log('  Press Enter when done, or type "quit" to abort.');
-    console.log('='.repeat(55) + '\n');
+/**
+ * Wait for login to complete. Uses polling (checks page every 5s) so it
+ * works in both interactive terminals and background/piped contexts.
+ * Also accepts Enter on stdin as an early signal when available.
+ */
+function waitForLogin(page: Page): Promise<boolean> {
+  const MAX_WAIT_MS = 300_000; // 5 minutes
+  const POLL_INTERVAL = 5_000;
 
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-    rl.on('line', (line) => {
-      rl.close();
-      resolve(line.trim().toLowerCase() !== 'quit');
-    });
+  console.log('\n' + '='.repeat(55));
+  console.log('  LOGIN REQUIRED');
+  console.log('  Log in to TikTok in the browser window.');
+  console.log('  Waiting — will auto-detect when login completes...');
+  console.log('='.repeat(55) + '\n');
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    const startTime = Date.now();
+
+    // Poll page for login completion
+    const pollTimer = setInterval(async () => {
+      if (resolved) return;
+      try {
+        const loggedIn = await isLoggedIn(page);
+        if (loggedIn) {
+          resolved = true;
+          clearInterval(pollTimer);
+          if (rl) rl.close();
+          console.log('Login detected! Continuing...\n');
+          resolve(true);
+          return;
+        }
+      } catch {
+        // page may be navigating — ignore
+      }
+      if (Date.now() - startTime > MAX_WAIT_MS) {
+        resolved = true;
+        clearInterval(pollTimer);
+        if (rl) rl.close();
+        console.log('Timed out waiting for login.');
+        resolve(false);
+      }
+    }, POLL_INTERVAL);
+
+    // Also listen on stdin if available (interactive terminal)
+    let rl: readline.Interface | null = null;
+    try {
+      if (process.stdin.isTTY || !process.stdin.readableEnded) {
+        rl = readline.createInterface({ input: process.stdin });
+        rl.on('line', (line) => {
+          if (resolved) return;
+          if (line.trim().toLowerCase() === 'quit') {
+            resolved = true;
+            clearInterval(pollTimer);
+            rl?.close();
+            resolve(false);
+          } else {
+            resolved = true;
+            clearInterval(pollTimer);
+            rl?.close();
+            resolve(true);
+          }
+        });
+        rl.on('error', () => {}); // ignore stdin errors (e.g. /dev/null)
+      }
+    } catch {
+      // stdin not available — polling only
+    }
   });
 }
 
 async function saveSession(context: BrowserContext): Promise<void> {
   await context.storageState({ path: STATE_FILE });
   console.log(`Session saved to ${STATE_FILE}`);
+}
+
+/**
+ * Dismiss any overlay modals that TikTok shows (e.g. after upload,
+ * promo dialogs, cookie banners). Tries close/dismiss buttons, then
+ * Escape key, then clicks outside the modal.
+ */
+async function dismissModals(page: Page): Promise<void> {
+  const dismissSelectors = [
+    'div.TUXModal-overlay button[aria-label="Close"]',
+    'div.TUXModal-overlay button:has-text("Close")',
+    'div.TUXModal-overlay button:has-text("Got it")',
+    'div.TUXModal-overlay button:has-text("OK")',
+    'div.TUXModal-overlay button:has-text("Skip")',
+    'div.TUXModal-overlay button:has-text("Dismiss")',
+    'button[aria-label="Close"]',
+    '[class*="modal"] button[aria-label="Close"]',
+    '[class*="modal"] button:has-text("Got it")',
+  ];
+
+  for (const sel of dismissSelectors) {
+    try {
+      const btn = page.locator(sel).first();
+      if (await btn.isVisible({ timeout: 1_500 })) {
+        await btn.click();
+        console.log(`      Dismissed modal via: ${sel}`);
+        await page.waitForTimeout(1_000);
+        return;
+      }
+    } catch {
+      // next
+    }
+  }
+
+  // Fallback: press Escape
+  try {
+    const modalVisible = await page.locator('div.TUXModal-overlay').first().isVisible({ timeout: 1_000 });
+    if (modalVisible) {
+      await page.keyboard.press('Escape');
+      console.log('      Dismissed modal via Escape');
+      await page.waitForTimeout(1_000);
+    }
+  } catch {
+    // no modal — continue
+  }
 }
 
 // ─── Dry run ────────────────────────────────────────────────────────────────
@@ -356,11 +454,9 @@ async function main() {
     });
     await page.waitForTimeout(3_000);
 
-    // 5. Login check — pause for manual login if needed
+    // 5. Login check — poll for login completion (works in background tasks too)
     if (!(await isLoggedIn(page))) {
-      const ok = await waitForEnter(
-        'LOGIN REQUIRED — log in to TikTok in the browser window.',
-      );
+      const ok = await waitForLogin(page);
       if (!ok) {
         console.log('Aborted.');
         process.exit(1);
@@ -378,6 +474,9 @@ async function main() {
     console.log('\n[1/4] Uploading video...');
     await uploadVideoFile(page, videoPath);
     console.log('      Video accepted.');
+
+    // Dismiss any overlay modal that TikTok shows after upload
+    await dismissModals(page);
 
     // 7. Fill description + hashtags
     console.log('[2/4] Filling description + hashtags...');

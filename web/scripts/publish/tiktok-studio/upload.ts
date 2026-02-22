@@ -10,8 +10,13 @@
  * Uses launchPersistentContext (same profile as tiktok:bootstrap) so
  * login survives across runs.  Also saves storageState as backup.
  *
- * FAIL-FAST: If not logged in, exits immediately with clear error.
+ * FAIL-FAST: If not logged in, exits immediately with EXIT CODE 42.
  * NO repeated login attempts in non-interactive mode.
+ *
+ * Exit codes:
+ *   0  = success (drafted or posted)
+ *   1  = generic error
+ *   42 = session invalid — needs manual `npm run tiktok:bootstrap`
  *
  * Usage:
  *   npm run tiktok:upload -- --pack-dir <dir>
@@ -273,8 +278,9 @@ async function main() {
   // 3. Open browser via skill module (persistent context + session checks)
   const session = await openUploadStudio();
   if (!session) {
-    // openUploadStudio already logged the reason and wrote session-invalid event
-    process.exit(1);
+    // openUploadStudio already logged the reason
+    // Exit 42 = session invalid, needs manual bootstrap — do NOT retry
+    process.exit(42);
   }
 
   const { page } = session;

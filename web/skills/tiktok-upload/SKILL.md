@@ -49,12 +49,23 @@ npm run tiktok:upload -- --pack-dir ~/FlashFlowUploads/2026-02-22/skeptic/produc
 npm run tiktok:upload-pack -- --dry-run
 ```
 
+## Exit Codes
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| **0** | Success (drafted or posted) | None |
+| **1** | Generic error (timeout, selector miss) | May retry next run |
+| **42** | Session invalid — needs manual login | **Stop.** Run `npm run tiktok:bootstrap` |
+
 ## Nightly Cron (Example)
 
 ```bash
-# Crontab entry — upload at 8 PM Pacific
-0 20 * * * cd ~/tts-engine/web && npm run tiktok:upload-pack -- --video-id <uuid> --mode draft >> /tmp/tiktok-upload.log 2>&1
+# Crontab entry — upload at 8 PM Pacific, halt on session expiry
+0 20 * * * cd ~/tts-engine/web && TIKTOK_HEADLESS=true npm run tiktok:upload-pack -- --video-id <uuid> --mode draft >> /tmp/tiktok-upload.log 2>&1; [ $? -eq 42 ] && echo "SESSION EXPIRED — needs bootstrap" >> /tmp/tiktok-upload.log
 ```
+
+**Important:** Exit 42 means the session is dead. Do NOT add retry logic —
+every attempt will fail the same way until `npm run tiktok:bootstrap` is run manually.
 
 ## Product Linking
 

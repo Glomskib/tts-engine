@@ -83,15 +83,28 @@ npm run tiktok:upload -- --pack-dir <dir> --post
 | `FF_API_URL` | `http://localhost:3000` | FlashFlow API base URL for status callbacks |
 | `FF_API_TOKEN` | _(empty)_ | FlashFlow API token for status callbacks |
 
+## Exit Codes
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| **0** | Success (drafted or posted) | None |
+| **1** | Generic error (timeout, selector miss, etc.) | May retry on next run |
+| **42** | **Session invalid — needs manual login** | **Stop retrying.** Run `npm run tiktok:bootstrap` |
+
 ## Fail-Fast Behavior
 
 **Non-negotiable**: The uploader NEVER retries login attempts. If the session is expired:
 
 1. Prints: `TikTok session expired — run npm run tiktok:bootstrap (one-time phone approval).`
-2. Saves error screenshot to `data/tiktok-errors/<timestamp>/`
-3. Exits with code 1
+2. Saves error report to `data/tiktok-errors/<timestamp>/` (once per cooldown window)
+3. Sets cooldown lockfile to suppress repeated alerts (default: 6 hours)
+4. **Exits with code 42** — callers must treat this as a hard stop, not a retryable error
 
 Only the bootstrap script (`tiktok:bootstrap`) runs in interactive mode where human intervention is allowed.
+
+### Cooldown Guardrail
+
+After the first exit-42 event, subsequent runs within `SESSION_INVALID_COOLDOWN_HOURS` (default 6) exit silently with code 42 — no error report, no noise. Clear with: `rm data/sessions/.session-invalid.lock`
 
 ## Upload Pack Input
 

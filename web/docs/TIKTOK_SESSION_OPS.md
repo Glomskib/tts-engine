@@ -18,8 +18,9 @@ Covers bootstrap login, autonomous runs, session rotation, and troubleshooting.
 9. [Rotate / Rebootstrap Session](#rotate--rebootstrap-session)
 10. [Backup & Restore](#backup--restore)
 11. [Safety Notes](#safety-notes)
-12. [Mission Control & Telegram](#mission-control--telegram)
-13. [Overnight Autonomy Readiness Checklist](#overnight-autonomy-readiness-checklist)
+12. [Orchestrator / Caller Behavior](#orchestrator--caller-behavior)
+13. [Mission Control & Telegram](#mission-control--telegram)
+14. [Overnight Autonomy Readiness Checklist](#overnight-autonomy-readiness-checklist)
 
 ---
 
@@ -403,6 +404,101 @@ rm -f ~/tts-engine/web/data/sessions/.session-invalid.lock
 6. **The storageState JSON is a backup, not the source of truth.**
    The persistent profile directory is what Playwright actually uses.
    StorageState is saved by bootstrap for emergency restore scenarios.
+
+---
+
+## Orchestrator / Caller Behavior
+
+Any system that invokes the upload scripts **must** handle exit 42 correctly.
+This section documents how each caller type should behave.
+
+### All Entry Points Emit Exit 42
+
+| Script | npm Command | Exit 42 |
+|--------|-------------|---------|
+| `upload-from-pack.ts` | `tiktok:upload-pack` | Yes (+ cooldown) |
+| `upload.ts` | `tiktok:upload` | Yes |
+| `check-session.ts` | `tiktok:check-session` | Exit 2 (not 42 — check-only, no upload) |
+
+### Cron / Launchd
+
+```bash
+# Correct: halt on exit 42, do not retry
+0 20 * * * cd ~/tts-engine/web && TIKTOK_HEADLESS=true pnpm run tiktok:upload-pack -- --video-id "$VID" >> /tmp/tiktok.log 2>&1; [ $? -eq 42 ] && echo "[$(date)] SESSION EXPIRED" >> /tmp/tiktok-blocked.log
+```
+
+**Do NOT** add retry loops around the upload command. Exit 42 means every
+subsequent attempt will fail identically until a human bootstraps.
+
+### OpenClaw Agent (Flash)
+
+The Flash agent invokes upload via Telegram skill phrases ("upload video X").
+The agent receives the CLI exit code and should:
+
+1. **Exit 0** → report success to user
+2. **Exit 1** → report error, may suggest retry
+3. **Exit 42** → report "Session expired. Run `npm run tiktok:bootstrap` on the Mac." **Do not retry.**
+
+The SKILL.md files document this behavior for the agent.
+
+### Shell Wrapper Scripts
+
+```bash
+#!/bin/bash
+set -euo pipefail
+cd ~/tts-engine/web
+
+TIKTOK_HEADLESS=true pnpm run tiktok:upload-pack -- "$@"
+rc=$?
+
+case $rc in
+  0)  echo "OK" ;;
+  42) echo "BLOCKED: session expired — needs manual bootstrap"
+      exit 42 ;;
+  *)  echo "ERROR: exit $rc"
+      exit $rc ;;
+esac
+```
+
+### Batch / Multi-Video Loops
+
+If processing multiple videos in a loop, **stop the entire batch** on exit 42:
+
+```bash
+for vid in "${VIDEO_IDS[@]}"; do
+  TIKTOK_HEADLESS=true pnpm run tiktok:upload-pack -- --video-id "$vid"
+  rc=$?
+  if [ $rc -eq 42 ]; then
+    echo "Session expired after $vid — stopping batch."
+    exit 42
+  fi
+done
+```
+
+### Summary: Exit Code Contract
+
+```
+┌──────────────────────────┐
+│  Caller invokes upload   │
+└────────────┬─────────────┘
+             │
+     ┌───────▼───────┐
+     │  exit code?    │
+     └───┬───┬───┬───┘
+         │   │   │
+    0    │   │   │  42
+  ┌──────┘   │   └──────────┐
+  │     1    │              │
+  │   ┌──────┘              │
+  ▼   ▼                     ▼
+ OK  Error               BLOCKED
+      │                     │
+      │ may retry           │ DO NOT retry
+      │ next scheduled      │ emit one alert
+      │ run                 │ stop batch
+      │                     │ wait for human
+      ▼                     ▼
+```
 
 ---
 

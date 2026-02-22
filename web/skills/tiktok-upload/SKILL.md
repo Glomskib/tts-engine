@@ -1,19 +1,60 @@
 # TikTok Upload Skill
 
-Upload a video to TikTok Shop with product linking.
+Upload a video to TikTok Shop with product linking — fully automated via browser automation.
 
 ## Prerequisites
 
 - Video must be in `ready_to_post` status
 - Video must have a `final_video_url`
 - A TikTok product ID must be resolvable (see Product Linking below)
+- One-time TikTok login via bootstrap (see Setup below)
 
-## Workflow
+## Setup (One-Time)
 
-1. Run `pnpm run publish:pack -- --video-id <uuid>` to generate the upload pack
-2. Open the output folder (`~/FlashFlowUploads/YYYY-MM-DD/<lane>/<slug>/`)
-3. Follow `checklist.md` for step-by-step upload instructions
-4. Use `product.txt` for TikTok Shop product linking
+```bash
+cd ~/tts-engine/web
+
+# 1. Bootstrap — log in to TikTok once with phone approval
+npm run tiktok:bootstrap
+
+# 2. Verify session is valid
+npm run tiktok:check-session
+```
+
+After bootstrap, the persistent Chromium profile stores your session.
+Subsequent runs reuse it — no daily phone approval needed.
+
+## Automated Workflow
+
+```bash
+cd ~/tts-engine/web
+
+# Generate upload pack (fetches video, caption, hashtags, product ID)
+npm run publish:pack -- --video-id <uuid>
+
+# Upload to TikTok as draft (default, recommended for review)
+npm run tiktok:upload-pack -- --video-id <uuid>
+npm run tiktok:upload-pack -- --video-id <uuid> --mode draft
+
+# Upload and post immediately
+npm run tiktok:upload-pack -- --video-id <uuid> --mode post
+
+# Upload from local pack directory
+npm run tiktok:upload-pack -- ~/FlashFlowUploads/2026-02-22/skeptic/product-slug
+
+# Upload using the pack-dir based script
+npm run tiktok:upload -- --pack-dir ~/FlashFlowUploads/2026-02-22/skeptic/product-slug
+
+# Dry run — verify selectors without uploading
+npm run tiktok:upload-pack -- --dry-run
+```
+
+## Nightly Cron (Example)
+
+```bash
+# Crontab entry — upload at 8 PM Pacific
+0 20 * * * cd ~/tts-engine/web && npm run tiktok:upload-pack -- --video-id <uuid> --mode draft >> /tmp/tiktok-upload.log 2>&1
+```
 
 ## Product Linking
 
@@ -38,16 +79,6 @@ curl "/api/flashflow/products?q=mushroom" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## Product linking by product_id search in TikTok Studio
-
-When posting from your phone in TikTok Studio:
-
-1. Open the video upload screen
-2. Tap "Add product" or "TikTok Shop"
-3. Search for the product using the `tiktok_product_id` from `product.txt`
-4. Select the matching product to link it to your video
-5. Complete the post
-
 ## Files in Upload Pack
 
 | File | Contents |
@@ -61,3 +92,33 @@ When posting from your phone in TikTok Studio:
 | `product.txt` | Product display name + TikTok product ID |
 | `checklist.md` | Step-by-step upload checklist |
 | `metadata.json` | Full upload pack as JSON (includes product block) |
+
+## Session Recovery
+
+If the session expires (typically 7+ days):
+
+```bash
+# Re-run bootstrap — one-time phone approval
+npm run tiktok:bootstrap
+
+# Verify
+npm run tiktok:check-session
+```
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "TikTok session expired" error | Session cookie expired or profile dir not used | Run `npm run tiktok:bootstrap` |
+| Keeps opening login page | Profile directory mismatch | Check `TIKTOK_BROWSER_PROFILE` env var |
+| Video processing never completes | Large video or slow upload | Increase timeout (default: 20 min), check video format |
+| Product search returns no results | Wrong product ID | Verify `tiktok_product_id` in FlashFlow matches TikTok Shop |
+| Captcha/2FA detected | TikTok anti-automation | Run bootstrap in headed mode, solve manually |
+| "File input not found" | TikTok UI changed | Run `--dry-run` to check selectors, update `selectors.ts` |
+
+## Important Notes
+
+- **Drafts are device-bound**: TikTok drafts saved via browser are only visible on the Mac where they were created
+- **This Mac is the target device**: Automation runs locally, can be cron-triggered
+- **No headless for production**: Default is headed (`TIKTOK_HEADLESS=false`) to avoid detection
+- **Error screenshots**: Saved to `data/tiktok-errors/<timestamp>/` on failure

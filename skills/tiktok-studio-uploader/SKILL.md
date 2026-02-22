@@ -9,66 +9,96 @@ Modular Playwright functions, each handling one step of the upload flow:
 ```
 skills/tiktok-studio-uploader/
   index.ts            # Re-exports + runUploadToDraft() orchestrator with retry logic
-  types.ts            # StudioUploadInput, StudioUploadResult, config
+  types.ts            # StudioUploadInput, StudioUploadResult, config, getLaunchOptions()
   selectors.ts        # All TikTok Studio selectors (role/text-based)
-  browser.ts          # openUploadStudio() — persistent profile, login check, captcha/2FA detection
-  upload.ts           # uploadVideoFile() — set file input, wait for processing
+  browser.ts          # openUploadStudio() — persistent profile, fail-fast login, captcha/2FA detection
+  upload.ts           # uploadVideoFile() — set file input, wait for processing (20min timeout)
   description.ts      # fillDescription() — clear + type into contenteditable
   product.ts          # attachProductByID() — search → select first → confirm
   draft.ts            # saveDraft() / publishPost() — save or post, detect success, extract ID
   status-callback.ts  # reportStatus() — call FlashFlow API to record drafted/posted status
 ```
 
+## Session Persistence
+
+Uses `chromium.launchPersistentContext(profileDir)` — the entire Chromium profile (cookies, localStorage, IndexedDB) survives across runs. User logs in once via bootstrap; no daily phone approval needed.
+
+**Stable fingerprint** across all runs:
+- Viewport: 1280x900
+- Locale: en-US
+- Timezone: America/Los_Angeles
+- User agent: Pinned Chrome 131 UA string
+- Automation flags disabled
+
 ## Quick Start
 
 ```bash
-cd /Users/brandonglomski/tts-engine/web
+cd ~/tts-engine/web
 
-# 1. First run — log in manually (browser opens headed)
-npx tsx scripts/tiktok-studio/upload-from-pack.ts --dry-run
+# 1. One-time login — opens headed browser for phone approval
+npm run tiktok:bootstrap
 
-# 2. Upload from local pack directory (draft-only, default)
-npx tsx scripts/tiktok-studio/upload-from-pack.ts ~/FlashFlowUploads/2026-02-21/skeptic/product-slug
+# 2. Verify session
+npm run tiktok:check-session
 
-# 3. Upload via video_id (fetches pack from API)
-npx tsx scripts/tiktok-studio/upload-from-pack.ts --video-id abc123
+# 3. Upload from video ID (fetches pack from API, saves as draft)
+npm run tiktok:upload-pack -- --video-id <uuid>
 
-# 4. Post immediately instead of saving as draft
-POST_MODE=post npx tsx scripts/tiktok-studio/upload-from-pack.ts ~/FlashFlowUploads/2026-02-21/skeptic/product-slug
+# 4. Upload from local pack directory
+npm run tiktok:upload-pack -- ~/FlashFlowUploads/2026-02-22/skeptic/product-slug
 
-# 5. Post immediately (alternative env var)
-POST_NOW=true npx tsx scripts/tiktok-studio/upload-from-pack.ts --video-id abc123
+# 5. Post immediately instead of draft
+npm run tiktok:upload-pack -- --video-id <uuid> --mode post
 
-# 6. Dry run — check selectors and blocker detection
-npx tsx scripts/tiktok-studio/upload-from-pack.ts --dry-run
-```
-
-Or via npm scripts:
-
-```bash
-npm run tiktok:upload-pack -- ~/FlashFlowUploads/2026-02-21/skeptic/product-slug
-npm run tiktok:upload-pack -- --video-id abc123
+# 6. Dry run — check selectors and login without uploading
 npm run tiktok:upload-pack -- --dry-run
 ```
+
+Or via the pack-dir script:
+
+```bash
+npm run tiktok:upload -- --pack-dir ~/FlashFlowUploads/2026-02-22/skeptic/product-slug
+npm run tiktok:upload -- --pack-dir <dir> --post
+```
+
+## npm Scripts
+
+| Script | Description |
+|--------|-------------|
+| `tiktok:bootstrap` | One-time interactive login (headed browser, phone approval) |
+| `tiktok:check-session` | Verify persistent login is still valid (exit 0=yes, 2=no) |
+| `tiktok:upload-pack` | Upload from pack dir or --video-id (main runner) |
+| `tiktok:upload` | Upload from --pack-dir (alternative entry point) |
+| `publish:pack` | Generate upload pack from video ID (writes files to disk) |
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `TIKTOK_STUDIO_UPLOAD_URL` | `https://www.tiktok.com/tiktokstudio/upload` | Upload page URL |
-| `TIKTOK_BROWSER_PROFILE` | `~/.openclaw/browser-profiles/tiktok-studio` | Persistent Chromium profile dir |
+| `TIKTOK_BROWSER_PROFILE` | `data/sessions/tiktok-studio-profile` | Persistent Chromium profile dir |
 | `TIKTOK_HEADLESS` | `false` | Headless mode (login must already be cached) |
 | `POST_MODE` | `draft` | `draft` or `post` — whether to save as draft or publish |
 | `POST_NOW` | `false` | Set to `true` to override POST_MODE to `post` |
 | `FF_API_URL` | `http://localhost:3000` | FlashFlow API base URL for status callbacks |
 | `FF_API_TOKEN` | _(empty)_ | FlashFlow API token for status callbacks |
 
+## Fail-Fast Behavior
+
+**Non-negotiable**: The uploader NEVER retries login attempts. If the session is expired:
+
+1. Prints: `TikTok session expired — run npm run tiktok:bootstrap (one-time phone approval).`
+2. Saves error screenshot to `data/tiktok-errors/<timestamp>/`
+3. Exits with code 1
+
+Only the bootstrap script (`tiktok:bootstrap`) runs in interactive mode where human intervention is allowed.
+
 ## Upload Pack Input
 
 The uploader reads from a local directory with these files:
 
 ```
-~/FlashFlowUploads/2026-02-21/<lane>/<slug>/
+~/FlashFlowUploads/2026-02-22/<lane>/<slug>/
 ├── video.mp4         # Video file (required)
 ├── caption.txt       # TikTok caption text (required)
 ├── hashtags.txt      # Hashtags, one per line or space-separated (required)
@@ -87,11 +117,17 @@ Or via `--video-id <id>` which fetches the pack from the FlashFlow API and downl
 ### `runUploadToDraft(input, shouldPost?)`
 Full pipeline orchestrator with retry logic (up to 2 retries for timeout/navigation errors).
 
-### `openUploadStudio()`
-Opens Chromium with persistent profile. Navigates to upload page. Detects captcha, 2FA, and other blockers. In headed mode, pauses for human intervention. Returns `StudioSession | null`.
+### `openUploadStudio(opts?)`
+Opens Chromium with persistent profile. Navigates to upload page. Detects captcha, 2FA, and other blockers.
+- `opts.interactive = false` (default): fail-fast, no human intervention
+- `opts.interactive = true` (bootstrap only): pauses for manual resolution
+Returns `StudioSession | null`.
+
+### `getLaunchOptions(opts?)`
+Returns consistent Playwright launch options with stable fingerprint (viewport, locale, timezone, UA).
 
 ### `uploadVideoFile(page, videoPath)`
-Sets the video file on the hidden `<input type="file">`. Waits for caption editor to appear. Throws on timeout.
+Sets the video file on the hidden `<input type="file">`. Waits for caption editor to appear (20 min timeout). Throws on timeout.
 
 ### `fillDescription(page, description)`
 Finds contenteditable editor, clears it, types full description (caption + hashtags) line by line.
@@ -122,28 +158,26 @@ Non-blocking callback to FlashFlow API:
 
 Status values: `drafted` | `posted` | `login_required` | `error`
 
-## Blocker Detection
-
-The uploader detects and handles:
-- **Captcha**: iframe/element-based captcha detection
-- **2FA**: Two-factor authentication prompts
-- **Blockers**: Rate limits, account suspension, error pages
-- **Login**: Not-logged-in state
-
-In headed mode (`TIKTOK_HEADLESS=false`, the default), the script pauses and waits for the user to resolve the blocker manually. In headless mode, it fails with a clear error message.
-
-## Browser Profile
-
-Persistent Chromium profile at `~/.openclaw/browser-profiles/tiktok-studio`. User logs in once manually in headed mode; session persists across runs.
-
 ## Retry Logic
 
-The orchestrator retries up to 2 times for transient errors (timeouts, navigation failures, missing selectors). Non-retryable errors (login required, success) return immediately.
+The orchestrator retries up to 2 times for transient errors (timeouts, navigation failures, missing selectors). Non-retryable errors (login required, success) return immediately. 3-second delay between retries.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "TikTok session expired" | Session cookie expired | Run `npm run tiktok:bootstrap` |
+| Keeps opening login page | Profile dir mismatch or session expired | Check `TIKTOK_BROWSER_PROFILE`, re-run bootstrap |
+| Video processing never completes | Large video / slow connection | Wait — timeout is 20 minutes. Check video format (MP4 required) |
+| Product search returns none | Wrong product ID | Verify `tiktok_product_id` in FlashFlow matches TikTok Shop |
+| Captcha/2FA in automated run | TikTok anti-automation triggered | Run bootstrap again to clear, solve manually |
+| "File input not found" | TikTok Studio UI changed | Run `--dry-run` to audit selectors, update `selectors.ts` |
 
 ## Limitations
 
 - **Selector fragility**: TikTok Studio UI changes may break selectors. Run `--dry-run` to verify.
 - **No credential storage**: User logs in once in the persistent browser profile.
-- **No CAPTCHA bypass**: User completes captchas manually in headed mode.
-- **Drafts are device-local**: TikTok drafts saved via browser are only visible on that device.
+- **No CAPTCHA bypass**: User completes captchas manually during bootstrap only.
+- **Drafts are device-local**: TikTok drafts saved via browser are only visible on this Mac.
 - **Cover text**: Not yet automated (TikTok Studio cover editor is complex). Set manually if needed.
+- **Headed mode required**: Default is non-headless to avoid TikTok Cloudflare detection.

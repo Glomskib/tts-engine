@@ -83,8 +83,8 @@ fi
 # ── 4. Bootstrap meta ─────────────────────────────────────────────────────────
 echo "$TAG Checking bootstrap meta..."
 if [ -f "$META_FILE" ]; then
-  saved_at=$(grep -o '"saved_at":"[^"]*"' "$META_FILE" | head -1 | cut -d'"' -f4)
-  verified=$(grep -o '"verified":[a-z]*' "$META_FILE" | head -1 | cut -d: -f2)
+  saved_at=$(grep -o '"saved_at"[[:space:]]*:[[:space:]]*"[^"]*"' "$META_FILE" | head -1 | sed 's/.*"\([^"]*\)"$/\1/' || echo "unknown")
+  verified=$(grep -o '"verified"[[:space:]]*:[[:space:]]*[a-z]*' "$META_FILE" | head -1 | sed 's/.*:[[:space:]]*//' || echo "unknown")
   echo "  Last bootstrap: $saved_at (verified=$verified)"
 else
   echo "  WARN: No meta file — bootstrap may not have been run"

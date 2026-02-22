@@ -10,7 +10,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 async function run() {
-  const baseUrl = process.env.MC_BASE_URL || 'http://127.0.0.1:3100';
+  const baseUrl = process.env.MC_BASE_URL || 'https://mc.flashflowai.com';
   const token = process.env.MC_API_TOKEN;
 
   if (!token) {

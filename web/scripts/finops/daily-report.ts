@@ -35,7 +35,7 @@ async function postMCDoc(input: {
   lane?: string;
   tags?: string[];
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
-  const baseUrl = process.env.MC_BASE_URL || 'http://127.0.0.1:3100';
+  const baseUrl = process.env.MC_BASE_URL || 'https://mc.flashflowai.com';
   const token = process.env.MC_API_TOKEN;
 
   if (!token) {

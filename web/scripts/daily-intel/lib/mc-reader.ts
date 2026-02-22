@@ -4,7 +4,7 @@
  * Reuses same auth/URL patterns as mc-poster.ts.
  */
 
-const MC_BASE_URL_DEFAULT = 'http://127.0.0.1:3100';
+const MC_BASE_URL_DEFAULT = 'https://mc.flashflowai.com';
 
 export interface MCDocument {
   id: string;

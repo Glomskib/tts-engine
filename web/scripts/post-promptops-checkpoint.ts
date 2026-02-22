@@ -10,7 +10,7 @@
 
 export {};
 
-const MC_BASE_URL = process.env.MC_BASE_URL || 'http://127.0.0.1:3100';
+const MC_BASE_URL = process.env.MC_BASE_URL || 'https://mc.flashflowai.com';
 const MC_TOKEN = process.env.MC_API_TOKEN;
 
 if (!MC_TOKEN) {

@@ -5,7 +5,7 @@
 
 import type { MCPostResult } from './types';
 
-const MC_BASE_URL_DEFAULT = 'http://127.0.0.1:3100';
+const MC_BASE_URL_DEFAULT = 'https://mc.flashflowai.com';
 const TAG = '[daily-virals:mc]';
 
 function getMCBaseUrl(): string {

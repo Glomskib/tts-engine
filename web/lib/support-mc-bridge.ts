@@ -1,4 +1,4 @@
-const MC_BASE_URL = process.env.MISSION_CONTROL_BASE_URL || process.env.MC_BASE_URL || 'http://127.0.0.1:3100';
+const MC_BASE_URL = process.env.MISSION_CONTROL_BASE_URL || process.env.MC_BASE_URL || 'https://mc.flashflowai.com';
 const MC_AGENT_TOKEN = process.env.MISSION_CONTROL_AGENT_TOKEN || 'mc-agent-token-2026';
 
 /**

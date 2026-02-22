@@ -58,7 +58,16 @@ export async function saveDraft(page: Page): Promise<DraftResult> {
     return { saved: false, errors };
   }
 
-  await draftBtn.click();
+  // Try normal click first; if blocked by lingering overlay, escalate to force/JS click
+  try {
+    await draftBtn.click({ timeout: 2_000 });
+  } catch {
+    try {
+      await draftBtn.click({ force: true });
+    } catch {
+      await draftBtn.evaluate((el: HTMLElement) => el.click());
+    }
+  }
   await page.waitForTimeout(3_000);
 
   // Check for success
@@ -100,7 +109,16 @@ export async function publishPost(page: Page): Promise<DraftResult> {
     return saveDraft(page);
   }
 
-  await postBtn.click();
+  // Try normal click first; if blocked by lingering overlay, escalate to force/JS click
+  try {
+    await postBtn.click({ timeout: 2_000 });
+  } catch {
+    try {
+      await postBtn.click({ force: true });
+    } catch {
+      await postBtn.evaluate((el: HTMLElement) => el.click());
+    }
+  }
   await page.waitForTimeout(3_000);
 
   // Check for success

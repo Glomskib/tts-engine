@@ -14,9 +14,9 @@ skills/tiktok-studio-uploader/
   browser.ts          # openUploadStudio() — persistent profile, fail-fast login, captcha/2FA detection
   upload.ts           # uploadVideoFile() — set file input, wait for processing (20min timeout)
   description.ts      # fillDescription() — clear + type into contenteditable
-  product.ts          # attachProductByID() — search → select first → confirm
-  draft.ts            # saveDraft() / publishPost() — save or post, detect success, extract ID
-  status-callback.ts  # reportStatus() — call FlashFlow API to record drafted/posted status
+  product.ts          # attachProductByID() — two-step modal: Add link → product search → select → confirm
+  draft.ts            # saveDraft() / publishPost() — save or post, with force-click overlay bypass
+  status-callback.ts  # reportStatus() — mark-posted API call for posts, local log for drafts
 ```
 
 ## Session Persistence
@@ -133,15 +133,21 @@ Sets the video file on the hidden `<input type="file">`. Waits for caption edito
 Finds contenteditable editor, clears it, types full description (caption + hashtags) line by line.
 
 ### `attachProductByID(page, productId)`
-Clicks "Add product" → fills search → selects **first result only** → confirms. Returns `{ linked, errors }`.
+Handles TikTok Studio's two-step product linking modal:
+1. Clicks "Add link" → "Add link" modal appears with "Link type: Products"
+2. Clicks "Next" → product search panel opens inside floating portal
+3. Searches by product ID → selects **first result only** → clicks "Next" to confirm
+4. Dismisses lingering modal overlays after confirmation
+
+All clicks use `force:true` to bypass TikTok's `product-table-container` and `TUXModal-overlay` elements that intercept pointer events. Returns `{ linked, errors }`.
 
 ### `saveDraft(page)` / `publishPost(page)`
-Clicks "Save as draft" or "Post". Waits for success. Extracts `tiktok_draft_id` from URL. Returns `{ saved, tiktok_draft_id?, url?, errors }`.
+Clicks "Save as draft" or "Post" with escalating click strategy (normal → force → JS click) to bypass lingering modal overlays. Waits for success. Extracts `tiktok_draft_id` from URL. Returns `{ saved, tiktok_draft_id?, url?, errors }`.
 
 ### `reportStatus({ video_id, result })`
 Non-blocking callback to FlashFlow API:
-- **posted**: calls `POST /api/videos/[id]/mark-posted` with `{ posted_url, platform: "tiktok" }`
-- **drafted**: calls `PATCH /api/videos/[id]/execution` to record a `tiktok_draft_saved` event
+- **posted**: calls `POST /api/videos/[id]/mark-posted` with `{ posted_url, platform: "tiktok" }` — transitions video to "posted" status
+- **drafted**: logs locally only — video stays "ready_to_post" until actually published
 
 ## Output
 

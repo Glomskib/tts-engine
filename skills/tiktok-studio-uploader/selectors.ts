@@ -36,26 +36,57 @@ export const ADD_PRODUCT_BTN: SelectorList = [
   '[class*="product"] button',
 ];
 
+/** "Add link" modal — step 1: link type selection + Next button */
+export const LINK_TYPE_MODAL_NEXT: SelectorList = [
+  // The modal has a "Next" button at the bottom
+  '.TUXModal-overlay button:has-text("Next")',
+  '[class*="Modal"] button:has-text("Next")',
+  '[role="dialog"] button:has-text("Next")',
+  'button:has-text("Next")',
+];
+
+/** Search input inside the floating product search panel (step 2) */
 export const PRODUCT_SEARCH_INPUT: SelectorList = [
-  'input[placeholder*="Search"]',
-  'input[placeholder*="search"]',
-  'input[placeholder*="product"]',
-  'input[type="search"]',
+  // Scoped to floating portal — avoids matching background "Search locations"
+  '[data-floating-ui-portal] input[placeholder="Search products"]',
+  '[data-floating-ui-portal] input[placeholder*="Search"]',
+  '[data-floating-ui-portal] input[type="search"]',
+  // Fallback: anywhere on page but specific placeholder
+  'input[placeholder="Search products"]',
+  'input[placeholder*="search product"]',
 ];
 
 export const PRODUCT_RESULT_ROW: SelectorList = [
+  // Floating portal table rows (checkboxes in product list)
+  '[data-floating-ui-portal] table tbody tr:first-child',
+  '[data-floating-ui-portal] [class*="product"] [class*="item"]:first-child',
+  '[data-floating-ui-portal] [class*="search-result"]:first-child',
+  '[data-floating-ui-portal] [role="listbox"] [role="option"]:first-of-type',
+  '[data-floating-ui-portal] [class*="list"] [class*="row"]:first-child',
+  // Fallback: unscoped
   '[class*="product"] [class*="item"]:first-child',
   '[class*="search-result"]:first-child',
   'table tbody tr:first-child',
   '[role="listbox"] [role="option"]:first-of-type',
-  '[class*="list"] [class*="row"]:first-child',
 ];
 
+/** Confirm button in the floating product panel (step 2 — after selecting) */
 export const PRODUCT_CONFIRM_BTN: SelectorList = [
+  '[data-floating-ui-portal] button:has-text("Next")',
+  '[data-floating-ui-portal] button:has-text("Confirm")',
+  '[data-floating-ui-portal] button:has-text("Done")',
+  '[data-floating-ui-portal] button:has-text("Add")',
   'button:has-text("Confirm")',
   'button:has-text("Done")',
-  'button:has-text("Next")',
-  'button:has-text("Add")',
+];
+
+// ─── Joyride / Tutorial Overlay ─────────────────────────────────────────────
+
+export const JOYRIDE_DISMISS: SelectorList = [
+  'button:has-text("Got it")',
+  'button:has-text("Skip")',
+  '[class*="joyride"] button',
+  '[class*="react-joyride"] button',
 ];
 
 // ─── Draft / Post ───────────────────────────────────────────────────────────

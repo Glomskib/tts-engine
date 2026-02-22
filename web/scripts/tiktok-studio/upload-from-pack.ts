@@ -181,8 +181,8 @@ async function fetchWithRetry(url: string, init?: RequestInit, retries = 3): Pro
 }
 
 async function fetchPackFromApi(videoId: string): Promise<RawPackData> {
-  const baseUrl = CONFIG.flashflowApiUrl;
-  const apiKey = CONFIG.flashflowApiToken || process.env.SERVICE_API_KEY;
+  const baseUrl = CONFIG.flashflowApiUrl || process.env.FF_API_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const apiKey = CONFIG.flashflowApiToken || process.env.FF_API_TOKEN || process.env.SERVICE_API_KEY;
 
   if (!apiKey) {
     throw new Error('FF_API_TOKEN or SERVICE_API_KEY env var required when using --video-id');

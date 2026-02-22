@@ -316,6 +316,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     idempotent: false,
   });
 
+  // Audit: posted_detected — tracks user association for rogue-video debugging
+  supabaseAdmin.from("video_events").insert({
+    video_id: videoId,
+    event_type: "posted_detected",
+    correlation_id: correlationId,
+    actor,
+    from_status: transitionResult.previous_status || "ready_to_post",
+    to_status: "posted",
+    details: {
+      posted_url: body.posted_url,
+      platform,
+      posted_by: postedBy,
+      actor_user_id: actor,
+    },
+  }).then(
+    () => {},
+    (err: unknown) => { console.error("Failed to write posted_detected event:", err); }
+  );
+
   // Auto-increment brand's videos_this_month quota counter (non-blocking)
   try {
     const { data: videoWithProduct } = await supabaseAdmin

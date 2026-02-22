@@ -120,10 +120,15 @@ export async function GET(request: Request) {
       query = query.eq("account_id", accountId);
     }
 
-    // Data isolation: Non-admin users only see their own videos
-    // Check if client_user_id column exists
-    if (existingColumns.has("client_user_id") && !isAdmin) {
-      query = query.eq("client_user_id", user.id);
+    // Data isolation: Always scope by client_user_id.
+    // Admins can opt out with scope=all to see cross-user videos.
+    const scopeParam = searchParams.get("scope");
+    if (existingColumns.has("client_user_id")) {
+      if (scopeParam === "all" && isAdmin) {
+        // Admin explicitly requested cross-user view — no client_user_id filter
+      } else {
+        query = query.eq("client_user_id", user.id);
+      }
     }
 
     // Apply claimed filter only if columns exist

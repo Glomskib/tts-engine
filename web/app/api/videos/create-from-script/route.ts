@@ -54,6 +54,7 @@ export async function POST(request: Request) {
   // Create video with script metadata — use valid recording_status values only
   const insertPayload: Record<string, unknown> = {
     account_id: authContext.user.id,
+    client_user_id: authContext.user.id,
     status: 'needs_edit',
     recording_status: 'NEEDS_SCRIPT',
     google_drive_url: '',
@@ -81,23 +82,39 @@ export async function POST(request: Request) {
     .eq('id', script_id)
     .eq('user_id', authContext.user.id);
 
-  // Write video event (fire-and-forget)
-  await supabaseAdmin.from('video_events').insert({
-    video_id: video.id,
-    event_type: 'created_from_script',
-    correlation_id: `script-approval-${Date.now()}`,
-    actor: authContext.user.id,
-    from_status: null,
-    to_status: 'NEEDS_SCRIPT',
-    details: {
-      script_id,
-      title: title || null,
-      product_name: product_name || null,
-      product_brand: product_brand || null,
+  // Write audit events (fire-and-forget)
+  const correlationId = `script-approval-${Date.now()}`;
+  supabaseAdmin.from('video_events').insert([
+    {
+      video_id: video.id,
+      event_type: 'created_from_script',
+      correlation_id: correlationId,
+      actor: authContext.user.id,
+      from_status: null,
+      to_status: 'NEEDS_SCRIPT',
+      details: {
+        script_id,
+        title: title || null,
+        product_name: product_name || null,
+        product_brand: product_brand || null,
+      },
     },
-  }).then(
+    {
+      video_id: video.id,
+      event_type: 'pipeline_added',
+      correlation_id: correlationId,
+      actor: authContext.user.id,
+      from_status: null,
+      to_status: 'NEEDS_SCRIPT',
+      details: {
+        source: 'script_library',
+        script_id,
+        client_user_id: authContext.user.id,
+      },
+    },
+  ]).then(
     () => {},
-    (err: unknown) => { console.error('Failed to write video event:', err); }
+    (err: unknown) => { console.error('Failed to write video events:', err); }
   );
 
   return NextResponse.json({

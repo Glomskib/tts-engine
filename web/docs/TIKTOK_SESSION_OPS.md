@@ -615,7 +615,7 @@ done
 
 - **Telegram bot** uses long-polling via OpenClaw (`getUpdates`).
   There is no webhook registered. (See `web/CLAUDE.md` for webhook safety.)
-- **Mission Control** is an HTTP API on `127.0.0.1:3100` that the agent
+- **Mission Control** is an HTTP API at `https://mc.flashflowai.com` that the agent
   calls (`mc event`, `mc claim`, `mc heartbeat`). It does not auto-trigger uploads.
 - **Cron** is empty (`~/.openclaw/cron/jobs.json` has no scheduled jobs).
 - **Upload triggers** are user-initiated via Telegram skill phrases

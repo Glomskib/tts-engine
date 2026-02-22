@@ -74,7 +74,7 @@ DAILY_VIRALS_TRENDING_URL=https://thedailyvirals.com/trending
 
 # Optional (already set for other pipelines)
 MC_API_TOKEN=mc-admin-token-2026
-MC_BASE_URL=http://127.0.0.1:3100
+MC_BASE_URL=https://mc.flashflowai.com
 CRON_SECRET=your-cron-secret
 
 # Optional — DB persistence

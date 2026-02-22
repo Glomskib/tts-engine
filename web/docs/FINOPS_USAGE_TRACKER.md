@@ -71,7 +71,7 @@ Spend thresholds and alerts.
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Service role key (for inserts) |
 | `ANTHROPIC_API_KEY` | for generation | Used by generation endpoints |
 | `OPENAI_API_KEY` | for generation | Used by generation endpoints |
-| `MC_BASE_URL` | no | Mission Control URL (default: `http://127.0.0.1:3100`) |
+| `MC_BASE_URL` | no | Mission Control URL (default: `https://mc.flashflowai.com`) |
 | `MC_API_TOKEN` | no | MC auth token for posting reports |
 | `FINOPS_INGEST_KEY` | no | Shared secret for OpenClaw ingestion endpoint |
 

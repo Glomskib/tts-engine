@@ -71,7 +71,7 @@ If scraping is blocked, a `BLOCKED` doc is posted instead (tags: `blocked, needs
 | `DAILY_VIRALS_PASSWORD` | For live scrape | Login password |
 | `DAILY_VIRALS_TRENDING_URL` | For live scrape | Trending page URL |
 | `MC_API_TOKEN` | For MC posting | Mission Control Bearer token |
-| `MC_BASE_URL` | No (default: `http://127.0.0.1:3100`) | MC base URL |
+| `MC_BASE_URL` | No (default: `https://mc.flashflowai.com`) | MC base URL |
 | `NEXT_PUBLIC_SUPABASE_URL` | For DB persistence | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | For DB persistence | Supabase service role key |
 

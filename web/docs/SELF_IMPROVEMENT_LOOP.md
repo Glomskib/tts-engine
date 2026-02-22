@@ -103,7 +103,7 @@ The report includes:
 Set these environment variables:
 
 ```
-MC_BASE_URL=http://127.0.0.1:3100   # default
+MC_BASE_URL=https://mc.flashflowai.com   # default
 MC_API_TOKEN=your-admin-token-here
 ```
 

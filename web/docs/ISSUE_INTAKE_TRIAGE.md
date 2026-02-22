@@ -58,7 +58,7 @@ No body required. Pulls all `status=new` issues (up to 20), then for each:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FF_ISSUES_SECRET` | Yes | Shared secret for intake/triage API auth |
-| `MC_BASE_URL` | No | Mission Control URL (default: `http://127.0.0.1:3100`) |
+| `MC_BASE_URL` | No | Mission Control URL (default: `https://mc.flashflowai.com`) |
 | `MC_API_TOKEN` | No | Mission Control bearer token |
 
 ## Smoke Test

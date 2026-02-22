@@ -68,7 +68,7 @@ pnpm run job:zebby-agent
 |----------|----------|---------|
 | `ANTHROPIC_API_KEY` | Recommended | Claude Haiku for AI generation. Without it, pipeline exports article list only. |
 | `MC_API_TOKEN` | Recommended | Mission Control auth. Without it, pipeline exports locally only. |
-| `MC_BASE_URL` | Optional | MC endpoint (default: `http://127.0.0.1:3100`) |
+| `MC_BASE_URL` | Optional | MC endpoint (default: `https://mc.flashflowai.com`) |
 | `BUFFER_ACCESS_TOKEN` | Optional | Buffer.com post scheduling |
 | `BUFFER_PROFILE_IDS` | Optional | Comma-separated Buffer profile IDs |
 

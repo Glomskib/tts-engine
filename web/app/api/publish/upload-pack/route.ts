@@ -35,6 +35,9 @@ interface ScriptLockedJson {
   cta_overlay?: string;
   overlays?: string[];
   beats?: { dialogue?: string; on_screen_text?: string; action?: string; t?: string }[];
+  // Product linking
+  product_key?: string;
+  tiktok_product_id?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -99,21 +102,63 @@ export async function POST(request: NextRequest) {
     return createApiErrorResponse("FINAL_ASSET_REQUIRED", "Video has no final_video_url", 422, correlationId);
   }
 
-  // Fetch product name
+  // Extract script data — prefer script_locked_json, fall back to scripts table
+  const lockedJson = (video.script_locked_json || {}) as ScriptLockedJson;
+
+  // Resolve tiktok_product_id:
+  //   a) video/script has tiktok_product_id directly (locked json or products table)
+  //   b) product_key in locked json → ff_products lookup
+  //   c) else 400
+  let tiktokProductId: string | undefined;
+  let productKey: string | undefined;
+  let productDisplayName: string | undefined;
+
+  // (a) Check locked json first for an explicit tiktok_product_id
+  if (lockedJson.tiktok_product_id) {
+    tiktokProductId = lockedJson.tiktok_product_id;
+  }
+
+  // (a) Check products table via video.product_id
   let productName = "Unknown Product";
   if (video.product_id) {
     const { data: product } = await supabaseAdmin
       .from("products")
-      .select("name, primary_link")
+      .select("name, primary_link, tiktok_product_id")
       .eq("id", video.product_id)
       .single();
     if (product) {
       productName = product.name;
+      if (!tiktokProductId && product.tiktok_product_id) {
+        tiktokProductId = product.tiktok_product_id;
+      }
     }
   }
 
-  // Extract script data — prefer script_locked_json, fall back to scripts table
-  const lockedJson = (video.script_locked_json || {}) as ScriptLockedJson;
+  // (b) If still no tiktok_product_id, try product_key → ff_products lookup
+  if (!tiktokProductId && lockedJson.product_key) {
+    productKey = lockedJson.product_key;
+    const { data: ffProduct } = await supabaseAdmin
+      .from("ff_products")
+      .select("tiktok_product_id, display_name, key")
+      .eq("key", productKey)
+      .single();
+    if (ffProduct) {
+      tiktokProductId = ffProduct.tiktok_product_id;
+      productDisplayName = ffProduct.display_name || undefined;
+      productKey = ffProduct.key;
+      // Touch last_used_at (non-blocking)
+      supabaseAdmin
+        .from("ff_products")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("key", productKey)
+        .then(() => {});
+    }
+  }
+
+  // (c) No tiktok_product_id resolved
+  if (!tiktokProductId) {
+    return createApiErrorResponse("MISSING_PRODUCT_ID", "No tiktok_product_id found on video, product, or ff_products", 400, correlationId);
+  }
   let caption = "";
   let hashtags: string[] = [];
   let hook = lockedJson.hook || lockedJson.hook_line || "";
@@ -203,6 +248,11 @@ export async function POST(request: NextRequest) {
     references,
     video_url: video.final_video_url,
     video_path: video.final_video_url,
+    product: {
+      ...(productKey ? { key: productKey } : {}),
+      ...(productDisplayName ? { display_name: productDisplayName } : {}),
+      tiktok_product_id: tiktokProductId,
+    },
   };
 
   // Post SOP doc to Mission Control (non-blocking)

@@ -7,7 +7,8 @@ import {
 } from '@/lib/api-errors';
 import { postMCDoc } from '@/lib/flashflow/mission-control';
 import { buildZebbyScenes } from '@/lib/zebby/scene-builder';
-import type { ZebbySceneOutput } from '@/lib/zebby/scene-builder';
+import type { ZebbySceneOutput, BuildScenesResult } from '@/lib/zebby/scene-builder';
+import { logUsageEventAsync } from '@/lib/finops/log-usage';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
     parsed.data;
 
   // Generate scenes
-  let scenes: ZebbySceneOutput;
+  let scenes: BuildScenesResult;
   try {
     scenes = await buildZebbyScenes(intel_text, {
       include_storyboard,
@@ -117,6 +118,24 @@ export async function POST(request: Request) {
       500,
       correlationId,
     );
+  }
+
+  // ── FinOps: log usage (fire-and-forget) ──
+  if (scenes.usage) {
+    logUsageEventAsync({
+      source: 'flashflow',
+      lane: "Zebby's World",
+      provider: 'anthropic',
+      model: scenes.model ?? 'claude-sonnet-4-6',
+      input_tokens: scenes.usage.input_tokens,
+      output_tokens: scenes.usage.output_tokens,
+      user_id: authContext.user.id,
+      endpoint: '/api/zebby/scenes/from-intel',
+      template_key: 'zebby_scenes',
+      agent_id: 'zebby-scene-builder',
+      correlation_id: correlationId,
+      latency_ms: scenes.latency_ms,
+    });
   }
 
   // Post to Mission Control if requested

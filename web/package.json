@@ -24,10 +24,13 @@
     "job:zebby-agent:dry": "tsx scripts/daily-intel/agents/zebby-agent.ts --dry-run",
     "job:weekly-digest": "tsx scripts/daily-intel/agents/weekly-digest.ts",
     "job:weekly-digest:dry": "tsx scripts/daily-intel/agents/weekly-digest.ts --dry-run",
+    "trending:daily-virals": "tsx scripts/trending/daily-virals/run.ts",
+    "trending:daily-virals:dry": "tsx scripts/trending/daily-virals/run.ts --dry-run",
     "finops:rollup": "tsx scripts/finops/rollup-daily.ts",
     "finops:daily": "tsx scripts/finops/daily-report.ts",
     "finops:weekly": "tsx scripts/finops/weekly-report.ts",
-    "test:finops": "tsx scripts/test-finops/smoke.ts"
+    "test:finops": "tsx scripts/test-finops/smoke.ts",
+    "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

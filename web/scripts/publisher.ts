@@ -128,7 +128,7 @@ function buildChecklist(pack: UploadPack): string {
     "3. Paste caption from `caption.txt`",
     "4. Add hashtags from `hashtags.txt`",
     "5. Set cover text from `cover.txt` (if using text overlay)",
-    "6. Enable **TikTok Shop** link if applicable",
+    "6. Link TikTok Shop product using ID from `product.txt`",
     "7. Post!",
     "",
     "## Post-Upload",
@@ -186,6 +186,13 @@ async function main() {
   fs.writeFileSync(path.join(outDir, "hook.txt"), pack.hook, "utf-8");
   fs.writeFileSync(path.join(outDir, "cta.txt"), pack.cta, "utf-8");
   fs.writeFileSync(path.join(outDir, "checklist.md"), buildChecklist(pack), "utf-8");
+  if (pack.product) {
+    const productLines = [
+      pack.product.display_name || pack.product.key || "Product",
+      `TikTok Product ID: ${pack.product.tiktok_product_id}`,
+    ];
+    fs.writeFileSync(path.join(outDir, "product.txt"), productLines.join("\n"), "utf-8");
+  }
   fs.writeFileSync(path.join(outDir, "metadata.json"), JSON.stringify(pack, null, 2), "utf-8");
 
   console.log("[publisher] Text files written");

@@ -131,15 +131,21 @@ Generate exactly 3 scenes and 3 matching image_prompts (scene_index 0, 1, 2).`;
 // Main builder
 // ---------------------------------------------------------------------------
 
+export interface BuildScenesResult extends ZebbySceneOutput {
+  usage?: { input_tokens: number; output_tokens: number };
+  model?: string;
+  latency_ms?: number;
+}
+
 export async function buildZebbyScenes(
   intelText: string,
   options: BuildScenesOptions = {},
-): Promise<ZebbySceneOutput> {
+): Promise<BuildScenesResult> {
   const systemPrompt = buildSystemPrompt(options);
 
   const userPrompt = `Transform this EDS intel into Zebby's World scenes:\n\n---\n${intelText}\n---`;
 
-  const { parsed } = await callAnthropicJSON<Omit<ZebbySceneOutput, 'disclaimer'>>(
+  const { parsed, raw } = await callAnthropicJSON<Omit<ZebbySceneOutput, 'disclaimer'>>(
     userPrompt,
     {
       systemPrompt,
@@ -154,5 +160,8 @@ export async function buildZebbyScenes(
   return {
     ...parsed,
     disclaimer: STANDARD_DISCLAIMER,
+    usage: raw.usage,
+    model: raw.model,
+    latency_ms: raw.latency_ms,
   };
 }

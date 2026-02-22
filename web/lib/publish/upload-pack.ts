@@ -17,4 +17,9 @@ export interface UploadPack {
   references: string[];       // Source URLs
   video_url: string;          // Public or signed URL for download
   video_path: string;         // Supabase Storage path or external URL
+  product?: {                 // TikTok Shop product link
+    key?: string;
+    display_name?: string;
+    tiktok_product_id: string;
+  };
 }

@@ -31,6 +31,7 @@
     "finops:daily": "tsx scripts/finops/daily-report.ts",
     "finops:weekly": "tsx scripts/finops/weekly-report.ts",
     "test:finops": "tsx scripts/test-finops/smoke.ts",
+    "tiktok:product-map": "tsx scripts/tiktok-studio/product-map.ts",
     "tiktok:nightly": "tsx scripts/tiktok-studio/nightly-upload.ts",
     "tiktok:nightly-draft": "tsx scripts/tiktok-studio/nightly-draft.ts",
     "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts",

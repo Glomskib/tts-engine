@@ -540,26 +540,6 @@ export default function ProductsPage() {
     }));
   };
 
-  // Handle image upload for Add Product drawer
-  const handleAddImageUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) return;
-    if (file.size > 5 * 1024 * 1024) { setAddError('Image must be smaller than 5MB'); return; }
-    setAddImageUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('bucket', 'product-images');
-      const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'Upload failed');
-      setAddImageUrl(data.data.url);
-    } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Failed to upload image');
-    } finally {
-      setAddImageUploading(false);
-    }
-  };
-
   // Handle image file upload
   const handleImageUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {

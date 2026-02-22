@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { sendTelegramNotification } from "@/lib/telegram";
+import { computeFingerprint, findByFingerprint, createIssue, logIssueAction } from "@/lib/flashflow/issues";
 
 export const runtime = "nodejs";
 
@@ -229,6 +230,29 @@ export async function POST(request: NextRequest) {
       `<b>Device:</b> ${device}` +
       (screenshotUrl ? `\n<b>Screenshot:</b> ${screenshotUrl}` : "")
     );
+
+    // Forward to issue intake for AI triage (fire-and-forget)
+    const issueText = `[${type}] ${title}: ${description}`;
+    const fingerprint = computeFingerprint("feedback", issueText);
+    const existing = await findByFingerprint(fingerprint);
+    if (!existing) {
+      createIssue({
+        source: "feedback",
+        reporter: authContext.user.email || undefined,
+        message_text: issueText,
+        context_json: {
+          feedback_id: saved.id,
+          type,
+          page: pageUrl || undefined,
+          plan: planId || undefined,
+          device,
+          screenshot_url: screenshotUrl || undefined,
+        },
+        fingerprint,
+      }).then((issue) => {
+        if (issue) logIssueAction(issue.id, "intake", { source: "feedback", feedback_id: saved.id }).catch(() => {});
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       ok: true,

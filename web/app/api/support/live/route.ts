@@ -185,14 +185,14 @@ export async function POST(request: NextRequest) {
       .eq("id", activeThreadId);
 
     // Route intent side effects (MC bug post, user_feedback insert, thread tagging)
-    classifyAndRoute(activeThreadId, intentResult, userEmail || visitor_email).catch((err) => {
+    classifyAndRoute(activeThreadId!, intentResult, userEmail || visitor_email || null).catch((err) => {
       console.error("[support/live] Intent routing error:", err);
     });
 
     // Cross-post to MC on new threads (fire-and-forget)
     if (isNewThread) {
       const threadSubject = subject || message.slice(0, 100);
-      crossPostToMC(activeThreadId, threadSubject, userEmail || visitor_email);
+      crossPostToMC(activeThreadId!, threadSubject, userEmail || visitor_email || null);
     }
 
     return NextResponse.json({

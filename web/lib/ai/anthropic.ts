@@ -127,15 +127,15 @@ export async function callAnthropicAPI(
   }
 
   // Extract text from content blocks
-  const textBlock = data.content?.find(
-    (b: { type: string; text?: string }) => b.type === 'text',
-  );
+  const contentBlocks = data.content as Array<{ type: string; text?: string }> | undefined;
+  const textBlock = contentBlocks?.find((b) => b.type === 'text');
   const text = textBlock?.text || '';
 
   // Anthropic returns exact token counts in the response
+  const usageData = data.usage as { input_tokens?: number; output_tokens?: number } | undefined;
   const usage = {
-    input_tokens: data.usage?.input_tokens ?? 0,
-    output_tokens: data.usage?.output_tokens ?? 0,
+    input_tokens: usageData?.input_tokens ?? 0,
+    output_tokens: usageData?.output_tokens ?? 0,
   };
 
   // Fire-and-forget usage tracking — never blocks the caller

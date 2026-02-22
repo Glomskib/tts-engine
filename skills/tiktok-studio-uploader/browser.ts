@@ -163,7 +163,7 @@ async function waitForHumanIntervention(
   console.log('  (Press Enter once done, or type "quit" to abort)\n');
 
   // Start a background poll + stdin listener race
-  const MAX_WAIT_MS = 300_000; // 5 minutes max
+  const MAX_WAIT_MS = 600_000; // 10 minutes max
   const POLL_INTERVAL = 5_000;
   const startTime = Date.now();
 

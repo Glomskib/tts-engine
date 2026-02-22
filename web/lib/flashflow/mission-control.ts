@@ -7,7 +7,7 @@
  * Does NOT depend on the ~/.openclaw/bin/mc CLI.
  */
 
-const MC_BASE_URL_DEFAULT = 'http://127.0.0.1:3100';
+const MC_BASE_URL_DEFAULT = 'https://mc.flashflowai.com';
 
 interface MCDocInput {
   title: string;

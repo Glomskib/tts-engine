@@ -1,14 +1,14 @@
 #!/usr/bin/env tsx
 // @ts-nocheck — standalone CLI script, not part of Next.js build
 /**
- * TikTok Studio Upload — storageState-based browser automation.
+ * TikTok Studio Upload — persistent-profile browser automation.
  *
  * Reads an upload-pack directory (caption.txt, hashtags.txt, product.txt,
  * metadata.json, video.mp4) and drives TikTok Studio via Playwright to
  * upload, fill description, attach product, and save as draft or post.
  *
- * Session is loaded from data/sessions/tiktok-studio.storageState.json
- * (created by bootstrap-session.ts).
+ * Uses launchPersistentContext (same profile as tiktok:bootstrap) so
+ * login survives across runs.  Also saves storageState as backup.
  *
  * Usage:
  *   npm run tiktok:upload -- --pack-dir <dir>
@@ -16,10 +16,12 @@
  *   npm run tiktok:upload -- --video-url <url> --pack-dir <dir>
  */
 
+import { config } from 'dotenv';
+config({ path: '.env.local' });
+
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as readline from 'readline';
 
 // Reuse step functions from existing skill modules
 import { uploadVideoFile } from '../../../../skills/tiktok-studio-uploader/upload.js';
@@ -32,9 +34,14 @@ import { TIMEOUTS } from '../../../../skills/tiktok-studio-uploader/types.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
-const SESSION_DIR = path.join(process.cwd(), 'data/sessions');
-const SESSION_PATH = path.join(SESSION_DIR, 'tiktok-studio.storageState.json');
-const META_PATH = path.join(SESSION_DIR, 'tiktok-studio.meta.json');
+
+const PROFILE_DIR =
+  process.env.TIKTOK_BROWSER_PROFILE ||
+  path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile');
+
+const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
+const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
+const META_FILE = path.join(STATE_DIR, 'tiktok-studio.meta.json');
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
 
@@ -174,65 +181,29 @@ async function downloadVideo(url: string, destDir: string): Promise<string> {
   return dest;
 }
 
-// ─── Browser + login ────────────────────────────────────────────────────────
+// ─── Browser (persistent context) ───────────────────────────────────────────
 
 async function launchBrowser(): Promise<{
-  browser: Awaited<ReturnType<typeof chromium.launch>>;
   context: BrowserContext;
   page: Page;
 }> {
-  // Check session exists
-  if (!fs.existsSync(SESSION_PATH)) {
+  if (!fs.existsSync(PROFILE_DIR)) {
     console.error(
-      `\nNo session file found at ${SESSION_PATH}\n` +
+      `\nNo persistent profile found at ${PROFILE_DIR}\n` +
         'Run bootstrap first:\n' +
         '  npm run tiktok:bootstrap\n',
     );
     process.exit(1);
   }
 
-  // Check session age
-  if (fs.existsSync(META_PATH)) {
-    try {
-      const meta = JSON.parse(fs.readFileSync(META_PATH, 'utf-8'));
-      const ageMs = Date.now() - new Date(meta.saved_at).getTime();
-      const ageHours = Math.round(ageMs / 3_600_000);
-      console.log(`Session age: ${ageHours}h (saved: ${meta.saved_at})`);
-      if (ageHours > 72) {
-        console.warn(`⚠ Session is ${ageHours}h old — may be expired. Re-run bootstrap if login fails.`);
-      }
-    } catch {
-      // meta file unreadable, continue anyway
-    }
-  }
-
-  const browser = await chromium.launch({
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
-    args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+    viewport: { width: 1280, height: 900 },
+    args: ['--disable-blink-features=AutomationControlled'],
   });
 
-  let context: BrowserContext;
-  const ctxOpts = {
-    viewport: { width: 1280, height: 900 } as const,
-    userAgent:
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  };
-
-  try {
-    context = await browser.newContext({ ...ctxOpts, storageState: SESSION_PATH });
-  } catch {
-    console.error('Saved session invalid. Re-run bootstrap:');
-    console.error('  npm run tiktok:bootstrap');
-    await browser.close();
-    process.exit(1);
-  }
-
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-  });
-
-  const page = await context.newPage();
-  return { browser, context, page };
+  const page = context.pages()[0] || (await context.newPage());
+  return { context, page };
 }
 
 async function isLoggedIn(page: Page): Promise<boolean> {
@@ -251,40 +222,61 @@ async function isLoggedIn(page: Page): Promise<boolean> {
   return true;
 }
 
-function waitForEnter(prompt: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    console.log('\n' + '='.repeat(60));
-    console.log('  ' + prompt);
-    console.log('  Press Enter when done, or type "quit" to abort.');
-    console.log('='.repeat(60) + '\n');
+async function dismissModals(page: Page): Promise<void> {
+  const dismissSelectors = [
+    'div.TUXModal-overlay button[aria-label="Close"]',
+    'div.TUXModal-overlay button:has-text("Close")',
+    'div.TUXModal-overlay button:has-text("Got it")',
+    'div.TUXModal-overlay button:has-text("OK")',
+    'div.TUXModal-overlay button:has-text("Skip")',
+    'button[aria-label="Close"]',
+    '[class*="modal"] button[aria-label="Close"]',
+  ];
 
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-    rl.on('line', (line) => {
-      rl.close();
-      resolve(line.trim().toLowerCase() !== 'quit');
-    });
-  });
+  for (const sel of dismissSelectors) {
+    try {
+      const btn = page.locator(sel).first();
+      if (await btn.isVisible({ timeout: 1_500 })) {
+        await btn.click();
+        console.log(`      Dismissed modal via: ${sel}`);
+        await page.waitForTimeout(1_000);
+        return;
+      }
+    } catch { /* next */ }
+  }
+
+  // Fallback: press Escape
+  try {
+    const modalVisible = await page.locator('div.TUXModal-overlay').first().isVisible({ timeout: 1_000 });
+    if (modalVisible) {
+      await page.keyboard.press('Escape');
+      console.log('      Dismissed modal via Escape');
+      await page.waitForTimeout(1_000);
+    }
+  } catch { /* no modal */ }
 }
 
-async function saveSession(context: BrowserContext): Promise<void> {
-  fs.mkdirSync(SESSION_DIR, { recursive: true });
-  await context.storageState({ path: SESSION_PATH });
-
-  const now = new Date();
-  const meta = { saved_at: now.toISOString() };
-  fs.writeFileSync(META_PATH, JSON.stringify(meta, null, 2));
-
-  console.log(`Session saved to ${SESSION_PATH}`);
+async function saveBackupState(context: BrowserContext): Promise<void> {
+  try {
+    fs.mkdirSync(STATE_DIR, { recursive: true });
+    await context.storageState({ path: STATE_FILE });
+    const now = new Date();
+    fs.writeFileSync(
+      META_FILE,
+      JSON.stringify({ saved_at: now.toISOString(), profile_dir: PROFILE_DIR }, null, 2),
+    );
+    console.log(`StorageState backup saved to ${STATE_FILE}`);
+  } catch {
+    // non-critical — persistent profile is the primary
+  }
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('=== TikTok Studio Upload (storageState) ===\n');
-  console.log(`Mode: ${SHOULD_POST ? 'POST (publish immediately)' : 'DRAFT (save as draft)'}`);
+  console.log('=== TikTok Studio Upload (persistent profile) ===\n');
+  console.log(`Mode:    ${SHOULD_POST ? 'POST (publish immediately)' : 'DRAFT (save as draft)'}`);
+  console.log(`Profile: ${PROFILE_DIR}`);
 
   // 1. Read pack
   const pack = readPack(packDir!);
@@ -299,8 +291,8 @@ async function main() {
   console.log(`Description: ${pack.description.slice(0, 80)}...`);
   console.log(`Product ID:  ${pack.productId}`);
 
-  // 3. Launch browser with storageState
-  const { browser, context, page } = await launchBrowser();
+  // 3. Launch browser with persistent context (no newContext!)
+  const { context, page } = await launchBrowser();
 
   try {
     // 4. Navigate to upload page
@@ -310,29 +302,21 @@ async function main() {
     });
     await page.waitForTimeout(3_000);
 
-    // 5. Login check — if auth failure, pause and instruct to rerun bootstrap
+    // 5. Login check
     if (!(await isLoggedIn(page))) {
-      console.log('\n⚠ Session appears expired or invalid.');
-      const ok = await waitForEnter(
-        'LOGIN REQUIRED — log in to TikTok in the browser window, or quit and re-run bootstrap.',
-      );
-      if (!ok) {
-        console.log('Aborted.');
-        process.exit(1);
-      }
-      await saveSession(context);
-      // Re-navigate after login
-      await page.goto(UPLOAD_URL, {
-        waitUntil: 'domcontentloaded',
-        timeout: TIMEOUTS.navigation,
-      });
-      await page.waitForTimeout(3_000);
+      console.error('\nNot logged in. Run bootstrap first:');
+      console.error('  npm run tiktok:bootstrap\n');
+      await context.close();
+      process.exit(1);
     }
 
     // 6. Upload video
     console.log('\n[1/4] Uploading video...');
     await uploadVideoFile(page, videoPath);
     console.log('      Video accepted.');
+
+    // Dismiss any overlay modal TikTok shows after upload
+    await dismissModals(page);
 
     // 7. Fill description + hashtags
     console.log('[2/4] Filling description + hashtags...');
@@ -368,8 +352,8 @@ async function main() {
       }
     }
 
-    // 10. Save updated storageState after success
-    await saveSession(context);
+    // 10. Save storageState as backup
+    await saveBackupState(context);
 
     // 11. Output JSON result
     const output = {
@@ -379,10 +363,7 @@ async function main() {
       product_id: pack.productId,
       tiktok_draft_id: result.tiktok_draft_id,
       url: result.url,
-      errors: [
-        ...productResult.errors,
-        ...result.errors,
-      ],
+      errors: [...productResult.errors, ...result.errors],
     };
 
     console.log('\n--- Result ---');
@@ -391,7 +372,7 @@ async function main() {
     console.error(`\nError: ${err.message}`);
     process.exit(1);
   } finally {
-    await browser.close();
+    await context.close();
   }
 }
 

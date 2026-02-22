@@ -14,7 +14,7 @@ export const CONFIG = {
 
   profileDir:
     process.env.TIKTOK_BROWSER_PROFILE ||
-    path.join(os.homedir(), '.openclaw', 'browser-profiles', 'tiktok-studio'),
+    path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile'),
 
   headless: process.env.TIKTOK_HEADLESS === 'true',
 

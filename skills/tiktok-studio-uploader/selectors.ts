@@ -26,14 +26,14 @@ export const CAPTION_EDITOR: SelectorList = [
   '[aria-label*="description"]',
 ];
 
-// ─── Product Linking ────────────────────────────────────────────────────────
+// ─── Product / Link ─────────────────────────────────────────────────────────
 
 export const ADD_PRODUCT_BTN: SelectorList = [
+  '[data-e2e="anchor_container"] button',
+  'button:has-text("Add link")',
   'button:has-text("Add product")',
   'button:has-text("Product link")',
-  'text="Add product"',
   '[class*="product"] button',
-  'button:has-text("product")',
 ];
 
 export const PRODUCT_SEARCH_INPUT: SelectorList = [
@@ -61,12 +61,14 @@ export const PRODUCT_CONFIRM_BTN: SelectorList = [
 // ─── Draft / Post ───────────────────────────────────────────────────────────
 
 export const DRAFT_BTN: SelectorList = [
+  '[data-e2e="save_draft_button"]',
   'button:has-text("Save as draft")',
   'button:has-text("Draft")',
   'button:has-text("Save draft")',
 ];
 
 export const POST_BTN: SelectorList = [
+  '[data-e2e="post_video_button"]',
   'button:has-text("Post")',
   'button[type="submit"]:has-text("Post")',
 ];

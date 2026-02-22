@@ -1,135 +1,210 @@
 #!/usr/bin/env tsx
 // @ts-nocheck — standalone CLI script, not part of Next.js build
 /**
- * Bootstrap TikTok Studio session — opens a headed browser so you can
- * log in manually (QR code / phone), then saves the Playwright
- * storageState for the automated uploader.
+ * TikTok Studio Bootstrap — one-time login with a persistent Chromium profile.
+ *
+ * Uses launchPersistentContext so cookies, localStorage, and IndexedDB
+ * survive after the browser closes.  Log in once; every subsequent
+ * `tiktok:upload` run lands on Studio without re-auth.
+ *
+ * Also saves a storageState JSON as backup.
  *
  * Usage:
  *   npm run tiktok:bootstrap
- *
- * The saved session is reused until it expires (~24-72 hours).
- * Re-run this script whenever the upload script reports auth failure.
  */
 
-import { chromium } from 'playwright';
+import { config } from 'dotenv';
+config({ path: '.env.local' });
+
+import { chromium, type Page, type BrowserContext } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as readline from 'readline';
 
-const TAG = '[tiktok-studio:bootstrap]';
-const SESSION_DIR = path.join(process.cwd(), 'data/sessions');
-const SESSION_PATH = path.join(SESSION_DIR, 'tiktok-studio.storageState.json');
-const META_PATH = path.join(SESSION_DIR, 'tiktok-studio.meta.json');
+const TAG = '[tiktok:bootstrap]';
+
+const PROFILE_DIR =
+  process.env.TIKTOK_BROWSER_PROFILE ||
+  path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile');
+
+const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
+const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
+const META_FILE = path.join(STATE_DIR, 'tiktok-studio.meta.json');
+
 const UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
+const POLL_INTERVAL_MS = 5_000;
+const MAX_WAIT_MS = 5 * 60_000; // 5 minutes
+
+/** Selectors that prove the user is NOT logged in. */
+const NOT_LOGGED_IN = [
+  'button:has-text("Log in")',
+  'button:has-text("Sign up")',
+  'input[name="username"]',
+];
+
+/** Positive logged-in indicators on TikTok Studio. */
+const LOGGED_IN_INDICATORS = [
+  '[data-e2e="save_draft_button"]',
+  'input[type="file"]',
+  '[contenteditable="true"]',
+  '[data-e2e="post_video_button"]',
+];
+
+async function isLoggedIn(page: Page): Promise<{ loggedIn: boolean; reason: string }> {
+  const url = page.url();
+  if (url.includes('/login') || url.includes('/auth') || url.includes('/signup')) {
+    return { loggedIn: false, reason: 'URL contains login/auth path' };
+  }
+
+  for (const sel of NOT_LOGGED_IN) {
+    try {
+      const visible = await page.locator(sel).first().isVisible({ timeout: 2_000 });
+      if (visible) return { loggedIn: false, reason: `Not-logged-in indicator: ${sel}` };
+    } catch { /* next */ }
+  }
+
+  for (const sel of LOGGED_IN_INDICATORS) {
+    try {
+      const el = await page.$(sel);
+      if (el) return { loggedIn: true, reason: `Found logged-in indicator: ${sel}` };
+    } catch { /* next */ }
+  }
+
+  return { loggedIn: true, reason: 'No login indicators found' };
+}
 
 async function main() {
-  console.log(`${TAG} Launching headed browser...`);
-  console.log(`${TAG} URL: ${UPLOAD_URL}`);
+  console.log(`${TAG} Launching headed browser with persistent profile...`);
+  console.log(`${TAG} Profile: ${PROFILE_DIR}`);
+  console.log(`${TAG} URL:     ${UPLOAD_URL}`);
   console.log('');
 
-  const browser = await chromium.launch({
+  fs.mkdirSync(PROFILE_DIR, { recursive: true });
+
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
-    args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+    viewport: { width: 1280, height: 900 },
+    args: ['--disable-blink-features=AutomationControlled'],
   });
 
-  const context = await browser.newContext({
-    viewport: { width: 1920, height: 1080 },
-    userAgent:
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  });
-
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-  });
-
-  const page = await context.newPage();
+  const page = context.pages()[0] || (await context.newPage());
 
   try {
     await page.goto(UPLOAD_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  } catch (err) {
-    console.error(`${TAG} Failed to load page:`, err);
-    console.log(`${TAG} The browser is still open — complete any challenge manually.`);
+  } catch (err: any) {
+    console.error(`${TAG} Page load issue: ${err.message}`);
+    console.log(`${TAG} Browser is still open — complete any challenge manually.`);
   }
 
-  console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║  Log in to TikTok Studio in the browser window.     ║');
-  console.log('║  Use QR code, phone, or email login.                ║');
-  console.log('║  Complete any captcha / Cloudflare challenge.        ║');
-  console.log('║                                                      ║');
-  console.log('║  Once you can see the TikTok Studio upload page,     ║');
-  console.log('║  press ENTER in this terminal.                       ║');
-  console.log('╚══════════════════════════════════════════════════════╝');
+  await page.waitForTimeout(3_000);
+
+  // Check if already logged in
+  const initial = await isLoggedIn(page);
+  if (initial.loggedIn) {
+    console.log(`${TAG} Already logged in: ${initial.reason}`);
+    await saveState(context, page, true);
+    await context.close();
+    return;
+  }
+
+  // Wait for login
+  console.log('');
+  console.log('='.repeat(55));
+  console.log('  LOG IN TO TIKTOK in the browser window.');
+  console.log('  Session auto-saves when login is detected.');
+  console.log('  Press Enter to force-save, or type "quit" to abort.');
+  console.log('='.repeat(55));
   console.log('');
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  await new Promise<void>((resolve) =>
-    rl.question('  → Press ENTER after logging in... ', () => resolve()),
-  );
-  rl.close();
+  const result = await new Promise<'auto' | 'manual' | 'timeout'>((resolve) => {
+    let resolved = false;
+    const done = (r: 'auto' | 'manual' | 'timeout') => {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(pollTimer);
+      clearTimeout(timeoutTimer);
+      process.stdin.pause();
+      resolve(r);
+    };
 
-  // Verify login state using LOGIN_INDICATORS from selectors
-  console.log(`${TAG} Verifying login state...`);
-  let verified = false;
-
-  const LOGIN_INDICATORS = [
-    'button:has-text("Log in")',
-    'button:has-text("Sign up")',
-    'input[name="username"]',
-  ];
-
-  // Check URL — if redirected to login page, not logged in
-  const currentUrl = page.url();
-  if (currentUrl.includes('/login') || currentUrl.includes('/auth') || currentUrl.includes('/signup')) {
-    console.warn(`${TAG} ⚠ URL indicates login page: ${currentUrl}`);
-  } else {
-    // Check that login indicators are NOT visible
-    let loginVisible = false;
-    for (const sel of LOGIN_INDICATORS) {
+    const pollTimer = setInterval(async () => {
       try {
-        const vis = await page.locator(sel).first().isVisible({ timeout: 2_000 });
-        if (vis) {
-          loginVisible = true;
-          break;
+        const { loggedIn, reason } = await isLoggedIn(page);
+        if (loggedIn) {
+          console.log(`${TAG} Auto-detected login: ${reason}`);
+          done('auto');
         }
-      } catch {
-        // not found — good
+      } catch { /* page navigating */ }
+    }, POLL_INTERVAL_MS);
+
+    const timeoutTimer = setTimeout(() => {
+      console.warn(`${TAG} Timed out after ${MAX_WAIT_MS / 60_000} minutes`);
+      done('timeout');
+    }, MAX_WAIT_MS);
+
+    // stdin listener
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode?.(false);
+    }
+    process.stdin.resume();
+    process.stdin.once('data', (data) => {
+      const text = data.toString().trim().toLowerCase();
+      if (text === 'quit') {
+        done('timeout');
+      } else {
+        console.log(`${TAG} Manual Enter received`);
+        done('manual');
       }
-    }
+    });
+  });
 
-    if (!loginVisible) {
-      console.log(`${TAG} ✓ No login indicators visible — appears logged in`);
-      verified = true;
-    }
+  if (result === 'timeout') {
+    console.error(`${TAG} Aborted — no login detected.`);
+    await context.close();
+    process.exit(1);
   }
 
-  if (!verified) {
-    console.warn(`${TAG} ⚠ Could not confirm login state — saving session anyway.`);
-    console.warn(`${TAG}   If the upload script fails, re-run this bootstrap.`);
+  // Verify
+  const final = await isLoggedIn(page);
+  if (final.loggedIn) {
+    console.log(`${TAG} Login confirmed: ${final.reason}`);
+  } else {
+    console.warn(`${TAG} Login NOT confirmed: ${final.reason}`);
+    console.warn(`${TAG} Saving session anyway — next run may require re-login.`);
   }
 
-  // Save storageState + meta file
-  fs.mkdirSync(SESSION_DIR, { recursive: true });
+  await saveState(context, page, final.loggedIn);
+  await context.close();
+}
+
+async function saveState(context: BrowserContext, page: Page, verified: boolean) {
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+
+  // Save storageState as backup
   const state = await context.storageState();
-  fs.writeFileSync(SESSION_PATH, JSON.stringify(state));
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state));
 
   const now = new Date();
-  const meta = { saved_at: now.toISOString(), url: page.url() };
-  fs.writeFileSync(META_PATH, JSON.stringify(meta, null, 2));
+  const meta = {
+    saved_at: now.toISOString(),
+    url: page.url(),
+    verified,
+    profile_dir: PROFILE_DIR,
+  };
+  fs.writeFileSync(META_FILE, JSON.stringify(meta, null, 2));
 
   console.log('');
-  console.log(`${TAG} ✓ Session saved: ${SESSION_PATH}`);
-  console.log(`${TAG} ✓ Meta saved:    ${META_PATH}`);
-  console.log(`${TAG}   Timestamp: ${now.toISOString()}`);
-  console.log(`${TAG}   Current URL: ${page.url()}`);
+  console.log(`${TAG} Profile saved:       ${PROFILE_DIR}`);
+  console.log(`${TAG} StorageState backup: ${STATE_FILE}`);
+  console.log(`${TAG} Meta:                ${META_FILE}`);
+  console.log(`${TAG} Verified:            ${verified}`);
+  console.log(`${TAG} Timestamp:           ${now.toISOString()}`);
   console.log('');
-  console.log(`${TAG} You can now run the uploader:`);
-  console.log(`${TAG}   npm run tiktok:upload -- --pack-dir <dir>`);
-
-  await browser.close();
+  console.log(`${TAG} Next run should land on Studio without login.`);
+  console.log(`${TAG} To test:   npm run tiktok:check-session`);
+  console.log(`${TAG} To upload: npm run tiktok:upload -- --pack-dir <dir>`);
 }
 
 main().catch((err) => {
-  console.error(`${TAG} Fatal:`, err);
+  console.error(`${TAG} Fatal:`, err.message);
   process.exit(1);
 });

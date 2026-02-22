@@ -4,7 +4,10 @@ Automated issue reporting and AI-powered triage for FlashFlow.
 
 ## Telegram Integration
 
-**Important:** The Telegram webhook and OpenClaw/Bolt polling are **mutually exclusive**.
+**NEVER enable Telegram webhook on Bolt bot token.
+Webhook mode disables OpenClaw polling and breaks Bolt.**
+
+The Telegram webhook and OpenClaw/Bolt polling are **mutually exclusive**.
 When the webhook is registered, Bolt cannot receive Telegram messages — all messages
 go directly to the issue intake handler instead.
 

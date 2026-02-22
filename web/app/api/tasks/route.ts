@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { safeInsert } from '@/lib/db/safeInsert';
 
 export const runtime = 'nodejs';
 
@@ -50,22 +51,28 @@ export async function POST(request: NextRequest) {
     return createApiErrorResponse('VALIDATION_ERROR', `priority must be one of: ${VALID_PRIORITIES.join(', ')}`, 400, correlationId);
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('agent_tasks')
-    .insert({
-      type,
-      title: title.trim(),
-      prompt: prompt.trim(),
-      priority: priority || 'medium',
-      source: source || 'bolt',
-      status: 'pending',
-    })
-    .select()
-    .single();
+  const result = await safeInsert(
+    () =>
+      supabaseAdmin
+        .from('agent_tasks')
+        .insert({
+          type,
+          title: title.trim(),
+          prompt: prompt.trim(),
+          priority: priority || 'medium',
+          source: source || 'bolt',
+          status: 'pending',
+        })
+        .select()
+        .single(),
+    { tag: 'agent_tasks' },
+  );
 
-  if (error) {
-    return createApiErrorResponse('DB_ERROR', error.message, 500, correlationId);
+  if (!result.ok) {
+    return createApiErrorResponse('DB_ERROR', result.error.message, 500, correlationId);
   }
+
+  const { data } = result;
 
   sendTelegramNotification(`🔧 New task: ${title.trim()} — ${priority || 'medium'}`);
 

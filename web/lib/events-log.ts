@@ -8,6 +8,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { safeInsert } from "@/lib/db/safeInsert";
 
 /**
  * Valid entity types for events_log table.
@@ -55,16 +56,20 @@ export async function logEvent(
 ): Promise<void> {
   const { entity_type, entity_id, event_type, payload } = args;
 
-  const { error } = await supabase.from("events_log").insert({
-    entity_type,
-    entity_id,
-    event_type,
-    payload: payload ?? {},
-  });
+  const result = await safeInsert(
+    () =>
+      supabase.from("events_log").insert({
+        entity_type,
+        entity_id,
+        event_type,
+        payload: payload ?? {},
+      }),
+    { tag: "events_log" },
+  );
 
-  if (error) {
-    console.error(`Failed to log event ${event_type}:`, error);
-    throw error;
+  if (!result.ok) {
+    console.error(`Failed to log event ${event_type}:`, result.error);
+    throw result.error;
   }
 }
 

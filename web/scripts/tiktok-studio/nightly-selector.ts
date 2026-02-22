@@ -36,6 +36,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { createLogger } from '../../lib/logger.js';
+import { safeInsert } from '../../lib/db/safeInsert.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -247,31 +248,35 @@ async function insertPostingQueue(
   videoId: string,
   product: ProductCandidate,
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('posting_queue')
-    .insert({
-      user_id: SERVICE_USER_ID,
-      platform: 'tiktok',
-      status: 'draft',
-      video_id: videoId,
-      platform_metadata: {
-        product_id: product.id,
-        tiktok_product_id: product.tiktok_product_id,
-        recording_status: 'READY_TO_POST',
-        source: 'nightly-selector',
-        run_id: RUN_ID,
-        queued_at: new Date().toISOString(),
-      },
-    })
-    .select('id')
-    .single();
+  const result = await safeInsert(
+    () =>
+      supabase
+        .from('posting_queue')
+        .insert({
+          user_id: SERVICE_USER_ID,
+          platform: 'tiktok',
+          status: 'draft',
+          video_id: videoId,
+          platform_metadata: {
+            product_id: product.id,
+            tiktok_product_id: product.tiktok_product_id,
+            recording_status: 'READY_TO_POST',
+            source: 'nightly-selector',
+            run_id: RUN_ID,
+            queued_at: new Date().toISOString(),
+          },
+        })
+        .select('id')
+        .single(),
+    { tag: 'posting_queue' },
+  );
 
-  if (error) {
-    console.error(`${TAG} posting_queue insert error: ${error.message}`);
+  if (!result.ok) {
+    console.error(`${TAG} posting_queue insert error: ${result.error.message}`);
     return null;
   }
 
-  return data?.id ?? null;
+  return result.data?.id ?? null;
 }
 
 // ─── Update video recording_status ──────────────────────────────────────────

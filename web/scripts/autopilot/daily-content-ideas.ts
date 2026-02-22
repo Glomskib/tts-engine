@@ -12,6 +12,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { safeInsert } from '../../lib/db/safeInsert.js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -177,23 +178,27 @@ export async function runAutopilot(userId: string) {
 
   // Step 5: Save as drafts in posting queue
   for (const idea of ideas) {
-    const { error } = await supabase.from('posting_queue').insert({
-      user_id: userId,
-      platform: idea.platform,
-      status: 'draft',
-      caption: idea.caption,
-      hashtags: idea.hashtags,
-      platform_metadata: {
-        content_idea: idea.angle,
-        suggested_hook: idea.hook,
-        product_id: idea.product_id,
-        auto_generated: true,
-        generated_at: new Date().toISOString(),
-      },
-    });
+    const result = await safeInsert(
+      () =>
+        supabase.from('posting_queue').insert({
+          user_id: userId,
+          platform: idea.platform,
+          status: 'draft',
+          caption: idea.caption,
+          hashtags: idea.hashtags,
+          platform_metadata: {
+            content_idea: idea.angle,
+            suggested_hook: idea.hook,
+            product_id: idea.product_id,
+            auto_generated: true,
+            generated_at: new Date().toISOString(),
+          },
+        }),
+      { tag: 'posting_queue' },
+    );
 
-    if (error) {
-      console.error(`[autopilot] Failed to save idea:`, error);
+    if (!result.ok) {
+      console.error(`[autopilot] Failed to save idea:`, result.error);
     }
   }
 

@@ -9,6 +9,7 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logIssueAction } from '@/lib/flashflow/issues';
+import { safeInsert } from '@/lib/db/safeInsert';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,37 +44,38 @@ export async function enqueueAgentTask(
   payload: Record<string, unknown>,
   priority: number = 500,
 ): Promise<AgentQueueRow | null> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('ff_agent_queue')
-      .insert({
-        issue_id,
-        task_type,
-        payload_json: payload,
-        priority,
-      })
-      .select()
-      .single();
+  const result = await safeInsert(
+    () =>
+      supabaseAdmin
+        .from('ff_agent_queue')
+        .insert({
+          issue_id,
+          task_type,
+          payload_json: payload,
+          priority,
+        })
+        .select()
+        .single(),
+    { tag: 'ff_agent_queue' },
+  );
 
-    if (error) {
-      console.error('[ff:agent-queue] enqueueAgentTask failed:', error.message);
-      return null;
-    }
-
-    // Log action on the linked issue (fire-and-forget)
-    if (issue_id) {
-      logIssueAction(issue_id, 'enqueue', {
-        task_id: data.id,
-        task_type,
-        priority,
-      }).catch(() => {});
-    }
-
-    return data as AgentQueueRow;
-  } catch (err) {
-    console.error('[ff:agent-queue] enqueueAgentTask exception:', err);
+  if (!result.ok) {
+    console.error('[ff:agent-queue] enqueueAgentTask failed:', result.error.message);
     return null;
   }
+
+  const data = result.data as unknown as AgentQueueRow;
+
+  // Log action on the linked issue (fire-and-forget)
+  if (issue_id) {
+    logIssueAction(issue_id, 'enqueue', {
+      task_id: data.id,
+      task_type,
+      priority,
+    }).catch(() => {});
+  }
+
+  return data;
 }
 
 // ---------------------------------------------------------------------------

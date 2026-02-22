@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { safeInsert } from "@/lib/db/safeInsert";
 
 export const runtime = "nodejs";
 
@@ -162,28 +163,34 @@ export async function POST(request: Request) {
     };
 
     // Upsert into daily_summaries (ON CONFLICT user_id, summary_date)
-    const { data: upserted, error: upsertError } = await supabaseAdmin
-      .from("daily_summaries")
-      .upsert(
-        {
-          user_id: user.id,
-          summary_date: targetDate,
-          data: summaryData,
-          videos_created: videosCreated,
-          videos_posted: videosPosted,
-          total_views: totalViews,
-          best_video_id: bestVideoId,
-          pipeline_health: pipelineHealth,
-        },
-        { onConflict: "user_id,summary_date" }
-      )
-      .select()
-      .single();
+    const upsertResult = await safeInsert(
+      () =>
+        supabaseAdmin
+          .from("daily_summaries")
+          .upsert(
+            {
+              user_id: user.id,
+              summary_date: targetDate,
+              data: summaryData,
+              videos_created: videosCreated,
+              videos_posted: videosPosted,
+              total_views: totalViews,
+              best_video_id: bestVideoId,
+              pipeline_health: pipelineHealth,
+            },
+            { onConflict: "user_id,summary_date" }
+          )
+          .select()
+          .single(),
+      { tag: "daily_summaries" },
+    );
 
-    if (upsertError) {
-      console.error(`[${correlationId}] daily-summary upsert error:`, upsertError);
+    if (!upsertResult.ok) {
+      console.error(`[${correlationId}] daily-summary upsert error:`, upsertResult.error);
       return createApiErrorResponse("DB_ERROR", "Failed to save daily summary", 500, correlationId);
     }
+
+    const upserted = upsertResult.data;
 
     const response = NextResponse.json({
       ok: true,

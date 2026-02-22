@@ -65,77 +65,81 @@ function assert(label: string, ok: boolean, detail?: string) {
   }
 }
 
-// ── Step 1: Create an issue ─────────────────────────────────────────────────
-console.log('\n1) POST /api/flashflow/issues/intake');
+async function main() {
+  // ── Step 1: Create an issue ─────────────────────────────────────────────────
+  console.log('\n1) POST /api/flashflow/issues/intake');
 
-const intakeRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
-  method: 'POST',
-  headers,
-  body: JSON.stringify({
-    source: 'api',
-    reporter: 'smoke-test@flashflow.ai',
-    message_text: `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${Date.now()})`,
-    context: { path: '/api/pipeline/auto-generate', status: 500, smoke: true },
-    severity: 'medium',
-  }),
-});
+  const intakeRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      source: 'api',
+      reporter: 'smoke-test@flashflow.ai',
+      message_text: `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${Date.now()})`,
+      context: { path: '/api/pipeline/auto-generate', status: 500, smoke: true },
+      severity: 'medium',
+    }),
+  });
 
-const intakeJson = await intakeRes.json();
-assert('Status 200', intakeRes.status === 200, `got ${intakeRes.status}`);
-assert('ok: true', intakeJson.ok === true, JSON.stringify(intakeJson));
-assert('issue_id returned', !!intakeJson.issue_id);
+  const intakeJson = await intakeRes.json();
+  assert('Status 200', intakeRes.status === 200, `got ${intakeRes.status}`);
+  assert('ok: true', intakeJson.ok === true, JSON.stringify(intakeJson));
+  assert('issue_id returned', !!intakeJson.issue_id);
 
-const issueId = intakeJson.issue_id;
-console.log(`   issue_id: ${issueId}`);
+  const issueId = intakeJson.issue_id;
+  console.log(`   issue_id: ${issueId}`);
 
-// ── Step 2: Dedupe — same message should return same issue ──────────────────
-console.log('\n2) POST /api/flashflow/issues/intake (dedupe)');
+  // ── Step 2: Dedupe — same message should return same issue ──────────────────
+  console.log('\n2) POST /api/flashflow/issues/intake (dedupe)');
 
-const dedupeRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
-  method: 'POST',
-  headers,
-  body: JSON.stringify({
-    source: 'api',
-    reporter: 'smoke-test@flashflow.ai',
-    message_text: `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${Date.now()})`,
-    context: { path: '/api/pipeline/auto-generate', status: 500, smoke: true, attempt: 2 },
-  }),
-});
+  const dedupeRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      source: 'api',
+      reporter: 'smoke-test@flashflow.ai',
+      message_text: `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${Date.now()})`,
+      context: { path: '/api/pipeline/auto-generate', status: 500, smoke: true, attempt: 2 },
+    }),
+  });
 
-const dedupeJson = await dedupeRes.json();
-assert('Status 200', dedupeRes.status === 200);
-assert('ok: true', dedupeJson.ok === true);
+  const dedupeJson = await dedupeRes.json();
+  assert('Status 200', dedupeRes.status === 200);
+  assert('ok: true', dedupeJson.ok === true);
 
-// ── Step 3: Run triage ──────────────────────────────────────────────────────
-console.log('\n3) POST /api/flashflow/issues/triage/run');
+  // ── Step 3: Run triage ──────────────────────────────────────────────────────
+  console.log('\n3) POST /api/flashflow/issues/triage/run');
 
-const triageRes = await fetch(`${BASE}/api/flashflow/issues/triage/run`, {
-  method: 'POST',
-  headers,
-});
+  const triageRes = await fetch(`${BASE}/api/flashflow/issues/triage/run`, {
+    method: 'POST',
+    headers,
+  });
 
-const triageJson = await triageRes.json();
-assert('Status 200', triageRes.status === 200, `got ${triageRes.status}`);
-assert('ok: true', triageJson.ok === true, JSON.stringify(triageJson));
-assert('triaged >= 1', (triageJson.triaged ?? 0) >= 1, `triaged: ${triageJson.triaged}`);
+  const triageJson = await triageRes.json();
+  assert('Status 200', triageRes.status === 200, `got ${triageRes.status}`);
+  assert('ok: true', triageJson.ok === true, JSON.stringify(triageJson));
+  assert('triaged >= 1', (triageJson.triaged ?? 0) >= 1, `triaged: ${triageJson.triaged}`);
 
-if (triageJson.results?.length > 0) {
-  const r = triageJson.results[0];
-  console.log(`   severity: ${r.severity}, subsystem: ${r.subsystem}`);
+  if (triageJson.results?.length > 0) {
+    const r = triageJson.results[0];
+    console.log(`   severity: ${r.severity}, subsystem: ${r.subsystem}`);
+  }
+
+  // ── Step 4: Auth guard — should 401 without secret ──────────────────────────
+  console.log('\n4) Auth guard (no secret)');
+
+  const noAuthRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source: 'api', message_text: 'should fail' }),
+  });
+
+  assert('Status 401', noAuthRes.status === 401);
+
+  // ── Summary ─────────────────────────────────────────────────────────────────
+  console.log(`\n${'='.repeat(40)}`);
+  console.log(`Results: ${passed} passed, ${failed} failed`);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-// ── Step 4: Auth guard — should 401 without secret ──────────────────────────
-console.log('\n4) Auth guard (no secret)');
-
-const noAuthRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ source: 'api', message_text: 'should fail' }),
-});
-
-assert('Status 401', noAuthRes.status === 401);
-
-// ── Summary ─────────────────────────────────────────────────────────────────
-console.log(`\n${'='.repeat(40)}`);
-console.log(`Results: ${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);
+main();

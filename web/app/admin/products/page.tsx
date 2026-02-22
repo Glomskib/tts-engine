@@ -96,9 +96,13 @@ export default function ProductsPage() {
   const [addImageUrl, setAddImageUrl] = useState<string | null>(null);
   const [addImageUploading, setAddImageUploading] = useState(false);
 
-  // Image upload state
+  // Image upload state (edit drawer)
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  // Image upload state (add drawer)
+  const [addUploadingImage, setAddUploadingImage] = useState(false);
+  const [addImageUploadError, setAddImageUploadError] = useState<string | null>(null);
 
   // Ops warnings state
   const [opsWarnings, setOpsWarnings] = useState<OpsWarning[]>([]);
@@ -321,6 +325,7 @@ export default function ProductsPage() {
     setAddDrawerOpen(false);
     setAddForm({});
     setAddError(null);
+    setAddImageUploadError(null);
   };
 
   // Save new product
@@ -348,7 +353,7 @@ export default function ProductsPage() {
           category: addForm.category.trim(),
           category_risk: addForm.category_risk || null,
           notes: addForm.notes?.trim() || null,
-          product_image_url: addImageUrl || null,
+          product_image_url: addImageUrl || addForm.product_image_url || null,
         }),
       });
       const data = await res.json();
@@ -597,6 +602,50 @@ export default function ProductsPage() {
       setImageUploadError(err instanceof Error ? err.message : 'Failed to upload image');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  // Handle image file upload for add drawer
+  const handleAddImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setAddImageUploadError('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAddImageUploadError('Image must be smaller than 5MB');
+      return;
+    }
+
+    setAddUploadingImage(true);
+    setAddImageUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'product-images');
+
+      const res = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      setAddForm(prev => ({
+        ...prev,
+        product_image_url: data.data.url,
+      }));
+
+      showSuccess('Image uploaded successfully!');
+    } catch (err) {
+      setAddImageUploadError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setAddUploadingImage(false);
     }
   };
 
@@ -1737,37 +1786,93 @@ export default function ProductsPage() {
               </div>
 
               {/* Product Image */}
-              <div>
+              <div className="pt-4 border-t border-white/10">
                 <label className="block text-sm font-medium text-zinc-300 mb-1">
                   Product Image
+                  <span className="text-zinc-500 font-normal ml-1">(for AI video generation)</span>
                 </label>
-                {addImageUrl ? (
-                  <div className="relative inline-block">
-                    <img src={addImageUrl} alt="Product" className="w-20 h-20 object-cover rounded-md border border-white/10" />
-                    <button type="button" onClick={() => setAddImageUrl(null)} className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                      &times;
+
+                {/* Current Image Preview */}
+                {(addForm.product_image_url || addImageUrl) && (
+                  <div className="mb-3 relative group">
+                    <img
+                      src={addForm.product_image_url || addImageUrl || ''}
+                      alt="Product"
+                      className="w-full max-w-xs h-48 object-cover rounded-lg border border-white/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setAddForm({ ...addForm, product_image_url: '' }); setAddImageUrl(null); }}
+                      className="absolute top-2 right-2 p-2.5 bg-red-500/90 hover:bg-red-600 text-white rounded-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                      aria-label="Remove image"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
-                ) : (
-                  <div>
+                )}
+
+                {/* Image URL Input */}
+                <div className="mb-2">
+                  <input
+                    type="url"
+                    value={addForm.product_image_url || ''}
+                    onChange={(e) => setAddForm({ ...addForm, product_image_url: e.target.value })}
+                    placeholder="https://example.com/product-image.jpg"
+                    className="w-full px-3 py-2 border border-white/10 rounded-md text-sm bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <p className="text-xs text-zinc-500 mt-1">Paste image URL from Amazon, TikTok, or brand website</p>
+                </div>
+
+                {/* OR Divider */}
+                <div className="flex items-center gap-3 my-3">
+                  <div className="flex-1 h-px bg-white/10"></div>
+                  <span className="text-xs text-zinc-500 uppercase">or</span>
+                  <div className="flex-1 h-px bg-white/10"></div>
+                </div>
+
+                {/* File Upload */}
+                <div>
+                  <label className="block">
                     <input
                       type="file"
                       accept="image/*"
-                      className="hidden"
-                      id="add-product-image"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleAddImageUpload(file);
                         e.target.value = '';
                       }}
+                      disabled={addUploadingImage || addImageUploading}
+                      className="hidden"
+                      id="add-product-image-upload"
                     />
-                    <label
-                      htmlFor="add-product-image"
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-white/10 rounded-md bg-zinc-800 text-zinc-300 hover:bg-zinc-700 cursor-pointer"
-                    >
-                      {addImageUploading ? 'Uploading...' : 'Upload Image'}
-                    </label>
-                    <p className="text-xs text-zinc-500 mt-1">JPG, PNG, WebP. Max 5MB.</p>
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800/50 border border-white/10 text-zinc-100 text-sm font-medium rounded-md cursor-pointer transition-colors">
+                      {(addUploadingImage || addImageUploading) ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          Upload Image File
+                        </>
+                      )}
+                    </span>
+                  </label>
+                  <p className="text-xs text-zinc-500 mt-1">Max 5MB - JPG, PNG, WebP</p>
+                </div>
+
+                {/* Upload Error */}
+                {addImageUploadError && (
+                  <div className="mt-2 p-2 text-xs bg-red-900/50 border border-red-500/50 text-red-200 rounded">
+                    {addImageUploadError}
                   </div>
                 )}
               </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Target, Clock, TrendingUp, AlertTriangle, CheckCircle2, DollarSign, Video, FileText, Upload, Loader2, X, Sparkles } from 'lucide-react';
 
 interface TierProgress {
@@ -79,6 +80,10 @@ function formatDate(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function fmtMoney(n: number): string {
+  return n >= 1000 ? `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `$${n}`;
+}
+
 interface BriefAnalysis {
   summary?: string;
   campaign_name?: string;
@@ -96,9 +101,30 @@ interface BriefAnalysis {
   strategic_notes?: string[];
 }
 
+interface PastBrief {
+  id: string;
+  title: string;
+  brief_type: string;
+  brand_id: string | null;
+  campaign_start: string | null;
+  campaign_end: string | null;
+  focus_product: string | null;
+  status: string;
+  income_projections: { target?: { total?: number } } | null;
+  created_at: string;
+}
+
 export default function RetainersPage() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'briefs' ? 'briefs' : 'retainers';
+  const [activeTab, setActiveTab] = useState<'retainers' | 'briefs'>(initialTab);
+
   const [data, setData] = useState<{ retainers: Retainer[]; summary: Summary } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Past briefs state
+  const [pastBriefs, setPastBriefs] = useState<PastBrief[]>([]);
+  const [loadingBriefs, setLoadingBriefs] = useState(true);
 
   // Brief upload state
   const [showBriefUpload, setShowBriefUpload] = useState(false);
@@ -111,6 +137,19 @@ export default function RetainersPage() {
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
 
+  const fetchPastBriefs = useCallback(async () => {
+    setLoadingBriefs(true);
+    try {
+      const res = await fetch('/api/brand-briefs', { credentials: 'include' });
+      const d = await res.json();
+      setPastBriefs(d.briefs || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingBriefs(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetch('/api/admin/retainers', { credentials: 'include' })
       .then(r => r.json())
@@ -121,7 +160,9 @@ export default function RetainersPage() {
       .then(r => r.json())
       .then(d => setBrands(d.data || []))
       .catch(() => {});
-  }, []);
+    // Fetch past briefs
+    fetchPastBriefs();
+  }, [fetchPastBriefs]);
 
   const handleAnalyzeBrief = async () => {
     if (!briefText.trim() || briefText.trim().length < 50) {
@@ -229,6 +270,30 @@ export default function RetainersPage() {
         >
           <Upload className="w-4 h-4" />
           Upload Brief
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-zinc-800/50 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab('retainers')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'retainers'
+              ? 'bg-zinc-700 text-white'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Active Retainers
+        </button>
+        <button
+          onClick={() => setActiveTab('briefs')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'briefs'
+              ? 'bg-zinc-700 text-white'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Brief History
         </button>
       </div>
 
@@ -393,173 +458,235 @@ export default function RetainersPage() {
         </div>
       )}
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
-            <DollarSign className="w-4 h-4" />
-            Total Monthly Base
-          </div>
-          <div className="text-2xl font-bold text-emerald-400">{formatCurrency(summary.total_base)}</div>
-        </div>
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
-            <TrendingUp className="w-4 h-4" />
-            Total Bonus Potential
-          </div>
-          <div className="text-2xl font-bold text-amber-400">{formatCurrency(summary.total_potential - summary.total_base)}</div>
-        </div>
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
-            <Video className="w-4 h-4" />
-            Videos Still Needed
-          </div>
-          <div className="text-2xl font-bold text-white">{summary.total_videos_needed}</div>
-        </div>
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
-            <AlertTriangle className="w-4 h-4" />
-            Brands At Risk
-          </div>
-          <div className={`text-2xl font-bold ${summary.brands_at_risk > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-            {summary.brands_at_risk}
-          </div>
-        </div>
-      </div>
-
-      {/* Retainer Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {retainers.map((r) => {
-          const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.on_track;
-          const StatusIcon = statusCfg.icon;
-
-          return (
-            <div key={r.brand_id} className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-5 space-y-4">
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">{r.brand_name}</h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 uppercase tracking-wider">
-                    {TYPE_LABELS[r.retainer_type] || r.retainer_type}
-                  </span>
-                </div>
-                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusCfg.bg} ${statusCfg.color}`}>
-                  <StatusIcon className="w-3.5 h-3.5" />
-                  {statusCfg.label}
-                </div>
+      {/* Active Retainers Tab */}
+      {activeTab === 'retainers' && (
+        <>
+          {/* Summary Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+                <DollarSign className="w-4 h-4" />
+                Total Monthly Base
               </div>
-
-              {/* Progress Bar */}
-              <div>
-                <div className="flex items-baseline justify-between mb-1.5">
-                  <span className="text-sm text-zinc-400">
-                    <span className="text-white font-semibold">{r.videos_posted}</span> of {r.video_goal} videos
-                  </span>
-                  <span className="text-sm font-medium text-zinc-300">{r.completion}%</span>
-                </div>
-                <div className="w-full h-3 bg-zinc-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-teal-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, r.completion)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Stats Row */}
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div>
-                  <span className="text-zinc-500">Base:</span>{' '}
-                  <span className="text-emerald-400 font-medium">{formatCurrency(r.base_payout)}</span>
-                </div>
-                {r.days_remaining !== null && (
-                  <div>
-                    <span className="text-zinc-500">Days left:</span>{' '}
-                    <span className={`font-medium ${r.days_remaining < 7 ? 'text-red-400' : r.days_remaining < 14 ? 'text-amber-400' : 'text-zinc-300'}`}>
-                      {r.days_remaining}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <span className="text-zinc-500">Period:</span>{' '}
-                  <span className="text-zinc-300">{formatDate(r.period_start)} — {formatDate(r.period_end)}</span>
-                </div>
-              </div>
-
-              {/* Bonus Tiers */}
-              {r.tier_progress.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Bonus Tiers</div>
-                  {r.tier_progress.map((tier, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center justify-between text-sm px-3 py-1.5 rounded-lg ${
-                        tier.hit
-                          ? 'bg-emerald-500/10 border border-emerald-500/20'
-                          : r.next_bonus_needed > 0 && tier.target === r.videos_posted + r.next_bonus_needed
-                            ? 'bg-amber-500/5 border border-amber-500/20'
-                            : 'bg-zinc-800/50'
-                      }`}
-                    >
-                      <span className="text-zinc-300">
-                        {tier.target} videos
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className={tier.hit ? 'text-emerald-400 font-medium' : 'text-zinc-400'}>
-                          {formatCurrency(tier.payout)}
-                        </span>
-                        {tier.hit ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <span className="text-xs text-zinc-500">
-                            {tier.target - r.videos_posted} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {r.bonus_earned > 0 && (
-                    <div className="text-xs text-emerald-400 mt-1">
-                      Bonus earned so far: {formatCurrency(r.bonus_earned)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Pace Projection */}
-              {r.daily_pace > 0 && r.status !== 'completed' && r.status !== 'expired' && (
-                <div className="text-sm text-zinc-400 bg-zinc-800/30 rounded-lg px-3 py-2">
-                  <TrendingUp className="w-3.5 h-3.5 inline mr-1.5 text-zinc-500" />
-                  At your current pace ({r.daily_pace} videos/day), you&apos;ll hit{' '}
-                  <span className="text-white font-medium">{r.projected_total} videos</span> by deadline
-                  {r.projected_total >= r.video_goal ? (
-                    <span className="text-emerald-400 ml-1">— on track</span>
-                  ) : (
-                    <span className="text-amber-400 ml-1">— {r.videos_needed} more needed</span>
-                  )}
-                </div>
-              )}
-
-              {/* Linked Brief */}
-              {r.linked_brief && (
-                <Link
-                  href={`/admin/briefs?id=${r.linked_brief.id}`}
-                  className="flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300 transition-colors"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  View analyzed brief: {r.linked_brief.title}
-                </Link>
-              )}
-
-              {/* Notes */}
-              {r.notes && (
-                <div className="text-sm text-zinc-500 italic border-t border-zinc-800 pt-3">
-                  {r.notes}
-                </div>
-              )}
+              <div className="text-2xl font-bold text-emerald-400">{formatCurrency(summary.total_base)}</div>
             </div>
-          );
-        })}
-      </div>
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+                <TrendingUp className="w-4 h-4" />
+                Total Bonus Potential
+              </div>
+              <div className="text-2xl font-bold text-amber-400">{formatCurrency(summary.total_potential - summary.total_base)}</div>
+            </div>
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+                <Video className="w-4 h-4" />
+                Videos Still Needed
+              </div>
+              <div className="text-2xl font-bold text-white">{summary.total_videos_needed}</div>
+            </div>
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+                <AlertTriangle className="w-4 h-4" />
+                Brands At Risk
+              </div>
+              <div className={`text-2xl font-bold ${summary.brands_at_risk > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {summary.brands_at_risk}
+              </div>
+            </div>
+          </div>
+
+          {/* Retainer Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {retainers.map((r) => {
+              const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.on_track;
+              const StatusIcon = statusCfg.icon;
+
+              return (
+                <div key={r.brand_id} className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-5 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{r.brand_name}</h3>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 uppercase tracking-wider">
+                        {TYPE_LABELS[r.retainer_type] || r.retainer_type}
+                      </span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusCfg.bg} ${statusCfg.color}`}>
+                      <StatusIcon className="w-3.5 h-3.5" />
+                      {statusCfg.label}
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-sm text-zinc-400">
+                        <span className="text-white font-semibold">{r.videos_posted}</span> of {r.video_goal} videos
+                      </span>
+                      <span className="text-sm font-medium text-zinc-300">{r.completion}%</span>
+                    </div>
+                    <div className="w-full h-3 bg-zinc-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-teal-500 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, r.completion)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stats Row */}
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div>
+                      <span className="text-zinc-500">Base:</span>{' '}
+                      <span className="text-emerald-400 font-medium">{formatCurrency(r.base_payout)}</span>
+                    </div>
+                    {r.days_remaining !== null && (
+                      <div>
+                        <span className="text-zinc-500">Days left:</span>{' '}
+                        <span className={`font-medium ${r.days_remaining < 7 ? 'text-red-400' : r.days_remaining < 14 ? 'text-amber-400' : 'text-zinc-300'}`}>
+                          {r.days_remaining}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-zinc-500">Period:</span>{' '}
+                      <span className="text-zinc-300">{formatDate(r.period_start)} — {formatDate(r.period_end)}</span>
+                    </div>
+                  </div>
+
+                  {/* Bonus Tiers */}
+                  {r.tier_progress.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Bonus Tiers</div>
+                      {r.tier_progress.map((tier, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between text-sm px-3 py-1.5 rounded-lg ${
+                            tier.hit
+                              ? 'bg-emerald-500/10 border border-emerald-500/20'
+                              : r.next_bonus_needed > 0 && tier.target === r.videos_posted + r.next_bonus_needed
+                                ? 'bg-amber-500/5 border border-amber-500/20'
+                                : 'bg-zinc-800/50'
+                          }`}
+                        >
+                          <span className="text-zinc-300">
+                            {tier.target} videos
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={tier.hit ? 'text-emerald-400 font-medium' : 'text-zinc-400'}>
+                              {formatCurrency(tier.payout)}
+                            </span>
+                            {tier.hit ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <span className="text-xs text-zinc-500">
+                                {tier.target - r.videos_posted} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {r.bonus_earned > 0 && (
+                        <div className="text-xs text-emerald-400 mt-1">
+                          Bonus earned so far: {formatCurrency(r.bonus_earned)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pace Projection */}
+                  {r.daily_pace > 0 && r.status !== 'completed' && r.status !== 'expired' && (
+                    <div className="text-sm text-zinc-400 bg-zinc-800/30 rounded-lg px-3 py-2">
+                      <TrendingUp className="w-3.5 h-3.5 inline mr-1.5 text-zinc-500" />
+                      At your current pace ({r.daily_pace} videos/day), you&apos;ll hit{' '}
+                      <span className="text-white font-medium">{r.projected_total} videos</span> by deadline
+                      {r.projected_total >= r.video_goal ? (
+                        <span className="text-emerald-400 ml-1">— on track</span>
+                      ) : (
+                        <span className="text-amber-400 ml-1">— {r.videos_needed} more needed</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Linked Brief */}
+                  {r.linked_brief && (
+                    <button
+                      onClick={() => setActiveTab('briefs')}
+                      className="flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300 transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      View analyzed brief: {r.linked_brief.title}
+                    </button>
+                  )}
+
+                  {/* Notes */}
+                  {r.notes && (
+                    <div className="text-sm text-zinc-500 italic border-t border-zinc-800 pt-3">
+                      {r.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Brief History Tab */}
+      {activeTab === 'briefs' && (
+        <div className="space-y-4">
+          <div className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-5">
+            <h3 className="text-base font-semibold text-white mb-4">Past Briefs</h3>
+            {loadingBriefs ? (
+              <div className="py-8 text-center text-zinc-500">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                Loading...
+              </div>
+            ) : pastBriefs.length === 0 ? (
+              <div className="py-8 text-center">
+                <FileText className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                <p className="text-sm text-zinc-500">No briefs analyzed yet</p>
+                <p className="text-xs text-zinc-600 mt-1">Use the &quot;Upload Brief&quot; button above to analyze your first brief</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pastBriefs.map(brief => {
+                  const targetTotal = brief.income_projections?.target?.total;
+                  return (
+                    <Link
+                      key={brief.id}
+                      href={`/admin/briefs?id=${brief.id}`}
+                      className="w-full text-left flex items-center justify-between px-4 py-3 rounded-lg border border-white/5 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="w-4 h-4 text-zinc-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-zinc-200 truncate">{brief.title}</p>
+                          <p className="text-xs text-zinc-500">
+                            {brief.brief_type} · {brief.focus_product || 'No product'} · {new Date(brief.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {targetTotal && (
+                          <span className="text-sm font-medium text-teal-400">{fmtMoney(targetTotal)}</span>
+                        )}
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          brief.status === 'ready' ? 'bg-teal-500/20 text-teal-400' :
+                          brief.status === 'applied' ? 'bg-emerald-500/20 text-emerald-400' :
+                          brief.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                          'bg-zinc-700/50 text-zinc-400'
+                        }`}>
+                          {brief.status}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

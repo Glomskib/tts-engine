@@ -96,6 +96,13 @@ export const NAV_SECTIONS: NavSection[] = [
   // SAAS SECTIONS
   // ========================
   {
+    title: 'HOME',
+    subscriptionType: 'saas',
+    items: [
+      { name: 'Dashboard', href: '/admin/dashboard', icon: BarChart },
+    ],
+  },
+  {
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [

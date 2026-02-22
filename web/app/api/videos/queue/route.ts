@@ -129,6 +129,9 @@ export async function GET(request: Request) {
       } else {
         query = query.eq("client_user_id", user.id);
       }
+    } else if (!isAdmin) {
+      // If client_user_id column doesn't exist, return empty for non-admin safety
+      return NextResponse.json({ ok: true, data: [], total: 0, correlation_id: correlationId });
     }
 
     // Apply claimed filter only if columns exist

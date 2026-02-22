@@ -76,6 +76,18 @@ export async function getVideosColumns(): Promise<Set<string>> {
       columns.add("work_priority");
     }
 
+    // Explicitly check for client_user_id column (migration 071)
+    // CRITICAL: This column is used for data isolation — without it,
+    // non-admin users see all videos instead of only their own.
+    const { error: clientUserIdError } = await supabaseAdmin
+      .from("videos")
+      .select("client_user_id")
+      .limit(1);
+
+    if (!clientUserIdError) {
+      columns.add("client_user_id");
+    }
+
     cachedColumns = columns;
   } catch (err) {
     console.error("Error querying videos schema:", err);

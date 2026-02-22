@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import PlanGate from '@/components/PlanGate';
 import {
   Plus, Building2, Edit, Trash2, ExternalLink, X, Loader2,
   TrendingUp, Video, Trophy, Target, AlertCircle, CheckCircle,
@@ -320,7 +319,6 @@ export default function BrandsPage() {
   }
 
   return (
-    <PlanGate minPlan="brand" feature="Brand Management">
     <AdminPageLayout
       title="Brands"
       subtitle="Manage your brands and their video quotas"
@@ -549,7 +547,6 @@ export default function BrandsPage() {
         />
       )}
     </AdminPageLayout>
-    </PlanGate>
   );
 }
 

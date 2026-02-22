@@ -117,6 +117,11 @@ export default function BriefsPage() {
   const { showSuccess, showError } = useToast();
   const router = useRouter();
 
+  // Redirect to retainers page with briefs tab
+  useEffect(() => {
+    router.replace('/admin/retainers?tab=briefs');
+  }, [router]);
+
   // Form state
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState('');

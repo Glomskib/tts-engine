@@ -94,6 +94,7 @@ async function fetchEligibleVideos(): Promise<VideoRow[]> {
     .from('videos')
     .select('id, recording_status, final_video_url, last_status_changed_at')
     .eq('recording_status', 'READY_TO_POST')
+    .eq('status', 'ready_to_post')  // Pipeline status must also match (API validates this)
     .not('final_video_url', 'is', null)
     .is('nightly_draft_attempted_at', null)
     .order('last_status_changed_at', { ascending: true })

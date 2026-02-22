@@ -80,6 +80,41 @@ export const LOGIN_INDICATORS: SelectorList = [
   '[class*="login"]',
 ];
 
+// ─── Captcha / 2FA / Blocker Detection ─────────────────────────────────────
+
+export const CAPTCHA_INDICATORS: SelectorList = [
+  'iframe[src*="captcha"]',
+  'iframe[src*="recaptcha"]',
+  '[class*="captcha"]',
+  '[id*="captcha"]',
+  'text="Verify"',
+  'text="verify you are human"',
+  'text="slide to verify"',
+  'text="Drag the slider"',
+  '[class*="verify"]',
+];
+
+export const TWO_FA_INDICATORS: SelectorList = [
+  'text="Enter the code"',
+  'text="verification code"',
+  'text="Two-factor"',
+  'text="2-step"',
+  'input[placeholder*="code"]',
+  '[class*="two-factor"]',
+  '[class*="verification-code"]',
+];
+
+export const BLOCKER_INDICATORS: SelectorList = [
+  'text="Something went wrong"',
+  'text="Try again later"',
+  'text="rate limit"',
+  'text="temporarily unavailable"',
+  'text="suspended"',
+  'text="Account suspended"',
+  'text="violat"',
+  '[class*="error-page"]',
+];
+
 // ─── Success Detection ─────────────────────────────────────────────────────
 
 export const SUCCESS_INDICATORS: SelectorList = [

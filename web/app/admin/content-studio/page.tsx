@@ -4081,9 +4081,10 @@ export default function ContentStudioPage() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
                       {[
                         'Make the hook punchier',
+                        'Make it longer — add 2 more beats',
                         'Add more urgency',
+                        'Shorten the script',
                         'Rewrite for younger audience',
-                        'Shorten the first 2 seconds',
                         'Make CTA more compelling',
                         'Dial up the humor',
                       ].map((nudge) => (

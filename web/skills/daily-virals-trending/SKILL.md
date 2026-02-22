@@ -75,6 +75,18 @@ If scraping is blocked, a `BLOCKED` doc is posted instead (tags: `blocked, needs
 | `NEXT_PUBLIC_SUPABASE_URL` | For DB persistence | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | For DB persistence | Supabase service role key |
 
+## Schedule
+
+- **Local crontab:** `30 1 * * *` (6:30 PM PT / 01:30 UTC)
+- **Vercel cron:** `30 13 * * *` (mock mode only, no Playwright on serverless)
+
+## Resilience
+
+- **Session persistence:** Saves browser cookies after login; reuses for 24h to reduce detection
+- **Retry logic:** Up to 3 attempts (with 10s/20s delays) if zero items extracted
+- **Data validation:** Filters cookie banner text, fallback titles, empty items
+- **Blocking detection:** 2FA/CAPTCHA → posts BLOCKED doc to MC, stops immediately
+
 ## Graceful Degradation
 
 - Missing scraper env vars → auto-falls back to mock data

@@ -2,8 +2,9 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
-import { callAnthropicAPI, callAnthropicJSON } from "@/lib/ai/anthropic";
+import { callAnthropicAPI } from "@/lib/ai/anthropic";
 import { trackUsage } from "@/lib/command-center/ingest";
+import { logGenerationAsync } from "@/lib/flashflow/generations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -39,6 +40,49 @@ interface ChatRequest {
   context?: ChatContext;
   video_id?: string;
   mode?: "chat" | "rewrite";
+}
+
+// ---------------------------------------------------------------------------
+// Robust JSON extraction with repair (mirrors unified-script-generator logic)
+// ---------------------------------------------------------------------------
+
+function repairAndParseJSON(raw: string): SkitData | null {
+  let text = raw.trim();
+
+  // Strip markdown code fences
+  if (text.startsWith("```")) {
+    text = text.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+  }
+
+  // Attempt 1: Direct parse
+  try {
+    return JSON.parse(text) as SkitData;
+  } catch {
+    // continue to repair
+  }
+
+  // Attempt 2: Extract JSON object with control character repair
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    let jsonStr = text.substring(firstBrace, lastBrace + 1);
+
+    // Repair control characters inside quoted strings
+    jsonStr = jsonStr.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match, content) => {
+      content = content.replace(/\n/g, "\\n");
+      content = content.replace(/\t/g, "\\t");
+      content = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+      return `"${content}"`;
+    });
+
+    try {
+      return JSON.parse(jsonStr) as SkitData;
+    } catch {
+      // continue to next attempt
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -112,7 +156,8 @@ CRITICAL: Return ONLY a valid JSON object with this exact structure (no markdown
 }
 
 Keep all existing beats/structure unless the user specifically asks to change them.
-Apply the edit instruction precisely — if they say "make it longer", add more beats. If they say "punchier hook", rewrite only the hook.`;
+Apply the edit instruction precisely — if they say "make it longer", add more beats. If they say "punchier hook", rewrite only the hook.
+DO NOT include any explanation, commentary, or markdown. Return ONLY the JSON object.`;
     } else {
       // Chat mode: text advice
       systemPrompt = `You are a creative copywriting assistant for TikTok video scripts.
@@ -137,36 +182,59 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
     let response: string = "";
     let rewrittenSkit: SkitData | null = null;
 
+    // Sanitize user instruction for prompt injection safety
+    const sanitizedMessage = message.trim().slice(0, 2000);
+
     if (anthropicKey) {
       if (isRewrite) {
-        // Use JSON extraction for rewrite mode
-        try {
-          const { parsed, raw } = await callAnthropicJSON<SkitData>(message.trim(), {
-            model: "claude-haiku-4-5-20251001",
-            maxTokens: 2000,
-            temperature: 0.7,
-            systemPrompt,
-            correlationId,
-            requestType: "chat-rewrite",
-            agentId: "ai-chat",
-          });
+        // Use callAnthropicAPI + robust JSON repair for rewrite mode.
+        // Wraps user instruction in delimiters to prevent prompt injection.
+        const rewriteUserPrompt = `<user_instruction>\n${sanitizedMessage}\n</user_instruction>\n\nApply the instruction above to the current script. Return the full rewritten script as valid JSON only.`;
+
+        const aiResult = await callAnthropicAPI(rewriteUserPrompt, {
+          model: "claude-haiku-4-5-20251001",
+          maxTokens: 2000,
+          temperature: 0.7,
+          systemPrompt,
+          correlationId,
+          requestType: "chat-rewrite",
+          agentId: "ai-chat",
+        });
+
+        // Attempt robust JSON extraction with repair
+        const parsed = repairAndParseJSON(aiResult.text);
+
+        if (parsed && parsed.beats && Array.isArray(parsed.beats)) {
           rewrittenSkit = parsed;
-          response = `Script updated — ${raw.usage.output_tokens} tokens used.`;
-        } catch {
-          // Fallback: if JSON parse fails, return as text advice
-          const fallback = await callAnthropicAPI(message.trim(), {
+          response = `Script updated — ${aiResult.usage.output_tokens} tokens used.`;
+        } else {
+          // JSON repair failed — return the AI text as advice instead of silently swallowing
+          console.error(`[${correlationId}] Rewrite JSON repair failed. Raw (first 500): ${aiResult.text.slice(0, 500)}`);
+          response = aiResult.text || "Sorry, I couldn't rewrite the script. Try rephrasing your request.";
+        }
+
+        // Log rewrite to ff_generations (fire-and-forget)
+        if (authContext.user?.id) {
+          logGenerationAsync({
+            user_id: authContext.user.id,
+            template_id: "chat_rewrite",
+            prompt_version: "1.1.0",
+            inputs_json: {
+              user_instruction: sanitizedMessage,
+              current_skit_beats: context.current_skit?.beats?.length ?? 0,
+              brand: context.brand,
+              product: context.product,
+            },
+            output_text: rewrittenSkit
+              ? JSON.stringify(rewrittenSkit).slice(0, 2000)
+              : aiResult.text.slice(0, 500),
             model: "claude-haiku-4-5-20251001",
-            maxTokens: 2000,
-            temperature: 0.7,
-            systemPrompt,
-            correlationId,
-            requestType: "chat-rewrite",
-            agentId: "ai-chat",
+            status: rewrittenSkit ? "completed" : "failed",
+            correlation_id: correlationId,
           });
-          response = fallback.text || "Sorry, I couldn't rewrite the script. Try rephrasing your request.";
         }
       } else {
-        const result = await callAnthropicAPI(message.trim(), {
+        const result = await callAnthropicAPI(sanitizedMessage, {
           model: "claude-haiku-4-5-20251001",
           maxTokens: 500,
           temperature: 0.7,
@@ -178,6 +246,10 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
         response = result.text || "Sorry, I couldn't generate a response.";
       }
     } else if (openaiKey) {
+      const userContent = isRewrite
+        ? `<user_instruction>\n${sanitizedMessage}\n</user_instruction>\n\nApply the instruction above to the current script. Return the full rewritten script as valid JSON only.`
+        : sanitizedMessage;
+
       const start = Date.now();
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -189,7 +261,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
           model: "gpt-3.5-turbo",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: message.trim() },
+            { role: "user", content: userContent },
           ],
           max_tokens: isRewrite ? 2000 : 500,
           temperature: 0.7,
@@ -219,15 +291,34 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
       const content = result.choices?.[0]?.message?.content || "";
 
       if (isRewrite && content) {
-        // Try to parse JSON from OpenAI response
-        try {
-          const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-          const jsonStr = fenceMatch ? fenceMatch[1].trim() : content;
-          const objectMatch = jsonStr.match(/[\[{][\s\S]*[\]}]/);
-          rewrittenSkit = JSON.parse(objectMatch ? objectMatch[0] : jsonStr);
+        // Use robust JSON repair (same as Anthropic path)
+        const parsed = repairAndParseJSON(content);
+        if (parsed && parsed.beats && Array.isArray(parsed.beats)) {
+          rewrittenSkit = parsed;
           response = "Script updated.";
-        } catch {
+        } else {
           response = content;
+        }
+
+        // Log rewrite to ff_generations (fire-and-forget)
+        if (authContext.user?.id) {
+          logGenerationAsync({
+            user_id: authContext.user.id,
+            template_id: "chat_rewrite",
+            prompt_version: "1.1.0",
+            inputs_json: {
+              user_instruction: sanitizedMessage,
+              current_skit_beats: context.current_skit?.beats?.length ?? 0,
+              brand: context.brand,
+              product: context.product,
+            },
+            output_text: rewrittenSkit
+              ? JSON.stringify(rewrittenSkit).slice(0, 2000)
+              : content.slice(0, 500),
+            model: "gpt-3.5-turbo",
+            status: rewrittenSkit ? "completed" : "failed",
+            correlation_id: correlationId,
+          });
         }
       } else {
         response = content || "Sorry, I couldn't generate a response.";

@@ -1,14 +1,14 @@
 {
   "date": "2026-02-22",
-  "generated_at": "2026-02-22T01:57:54.648Z",
+  "generated_at": "2026-02-22T03:01:08.860Z",
   "source": "daily_virals",
   "items": [
     {
       "rank": 1,
       "product_name": "LED Strip Lights",
       "category": "Home & Garden",
-      "views": "7.3M",
-      "gmv_velocity": "$319K",
+      "views": "0.2M",
+      "gmv_velocity": "$456K",
       "hook_text": "Watch this room transform in 10 seconds",
       "source_url": "https://example.com/product/1",
       "thumbnail_url": null
@@ -17,8 +17,8 @@
       "rank": 2,
       "product_name": "Portable Blender",
       "category": "Kitchen",
-      "views": "0.5M",
-      "gmv_velocity": "$145K",
+      "views": "0.1M",
+      "gmv_velocity": "$456K",
       "hook_text": "Making smoothies anywhere just got real",
       "source_url": "https://example.com/product/2",
       "thumbnail_url": null
@@ -27,8 +27,8 @@
       "rank": 3,
       "product_name": "Phone Grip Stand",
       "category": "Electronics",
-      "views": "5.1M",
-      "gmv_velocity": "$404K",
+      "views": "1.0M",
+      "gmv_velocity": "$124K",
       "hook_text": "The phone accessory everyone needs",
       "source_url": "https://example.com/product/3",
       "thumbnail_url": null

@@ -1,14 +1,13 @@
 /**
- * Save-as-draft step.
+ * Save-as-draft / publish step.
  *
- * Draft-only mode: never auto-publishes. Clicks "Save as draft",
- * waits for confirmation, and attempts to extract a draft ID from
- * the resulting URL or page content.
+ * Default: draft-only. When shouldPost is true, clicks "Post" instead.
+ * Waits for confirmation and attempts to extract a post/draft ID.
  */
 
 import type { Page, Locator } from 'playwright';
 import { CONFIG, TIMEOUTS } from './types.js';
-import { DRAFT_BTN, SUCCESS_INDICATORS } from './selectors.js';
+import { DRAFT_BTN, POST_BTN, SUCCESS_INDICATORS } from './selectors.js';
 
 export interface DraftResult {
   saved: boolean;
@@ -35,6 +34,17 @@ async function findFirst(
 }
 
 /**
+ * Extract a TikTok post/draft ID from the current URL.
+ */
+function extractTiktokId(url: string): string | undefined {
+  const idMatch =
+    url.match(/\/video\/(\d+)/) ||
+    url.match(/[?&]id=(\d+)/) ||
+    url.match(/\/(\d{15,})/);
+  return idMatch?.[1];
+}
+
+/**
  * Click "Save as draft" and wait for confirmation.
  * Attempts to extract a tiktok_draft_id from the post-save URL.
  */
@@ -51,20 +61,11 @@ export async function saveDraft(page: Page): Promise<DraftResult> {
   await draftBtn.click();
   await page.waitForTimeout(3_000);
 
-  // Check for success indicators
+  // Check for success
   const success = await findFirst(page, SUCCESS_INDICATORS, TIMEOUTS.postConfirm);
   const currentUrl = page.url();
   const urlChanged = currentUrl !== CONFIG.uploadUrl;
-
-  // Try to extract a draft ID from the URL
-  // TikTok Studio URLs often contain the video/draft ID as a path segment or query param
-  let tiktok_draft_id: string | undefined;
-  const idMatch = currentUrl.match(/\/video\/(\d+)/) ||
-                  currentUrl.match(/[?&]id=(\d+)/) ||
-                  currentUrl.match(/\/(\d{15,})/) ;
-  if (idMatch) {
-    tiktok_draft_id = idMatch[1];
-  }
+  const tiktok_draft_id = extractTiktokId(currentUrl);
 
   if (success || urlChanged) {
     return {
@@ -79,6 +80,47 @@ export async function saveDraft(page: Page): Promise<DraftResult> {
   errors.push('No success confirmation detected — verify draft in TikTok Studio');
   return {
     saved: true, // action was taken, likely succeeded
+    tiktok_draft_id,
+    errors,
+  };
+}
+
+/**
+ * Click "Post" to publish immediately. Only called when POST_MODE=post or POST_NOW=true.
+ * Returns same shape as saveDraft for consistent handling.
+ */
+export async function publishPost(page: Page): Promise<DraftResult> {
+  const errors: string[] = [];
+
+  // Find the post button
+  const postBtn = await findFirst(page, POST_BTN, TIMEOUTS.action);
+  if (!postBtn) {
+    // Fallback: try saving as draft instead
+    errors.push('"Post" button not found — falling back to draft');
+    return saveDraft(page);
+  }
+
+  await postBtn.click();
+  await page.waitForTimeout(3_000);
+
+  // Check for success
+  const success = await findFirst(page, SUCCESS_INDICATORS, TIMEOUTS.postConfirm);
+  const currentUrl = page.url();
+  const urlChanged = currentUrl !== CONFIG.uploadUrl;
+  const tiktok_draft_id = extractTiktokId(currentUrl);
+
+  if (success || urlChanged) {
+    return {
+      saved: true,
+      tiktok_draft_id,
+      url: urlChanged ? currentUrl : undefined,
+      errors,
+    };
+  }
+
+  errors.push('No success confirmation detected after posting — verify in TikTok Studio');
+  return {
+    saved: true,
     tiktok_draft_id,
     errors,
   };

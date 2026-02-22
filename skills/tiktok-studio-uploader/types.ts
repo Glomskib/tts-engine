@@ -17,6 +17,21 @@ export const CONFIG = {
     path.join(os.homedir(), '.openclaw', 'browser-profiles', 'tiktok-studio'),
 
   headless: process.env.TIKTOK_HEADLESS === 'true',
+
+  /** 'draft' (default) or 'post'. POST_NOW=true overrides to 'post'. */
+  postMode:
+    process.env.POST_NOW === 'true'
+      ? 'post' as const
+      : (process.env.POST_MODE === 'post' ? 'post' as const : 'draft' as const),
+
+  /** FlashFlow API URL for status callbacks. */
+  flashflowApiUrl:
+    process.env.FF_API_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'http://localhost:3000',
+
+  /** FlashFlow API token for status callbacks. */
+  flashflowApiToken: process.env.FF_API_TOKEN || '',
 } as const;
 
 // ─── Timeouts ───────────────────────────────────────────────────────────────

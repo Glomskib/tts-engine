@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+// @ts-nocheck — standalone CLI script, not part of Next.js build
 /**
  * TikTok Studio Upload-from-Pack — CLI entry point
  *

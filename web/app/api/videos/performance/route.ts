@@ -45,6 +45,11 @@ export async function GET(request: NextRequest) {
       .gte('created_at', cutoff.toISOString())
       .limit(limit);
 
+    // Data isolation: non-admin users only see their own videos
+    if (!authContext.isAdmin) {
+      query = query.eq('client_user_id', authContext.user.id);
+    }
+
     if (accountId) {
       query = query.eq('account_id', accountId);
     }

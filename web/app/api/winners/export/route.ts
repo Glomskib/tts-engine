@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const { data: winners, error } = await supabaseAdmin
       .from('winners_bank')
       .select('*')
+      .eq('user_id', authContext.user.id)
       .order('created_at', { ascending: false });
 
     if (error) {

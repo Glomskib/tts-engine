@@ -24,6 +24,11 @@ export interface CreateIssueInput {
   fingerprint: string;
 }
 
+/**
+ * Status lifecycle:
+ *   new → triaged → in_progress → pr_open → deployed → verified → closed
+ *   (+ dismissed at any point)
+ */
 export interface IssueRow {
   id: string;
   source: string;

@@ -85,3 +85,18 @@ export function buildTourSteps({ planId, hasProducts }: BuildTourStepsOptions): 
 
   return steps;
 }
+
+/**
+ * Pick mobile tooltip placement based on where the target sits in the viewport.
+ *  - bottom 35% of screen → show tooltip on top
+ *  - top 20% of screen   → show tooltip on bottom
+ *  - otherwise            → let Joyride decide ('auto')
+ */
+export function getMobilePlacement(
+  targetRect: DOMRect,
+  viewportHeight: number,
+): 'top' | 'bottom' | 'auto' {
+  if (targetRect.top > viewportHeight * 0.65) return 'top';
+  if (targetRect.bottom < viewportHeight * 0.2) return 'bottom';
+  return 'auto';
+}

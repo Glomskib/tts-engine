@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/finops-weekly",
       "schedule": "30 6 * * 1"
+    },
+    {
+      "path": "/api/cron/daily-virals",
+      "schedule": "30 13 * * *"
     }
   ]
 }

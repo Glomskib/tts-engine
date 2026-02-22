@@ -10,6 +10,9 @@
  * Uses launchPersistentContext (same profile as tiktok:bootstrap) so
  * login survives across runs.  Also saves storageState as backup.
  *
+ * FAIL-FAST: If not logged in, exits immediately with clear error.
+ * NO repeated login attempts in non-interactive mode.
+ *
  * Usage:
  *   npm run tiktok:upload -- --pack-dir <dir>
  *   npm run tiktok:upload -- --pack-dir <dir> --post
@@ -29,19 +32,20 @@ import { fillDescription } from '../../../../skills/tiktok-studio-uploader/descr
 import { attachProductByID } from '../../../../skills/tiktok-studio-uploader/product.js';
 import { saveDraft, publishPost } from '../../../../skills/tiktok-studio-uploader/draft.js';
 import { LOGIN_INDICATORS } from '../../../../skills/tiktok-studio-uploader/selectors.js';
-import { TIMEOUTS } from '../../../../skills/tiktok-studio-uploader/types.js';
+import { CONFIG, TIMEOUTS, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
-
-const PROFILE_DIR =
-  process.env.TIKTOK_BROWSER_PROFILE ||
-  path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile');
+const UPLOAD_URL = CONFIG.uploadUrl;
+const PROFILE_DIR = CONFIG.profileDir;
 
 const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
 const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
 const META_FILE = path.join(STATE_DIR, 'tiktok-studio.meta.json');
+const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
+
+const FAIL_FAST_MSG =
+  'TikTok session expired — run `npm run tiktok:bootstrap` (one-time phone approval).';
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
 
@@ -170,15 +174,51 @@ function readPack(dir: string): PackData {
 
 async function downloadVideo(url: string, destDir: string): Promise<string> {
   const dest = path.join(destDir, 'video-downloaded.mp4');
-  console.log(`Downloading video from ${url}...`);
+  const MAX_RETRIES = 3;
 
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`Failed to download video: HTTP ${res.status}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`Downloading video (attempt ${attempt}/${MAX_RETRIES}) from ${url}...`);
+      const res = await fetch(url, { redirect: 'follow' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  const buffer = Buffer.from(await res.arrayBuffer());
-  fs.writeFileSync(dest, buffer);
-  console.log(`Downloaded ${(buffer.length / 1024 / 1024).toFixed(1)} MB`);
-  return dest;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      fs.writeFileSync(dest, buffer);
+      console.log(`Downloaded ${(buffer.length / 1024 / 1024).toFixed(1)} MB`);
+      return dest;
+    } catch (err: any) {
+      console.error(`Download attempt ${attempt} failed: ${err.message}`);
+      if (attempt === MAX_RETRIES) throw new Error(`Failed to download video after ${MAX_RETRIES} attempts: ${err.message}`);
+      await new Promise((r) => setTimeout(r, 3_000 * attempt)); // backoff
+    }
+  }
+  throw new Error('unreachable');
+}
+
+// ─── Error reporting ────────────────────────────────────────────────────────
+
+async function captureError(page: Page | null, error: string, context?: Record<string, any>): Promise<string> {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const dir = path.join(ERROR_DIR, ts);
+  fs.mkdirSync(dir, { recursive: true });
+
+  // Screenshot
+  if (page) {
+    try {
+      await page.screenshot({ path: path.join(dir, 'screenshot.png'), fullPage: true });
+    } catch { /* page may be closed */ }
+  }
+
+  // Error report
+  const report = {
+    timestamp: new Date().toISOString(),
+    error,
+    url: page ? page.url() : 'unknown',
+    ...context,
+  };
+  fs.writeFileSync(path.join(dir, 'error-report.json'), JSON.stringify(report, null, 2));
+  console.error(`[error] Report saved to ${dir}`);
+  return dir;
 }
 
 // ─── Browser (persistent context) ───────────────────────────────────────────
@@ -188,19 +228,20 @@ async function launchBrowser(): Promise<{
   page: Page;
 }> {
   if (!fs.existsSync(PROFILE_DIR)) {
-    console.error(
-      `\nNo persistent profile found at ${PROFILE_DIR}\n` +
-        'Run bootstrap first:\n' +
-        '  npm run tiktok:bootstrap\n',
-    );
+    console.error(`\n${FAIL_FAST_MSG}`);
+    console.error(`No persistent profile found at ${PROFILE_DIR}\n`);
     process.exit(1);
   }
 
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: false,
-    viewport: { width: 1280, height: 900 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  // Clean stale lock files from previous crashed runs
+  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    const lockPath = path.join(PROFILE_DIR, lock);
+    try { fs.unlinkSync(lockPath); } catch { /* doesn't exist */ }
+  }
+
+  // Use shared launch options for consistent fingerprint
+  const launchOpts = getLaunchOptions({ headless: false });
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, launchOpts);
 
   const page = context.pages()[0] || (await context.newPage());
   return { context, page };
@@ -302,10 +343,10 @@ async function main() {
     });
     await page.waitForTimeout(3_000);
 
-    // 5. Login check
+    // 5. Login check — FAIL FAST, no retries
     if (!(await isLoggedIn(page))) {
-      console.error('\nNot logged in. Run bootstrap first:');
-      console.error('  npm run tiktok:bootstrap\n');
+      console.error(`\n${FAIL_FAST_MSG}\n`);
+      await captureError(page, 'Not logged in', { pack_dir: packDir });
       await context.close();
       process.exit(1);
     }
@@ -352,10 +393,13 @@ async function main() {
       }
     }
 
-    // 10. Save storageState as backup
+    // 10. Brief wait before closing to let TikTok finalize
+    await page.waitForTimeout(5_000);
+
+    // 11. Save storageState as backup
     await saveBackupState(context);
 
-    // 11. Output JSON result
+    // 12. Output JSON result
     const output = {
       status: SHOULD_POST ? 'posted' : 'drafted',
       pack_dir: path.resolve(packDir!),
@@ -370,9 +414,11 @@ async function main() {
     console.log(JSON.stringify(output, null, 2));
   } catch (err: any) {
     console.error(`\nError: ${err.message}`);
+    await captureError(page, err.message, { pack_dir: packDir, product_id: pack.productId });
+    await context.close();
     process.exit(1);
   } finally {
-    await context.close();
+    try { await context.close(); } catch { /* already closed */ }
   }
 }
 

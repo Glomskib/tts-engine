@@ -6,18 +6,22 @@
  * Reads an Upload Pack (local dir or --video-id API fetch) and runs the
  * Phase 3 automation module to upload → fill description → attach product → save draft/post.
  *
+ * FAIL-FAST: If not logged in, exits immediately with:
+ *   "TikTok session expired — run npm run tiktok:bootstrap (one-time phone approval)."
+ * NO repeated login attempts. NO human intervention in automated runs.
+ *
  * Usage:
  *   npx tsx scripts/tiktok-studio/upload-from-pack.ts /path/to/upload-pack
  *   npx tsx scripts/tiktok-studio/upload-from-pack.ts --video-id <id>
+ *   npx tsx scripts/tiktok-studio/upload-from-pack.ts /path/to/upload-pack --mode draft
+ *   npx tsx scripts/tiktok-studio/upload-from-pack.ts --video-id <id> --mode post
  *   npx tsx scripts/tiktok-studio/upload-from-pack.ts /path/to/upload-pack --dry-run
- *   POST_MODE=post npx tsx scripts/tiktok-studio/upload-from-pack.ts /path/to/upload-pack
- *   POST_NOW=true npx tsx scripts/tiktok-studio/upload-from-pack.ts --video-id <id>
  *
  * Env vars:
- *   TIKTOK_BROWSER_PROFILE  — Chromium profile dir (default: ~/.openclaw/browser-profiles/tiktok-studio)
+ *   TIKTOK_BROWSER_PROFILE  — Chromium profile dir (default: data/sessions/tiktok-studio-profile)
  *   TIKTOK_STUDIO_UPLOAD_URL — Upload page URL (default: https://www.tiktok.com/tiktokstudio/upload)
  *   TIKTOK_HEADLESS          — 'true' for headless mode (default: false)
- *   POST_MODE                — 'draft' (default) or 'post'
+ *   POST_MODE                — 'draft' (default) or 'post' (overridden by --mode)
  *   POST_NOW                 — 'true' to override POST_MODE to 'post'
  *   FF_API_URL               — FlashFlow API base URL for status callbacks
  *   FF_API_TOKEN             — FlashFlow API token for status callbacks
@@ -43,6 +47,8 @@ import {
 // Dry-run imports (uses selectors directly)
 import * as sel from '../../../skills/tiktok-studio-uploader/selectors.js';
 
+const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
+
 const DRY_RUN = process.argv.includes('--dry-run');
 
 // ─── Pack reading ───────────────────────────────────────────────────────────
@@ -54,14 +60,26 @@ interface RawPackData {
   videoId?: string; // for status callback
 }
 
-function parseArgs(): { packDir?: string; videoId?: string } {
+function parseArgs(): { packDir?: string; videoId?: string; mode: 'draft' | 'post' } {
   const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const videoIdIdx = process.argv.indexOf('--video-id');
   const videoId = videoIdIdx !== -1 ? process.argv[videoIdIdx + 1] : undefined;
 
+  // --mode flag overrides env vars
+  const modeIdx = process.argv.indexOf('--mode');
+  let mode: 'draft' | 'post' = CONFIG.postMode;
+  if (modeIdx !== -1 && process.argv[modeIdx + 1]) {
+    mode = process.argv[modeIdx + 1] === 'post' ? 'post' : 'draft';
+  }
+
   if (!args[0] && !videoId) {
-    console.error('Usage: upload-from-pack.ts <pack-directory> [--dry-run]');
-    console.error('       upload-from-pack.ts --video-id <id> [--dry-run]');
+    console.error('Usage: upload-from-pack.ts <pack-directory> [--mode draft|post] [--dry-run]');
+    console.error('       upload-from-pack.ts --video-id <id> [--mode draft|post] [--dry-run]');
+    console.error('');
+    console.error('Flags:');
+    console.error('  --mode draft|post   — Save as draft (default) or post immediately');
+    console.error('  --dry-run           — Check selectors without uploading');
+    console.error('  --video-id <id>     — Fetch pack from FlashFlow API by video ID');
     console.error('');
     console.error('Env vars:');
     console.error('  POST_MODE=draft|post    — Save as draft (default) or post immediately');
@@ -72,7 +90,7 @@ function parseArgs(): { packDir?: string; videoId?: string } {
     process.exit(1);
   }
 
-  return { packDir: args[0], videoId };
+  return { packDir: args[0], videoId, mode };
 }
 
 function readPackDir(dir: string): RawPackData {
@@ -147,6 +165,21 @@ function readPackDir(dir: string): RawPackData {
   return { videoPath, description, productId, videoId };
 }
 
+async function fetchWithRetry(url: string, init?: RequestInit, retries = 3): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok) return res;
+      if (attempt === retries) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    } catch (err: any) {
+      if (attempt === retries) throw err;
+      console.log(`  Retry ${attempt}/${retries} after error: ${err.message}`);
+      await new Promise((r) => setTimeout(r, 2_000 * attempt));
+    }
+  }
+  throw new Error('unreachable');
+}
+
 async function fetchPackFromApi(videoId: string): Promise<RawPackData> {
   const baseUrl = CONFIG.flashflowApiUrl;
   const apiKey = CONFIG.flashflowApiToken || process.env.SERVICE_API_KEY;
@@ -195,10 +228,9 @@ async function fetchPackFromApi(videoId: string): Promise<RawPackData> {
 
   const pack = json.data.pack;
 
-  // Download video to temp file
+  // Download video to temp file with retries
   console.log(`Downloading video from ${pack.video_url}...`);
-  const videoRes = await fetch(pack.video_url);
-  if (!videoRes.ok) throw new Error(`Failed to download video: ${videoRes.status}`);
+  const videoRes = await fetchWithRetry(pack.video_url);
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiktok-upload-'));
   const videoPath = path.join(tmpDir, 'video.mp4');
@@ -222,6 +254,23 @@ async function fetchPackFromApi(videoId: string): Promise<RawPackData> {
   };
 }
 
+// ─── Error reporting ────────────────────────────────────────────────────────
+
+function saveErrorReport(error: string, context?: Record<string, any>): string {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const dir = path.join(ERROR_DIR, ts);
+  fs.mkdirSync(dir, { recursive: true });
+
+  const report = {
+    timestamp: new Date().toISOString(),
+    error,
+    ...context,
+  };
+  fs.writeFileSync(path.join(dir, 'error-report.json'), JSON.stringify(report, null, 2));
+  console.error(`[error] Report saved to ${dir}`);
+  return dir;
+}
+
 // ─── Dry-run ────────────────────────────────────────────────────────────────
 
 async function runDryRun(): Promise<void> {
@@ -230,11 +279,10 @@ async function runDryRun(): Promise<void> {
   console.log(`Upload URL:      ${CONFIG.uploadUrl}`);
   console.log(`Post mode:       ${CONFIG.postMode}\n`);
 
-  const session = await openUploadStudio();
+  const session = await openUploadStudio({ interactive: false });
   if (!session) {
     console.error('ERROR: Not logged in to TikTok Studio.');
-    console.error('Log in manually in headed mode, then retry.');
-    console.error(`Profile: ${CONFIG.profileDir}`);
+    console.error('TikTok session expired — run `npm run tiktok:bootstrap` (one-time phone approval).');
     process.exit(1);
   }
 
@@ -304,7 +352,8 @@ async function runDryRun(): Promise<void> {
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  const shouldPost = CONFIG.postMode === 'post';
+  const { packDir, videoId, mode } = parseArgs();
+  const shouldPost = mode === 'post';
 
   console.log('=== TikTok Studio Upload-from-Pack ===\n');
   console.log(`Mode: ${shouldPost ? 'POST (will publish immediately!)' : 'DRAFT (save as draft)'}`);
@@ -313,8 +362,6 @@ async function main() {
     await runDryRun();
     process.exit(0);
   }
-
-  const { packDir, videoId } = parseArgs();
 
   let pack: RawPackData;
   if (videoId) {
@@ -341,6 +388,15 @@ async function main() {
   console.log('\n--- RESULT ---');
   console.log(JSON.stringify(result, null, 2));
 
+  // Save error report if failed
+  if (result.status === 'error' || result.status === 'login_required') {
+    saveErrorReport(result.errors.join('; '), {
+      video_id: pack.videoId,
+      product_id: pack.productId,
+      status: result.status,
+    });
+  }
+
   // Report status back to FlashFlow (non-blocking)
   if (pack.videoId) {
     await reportStatus({ video_id: pack.videoId, result });
@@ -360,6 +416,7 @@ async function main() {
 
 main().catch((err) => {
   console.error('Fatal error:', err);
+  saveErrorReport(err.message, { fatal: true });
   const result: StudioUploadResult = {
     status: 'error',
     product_id: '',

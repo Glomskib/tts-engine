@@ -32,6 +32,8 @@
     "finops:weekly": "tsx scripts/finops/weekly-report.ts",
     "test:finops": "tsx scripts/test-finops/smoke.ts",
     "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts",
+    "tiktok:bootstrap": "tsx scripts/publish/tiktok-studio/bootstrap-session.ts",
+    "tiktok:upload": "tsx scripts/publish/tiktok-studio/upload.ts",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
     "ff:build": "tsx scripts/creator-style/build.ts"
   },

@@ -1,91 +1,107 @@
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
-import { NextResponse } from 'next/server';
-import { createHash } from 'crypto';
+/**
+ * POST /api/flashflow/issues/intake
+ *
+ * Open endpoint for ingesting issue reports from any source
+ * (Telegram bot, Slack webhook, manual API calls, etc.).
+ *
+ * No auth required — designed for external integrations.
+ * Deduplicates by fingerprint: if an identical issue exists, returns it
+ * with `deduplicated: true` instead of inserting a duplicate.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
+import {
+  computeFingerprint,
+  findByFingerprint,
+  createIssue,
+  logIssueAction,
+} from '@/lib/flashflow/issues';
 
 export const runtime = 'nodejs';
 
-function verifyIssuesSecret(request: Request): boolean {
-  const secret = process.env.FF_ISSUES_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get('authorization');
-  return auth === `Bearer ${secret}`;
-}
+export async function POST(request: NextRequest) {
+  const correlationId =
+    request.headers.get('x-correlation-id') || generateCorrelationId();
 
-function makeFingerprint(source: string, message: string): string {
-  return createHash('sha256')
-    .update(`${source}::${message.trim().toLowerCase().slice(0, 500)}`)
-    .digest('hex')
-    .slice(0, 40);
-}
-
-export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
-
-  if (!verifyIssuesSecret(request)) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Invalid or missing FF_ISSUES_SECRET', 401, correlationId);
-  }
-
+  // Parse body
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON body', 400, correlationId);
+    return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId);
   }
 
-  const source = (body.source as string) || 'api';
-  const reporter = (body.reporter as string) || null;
-  const messageText = body.message_text as string;
-  const contextJson = (body.context as Record<string, unknown>) || {};
-  const severity = (body.severity as string) || 'unknown';
+  const { source, reporter, message_text, context_json } = body;
 
-  if (!messageText) {
-    return createApiErrorResponse('BAD_REQUEST', 'message_text is required', 400, correlationId);
+  // Validate required fields
+  if (!source || typeof source !== 'string') {
+    return createApiErrorResponse(
+      'VALIDATION_ERROR',
+      'source is required (string)',
+      400,
+      correlationId,
+    );
+  }
+  if (!message_text || typeof message_text !== 'string') {
+    return createApiErrorResponse(
+      'VALIDATION_ERROR',
+      'message_text is required (string)',
+      400,
+      correlationId,
+    );
   }
 
-  const fingerprint = makeFingerprint(source, messageText);
+  // Compute fingerprint and check for existing issue
+  const fingerprint = computeFingerprint(source, message_text);
+  const existing = await findByFingerprint(fingerprint);
 
-  // Upsert by fingerprint — if duplicate, update context and bump updated_at
-  const { data: issue, error } = await supabaseAdmin
-    .from('ff_issue_reports')
-    .upsert(
+  if (existing) {
+    const res = NextResponse.json(
       {
-        source,
-        reporter,
-        message_text: messageText,
-        context_json: contextJson,
-        severity,
-        status: 'new',
-        fingerprint,
+        ok: true,
+        deduplicated: true,
+        issue: existing,
+        correlation_id: correlationId,
       },
-      { onConflict: 'fingerprint' }
-    )
-    .select('id, fingerprint, status')
-    .single();
-
-  if (error) {
-    console.error(`[${correlationId}] Issue intake error:`, error);
-    return createApiErrorResponse('DB_ERROR', error.message, 500, correlationId);
+      { status: 200 },
+    );
+    res.headers.set('x-correlation-id', correlationId);
+    return res;
   }
 
-  // Log intake action
-  const { error: actionError } = await supabaseAdmin
-    .from('ff_issue_actions')
-    .insert({
-      issue_id: issue.id,
-      action_type: 'intake',
-      payload_json: { source, reporter, correlation_id: correlationId },
-    });
-
-  if (actionError) {
-    console.error(`[${correlationId}] Issue action log error (non-fatal):`, actionError);
-  }
-
-  return NextResponse.json({
-    ok: true,
-    issue_id: issue.id,
-    fingerprint: issue.fingerprint,
-    dedupe: false,
-    correlation_id: correlationId,
+  // Insert new issue
+  const issue = await createIssue({
+    source,
+    reporter: typeof reporter === 'string' ? reporter : undefined,
+    message_text,
+    context_json:
+      context_json && typeof context_json === 'object'
+        ? (context_json as Record<string, unknown>)
+        : undefined,
+    fingerprint,
   });
+
+  if (!issue) {
+    return createApiErrorResponse('DB_ERROR', 'Failed to create issue', 500, correlationId);
+  }
+
+  // Log the intake action (fire-and-forget)
+  logIssueAction(issue.id, 'intake', {
+    source,
+    reporter: reporter ?? null,
+    correlation_id: correlationId,
+  }).catch(() => {});
+
+  const res = NextResponse.json(
+    {
+      ok: true,
+      deduplicated: false,
+      issue,
+      correlation_id: correlationId,
+    },
+    { status: 201 },
+  );
+  res.headers.set('x-correlation-id', correlationId);
+  return res;
 }

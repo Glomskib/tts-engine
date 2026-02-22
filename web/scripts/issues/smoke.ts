@@ -3,15 +3,16 @@
  * Issue Intake + Triage smoke test.
  *
  * Usage:
- *   npx tsx scripts/issues/smoke.ts
- *   npx tsx scripts/issues/smoke.ts --base http://localhost:3000
+ *   SMOKE_TEST_TOKEN=<admin-jwt-or-ff_ak_key> npx tsx scripts/issues/smoke.ts
+ *   SMOKE_TEST_TOKEN=<token> npx tsx scripts/issues/smoke.ts --base http://localhost:3000
  *
- * Requires FF_ISSUES_SECRET in .env.local (or set as env var).
+ * - Intake endpoint is open (no auth needed).
+ * - Triage endpoint requires admin auth via SMOKE_TEST_TOKEN.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// ── Load env ────────────────────────────────────────────────────────────────
+// ── Load .env.local ──────────────────────────────────────────────────────────
 function loadEnv() {
   try {
     const envPath = join(process.cwd(), '.env.local');
@@ -41,16 +42,14 @@ const BASE = process.argv.includes('--base')
   ? process.argv[process.argv.indexOf('--base') + 1]
   : 'http://localhost:3000';
 
-const SECRET = process.env.FF_ISSUES_SECRET;
-if (!SECRET) {
-  console.error('FF_ISSUES_SECRET not set. Add it to .env.local or export it.');
+const TOKEN = process.env.SMOKE_TEST_TOKEN;
+if (!TOKEN) {
+  console.error(
+    'Set SMOKE_TEST_TOKEN to a valid admin Bearer token (Supabase JWT or ff_ak_* key).\n' +
+    'Example: SMOKE_TEST_TOKEN=eyJ... npx tsx scripts/issues/smoke.ts'
+  );
   process.exit(1);
 }
-
-const headers = {
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${SECRET}`,
-};
 
 let passed = 0;
 let failed = 0;
@@ -66,53 +65,61 @@ function assert(label: string, ok: boolean, detail?: string) {
 }
 
 async function main() {
-  // ── Step 1: Create an issue ─────────────────────────────────────────────────
-  console.log('\n1) POST /api/flashflow/issues/intake');
+  const ts = Date.now();
+  const testMessage = `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${ts})`;
+
+  // ── Step 1: Create an issue (no auth needed) ──────────────────────────────
+  console.log('\n1) POST /api/flashflow/issues/intake — create issue');
 
   const intakeRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       source: 'api',
       reporter: 'smoke-test@flashflow.ai',
-      message_text: `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${Date.now()})`,
-      context: { path: '/api/pipeline/auto-generate', status: 500, smoke: true },
-      severity: 'medium',
+      message_text: testMessage,
+      context_json: { path: '/api/pipeline/auto-generate', status: 500, smoke: true },
     }),
   });
 
   const intakeJson = await intakeRes.json();
-  assert('Status 200', intakeRes.status === 200, `got ${intakeRes.status}`);
+  assert('Status 201', intakeRes.status === 201, `got ${intakeRes.status}`);
   assert('ok: true', intakeJson.ok === true, JSON.stringify(intakeJson));
-  assert('issue_id returned', !!intakeJson.issue_id);
+  assert('deduplicated: false', intakeJson.deduplicated === false);
+  assert('issue returned', !!intakeJson.issue?.id);
 
-  const issueId = intakeJson.issue_id;
+  const issueId = intakeJson.issue?.id;
   console.log(`   issue_id: ${issueId}`);
 
-  // ── Step 2: Dedupe — same message should return same issue ──────────────────
-  console.log('\n2) POST /api/flashflow/issues/intake (dedupe)');
+  // ── Step 2: Dedupe — same message should return existing issue ────────────
+  console.log('\n2) POST /api/flashflow/issues/intake — deduplicate');
 
   const dedupeRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       source: 'api',
       reporter: 'smoke-test@flashflow.ai',
-      message_text: `[smoke-test] Video generation fails with 500 on /api/pipeline/auto-generate (ts=${Date.now()})`,
-      context: { path: '/api/pipeline/auto-generate', status: 500, smoke: true, attempt: 2 },
+      message_text: testMessage,
+      context_json: { attempt: 2 },
     }),
   });
 
   const dedupeJson = await dedupeRes.json();
-  assert('Status 200', dedupeRes.status === 200);
+  assert('Status 200', dedupeRes.status === 200, `got ${dedupeRes.status}`);
   assert('ok: true', dedupeJson.ok === true);
+  assert('deduplicated: true', dedupeJson.deduplicated === true);
+  assert('Same issue_id', dedupeJson.issue?.id === issueId, `got ${dedupeJson.issue?.id}`);
 
-  // ── Step 3: Run triage ──────────────────────────────────────────────────────
-  console.log('\n3) POST /api/flashflow/issues/triage/run');
+  // ── Step 3: Run triage (admin auth required) ──────────────────────────────
+  console.log('\n3) POST /api/flashflow/issues/triage/run — triage');
 
   const triageRes = await fetch(`${BASE}/api/flashflow/issues/triage/run`, {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${TOKEN}`,
+    },
   });
 
   const triageJson = await triageRes.json();
@@ -125,18 +132,7 @@ async function main() {
     console.log(`   severity: ${r.severity}, subsystem: ${r.subsystem}`);
   }
 
-  // ── Step 4: Auth guard — should 401 without secret ──────────────────────────
-  console.log('\n4) Auth guard (no secret)');
-
-  const noAuthRes = await fetch(`${BASE}/api/flashflow/issues/intake`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source: 'api', message_text: 'should fail' }),
-  });
-
-  assert('Status 401', noAuthRes.status === 401);
-
-  // ── Summary ─────────────────────────────────────────────────────────────────
+  // ── Summary ───────────────────────────────────────────────────────────────
   console.log(`\n${'='.repeat(40)}`);
   console.log(`Results: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

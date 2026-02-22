@@ -3,6 +3,7 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { z } from "zod";
+import { logGenerationWithEvent } from "@/lib/flashflow/generations";
 
 export const runtime = "nodejs";
 
@@ -120,6 +121,29 @@ export async function POST(request: Request) {
     if (error) {
       console.error(`[${correlationId}] Failed to save skit:`, error);
       return createApiErrorResponse("DB_ERROR", "Failed to save skit", 500, correlationId);
+    }
+
+    // Log manual script creation to ff_generations + ff_events (fire-and-forget)
+    const isManual = !input.generation_config;
+    if (isManual && skit) {
+      logGenerationWithEvent(
+        {
+          user_id: authContext.user.id,
+          template_id: "manual_script",
+          inputs_json: {
+            title: input.title,
+            product_name: input.product_name || null,
+            product_brand: input.product_brand || null,
+            beats_count: input.skit_data.beats.length,
+          },
+          output_text: input.skit_data.hook_line,
+          model: "manual",
+          status: "completed",
+          correlation_id: correlationId,
+        },
+        "manual_script_created",
+        { skit_id: skit.id, title: input.title }
+      );
     }
 
     const response = NextResponse.json({

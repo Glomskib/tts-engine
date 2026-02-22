@@ -314,12 +314,12 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
           response = content;
         }
 
-        // Log rewrite to ff_generations (fire-and-forget)
+        // Log rewrite to ff_generations + ff_events
         if (authContext.user?.id) {
-          logGenerationAsync({
+          logGeneration({
             user_id: authContext.user.id,
             template_id: "chat_rewrite",
-            prompt_version: "1.1.0",
+            prompt_version: "1.2.0",
             inputs_json: {
               user_instruction: sanitizedMessage,
               current_skit_beats: context.current_skit?.beats?.length ?? 0,
@@ -333,7 +333,16 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
             model: "gpt-3.5-turbo",
             status: rewrittenSkit ? "completed" : "failed",
             correlation_id: correlationId,
-          });
+          }).then((gen) => {
+            if (gen) {
+              logGenerationEvent(gen.id, "generator_modified", authContext.user!.id, {
+                instruction: sanitizedMessage,
+                beats_before: context.current_skit?.beats?.length ?? 0,
+                beats_after: rewrittenSkit?.beats?.length ?? 0,
+                success: !!rewrittenSkit,
+              }).catch(() => {});
+            }
+          }).catch(() => {});
         }
       } else {
         response = content || "Sorry, I couldn't generate a response.";

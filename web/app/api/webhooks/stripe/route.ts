@@ -4,6 +4,7 @@ import { recordReferralConversion } from "@/lib/referrals";
 import { recordCommission } from "@/lib/affiliates";
 import { queueEmailSequence } from "@/lib/email/scheduler";
 import { sendTelegramNotification } from "@/lib/telegram";
+import { syncRoleFromPlan } from "@/lib/sync-role";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -225,6 +226,9 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
     console.error(`[${correlationId}] Failed to update subscription:`, error);
   }
 
+  // Sync role to match new plan
+  await syncRoleFromPlan(userId, planId);
+
   // Initialize credits for the user
   const { error: creditError } = await supabaseAdmin.from("user_credits").upsert(
     {
@@ -326,6 +330,9 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
   if (error) {
     console.error(`[${correlationId}] Failed to update subscription:`, error);
   }
+
+  // Sync role to match updated plan
+  await syncRoleFromPlan(userId, planId);
 }
 
 async function handleSubscriptionCancelled(correlationId: string, subscription: Stripe.Subscription) {
@@ -350,6 +357,11 @@ async function handleSubscriptionCancelled(correlationId: string, subscription: 
 
   if (error) {
     console.error(`[${correlationId}] Failed to cancel subscription:`, error);
+  }
+
+  // Sync role to free on cancellation
+  if (cancelledSub?.user_id) {
+    await syncRoleFromPlan(cancelledSub.user_id, 'free');
   }
 
   // H8: Reset credits to free tier amount (5 credits)

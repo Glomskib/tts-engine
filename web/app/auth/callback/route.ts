@@ -8,6 +8,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { recordReferralSignup, ensureReferralCode } from '@/lib/referrals';
 import { queueEmailSequence } from '@/lib/email/scheduler';
+import { syncRoleFromPlan } from '@/lib/sync-role';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -88,6 +89,9 @@ export async function GET(request: Request) {
         if (creditError) {
           console.error('Credit upsert error (non-fatal):', creditError);
         }
+
+        // Sync role to match plan
+        await syncRoleFromPlan(data.user.id, 'free');
       } catch (e) {
         // Log but don't fail - user is authenticated
         console.error('Error initializing user data (non-fatal):', e);

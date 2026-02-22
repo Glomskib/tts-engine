@@ -7,12 +7,8 @@ import { checkAndExpireUserAssignment } from "@/lib/assignment-expiry";
 
 export const runtime = "nodejs";
 
-// Lane configuration: which recording_status each role works on
-const LANE_STATUS: Record<string, string> = {
-  recorder: "NOT_RECORDED",
-  editor: "RECORDED", // Editor also handles EDITED
-  uploader: "READY_TO_POST",
-};
+// Lane configuration: admins see all lanes; no role-specific lanes remain
+const LANE_STATUS: Record<string, string> = {};
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
@@ -62,14 +58,9 @@ export async function GET(request: Request) {
       .gt("assigned_expires_at", nowIso)
       .limit(1);
 
-    // If user has a specific role (not admin), filter by lane
+    // If user has a lane-specific role, filter by status
     if (laneStatus) {
-      // For editor, include both RECORDED and EDITED statuses
-      if (userRole === "editor") {
-        query = query.in("recording_status", ["RECORDED", "EDITED"]);
-      } else {
-        query = query.eq("recording_status", laneStatus);
-      }
+      query = query.eq("recording_status", laneStatus);
     }
 
     const { data, error } = await query;

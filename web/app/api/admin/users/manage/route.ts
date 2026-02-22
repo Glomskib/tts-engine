@@ -3,6 +3,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { CREDIT_ALLOCATIONS } from '@/lib/subscriptions';
+import { syncRoleFromPlan } from '@/lib/sync-role';
 
 export const runtime = 'nodejs';
 
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
         plan_status: sub?.status || 'none',
         credits_remaining: cred?.credits_remaining ?? 0,
         lifetime_credits_used: cred?.lifetime_credits_used ?? 0,
-        role: role?.role || 'creator',
+        role: role?.role || 'free',
         email_confirmed: !!u.email_confirmed_at,
         last_sign_in: u.last_sign_in_at || null,
         created_at: u.created_at,
@@ -152,6 +153,9 @@ async function handleChangePlan(userId: string, planId: string, correlationId: s
     return createApiErrorResponse('DB_ERROR', error.message, 500, correlationId);
   }
 
+  // Sync role to match new plan
+  await syncRoleFromPlan(userId, planId);
+
   // Also reset credits to the new plan's allocation
   const newCredits = CREDIT_ALLOCATIONS[planId] || 5;
   await supabaseAdmin.from('user_credits').upsert(
@@ -197,7 +201,7 @@ async function handleResetCredits(userId: string, correlationId: string) {
 }
 
 async function handleChangeRole(userId: string, role: string, correlationId: string) {
-  const validRoles = ['admin', 'creator', 'editor', 'va'];
+  const validRoles = ['admin', 'free', 'creator_lite', 'creator_pro', 'brand', 'agency'];
   if (!role || !validRoles.includes(role)) {
     return createApiErrorResponse('BAD_REQUEST', `Invalid role. Must be one of: ${validRoles.join(', ')}`, 400, correlationId);
   }

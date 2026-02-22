@@ -21,7 +21,7 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyApiKeyFromRequest } from '@/lib/api-keys';
 
-export type UserRole = 'admin' | 'creator' | 'recorder' | 'editor' | 'uploader' | 'va' | 'bot';
+export type UserRole = 'admin' | 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
 
 export interface AuthContext {
   user: {
@@ -39,16 +39,6 @@ export interface AuthContext {
  */
 function parseAdminUsersEnv(): Set<string> {
   const raw = process.env.ADMIN_USERS || "";
-  const list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return new Set(list);
-}
-
-/**
- * Parse UPLOADER_USERS environment variable into a Set of lowercase emails.
- * UPLOADER_USERS is a bootstrap allowlist for uploader role.
- */
-function parseUploaderUsersEnv(): Set<string> {
-  const raw = process.env.UPLOADER_USERS || "";
   const list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   return new Set(list);
 }
@@ -99,23 +89,16 @@ async function resolveUserRole(
 
   let role = await safeGetUserRole(supabaseAdmin, userId);
 
-  if (!role && userEmail) {
-    const uploaderEmails = parseUploaderUsersEnv();
-    if (uploaderEmails.has(userEmail)) {
-      role = 'uploader';
-    }
-  }
-
-  // Default to 'creator' if no role found
+  // Default to 'free' if no role found
   if (!role) {
-    role = 'creator';
+    role = 'free';
   }
 
   return {
     user: { id: userId, email },
     role,
     isAdmin: role === 'admin',
-    isUploader: role === 'admin' || role === 'uploader',
+    isUploader: role === 'admin',
   };
 }
 
@@ -229,11 +212,11 @@ export function roleAllowsTransition(
   if (role === 'admin') return true;
 
   const allowedTransitions: Record<string, UserRole[]> = {
-    RECORDED: ['recorder', 'admin'],
-    EDITED: ['editor', 'admin'],
-    READY_TO_POST: ['editor', 'admin'],
-    POSTED: ['uploader', 'admin'],
-    REJECTED: ['recorder', 'editor', 'uploader', 'admin'],
+    RECORDED: ['admin'],
+    EDITED: ['admin'],
+    READY_TO_POST: ['admin'],
+    POSTED: ['admin'],
+    REJECTED: ['admin'],
   };
 
   const allowedRoles = allowedTransitions[targetStatus];

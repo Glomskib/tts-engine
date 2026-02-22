@@ -183,6 +183,8 @@ export default function SkitLibraryPage() {
   const [manualHook, setManualHook] = useState("");
   const [manualBody, setManualBody] = useState("");
   const [manualCta, setManualCta] = useState("");
+  const [manualTags, setManualTags] = useState("");
+  const [manualNotes, setManualNotes] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
 
   // Bulk selection
@@ -485,6 +487,10 @@ export default function SkitLibraryPage() {
         beats.push({ t: "0:03", action: "dialogue", dialogue: "..." });
       }
 
+      const tags = manualTags.trim()
+        ? manualTags.split(/[,\n]+/).map(t => t.trim()).filter(Boolean)
+        : [];
+
       const res = await fetch("/api/skits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -502,6 +508,11 @@ export default function SkitLibraryPage() {
           product_brand: manualProductBrand.trim() || undefined,
           status: "draft",
           ai_score: null,
+          strategy_metadata: {
+            source: "manual",
+            tags: tags.length > 0 ? tags : undefined,
+            notes: manualNotes.trim() || undefined,
+          },
         }),
       });
       const data = await res.json();
@@ -514,6 +525,8 @@ export default function SkitLibraryPage() {
         setManualHook("");
         setManualBody("");
         setManualCta("");
+        setManualTags("");
+        setManualNotes("");
         // Refresh list
         setCurrentPage(1);
         fetchSkits();
@@ -2196,6 +2209,34 @@ export default function SkitLibraryPage() {
                     width: "100%", padding: "8px 12px", borderRadius: "6px",
                     border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
                     color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Tags (comma-separated)</label>
+                <input
+                  value={manualTags}
+                  onChange={e => setManualTags(e.target.value)}
+                  placeholder="e.g. ugc, skincare, hook-test"
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: "6px",
+                    border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                    color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Notes</label>
+                <textarea
+                  value={manualNotes}
+                  onChange={e => setManualNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Internal notes (not included in script)"
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: "6px",
+                    border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                    color: colors.text, fontSize: "14px", resize: "vertical", boxSizing: "border-box",
+                    fontFamily: "inherit",
                   }}
                 />
               </div>

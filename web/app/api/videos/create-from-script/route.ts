@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logGenerationWithEvent } from '@/lib/flashflow/generations';
 
 export const runtime = 'nodejs';
 
@@ -116,6 +117,24 @@ export async function POST(request: Request) {
   ]).then(
     () => {},
     (err: unknown) => { console.error('Failed to write video events:', err); }
+  );
+
+  // Also log to ff_generations + ff_events for unified audit trail (fire-and-forget)
+  logGenerationWithEvent(
+    {
+      user_id: authContext.user.id,
+      template_id: "pipeline_script",
+      inputs_json: {
+        script_id,
+        title: title || null,
+        product_name: product_name || null,
+      },
+      output_text: hook_line ? String(hook_line) : undefined,
+      model: "manual",
+      status: "completed",
+    },
+    "pipeline_added",
+    { video_id: video.id, script_id, client_user_id: authContext.user.id }
   );
 
   return NextResponse.json({

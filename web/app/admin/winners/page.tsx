@@ -296,27 +296,26 @@ export default function WinnersPage() {
     setSubmitMessage(null);
 
     try {
-      const res = await fetch("/api/winners/submit", {
+      const res = await fetch("/api/winners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: submitUrl.trim(),
-          submitted_by: authUser?.email || "admin",
+          source_type: "external" as const,
+          video_url: submitUrl.trim(),
         }),
       });
 
       const data = await res.json();
 
       if (!data.ok) {
-        setSubmitMessage({ type: "error", text: data.error || "Failed to submit" });
+        setSubmitMessage({ type: "error", text: data.error || data.message || "Failed to submit" });
         return;
       }
 
       setSubmitUrl("");
-      const creatorInfo = data.data?.creator_handle ? ` (@${data.data.creator_handle})` : "";
       setSubmitMessage({
         type: "success",
-        text: `Winner added${creatorInfo}! Click the row to add transcript and metrics.`
+        text: "Winner added! Click the row to add transcript and metrics."
       });
       setTimeout(() => setSubmitMessage(null), 8000);
       fetchWinners();
@@ -437,7 +436,7 @@ export default function WinnersPage() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setSaveMessage({ type: "error", text: data.error || "Failed to save" });
+        setSaveMessage({ type: "error", text: data.error || data.message || "Failed to save" });
         return;
       }
 

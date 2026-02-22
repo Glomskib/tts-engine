@@ -19,8 +19,8 @@ const CreateWinnerSchema = z.object({
   // Content
   hook: z.string().optional(),
   full_script: z.string().optional(),
-  video_url: z.string().url().optional(),
-  thumbnail_url: z.string().url().optional(),
+  video_url: z.string().optional(),
+  thumbnail_url: z.string().optional(),
   notes: z.string().optional(),
 
   // Categorization

@@ -52,8 +52,9 @@ export async function POST(request: Request) {
   }
 
   // Create video with script metadata — use valid recording_status values only
+  // NOTE: account_id is FK to tiktok_accounts — do NOT set to auth user UUID.
+  // Use client_user_id for user isolation; account_id is set when a TikTok account is chosen.
   const insertPayload: Record<string, unknown> = {
-    account_id: authContext.user.id,
     client_user_id: authContext.user.id,
     status: 'needs_edit',
     recording_status: 'NEEDS_SCRIPT',

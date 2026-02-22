@@ -114,6 +114,7 @@ export function generateCorrelationId(): string {
  */
 export interface StandardApiErrorResponse {
   ok: false;
+  error: string;
   error_code: ApiErrorCode;
   message: string;
   correlation_id: string;
@@ -132,6 +133,7 @@ export function createApiErrorResponse(
 ): NextResponse<StandardApiErrorResponse> {
   const body: StandardApiErrorResponse = {
     ok: false,
+    error: message,
     error_code: errorCode,
     message,
     correlation_id: correlationId,

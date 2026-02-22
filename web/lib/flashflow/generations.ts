@@ -98,6 +98,51 @@ export function logGenerationAsync(input: LogGenerationInput): void {
 }
 
 /**
+ * Log an event to ff_events for a given generation.
+ * Non-throwing — logs errors to console.
+ */
+export async function logGenerationEvent(
+  generationId: string,
+  eventType: string,
+  actor: string,
+  payload?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('ff_events')
+      .insert({
+        generation_id: generationId,
+        event_type: eventType,
+        actor,
+        payload: payload ?? {},
+      });
+
+    if (error) {
+      console.error('[ff:events] Insert failed:', error.message);
+    }
+  } catch (err) {
+    console.error('[ff:events] Exception:', err);
+  }
+}
+
+/**
+ * Create a generation record and log an event in one call (fire-and-forget).
+ * Useful for non-AI actions (manual creation, pipeline additions) that still
+ * need an audit trail in ff_events.
+ */
+export function logGenerationWithEvent(
+  input: LogGenerationInput,
+  eventType: string,
+  eventPayload?: Record<string, unknown>
+): void {
+  logGeneration(input).then((gen) => {
+    if (gen) {
+      logGenerationEvent(gen.id, eventType, input.user_id, eventPayload).catch(() => {});
+    }
+  }).catch(() => {});
+}
+
+/**
  * Update a generation row (e.g., to set status=rejected or add output after streaming).
  */
 export async function updateGeneration(

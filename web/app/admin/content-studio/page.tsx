@@ -887,6 +887,13 @@ export default function ContentStudioPage() {
       // Use rewrite mode when we have a skit to edit
       const useRewrite = !!currentSkit;
 
+      // Build creative direction from advanced options so AI respects user constraints
+      const directionParts = [
+        referenceScript.trim() ? `Reference style: ${referenceScript.trim()}` : '',
+        specificHooks.trim() ? `Include hooks: ${specificHooks.trim()}` : '',
+        thingsToAvoid.trim() ? `Avoid: ${thingsToAvoid.trim()}` : '',
+      ].filter(Boolean).join('. ');
+
       const res = await postJson<{ response: string; rewritten_skit?: SkitData; mode?: string }>('/api/ai/chat', {
         message: msg,
         mode: useRewrite ? 'rewrite' : 'chat',
@@ -897,6 +904,7 @@ export default function ContentStudioPage() {
           current_skit: useRewrite ? currentSkit : undefined,
           spoken_hook: currentSkit?.hook_line,
           angle: result?.strategy_metadata?.recommended_angle,
+          creative_direction: directionParts || undefined,
         },
       });
 

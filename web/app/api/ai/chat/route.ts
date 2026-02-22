@@ -4,7 +4,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { NextResponse } from "next/server";
 import { callAnthropicAPI } from "@/lib/ai/anthropic";
 import { trackUsage } from "@/lib/command-center/ingest";
-import { logGenerationAsync } from "@/lib/flashflow/generations";
+import { logGeneration, logGenerationEvent } from "@/lib/flashflow/generations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,6 +33,7 @@ interface ChatContext {
   spoken_hook?: string;
   visual_hook?: string;
   angle?: string;
+  creative_direction?: string;
 }
 
 interface ChatRequest {
@@ -142,6 +143,9 @@ ${JSON.stringify(context.current_skit, null, 2)}`;
       if (context.brand) systemPrompt += `\n\nBrand: ${context.brand}`;
       if (context.product) systemPrompt += `\nProduct: ${context.product}`;
       if (context.angle) systemPrompt += `\nAngle: ${context.angle}`;
+      if (context.creative_direction) {
+        systemPrompt += `\n\nUSER CREATIVE DIRECTION (must respect these constraints):\n"${context.creative_direction}"`;
+      }
 
       systemPrompt += `
 
@@ -213,17 +217,18 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
           response = aiResult.text || "Sorry, I couldn't rewrite the script. Try rephrasing your request.";
         }
 
-        // Log rewrite to ff_generations (fire-and-forget)
+        // Log rewrite to ff_generations + ff_events
         if (authContext.user?.id) {
-          logGenerationAsync({
+          logGeneration({
             user_id: authContext.user.id,
             template_id: "chat_rewrite",
-            prompt_version: "1.1.0",
+            prompt_version: "1.2.0",
             inputs_json: {
               user_instruction: sanitizedMessage,
               current_skit_beats: context.current_skit?.beats?.length ?? 0,
               brand: context.brand,
               product: context.product,
+              creative_direction: context.creative_direction || null,
             },
             output_text: rewrittenSkit
               ? JSON.stringify(rewrittenSkit).slice(0, 2000)
@@ -231,7 +236,16 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
             model: "claude-haiku-4-5-20251001",
             status: rewrittenSkit ? "completed" : "failed",
             correlation_id: correlationId,
-          });
+          }).then((gen) => {
+            if (gen) {
+              logGenerationEvent(gen.id, "generator_modified", authContext.user!.id, {
+                instruction: sanitizedMessage,
+                beats_before: context.current_skit?.beats?.length ?? 0,
+                beats_after: rewrittenSkit?.beats?.length ?? 0,
+                success: !!rewrittenSkit,
+              }).catch(() => {});
+            }
+          }).catch(() => {});
         }
       } else {
         const result = await callAnthropicAPI(sanitizedMessage, {
@@ -311,6 +325,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
               current_skit_beats: context.current_skit?.beats?.length ?? 0,
               brand: context.brand,
               product: context.product,
+              creative_direction: context.creative_direction || null,
             },
             output_text: rewrittenSkit
               ? JSON.stringify(rewrittenSkit).slice(0, 2000)

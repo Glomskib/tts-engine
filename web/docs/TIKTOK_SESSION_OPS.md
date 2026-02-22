@@ -71,9 +71,14 @@ injection needed; the browser profile directory **is** the session.
 | **Secondary storageState copy** | `~/.flashflow/tiktok-studio.storageState.json` |
 | **Cooldown lockfile** | `~/tts-engine/web/data/sessions/.session-invalid.lock` |
 | **Error reports** | `~/tts-engine/web/data/tiktok-errors/<timestamp>/` |
+| **Session backups** | `~/tts-engine/web/data/sessions/backups/` |
+| **Archived profiles** | `~/tts-engine/web/data/sessions/archived/` |
 | **Bootstrap script** | `web/scripts/publish/tiktok-studio/bootstrap-session.ts` |
 | **Check-session script** | `web/scripts/publish/tiktok-studio/check-session.ts` |
 | **Upload runner** | `web/scripts/tiktok-studio/upload-from-pack.ts` |
+| **Healthcheck script** | `web/scripts/tiktok-studio/session-healthcheck.sh` |
+| **Backup script** | `web/scripts/tiktok-studio/backup-tiktok-session.sh` |
+| **Rotate script** | `web/scripts/tiktok-studio/rotate-tiktok-session.sh` |
 
 **Recommended storage location on Mac mini:** Keep defaults (all under
 `~/tts-engine/web/data/sessions/`). This is on the local SSD, which is
@@ -138,7 +143,7 @@ cd ~/tts-engine/web && TIKTOK_HEADLESS=true pnpm run tiktok:upload-pack -- --dry
 
 ## Session Health Check
 
-Quick non-destructive check (opens browser, checks login, exits):
+### Quick check (login status only)
 
 ```bash
 cd ~/tts-engine/web && pnpm run tiktok:check-session
@@ -148,15 +153,66 @@ cd ~/tts-engine/web && pnpm run tiktok:check-session
 |-----------|---------|
 | 0 | Logged in |
 | 1 | Error (couldn't open browser, profile dir missing, etc.) |
-| 2 | NOT logged in (session expired) |
+| 42 | NOT logged in (session expired — needs manual bootstrap) |
 
 Use in a wrapper script:
 ```bash
 cd ~/tts-engine/web && pnpm run tiktok:check-session
 rc=$?
-if [ $rc -eq 2 ]; then
+if [ $rc -eq 42 ]; then
   echo "Session expired — needs bootstrap"
 fi
+```
+
+### Comprehensive healthcheck (recommended for pre-flight)
+
+Checks profile dir, cooldown lockfile, storageState age, and runs the
+regression harness in headless mode. Single pass/fail with remediation steps.
+
+```bash
+cd ~/tts-engine/web && pnpm run tiktok:healthcheck
+```
+
+| Exit Code | Meaning |
+|-----------|---------|
+| 0 | Healthy — ready for overnight runs |
+| 42 | Unhealthy — needs manual bootstrap |
+
+**Example output (healthy):**
+```
+=== TikTok Session Health Check ===
+
+[healthcheck] Checking profile directory...
+  OK: .../tiktok-studio-profile (2d old)
+[healthcheck] Checking cooldown lockfile...
+  OK: No cooldown lockfile
+[healthcheck] Checking storageState backup...
+  OK: .../tiktok-studio.storageState.json (2d old)
+[healthcheck] Checking bootstrap meta...
+  Last bootstrap: 2026-02-20T18:30:00.000Z (verified=true)
+
+[healthcheck] Running regression harness (HEADLESS=1, no upload)...
+  ...regression output...
+
+[healthcheck] Regression: PASSED
+
+=== Summary ===
+  STATUS: HEALTHY — ready for overnight runs
+```
+
+**Example output (session invalid):**
+```
+=== TikTok Session Health Check ===
+
+[healthcheck] Checking profile directory...
+  OK: .../tiktok-studio-profile (9d old)
+[healthcheck] Checking cooldown lockfile...
+  BLOCKED: Cooldown lockfile active (2.3h ago, window=6h)
+  Session was already reported invalid. Still within suppression window.
+
+  Remediation:
+    1. Run: cd ~/tts-engine/web && pnpm run tiktok:bootstrap
+    2. Clear lockfile: rm .../data/sessions/.session-invalid.lock
 ```
 
 ---
@@ -302,28 +358,39 @@ This re-uses the existing profile directory — just re-logs in:
 cd ~/tts-engine/web && pnpm run tiktok:bootstrap
 ```
 
-### Fresh profile (nuclear option)
+### Automated rotation (recommended)
 
-If the profile is corrupted, start from scratch:
+The rotate script archives the current profile, clears all session state,
+and prints the bootstrap command. It creates a backup first automatically.
 
 ```bash
-# 1. Ensure no browser is running against this profile
-# 2. Backup existing profile (just in case)
-mv ~/tts-engine/web/data/sessions/tiktok-studio-profile \
-   ~/tts-engine/web/data/sessions/tiktok-studio-profile.bak.$(date +%Y%m%d)
-
-# 3. Bootstrap creates a fresh profile
-cd ~/tts-engine/web && pnpm run tiktok:bootstrap
-
-# 4. Verify
-cd ~/tts-engine/web && pnpm run tiktok:check-session
-
-# 5. Clear cooldown
-rm -f ~/tts-engine/web/data/sessions/.session-invalid.lock
-
-# 6. Clean up old backup after a few days
-rm -rf ~/tts-engine/web/data/sessions/tiktok-studio-profile.bak.*
+cd ~/tts-engine/web && pnpm run tiktok:rotate
 ```
+
+**What it does:**
+1. Checks for active browser lock (refuses if found — override with `FORCE=1`)
+2. Creates a backup via `tiktok:backup`
+3. Moves profile to `data/sessions/archived/tiktok-studio-profile-<timestamp>`
+4. Removes storageState, meta, and cooldown lockfile
+5. Keeps last 3 archived profiles, prunes older ones
+
+**Override lock check (only if you're sure no browser is running):**
+```bash
+cd ~/tts-engine/web && FORCE=1 pnpm run tiktok:rotate
+```
+
+**After rotation, bootstrap a fresh session:**
+```bash
+cd ~/tts-engine/web && pnpm run tiktok:bootstrap
+pnpm run tiktok:check-session
+```
+
+### When to rotate
+
+- Profile is corrupted (browser crashes on launch)
+- Repeated session failures even after re-bootstrapping
+- Switching TikTok accounts
+- Periodic hygiene (monthly recommended)
 
 ### Use a different profile directory
 
@@ -336,28 +403,37 @@ cd ~/tts-engine/web && pnpm run tiktok:bootstrap
 
 ## Backup & Restore
 
-### What to back up
-
-The **profile directory** is the authoritative session source:
-```
-~/tts-engine/web/data/sessions/tiktok-studio-profile/
-```
-
-The **storageState JSON** is a supplementary backup (saved by bootstrap):
-```
-~/tts-engine/web/data/sessions/tiktok-studio.storageState.json
-```
-
-### Create a backup
+### Automated backup (recommended)
 
 ```bash
-# While NO upload is running:
-tar czf ~/backups/tiktok-session-$(date +%Y%m%d-%H%M).tar.gz \
-  -C ~/tts-engine/web/data/sessions \
-  tiktok-studio-profile \
-  tiktok-studio.storageState.json \
-  tiktok-studio.meta.json
+cd ~/tts-engine/web && pnpm run tiktok:backup
 ```
+
+Creates a timestamped `tar.gz` in `data/sessions/backups/`, containing
+the profile directory, storageState, and meta file. Keeps the last 10
+backups by default (configurable via `TIKTOK_BACKUP_KEEP`).
+
+**When to backup:**
+- Before any rotation or nuclear reset
+- After a successful bootstrap (good known state)
+- As part of a weekly cron job:
+  ```bash
+  # Crontab: weekly backup on Sunday at 3 AM
+  0 3 * * 0 cd ~/tts-engine/web && pnpm run tiktok:backup >> /tmp/tiktok-backup.log 2>&1
+  ```
+
+**Adjust retention:**
+```bash
+TIKTOK_BACKUP_KEEP=20 pnpm run tiktok:backup
+```
+
+### What gets backed up
+
+| Item | Path in archive |
+|------|----------------|
+| Browser profile (the session) | `tiktok-studio-profile/` |
+| StorageState backup | `tiktok-studio.storageState.json` |
+| Bootstrap metadata | `tiktok-studio.meta.json` |
 
 ### Restore from backup
 
@@ -366,16 +442,28 @@ tar czf ~/backups/tiktok-session-$(date +%Y%m%d-%H%M).tar.gz \
 # 2. Remove current (corrupted) profile
 rm -rf ~/tts-engine/web/data/sessions/tiktok-studio-profile
 
-# 3. Restore
-tar xzf ~/backups/tiktok-session-YYYYMMDD-HHMM.tar.gz \
+# 3. List available backups
+ls -lh ~/tts-engine/web/data/sessions/backups/
+
+# 4. Restore
+tar xzf ~/tts-engine/web/data/sessions/backups/tiktok-session-YYYYMMDD-HHMMSS.tar.gz \
   -C ~/tts-engine/web/data/sessions/
 
-# 4. Verify
+# 5. Verify
 cd ~/tts-engine/web && pnpm run tiktok:check-session
 
-# 5. Clear cooldown
+# 6. Clear cooldown
 rm -f ~/tts-engine/web/data/sessions/.session-invalid.lock
 ```
+
+### Safety warnings
+
+- **Do NOT backup while a browser is actively running** — the archive may
+  capture inconsistent state. The script warns if SingletonLock exists.
+- **Do NOT restore into a directory where a browser is running** — stop
+  uploads first.
+- **Backups contain session cookies** — treat them as secrets. Do not
+  commit to git or share.
 
 ---
 
@@ -418,7 +506,7 @@ This section documents how each caller type should behave.
 |--------|-------------|---------|
 | `upload-from-pack.ts` | `tiktok:upload-pack` | Yes (+ cooldown) |
 | `upload.ts` | `tiktok:upload` | Yes |
-| `check-session.ts` | `tiktok:check-session` | Exit 2 (not 42 — check-only, no upload) |
+| `check-session.ts` | `tiktok:check-session` | Yes (exit 42 when not logged in) |
 
 ### Cron / Launchd
 
@@ -536,36 +624,27 @@ Complete this checklist before leaving the system to run overnight.
 | 9 | Dry-run succeeds | `TIKTOK_HEADLESS=true pnpm run tiktok:upload-pack -- --dry-run` exits 0 | [ ] |
 | 10 | Error directory is writable | `touch data/tiktok-errors/.write-test && rm data/tiktok-errors/.write-test` | [ ] |
 | 11 | Session cooldown window is acceptable | `echo $SESSION_INVALID_COOLDOWN_HOURS` → 6 (or your preference) | [ ] |
-| 12 | Recent backup exists | `ls ~/backups/tiktok-session-*.tar.gz` | [ ] |
+| 12 | Recent backup exists | `ls data/sessions/backups/tiktok-session-*.tar.gz` | [ ] |
 
-### Quick pre-flight script
+### Quick pre-flight (single command)
+
+The healthcheck script runs all of the above automatically:
 
 ```bash
-#!/bin/bash
-cd ~/tts-engine/web
-echo "=== Overnight Pre-Flight ==="
+cd ~/tts-engine/web && pnpm run tiktok:healthcheck
+```
 
-# 1. Session check
-pnpm run tiktok:check-session 2>/dev/null
-if [ $? -ne 0 ]; then echo "FAIL: Session invalid"; exit 1; fi
-echo "OK: Session valid"
+Exits 0 if ready, 42 if not. Prints actionable remediation on failure.
 
-# 2. No stale lockfile
-if [ -f data/sessions/.session-invalid.lock ]; then
-  echo "WARN: Stale cooldown lockfile exists — removing"
-  rm data/sessions/.session-invalid.lock
-fi
-echo "OK: No cooldown lockfile"
+### Expected workflow
 
-# 3. Dry run
-TIKTOK_HEADLESS=true pnpm run tiktok:upload-pack -- --dry-run 2>/dev/null
-if [ $? -ne 0 ]; then echo "FAIL: Dry run failed"; exit 1; fi
-echo "OK: Dry run passed"
-
-# 4. Disk space
-avail=$(df -m . | tail -1 | awk '{print $4}')
-if [ "$avail" -lt 2048 ]; then echo "WARN: Low disk space (${avail}MB)"; fi
-echo "OK: Disk space ${avail}MB available"
-
-echo "=== All checks passed ==="
+```
+1. pnpm run tiktok:backup          # snapshot current good state
+2. pnpm run tiktok:healthcheck     # verify everything is green
+3. (leave overnight)
+4. (next morning) check logs
+5. If exit 42 appeared:
+   a. pnpm run tiktok:bootstrap    # re-login
+   b. pnpm run tiktok:healthcheck  # verify fixed
+   c. rm -f data/sessions/.session-invalid.lock
 ```

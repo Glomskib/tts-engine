@@ -66,7 +66,7 @@ npm run tiktok:upload -- --pack-dir <dir> --post
 | Script | Description |
 |--------|-------------|
 | `tiktok:bootstrap` | One-time interactive login (headed browser, phone approval) |
-| `tiktok:check-session` | Verify persistent login is still valid (exit 0=yes, 2=no) |
+| `tiktok:check-session` | Verify persistent login is still valid (exit 0=yes, 42=expired) |
 | `tiktok:upload-pack` | Upload from pack dir or --video-id (main runner) |
 | `tiktok:upload` | Upload from --pack-dir (alternative entry point) |
 | `publish:pack` | Generate upload pack from video ID (writes files to disk) |

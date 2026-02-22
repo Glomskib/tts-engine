@@ -7,9 +7,9 @@
  * and prints LOGGED_IN=true or LOGGED_IN=false.
  *
  * Exit codes:
- *   0 = logged in
- *   1 = error
- *   2 = not logged in (session expired)
+ *   0  = logged in
+ *   1  = error (couldn't open browser, etc.)
+ *   42 = not logged in (session expired — needs manual bootstrap)
  *
  * Usage:
  *   npm run tiktok:check-session
@@ -48,7 +48,7 @@ async function main() {
     console.log(`${TAG} LOGGED_IN=false`);
     console.log(`${TAG} Reason: No profile directory at ${PROFILE_DIR}`);
     console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
-    process.exit(2);
+    process.exit(42);
   }
 
   console.log(`${TAG} Profile: ${PROFILE_DIR}`);
@@ -78,7 +78,7 @@ async function main() {
       console.log(`${TAG} Reason: Redirected to ${url}`);
       console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
       await context.close();
-      process.exit(2);
+      process.exit(42);
     }
 
     // Check for not-logged-in selectors
@@ -90,7 +90,7 @@ async function main() {
           console.log(`${TAG} Reason: Found login indicator: ${sel}`);
           console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
           await context.close();
-          process.exit(2);
+          process.exit(42);
         }
       } catch { /* next */ }
     }

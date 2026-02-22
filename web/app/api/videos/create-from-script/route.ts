@@ -30,13 +30,19 @@ export async function POST(request: Request) {
   }
 
   // Check if a video already exists for this script via saved_skits.video_id
+  // Filter by user_id to prevent cross-account access
   const { data: skit } = await supabaseAdmin
     .from('saved_skits')
-    .select('id, video_id')
+    .select('id, video_id, product_id')
     .eq('id', script_id)
+    .eq('user_id', authContext.user.id)
     .maybeSingle();
 
-  if (skit?.video_id) {
+  if (!skit) {
+    return NextResponse.json({ ok: false, error: 'Script not found or access denied' }, { status: 404 });
+  }
+
+  if (skit.video_id) {
     return NextResponse.json({
       ok: true,
       data: { id: skit.video_id },
@@ -45,16 +51,21 @@ export async function POST(request: Request) {
     });
   }
 
-  // Create video with minimal data — use valid recording_status values only
+  // Create video with script metadata — use valid recording_status values only
+  const insertPayload: Record<string, unknown> = {
+    account_id: authContext.user.id,
+    status: 'needs_edit',
+    recording_status: 'NEEDS_SCRIPT',
+    google_drive_url: '',
+    script_locked_text: hook_line ? `HOOK: ${hook_line}` : null,
+  };
+  if (skit.product_id) {
+    insertPayload.product_id = skit.product_id;
+  }
+
   const { data: video, error } = await supabaseAdmin
     .from('videos')
-    .insert({
-      account_id: authContext.user.id,
-      status: 'needs_edit',
-      recording_status: 'NEEDS_SCRIPT',
-      google_drive_url: '',
-      script_locked_text: hook_line ? `HOOK: ${hook_line}` : null,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
@@ -67,7 +78,8 @@ export async function POST(request: Request) {
   await supabaseAdmin
     .from('saved_skits')
     .update({ video_id: video.id })
-    .eq('id', script_id);
+    .eq('id', script_id)
+    .eq('user_id', authContext.user.id);
 
   // Write video event (fire-and-forget)
   await supabaseAdmin.from('video_events').insert({

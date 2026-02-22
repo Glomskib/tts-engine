@@ -175,6 +175,16 @@ export default function SkitLibraryPage() {
   // AI Scoring
   const [scoringId, setScoringId] = useState<string | null>(null);
 
+  // Manual script creation
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualProductName, setManualProductName] = useState("");
+  const [manualProductBrand, setManualProductBrand] = useState("");
+  const [manualHook, setManualHook] = useState("");
+  const [manualBody, setManualBody] = useState("");
+  const [manualCta, setManualCta] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
+
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
@@ -455,6 +465,65 @@ export default function SkitLibraryPage() {
       setError("Failed to update status");
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  // Manual script creation handler
+  const handleManualCreate = async () => {
+    if (!manualTitle.trim() || !manualHook.trim()) return;
+    setManualSaving(true);
+    try {
+      // Parse body into beats (split by newlines)
+      const bodyLines = manualBody.trim().split("\n").filter(Boolean);
+      const beats = bodyLines.map((line, i) => ({
+        t: `0:${String((i + 1) * 3).padStart(2, "0")}`,
+        action: "dialogue",
+        dialogue: line.trim(),
+      }));
+      // Fallback: at least one beat
+      if (beats.length === 0) {
+        beats.push({ t: "0:03", action: "dialogue", dialogue: "..." });
+      }
+
+      const res = await fetch("/api/skits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: manualTitle.trim(),
+          skit_data: {
+            hook_line: manualHook.trim(),
+            beats,
+            b_roll: [],
+            overlays: [],
+            cta_line: manualCta.trim() || "Check it out!",
+            cta_overlay: manualCta.trim() || "",
+          },
+          product_name: manualProductName.trim() || undefined,
+          product_brand: manualProductBrand.trim() || undefined,
+          status: "draft",
+          ai_score: null,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSuccess("Manual script created!");
+        setManualModalOpen(false);
+        setManualTitle("");
+        setManualProductName("");
+        setManualProductBrand("");
+        setManualHook("");
+        setManualBody("");
+        setManualCta("");
+        // Refresh list
+        setCurrentPage(1);
+        fetchSkits();
+      } else {
+        showError(data.message || "Failed to create script");
+      }
+    } catch {
+      showError("Failed to create script");
+    } finally {
+      setManualSaving(false);
     }
   };
 
@@ -839,6 +908,22 @@ export default function SkitLibraryPage() {
         </div>
         {/* Quick Nav Links */}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setManualModalOpen(true)}
+            style={{
+              padding: "8px 14px",
+              backgroundColor: "#6366f1",
+              color: "white",
+              borderRadius: "6px",
+              border: "none",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            + Manual Script
+          </button>
           <Link
             href="/admin/skit-generator"
             style={{
@@ -2009,6 +2094,141 @@ export default function SkitLibraryPage() {
         script={videoSheetScript}
         onSuccess={handleVideoCreationSuccess}
       />
+
+      {/* Manual Script Creation Modal */}
+      {manualModalOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setManualModalOpen(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.card,
+              border: `1px solid ${colors.border}`,
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "520px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+          >
+            <h2 style={{ margin: "0 0 16px", fontSize: "18px", color: colors.text }}>New Manual Script</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Title *</label>
+                <input
+                  value={manualTitle}
+                  onChange={e => setManualTitle(e.target.value)}
+                  placeholder="e.g. Morning Routine Hook"
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: "6px",
+                    border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                    color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Product Name</label>
+                  <input
+                    value={manualProductName}
+                    onChange={e => setManualProductName(e.target.value)}
+                    placeholder="Optional"
+                    style={{
+                      width: "100%", padding: "8px 12px", borderRadius: "6px",
+                      border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                      color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Brand</label>
+                  <input
+                    value={manualProductBrand}
+                    onChange={e => setManualProductBrand(e.target.value)}
+                    placeholder="Optional"
+                    style={{
+                      width: "100%", padding: "8px 12px", borderRadius: "6px",
+                      border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                      color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Hook Line *</label>
+                <input
+                  value={manualHook}
+                  onChange={e => setManualHook(e.target.value)}
+                  placeholder="Opening hook that grabs attention"
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: "6px",
+                    border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                    color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>Script Body (one line per beat)</label>
+                <textarea
+                  value={manualBody}
+                  onChange={e => setManualBody(e.target.value)}
+                  rows={5}
+                  placeholder={"Line 1 of script\nLine 2 of script\nLine 3..."}
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: "6px",
+                    border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                    color: colors.text, fontSize: "14px", resize: "vertical", boxSizing: "border-box",
+                    fontFamily: "inherit",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: colors.textMuted, marginBottom: "4px" }}>CTA</label>
+                <input
+                  value={manualCta}
+                  onChange={e => setManualCta(e.target.value)}
+                  placeholder="Call to action (default: Check it out!)"
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: "6px",
+                    border: `1px solid ${colors.border}`, backgroundColor: colors.bg,
+                    color: colors.text, fontSize: "14px", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "20px" }}>
+              <button
+                type="button"
+                onClick={() => setManualModalOpen(false)}
+                style={{
+                  padding: "8px 16px", borderRadius: "6px", fontSize: "13px",
+                  backgroundColor: colors.card, border: `1px solid ${colors.border}`,
+                  color: colors.text, cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleManualCreate}
+                disabled={manualSaving || !manualTitle.trim() || !manualHook.trim()}
+                style={{
+                  padding: "8px 16px", borderRadius: "6px", fontSize: "13px", fontWeight: 500,
+                  backgroundColor: manualSaving || !manualTitle.trim() || !manualHook.trim() ? "#4b5563" : "#6366f1",
+                  border: "none", color: "white",
+                  cursor: manualSaving || !manualTitle.trim() || !manualHook.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {manualSaving ? "Saving..." : "Create Script"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notifications */}
       {toast && (

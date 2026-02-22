@@ -864,7 +864,7 @@ export default function ContentStudioPage() {
     setThingsToAvoid(current ? `${current}. ${avoidLine}` : avoidLine);
   };
 
-  // AI Chat handler
+  // AI Chat handler — sends rewrite mode when a skit is loaded
   const handleChatSend = async (messageOverride?: string) => {
     const msg = (messageOverride || chatInput).trim();
     if (!msg || chatLoading) return;
@@ -884,12 +884,17 @@ export default function ContentStudioPage() {
         `CTA: ${currentSkit.cta_line}`,
       ].join('\n') : undefined;
 
-      const res = await postJson('/api/ai/chat', {
+      // Use rewrite mode when we have a skit to edit
+      const useRewrite = !!currentSkit;
+
+      const res = await postJson<{ response: string; rewritten_skit?: SkitData; mode?: string }>('/api/ai/chat', {
         message: msg,
+        mode: useRewrite ? 'rewrite' : 'chat',
         context: {
           brand: selectedProduct?.brand || manualBrandName || undefined,
           product: selectedProduct?.name || manualProductName || undefined,
           current_script: scriptText,
+          current_skit: useRewrite ? currentSkit : undefined,
           spoken_hook: currentSkit?.hook_line,
           angle: result?.strategy_metadata?.recommended_angle,
         },
@@ -898,8 +903,23 @@ export default function ContentStudioPage() {
       if (isApiError(res)) {
         setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Try again.' }]);
       } else {
-        const data = res as unknown as { response: string };
-        setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        const data = res.data;
+        // Apply rewritten skit to current result if present
+        if (data.rewritten_skit && result) {
+          const updated = { ...result };
+          if (updated.variations && updated.variations[selectedVariationIndex]) {
+            updated.variations[selectedVariationIndex] = {
+              ...updated.variations[selectedVariationIndex],
+              skit: data.rewritten_skit,
+            };
+          } else {
+            updated.skit = data.rewritten_skit;
+          }
+          setResult(updated);
+          setChatMessages(prev => [...prev, { role: 'assistant', content: 'Script updated! Changes applied above.' }]);
+        } else {
+          setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        }
       }
     } catch {
       setChatMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect. Try again.' }]);

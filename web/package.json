@@ -47,7 +47,8 @@
     "tiktok:recover": "bash scripts/tiktok-studio/recover-tiktok-session.sh",
     "autonomy:preflight": "tsx scripts/autonomy/preflight-selector.ts",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
-    "ff:build": "tsx scripts/creator-style/build.ts"
+    "ff:build": "tsx scripts/creator-style/build.ts",
+    "agent:run-task": "tsx scripts/agents/run-agent-task.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

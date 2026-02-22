@@ -79,6 +79,7 @@ injection needed; the browser profile directory **is** the session.
 | **Healthcheck script** | `web/scripts/tiktok-studio/session-healthcheck.sh` |
 | **Backup script** | `web/scripts/tiktok-studio/backup-tiktok-session.sh` |
 | **Rotate script** | `web/scripts/tiktok-studio/rotate-tiktok-session.sh` |
+| **Recover script** | `web/scripts/tiktok-studio/recover-tiktok-session.sh` |
 
 **Recommended storage location on Mac mini:** Keep defaults (all under
 `~/tts-engine/web/data/sessions/`). This is on the local SSD, which is
@@ -304,7 +305,25 @@ export SESSION_INVALID_COOLDOWN_HOURS=12
 
 ## Troubleshooting: Session Invalid
 
-When you see exit code 42 or `SESSION INVALID` in logs:
+When you see exit code 42 or `SESSION INVALID` in logs, use the guided
+recovery script:
+
+### One-command recovery (recommended)
+
+```bash
+cd ~/tts-engine/web && pnpm run tiktok:recover
+# With full regression:
+cd ~/tts-engine/web && pnpm run tiktok:recover -- --with-regression
+```
+
+The recover script:
+1. Explains why recovery is needed
+2. Runs bootstrap (opens headed browser, waits for login)
+3. Clears cooldown lockfile
+4. Runs healthcheck to verify
+5. On failure, prints diagnosis and next steps
+
+### Manual recovery steps
 
 ### Step 1: Verify
 

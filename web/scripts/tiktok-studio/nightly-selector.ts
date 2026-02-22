@@ -31,12 +31,15 @@
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { createLogger } from '../../lib/logger.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
+const log = createLogger('nightly-selector');
 const TAG = '[nightly-selector]';
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
@@ -48,6 +51,8 @@ const BASE_URL = process.env.PIPELINE_BASE_URL || 'https://flashflowai.com';
 const CRON_SECRET = process.env.CRON_SECRET;
 const SERVICE_USER_ID = process.env.SERVICE_USER_ID;
 const RECENT_QUEUE_HOURS = 48;
+
+const RUN_ID = log.runId;
 
 const WEB_DIR = process.cwd();
 const LOG_DIR = path.join(WEB_DIR, 'data', 'sessions', 'logs');
@@ -92,11 +97,12 @@ interface ItemReport {
   tiktok_product_id: string | null;
   video_id: string | null;
   posting_queue_id: string | null;
-  status: 'enqueued' | 'failed' | 'skipped';
+  status: 'enqueued' | 'failed' | 'skipped' | 'skipped_existing';
   error?: string;
 }
 
 interface SelectorReport {
+  run_id: string;
   started_at: string;
   finished_at: string;
   duration_ms: number;
@@ -112,6 +118,7 @@ interface SelectorReport {
   summary: {
     selected: number;
     skipped_recent: number;
+    skipped_existing: number;
     queued: number;
     failed: number;
     product_ids: string[];
@@ -252,6 +259,7 @@ async function insertPostingQueue(
         tiktok_product_id: product.tiktok_product_id,
         recording_status: 'READY_TO_POST',
         source: 'nightly-selector',
+        run_id: RUN_ID,
         queued_at: new Date().toISOString(),
       },
     })
@@ -277,6 +285,48 @@ async function markVideoReadyToPost(videoId: string): Promise<void> {
   if (error) {
     console.error(`${TAG} Failed to set recording_status for ${videoId}: ${error.message}`);
   }
+}
+
+// ─── Duplicate protection: check if video_id already pending in posting_queue
+
+async function hasPendingQueueRow(videoId: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('posting_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('video_id', videoId)
+    .in('status', ['draft', 'scheduled']);
+
+  if (error) {
+    // If table doesn't exist yet, treat as no duplicate
+    console.error(`${TAG} Duplicate check error: ${error.message}`);
+    return false;
+  }
+
+  return (count ?? 0) > 0;
+}
+
+// ─── Retry wrapper with exponential backoff ─────────────────────────────────
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxAttempts = 3,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt === maxAttempts) {
+        console.error(`${TAG} ${label} failed after ${maxAttempts} attempts: ${msg}`);
+        throw err;
+      }
+      const delayMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+      console.warn(`${TAG} ${label} attempt ${attempt}/${maxAttempts} failed: ${msg} — retrying in ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error('unreachable');
 }
 
 // ─── Step 4: Trigger Auto-Generate ──────────────────────────────────────────
@@ -350,6 +400,7 @@ async function main() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  TikTok Nightly Selector — ${startedAt.toISOString().slice(0, 10)}`);
   console.log(`${'='.repeat(60)}\n`);
+  console.log(`${TAG} Run ID:        ${RUN_ID}`);
   console.log(`${TAG} Max per day:   ${MAX_PER_DAY}`);
   console.log(`${TAG} Exclude days:  ${EXCLUDE_DAYS}`);
   console.log(`${TAG} Dry run:       ${DRY_RUN}`);
@@ -366,6 +417,7 @@ async function main() {
   if (deficit <= 0) {
     console.log(`${TAG} Queue sufficient (${queueBefore} >= ${MAX_PER_DAY}). Nothing to do.`);
     const report: SelectorReport = {
+      run_id: RUN_ID,
       started_at: startedAt.toISOString(),
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt.getTime(),
@@ -373,7 +425,7 @@ async function main() {
       queue_before: queueBefore,
       queue_after: queueBefore,
       items: [],
-      summary: { selected: 0, skipped_recent: 0, queued: 0, failed: 0, product_ids: [] },
+      summary: { selected: 0, skipped_recent: 0, skipped_existing: 0, queued: 0, failed: 0, product_ids: [] },
     };
     writeReport(report);
     process.exit(EXIT_OK);
@@ -386,6 +438,7 @@ async function main() {
   if (allProducts.length === 0) {
     console.log(`${TAG} No eligible products found. Nothing to do.`);
     const report: SelectorReport = {
+      run_id: RUN_ID,
       started_at: startedAt.toISOString(),
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt.getTime(),
@@ -393,7 +446,7 @@ async function main() {
       queue_before: queueBefore,
       queue_after: queueBefore,
       items: [],
-      summary: { selected: 0, skipped_recent: 0, queued: 0, failed: 0, product_ids: [] },
+      summary: { selected: 0, skipped_recent: 0, skipped_existing: 0, queued: 0, failed: 0, product_ids: [] },
     };
     writeReport(report);
     process.exit(EXIT_OK);
@@ -437,6 +490,7 @@ async function main() {
   if (DRY_RUN) {
     console.log(`${TAG} DRY RUN — would trigger ${selected.length} auto-generate call(s).`);
     const report: SelectorReport = {
+      run_id: RUN_ID,
       started_at: startedAt.toISOString(),
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt.getTime(),
@@ -456,13 +510,14 @@ async function main() {
       summary: {
         selected: selected.length,
         skipped_recent: skippedRecent.length,
+        skipped_existing: 0,
         queued: 0,
         failed: 0,
         product_ids: selected.map((p) => p.id),
       },
     };
     writeReport(report);
-    console.log(`\n${JSON.stringify({ selected: selected.length, skipped_recent: skippedRecent.length, queued: 0 }, null, 2)}`);
+    console.log(`\n${JSON.stringify({ run_id: RUN_ID, selected: selected.length, skipped_recent: skippedRecent.length, skipped_existing: 0, queued: 0 }, null, 2)}`);
     process.exit(EXIT_OK);
   }
 
@@ -470,6 +525,7 @@ async function main() {
 
   const itemReports: ItemReport[] = [];
   let finalExitCode = EXIT_OK;
+  let skippedExisting = 0;
 
   for (let i = 0; i < selected.length; i++) {
     const product = selected[i];
@@ -481,19 +537,42 @@ async function main() {
     console.log(`${'─'.repeat(50)}`);
 
     try {
-      const result = await triggerAutoGenerate(product.id);
+      const result = await withRetry(
+        () => triggerAutoGenerate(product.id),
+        `auto-generate(${product.name})`,
+      );
 
       if (result.ok && result.video_id) {
         console.log(`${TAG} ${num} Enqueued — video_id: ${result.video_id}`);
         await writeVideoEvent(result.video_id, product.id);
 
-        // Insert into posting_queue
-        const queueId = await insertPostingQueue(result.video_id, product);
+        // Duplicate protection: skip if video_id already has pending row
+        const alreadyQueued = await hasPendingQueueRow(result.video_id);
+        if (alreadyQueued) {
+          console.log(`${TAG} ${num} Skipped — video_id already in posting_queue`);
+          skippedExisting++;
+          itemReports.push({
+            product_id: product.id,
+            product_name: product.name,
+            brand: product.brand,
+            tiktok_product_id: product.tiktok_product_id,
+            video_id: result.video_id,
+            posting_queue_id: null,
+            status: 'skipped_existing',
+          });
+          continue;
+        }
+
+        // Insert into posting_queue with retry
+        const queueId = await withRetry(
+          () => insertPostingQueue(result.video_id!, product),
+          `posting_queue(${result.video_id})`,
+        );
         if (queueId) {
           console.log(`${TAG} ${num} Queued → posting_queue id: ${queueId}`);
           await markVideoReadyToPost(result.video_id);
         } else {
-          console.error(`${TAG} ${num} posting_queue insert failed (video still in pipeline)`);
+          console.error(`${TAG} ${num} posting_queue insert failed after retries`);
         }
 
         itemReports.push({
@@ -542,6 +621,7 @@ async function main() {
   const failed = itemReports.filter((r) => r.status === 'failed').length;
 
   const report: SelectorReport = {
+    run_id: RUN_ID,
     started_at: startedAt.toISOString(),
     finished_at: finishedAt.toISOString(),
     duration_ms: finishedAt.getTime() - startedAt.getTime(),
@@ -552,6 +632,7 @@ async function main() {
     summary: {
       selected: selected.length,
       skipped_recent: skippedRecent.length,
+      skipped_existing: skippedExisting,
       queued,
       failed,
       product_ids: itemReports
@@ -562,24 +643,27 @@ async function main() {
 
   writeReport(report);
 
-  // JSON summary as requested
+  // JSON summary
   const jsonSummary = {
+    run_id: RUN_ID,
     selected: selected.length,
     skipped_recent: skippedRecent.length,
+    skipped_existing: skippedExisting,
     queued,
   };
 
   const durationSec = (report.duration_ms / 1000).toFixed(0);
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`  Nightly Selector Summary`);
+  console.log(`  Nightly Selector Summary  [${RUN_ID}]`);
   console.log(`${'='.repeat(60)}`);
-  console.log(`  Duration:       ${durationSec}s`);
-  console.log(`  Selected:       ${selected.length}`);
-  console.log(`  Skipped recent: ${skippedRecent.length}`);
-  console.log(`  Queued:         ${queued}`);
-  console.log(`  Failed:         ${failed}`);
-  console.log(`  Queue:          ${queueBefore} → ${queueBefore + queued}`);
-  console.log(`  Exit code:      ${finalExitCode}`);
+  console.log(`  Duration:         ${durationSec}s`);
+  console.log(`  Selected:         ${selected.length}`);
+  console.log(`  Skipped recent:   ${skippedRecent.length}`);
+  console.log(`  Skipped existing: ${skippedExisting}`);
+  console.log(`  Queued:           ${queued}`);
+  console.log(`  Failed:           ${failed}`);
+  console.log(`  Queue:            ${queueBefore} → ${queueBefore + queued}`);
+  console.log(`  Exit code:        ${finalExitCode}`);
   console.log(`${'='.repeat(60)}`);
   console.log(`\n${JSON.stringify(jsonSummary, null, 2)}\n`);
 

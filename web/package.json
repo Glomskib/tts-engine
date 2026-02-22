@@ -46,6 +46,7 @@
     "tiktok:rotate": "bash scripts/tiktok-studio/rotate-tiktok-session.sh",
     "tiktok:recover": "bash scripts/tiktok-studio/recover-tiktok-session.sh",
     "autonomy:preflight": "tsx scripts/autonomy/preflight-selector.ts",
+    "mc:health": "tsx scripts/mc-health.ts",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
     "ff:build": "tsx scripts/creator-style/build.ts",
     "agent:run-task": "tsx scripts/agents/run-agent-task.ts"

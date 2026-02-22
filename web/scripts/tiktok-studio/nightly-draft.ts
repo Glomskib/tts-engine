@@ -27,9 +27,11 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { createClient } from '@supabase/supabase-js';
+import { atomicClaimVideo, atomicReleaseVideo } from '../../lib/video-claim.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -45,6 +47,9 @@ const WEB_DIR = process.cwd();
 const LOG_DIR = path.join(WEB_DIR, 'data', 'sessions', 'logs');
 const COOLDOWN_LOCKFILE = path.join(WEB_DIR, 'data', 'sessions', '.session-invalid.lock');
 const COOLDOWN_HOURS = Number(process.env.SESSION_INVALID_COOLDOWN_HOURS) || 6;
+
+const ACTOR = `nightly_draft_job/${os.hostname()}`;
+const CLAIM_TTL_MINUTES = 30; // 5-min upload timeout + buffer
 
 // ─── Supabase client ────────────────────────────────────────────────────────
 
@@ -90,6 +95,8 @@ interface VideoRow {
 }
 
 async function fetchEligibleVideos(): Promise<VideoRow[]> {
+  const now = new Date().toISOString();
+
   const { data, error } = await supabase
     .from('videos')
     .select('id, recording_status, final_video_url, last_status_changed_at')
@@ -97,6 +104,7 @@ async function fetchEligibleVideos(): Promise<VideoRow[]> {
     .eq('status', 'ready_to_post')  // Pipeline status must also match (API validates this)
     .not('final_video_url', 'is', null)
     .is('nightly_draft_attempted_at', null)
+    .or(`claimed_by.is.null,claim_expires_at.lt.${now}`)  // Not actively claimed
     .order('last_status_changed_at', { ascending: true })
     .limit(MAX_UPLOADS);
 
@@ -168,7 +176,7 @@ function spawnUpload(videoId: string): Promise<SpawnResult> {
 
 interface VideoReport {
   video_id: string;
-  status: 'drafted' | 'failed' | 'skipped';
+  status: 'drafted' | 'failed' | 'skipped' | 'claim_skipped';
   error?: string;
   reason?: string;
   duration_ms: number;
@@ -182,6 +190,9 @@ interface NightlyReport {
   dry_run: boolean;
   videos: VideoReport[];
   summary: {
+    eligible: number;
+    claimed: number;
+    claim_skipped: number;
     attempted: number;
     drafted: number;
     failed: number;
@@ -194,10 +205,12 @@ interface NightlyReport {
 
 async function main() {
   const startedAt = new Date();
+  const correlationId = `nightly-draft-${startedAt.toISOString()}`;
 
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  TikTok Nightly Draft — ${startedAt.toISOString().slice(0, 10)}`);
   console.log(`${'='.repeat(60)}\n`);
+  console.log(`${TAG} Actor:       ${ACTOR}`);
   console.log(`${TAG} Max uploads: ${MAX_UPLOADS}`);
   console.log(`${TAG} Dry run:     ${DRY_RUN}`);
   console.log('');
@@ -213,7 +226,6 @@ async function main() {
 
   if (videos.length === 0) {
     console.log(`${TAG} No eligible videos found. Nothing to do.`);
-    // Write empty report
     const report: NightlyReport = {
       started_at: startedAt.toISOString(),
       finished_at: new Date().toISOString(),
@@ -221,7 +233,10 @@ async function main() {
       max_uploads: MAX_UPLOADS,
       dry_run: DRY_RUN,
       videos: [],
-      summary: { attempted: 0, drafted: 0, failed: 0, skipped: 0, exit_code: 0 },
+      summary: {
+        eligible: 0, claimed: 0, claim_skipped: 0,
+        attempted: 0, drafted: 0, failed: 0, skipped: 0, exit_code: 0,
+      },
     };
     writeReport(report);
     process.exit(EXIT_OK);
@@ -235,7 +250,7 @@ async function main() {
 
   // DRY_RUN: log what would happen and exit
   if (DRY_RUN) {
-    console.log(`${TAG} DRY RUN — would upload ${videos.length} video(s) as draft.`);
+    console.log(`${TAG} DRY RUN — would claim & upload ${videos.length} video(s) as draft.`);
     const report: NightlyReport = {
       started_at: startedAt.toISOString(),
       finished_at: new Date().toISOString(),
@@ -249,113 +264,180 @@ async function main() {
         duration_ms: 0,
       })),
       summary: {
-        attempted: 0,
-        drafted: 0,
-        failed: 0,
-        skipped: videos.length,
-        exit_code: 0,
+        eligible: videos.length, claimed: 0, claim_skipped: 0,
+        attempted: 0, drafted: 0, failed: 0, skipped: videos.length, exit_code: 0,
       },
     };
     writeReport(report);
     process.exit(EXIT_OK);
   }
 
-  // ── Process each video ──────────────────────────────────────────────────
+  // ── Claim phase: atomically claim all eligible videos ─────────────────
 
   const videoReports: VideoReport[] = [];
+  const claimedVideoIds: string[] = [];  // Track for finally-block cleanup
+  const processedVideoIds = new Set<string>();  // Track which claims we've resolved
+
+  console.log(`${TAG} Claiming ${videos.length} video(s) with actor=${ACTOR}...`);
+
+  for (const video of videos) {
+    const claimResult = await atomicClaimVideo(supabase, {
+      video_id: video.id,
+      actor: ACTOR,
+      claim_role: 'uploader',
+      ttl_minutes: CLAIM_TTL_MINUTES,
+      correlation_id: correlationId,
+    });
+
+    if (claimResult.ok) {
+      claimedVideoIds.push(video.id);
+      console.log(`${TAG}   ✓ Claimed ${video.id}`);
+    } else {
+      console.log(`${TAG}   ✗ Skipped ${video.id} (${claimResult.action}: ${claimResult.message})`);
+      videoReports.push({
+        video_id: video.id,
+        status: 'claim_skipped',
+        reason: `${claimResult.action}: ${claimResult.message}`,
+        duration_ms: 0,
+      });
+    }
+  }
+
+  const claimSkipped = videos.length - claimedVideoIds.length;
+  console.log(`${TAG} Claimed ${claimedVideoIds.length}/${videos.length} (${claimSkipped} skipped)\n`);
+
+  if (claimedVideoIds.length === 0) {
+    console.log(`${TAG} No videos claimed. Nothing to process.`);
+    const report: NightlyReport = {
+      started_at: startedAt.toISOString(),
+      finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - startedAt.getTime(),
+      max_uploads: MAX_UPLOADS,
+      dry_run: false,
+      videos: videoReports,
+      summary: {
+        eligible: videos.length, claimed: 0, claim_skipped: claimSkipped,
+        attempted: 0, drafted: 0, failed: 0, skipped: 0, exit_code: 0,
+      },
+    };
+    writeReport(report);
+    process.exit(EXIT_OK);
+  }
+
+  // ── Process phase: upload each claimed video ──────────────────────────
+
   let finalExitCode = EXIT_OK;
 
-  for (let i = 0; i < videos.length; i++) {
-    const video = videos[i];
-    const num = `[${i + 1}/${videos.length}]`;
+  try {
+    for (let i = 0; i < claimedVideoIds.length; i++) {
+      const videoId = claimedVideoIds[i];
+      const num = `[${i + 1}/${claimedVideoIds.length}]`;
 
-    console.log(`\n${'─'.repeat(50)}`);
-    console.log(`${TAG} ${num} Processing ${video.id}`);
-    console.log(`${'─'.repeat(50)}`);
+      console.log(`\n${'─'.repeat(50)}`);
+      console.log(`${TAG} ${num} Processing ${videoId}`);
+      console.log(`${'─'.repeat(50)}`);
 
-    const videoStart = Date.now();
+      const videoStart = Date.now();
 
-    // Stamp attempted_at BEFORE upload (idempotency guard)
-    try {
-      await stampAttempted(video.id);
-      console.log(`${TAG} ${num} Stamped nightly_draft_attempted_at`);
-    } catch (err: any) {
-      console.error(`${TAG} ${num} Failed to stamp: ${err.message}`);
-      videoReports.push({
-        video_id: video.id,
-        status: 'failed',
-        error: `stamp_failed: ${err.message}`,
-        duration_ms: Date.now() - videoStart,
-      });
-      continue;
-    }
+      // Spawn upload-from-pack.ts
+      console.log(`${TAG} ${num} Spawning upload-from-pack.ts --video-id ${videoId} --mode draft`);
+      const result = await spawnUpload(videoId);
 
-    // Spawn upload-from-pack.ts
-    console.log(`${TAG} ${num} Spawning upload-from-pack.ts --video-id ${video.id} --mode draft`);
-    const result = await spawnUpload(video.id);
+      const durationMs = Date.now() - videoStart;
+      console.log(`${TAG} ${num} Exit code: ${result.exitCode} (${durationMs}ms)`);
 
-    const durationMs = Date.now() - videoStart;
-    console.log(`${TAG} ${num} Exit code: ${result.exitCode} (${durationMs}ms)`);
-
-    // Log child stdout (last 20 lines to avoid noise)
-    if (result.stdout) {
-      const lines = result.stdout.trim().split('\n');
-      const tail = lines.slice(-20);
-      if (lines.length > 20) console.log(`${TAG} ${num} ... (${lines.length - 20} lines truncated)`);
-      for (const line of tail) {
-        console.log(`${TAG} ${num} | ${line}`);
-      }
-    }
-
-    if (result.exitCode === EXIT_SESSION_INVALID) {
-      // ── Exit 42: stop loop, mark remaining as skipped ──
-      console.error(`${TAG} ${num} SESSION INVALID (exit 42). Stopping loop.`);
-      videoReports.push({
-        video_id: video.id,
-        status: 'failed',
-        error: 'session_invalid',
-        duration_ms: durationMs,
-      });
-
-      // Mark remaining videos as skipped
-      for (let j = i + 1; j < videos.length; j++) {
-        videoReports.push({
-          video_id: videos[j].id,
-          status: 'skipped',
-          reason: 'session_invalid',
-          duration_ms: 0,
-        });
-      }
-
-      finalExitCode = EXIT_SESSION_INVALID;
-      break;
-    }
-
-    if (result.exitCode === EXIT_OK) {
-      // ── Success: write video_events row ──
-      console.log(`${TAG} ${num} Draft saved successfully.`);
-      await writeVideoEvent(video.id);
-      videoReports.push({
-        video_id: video.id,
-        status: 'drafted',
-        duration_ms: durationMs,
-      });
-    } else {
-      // ── Exit 1: log error, continue to next video ──
-      console.error(`${TAG} ${num} Upload failed (exit ${result.exitCode}).`);
-      if (result.stderr) {
-        const stderrTail = result.stderr.trim().split('\n').slice(-5);
-        for (const line of stderrTail) {
-          console.error(`${TAG} ${num} ERR: ${line}`);
+      // Log child stdout (last 20 lines to avoid noise)
+      if (result.stdout) {
+        const lines = result.stdout.trim().split('\n');
+        const tail = lines.slice(-20);
+        if (lines.length > 20) console.log(`${TAG} ${num} ... (${lines.length - 20} lines truncated)`);
+        for (const line of tail) {
+          console.log(`${TAG} ${num} | ${line}`);
         }
       }
-      videoReports.push({
-        video_id: video.id,
-        status: 'failed',
-        error: result.stderr?.trim().split('\n').pop() || `exit_code_${result.exitCode}`,
-        duration_ms: durationMs,
-      });
-      finalExitCode = EXIT_ERROR;
+
+      if (result.exitCode === EXIT_SESSION_INVALID) {
+        // ── Exit 42: release this claim + remaining, stop loop ──
+        console.error(`${TAG} ${num} SESSION INVALID (exit 42). Stopping loop.`);
+
+        // Release this video's claim (failed, should be retryable)
+        await atomicReleaseVideo(supabase, {
+          video_id: videoId, actor: ACTOR, correlation_id: correlationId,
+        });
+        processedVideoIds.add(videoId);
+
+        videoReports.push({
+          video_id: videoId,
+          status: 'failed',
+          error: 'session_invalid',
+          duration_ms: durationMs,
+        });
+
+        // Mark remaining claimed videos as skipped and release their claims
+        for (let j = i + 1; j < claimedVideoIds.length; j++) {
+          const remainingId = claimedVideoIds[j];
+          await atomicReleaseVideo(supabase, {
+            video_id: remainingId, actor: ACTOR, correlation_id: correlationId,
+          });
+          processedVideoIds.add(remainingId);
+          videoReports.push({
+            video_id: remainingId,
+            status: 'skipped',
+            reason: 'session_invalid',
+            duration_ms: 0,
+          });
+        }
+
+        finalExitCode = EXIT_SESSION_INVALID;
+        break;
+      }
+
+      if (result.exitCode === EXIT_OK) {
+        // ── Success: stamp attempted_at, write event, release claim ──
+        console.log(`${TAG} ${num} Draft saved successfully.`);
+        await stampAttempted(videoId);
+        console.log(`${TAG} ${num} Stamped nightly_draft_attempted_at`);
+        await writeVideoEvent(videoId);
+        await atomicReleaseVideo(supabase, {
+          video_id: videoId, actor: ACTOR, correlation_id: correlationId,
+        });
+        processedVideoIds.add(videoId);
+        videoReports.push({
+          video_id: videoId,
+          status: 'drafted',
+          duration_ms: durationMs,
+        });
+      } else {
+        // ── Failure: release claim (no stamp — allows retry) ──
+        console.error(`${TAG} ${num} Upload failed (exit ${result.exitCode}).`);
+        if (result.stderr) {
+          const stderrTail = result.stderr.trim().split('\n').slice(-5);
+          for (const line of stderrTail) {
+            console.error(`${TAG} ${num} ERR: ${line}`);
+          }
+        }
+        await atomicReleaseVideo(supabase, {
+          video_id: videoId, actor: ACTOR, correlation_id: correlationId,
+        });
+        processedVideoIds.add(videoId);
+        videoReports.push({
+          video_id: videoId,
+          status: 'failed',
+          error: result.stderr?.trim().split('\n').pop() || `exit_code_${result.exitCode}`,
+          duration_ms: durationMs,
+        });
+        finalExitCode = EXIT_ERROR;
+      }
+    }
+  } finally {
+    // ── Cleanup: release any claims not yet resolved (crash safety) ──────
+    for (const videoId of claimedVideoIds) {
+      if (!processedVideoIds.has(videoId)) {
+        console.log(`${TAG} Releasing orphaned claim for ${videoId}`);
+        await atomicReleaseVideo(supabase, {
+          video_id: videoId, actor: ACTOR, correlation_id: correlationId,
+        });
+      }
     }
   }
 
@@ -365,6 +447,7 @@ async function main() {
   const drafted = videoReports.filter((r) => r.status === 'drafted').length;
   const failed = videoReports.filter((r) => r.status === 'failed').length;
   const skipped = videoReports.filter((r) => r.status === 'skipped').length;
+  const claimSkippedCount = videoReports.filter((r) => r.status === 'claim_skipped').length;
 
   const report: NightlyReport = {
     started_at: startedAt.toISOString(),
@@ -374,7 +457,10 @@ async function main() {
     dry_run: false,
     videos: videoReports,
     summary: {
-      attempted: videoReports.length - skipped,
+      eligible: videos.length,
+      claimed: claimedVideoIds.length,
+      claim_skipped: claimSkippedCount,
+      attempted: drafted + failed,
       drafted,
       failed,
       skipped,
@@ -390,12 +476,15 @@ async function main() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  Nightly Draft Summary`);
   console.log(`${'='.repeat(60)}`);
-  console.log(`  Duration:  ${durationSec}s`);
-  console.log(`  Attempted: ${report.summary.attempted}`);
-  console.log(`  Drafted:   ${drafted}`);
-  console.log(`  Failed:    ${failed}`);
-  console.log(`  Skipped:   ${skipped}`);
-  console.log(`  Exit code: ${finalExitCode}`);
+  console.log(`  Duration:      ${durationSec}s`);
+  console.log(`  Eligible:      ${videos.length}`);
+  console.log(`  Claimed:       ${claimedVideoIds.length}`);
+  console.log(`  Claim skipped: ${claimSkippedCount}`);
+  console.log(`  Attempted:     ${report.summary.attempted}`);
+  console.log(`  Drafted:       ${drafted}`);
+  console.log(`  Failed:        ${failed}`);
+  console.log(`  Skipped:       ${skipped}`);
+  console.log(`  Exit code:     ${finalExitCode}`);
   console.log(`${'='.repeat(60)}\n`);
 
   process.exit(finalExitCode);

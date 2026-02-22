@@ -5,8 +5,9 @@ import Link from 'next/link';
 import {
   DollarSign, Activity, AlertTriangle, ListTodo,
   Lightbulb, TrendingUp, ChevronRight, RefreshCw,
-  Zap, Target, Bot, Handshake,
+  Zap, Target, Bot, Handshake, HeartPulse,
 } from 'lucide-react';
+import type { PipelineHealth } from '@/lib/command-center/types';
 import InitiativeFilter from './_components/InitiativeFilter';
 
 interface DashboardData {
@@ -146,6 +147,9 @@ export default function CommandCenterDashboard() {
   const [crmStats, setCrmStats] = useState<{ deals: number; weighted_value: number } | null>(null);
   const [initiativeId, setInitiativeId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [pipelineHealth, setPipelineHealth] = useState<PipelineHealth | null>(null);
+  const [phDegraded, setPhDegraded] = useState(false);
+  const [phRefreshing, setPhRefreshing] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -170,7 +174,31 @@ export default function CommandCenterDashboard() {
     }
   };
 
+  const fetchPipelineHealth = async () => {
+    setPhRefreshing(true);
+    try {
+      const res = await fetch('/api/admin/command-center/pipeline-health');
+      if (res.ok) {
+        const json = await res.json();
+        setPipelineHealth(json.data);
+        setPhDegraded(false);
+      } else {
+        setPhDegraded(true);
+      }
+    } catch {
+      setPhDegraded(true);
+    } finally {
+      setPhRefreshing(false);
+    }
+  };
+
   useEffect(() => { fetchData(); }, [initiativeId]);
+
+  useEffect(() => {
+    fetchPipelineHealth();
+    const id = setInterval(fetchPipelineHealth, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -246,6 +274,41 @@ export default function CommandCenterDashboard() {
           color="text-pink-400"
           href="/admin/command-center/crm"
         />
+
+        {/* Pipeline Health Card */}
+        <div className={`rounded-lg border ${phDegraded ? 'border-amber-600/60' : 'border-zinc-800'} bg-zinc-900/50 p-4`}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Pipeline Health</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={fetchPipelineHealth}
+                disabled={phRefreshing}
+                className="p-0.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                title="Refresh pipeline health"
+              >
+                <RefreshCw className={`w-3 h-3 text-zinc-500 ${phRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <HeartPulse className="w-4 h-4 text-teal-400" />
+            </div>
+          </div>
+          {pipelineHealth ? (
+            <>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-sm font-semibold text-zinc-300">{pipelineHealth.queued_count} <span className="text-xs font-normal text-zinc-500">queued</span></span>
+                <span className="text-sm font-semibold text-blue-400">{pipelineHealth.executing_count} <span className="text-xs font-normal text-zinc-500">executing</span></span>
+                <span className={`text-sm font-semibold ${pipelineHealth.blocked_count > 0 ? 'text-red-400' : 'text-zinc-400'}`}>{pipelineHealth.blocked_count} <span className="text-xs font-normal text-zinc-500">blocked</span></span>
+              </div>
+              <div className="text-xs text-zinc-600 mt-2">
+                Updated {timeAgo(pipelineHealth.last_updated)}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-zinc-500 mt-1">{phDegraded ? 'MC unreachable' : 'Loading...'}</div>
+          )}
+          {phDegraded && pipelineHealth && (
+            <div className="text-xs text-amber-500 mt-1">MC unreachable — showing last snapshot</div>
+          )}
+        </div>
       </div>
 
       {/* 7-Day Cost Trend */}

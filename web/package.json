@@ -34,6 +34,7 @@
     "tiktok:product-map": "tsx scripts/tiktok-studio/product-map.ts",
     "tiktok:nightly": "tsx scripts/tiktok-studio/nightly-upload.ts",
     "tiktok:nightly-draft": "tsx scripts/tiktok-studio/nightly-draft.ts",
+    "tiktok:selector": "tsx scripts/tiktok-studio/nightly-selector.ts",
     "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts",
     "tiktok:bootstrap": "tsx scripts/publish/tiktok-studio/bootstrap-session.ts",
     "tiktok:upload": "tsx scripts/publish/tiktok-studio/upload.ts",
@@ -44,6 +45,7 @@
     "tiktok:backup": "bash scripts/tiktok-studio/backup-tiktok-session.sh",
     "tiktok:rotate": "bash scripts/tiktok-studio/rotate-tiktok-session.sh",
     "tiktok:recover": "bash scripts/tiktok-studio/recover-tiktok-session.sh",
+    "autonomy:preflight": "tsx scripts/autonomy/preflight-selector.ts",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
     "ff:build": "tsx scripts/creator-style/build.ts"
   },

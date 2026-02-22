@@ -204,3 +204,11 @@ export interface FinanceSummary {
   by_category: Record<string, { in: number; out: number }>;
   by_project: Record<string, { in: number; out: number; project_name: string }>;
 }
+
+// ── Pipeline Health (from Mission Control) ────────────────────
+export interface PipelineHealth {
+  queued_count: number;
+  executing_count: number;
+  blocked_count: number;
+  last_updated: string; // ISO timestamp
+}

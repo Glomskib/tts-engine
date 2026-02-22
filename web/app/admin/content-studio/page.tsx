@@ -447,6 +447,13 @@ export default function ContentStudioPage() {
   // Talk Through It (voice brief) state
   const [talkThroughItOpen, setTalkThroughItOpen] = useState(false);
 
+  // Manual Write Mode state
+  const [manualWriteMode, setManualWriteMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualHookLine, setManualHookLine] = useState('');
+  const [manualBodyText, setManualBodyText] = useState('');
+  const [manualCtaLine, setManualCtaLine] = useState('');
+
   // Simple Mode — hides advanced fields for non-power-users
   const [simpleMode, setSimpleMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -984,6 +991,41 @@ export default function ContentStudioPage() {
     }, 100);
   };
 
+  const handleManualCreate = () => {
+    const bodyLines = manualBodyText.trim().split('\n').filter(Boolean);
+    const beats = bodyLines.map((line, i) => ({
+      t: `0:${String((i + 1) * 3).padStart(2, '0')}`,
+      action: 'dialogue',
+      dialogue: line.trim(),
+    }));
+    if (beats.length === 0) beats.push({ t: '0:03', action: 'dialogue', dialogue: '...' });
+
+    const skitData = {
+      hook_line: manualHookLine.trim(),
+      beats,
+      b_roll: [],
+      overlays: [],
+      cta_line: manualCtaLine.trim() || 'Check it out!',
+      cta_overlay: manualCtaLine.trim() || '',
+    };
+
+    setResult({
+      variations: [{
+        skit: skitData,
+        ai_score: null,
+        risk_tier_applied: 'SAFE',
+        variation_angle: 'Manual',
+      }],
+      variation_count: 1,
+      risk_tier_applied: 'SAFE',
+      ai_score: null,
+      strategy_metadata: null,
+    });
+    setSelectedVariationIndex(0);
+    setError(null);
+    setSaveTitle(manualTitle.trim());
+  };
+
   const handleGenerate = async () => {
     if (!hasCredits) {
       noCreditsModal.open();
@@ -1142,7 +1184,7 @@ export default function ContentStudioPage() {
         product_name: selectedProductId ? products.find(p => p.id === selectedProductId)?.name : manualProductName,
         product_brand: selectedProductId ? products.find(p => p.id === selectedProductId)?.brand : manualBrandName,
         skit_data: currentSkit,
-        generation_config: {
+        generation_config: manualWriteMode ? null : {
           content_type: selectedContentTypeId,
           content_subtype: selectedSubtypeId,
           presentation_style: selectedPresentationStyleId,
@@ -1217,7 +1259,7 @@ export default function ContentStudioPage() {
         tags: [selectedContentTypeId, selectedPresentationStyleId, riskTier.toLowerCase()],
         template_json: {
           skit_data: currentSkit,
-          generation_config: {
+          generation_config: manualWriteMode ? null : {
             content_type: selectedContentTypeId,
             content_subtype: selectedSubtypeId,
             presentation_style: selectedPresentationStyleId,
@@ -1261,7 +1303,7 @@ export default function ContentStudioPage() {
           product_name: productName,
           product_brand: productBrand,
           skit_data: skit,
-          generation_config: {
+          generation_config: manualWriteMode ? null : {
             content_type: selectedContentTypeId,
             presentation_style: selectedPresentationStyleId,
             risk_tier: riskTier,
@@ -1325,7 +1367,7 @@ export default function ContentStudioPage() {
         product_name: productName,
         product_brand: productBrand,
         skit_data: currentSkit,
-        generation_config: {
+        generation_config: manualWriteMode ? null : {
           content_type: selectedContentTypeId,
           content_subtype: selectedSubtypeId,
           presentation_style: selectedPresentationStyleId,
@@ -1406,7 +1448,7 @@ export default function ContentStudioPage() {
         product_name: productName,
         product_brand: productBrand,
         skit_data: skit,
-        generation_config: {
+        generation_config: manualWriteMode ? null : {
           content_type: selectedContentTypeId,
           presentation_style: selectedPresentationStyleId,
           risk_tier: riskTier,
@@ -1448,7 +1490,7 @@ export default function ContentStudioPage() {
         product_name: productName,
         product_brand: productBrand,
         skit_data: skit,
-        generation_config: {
+        generation_config: manualWriteMode ? null : {
           content_type: selectedContentTypeId,
           presentation_style: selectedPresentationStyleId,
           risk_tier: riskTier,
@@ -1789,34 +1831,209 @@ export default function ContentStudioPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Configuration */}
         <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6">
-          {/* Simple/Advanced Mode Toggle */}
-          <div className="flex items-center justify-between mb-5 pb-4 border-b border-zinc-800">
-            <span className="text-sm text-zinc-400">
-              {simpleMode ? 'Simple Mode' : 'Advanced Mode'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !simpleMode;
-                setSimpleMode(next);
-                localStorage.setItem('ff-simple-mode', String(next));
-              }}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                simpleMode ? 'bg-teal-600' : 'bg-zinc-600'
-              }`}
-              title={simpleMode ? 'Switch to Advanced Mode for more options' : 'Switch to Simple Mode — just pick a product and generate'}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                simpleMode ? 'translate-x-6' : 'translate-x-1'
-              }`} />
-            </button>
+          {/* AI Generate / Write Manually Toggle */}
+          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-zinc-800">
+            <div className="flex rounded-lg overflow-hidden border border-white/10">
+              <button
+                type="button"
+                onClick={() => setManualWriteMode(false)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
+                  !manualWriteMode
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Sparkles size={14} />
+                AI Generate
+              </button>
+              <button
+                type="button"
+                onClick={() => setManualWriteMode(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
+                  manualWriteMode
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Pencil size={14} />
+                Write Manually
+              </button>
+            </div>
+            {/* Simple/Advanced toggle — only visible in AI mode */}
+            {!manualWriteMode && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-sm text-zinc-400">
+                  {simpleMode ? 'Simple' : 'Advanced'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !simpleMode;
+                    setSimpleMode(next);
+                    localStorage.setItem('ff-simple-mode', String(next));
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    simpleMode ? 'bg-teal-600' : 'bg-zinc-600'
+                  }`}
+                  title={simpleMode ? 'Switch to Advanced Mode for more options' : 'Switch to Simple Mode — just pick a product and generate'}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    simpleMode ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            )}
           </div>
-          {loadingData ? (
+          {/* === Manual Write Mode === */}
+          {manualWriteMode && (
+            <div>
+              {/* Title */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>Title</div>
+                <input
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="Give your script a title"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Product Selection — reuses shared state */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>Product</div>
+                {products.length > 0 ? (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    <select
+                      value={selectedBrand}
+                      onChange={(e) => {
+                        setSelectedBrand(e.target.value);
+                        setSelectedProductId('');
+                      }}
+                      style={{ ...inputStyle, flex: 1 }}
+                    >
+                      <option value="">All Brands</option>
+                      {brands.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      style={{ ...inputStyle, flex: 2 }}
+                    >
+                      <option value="">Select Product...</option>
+                      {filteredProducts.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '16px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    border: `1px dashed ${colors.border}`,
+                    borderRadius: '10px',
+                    marginBottom: '10px',
+                    textAlign: 'center',
+                  }}>
+                    <Package size={24} style={{ margin: '0 auto 8px', opacity: 0.5, color: colors.textSecondary }} />
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: colors.textSecondary }}>
+                      No products yet
+                    </p>
+                    <Link
+                      href="/admin/products"
+                      style={{ color: '#3b82f6', fontSize: '13px', textDecoration: 'none' }}
+                    >
+                      Create your first product →
+                    </Link>
+                  </div>
+                )}
+                <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
+                  Or enter manually:
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    value={manualProductName}
+                    onChange={(e) => {
+                      setManualProductName(e.target.value);
+                      if (e.target.value) setSelectedProductId('');
+                    }}
+                    placeholder="Product name"
+                    style={{ ...inputStyle, flex: 2 }}
+                  />
+                  <input
+                    value={manualBrandName}
+                    onChange={(e) => setManualBrandName(e.target.value)}
+                    placeholder="Brand"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                </div>
+              </div>
+
+              {/* Hook Line */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>Hook Line</div>
+                <textarea
+                  value={manualHookLine}
+                  onChange={(e) => setManualHookLine(e.target.value)}
+                  placeholder="Your opening hook..."
+                  rows={2}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Script Body */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>Script Body</div>
+                <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '8px', marginTop: '-8px' }}>
+                  Each line becomes a scene/beat in the script.
+                </p>
+                <textarea
+                  value={manualBodyText}
+                  onChange={(e) => setManualBodyText(e.target.value)}
+                  placeholder="Write your script. Each line becomes a scene/beat."
+                  rows={8}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                />
+              </div>
+
+              {/* CTA */}
+              <div style={sectionStyle}>
+                <div style={sectionTitleStyle}>Call to Action</div>
+                <input
+                  value={manualCtaLine}
+                  onChange={(e) => setManualCtaLine(e.target.value)}
+                  placeholder='Call to action (default: Check it out!)'
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Create Script Button */}
+              <div className="sticky bottom-0 pt-4 pb-2 bg-zinc-900/80 backdrop-blur-sm -mx-4 px-4 lg:-mx-6 lg:px-6 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={handleManualCreate}
+                  disabled={!manualTitle.trim() || !manualHookLine.trim() || !manualBodyText.trim()}
+                  className={`w-full h-14 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
+                    !manualTitle.trim() || !manualHookLine.trim() || !manualBodyText.trim()
+                      ? 'bg-zinc-700 opacity-50'
+                      : 'bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 shadow-violet-500/20'
+                  }`}
+                >
+                  <Pencil size={20} />
+                  Create Script
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* === AI Generate Mode === */}
+          {!manualWriteMode && loadingData ? (
             <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
               <Loader2 className="animate-spin" style={{ margin: '0 auto 12px' }} size={24} />
               Loading options...
             </div>
-          ) : (
+          ) : !manualWriteMode ? (
             <>
               {/* STEP 1: Content Type - Compact pills */}
               <div style={sectionStyle}>
@@ -2861,14 +3078,14 @@ export default function ContentStudioPage() {
                 </button>
               </div>
             </>
-          )}
+          ) : null}
         </div>
 
         {/* Right Column: Results */}
         <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6 min-h-[300px] lg:min-h-[600px]">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', color: colors.text, fontWeight: 600 }}>
-              Generated Scripts
+              {manualWriteMode ? 'Your Script' : 'Generated Scripts'}
             </h2>
             {result && (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -2945,10 +3162,12 @@ export default function ContentStudioPage() {
             }}>
               <Sparkles size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
               <div style={{ fontSize: '16px', fontWeight: 500, marginBottom: '8px' }}>
-                Ready to generate
+                {manualWriteMode ? 'Write your script' : 'Ready to generate'}
               </div>
               <div style={{ fontSize: '14px', maxWidth: '300px' }}>
-                Configure your content options and click Generate to create viral video scripts.
+                {manualWriteMode
+                  ? 'Fill in your script and click Create Script to preview it here.'
+                  : 'Configure your content options and click Generate to create viral video scripts.'}
               </div>
             </div>
           )}

@@ -18,6 +18,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createHash } from 'crypto';
+import {
+  classifyIntent,
+  ISSUE_COMMANDS,
+  CONFIRMATION_PROMPT,
+} from '@/lib/telegram-intent';
 
 export const runtime = 'nodejs';
 
@@ -41,50 +46,6 @@ interface TelegramMessage {
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
-}
-
-// ── Intent detection ────────────────────────────────────────────────────────
-
-/** Commands that explicitly trigger issue logging */
-const ISSUE_COMMANDS = ['/log', '/issue', '/bug', '/report'];
-
-/** Keywords that suggest the message MIGHT be an issue (needs confirmation) */
-const ISSUE_KEYWORDS = /\b(bug|error|broken|failed|crash|issue|not working|doesn't work|can't|cannot|fix this|wrong|glitch|down)\b/i;
-
-/** Phrases that explicitly request logging */
-const EXPLICIT_LOG_PHRASES = /\b(log (this|it)|file (a |an )?(bug|issue|report)|report (this|a |an )?(bug|issue|error)|triage this|save (this|it) as (an? )?(issue|bug))\b/i;
-
-type Intent = 'explicit_issue' | 'maybe_issue' | 'confirm_yes' | 'normal';
-
-/**
- * Classify message intent.
- *
- * - explicit_issue: /log command OR explicit "log this" / "file a bug" phrases
- * - confirm_yes: user replied "yes" to a confirmation prompt
- * - maybe_issue: contains issue keywords but not explicit
- * - normal: everything else
- */
-function classifyIntent(text: string, isReply: boolean, replyText?: string): Intent {
-  const lower = text.trim().toLowerCase();
-
-  // Check for explicit issue commands
-  const firstWord = lower.split(/\s/)[0];
-  if (ISSUE_COMMANDS.includes(firstWord)) return 'explicit_issue';
-
-  // Check for explicit logging phrases
-  if (EXPLICIT_LOG_PHRASES.test(lower)) return 'explicit_issue';
-
-  // Check if this is a "yes" reply to our confirmation prompt
-  if (isReply && replyText?.includes('Do you want me to log this as an issue?')) {
-    if (/^(yes|y|yeah|yep|sure|do it|log it|confirm)\b/i.test(lower)) {
-      return 'confirm_yes';
-    }
-  }
-
-  // Check for issue-like keywords (but don't auto-log)
-  if (ISSUE_KEYWORDS.test(lower)) return 'maybe_issue';
-
-  return 'normal';
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -247,7 +208,7 @@ export async function POST(request: Request) {
       // Ask for confirmation — don't auto-log
       await replyToChat(
         msg.chat.id,
-        'Do you want me to log this as an issue? Reply <b>YES</b> to confirm.',
+        `${CONFIRMATION_PROMPT} Reply <b>YES</b> to confirm.`,
         msg.message_id
       );
       break;

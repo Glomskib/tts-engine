@@ -10,13 +10,19 @@ go directly to the issue intake handler instead.
 
 **Current state:** Webhook is **DELETED** — Bolt handles Telegram normally.
 
-To enable Telegram issue intake (disables Bolt):
-```bash
-npx tsx scripts/telegram-webhook.ts set   # ⚠️ Disables Bolt!
-```
+### Webhook management script
 
-To restore Bolt:
 ```bash
+# Check current status
+npx tsx scripts/telegram-webhook.ts info
+
+# Verify no webhook is set (exit 0 = safe, exit 1 = webhook active)
+npx tsx scripts/telegram-webhook.ts assert-deleted
+
+# Enable issue intake (DISABLES Bolt — requires explicit flag)
+npx tsx scripts/telegram-webhook.ts set --i-know-this-disables-bolt
+
+# Restore Bolt
 npx tsx scripts/telegram-webhook.ts delete
 ```
 
@@ -140,3 +146,46 @@ supabase db push
 ```
 
 Migration file: `supabase/migrations/20260302100000_ff_issue_reports.sql`
+
+## Runbook: Safe Telegram Issue Intake Setup
+
+### Option A: Separate bot token (recommended)
+
+Use a **dedicated bot** for issue intake so Bolt keeps working normally.
+
+1. Create a new bot via `@BotFather` (e.g. `@FlashFlowIssueBot`)
+2. Set the new token as `TELEGRAM_ISSUE_BOT_TOKEN` in `.env.local`
+3. Register the webhook on the **new** bot only:
+   ```bash
+   TELEGRAM_BOT_TOKEN=$TELEGRAM_ISSUE_BOT_TOKEN \
+     npx tsx scripts/telegram-webhook.ts set --i-know-this-disables-bolt
+   ```
+4. Bolt continues polling on the main bot token — no disruption
+5. Users report issues by messaging `@FlashFlowIssueBot` directly
+
+### Option B: Shared bot token (not recommended)
+
+This hijacks the main Bolt bot. Only use if you explicitly want issue-intake-only mode.
+
+1. Understand that **Bolt will stop receiving all Telegram messages**
+2. Run: `npx tsx scripts/telegram-webhook.ts set --i-know-this-disables-bolt`
+3. Verify: `npx tsx scripts/telegram-webhook.ts info` — should show webhook active
+4. To restore Bolt: `npx tsx scripts/telegram-webhook.ts delete`
+
+### Monitoring
+
+Add this to CI or a cron job to catch accidental webhook registration:
+
+```bash
+npx tsx scripts/telegram-webhook.ts assert-deleted
+```
+
+Exit code 0 = safe (no webhook, Bolt is polling). Exit code 1 = webhook is set, Bolt is dead.
+
+### Intent classifier tests
+
+```bash
+npx tsx scripts/tests/telegram-intent.test.ts
+```
+
+Tests cover: normal messages, keyword triggers, explicit commands, confirmation flow, and edge cases.

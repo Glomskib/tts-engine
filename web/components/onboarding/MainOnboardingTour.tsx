@@ -147,21 +147,32 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-        {/* Modal */}
-        <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+        {/* Modal — responsive width + constrained height with safe-area support */}
+        <div
+          className="relative bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col text-center"
+          style={{
+            maxWidth: 'min(92vw, 420px)',
+            maxHeight: 'calc(100dvh - 32px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+        >
+          {/* Scrollable body */}
+          <div className="overflow-y-auto flex-1 p-6 sm:p-8">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-5 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+              <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Welcome to FlashFlow</h2>
+            <p className="text-zinc-400 mb-2 text-sm leading-relaxed">
+              Let us show you around! A quick walkthrough of the key features
+              so you can start creating content right away.
+            </p>
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome to FlashFlow</h2>
-          <p className="text-zinc-400 mb-8 text-sm leading-relaxed">
-            Let us show you around! A quick walkthrough of the key features
-            so you can start creating content right away.
-          </p>
-
-          <div className="flex flex-col gap-3">
+          {/* Sticky footer — always visible */}
+          <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 px-6 sm:px-8 py-4 flex flex-col gap-3">
             <button
               onClick={handleStart}
               className="w-full py-3 px-6 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors"
@@ -170,7 +181,7 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
             </button>
             <button
               onClick={handleSkip}
-              className="w-full py-3 px-6 text-zinc-500 hover:text-zinc-300 font-medium rounded-xl transition-colors"
+              className="w-full py-2.5 px-6 text-zinc-500 hover:text-zinc-300 font-medium rounded-xl transition-colors"
             >
               Skip for now
             </button>
@@ -190,8 +201,10 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
       continuous
       showProgress
       showSkipButton
+      scrollToFirstStep
       disableOverlayClose={false}
       disableScrolling={false}
+      spotlightPadding={isMobile ? 4 : 10}
       callback={handleJoyrideCallback}
       locale={{
         back: 'Back',
@@ -212,35 +225,39 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
         tooltip: {
           borderRadius: 12,
           border: '1px solid #3f3f46',
-          padding: 20,
+          padding: isMobile ? 14 : 20,
+          maxWidth: isMobile ? '92vw' : 420,
+          boxSizing: 'border-box' as const,
         },
         tooltipTitle: {
-          fontSize: 16,
+          fontSize: isMobile ? 15 : 16,
           fontWeight: 700,
           color: '#ffffff',
           marginBottom: 4,
         },
         tooltipContent: {
-          fontSize: 14,
+          fontSize: isMobile ? 13 : 14,
           lineHeight: 1.6,
           color: '#a1a1aa',
           padding: '8px 0',
+          maxHeight: isMobile ? 'calc(100dvh - 200px)' : 'none',
+          overflowY: 'auto' as const,
         },
         buttonNext: {
           backgroundColor: '#14b8a6',
           borderRadius: 8,
-          fontSize: 14,
+          fontSize: isMobile ? 13 : 14,
           fontWeight: 600,
-          padding: '8px 20px',
+          padding: isMobile ? '8px 16px' : '8px 20px',
         },
         buttonBack: {
           color: '#a1a1aa',
-          fontSize: 14,
+          fontSize: isMobile ? 13 : 14,
           marginRight: 8,
         },
         buttonSkip: {
           color: '#71717a',
-          fontSize: 13,
+          fontSize: isMobile ? 12 : 13,
         },
         buttonClose: {
           color: '#71717a',
@@ -254,6 +271,7 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
         styles: {
           floater: {
             filter: 'none',
+            maxWidth: isMobile ? '92vw' : undefined,
           },
         },
       }}

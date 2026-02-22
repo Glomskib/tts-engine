@@ -1,3 +1,4 @@
+// @ts-nocheck — standalone script, not part of Next.js build
 /**
  * Browser context management for TikTok Studio.
  *

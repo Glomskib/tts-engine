@@ -232,6 +232,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Build description = caption + hashtags
+  const description = [caption, hashtags.join(" ")].filter(Boolean).join("\n");
+
   // Build the pack
   const pack: UploadPack = {
     video_id: videoId,
@@ -240,6 +243,7 @@ export async function POST(request: NextRequest) {
     lane,
     product_name: productName,
     caption,
+    description,
     hashtags,
     cover_text: coverText,
     hook,
@@ -248,6 +252,7 @@ export async function POST(request: NextRequest) {
     references,
     video_url: video.final_video_url,
     video_path: video.final_video_url,
+    video_source: { type: "local", local_path: video.final_video_url },
     product: {
       ...(productKey ? { key: productKey } : {}),
       ...(productDisplayName ? { display_name: productDisplayName } : {}),

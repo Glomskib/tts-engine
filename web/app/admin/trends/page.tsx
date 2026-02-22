@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Hash, Music, TrendingUp, Plus, Trash2, ExternalLink,
-  ArrowUpRight, ArrowDownRight, Minus, Sparkles, X
+  ArrowUpRight, ArrowDownRight, Minus, Sparkles, X, ShoppingBag
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { PageErrorState } from '@/components/ui/PageErrorState';
 import { useToast } from '@/contexts/ToastContext';
+import TrendingFeed from '@/components/TrendingFeed';
 
 interface Hashtag {
   id: string;
@@ -33,7 +34,7 @@ interface Sound {
   spotted_at: string;
 }
 
-type Tab = 'hashtags' | 'sounds';
+type Tab = 'products' | 'hashtags' | 'sounds';
 
 function GrowthBadge({ rate }: { rate: number }) {
   if (rate > 0) return (
@@ -57,7 +58,7 @@ function formatNum(n: number): string {
 }
 
 export default function TrendsPage() {
-  const [tab, setTab] = useState<Tab>('hashtags');
+  const [tab, setTab] = useState<Tab>('products');
   const [hashtags, setHashtags] = useState<Hashtag[]>([]);
   const [sounds, setSounds] = useState<Sound[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,17 +185,19 @@ export default function TrendsPage() {
             <h1 className="text-2xl font-bold text-white">Trending</h1>
             <p className="text-zinc-400 text-sm">Track trending hashtags and sounds for content ideas</p>
           </div>
-          <button
-            onClick={() => { setShowAdd(true); resetForm(); }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add {tab === 'hashtags' ? 'Hashtag' : 'Sound'}
-          </button>
+          {tab !== 'products' && (
+            <button
+              onClick={() => { setShowAdd(true); resetForm(); }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add {tab === 'hashtags' ? 'Hashtag' : 'Sound'}
+            </button>
+          )}
         </div>
 
         {/* Tabs */}
         <div className="flex items-center gap-1 border-b border-zinc-800">
-          {([['hashtags', 'Hashtags', Hash], ['sounds', 'Sounds', Music]] as const).map(([key, label, Icon]) => (
+          {([['products', 'Viral Products', ShoppingBag], ['hashtags', 'Hashtags', Hash], ['sounds', 'Sounds', Music]] as const).map(([key, label, Icon]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -203,15 +206,19 @@ export default function TrendsPage() {
               }`}
             >
               <Icon className="w-4 h-4" /> {label}
-              <span className="text-xs bg-zinc-800 px-1.5 py-0.5 rounded">
-                {key === 'hashtags' ? hashtags.length : sounds.length}
-              </span>
+              {key !== 'products' && (
+                <span className="text-xs bg-zinc-800 px-1.5 py-0.5 rounded">
+                  {key === 'hashtags' ? hashtags.length : sounds.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        {loading ? (
+        {tab === 'products' ? (
+          <TrendingFeed />
+        ) : loading ? (
           <SkeletonTable rows={5} cols={4} />
         ) : tab === 'hashtags' ? (
           hashtags.length === 0 ? (

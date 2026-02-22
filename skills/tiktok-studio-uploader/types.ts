@@ -35,6 +35,9 @@ export const CONFIG = {
   /** Directory for error screenshots / reports. */
   errorDir: path.join(process.cwd(), 'data', 'tiktok-errors'),
 
+  /** Cooldown lockfile — prevents repeated session-invalid alerts. */
+  cooldownLockfile: path.join(_sessionsDir, '.session-invalid.lock'),
+
   headless: process.env.TIKTOK_HEADLESS === 'true',
 
   /** Launch headed and wait for manual login, then save session and exit. */

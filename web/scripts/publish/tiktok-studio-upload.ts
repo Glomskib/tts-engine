@@ -366,12 +366,12 @@ async function main() {
     });
     await page.waitForTimeout(3_000);
 
-    // 5. Login check — fail fast, direct to bootstrap
+    // 5. Login check — fail fast, exit 42 (session invalid)
     if (!(await isLoggedIn(page))) {
       console.error('\nNot logged in. Run bootstrap first:');
       console.error('  npm run tiktok:bootstrap\n');
       await context.close();
-      process.exit(1);
+      process.exit(42);
     }
 
     // 6. Upload video

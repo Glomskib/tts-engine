@@ -137,6 +137,27 @@ function writeSessionInvalidEvent(reason: string): void {
   }
 }
 
+// ─── Cooldown Status ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether the session-invalid cooldown lockfile is active.
+ * Returns 'active (Xh ago)', 'expired', or 'none'.
+ */
+function getCooldownStatus(): string {
+  try {
+    const stat = fs.statSync(CONFIG.cooldownLockfile);
+    const ageMs = Date.now() - stat.mtimeMs;
+    const ageHours = (ageMs / 3_600_000).toFixed(1);
+    const cooldownHours = Number(process.env.SESSION_INVALID_COOLDOWN_HOURS) || 6;
+    if (ageMs < cooldownHours * 3_600_000) {
+      return `active (${ageHours}h ago, window=${cooldownHours}h)`;
+    }
+    return 'expired';
+  } catch {
+    return 'none';
+  }
+}
+
 // ─── Singleton Lock Cleanup ──────────────────────────────────────────────────
 
 function cleanStaleLocks(): void {
@@ -171,16 +192,18 @@ export async function openUploadStudio(
   let interactive = opts.interactive ?? isBootstrap;
   const headless = isBootstrap ? false : (opts.headless ?? CONFIG.headless);
 
-  // ── Verbose startup logging ──
-  console.log('');
-  console.log(`${TAG} ── Session startup ──`);
-  console.log(`${TAG} Mode:           ${isBootstrap ? 'BOOTSTRAP (manual login)' : allowForceRelogin ? 'UPLOAD (force-relogin enabled)' : 'UPLOAD (fail-fast)'}`);
-  console.log(`${TAG} Headless:       ${headless}`);
-  console.log(`${TAG} Profile dir:    ${CONFIG.profileDir}`);
-  console.log(`${TAG} StorageState:   ${CONFIG.storageStatePath}`);
-  console.log(`${TAG} Upload URL:     ${CONFIG.uploadUrl}`);
-  console.log(`${TAG} Interactive:    ${interactive}`);
-  console.log('');
+  // ── Session Mode Summary (single structured line) ──
+  const cooldownStatus = getCooldownStatus();
+  const summary = {
+    profile_dir: CONFIG.profileDir,
+    storageState_path: CONFIG.storageStatePath,
+    headless,
+    bootstrap_mode: isBootstrap,
+    force_relogin: allowForceRelogin,
+    interactive,
+    cooldown_status: cooldownStatus,
+  };
+  console.log(`\n${TAG} Session Mode Summary: ${JSON.stringify(summary)}`);
 
   // Ensure profile directory exists
   fs.mkdirSync(CONFIG.profileDir, { recursive: true });

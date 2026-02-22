@@ -1,7 +1,7 @@
 /**
  * GET /api/flashflow/trending?date=YYYY-MM-DD
  *
- * Returns trending items from ff_trending_items.
+ * Returns the last 20 trending items from ff_trending_items.
  * If no date param, returns the most recent run.
  */
 import { NextResponse } from 'next/server';
@@ -33,10 +33,18 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('ff_trending_items')
-      .select('*')
+      .select(`
+        id, source, run_date, rank,
+        product_name, product_id, category,
+        gmv_velocity, views, hook_text,
+        visual_tags, source_url, screenshot_urls,
+        mc_doc_id, creator_style_id,
+        raw, created_at
+      `)
       .eq('source', 'daily_virals')
       .eq('run_date', runDate)
-      .order('rank', { ascending: true });
+      .order('rank', { ascending: true })
+      .limit(20);
 
     if (error) {
       console.error('[api/flashflow/trending] Query error:', error.message);

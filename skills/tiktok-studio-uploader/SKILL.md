@@ -1,85 +1,100 @@
-# TikTok Studio Uploader
+# TikTok Studio Uploader — Phase 3
 
-Playwright-based bot that uploads videos to TikTok Shop via the TikTok Studio web UI, using an Upload Pack as input.
+Browser automation module that uploads videos to TikTok Shop via TikTok Studio web UI, using an Upload Pack as input. **Draft-only mode** — never auto-publishes.
 
-## Inputs
+## Architecture
 
-| Input | Required | Description |
-|-------|----------|-------------|
-| Upload Pack folder path | One of these | Local directory containing `video.mp4`, `caption.txt`, `hashtags.txt`, `product.txt` or `metadata.json`, and optionally `cover.txt` |
-| `--video-id <id>` | One of these | Video ID — the script calls `POST /api/publish/upload-pack` to fetch the pack, then downloads the video locally before uploading |
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TIKTOK_STUDIO_UPLOAD_URL` | `https://www.tiktok.com/tiktokstudio/upload` | TikTok Studio upload page URL |
-| `TIKTOK_POST_MODE` | `draft` | `draft` or `post` — whether to save as draft or publish immediately |
-| `TIKTOK_BROWSER_PROFILE` | `~/.openclaw/browser-profiles/tiktok-studio` | Persistent Chromium profile directory (keeps login session) |
-| `TIKTOK_HEADLESS` | `false` | Set to `true` for headless mode (login must already be cached) |
-
-## Upload Pack Directory Layout
+Modular Playwright functions, each handling one step of the upload flow:
 
 ```
-upload-pack/
-  video.mp4              # Required — the video file
-  caption.txt            # Required — TikTok caption text (without hashtags)
-  hashtags.txt           # Required — one hashtag per line or space-separated
-  product.txt            # Required* — TikTok Shop product ID (plain text)
-  metadata.json          # Required* — { "product": { "tiktok_product_id": "..." } }
-  cover.txt              # Optional — cover/thumbnail overlay text
+skills/tiktok-studio-uploader/
+  index.ts          # Re-exports + runUploadToDraft() orchestrator
+  types.ts          # StudioUploadInput, StudioUploadResult, config
+  selectors.ts      # All TikTok Studio selectors (role/text-based)
+  browser.ts        # openUploadStudio() — persistent profile, login check
+  upload.ts         # uploadVideoFile() — set file input, wait for processing
+  description.ts    # fillDescription() — clear + type into contenteditable
+  product.ts        # attachProductByID() — search → select first → confirm
+  draft.ts          # saveDraft() — click draft, detect success, extract ID
 ```
 
-\* Either `product.txt` or `metadata.json` with `product.tiktok_product_id` must be present.
+## UploadPack Schema (extended)
 
-## Steps
+```typescript
+interface UploadPack {
+  product_id: string;
+  description: string;        // Full TikTok description (caption + hashtags)
+  hashtags: string[];
+  video_source:
+    | { type: 'local'; local_path: string }
+    | { type: 'google_drive'; google_drive_url: string };
+  // ... other existing fields
+}
+```
 
-1. **Parse inputs** — Read upload pack directory or fetch via API using `--video-id`.
-2. **Login check** — Open TikTok Studio in a persistent browser profile. If not logged in (detected by redirect to login page or login modal), stop with a clear message instructing the user to log in manually once in that profile.
-3. **Upload video** — Set the video file on the hidden file input on the upload page. Wait for processing to complete.
-4. **Paste caption + hashtags** — Fill the description field with `caption + \n + hashtags` (space-separated, each prefixed with `#`).
-5. **Add product link** — Click "Add product" / product link area → paste product ID into search → select first matching row → confirm.
-6. **Choose mode** — Click "Post" or "Save as draft" based on `TIKTOK_POST_MODE`.
-7. **Confirm success** — Wait for success indicator (toast, redirect, or status change).
-8. **Emit JSON summary** — Print to stdout:
-   ```json
-   {
-     "ok": true,
-     "mode": "draft",
-     "product_id": "123456",
-     "video_file": "video.mp4",
-     "errors": []
-   }
-   ```
+## Functions
 
-## Dry-Run Mode
+### `openUploadStudio()`
+Opens Chromium with persistent profile at `~/.openclaw/browser-profiles/tiktok-studio`. Navigates to upload page. Returns `StudioSession` (context + page) or `null` if not logged in.
 
-Pass `--dry-run` to:
-- Open the upload page
-- Verify login status
-- Check that key selectors are present (file input, caption field, product link area, post/draft buttons)
-- Report findings without uploading anything
+### `uploadVideoFile(page, videoPath)`
+Locates the hidden `<input type="file">`, sets the video file. Waits for caption editor to appear (signals video accepted). Throws on timeout.
 
-## Limitations
+### `fillDescription(page, description)`
+Finds the contenteditable editor, clears it, types the full description (caption + newline + hashtags) line by line.
 
-- Does **not** store credentials — user must log in once manually in the persistent browser profile.
-- Does **not** bypass CAPTCHAs or 2FA — if prompted, the user must complete them manually.
-- TikTok Studio UI changes may break selectors — use `--dry-run` to verify before uploading.
+### `attachProductByID(page, productId)`
+Clicks "Add product" → fills search with product_id → selects **first result only** → confirms. Returns `{ linked, errors }`.
+
+### `saveDraft(page)`
+Clicks "Save as draft". Waits for success indicator or URL change. Extracts `tiktok_draft_id` from the post-save URL if detectable. Returns `{ saved, tiktok_draft_id?, url?, errors }`.
+
+## Output
+
+```json
+{
+  "status": "drafted",
+  "tiktok_draft_id": "7340012345678901234",
+  "product_id": "12345",
+  "video_file": "video.mp4",
+  "url": "https://www.tiktok.com/tiktokstudio/post/7340012345678901234",
+  "errors": []
+}
+```
+
+Status values: `drafted` | `login_required` | `error`
+
+## Browser Profile
+
+Persistent Chromium profile at `~/.openclaw/browser-profiles/tiktok-studio`. User logs in once manually in headed mode; session persists across runs.
+
+| Env Variable | Default | Description |
+|---|---|---|
+| `TIKTOK_STUDIO_UPLOAD_URL` | `https://www.tiktok.com/tiktokstudio/upload` | Upload page URL |
+| `TIKTOK_BROWSER_PROFILE` | `~/.openclaw/browser-profiles/tiktok-studio` | Profile directory |
+| `TIKTOK_HEADLESS` | `false` | Headless mode (login must already be cached) |
 
 ## Usage
 
 ```bash
-# From the web/ directory:
+cd web
 
-# Upload from a local pack directory
+# First run — log in manually (browser opens headed)
+npm run tiktok:upload-pack -- --dry-run
+
+# Upload from local pack directory (draft-only)
 npm run tiktok:upload-pack -- /path/to/upload-pack
 
-# Upload using a video_id (fetches pack via API)
+# Upload via video_id (fetches pack from API, draft-only)
 npm run tiktok:upload-pack -- --video-id abc123
 
 # Dry run — check selectors without uploading
 npm run tiktok:upload-pack -- /path/to/upload-pack --dry-run
-
-# Post immediately instead of saving as draft
-TIKTOK_POST_MODE=post npm run tiktok:upload-pack -- /path/to/upload-pack
 ```
+
+## Limitations
+
+- **Draft-only** — does not publish. Review and post manually in TikTok Studio.
+- **No credential storage** — user logs in once in the persistent browser profile.
+- **No CAPTCHA/2FA bypass** — user completes these manually if prompted.
+- **Selector fragility** — TikTok Studio UI changes may break selectors. Run `--dry-run` to verify.

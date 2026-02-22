@@ -31,9 +31,20 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   closed: { label: 'Closed', color: 'bg-zinc-500' },
 };
 
+function getAnonSessionId(): string {
+  if (typeof window === 'undefined') return 'anon';
+  let id = sessionStorage.getItem('ff-support-anon-id');
+  if (!id) {
+    id = `anon-${crypto.randomUUID()}`;
+    sessionStorage.setItem('ff-support-anon-id', id);
+  }
+  return id;
+}
+
 export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { authenticated, user } = useAuth();
   const { showSuccess, showError } = useToast();
+  const isGuest = !authenticated || !user;
 
   const [view, setView] = useState<'list' | 'thread' | 'new'>('list');
   const [threads, setThreads] = useState<SupportThread[]>([]);
@@ -51,6 +62,11 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
   // Reply
   const [reply, setReply] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+
+  // Guest live-chat state
+  const [guestThreadId, setGuestThreadId] = useState<string | null>(null);
+  const [guestInput, setGuestInput] = useState('');
+  const [guestSending, setGuestSending] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -86,13 +102,15 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
     }
   }, []);
 
-  // Load threads when opened
+  // Load threads when opened (authenticated only)
   useEffect(() => {
-    if (isOpen && authenticated) {
+    if (isOpen && !isGuest) {
       fetchThreads();
       setView('list');
+    } else if (isOpen && isGuest) {
+      setView('new');
     }
-  }, [isOpen, authenticated, fetchThreads]);
+  }, [isOpen, isGuest, fetchThreads]);
 
   // Poll for new messages when viewing a thread
   useEffect(() => {
@@ -168,6 +186,64 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
     }
   };
 
+  // Guest live-chat: sends message to /api/support/live with anon session
+  const handleGuestSend = async (initialMessage?: string) => {
+    const msg = initialMessage || guestInput.trim();
+    if (!msg) return;
+    setGuestSending(true);
+
+    // Optimistically add the user message to the local messages list
+    const tempUserMsg: SupportMessage = {
+      id: `temp-${Date.now()}`,
+      thread_id: guestThreadId || '',
+      sender_type: 'user',
+      sender_email: null,
+      body: msg,
+      is_internal: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempUserMsg]);
+    setGuestInput('');
+
+    try {
+      const res = await fetch('/api/support/live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: msg,
+          thread_id: guestThreadId,
+          visitor_email: getAnonSessionId(),
+          subject: !guestThreadId ? msg.slice(0, 100) : undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (!guestThreadId) {
+          setGuestThreadId(json.thread_id);
+        }
+        // Add bot response
+        const botMsg: SupportMessage = {
+          id: `bot-${Date.now()}`,
+          thread_id: json.thread_id,
+          sender_type: 'system',
+          sender_email: 'support-bot@flashflowai.com',
+          body: json.response,
+          is_internal: false,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, botMsg]);
+        setView('thread');
+      } else {
+        showError('Failed to send message');
+      }
+    } catch {
+      showError('Failed to send message');
+    } finally {
+      setGuestSending(false);
+    }
+  };
+
   const handleClose = () => {
     onClose();
     setTimeout(() => {
@@ -177,10 +253,12 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
       setNewSubject('');
       setNewMessage('');
       setReply('');
+      if (isGuest) {
+        setGuestThreadId(null);
+        setGuestInput('');
+      }
     }, 300);
   };
-
-  if (!authenticated || !user) return null;
 
   return (
     <>
@@ -202,7 +280,7 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
         {/* Header */}
         <div className="sticky top-0 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800 px-5 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
-            {view !== 'list' && (
+            {view !== 'list' && !isGuest && (
               <button
                 onClick={() => { setView('list'); setSelectedThreadId(null); setMessages([]); }}
                 className="p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
@@ -211,7 +289,7 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
               </button>
             )}
             <h2 className="text-lg font-semibold text-zinc-100">
-              {view === 'list' ? 'Support' : view === 'new' ? 'New Thread' : threadDetail?.subject || 'Thread'}
+              {isGuest ? 'Support Chat' : view === 'list' ? 'Support' : view === 'new' ? 'New Thread' : threadDetail?.subject || 'Thread'}
             </h2>
           </div>
           <button
@@ -269,7 +347,31 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
             </div>
           )}
 
-          {view === 'new' && (
+          {view === 'new' && isGuest && (
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-zinc-400">Ask us anything — no account needed.</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={guestInput}
+                  onChange={(e) => setGuestInput(e.target.value)}
+                  placeholder="Type your question..."
+                  maxLength={5000}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGuestSend(); } }}
+                  className="flex-1 px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
+                />
+                <button
+                  onClick={() => handleGuestSend()}
+                  disabled={guestSending || !guestInput.trim()}
+                  className="px-3 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-lg transition-colors"
+                >
+                  {guestSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {view === 'new' && !isGuest && (
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-1.5">Subject</label>
@@ -315,8 +417,8 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
 
           {view === 'thread' && (
             <div className="flex flex-col h-full">
-              {/* Status */}
-              {threadDetail && (
+              {/* Status (authenticated only) */}
+              {!isGuest && threadDetail && (
                 <div className="px-5 py-2 border-b border-zinc-800 flex items-center gap-2">
                   <span className={`px-2 py-0.5 text-[10px] font-medium text-white rounded-full ${(STATUS_LABELS[threadDetail.status] || STATUS_LABELS.open).color}`}>
                     {(STATUS_LABELS[threadDetail.status] || STATUS_LABELS.open).label}
@@ -328,7 +430,7 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
               )}
 
               {/* Messages */}
-              {loadingMessages ? (
+              {loadingMessages && !isGuest ? (
                 <div className="flex items-center gap-2 text-sm text-zinc-500 justify-center py-8">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Loading...
@@ -357,6 +459,13 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       </div>
                     );
                   })}
+                  {guestSending && (
+                    <div className="flex justify-start">
+                      <div className="bg-zinc-800 text-zinc-400 rounded-2xl px-4 py-2.5">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -364,8 +473,29 @@ export function SupportWidget({ isOpen, onClose }: { isOpen: boolean; onClose: (
           )}
         </div>
 
-        {/* Reply box (only in thread view) */}
-        {view === 'thread' && selectedThreadId && (
+        {/* Reply box — guest uses live chat, authenticated uses thread reply */}
+        {view === 'thread' && isGuest && (
+          <div className="border-t border-zinc-800 p-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={guestInput}
+                onChange={(e) => setGuestInput(e.target.value)}
+                placeholder="Type your message..."
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGuestSend(); } }}
+                className="flex-1 px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
+              />
+              <button
+                onClick={() => handleGuestSend()}
+                disabled={guestSending || !guestInput.trim()}
+                className="px-3 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-lg transition-colors"
+              >
+                {guestSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        )}
+        {view === 'thread' && !isGuest && selectedThreadId && (
           <div className="border-t border-zinc-800 p-4">
             <div className="flex gap-2">
               <input

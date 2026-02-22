@@ -1,0 +1,50 @@
+[
+  {
+    "rank": 1,
+    "title": "LED Strip Lights",
+    "product_name": "LED Strip Lights",
+    "category": "Home & Garden",
+    "metrics": {
+      "views": "8.3M",
+      "gmv": "$8K"
+    },
+    "hook_text": "Watch this room transform in 10 seconds",
+    "script_snippet": "",
+    "source_url": "https://example.com/product/1",
+    "thumbnail_url": "",
+    "ai_observation": "",
+    "captured_at": "2026-02-22T01:10:32.747Z"
+  },
+  {
+    "rank": 2,
+    "title": "Portable Blender",
+    "product_name": "Portable Blender",
+    "category": "Kitchen",
+    "metrics": {
+      "views": "4.4M",
+      "gmv": "$91K"
+    },
+    "hook_text": "Making smoothies anywhere just got real",
+    "script_snippet": "",
+    "source_url": "https://example.com/product/2",
+    "thumbnail_url": "",
+    "ai_observation": "",
+    "captured_at": "2026-02-22T01:10:32.747Z"
+  },
+  {
+    "rank": 3,
+    "title": "Phone Grip Stand",
+    "product_name": "Phone Grip Stand",
+    "category": "Electronics",
+    "metrics": {
+      "views": "5.7M",
+      "gmv": "$29K"
+    },
+    "hook_text": "The phone accessory everyone needs",
+    "script_snippet": "",
+    "source_url": "https://example.com/product/3",
+    "thumbnail_url": "",
+    "ai_observation": "",
+    "captured_at": "2026-02-22T01:10:32.747Z"
+  }
+]

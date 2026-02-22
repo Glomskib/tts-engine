@@ -253,19 +253,10 @@ export async function runDailyViralsJob(options?: {
     console.log(`${TAG} Uploaded screenshots for ${screenshotUrlMap.size} items`);
   }
 
-  // ── Step 4: Upsert to database ──
-
-  console.log(`${TAG} Upserting to ff_trending_items...`);
-  const dbResult = await upsertTrendingItems(items, cfg.date, screenshotUrlMap);
-  if (dbResult.ok) {
-    console.log(`${TAG} DB upsert: ${dbResult.count} rows`);
-  } else {
-    console.warn(`${TAG} DB upsert failed: ${dbResult.error}`);
-  }
-
-  // ── Step 5: Post to Mission Control ──
+  // ── Step 4: Post to Mission Control (before DB so we get mc_doc_id) ──
 
   let mcPosted = false;
+  let mcDocId: string | undefined;
   if (!hasMCToken) {
     console.warn(`${TAG} No MC token — skipping MC post`);
   } else {
@@ -282,9 +273,23 @@ export async function runDailyViralsJob(options?: {
     if (mcResult.ok) {
       console.log(`${TAG} MC doc posted: ${mcResult.id}`);
       mcPosted = true;
+      mcDocId = mcResult.id;
     } else {
       console.error(`${TAG} MC post failed: ${mcResult.error}`);
     }
+  }
+
+  // ── Step 5: Upsert to database ──
+
+  console.log(`${TAG} Upserting to ff_trending_items...`);
+  const dbResult = await upsertTrendingItems(items, cfg.date, {
+    screenshotUrlMap,
+    mcDocId,
+  });
+  if (dbResult.ok) {
+    console.log(`${TAG} DB upsert: ${dbResult.count} rows`);
+  } else {
+    console.warn(`${TAG} DB upsert failed: ${dbResult.error}`);
   }
 
   // ── Step 6: Write public trending.json ──

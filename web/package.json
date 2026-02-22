@@ -30,7 +30,9 @@
     "finops:daily": "tsx scripts/finops/daily-report.ts",
     "finops:weekly": "tsx scripts/finops/weekly-report.ts",
     "test:finops": "tsx scripts/test-finops/smoke.ts",
-    "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts"
+    "tiktok:upload-pack": "tsx scripts/tiktok-studio/upload-from-pack.ts",
+    "ff:ingest": "tsx scripts/creator-style/ingest.ts",
+    "ff:build": "tsx scripts/creator-style/build.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

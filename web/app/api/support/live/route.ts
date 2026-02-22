@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { callAnthropicAPI } from "@/lib/ai/anthropic";
+import { callAnthropicJSON } from "@/lib/ai/anthropic";
 import { SUPPORT_SYSTEM_PROMPT } from "@/lib/support-kb";
 import { crossPostToMC } from "@/lib/support-mc-bridge";
+import { classifyAndRoute, type IntentResult } from "@/lib/support-intent-router";
 
 export const runtime = "nodejs";
 
@@ -102,16 +103,37 @@ export async function POST(request: NextRequest) {
     });
     const conversationPrompt = conversationLines.join("\n\n");
 
-    // Call Claude for AI response
-    const result = await callAnthropicAPI(conversationPrompt, {
-      model: "claude-haiku-4-5-20251001",
-      maxTokens: 512,
-      systemPrompt: SUPPORT_SYSTEM_PROMPT,
-      correlationId,
-      requestType: "support_live_chat",
-      agentId: "support-bot",
-      signal: AbortSignal.timeout(25000),
-    });
+    // Call Claude for AI response with structured intent output
+    let intentResult: IntentResult;
+    let responseText: string;
+
+    try {
+      const { parsed } = await callAnthropicJSON<IntentResult>(conversationPrompt, {
+        model: "claude-haiku-4-5-20251001",
+        maxTokens: 512,
+        temperature: 0.3,
+        systemPrompt: SUPPORT_SYSTEM_PROMPT,
+        correlationId,
+        requestType: "support_live_chat",
+        agentId: "support-bot",
+        signal: AbortSignal.timeout(25000),
+      });
+
+      intentResult = parsed;
+      responseText = parsed.response;
+
+      // Append doc links for how-to intents
+      if (parsed.intent === "how_to" && parsed.doc_links && parsed.doc_links.length > 0) {
+        responseText += "\n\nRelated docs: " + parsed.doc_links.join(", ");
+      }
+    } catch (parseErr) {
+      // Fallback: if JSON parsing fails, treat raw text as general response
+      console.warn("[support/live] Intent JSON parse failed, using fallback:", parseErr);
+      intentResult = { intent: "general", response: "" };
+      responseText = parseErr instanceof SyntaxError
+        ? "I'm sorry, I had trouble processing that. Could you rephrase your question?"
+        : String(parseErr);
+    }
 
     // Insert bot response as support_message
     const { error: botMsgError } = await supabaseAdmin
@@ -120,7 +142,7 @@ export async function POST(request: NextRequest) {
         thread_id: activeThreadId,
         sender_type: "system",
         sender_email: "support-bot@flashflowai.com",
-        body: result.text,
+        body: responseText,
         is_internal: false,
       });
 
@@ -134,6 +156,11 @@ export async function POST(request: NextRequest) {
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", activeThreadId);
 
+    // Route intent side effects (MC bug post, user_feedback insert, thread tagging)
+    classifyAndRoute(activeThreadId, intentResult, userEmail || visitor_email).catch((err) => {
+      console.error("[support/live] Intent routing error:", err);
+    });
+
     // Cross-post to MC on new threads (fire-and-forget)
     if (isNewThread) {
       const threadSubject = subject || message.slice(0, 100);
@@ -143,7 +170,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       thread_id: activeThreadId,
-      response: result.text,
+      response: responseText,
+      intent: intentResult.intent,
       correlation_id: correlationId,
     });
   } catch (err) {

@@ -10,7 +10,7 @@
 import { chromium, type Browser, type Page, type ElementHandle } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
-import { LOGIN, TRENDING, PAGINATION } from './selectors';
+import { COOKIE_BANNER, LOGIN, TRENDING, PAGINATION } from './selectors';
 import type { TrendingItem, TrendingMetrics, ScrapeResult, RunConfig } from './types';
 
 const TAG = '[daily-virals:scraper]';
@@ -66,73 +66,148 @@ async function tryHref(page: Page | ElementHandle, selectors: readonly string[])
   return '';
 }
 
+// ── cookie banner ──
+
+async function dismissCookieBanner(page: Page): Promise<void> {
+  for (const sel of COOKIE_BANNER.acceptButton) {
+    try {
+      const btn = await page.$(sel);
+      if (btn) {
+        await btn.click();
+        console.log(`${TAG} Cookie banner dismissed`);
+        await page.waitForTimeout(1000);
+        return;
+      }
+    } catch { /* next */ }
+  }
+  console.log(`${TAG} No cookie banner found (or already dismissed)`);
+}
+
 // ── login ──
 
 async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reason?: string }> {
   const email = process.env.DAILY_VIRALS_EMAIL;
   const password = process.env.DAILY_VIRALS_PASSWORD;
-  const loginUrl = process.env.DAILY_VIRALS_LOGIN_URL || process.env.DAILY_VIRALS_TRENDING_URL || '';
 
   if (!email || !password) {
     return { ok: false, blocked: true, reason: 'DAILY_VIRALS_EMAIL or DAILY_VIRALS_PASSWORD not set in env' };
   }
 
-  console.log(`${TAG} Navigating to login page...`);
-
-  // If DAILY_VIRALS_TRENDING_URL contains a login redirect, go directly
-  // Otherwise navigate to the trending URL and expect a login redirect
   const trendingUrl = process.env.DAILY_VIRALS_TRENDING_URL || '';
-  await page.goto(trendingUrl || loginUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+  // Step 1: Navigate to the site
+  console.log(`${TAG} Navigating to ${trendingUrl}...`);
+  await page.goto(trendingUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   // Wait for Cloudflare challenge to resolve (if present)
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(7000);
 
-  // Wait for page to settle
-  await page.waitForTimeout(2000);
+  // Step 2: Dismiss cookie banner
+  await dismissCookieBanner(page);
 
-  // Check if already logged in
-  for (const indicator of LOGIN.loggedInIndicator) {
+  // Step 3: Check if already logged in (no "Login" link visible)
+  let hasLoginLink = false;
+  for (const sel of LOGIN.sidebarLoginLink) {
     try {
-      const el = await page.$(indicator);
+      const el = await page.$(sel);
       if (el) {
-        console.log(`${TAG} Already logged in (found: ${indicator})`);
-        return { ok: true, blocked: false };
+        const text = await el.textContent();
+        if (text && text.trim().toLowerCase().includes('login')) {
+          hasLoginLink = true;
+          break;
+        }
       }
-    } catch { /* continue */ }
+    } catch { /* next */ }
   }
 
-  // Look for login form
-  const emailInput = await page.$(LOGIN.emailInput);
-  if (!emailInput) {
-    // Maybe the page needs to load more, wait and retry
-    await page.waitForTimeout(3000);
-    const retryEmail = await page.$(LOGIN.emailInput);
-    if (!retryEmail) {
-      console.log(`${TAG} No login form found — page might already be authenticated or URL is wrong`);
-      // Check if we're on the trending page anyway
-      const pageContent = await page.content();
-      if (pageContent.length > 5000) {
-        return { ok: true, blocked: false };
-      }
-      return { ok: false, blocked: true, reason: 'Login form not found. Check DAILY_VIRALS_TRENDING_URL.' };
+  if (!hasLoginLink) {
+    // Might already be logged in — check for logged-in indicators
+    for (const indicator of LOGIN.loggedInIndicator) {
+      try {
+        const el = await page.$(indicator);
+        if (el) {
+          console.log(`${TAG} Already logged in (found: ${indicator})`);
+          return { ok: true, blocked: false };
+        }
+      } catch { /* next */ }
+    }
+    // No login link AND no logged-in indicator — might already be authenticated
+    // Check if the sidebar "Login" text is gone (replaced by user info)
+    const bodyText = await page.textContent('body') ?? '';
+    if (!bodyText.toLowerCase().includes('login')) {
+      console.log(`${TAG} No login link found — assuming already authenticated`);
+      return { ok: true, blocked: false };
     }
   }
 
-  // Fill login form
+  // Step 4: Click the sidebar "Login" link to open the login form
+  console.log(`${TAG} Clicking Login link in sidebar...`);
+  let clickedLogin = false;
+  for (const sel of LOGIN.sidebarLoginLink) {
+    try {
+      const el = await page.$(sel);
+      if (el) {
+        const text = await el.textContent();
+        if (text && text.trim().toLowerCase().includes('login')) {
+          await el.click();
+          clickedLogin = true;
+          console.log(`${TAG} Clicked login link (selector: ${sel})`);
+          break;
+        }
+      }
+    } catch { /* next */ }
+  }
+
+  if (!clickedLogin) {
+    // Fallback: try navigating to /login directly
+    try {
+      const baseUrl = new URL(trendingUrl).origin;
+      console.log(`${TAG} Fallback: navigating to ${baseUrl}/login`);
+      await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    } catch {
+      return { ok: false, blocked: true, reason: 'Could not find or click Login link, and /login fallback failed.' };
+    }
+  }
+
+  // Wait for login form to appear
+  await page.waitForTimeout(3000);
+
+  // Step 5: Look for email input on login form
+  let emailInput = await page.$(LOGIN.emailInput);
+  if (!emailInput) {
+    await page.waitForTimeout(3000);
+    emailInput = await page.$(LOGIN.emailInput);
+  }
+
+  if (!emailInput) {
+    // Take a screenshot for debugging
+    const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
+    fs.mkdirSync(ssDir, { recursive: true });
+    const debugPath = path.join(ssDir, 'login-debug.png');
+    await page.screenshot({ path: debugPath, fullPage: true });
+    console.log(`${TAG} Login form not found — debug screenshot: ${debugPath}`);
+    return { ok: false, blocked: true, reason: `Login form not found after clicking Login. Debug screenshot saved to ${debugPath}` };
+  }
+
+  // Step 6: Fill and submit login form
   console.log(`${TAG} Filling login form...`);
   await page.fill(LOGIN.emailInput, email);
+  await page.waitForTimeout(500);
   await page.fill(LOGIN.passwordInput, password);
+  await page.waitForTimeout(500);
   await page.click(LOGIN.submitButton);
 
-  // Wait for navigation or block indicator
+  // Wait for login to process
   await page.waitForTimeout(5000);
 
-  // Check for 2FA / CAPTCHA blockers
+  // Step 7: Check for 2FA / CAPTCHA blockers
   for (const blocker of LOGIN.blockIndicators) {
     try {
       const el = await page.$(blocker);
       if (el) {
-        const screenshotPath = path.join(process.cwd(), 'data/trending/daily-virals/screenshots/blocked.png');
+        const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
+        fs.mkdirSync(ssDir, { recursive: true });
+        const screenshotPath = path.join(ssDir, 'blocked.png');
         await page.screenshot({ path: screenshotPath, fullPage: true });
         return {
           ok: false,
@@ -143,32 +218,38 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     } catch { /* continue */ }
   }
 
-  // Check if login succeeded
+  // Step 8: Verify login succeeded
   for (const indicator of LOGIN.loggedInIndicator) {
     try {
       const el = await page.$(indicator);
       if (el) {
-        console.log(`${TAG} Login successful`);
+        console.log(`${TAG} Login successful (found: ${indicator})`);
         return { ok: true, blocked: false };
       }
     } catch { /* continue */ }
   }
 
-  // If we're on a different URL from login, assume success
+  // Check if "Login" sidebar link is gone (replaced by user info)
+  const bodyText = await page.textContent('body') ?? '';
   const currentUrl = page.url();
-  if (currentUrl !== trendingUrl && !currentUrl.includes('login') && !currentUrl.includes('signin')) {
-    console.log(`${TAG} Login appears successful (redirected to: ${currentUrl})`);
+  if (!bodyText.toLowerCase().includes('login') || currentUrl.includes('dashboard') || currentUrl.includes('video')) {
+    console.log(`${TAG} Login appears successful (Login link gone or redirected to: ${currentUrl})`);
     return { ok: true, blocked: false };
   }
 
-  // Last resort: check page content length (authenticated pages are larger)
+  // Last resort: check page content
   const content = await page.content();
-  if (content.length > 10000) {
-    console.log(`${TAG} Login appears successful (page content: ${content.length} chars)`);
+  if (content.length > 15000) {
+    console.log(`${TAG} Login likely successful (page content: ${content.length} chars)`);
     return { ok: true, blocked: false };
   }
 
-  return { ok: false, blocked: true, reason: 'Login did not succeed — no logged-in indicator found and no block detected. Check credentials.' };
+  // Save debug screenshot
+  const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
+  fs.mkdirSync(ssDir, { recursive: true });
+  const debugPath = path.join(ssDir, 'login-failed.png');
+  await page.screenshot({ path: debugPath, fullPage: true });
+  return { ok: false, blocked: true, reason: `Login did not succeed. Debug screenshot saved to ${debugPath}. Check credentials in .env.local.` };
 }
 
 // ── item extraction ──
@@ -328,7 +409,7 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
     });
 
     const context = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
+      viewport: { width: 1920, height: 1080 },
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     });
 
@@ -355,8 +436,21 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
       await page.waitForTimeout(5000);
     }
 
-    // Take a full-page screenshot for reference
+    // Wait for content to load — look for any indicator that data is rendering
+    console.log(`${TAG} Waiting for content to load...`);
+    for (const sel of TRENDING.contentLoadedIndicator) {
+      try {
+        await page.waitForSelector(sel, { timeout: 5000 });
+        console.log(`${TAG} Content loaded (found: ${sel})`);
+        break;
+      } catch { /* try next */ }
+    }
+    // Extra settle time for SPAs
+    await page.waitForTimeout(3000);
+
+    // Take a full-page screenshot for reference (post-login)
     if (!config.skipScreenshots) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
       const fullPagePath = path.join(screenshotDir, '00-full-page.png');
       await page.screenshot({ path: fullPagePath, fullPage: true });
       result.screenshotPaths.push(fullPagePath);
@@ -401,9 +495,13 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
 
     if (containers.length === 0) {
       // Fallback: dump page content for debugging
+      fs.mkdirSync(screenshotDir, { recursive: true });
       const html = await page.content();
       const debugPath = path.join(screenshotDir, 'debug-page.html');
       fs.writeFileSync(debugPath, html);
+      // Also take a screenshot of the empty state
+      const emptyScreenshot = path.join(screenshotDir, '00-no-items.png');
+      await page.screenshot({ path: emptyScreenshot, fullPage: true }).catch(() => {});
       result.warnings.push(`No trending items found. Page HTML dumped to ${debugPath}`);
       console.warn(`${TAG} No trending items found — HTML dumped for debugging`);
       return result;

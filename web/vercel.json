@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/daily-virals",
       "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-support-report",
+      "schedule": "30 17 * * 1"
     }
   ]
 }

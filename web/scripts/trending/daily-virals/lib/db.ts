@@ -2,7 +2,7 @@
  * Database persistence + Supabase Storage for Daily Virals trending data.
  *
  * - Upserts items to ff_trending_items (idempotent by source+run_date+rank)
- * - Uploads screenshots to Supabase Storage bucket "trending"
+ * - Uploads screenshots to Supabase Storage bucket "flashflow-media" under trending/
  * - Fetches items for API consumption
  */
 
@@ -12,7 +12,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { TrendingItem } from './types';
 
 const TAG = '[daily-virals:db]';
-const STORAGE_BUCKET = 'trending';
+const STORAGE_BUCKET = 'flashflow-media';
+const STORAGE_PREFIX = 'trending';
 
 // ── Supabase admin client (service role) ──
 
@@ -41,6 +42,7 @@ export interface DBTrendingItem {
   run_date: string;
   rank: number;
   product_name: string;
+  product_id: string | null;
   tiktok_product_id: string | null;
   category: string | null;
   gmv_velocity: string | null;
@@ -49,8 +51,11 @@ export interface DBTrendingItem {
   on_screen_hook: string | null;
   script_snippet: string | null;
   visual_notes: string | null;
+  visual_tags: string[] | null;
   source_url: string;
   screenshot_urls: string[] | null;
+  mc_doc_id: string | null;
+  creator_style_id: string | null;
   raw: Record<string, unknown>;
   created_at: string;
 }
@@ -60,7 +65,11 @@ export interface DBTrendingItem {
 export async function upsertTrendingItems(
   items: TrendingItem[],
   runDate: string,
-  screenshotUrlMap?: Map<number, string[]>,
+  options?: {
+    screenshotUrlMap?: Map<number, string[]>;
+    mcDocId?: string;
+    creatorStyleId?: string;
+  },
 ): Promise<{ ok: boolean; count: number; error?: string }> {
   const client = getClient();
   if (!client) return { ok: false, count: 0, error: 'No Supabase client' };
@@ -70,6 +79,7 @@ export async function upsertTrendingItems(
     run_date: runDate,
     rank: item.rank,
     product_name: item.product_name || item.title,
+    product_id: null,
     tiktok_product_id: null,
     category: item.category || null,
     gmv_velocity: item.metrics.gmv || item.metrics.velocity || null,
@@ -78,8 +88,11 @@ export async function upsertTrendingItems(
     on_screen_hook: null,
     script_snippet: item.script_snippet || null,
     visual_notes: item.ai_observation || null,
+    visual_tags: [],
     source_url: item.source_url || '',
-    screenshot_urls: screenshotUrlMap?.get(item.rank) ?? null,
+    screenshot_urls: options?.screenshotUrlMap?.get(item.rank) ?? null,
+    mc_doc_id: options?.mcDocId ?? null,
+    creator_style_id: options?.creatorStyleId ?? null,
     raw: {
       title: item.title,
       metrics: item.metrics,
@@ -128,7 +141,7 @@ export async function uploadScreenshots(
     const rank = parseInt(rankMatch[1], 10);
     if (rank === 0) continue; // skip full-page screenshot
 
-    const storagePath = `${runDate}/${source}/${filename}`;
+    const storagePath = `${STORAGE_PREFIX}/${runDate}/${source}/${filename}`;
 
     try {
       const fileBuffer = fs.readFileSync(filePath);
@@ -208,7 +221,7 @@ export async function fetchTrendingItems(
     date = latestDate;
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query.limit(20);
 
   if (error) {
     console.error(`${TAG} Fetch failed:`, error.message);

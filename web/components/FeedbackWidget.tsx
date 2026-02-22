@@ -159,8 +159,8 @@ export function FeedbackWidget() {
     }
   };
 
-  if (!authenticated || !user) return null;
-  if (dismissed && !isOpen) return null;
+  const isGuest = !authenticated || !user;
+  if (dismissed && !isOpen && !supportOpen) return null;
 
   return (
     <>
@@ -170,16 +170,18 @@ export function FeedbackWidget() {
           {/* Menu */}
           {menuOpen && (
             <div className="absolute bottom-14 right-0 w-48 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden mb-2">
-              <button
-                onClick={() => { setMenuOpen(false); handleOpen(); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors text-left"
-              >
-                <MessageSquare className="w-4 h-4 text-violet-400" />
-                Send Feedback
-              </button>
+              {!isGuest && (
+                <button
+                  onClick={() => { setMenuOpen(false); handleOpen(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors text-left"
+                >
+                  <MessageSquare className="w-4 h-4 text-violet-400" />
+                  Send Feedback
+                </button>
+              )}
               <button
                 onClick={() => { setMenuOpen(false); setSupportOpen(true); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors${!isGuest ? ' border-t border-zinc-800' : ''}`}
               >
                 <HelpCircle className="w-4 h-4 text-cyan-400" />
                 Support Chat
@@ -191,13 +193,15 @@ export function FeedbackWidget() {
                 <Mail className="w-4 h-4 text-teal-400" />
                 Contact Us
               </a>
-              <a
-                href="/admin/help"
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
-              >
-                <HelpCircle className="w-4 h-4 text-blue-400" />
-                Help
-              </a>
+              {!isGuest && (
+                <a
+                  href="/admin/help"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+                >
+                  <HelpCircle className="w-4 h-4 text-blue-400" />
+                  Help
+                </a>
+              )}
             </div>
           )}
           {/* Logo Icon Button */}

@@ -9,6 +9,7 @@ export interface UploadPack {
   lane: string;               // persona lane (e.g. "skeptic") or "general"
   product_name: string;
   caption: string;            // TikTok caption (without hashtags)
+  description: string;        // Full TikTok description (caption + hashtags combined)
   hashtags: string[];         // e.g. ["#ad", "#tiktokshop"]
   cover_text: string;         // Thumbnail overlay text
   hook: string;               // First-line hook
@@ -17,6 +18,9 @@ export interface UploadPack {
   references: string[];       // Source URLs
   video_url: string;          // Public or signed URL for download
   video_path: string;         // Supabase Storage path or external URL
+  video_source:               // Where the video file lives
+    | { type: 'local'; local_path: string }
+    | { type: 'google_drive'; google_drive_url: string };
   product?: {                 // TikTok Shop product link
     key?: string;
     display_name?: string;

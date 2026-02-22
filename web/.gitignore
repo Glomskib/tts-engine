@@ -48,3 +48,6 @@ bin/
 # debug screenshots and logs
 /data/trending/daily-virals/screenshots/
 /logs/
+
+# browser sessions (contain cookies — never commit)
+/data/sessions/

@@ -19,15 +19,25 @@ const TAG = '[daily-virals:scraper]';
 // ── session management ──
 
 const SESSION_PATH = path.join(process.cwd(), 'data/sessions/daily-virals.storageState.json');
-const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const META_PATH = path.join(process.cwd(), 'data/sessions/daily-virals.meta.json');
+const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 function getSessionState(): { path: string; ageMin: number } | null {
   try {
     if (!fs.existsSync(SESSION_PATH)) return null;
-    const stat = fs.statSync(SESSION_PATH);
-    const ageMs = Date.now() - stat.mtimeMs;
+
+    // Prefer saved_at from meta file; fall back to file mtime
+    let ageMs: number;
+    try {
+      const meta = JSON.parse(fs.readFileSync(META_PATH, 'utf-8'));
+      ageMs = Date.now() - new Date(meta.saved_at).getTime();
+    } catch {
+      const stat = fs.statSync(SESSION_PATH);
+      ageMs = Date.now() - stat.mtimeMs;
+    }
+
     if (ageMs > SESSION_MAX_AGE_MS) {
-      console.log(`${TAG} Session expired (age: ${Math.round(ageMs / 3600000)}h)`);
+      console.log(`${TAG} Session expired (age: ${Math.round(ageMs / 3600000)}h, max: 72h)`);
       return null;
     }
     return { path: SESSION_PATH, ageMin: Math.round(ageMs / 60000) };

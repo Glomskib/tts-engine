@@ -7,9 +7,11 @@
  *   npm run trending:daily-virals -- --dry-run
  *
  * Env vars required (for real mode):
- *   DAILY_VIRALS_EMAIL         Login email
- *   DAILY_VIRALS_PASSWORD      Login password
  *   DAILY_VIRALS_TRENDING_URL  URL of the trending page to scrape
+ *
+ * Session:
+ *   Run `npm run trending:daily-virals:bootstrap` first to save a browser
+ *   session (valid for 72h). The scraper loads this session automatically.
  *
  * Optional:
  *   NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  → DB persistence
@@ -25,8 +27,8 @@
  *   web/public/trending.json (latest snapshot)
  *
  * Mock mode:
- *   If DAILY_VIRALS_EMAIL/PASSWORD/URL are missing, runs with sample data
- *   (no login, no scraping) so the rest of the pipeline can be tested.
+ *   If DAILY_VIRALS_TRENDING_URL is missing, runs with sample data
+ *   (no scraping) so the rest of the pipeline can be tested.
  *
  * Graceful degradation:
  *   - Missing MC token → skip MC posts, still export locally
@@ -50,13 +52,9 @@ function parseArgs(): RunConfig & { mock: boolean } {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
 
-  // Auto-detect mock mode when scraper env vars are missing
+  // Auto-detect mock mode when trending URL is missing
   // --dry-run always implies mock (no Playwright)
-  const hasScrapeEnv = !!(
-    process.env.DAILY_VIRALS_EMAIL &&
-    process.env.DAILY_VIRALS_PASSWORD &&
-    process.env.DAILY_VIRALS_TRENDING_URL
-  );
+  const hasScrapeEnv = !!process.env.DAILY_VIRALS_TRENDING_URL;
   const mock = dryRun || args.includes('--mock') || !hasScrapeEnv;
 
   return {

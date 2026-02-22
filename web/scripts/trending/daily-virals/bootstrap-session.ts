@@ -21,7 +21,8 @@ import * as readline from 'readline';
 const TAG = '[daily-virals:bootstrap]';
 const SESSION_DIR = path.join(process.cwd(), 'data/sessions');
 const SESSION_PATH = path.join(SESSION_DIR, 'daily-virals.storageState.json');
-const URL = process.env.DAILY_VIRALS_TRENDING_URL || 'https://www.thedailyvirals.com';
+const META_PATH = path.join(SESSION_DIR, 'daily-virals.meta.json');
+const URL = process.env.DAILY_VIRALS_LOGIN_URL || process.env.DAILY_VIRALS_TRENDING_URL || 'https://www.thedailyvirals.com';
 
 /** Selectors that indicate the user is logged in. */
 const LOGGED_IN_SELECTORS = [
@@ -114,16 +115,20 @@ async function main() {
     console.warn(`${TAG}   If the scraper fails, re-run this bootstrap.`);
   }
 
-  // Save storageState
+  // Save storageState + meta file with saved_at timestamp
   fs.mkdirSync(SESSION_DIR, { recursive: true });
   const state = await context.storageState();
   fs.writeFileSync(SESSION_PATH, JSON.stringify(state));
 
   const now = new Date();
+  const meta = { saved_at: now.toISOString(), url: page.url() };
+  fs.writeFileSync(META_PATH, JSON.stringify(meta, null, 2));
+
   console.log('');
   console.log(`${TAG} ✓ Session saved: ${SESSION_PATH}`);
+  console.log(`${TAG} ✓ Meta saved: ${META_PATH}`);
   console.log(`${TAG}   Timestamp: ${now.toISOString()}`);
-  console.log(`${TAG}   Expires: ~${new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()}`);
+  console.log(`${TAG}   Expires: ~${new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString()}`);
   console.log(`${TAG}   Current URL: ${page.url()}`);
   console.log('');
   console.log(`${TAG} You can now run the scraper:`);

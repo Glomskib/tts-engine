@@ -5,7 +5,7 @@ Automated Playwright scraper that extracts the top 20 trending products from Dai
 ## Quick Start
 
 ```bash
-# 1. Bootstrap session (first time, or when session expires after 24h)
+# 1. Bootstrap session (first time, or when session expires after 72h)
 npm run trending:daily-virals:bootstrap
 
 # 2. Full run (20 items + screenshots + MC post)
@@ -28,7 +28,7 @@ This opens a Chromium window and navigates to the Daily Virals site. You:
 2. Complete any Cloudflare challenge
 3. Press ENTER in the terminal once you see the trending page
 
-The session is saved to `data/sessions/daily-virals.storageState.json` and is valid for **24 hours**. The automated scraper loads this session on each run — no login needed.
+The session is saved to `data/sessions/daily-virals.storageState.json` and is valid for **72 hours**. The automated scraper loads this session on each run — no login needed.
 
 If the session expires or the scraper reports `BLOCKED`, re-run the bootstrap.
 
@@ -68,6 +68,9 @@ Add to `web/.env.local`:
 ```bash
 # Required for live scraping
 DAILY_VIRALS_TRENDING_URL=https://thedailyvirals.com/trending
+
+# Optional — override the URL opened during bootstrap (defaults to DAILY_VIRALS_TRENDING_URL)
+# DAILY_VIRALS_LOGIN_URL=https://thedailyvirals.com/login
 
 # Optional (already set for other pipelines)
 MC_API_TOKEN=mc-admin-token-2026
@@ -137,8 +140,9 @@ The doc includes:
 
 The scraper loads a Playwright `storageState` file (cookies + localStorage) saved by the bootstrap script. The session:
 
-- Is valid for **24 hours** from when it was saved
+- Is valid for **72 hours** from when it was saved
 - Is stored at `data/sessions/daily-virals.storageState.json`
+- A meta file (`daily-virals.meta.json`) records the `saved_at` timestamp
 - Must be refreshed by re-running `npm run trending:daily-virals:bootstrap`
 
 To force a fresh session:

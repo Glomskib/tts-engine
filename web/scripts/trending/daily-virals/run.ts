@@ -150,6 +150,7 @@ export async function runDailyViralsJob(options?: {
   dryRun?: boolean;
   mock?: boolean;
   date?: string;
+  creatorStyleId?: string;
 }): Promise<{
   ok: boolean;
   itemCount: number;
@@ -282,9 +283,11 @@ export async function runDailyViralsJob(options?: {
   // ── Step 5: Upsert to database ──
 
   console.log(`${TAG} Upserting to ff_trending_items...`);
+  const creatorStyleId = options?.creatorStyleId;
   const dbResult = await upsertTrendingItems(items, cfg.date, {
     screenshotUrlMap,
     mcDocId,
+    creatorStyleId,
   });
   if (dbResult.ok) {
     console.log(`${TAG} DB upsert: ${dbResult.count} rows`);

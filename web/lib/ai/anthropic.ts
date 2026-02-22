@@ -117,7 +117,14 @@ export async function callAnthropicAPI(
     throw new Error(`Anthropic API error ${response.status}: ${errText.slice(0, 200)}`);
   }
 
-  const data = await response.json();
+  const rawBody = await response.text();
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(rawBody);
+  } catch (parseErr) {
+    console.error('[anthropic] Failed to parse API response body:', rawBody.slice(0, 500));
+    throw new Error(`Anthropic API returned invalid JSON: ${parseErr instanceof Error ? parseErr.message : 'unknown'}`);
+  }
 
   // Extract text from content blocks
   const textBlock = data.content?.find(

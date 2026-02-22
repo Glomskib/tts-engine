@@ -15,8 +15,19 @@ export async function POST(request: NextRequest) {
   try {
     // Optional auth — anonymous OK via visitor_email
     const authContext = await getApiAuthContext(request);
-    const body = await request.json();
-    const { message, thread_id, visitor_email, subject } = body;
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch (jsonErr) {
+      console.error("[support/live] request.json() failed:", jsonErr);
+      return createApiErrorResponse("VALIDATION_ERROR", "Invalid JSON in request body", 400, correlationId);
+    }
+    const { message, thread_id, visitor_email, subject } = body as {
+      message?: string;
+      thread_id?: string;
+      visitor_email?: string;
+      subject?: string;
+    };
 
     if (!message || message.length < 1 || message.length > 5000) {
       return createApiErrorResponse("VALIDATION_ERROR", "Message must be 1-5000 characters", 400, correlationId);

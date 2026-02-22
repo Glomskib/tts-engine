@@ -53,10 +53,10 @@ CREATE TABLE IF NOT EXISTS style_creator_videos (
 -- Indexes
 -- ============================================================================
 
-CREATE INDEX idx_style_creators_user_id ON style_creators(user_id);
-CREATE INDEX idx_style_creator_videos_creator_id ON style_creator_videos(creator_id);
-CREATE INDEX idx_style_creator_videos_user_id ON style_creator_videos(user_id);
-CREATE INDEX idx_style_creator_videos_status ON style_creator_videos(status);
+CREATE INDEX IF NOT EXISTS idx_style_creators_user_id ON style_creators(user_id);
+CREATE INDEX IF NOT EXISTS idx_style_creator_videos_creator_id ON style_creator_videos(creator_id);
+CREATE INDEX IF NOT EXISTS idx_style_creator_videos_user_id ON style_creator_videos(user_id);
+CREATE INDEX IF NOT EXISTS idx_style_creator_videos_status ON style_creator_videos(status);
 
 -- ============================================================================
 -- Trigger: auto-update videos_analyzed count on completion
@@ -79,6 +79,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_style_creator_video_completed ON style_creator_videos;
 CREATE TRIGGER trg_style_creator_video_completed
   AFTER INSERT OR UPDATE OF status ON style_creator_videos
   FOR EACH ROW
@@ -91,8 +92,11 @@ CREATE TRIGGER trg_style_creator_video_completed
 ALTER TABLE style_creators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE style_creator_videos ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY style_creators_user_policy ON style_creators
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY style_creator_videos_user_policy ON style_creator_videos
-  FOR ALL USING (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'style_creators_user_policy') THEN
+    CREATE POLICY style_creators_user_policy ON style_creators FOR ALL USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'style_creator_videos_user_policy') THEN
+    CREATE POLICY style_creator_videos_user_policy ON style_creator_videos FOR ALL USING (auth.uid() = user_id);
+  END IF;
+END $$;

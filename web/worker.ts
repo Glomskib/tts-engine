@@ -15,6 +15,7 @@ import { createClient } from '@supabase/supabase-js';
 import { spawn } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { createLogger } from './lib/logger.js';
 
 // Config
 const SUPABASE_URL = 'https://qqyrwwvtxzrwbyqegpme.supabase.co';
@@ -25,6 +26,7 @@ const TERMINAL_ID = process.env.TERMINAL_ID || `T${Math.floor(Math.random() * 8)
 const REPO_PATH = '/Volumes/WorkSSD/01_ACTIVE/FlashFlow';
 const POLL_INTERVAL = 5000;  // 5 seconds
 
+const log = createLogger('agent-executor', TERMINAL_ID);
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // ============================================================================
@@ -97,6 +99,7 @@ async function claimTask() {
 // ============================================================================
 
 async function executeTask(task: any): Promise<boolean> {
+  log.info('task_started', { task_id: task.id, task_name: task.task_name, priority: task.priority });
   console.log(`🚀 [${TERMINAL_ID}] Starting: ${task.task_name}`);
   
   // Mark as in_progress
@@ -118,6 +121,7 @@ async function executeTask(task: any): Promise<boolean> {
     // Get latest commit
     const latestCommit = await getLatestCommit();
     
+    log.info('task_completed', { task_id: task.id, task_name: task.task_name, commit: latestCommit });
     console.log(`✅ [${TERMINAL_ID}] Completed: ${task.task_name}`);
     console.log(`📌 Commit: ${latestCommit}`);
     
@@ -142,6 +146,7 @@ async function executeTask(task: any): Promise<boolean> {
 
     return true;
   } catch (error) {
+    log.error('task_failed', { task_id: task.id, task_name: task.task_name, error: String(error) });
     console.error(`❌ [${TERMINAL_ID}] Execution failed:`, error);
     
     // Mark task as failed

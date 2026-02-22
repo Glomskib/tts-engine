@@ -397,6 +397,8 @@ function writeReport(report: SelectorReport): void {
 async function main() {
   const startedAt = new Date();
 
+  log.info('run_started', { max_per_day: MAX_PER_DAY, exclude_days: EXCLUDE_DAYS, dry_run: DRY_RUN, base_url: BASE_URL });
+
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  TikTok Nightly Selector — ${startedAt.toISOString().slice(0, 10)}`);
   console.log(`${'='.repeat(60)}\n`);
@@ -412,6 +414,8 @@ async function main() {
   const queueBefore = await countCurrentPipeline();
   const deficit = Math.max(0, MAX_PER_DAY - queueBefore);
 
+  log.metric('queue_before', queueBefore);
+  log.metric('queue_deficit', deficit);
   console.log(`${TAG} Queue: ${queueBefore} in pipeline, deficit: ${deficit}`);
 
   if (deficit <= 0) {
@@ -543,6 +547,7 @@ async function main() {
       );
 
       if (result.ok && result.video_id) {
+        log.info('product_enqueued', { product_id: product.id, product_name: product.name, video_id: result.video_id });
         console.log(`${TAG} ${num} Enqueued — video_id: ${result.video_id}`);
         await writeVideoEvent(result.video_id, product.id);
 
@@ -585,6 +590,7 @@ async function main() {
           status: 'enqueued',
         });
       } else {
+        log.error('product_failed', { product_id: product.id, product_name: product.name, error: result.error });
         console.error(`${TAG} ${num} Failed: ${result.error}`);
         itemReports.push({
           product_id: product.id,
@@ -642,6 +648,11 @@ async function main() {
   };
 
   writeReport(report);
+
+  log.info('run_completed', { queued, failed, skipped_recent: skippedRecent.length, skipped_existing: skippedExisting, duration_ms: report.duration_ms });
+  log.metric('queued', queued);
+  log.metric('failed', failed);
+  log.metric('duration_ms', report.duration_ms);
 
   // JSON summary
   const jsonSummary = {

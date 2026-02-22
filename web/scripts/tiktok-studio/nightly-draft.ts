@@ -32,9 +32,11 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { createClient } from '@supabase/supabase-js';
 import { atomicClaimVideo, atomicReleaseVideo } from '../../lib/video-claim.js';
+import { createLogger } from '../../lib/logger.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
+const log = createLogger('nightly-draft');
 const TAG = '[nightly-draft]';
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
@@ -210,6 +212,7 @@ async function main() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  TikTok Nightly Draft — ${startedAt.toISOString().slice(0, 10)}`);
   console.log(`${'='.repeat(60)}\n`);
+  log.info('run_started', { actor: ACTOR, max_uploads: MAX_UPLOADS, dry_run: DRY_RUN });
   console.log(`${TAG} Actor:       ${ACTOR}`);
   console.log(`${TAG} Max uploads: ${MAX_UPLOADS}`);
   console.log(`${TAG} Dry run:     ${DRY_RUN}`);
@@ -394,6 +397,7 @@ async function main() {
 
       if (result.exitCode === EXIT_OK) {
         // ── Success: stamp attempted_at, write event, release claim ──
+        log.info('video_drafted', { video_id: videoId, duration_ms: durationMs });
         console.log(`${TAG} ${num} Draft saved successfully.`);
         await stampAttempted(videoId);
         console.log(`${TAG} ${num} Stamped nightly_draft_attempted_at`);
@@ -409,6 +413,7 @@ async function main() {
         });
       } else {
         // ── Failure: release claim (no stamp — allows retry) ──
+        log.error('video_failed', { video_id: videoId, exit_code: result.exitCode, duration_ms: durationMs });
         console.error(`${TAG} ${num} Upload failed (exit ${result.exitCode}).`);
         if (result.stderr) {
           const stderrTail = result.stderr.trim().split('\n').slice(-5);
@@ -469,6 +474,11 @@ async function main() {
   };
 
   writeReport(report);
+
+  log.info('run_completed', { drafted, failed, skipped, claimed: claimedVideoIds.length, duration_ms: report.duration_ms });
+  log.metric('drafted', drafted);
+  log.metric('failed', failed);
+  log.metric('duration_ms', report.duration_ms);
 
   // ── Print summary ───────────────────────────────────────────────────────
 

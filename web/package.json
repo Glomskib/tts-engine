@@ -45,6 +45,7 @@
     "tiktok:backup": "bash scripts/tiktok-studio/backup-tiktok-session.sh",
     "tiktok:rotate": "bash scripts/tiktok-studio/rotate-tiktok-session.sh",
     "tiktok:recover": "bash scripts/tiktok-studio/recover-tiktok-session.sh",
+    "tiktok:selfheal": "tsx scripts/tiktok-studio/self-heal-session.ts",
     "autonomy:preflight": "tsx scripts/autonomy/preflight-selector.ts",
     "mc:health": "tsx scripts/mc-health.ts",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",

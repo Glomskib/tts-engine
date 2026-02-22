@@ -42,6 +42,7 @@ config({ path: '.env.local' });
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { createLogger } from '../../lib/logger.js';
 
 import {
   CONFIG,
@@ -56,6 +57,7 @@ import {
 // Dry-run imports (uses selectors directly)
 import * as sel from '../../../skills/tiktok-studio-uploader/selectors.js';
 
+const log = createLogger('uploader');
 const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
 
 // ─── Session-invalid guardrails ─────────────────────────────────────────────
@@ -437,12 +439,15 @@ async function main() {
 
   const result = await runUploadToDraft(input, shouldPost);
 
+  log.info('upload_result', { status: result.status, video_id: pack.videoId, product_id: pack.productId, mode });
+
   // Emit JSON result
   console.log('\n--- RESULT ---');
   console.log(JSON.stringify(result, null, 2));
 
   // ── Session-invalid: exit 42 with cooldown ──
   if (result.status === 'login_required') {
+    log.error('session_invalid', { video_id: pack.videoId, product_id: pack.productId });
     if (isSessionCooldownActive()) {
       // Already reported recently — exit silently, no error report, no spam
       process.exit(EXIT_SESSION_INVALID);
@@ -462,6 +467,7 @@ async function main() {
 
   // Save error report if failed (non-login errors)
   if (result.status === 'error') {
+    log.error('upload_error', { video_id: pack.videoId, product_id: pack.productId, errors: result.errors });
     saveErrorReport(result.errors.join('; '), {
       video_id: pack.videoId,
       product_id: pack.productId,

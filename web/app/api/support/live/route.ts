@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { callAnthropicJSON } from "@/lib/ai/anthropic";
+import { callAnthropicAPI } from "@/lib/ai/anthropic";
 import { SUPPORT_SYSTEM_PROMPT } from "@/lib/support-kb";
 import { crossPostToMC } from "@/lib/support-mc-bridge";
 import { classifyAndRoute, type IntentResult } from "@/lib/support-intent-router";
@@ -104,21 +104,34 @@ export async function POST(request: NextRequest) {
     const conversationPrompt = conversationLines.join("\n\n");
 
     // Call Claude for AI response with structured intent output
+    const result = await callAnthropicAPI(conversationPrompt, {
+      model: "claude-haiku-4-5-20251001",
+      maxTokens: 512,
+      temperature: 0.3,
+      systemPrompt: SUPPORT_SYSTEM_PROMPT,
+      correlationId,
+      requestType: "support_live_chat",
+      agentId: "support-bot",
+      signal: AbortSignal.timeout(25000),
+    });
+
     let intentResult: IntentResult;
     let responseText: string;
 
     try {
-      const { parsed } = await callAnthropicJSON<IntentResult>(conversationPrompt, {
-        model: "claude-haiku-4-5-20251001",
-        maxTokens: 512,
-        temperature: 0.3,
-        systemPrompt: SUPPORT_SYSTEM_PROMPT,
-        correlationId,
-        requestType: "support_live_chat",
-        agentId: "support-bot",
-        signal: AbortSignal.timeout(25000),
-      });
+      // Try to extract JSON from the response
+      let jsonStr = result.text;
+      const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (fenceMatch) {
+        jsonStr = fenceMatch[1].trim();
+      } else {
+        const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (objectMatch) {
+          jsonStr = objectMatch[0];
+        }
+      }
 
+      const parsed = JSON.parse(jsonStr) as IntentResult;
       intentResult = parsed;
       responseText = parsed.response;
 
@@ -126,11 +139,11 @@ export async function POST(request: NextRequest) {
       if (parsed.intent === "how_to" && parsed.doc_links && parsed.doc_links.length > 0) {
         responseText += "\n\nRelated docs: " + parsed.doc_links.join(", ");
       }
-    } catch (parseErr) {
-      // Fallback: if JSON parsing fails, use a friendly generic response
-      console.warn("[support/live] Intent JSON parse failed, using fallback:", parseErr);
-      intentResult = { intent: "general", response: "" };
-      responseText = "Hi there! I'm FlashFlow's support assistant. How can I help you today? Feel free to ask about our features, report an issue, or request something new.";
+    } catch {
+      // LLM returned plain text instead of JSON — use the raw text as the response
+      console.warn("[support/live] Intent JSON parse failed, using raw text as response");
+      intentResult = { intent: "general", response: result.text };
+      responseText = result.text;
     }
 
     // Insert bot response as support_message

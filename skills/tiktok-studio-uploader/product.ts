@@ -20,8 +20,8 @@ import {
   PRODUCT_SEARCH_INPUT,
   PRODUCT_RESULT_ROW,
   PRODUCT_CONFIRM_BTN,
-  JOYRIDE_DISMISS,
 } from './selectors.js';
+import { dismissJoyride } from './browser.js';
 
 export interface ProductLinkResult {
   linked: boolean;
@@ -46,36 +46,6 @@ async function findFirst(
     }
   }
   return null;
-}
-
-/**
- * Dismiss Joyride tutorial overlay if present.
- */
-async function dismissJoyride(page: Page): Promise<void> {
-  for (const sel of JOYRIDE_DISMISS) {
-    try {
-      const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 1_000 })) {
-        await btn.click({ force: true });
-        await page.waitForTimeout(500);
-        console.log('[tiktok-uploader] Dismissed Joyride tutorial overlay.');
-        return;
-      }
-    } catch {
-      // not present
-    }
-  }
-  // Also try Escape to dismiss any overlay
-  try {
-    const overlay = page.locator('[class*="joyride"], [class*="react-joyride"]').first();
-    if (await overlay.isVisible({ timeout: 500 })) {
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(500);
-      console.log('[tiktok-uploader] Dismissed overlay via Escape.');
-    }
-  } catch {
-    // no overlay
-  }
 }
 
 /**

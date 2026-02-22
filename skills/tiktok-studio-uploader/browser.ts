@@ -29,6 +29,8 @@ import {
   CAPTCHA_INDICATORS,
   TWO_FA_INDICATORS,
   BLOCKER_INDICATORS,
+  JOYRIDE_DISMISS,
+  JOYRIDE_OVERLAY,
 } from './selectors.js';
 
 const TAG = '[tiktok-session]';
@@ -350,7 +352,57 @@ export async function openUploadStudio(
     process.exit(0);
   }
 
+  // Dismiss any Joyride tutorial overlay before returning control
+  await dismissJoyride(page);
+
   return { context, page };
+}
+
+// ─── Joyride Dismissal ───────────────────────────────────────────────────────
+
+/**
+ * Dismiss react-joyride tutorial overlay if present.
+ *
+ * TikTok Studio occasionally shows a full-page joyride overlay that intercepts
+ * ALL pointer events. Strategy:
+ *   1. Click dismiss buttons ("Got it", "Skip", etc.)
+ *   2. If the overlay persists, remove it via JavaScript
+ */
+export async function dismissJoyride(page: Page): Promise<void> {
+  // Try clicking dismiss buttons first
+  for (const sel of JOYRIDE_DISMISS) {
+    try {
+      const btn = page.locator(sel).first();
+      if (await btn.isVisible({ timeout: 1_000 })) {
+        await btn.click({ force: true });
+        await page.waitForTimeout(500);
+        console.log(`${TAG} Dismissed Joyride via button: ${sel}`);
+        return;
+      }
+    } catch {
+      // not present — try next
+    }
+  }
+
+  // Fallback: remove the overlay element via JS if it's blocking clicks
+  for (const sel of JOYRIDE_OVERLAY) {
+    try {
+      const overlay = page.locator(sel).first();
+      if (await overlay.isVisible({ timeout: 500 })) {
+        await page.evaluate((s) => {
+          document.querySelectorAll(s).forEach((el) => el.remove());
+          // Also remove the entire portal if empty
+          const portal = document.getElementById('react-joyride-portal');
+          if (portal) portal.remove();
+        }, sel);
+        await page.waitForTimeout(300);
+        console.log(`${TAG} Removed Joyride overlay via JS: ${sel}`);
+        return;
+      }
+    } catch {
+      // not present
+    }
+  }
 }
 
 // ─── Blocker Detection ───────────────────────────────────────────────────────

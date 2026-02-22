@@ -11,7 +11,7 @@
 export { CONFIG, TIMEOUTS, getLaunchOptions, STABLE_USER_AGENT } from './types.js';
 export type { StudioUploadInput, StudioUploadResult } from './types.js';
 
-export { openUploadStudio, closeSession, saveSessionBackup, checkLogin } from './browser.js';
+export { openUploadStudio, closeSession, saveSessionBackup, checkLogin, dismissJoyride } from './browser.js';
 export type { StudioSession, OpenStudioOptions } from './browser.js';
 
 export { uploadVideoFile } from './upload.js';
@@ -23,7 +23,7 @@ export type { DraftResult } from './draft.js';
 export { reportStatus } from './status-callback.js';
 
 import type { StudioUploadInput, StudioUploadResult } from './types.js';
-import { openUploadStudio, closeSession, saveSessionBackup } from './browser.js';
+import { openUploadStudio, closeSession, saveSessionBackup, dismissJoyride } from './browser.js';
 import { uploadVideoFile } from './upload.js';
 import { fillDescription } from './description.js';
 import { attachProductByID } from './product.js';
@@ -108,6 +108,9 @@ async function attemptUpload(
     console.log('[tiktok-uploader] Uploading video file...');
     await uploadVideoFile(page, input.videoPath);
     console.log('[tiktok-uploader] Video accepted.');
+
+    // Dismiss Joyride if it appeared after upload
+    await dismissJoyride(page);
 
     // 3. Fill description
     console.log('[tiktok-uploader] Filling description...');

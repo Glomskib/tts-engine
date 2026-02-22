@@ -85,8 +85,16 @@ export const PRODUCT_CONFIRM_BTN: SelectorList = [
 export const JOYRIDE_DISMISS: SelectorList = [
   'button:has-text("Got it")',
   'button:has-text("Skip")',
+  '[data-test-id="button-primary"]',
   '[class*="joyride"] button',
   '[class*="react-joyride"] button',
+];
+
+/** The full-page overlay that intercepts all pointer events */
+export const JOYRIDE_OVERLAY: SelectorList = [
+  '.react-joyride__overlay',
+  '[data-test-id="overlay"][role="presentation"]',
+  '#react-joyride-portal [role="presentation"]',
 ];
 
 // ─── Draft / Post ───────────────────────────────────────────────────────────

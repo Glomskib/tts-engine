@@ -46,6 +46,7 @@ import {
   closeSession,
   saveSessionBackup,
   checkLogin,
+  dismissJoyride,
   uploadVideoFile,
   fillDescription,
   attachProductByID,
@@ -314,10 +315,16 @@ async function uploadSingleVideo(
     });
     await page.waitForTimeout(3_000);
 
+    // Dismiss Joyride overlay if it reappeared on navigation
+    await dismissJoyride(page);
+
     // Upload video file
     console.log(`${TAG}   Uploading video file...`);
     await uploadVideoFile(page, videoPath);
     console.log(`${TAG}   Video accepted.`);
+
+    // Dismiss Joyride overlay if it appeared after upload
+    await dismissJoyride(page);
 
     // Fill description
     const description =

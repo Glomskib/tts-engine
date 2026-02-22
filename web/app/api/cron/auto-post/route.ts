@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getTikTokContentClient } from '@/lib/tiktok-content';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { logSessionValidity } from '@/lib/session-logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -278,6 +279,14 @@ async function ensureFreshToken(
   const isExpired = Date.now() > expiresAt - 60_000; // 1 min buffer
 
   if (!isExpired) {
+    // Token still valid — emit session_valid signal
+    logSessionValidity({
+      nodeName: 'vercel-cron',
+      platform: 'tiktok_content_api',
+      isValid: true,
+      reason: 'token_valid',
+      accountId: connection.account_id,
+    });
     return connection.access_token;
   }
 
@@ -305,6 +314,15 @@ async function ensureFreshToken(
       })
       .eq('id', connection.id);
 
+    // Token refreshed successfully — emit session_valid signal
+    logSessionValidity({
+      nodeName: 'vercel-cron',
+      platform: 'tiktok_content_api',
+      isValid: true,
+      reason: 'token_refreshed',
+      accountId: connection.account_id,
+    });
+
     return refreshed.access_token;
   } catch (err) {
     // Mark connection as expired
@@ -316,6 +334,15 @@ async function ensureFreshToken(
         updated_at: new Date().toISOString(),
       })
       .eq('id', connection.id);
+
+    // Emit session_invalid signal — token refresh failed
+    logSessionValidity({
+      nodeName: 'vercel-cron',
+      platform: 'tiktok_content_api',
+      isValid: false,
+      reason: `token_refresh_failed: ${err instanceof Error ? err.message : String(err)}`,
+      accountId: connection.account_id,
+    });
 
     sendTelegramNotification(
       `⚠️ TikTok token refresh failed for account ${connection.account_id}. Re-connect in Settings.`

@@ -12,6 +12,26 @@ const FLASHFLOW_EMAIL = process.env.FLASHFLOW_EMAIL;
 const FLASHFLOW_PASSWORD = process.env.FLASHFLOW_PASSWORD;
 const SERVICE_KEY = process.env.BROWSER_SERVICE_KEY || 'bsk_changeme';
 const HP_WORKER_URL = process.env.HP_WORKER_URL || 'http://HP_WORKER_IP:8100';
+const NODE_NAME = process.env.NODE_NAME || 'mac-mini-1';
+const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS || '24', 10);
+const TIKTOK_STORAGE_STATE = process.env.TIKTOK_STORAGE_STATE
+  || path.join(process.env.HOME || '/Users/brandonglomski', '.flashflow', 'tiktok-studio.storageState.json');
+
+// Supabase client for session logging (optional — degrades gracefully)
+let supabase = null;
+try {
+  const { createClient } = require('@supabase/supabase-js');
+  const sbUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (sbUrl && sbKey) {
+    supabase = createClient(sbUrl, sbKey, { auth: { persistSession: false } });
+    console.log('Supabase client initialized for session logging');
+  } else {
+    console.log('Supabase env vars not set — session results will be returned but not persisted');
+  }
+} catch (_) {
+  console.log('Supabase client not available — session results will be returned but not persisted');
+}
 
 let browser, context;
 
@@ -122,6 +142,179 @@ app.post('/browser/pipeline-status', async (req, res) => {
     if (page) await page.close();
   }
 });
+
+// ─── TikTok Studio Session Check ────────────────────────────────────────────────
+// Navigates to TikTok Studio with stored cookies and checks if session is valid.
+// Uses multiple heuristics: login redirect, upload button presence, avatar, turnstile.
+
+app.post('/browser/tiktok-session-check', async (req, res) => {
+  let page;
+  try {
+    const storageStatePath = req.body.storageStatePath || TIKTOK_STORAGE_STATE;
+
+    if (!fs.existsSync(storageStatePath)) {
+      const result = {
+        isValid: false,
+        reason: 'storage_state_missing',
+        detectedAt: new Date().toISOString(),
+        nodeName: NODE_NAME,
+        platform: 'tiktok',
+      };
+      await persistSessionStatus(result);
+      return res.json(result);
+    }
+
+    // Create a fresh context with the stored cookies
+    const storageState = JSON.parse(fs.readFileSync(storageStatePath, 'utf-8'));
+    const sessionContext = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      storageState,
+    });
+    page = await sessionContext.newPage();
+
+    // Navigate to TikTok Studio (creator center)
+    const studioUrl = 'https://www.tiktok.com/tiktokstudio';
+    const response = await page.goto(studioUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.waitForTimeout(5000); // let SPA JS hydrate fully
+
+    const finalUrl = page.url();
+    const statusCode = response?.status() || 0;
+
+    // --- Heuristic checks ---
+    const checks = {
+      redirectedToLogin: false,
+      hasTurnstile: false,
+      hasPhoneApproval: false,
+      hasUploadButton: false,
+      hasCreatorAvatar: false,
+      hasStudioContent: false,
+    };
+
+    // Check 1: Redirected to login page
+    checks.redirectedToLogin = /\/(login|signin|auth)/.test(finalUrl)
+      || finalUrl.includes('passport');
+
+    // Check 2: Turnstile / CAPTCHA challenge
+    checks.hasTurnstile = await page.locator('iframe[src*="turnstile"], iframe[src*="captcha"], .captcha-container, [class*="captcha"]')
+      .first().isVisible({ timeout: 1000 }).catch(() => false);
+
+    // Check 3: Phone approval / verification gate
+    checks.hasPhoneApproval = await page.locator('text=/verify|phone.*approval|confirm.*identity|security.*check/i')
+      .first().isVisible({ timeout: 1000 }).catch(() => false);
+
+    // Check 4: Upload / create button (the "+" button in Studio sidebar, or upload links)
+    checks.hasUploadButton = await page.locator(
+      '[data-e2e="upload-button"], a[href*="/upload"], a[href*="/creator#/upload"]'
+    ).first().isVisible({ timeout: 2000 }).catch(() => false);
+
+    // Check 5: Creator avatar / profile picture (top-right corner or profile section)
+    checks.hasCreatorAvatar = await page.locator(
+      '[data-e2e="user-avatar"], img[class*="Avatar"], img[class*="avatar"], span[class*="Avatar"] img'
+    ).first().isVisible({ timeout: 2000 }).catch(() => false);
+
+    // Check 6: TikTok Studio-specific content — look for key text that only appears
+    // when logged in: "Key metrics", "Video views", "Recent posts", "Followers"
+    checks.hasStudioContent = await page.evaluate(() => {
+      const body = document.body?.innerText || '';
+      const signals = ['Key metrics', 'Video views', 'Recent posts', 'Followers'];
+      return signals.filter(s => body.includes(s)).length >= 2;
+    });
+
+    // --- Determine validity ---
+    let isValid = false;
+    let reason = 'unknown';
+
+    if (checks.redirectedToLogin) {
+      reason = 'redirected_to_login';
+    } else if (checks.hasTurnstile) {
+      reason = 'captcha_challenge';
+    } else if (checks.hasPhoneApproval) {
+      reason = 'phone_approval_required';
+    } else if (checks.hasUploadButton || checks.hasStudioContent) {
+      isValid = true;
+      reason = 'logged_in';
+    } else if (checks.hasCreatorAvatar) {
+      isValid = true;
+      reason = 'logged_in_avatar_only';
+    } else if (statusCode >= 400) {
+      reason = `http_error_${statusCode}`;
+    } else {
+      reason = 'no_login_indicators';
+    }
+
+    // Take a screenshot for debugging
+    const screenshotPath = `/tmp/screenshots/tiktok-session-${Date.now()}.png`;
+    try {
+      await page.screenshot({ path: screenshotPath, fullPage: false });
+    } catch (_) {}
+
+    const result = {
+      isValid,
+      reason,
+      detectedAt: new Date().toISOString(),
+      nodeName: NODE_NAME,
+      platform: 'tiktok',
+      checks,
+      finalUrl,
+      statusCode,
+      screenshotPath,
+    };
+
+    await persistSessionStatus(result);
+    await sessionContext.close();
+
+    console.log(`[session-check] TikTok: ${isValid ? 'VALID' : 'INVALID'} — ${reason}`);
+    res.json(result);
+  } catch (e) {
+    console.error('[session-check] Error:', e.message);
+    const result = {
+      isValid: false,
+      reason: `check_error: ${e.message}`,
+      detectedAt: new Date().toISOString(),
+      nodeName: NODE_NAME,
+      platform: 'tiktok',
+    };
+    await persistSessionStatus(result);
+    res.status(500).json({ error: e.message, ...result });
+  } finally {
+    if (page) {
+      try { await page.context().close(); } catch (_) {}
+    }
+  }
+});
+
+// Persist session status to Supabase ff_session_status table
+async function persistSessionStatus(result) {
+  if (!supabase) return;
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_HOURS * 60 * 60 * 1000);
+
+  try {
+    const { error } = await supabase
+      .from('ff_session_status')
+      .upsert({
+        node_name: result.nodeName,
+        platform: result.platform,
+        is_valid: result.isValid,
+        reason: result.reason,
+        last_validated_at: result.detectedAt || now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        updated_at: now.toISOString(),
+      }, {
+        onConflict: 'node_name,platform',
+        ignoreDuplicates: false,
+      });
+
+    if (error) {
+      console.error('[session-check] Supabase persist error:', error.message);
+    } else {
+      console.log('[session-check] Persisted to ff_session_status');
+    }
+  } catch (e) {
+    console.error('[session-check] Supabase persist exception:', e.message);
+  }
+}
 
 // ─── osascript helper ──────────────────────────────────────────────────────────
 function runOsascript(script, timeoutMs = 120000) {

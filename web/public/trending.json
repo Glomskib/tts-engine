@@ -1,14 +1,14 @@
 {
   "date": "2026-02-22",
-  "generated_at": "2026-02-22T01:42:43.554Z",
+  "generated_at": "2026-02-22T01:57:54.648Z",
   "source": "daily_virals",
   "items": [
     {
       "rank": 1,
       "product_name": "LED Strip Lights",
       "category": "Home & Garden",
-      "views": "5.4M",
-      "gmv_velocity": "$279K",
+      "views": "7.3M",
+      "gmv_velocity": "$319K",
       "hook_text": "Watch this room transform in 10 seconds",
       "source_url": "https://example.com/product/1",
       "thumbnail_url": null
@@ -17,8 +17,8 @@
       "rank": 2,
       "product_name": "Portable Blender",
       "category": "Kitchen",
-      "views": "7.7M",
-      "gmv_velocity": "$407K",
+      "views": "0.5M",
+      "gmv_velocity": "$145K",
       "hook_text": "Making smoothies anywhere just got real",
       "source_url": "https://example.com/product/2",
       "thumbnail_url": null
@@ -28,179 +28,9 @@
       "product_name": "Phone Grip Stand",
       "category": "Electronics",
       "views": "5.1M",
-      "gmv_velocity": "$281K",
+      "gmv_velocity": "$404K",
       "hook_text": "The phone accessory everyone needs",
       "source_url": "https://example.com/product/3",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 4,
-      "product_name": "Posture Corrector",
-      "category": "Health",
-      "views": "3.8M",
-      "gmv_velocity": "$216K",
-      "hook_text": "My back pain disappeared in a week",
-      "source_url": "https://example.com/product/4",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 5,
-      "product_name": "Mini Projector",
-      "category": "Electronics",
-      "views": "8.1M",
-      "gmv_velocity": "$70K",
-      "hook_text": "Movie theater vibes for $30",
-      "source_url": "https://example.com/product/5",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 6,
-      "product_name": "LED Strip Lights",
-      "category": "Home & Garden",
-      "views": "8.2M",
-      "gmv_velocity": "$487K",
-      "hook_text": "Watch this room transform in 10 seconds",
-      "source_url": "https://example.com/product/6",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 7,
-      "product_name": "Portable Blender",
-      "category": "Kitchen",
-      "views": "3.4M",
-      "gmv_velocity": "$42K",
-      "hook_text": "Making smoothies anywhere just got real",
-      "source_url": "https://example.com/product/7",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 8,
-      "product_name": "Phone Grip Stand",
-      "category": "Electronics",
-      "views": "2.7M",
-      "gmv_velocity": "$475K",
-      "hook_text": "The phone accessory everyone needs",
-      "source_url": "https://example.com/product/8",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 9,
-      "product_name": "Posture Corrector",
-      "category": "Health",
-      "views": "9.0M",
-      "gmv_velocity": "$457K",
-      "hook_text": "My back pain disappeared in a week",
-      "source_url": "https://example.com/product/9",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 10,
-      "product_name": "Mini Projector",
-      "category": "Electronics",
-      "views": "2.1M",
-      "gmv_velocity": "$246K",
-      "hook_text": "Movie theater vibes for $30",
-      "source_url": "https://example.com/product/10",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 11,
-      "product_name": "LED Strip Lights",
-      "category": "Home & Garden",
-      "views": "1.2M",
-      "gmv_velocity": "$19K",
-      "hook_text": "Watch this room transform in 10 seconds",
-      "source_url": "https://example.com/product/11",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 12,
-      "product_name": "Portable Blender",
-      "category": "Kitchen",
-      "views": "1.6M",
-      "gmv_velocity": "$6K",
-      "hook_text": "Making smoothies anywhere just got real",
-      "source_url": "https://example.com/product/12",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 13,
-      "product_name": "Phone Grip Stand",
-      "category": "Electronics",
-      "views": "7.3M",
-      "gmv_velocity": "$194K",
-      "hook_text": "The phone accessory everyone needs",
-      "source_url": "https://example.com/product/13",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 14,
-      "product_name": "Posture Corrector",
-      "category": "Health",
-      "views": "8.4M",
-      "gmv_velocity": "$73K",
-      "hook_text": "My back pain disappeared in a week",
-      "source_url": "https://example.com/product/14",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 15,
-      "product_name": "Mini Projector",
-      "category": "Electronics",
-      "views": "5.3M",
-      "gmv_velocity": "$165K",
-      "hook_text": "Movie theater vibes for $30",
-      "source_url": "https://example.com/product/15",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 16,
-      "product_name": "LED Strip Lights",
-      "category": "Home & Garden",
-      "views": "7.4M",
-      "gmv_velocity": "$473K",
-      "hook_text": "Watch this room transform in 10 seconds",
-      "source_url": "https://example.com/product/16",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 17,
-      "product_name": "Portable Blender",
-      "category": "Kitchen",
-      "views": "2.9M",
-      "gmv_velocity": "$183K",
-      "hook_text": "Making smoothies anywhere just got real",
-      "source_url": "https://example.com/product/17",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 18,
-      "product_name": "Phone Grip Stand",
-      "category": "Electronics",
-      "views": "1.7M",
-      "gmv_velocity": "$219K",
-      "hook_text": "The phone accessory everyone needs",
-      "source_url": "https://example.com/product/18",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 19,
-      "product_name": "Posture Corrector",
-      "category": "Health",
-      "views": "4.6M",
-      "gmv_velocity": "$454K",
-      "hook_text": "My back pain disappeared in a week",
-      "source_url": "https://example.com/product/19",
-      "thumbnail_url": null
-    },
-    {
-      "rank": 20,
-      "product_name": "Mini Projector",
-      "category": "Electronics",
-      "views": "2.5M",
-      "gmv_velocity": "$90K",
-      "hook_text": "Movie theater vibes for $30",
-      "source_url": "https://example.com/product/20",
       "thumbnail_url": null
     }
   ]

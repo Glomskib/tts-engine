@@ -51,12 +51,13 @@ function parseArgs(): RunConfig & { mock: boolean } {
   const dryRun = args.includes('--dry-run');
 
   // Auto-detect mock mode when scraper env vars are missing
+  // --dry-run always implies mock (no Playwright)
   const hasScrapeEnv = !!(
     process.env.DAILY_VIRALS_EMAIL &&
     process.env.DAILY_VIRALS_PASSWORD &&
     process.env.DAILY_VIRALS_TRENDING_URL
   );
-  const mock = args.includes('--mock') || !hasScrapeEnv;
+  const mock = dryRun || args.includes('--mock') || !hasScrapeEnv;
 
   return {
     dryRun,
@@ -161,7 +162,7 @@ export async function runDailyViralsJob(options?: {
   const cfg = options
     ? {
         dryRun: options.dryRun ?? false,
-        mock: options.mock ?? false,
+        mock: options.dryRun || options.mock || false,
         maxItems: options.dryRun ? 3 : 20,
         skipScreenshots: options.dryRun || options.mock || false,
         date: options.date || new Date().toISOString().slice(0, 10),
@@ -241,20 +242,18 @@ export async function runDailyViralsJob(options?: {
         .join(', ');
       console.log(`  ${item.rank}. ${item.title} [${item.category || 'uncategorized'}] ${metricStr || '(no metrics)'}`);
     }
-    console.log(`\n${TAG} DRY RUN — skipping DB, MC, public export`);
-    return { ok: true, itemCount: items.length, dbUpserted: false, mcPosted: false };
   }
 
-  // ── Step 3: Upload screenshots to Supabase Storage ──
+  // ── Step 3: Upload screenshots to Supabase Storage (skip in dry-run) ──
 
   let screenshotUrlMap = new Map<number, string[]>();
-  if (screenshotPaths.length > 0) {
+  if (!cfg.dryRun && screenshotPaths.length > 0) {
     console.log(`${TAG} Uploading screenshots to Supabase Storage...`);
     screenshotUrlMap = await uploadScreenshots(screenshotPaths, cfg.date);
     console.log(`${TAG} Uploaded screenshots for ${screenshotUrlMap.size} items`);
   }
 
-  // ── Step 4: Post to Mission Control (before DB so we get mc_doc_id) ──
+  // ── Step 4: Post to Mission Control ──
 
   let mcPosted = false;
   let mcDocId: string | undefined;
@@ -280,19 +279,24 @@ export async function runDailyViralsJob(options?: {
     }
   }
 
-  // ── Step 5: Upsert to database ──
+  // ── Step 5: Upsert to database (skip in dry-run) ──
 
-  console.log(`${TAG} Upserting to ff_trending_items...`);
-  const creatorStyleId = options?.creatorStyleId;
-  const dbResult = await upsertTrendingItems(items, cfg.date, {
-    screenshotUrlMap,
-    mcDocId,
-    creatorStyleId,
-  });
-  if (dbResult.ok) {
-    console.log(`${TAG} DB upsert: ${dbResult.count} rows`);
+  let dbResult: { ok: boolean; count: number; error?: string } = { ok: false, count: 0, error: 'skipped (dry-run)' };
+  if (!cfg.dryRun) {
+    console.log(`${TAG} Upserting to ff_trending_items...`);
+    const creatorStyleId = options?.creatorStyleId;
+    dbResult = await upsertTrendingItems(items, cfg.date, {
+      screenshotUrlMap,
+      mcDocId,
+      creatorStyleId,
+    });
+    if (dbResult.ok) {
+      console.log(`${TAG} DB upsert: ${dbResult.count} rows`);
+    } else {
+      console.warn(`${TAG} DB upsert failed: ${dbResult.error}`);
+    }
   } else {
-    console.warn(`${TAG} DB upsert failed: ${dbResult.error}`);
+    console.log(`${TAG} DRY RUN — skipping DB upsert`);
   }
 
   // ── Step 6: Write public trending.json ──
@@ -305,9 +309,9 @@ export async function runDailyViralsJob(options?: {
   console.log(`\n${TAG} === Summary ===`);
   console.log(`${TAG} Items: ${items.length}`);
   console.log(`${TAG} Screenshots: ${screenshotPaths.length}`);
-  console.log(`${TAG} DB upserted: ${dbResult.ok ? dbResult.count : 'FAILED'}`);
+  console.log(`${TAG} DB upserted: ${dbResult.ok ? dbResult.count : cfg.dryRun ? 'SKIPPED' : 'FAILED'}`);
   console.log(`${TAG} MC posted: ${mcPosted}`);
-  console.log(`${TAG} Mode: ${cfg.mock ? 'mock' : 'live'}`);
+  console.log(`${TAG} Mode: ${cfg.dryRun ? 'dry-run' : cfg.mock ? 'mock' : 'live'}`);
 
   return {
     ok: true,

@@ -8,7 +8,7 @@ Automated Playwright scraper that logs into Daily Virals, extracts the top 20 tr
 # Full run (20 items + screenshots + MC post)
 npm run trending:daily-virals
 
-# Dry run (3 items, no screenshots, no MC post)
+# Dry run (3 mock items, no Playwright, writes outputs + MC doc)
 npm run trending:daily-virals -- --dry-run
 ```
 
@@ -31,10 +31,11 @@ MC_BASE_URL=http://127.0.0.1:3100
 
 | File | Description |
 |------|-------------|
-| `web/data/trending/daily-virals/latest.json` | Current run — normalized JSON array |
-| `web/data/trending/daily-virals/YYYY-MM-DD.json` | Date-stamped archive |
-| `web/data/trending/daily-virals/latest.csv` | CSV export (spreadsheet-friendly) |
-| `web/data/trending/daily-virals/screenshots/YYYY-MM-DD/*.png` | Per-item screenshots |
+| `web/data/trending/daily-virals/YYYY-MM-DD/trending.json` | Date-stamped JSON array |
+| `web/data/trending/daily-virals/YYYY-MM-DD/trending.csv` | Date-stamped CSV export |
+| `web/data/trending/daily-virals/YYYY-MM-DD/screenshots/*.png` | Per-item screenshots |
+| `web/data/trending/daily-virals/latest.json` | Copy of most recent run |
+| `web/data/trending/daily-virals/latest.csv` | Copy of most recent CSV |
 
 ## Data Schema
 
@@ -102,11 +103,11 @@ To unblock:
 ## Dry Run
 
 `--dry-run` mode:
-- Fetches only first 3 items
-- Skips screenshots
-- Skips MC posting
-- Still exports JSON/CSV locally
-- Useful for testing selectors and login flow
+- Generates 3 mock items (no Playwright, no real scraping)
+- Writes outputs (trending.json, trending.csv, screenshots/ folder)
+- Posts MC doc (summary of mock data)
+- Skips DB upsert and screenshot uploads
+- Useful for testing the full pipeline without browser automation
 
 ## File Structure
 

@@ -2,8 +2,10 @@
  * Export trending data to local files.
  *
  * Outputs:
- *   web/data/trending/daily-virals/latest.json
- *   web/data/trending/daily-virals/YYYY-MM-DD.json
+ *   web/data/trending/daily-virals/YYYY-MM-DD/trending.json
+ *   web/data/trending/daily-virals/YYYY-MM-DD/trending.csv
+ *   web/data/trending/daily-virals/YYYY-MM-DD/screenshots/   (created empty)
+ *   web/data/trending/daily-virals/latest.json                (symlink-like copy)
  *   web/data/trending/daily-virals/latest.csv
  */
 
@@ -21,31 +23,39 @@ interface ExportResult {
 }
 
 export function exportTrending(items: TrendingItem[], date: string): ExportResult {
+  const dateDir = path.join(DATA_DIR, date);
+  const screenshotDir = path.join(dateDir, 'screenshots');
+  fs.mkdirSync(screenshotDir, { recursive: true });
   fs.mkdirSync(DATA_DIR, { recursive: true });
 
   const files: string[] = [];
   const jsonData = JSON.stringify(items, null, 2);
+  const csv = toCsv(items);
 
-  // latest.json
-  const latestJsonPath = path.join(DATA_DIR, 'latest.json');
-  fs.writeFileSync(latestJsonPath, jsonData);
-  files.push(latestJsonPath);
-  console.log(`${TAG} Wrote ${latestJsonPath}`);
-
-  // YYYY-MM-DD.json
-  const dateJsonPath = path.join(DATA_DIR, `${date}.json`);
+  // YYYY-MM-DD/trending.json
+  const dateJsonPath = path.join(dateDir, 'trending.json');
   fs.writeFileSync(dateJsonPath, jsonData);
   files.push(dateJsonPath);
   console.log(`${TAG} Wrote ${dateJsonPath}`);
 
-  // latest.csv
-  const csvPath = path.join(DATA_DIR, 'latest.csv');
-  const csv = toCsv(items);
-  fs.writeFileSync(csvPath, csv);
-  files.push(csvPath);
-  console.log(`${TAG} Wrote ${csvPath}`);
+  // YYYY-MM-DD/trending.csv
+  const dateCsvPath = path.join(dateDir, 'trending.csv');
+  fs.writeFileSync(dateCsvPath, csv);
+  files.push(dateCsvPath);
+  console.log(`${TAG} Wrote ${dateCsvPath}`);
 
-  return { dir: DATA_DIR, files };
+  // Root-level latest copies for quick access
+  const latestJsonPath = path.join(DATA_DIR, 'latest.json');
+  fs.writeFileSync(latestJsonPath, jsonData);
+  files.push(latestJsonPath);
+
+  const latestCsvPath = path.join(DATA_DIR, 'latest.csv');
+  fs.writeFileSync(latestCsvPath, csv);
+  files.push(latestCsvPath);
+
+  console.log(`${TAG} Wrote latest.json + latest.csv`);
+
+  return { dir: dateDir, files };
 }
 
 function escapeCsv(value: string): string {

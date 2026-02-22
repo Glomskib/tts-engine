@@ -48,7 +48,7 @@ function MobileTooltip({
         borderRadius: 12,
         padding: 12,
         maxWidth: '92vw',
-        maxHeight: 'calc(100dvh - 140px)',
+        maxHeight: 'calc(100dvh - 120px - env(safe-area-inset-bottom, 0px))',
         overflowY: 'auto',
         boxSizing: 'border-box' as const,
         paddingBottom: `calc(12px + env(safe-area-inset-bottom, 0px))`,
@@ -153,13 +153,29 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
     }
   }, [isMobile]);
 
-  // ── Task 6: prevent background scroll bleed ───────────────────
+  // ── Task 6: prevent background scroll bleed (iOS Safari hardened) ──
   useEffect(() => {
     if (!showWelcome && !runTour) return;
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyWidth = document.body.style.width;
+    const prevBodyTop = document.body.style.top;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.top = `-${scrollY}px`;
+    document.documentElement.style.overflow = 'hidden';
+
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevBodyOverflow;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.width = prevBodyWidth;
+      document.body.style.top = prevBodyTop;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      window.scrollTo(0, scrollY);
     };
   }, [showWelcome, runTour]);
 
@@ -237,7 +253,7 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
           setMobilePlacement(getMobilePlacement(rect, window.innerHeight));
         });
       });
-    }, 75);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [stepIndex, isMobile, runTour, steps]);
@@ -346,7 +362,7 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
           className="relative bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col text-center"
           style={{
             maxWidth: 'min(92vw, 420px)',
-            maxHeight: 'calc(100dvh - 32px)',
+            maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
           }}
         >
           {/* Scrollable body */}

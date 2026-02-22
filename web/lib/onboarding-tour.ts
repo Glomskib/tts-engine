@@ -96,7 +96,8 @@ export function getMobilePlacement(
   targetRect: DOMRect,
   viewportHeight: number,
 ): 'top' | 'bottom' | 'auto' {
-  if (targetRect.top > viewportHeight * 0.65) return 'top';
-  if (targetRect.bottom < viewportHeight * 0.2) return 'bottom';
+  const effective = viewportHeight - 56; // subtract mobile header
+  if (targetRect.top > 56 + effective * 0.65) return 'top';
+  if (targetRect.bottom < 56 + effective * 0.2) return 'bottom';
   return 'auto';
 }

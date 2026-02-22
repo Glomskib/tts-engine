@@ -72,7 +72,7 @@ function parseArgs(): { packDir?: string; videoId?: string; mode: 'draft' | 'pos
     mode = process.argv[modeIdx + 1] === 'post' ? 'post' : 'draft';
   }
 
-  if (!args[0] && !videoId) {
+  if (!args[0] && !videoId && !DRY_RUN) {
     console.error('Usage: upload-from-pack.ts <pack-directory> [--mode draft|post] [--dry-run]');
     console.error('       upload-from-pack.ts --video-id <id> [--mode draft|post] [--dry-run]');
     console.error('');

@@ -230,39 +230,19 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     console.warn(`${TAG} Login tab click attempt:`, err);
   }
 
-  // Step 5: Look for email input scoped inside AuthModal
-  const modal = '#AuthModal';
-  let emailInput = await page.$(`${modal} ${LOGIN.emailInput}`) || await page.$(LOGIN.emailInput);
-  if (!emailInput) {
-    await page.waitForTimeout(3000);
-    emailInput = await page.$(`${modal} ${LOGIN.emailInput}`) || await page.$(LOGIN.emailInput);
-  }
-
-  if (!emailInput) {
-    const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
-    fs.mkdirSync(ssDir, { recursive: true });
-    const debugPath = path.join(ssDir, 'login-debug.png');
-    await page.screenshot({ path: debugPath, fullPage: true });
-    console.log(`${TAG} Login form not found — debug screenshot: ${debugPath}`);
-    return { ok: false, blocked: true, reason: `Login form not found after clicking Login. Debug screenshot saved to ${debugPath}` };
-  }
-
-  // Step 6: Fill login form — scoped to AuthModal to avoid matching sidebar/tab buttons.
-  // Use click + type (character-by-character) instead of fill() to trigger React state updates.
+  // Step 5+6: Fill login form using click + keyboard.type().
+  // React controlled inputs only respond to real keystroke events, not fill()/JS value setters.
+  // click() focuses the input, then keyboard.type() sends real keystrokes character-by-character.
   console.log(`${TAG} Filling login form...`);
 
-  // Re-query inputs fresh after tab switch to avoid stale references.
-  // Use evaluate() to focus + set value via JS, then dispatch React-compatible events.
-  const emailSel = `${modal} input[type="email"], ${modal} input[name="email"], ${modal} input[placeholder*="Email"]`;
-  const passwordSel = `${modal} input[type="password"]`;
+  const modal = '#AuthModal';
 
-  // Focus the email field via JS (bypasses overlay interception), then type via keyboard.
-  // This triggers real keyboard events that React's controlled inputs respond to.
-  const hasEmail = await page.evaluate(
-    `(function() { var el = document.querySelector('#AuthModal input[type="email"], #AuthModal input[placeholder="Email"]'); if (el) { el.focus(); return true; } return false; })()`
-  ) as boolean;
+  // Email — click to focus, then type
+  const emailLoc = page.locator(`${modal} input[placeholder="Email"]`).first();
+  const emailAlt = page.locator(`${modal} input[type="email"]`).first();
+  const emailTarget = (await emailLoc.count()) > 0 ? emailLoc : emailAlt;
 
-  if (!hasEmail) {
+  if (await emailTarget.count() === 0) {
     const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
     fs.mkdirSync(ssDir, { recursive: true });
     const debugPath = path.join(ssDir, 'fill-failed.png');
@@ -270,16 +250,22 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     return { ok: false, blocked: true, reason: `Email input not found. Screenshot: ${debugPath}` };
   }
 
-  await page.keyboard.type(email, { delay: 30 });
-  console.log(`${TAG} Typed email via keyboard`);
+  await emailTarget.click({ force: true });
+  await page.waitForTimeout(200);
+  // Select all + delete to clear any existing value
+  await page.keyboard.press('Meta+a');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type(email, { delay: 40 });
+  console.log(`${TAG} Email typed via click + keyboard`);
+
   await page.waitForTimeout(300);
 
-  // Now focus and type password
-  const hasPw = await page.evaluate(
-    `(function() { var el = document.querySelector('#AuthModal input[type="password"]'); if (el) { el.focus(); return true; } return false; })()`
-  ) as boolean;
+  // Password — click to focus, then type
+  const pwLoc = page.locator(`${modal} input[placeholder="Password"]`).first();
+  const pwAlt = page.locator(`${modal} input[type="password"]`).first();
+  const pwTarget = (await pwLoc.count()) > 0 ? pwLoc : pwAlt;
 
-  if (!hasPw) {
+  if (await pwTarget.count() === 0) {
     const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
     fs.mkdirSync(ssDir, { recursive: true });
     const debugPath = path.join(ssDir, 'password-not-found.png');
@@ -287,77 +273,119 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     return { ok: false, blocked: true, reason: `Password input not found. Screenshot: ${debugPath}` };
   }
 
-  await page.keyboard.type(password, { delay: 30 });
-  console.log(`${TAG} Typed password via keyboard`);
+  await pwTarget.click({ force: true });
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Meta+a');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type(password, { delay: 40 });
+  console.log(`${TAG} Password typed via click + keyboard`);
+
   await page.waitForTimeout(500);
 
-  // Click the submit button via JavaScript to bypass overlay interception.
-  const submitClicked = await page.evaluate(
-    `(function() {
-      var modal = document.querySelector('#AuthModal');
-      if (!modal) return false;
-      var btn = modal.querySelector('button[type="submit"]');
-      if (btn) { btn.click(); return true; }
-      var buttons = modal.querySelectorAll('button:not([role="tab"])');
-      for (var i = 0; i < buttons.length; i++) {
-        var text = (buttons[i].textContent || '').trim().toLowerCase();
-        if (text === 'login' || text === 'log in' || text === 'sign in') {
-          buttons[i].click(); return true;
-        }
-      }
-      var form = modal.querySelector('form');
-      if (form) { form.requestSubmit(); return true; }
-      var pw = modal.querySelector('input[type="password"]');
-      if (pw) { pw.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; }
-      return false;
-    })()`
-  ) as boolean;
-
-  if (submitClicked) {
-    console.log(`${TAG} Clicked submit button via JS`);
-  } else {
-    console.log(`${TAG} Could not find submit button — trying keyboard Enter`);
-    await page.keyboard.press('Enter');
-  }
-
-  // Wait for login to process — watch for modal to close or page to change
-  console.log(`${TAG} Waiting for login to complete...`);
-  let loginComplete = false;
-  for (let i = 0; i < 15; i++) {
-    await page.waitForTimeout(1000);
-    // Check if modal is gone
-    const modalEl = await page.$('#AuthModal');
-    if (!modalEl) {
-      console.log(`${TAG} AuthModal disappeared — login succeeded`);
-      loginComplete = true;
-      break;
-    }
-    // Check if sidebar Login button is gone
-    const loginBtn = await page.$('button:has-text("Login")');
-    if (!loginBtn) {
-      console.log(`${TAG} Login button disappeared — login succeeded`);
-      loginComplete = true;
-      break;
-    }
-  }
-
-  if (!loginComplete) {
-    // Modal still visible after 15s — take debug screenshot
+  // Take a pre-submit screenshot for debugging
+  {
     const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
     fs.mkdirSync(ssDir, { recursive: true });
-    const debugPath = path.join(ssDir, 'login-not-completing.png');
-    await page.screenshot({ path: debugPath, fullPage: true });
-    console.log(`${TAG} Login form still visible after 15s — screenshot: ${debugPath}`);
-    // Try pressing Enter one more time as last resort
-    const pwField = await page.$(`${modal} input[type="password"]`);
-    if (pwField) {
-      console.log(`${TAG} Retrying with Enter key...`);
-      await pwField.press('Enter');
-      await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(ssDir, 'pre-submit.png'), fullPage: true });
+    console.log(`${TAG} Pre-submit screenshot saved`);
+  }
+
+  // Submit: Press Enter from the password field (most reliable for React forms).
+  // Clicking the button with force:true can bypass React's event chain.
+  console.log(`${TAG} Submitting form via Enter key from password field`);
+  await page.keyboard.press('Enter');
+
+  // Wait for login to process — watch for "Processing..." → result
+  console.log(`${TAG} Waiting for login to complete...`);
+
+  // Phase 1: Wait for "Processing..." to appear (confirms submit reached the API)
+  let sawProcessing = false;
+  for (let i = 0; i < 10; i++) {
+    await page.waitForTimeout(500);
+    const btnText = await page.evaluate(
+      `(function() {
+        var modal = document.querySelector('#AuthModal');
+        if (!modal) return 'MODAL_GONE';
+        var btns = modal.querySelectorAll('button:not([role="tab"]):not([aria-label="Close"])');
+        for (var b of btns) {
+          var t = (b.textContent || '').trim();
+          if (t.includes('Processing') || t.includes('Loading') || t.includes('...')) return 'PROCESSING';
+          if (t === 'Login') return 'LOGIN';
+        }
+        return 'UNKNOWN';
+      })()`
+    ) as string;
+
+    if (btnText === 'MODAL_GONE') {
+      console.log(`${TAG} AuthModal disappeared — login succeeded`);
+      return { ok: true, blocked: false };
+    }
+    if (btnText === 'PROCESSING') {
+      if (!sawProcessing) {
+        console.log(`${TAG} Button says "Processing..." — API call in flight`);
+        sawProcessing = true;
+      }
     }
   }
 
-  // Step 7: Check for 2FA / CAPTCHA blockers
+  // Phase 2: If we saw Processing, wait for it to finish (up to 20s more)
+  if (sawProcessing) {
+    for (let i = 0; i < 40; i++) {
+      await page.waitForTimeout(500);
+      const state = await page.evaluate(
+        `(function() {
+          var modal = document.querySelector('#AuthModal');
+          if (!modal) return 'MODAL_GONE';
+          var text = modal.innerText || '';
+          var btns = modal.querySelectorAll('button:not([role="tab"]):not([aria-label="Close"])');
+          var btnText = '';
+          for (var b of btns) btnText += (b.textContent || '').trim() + ' ';
+          if (btnText.includes('Processing') || btnText.includes('Loading')) return 'STILL_PROCESSING';
+          return 'DONE:' + text.slice(0, 500);
+        })()`
+      ) as string;
+
+      if (state === 'MODAL_GONE') {
+        console.log(`${TAG} AuthModal disappeared after processing — login succeeded`);
+        return { ok: true, blocked: false };
+      }
+      if (state === 'STILL_PROCESSING') continue;
+
+      // Processing finished — dump the result
+      console.log(`${TAG} Processing finished. Modal state: ${state.slice(0, 300)}`);
+      break;
+    }
+  }
+
+  // Phase 3: Check final state
+  const modalGone = !(await page.$('#AuthModal'));
+  if (modalGone) {
+    console.log(`${TAG} Login successful (AuthModal dismissed)`);
+    return { ok: true, blocked: false };
+  }
+
+  // Check for error messages inside the modal
+  const errorInfo = await page.evaluate(
+    `(function() {
+      var modal = document.querySelector('#AuthModal');
+      if (!modal) return { gone: true };
+      var text = modal.innerText || '';
+      // Look for common error indicators
+      var errorPatterns = ['invalid', 'incorrect', 'wrong', 'error', 'failed', 'denied', 'not found', 'required'];
+      var errors = [];
+      for (var p of errorPatterns) {
+        if (text.toLowerCase().includes(p)) errors.push(p);
+      }
+      return { gone: false, text: text.slice(0, 1000), errors: errors, html: modal.innerHTML.slice(0, 2000) };
+    })()`
+  ) as { gone?: boolean; text?: string; errors?: string[]; html?: string };
+
+  if (errorInfo.gone) {
+    console.log(`${TAG} Login successful (modal gone on final check)`);
+    return { ok: true, blocked: false };
+  }
+
+  // Check for 2FA / CAPTCHA blockers
   for (const blocker of LOGIN.blockIndicators) {
     try {
       const el = await page.$(blocker);
@@ -375,15 +403,7 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     } catch { /* continue */ }
   }
 
-  // Step 8: Verify login succeeded
-  // Primary check: is the AuthModal gone?
-  const modalAfterLogin = await page.$('#AuthModal');
-  if (!modalAfterLogin) {
-    console.log(`${TAG} Login successful (AuthModal dismissed)`);
-    return { ok: true, blocked: false };
-  }
-
-  // Check known logged-in indicators
+  // Check logged-in indicators (modal might stay open but user is actually logged in)
   for (const indicator of LOGIN.loggedInIndicator) {
     try {
       const el = await page.$(indicator);
@@ -401,19 +421,26 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     return { ok: true, blocked: false };
   }
 
-  // If modal is still visible, login likely failed
+  // Login failed — dump all debug info
   const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
   fs.mkdirSync(ssDir, { recursive: true });
   const debugPath = path.join(ssDir, 'login-failed.png');
   await page.screenshot({ path: debugPath, fullPage: true });
 
-  // Dump the modal's HTML for debugging
-  const modalHtml = await page.evaluate(
-    `(function() { var m = document.getElementById('AuthModal'); return m ? m.innerHTML.slice(0, 2000) : 'no modal'; })()`
-  ) as string;
-  console.log(`${TAG} Modal HTML after login attempt: ${modalHtml.slice(0, 500)}`);
+  const errorText = errorInfo.errors?.length
+    ? `Detected error keywords: ${errorInfo.errors.join(', ')}`
+    : 'No error message detected';
+  const modalText = (errorInfo.text || '').replace(/\n+/g, ' ').trim();
 
-  return { ok: false, blocked: true, reason: `Login did not succeed — AuthModal still visible after form submission. Screenshot: ${debugPath}. Check credentials.` };
+  console.error(`${TAG} Login failed. ${errorText}`);
+  console.error(`${TAG} Modal text: ${modalText.slice(0, 300)}`);
+  console.error(`${TAG} Screenshot: ${debugPath}`);
+
+  return {
+    ok: false,
+    blocked: true,
+    reason: `Login failed — ${errorText}. Modal text: "${modalText.slice(0, 200)}". Screenshot: ${debugPath}. Check credentials in web/.env.local.`,
+  };
 }
 
 // ── item extraction ──

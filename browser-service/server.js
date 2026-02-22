@@ -150,7 +150,7 @@ app.post('/browser/pipeline-status', async (req, res) => {
 app.post('/browser/tiktok-session-check', async (req, res) => {
   let page;
   try {
-    const storageStatePath = req.body.storageStatePath || TIKTOK_STORAGE_STATE;
+    const storageStatePath = (req.body && req.body.storageStatePath) || TIKTOK_STORAGE_STATE;
 
     if (!fs.existsSync(storageStatePath)) {
       const result = {

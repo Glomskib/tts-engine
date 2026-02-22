@@ -104,46 +104,52 @@ export async function POST(request: NextRequest) {
     const conversationPrompt = conversationLines.join("\n\n");
 
     // Call Claude for AI response with structured intent output
-    const result = await callAnthropicAPI(conversationPrompt, {
-      model: "claude-haiku-4-5-20251001",
-      maxTokens: 512,
-      temperature: 0.3,
-      systemPrompt: SUPPORT_SYSTEM_PROMPT,
-      correlationId,
-      requestType: "support_live_chat",
-      agentId: "support-bot",
-      signal: AbortSignal.timeout(25000),
-    });
-
-    let intentResult: IntentResult;
-    let responseText: string;
+    let intentResult: IntentResult = { intent: "general", response: "" };
+    let responseText = "Hi there! I'm FlashFlow's support assistant. How can I help you today?";
 
     try {
-      // Try to extract JSON from the response
-      let jsonStr = result.text;
-      const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (fenceMatch) {
-        jsonStr = fenceMatch[1].trim();
-      } else {
-        const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (objectMatch) {
-          jsonStr = objectMatch[0];
+      const result = await callAnthropicAPI(conversationPrompt, {
+        model: "claude-haiku-4-5-20251001",
+        maxTokens: 512,
+        temperature: 0.3,
+        systemPrompt: SUPPORT_SYSTEM_PROMPT,
+        correlationId,
+        requestType: "support_live_chat",
+        agentId: "support-bot",
+        signal: AbortSignal.timeout(25000),
+      });
+
+      // Try to extract structured JSON from LLM response
+      let parsed: IntentResult | null = null;
+      try {
+        let jsonStr = result.text;
+        const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (fenceMatch) {
+          jsonStr = fenceMatch[1].trim();
+        } else {
+          const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+          if (objectMatch) {
+            jsonStr = objectMatch[0];
+          }
         }
+        parsed = JSON.parse(jsonStr) as IntentResult;
+      } catch {
+        // JSON parse failed — will use raw text below
       }
 
-      const parsed = JSON.parse(jsonStr) as IntentResult;
-      intentResult = parsed;
-      responseText = parsed.response;
-
-      // Append doc links for how-to intents
-      if (parsed.intent === "how_to" && parsed.doc_links && parsed.doc_links.length > 0) {
-        responseText += "\n\nRelated docs: " + parsed.doc_links.join(", ");
+      if (parsed && parsed.response) {
+        intentResult = parsed;
+        responseText = parsed.response;
+        if (parsed.intent === "how_to" && parsed.doc_links && parsed.doc_links.length > 0) {
+          responseText += "\n\nRelated docs: " + parsed.doc_links.join(", ");
+        }
+      } else {
+        // LLM returned plain text — use it directly
+        responseText = result.text;
       }
-    } catch {
-      // LLM returned plain text instead of JSON — use the raw text as the response
-      console.warn("[support/live] Intent JSON parse failed, using raw text as response");
-      intentResult = { intent: "general", response: result.text };
-      responseText = result.text;
+    } catch (aiErr) {
+      console.error("[support/live] AI call failed:", aiErr);
+      // responseText keeps its default fallback value
     }
 
     // Insert bot response as support_message

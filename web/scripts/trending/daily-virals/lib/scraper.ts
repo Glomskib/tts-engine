@@ -1,50 +1,37 @@
 /**
  * Daily Virals Playwright scraper.
  *
- * Logs in, navigates to trending page, extracts top N items,
- * takes screenshots per item, and returns a normalized dataset.
+ * Uses a pre-saved storageState (from bootstrap-session.ts) to skip login.
+ * Navigates to the trending page, extracts top N items, takes screenshots.
  *
- * If login fails due to 2FA/CAPTCHA, returns blocked=true with reason.
+ * If no session exists or Cloudflare blocks, returns blocked=true with
+ * instructions to run the bootstrap script.
  */
 
 import { chromium, type Browser, type Page, type ElementHandle } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
-import { COOKIE_BANNER, LOGIN, TRENDING, PAGINATION } from './selectors';
+import { COOKIE_BANNER, TRENDING, PAGINATION } from './selectors';
 import type { TrendingItem, TrendingMetrics, ScrapeResult, RunConfig } from './types';
 
 const TAG = '[daily-virals:scraper]';
 
-// ── session persistence ──
+// ── session management ──
 
-const SESSION_DIR = path.join(process.cwd(), 'data/trending/daily-virals');
-const SESSION_PATH = path.join(SESSION_DIR, '.session-state.json');
+const SESSION_PATH = path.join(process.cwd(), 'data/sessions/daily-virals.storageState.json');
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-function loadSessionState(): string | undefined {
+function getSessionState(): { path: string; ageMin: number } | null {
   try {
-    if (fs.existsSync(SESSION_PATH)) {
-      const stat = fs.statSync(SESSION_PATH);
-      const ageMs = Date.now() - stat.mtimeMs;
-      // Session expires after 24 hours
-      if (ageMs < 24 * 60 * 60 * 1000) {
-        console.log(`${TAG} Loaded saved session (age: ${Math.round(ageMs / 60000)}m)`);
-        return SESSION_PATH;
-      }
-      console.log(`${TAG} Session expired (age: ${Math.round(ageMs / 3600000)}h) — will re-login`);
+    if (!fs.existsSync(SESSION_PATH)) return null;
+    const stat = fs.statSync(SESSION_PATH);
+    const ageMs = Date.now() - stat.mtimeMs;
+    if (ageMs > SESSION_MAX_AGE_MS) {
+      console.log(`${TAG} Session expired (age: ${Math.round(ageMs / 3600000)}h)`);
+      return null;
     }
-  } catch { /* no saved session */ }
-  return undefined;
-}
-
-async function saveSessionState(page: Page): Promise<void> {
-  try {
-    fs.mkdirSync(SESSION_DIR, { recursive: true });
-    const state = await page.context().storageState();
-    fs.writeFileSync(SESSION_PATH, JSON.stringify(state));
-    console.log(`${TAG} Session state saved to ${SESSION_PATH}`);
-  } catch (err) {
-    console.warn(`${TAG} Failed to save session state:`, err);
-  }
+    return { path: SESSION_PATH, ageMin: Math.round(ageMs / 60000) };
+  } catch { return null; }
 }
 
 // ── helpers ──
@@ -67,39 +54,6 @@ async function trySelector(page: Page | ElementHandle, selectors: readonly strin
   return null;
 }
 
-async function tryText(page: Page | ElementHandle, selectors: readonly string[]): Promise<string> {
-  const el = await trySelector(page, selectors);
-  if (!el) return '';
-  const text = await el.textContent();
-  return (text ?? '').trim();
-}
-
-async function trySrc(page: Page | ElementHandle, selectors: readonly string[]): Promise<string> {
-  for (const sel of selectors) {
-    try {
-      const el = await (page as Page).$(sel);
-      if (!el) continue;
-      const src = await el.getAttribute('src') || await el.getAttribute('poster') || '';
-      if (src) return src;
-    } catch { /* next */ }
-  }
-  return '';
-}
-
-async function tryHref(page: Page | ElementHandle, selectors: readonly string[]): Promise<string> {
-  for (const sel of selectors) {
-    try {
-      const el = await (page as Page).$(sel);
-      if (!el) continue;
-      const href = await el.getAttribute('href') || '';
-      if (href) return href;
-    } catch { /* next */ }
-  }
-  return '';
-}
-
-// ── cookie banner ──
-
 async function dismissCookieBanner(page: Page): Promise<void> {
   for (const sel of COOKIE_BANNER.acceptButton) {
     try {
@@ -112,401 +66,6 @@ async function dismissCookieBanner(page: Page): Promise<void> {
       }
     } catch { /* next */ }
   }
-  console.log(`${TAG} No cookie banner found (or already dismissed)`);
-}
-
-// ── login ──
-
-async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reason?: string }> {
-  const email = process.env.DAILY_VIRALS_EMAIL;
-  const password = process.env.DAILY_VIRALS_PASSWORD;
-
-  if (!email || !password) {
-    return { ok: false, blocked: true, reason: 'DAILY_VIRALS_EMAIL or DAILY_VIRALS_PASSWORD not set in env' };
-  }
-
-  const trendingUrl = process.env.DAILY_VIRALS_TRENDING_URL || '';
-
-  // Step 1: Navigate to the site
-  console.log(`${TAG} Navigating to ${trendingUrl}...`);
-  await page.goto(trendingUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-  // Wait for Cloudflare challenge to resolve (if present)
-  await page.waitForTimeout(7000);
-
-  // Step 2: Dismiss cookie banner
-  await dismissCookieBanner(page);
-
-  // Step 3: Check if already logged in (no "Login" link visible)
-  let hasLoginLink = false;
-  for (const sel of LOGIN.sidebarLoginLink) {
-    try {
-      const el = await page.$(sel);
-      if (el) {
-        const text = await el.textContent();
-        if (text && text.trim().toLowerCase().includes('login')) {
-          hasLoginLink = true;
-          break;
-        }
-      }
-    } catch { /* next */ }
-  }
-
-  if (!hasLoginLink) {
-    // Might already be logged in — check for logged-in indicators
-    for (const indicator of LOGIN.loggedInIndicator) {
-      try {
-        const el = await page.$(indicator);
-        if (el) {
-          console.log(`${TAG} Already logged in (found: ${indicator})`);
-          return { ok: true, blocked: false };
-        }
-      } catch { /* next */ }
-    }
-    // No login link AND no logged-in indicator — might already be authenticated
-    // Check if the sidebar "Login" text is gone (replaced by user info)
-    const bodyText = await page.textContent('body') ?? '';
-    if (!bodyText.toLowerCase().includes('login')) {
-      console.log(`${TAG} No login link found — assuming already authenticated`);
-      return { ok: true, blocked: false };
-    }
-  }
-
-  // Step 4: Click the sidebar "Login" link to open the login form
-  console.log(`${TAG} Clicking Login link in sidebar...`);
-  let clickedLogin = false;
-  for (const sel of LOGIN.sidebarLoginLink) {
-    try {
-      const el = await page.$(sel);
-      if (el) {
-        const text = await el.textContent();
-        if (text && text.trim().toLowerCase().includes('login')) {
-          await el.click();
-          clickedLogin = true;
-          console.log(`${TAG} Clicked login link (selector: ${sel})`);
-          break;
-        }
-      }
-    } catch { /* next */ }
-  }
-
-  if (!clickedLogin) {
-    // Fallback: try navigating to /login directly
-    try {
-      const baseUrl = new URL(trendingUrl).origin;
-      console.log(`${TAG} Fallback: navigating to ${baseUrl}/login`);
-      await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    } catch {
-      return { ok: false, blocked: true, reason: 'Could not find or click Login link, and /login fallback failed.' };
-    }
-  }
-
-  // Wait for modal to appear
-  await page.waitForTimeout(3000);
-
-  // Step 4b: The modal is a Radix UI AuthModal. It may default to "Sign Up" tab.
-  // Click the Login tab inside the modal using its Radix role="tab" attribute.
-  try {
-    const loginTab = await page.$('#AuthModal [role="tab"]:has-text("Login")');
-    if (loginTab) {
-      const state = await loginTab.getAttribute('data-state');
-      if (state !== 'active') {
-        console.log(`${TAG} Login tab not active — clicking it...`);
-        await loginTab.click({ force: true });
-        await page.waitForTimeout(2000);
-      } else {
-        console.log(`${TAG} Login tab already active`);
-      }
-    } else {
-      // Fallback: try clicking second Login text on page
-      const loginElements = await page.$$('text=Login');
-      if (loginElements.length > 1) {
-        console.log(`${TAG} Clicking Login element at index 1...`);
-        await loginElements[1].click({ force: true });
-        await page.waitForTimeout(2000);
-      }
-    }
-  } catch (err) {
-    console.warn(`${TAG} Login tab click attempt:`, err);
-  }
-
-  // Step 5+6: Fill + submit login form entirely via page.evaluate().
-  //
-  // Why JS-only: React controlled inputs ignore keyboard.type() values
-  // (the DOM shows text visually but React state stays ""). And the AuthModal
-  // backdrop div intercepts Playwright clicks. So we must:
-  //   1. Set input values via nativeInputValueSetter (bypasses React's setter)
-  //   2. Dispatch 'input' events (React's onChange listens for these)
-  //   3. Click the submit button via dispatchEvent (bypasses overlay)
-  console.log(`${TAG} Filling + submitting login form via JS...`);
-
-  const modal = '#AuthModal';
-
-  // Monitor network requests
-  const loginApiCalls: string[] = [];
-  page.on('request', (req) => {
-    const url = req.url();
-    if (url.includes('login') || url.includes('auth') || url.includes('signin') || url.includes('session') || url.includes('api')) {
-      loginApiCalls.push(`→ ${req.method()} ${url}`);
-    }
-  });
-  page.on('response', (res) => {
-    const url = res.url();
-    if (url.includes('login') || url.includes('auth') || url.includes('signin') || url.includes('session') || url.includes('api')) {
-      loginApiCalls.push(`← ${res.status()} ${url}`);
-    }
-  });
-
-  const fillResult = await page.evaluate(
-    `(function() {
-      var modal = document.querySelector('#AuthModal');
-      if (!modal) return { ok: false, error: 'No modal found' };
-
-      var emailEl = modal.querySelector('input[placeholder="Email"]')
-        || modal.querySelector('input[type="email"]');
-      var pwEl = modal.querySelector('input[type="password"]')
-        || modal.querySelector('input[placeholder="Password"]');
-
-      if (!emailEl) return { ok: false, error: 'Email input not found' };
-      if (!pwEl) return { ok: false, error: 'Password input not found' };
-
-      // Use nativeInputValueSetter + React _valueTracker reset.
-      // React caches the last-known value internally; we must clear it
-      // so React's onChange handler sees the new value as a change.
-      var nativeSetter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value'
-      ).set;
-
-      function setReactInputValue(el, value) {
-        // Reset React's internal value tracker so it detects the change
-        var tracker = el._valueTracker;
-        if (tracker) tracker.setValue('');
-
-        nativeSetter.call(el, value);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
-      // Set email
-      setReactInputValue(emailEl, ${JSON.stringify(email)});
-
-      // Set password
-      setReactInputValue(pwEl, ${JSON.stringify(password)});
-
-      // Verify values stuck
-      var emailVal = emailEl.value;
-      var pwVal = pwEl.value;
-
-      return {
-        ok: true,
-        emailLen: emailVal.length,
-        pwLen: pwVal.length,
-        emailMatch: emailVal === ${JSON.stringify(email)},
-      };
-    })()`
-  ) as { ok: boolean; error?: string; emailLen?: number; pwLen?: number; emailMatch?: boolean };
-
-  console.log(`${TAG} Fill result:`, JSON.stringify(fillResult));
-
-  if (!fillResult.ok) {
-    const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
-    fs.mkdirSync(ssDir, { recursive: true });
-    const debugPath = path.join(ssDir, 'fill-failed.png');
-    await page.screenshot({ path: debugPath, fullPage: true });
-    return { ok: false, blocked: true, reason: `${fillResult.error}. Screenshot: ${debugPath}` };
-  }
-
-  // Take pre-submit screenshot
-  {
-    const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
-    fs.mkdirSync(ssDir, { recursive: true });
-    await page.screenshot({ path: path.join(ssDir, 'pre-submit.png'), fullPage: true });
-    console.log(`${TAG} Pre-submit screenshot saved`);
-  }
-
-  // Small delay to let React reconcile
-  await page.waitForTimeout(500);
-
-  // Click the submit button via JS dispatchEvent (bypasses overlay interception)
-  console.log(`${TAG} Clicking submit button via JS...`);
-  const clickResult = await page.evaluate(
-    `(function() {
-      var modal = document.querySelector('#AuthModal');
-      if (!modal) return 'MODAL_GONE';
-
-      // Find the orange Login button (not a tab, not the close button)
-      var buttons = modal.querySelectorAll('button');
-      for (var i = 0; i < buttons.length; i++) {
-        var btn = buttons[i];
-        var text = (btn.textContent || '').trim();
-        var role = btn.getAttribute('role');
-        var label = btn.getAttribute('aria-label');
-        // The submit button has text "Login", no role, no aria-label="Close"
-        if (text === 'Login' && !role && label !== 'Close') {
-          // Dispatch a full click event chain that React will handle
-          btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-          btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-          btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-          btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-          btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-          return 'CLICKED:' + text;
-        }
-      }
-      return 'NOT_FOUND';
-    })()`
-  ) as string;
-  console.log(`${TAG} Click result: ${clickResult}`);
-
-  // Wait for API call
-  await page.waitForTimeout(3000);
-  console.log(`${TAG} Network activity: ${loginApiCalls.length > 0 ? loginApiCalls.join(' | ') : 'NO login API calls detected'}`);
-
-  // Wait for login to process — watch for "Processing..." → result
-  console.log(`${TAG} Waiting for login to complete...`);
-
-  // Phase 1: Wait for "Processing..." to appear (confirms submit reached the API)
-  let sawProcessing = false;
-  for (let i = 0; i < 10; i++) {
-    await page.waitForTimeout(500);
-    const btnText = await page.evaluate(
-      `(function() {
-        var modal = document.querySelector('#AuthModal');
-        if (!modal) return 'MODAL_GONE';
-        var btns = modal.querySelectorAll('button:not([role="tab"]):not([aria-label="Close"])');
-        for (var b of btns) {
-          var t = (b.textContent || '').trim();
-          if (t.includes('Processing') || t.includes('Loading') || t.includes('...')) return 'PROCESSING';
-          if (t === 'Login') return 'LOGIN';
-        }
-        return 'UNKNOWN';
-      })()`
-    ) as string;
-
-    if (btnText === 'MODAL_GONE') {
-      console.log(`${TAG} AuthModal disappeared — login succeeded`);
-      return { ok: true, blocked: false };
-    }
-    if (btnText === 'PROCESSING') {
-      if (!sawProcessing) {
-        console.log(`${TAG} Button says "Processing..." — API call in flight`);
-        sawProcessing = true;
-      }
-    }
-  }
-
-  // Phase 2: If we saw Processing, wait for it to finish (up to 20s more)
-  if (sawProcessing) {
-    for (let i = 0; i < 40; i++) {
-      await page.waitForTimeout(500);
-      const state = await page.evaluate(
-        `(function() {
-          var modal = document.querySelector('#AuthModal');
-          if (!modal) return 'MODAL_GONE';
-          var text = modal.innerText || '';
-          var btns = modal.querySelectorAll('button:not([role="tab"]):not([aria-label="Close"])');
-          var btnText = '';
-          for (var b of btns) btnText += (b.textContent || '').trim() + ' ';
-          if (btnText.includes('Processing') || btnText.includes('Loading')) return 'STILL_PROCESSING';
-          return 'DONE:' + text.slice(0, 500);
-        })()`
-      ) as string;
-
-      if (state === 'MODAL_GONE') {
-        console.log(`${TAG} AuthModal disappeared after processing — login succeeded`);
-        return { ok: true, blocked: false };
-      }
-      if (state === 'STILL_PROCESSING') continue;
-
-      // Processing finished — dump the result
-      console.log(`${TAG} Processing finished. Modal state: ${state.slice(0, 300)}`);
-      break;
-    }
-  }
-
-  // Phase 3: Check final state
-  const modalGone = !(await page.$('#AuthModal'));
-  if (modalGone) {
-    console.log(`${TAG} Login successful (AuthModal dismissed)`);
-    return { ok: true, blocked: false };
-  }
-
-  // Check for error messages inside the modal
-  const errorInfo = await page.evaluate(
-    `(function() {
-      var modal = document.querySelector('#AuthModal');
-      if (!modal) return { gone: true };
-      var text = modal.innerText || '';
-      // Look for common error indicators
-      var errorPatterns = ['invalid', 'incorrect', 'wrong', 'error', 'failed', 'denied', 'not found', 'required'];
-      var errors = [];
-      for (var p of errorPatterns) {
-        if (text.toLowerCase().includes(p)) errors.push(p);
-      }
-      return { gone: false, text: text.slice(0, 1000), errors: errors, html: modal.innerHTML.slice(0, 2000) };
-    })()`
-  ) as { gone?: boolean; text?: string; errors?: string[]; html?: string };
-
-  if (errorInfo.gone) {
-    console.log(`${TAG} Login successful (modal gone on final check)`);
-    return { ok: true, blocked: false };
-  }
-
-  // Check for 2FA / CAPTCHA blockers
-  for (const blocker of LOGIN.blockIndicators) {
-    try {
-      const el = await page.$(blocker);
-      if (el) {
-        const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
-        fs.mkdirSync(ssDir, { recursive: true });
-        const screenshotPath = path.join(ssDir, 'blocked.png');
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        return {
-          ok: false,
-          blocked: true,
-          reason: `Login blocked by 2FA/CAPTCHA (detected: ${blocker}). Screenshot saved to ${screenshotPath}. Manual intervention required.`,
-        };
-      }
-    } catch { /* continue */ }
-  }
-
-  // Check logged-in indicators (modal might stay open but user is actually logged in)
-  for (const indicator of LOGIN.loggedInIndicator) {
-    try {
-      const el = await page.$(indicator);
-      if (el) {
-        console.log(`${TAG} Login successful (found: ${indicator})`);
-        return { ok: true, blocked: false };
-      }
-    } catch { /* continue */ }
-  }
-
-  // Check if sidebar Login button text has changed (replaced by user info)
-  const sidebarLoginBtn = await page.$('button:has-text("Login"):not(#AuthModal *)');
-  if (!sidebarLoginBtn) {
-    console.log(`${TAG} Login successful (sidebar Login button gone)`);
-    return { ok: true, blocked: false };
-  }
-
-  // Login failed — dump all debug info
-  const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
-  fs.mkdirSync(ssDir, { recursive: true });
-  const debugPath = path.join(ssDir, 'login-failed.png');
-  await page.screenshot({ path: debugPath, fullPage: true });
-
-  const errorText = errorInfo.errors?.length
-    ? `Detected error keywords: ${errorInfo.errors.join(', ')}`
-    : 'No error message detected';
-  const modalText = (errorInfo.text || '').replace(/\n+/g, ' ').trim();
-
-  console.error(`${TAG} Login failed. ${errorText}`);
-  console.error(`${TAG} Modal text: ${modalText.slice(0, 300)}`);
-  console.error(`${TAG} Screenshot: ${debugPath}`);
-
-  return {
-    ok: false,
-    blocked: true,
-    reason: `Login failed — ${errorText}. Modal text: "${modalText.slice(0, 200)}". Screenshot: ${debugPath}. Check credentials in web/.env.local.`,
-  };
 }
 
 // ── item extraction ──
@@ -514,7 +73,7 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
 async function extractItem(
   container: ElementHandle,
   index: number,
-  page: Page,
+  _page: Page,
 ): Promise<TrendingItem | null> {
   try {
     const rank = index + 1;
@@ -548,7 +107,7 @@ async function extractItem(
       } catch { /* next */ }
     }
 
-    // Metrics — collect all metric-like text from known selectors
+    // Metrics
     const metrics: TrendingMetrics = {};
     for (const sel of TRENDING.metricSelectors) {
       try {
@@ -557,7 +116,6 @@ async function extractItem(
           const text = ((await el.textContent()) ?? '').trim();
           if (!text || text.length > 200) continue;
 
-          // Try to infer metric type from class/aria/text
           const className = (await el.getAttribute('class')) ?? '';
           const lc = className.toLowerCase() + ' ' + text.toLowerCase();
 
@@ -573,9 +131,6 @@ async function extractItem(
       } catch { /* next selector */ }
     }
 
-    // AI observation — generated later, placeholder
-    const aiObservation = '';
-
     return {
       rank,
       title,
@@ -586,7 +141,7 @@ async function extractItem(
       script_snippet: scriptSnippet,
       source_url: sourceUrl,
       thumbnail_url: thumbnailUrl,
-      ai_observation: aiObservation,
+      ai_observation: '',
       captured_at: new Date().toISOString(),
     };
   } catch (err) {
@@ -644,17 +199,14 @@ const JUNK_PATTERNS = [
 ];
 
 function isJunkItem(item: TrendingItem): boolean {
-  // Reject items with fallback title pattern "Item N"
   if (/^Item \d+$/.test(item.title)) return true;
 
-  // Reject if hook_text or title matches known junk patterns
   for (const pattern of JUNK_PATTERNS) {
     if (pattern.test(item.hook_text)) return true;
     if (pattern.test(item.title)) return true;
     if (pattern.test(item.product_name)) return true;
   }
 
-  // Reject items with no meaningful data at all
   const hasTitle = item.title.length > 2 && !/^Item \d+$/.test(item.title);
   const hasMetrics = Object.values(item.metrics).some(v => v);
   const hasHook = item.hook_text.length > 5;
@@ -675,7 +227,6 @@ function validateAndClean(items: TrendingItem[]): { valid: TrendingItem[]; rejec
       rejected++;
       continue;
     }
-    // Re-rank to fill gaps from rejected items
     valid.push({ ...item, rank: valid.length + 1 });
   }
 
@@ -700,6 +251,15 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
     return result;
   }
 
+  // Require a valid session — never attempt automated login
+  const session = getSessionState();
+  if (!session) {
+    result.blocked = true;
+    result.blockReason = `No valid session found. Run: npm run trending:daily-virals:bootstrap`;
+    return result;
+  }
+  console.log(`${TAG} Using saved session (age: ${session.ageMin}m)`);
+
   const screenshotDir = path.join(
     process.cwd(),
     'data/trending/daily-virals/screenshots',
@@ -719,81 +279,48 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
     });
 
-    // Try loading saved session state for cookie reuse
-    const savedSession = loadSessionState();
-
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      ...(savedSession ? { storageState: savedSession } : {}),
+      storageState: session.path,
     });
 
-    // Remove webdriver flag to avoid Cloudflare bot detection
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
 
     const page = await context.newPage();
 
-    // Step 1: Login (may be skipped if session is still valid)
-    const loginResult = await login(page);
-    if (!loginResult.ok) {
-      result.blocked = loginResult.blocked;
-      result.blockReason = loginResult.reason;
+    // Navigate directly to trending page with saved session
+    console.log(`${TAG} Navigating to trending page: ${trendingUrl}`);
+    const response = await page.goto(trendingUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // Check for Cloudflare block
+    const status = response?.status() ?? 0;
+    if (status === 403) {
+      result.blocked = true;
+      result.blockReason = `Cloudflare blocked (HTTP 403). Session may be invalid. Run: npm run trending:daily-virals:bootstrap`;
+      const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
+      fs.mkdirSync(ssDir, { recursive: true });
+      await page.screenshot({ path: path.join(ssDir, 'blocked-403.png'), fullPage: true });
       return result;
     }
 
-    // Save session after successful login for future runs
-    await saveSessionState(page);
+    // Wait for Cloudflare challenge to resolve (if present)
+    await page.waitForTimeout(7000);
 
-    // Step 1b: Dismiss the AuthModal if it's still visible after login
-    console.log(`${TAG} Checking for lingering AuthModal...`);
-    const modalStillOpen = await page.$('#AuthModal');
-    if (modalStillOpen) {
-      console.log(`${TAG} AuthModal still visible — dismissing...`);
-
-      // Try 1: Click the X (close) button
-      const closeBtn = await page.$('#AuthModal button:has(svg), #AuthModal [aria-label="Close"], #AuthModal button:near(:text("Sign Up"), 200)');
-      if (closeBtn) {
-        await closeBtn.click({ force: true });
-        console.log(`${TAG} Clicked modal close button`);
-        await page.waitForTimeout(1000);
-      }
-
-      // Try 2: Press Escape
-      const stillOpen1 = await page.$('#AuthModal');
-      if (stillOpen1) {
-        await page.keyboard.press('Escape');
-        console.log(`${TAG} Pressed Escape`);
-        await page.waitForTimeout(1000);
-      }
-
-      // Try 3: Remove modal overlay via JavaScript
-      const stillOpen2 = await page.$('#AuthModal');
-      if (stillOpen2) {
-        await page.evaluate(
-          `(function() {
-            var modal = document.getElementById('AuthModal');
-            if (modal) modal.remove();
-            document.querySelectorAll('[data-radix-portal], [role="dialog"]').forEach(function(el) { el.remove(); });
-          })()`
-        );
-        console.log(`${TAG} Removed modal via JavaScript`);
-        await page.waitForTimeout(500);
-      }
-    } else {
-      console.log(`${TAG} AuthModal already dismissed`);
+    // Check page title for Cloudflare challenge page
+    const title = await page.title();
+    if (title.includes('Cloudflare') || title.includes('Attention Required')) {
+      result.blocked = true;
+      result.blockReason = `Cloudflare challenge detected ("${title}"). Run: npm run trending:daily-virals:bootstrap`;
+      return result;
     }
 
-    // Step 2: Navigate to trending page with a fresh load (ensures authenticated content)
-    console.log(`${TAG} Navigating to trending page: ${trendingUrl}`);
-    await page.goto(trendingUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(5000);
-
-    // Dismiss cookie banner again after fresh navigation
+    // Dismiss cookie banner
     await dismissCookieBanner(page);
 
-    // Wait for content to load — look for any indicator that data is rendering
+    // Wait for content to load
     console.log(`${TAG} Waiting for content to load...`);
     let contentFound = false;
     for (const sel of TRENDING.contentLoadedIndicator) {
@@ -805,11 +332,9 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
       } catch { /* try next */ }
     }
     if (!contentFound) {
-      // Wait longer — SPA may still be loading data
       console.log(`${TAG} No content indicator found yet — waiting 10s more...`);
       await page.waitForTimeout(10000);
     }
-    // Extra settle time for SPAs
     await page.waitForTimeout(3000);
 
     // Dump page HTML for selector debugging
@@ -819,7 +344,7 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
     fs.writeFileSync(htmlDebugPath, debugHtml);
     console.log(`${TAG} Page HTML dumped to ${htmlDebugPath} (${debugHtml.length} chars)`);
 
-    // Take a full-page screenshot for reference (post-login)
+    // Full-page screenshot
     if (!config.skipScreenshots) {
       fs.mkdirSync(screenshotDir, { recursive: true });
       const fullPagePath = path.join(screenshotDir, '00-full-page.png');
@@ -828,7 +353,7 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
       console.log(`${TAG} Full page screenshot saved`);
     }
 
-    // Step 3: Find trending item containers
+    // Find trending item containers
     console.log(`${TAG} Extracting trending items (max: ${config.maxItems})...`);
 
     let containers: ElementHandle[] = [];
@@ -865,27 +390,21 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
     }
 
     if (containers.length === 0) {
-      // Fallback: dump page content for debugging
       fs.mkdirSync(screenshotDir, { recursive: true });
-      const html = await page.content();
-      const debugPath = path.join(screenshotDir, 'debug-page.html');
-      fs.writeFileSync(debugPath, html);
-      // Also take a screenshot of the empty state
       const emptyScreenshot = path.join(screenshotDir, '00-no-items.png');
       await page.screenshot({ path: emptyScreenshot, fullPage: true }).catch(() => {});
-      result.warnings.push(`No trending items found. Page HTML dumped to ${debugPath}`);
+      result.warnings.push(`No trending items found. HTML dumped to ${htmlDebugPath}`);
       console.warn(`${TAG} No trending items found — HTML dumped for debugging`);
       return result;
     }
 
-    // Step 4: Extract items
+    // Extract items
     const limit = Math.min(containers.length, config.maxItems);
     for (let i = 0; i < limit; i++) {
       const item = await extractItem(containers[i], i, page);
       if (item) {
         result.items.push(item);
 
-        // Screenshot per item
         if (!config.skipScreenshots) {
           const ssPath = await takeItemScreenshot(containers[i], item.rank, item.title, screenshotDir);
           if (ssPath) result.screenshotPaths.push(ssPath);
@@ -895,7 +414,7 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
 
     console.log(`${TAG} Extracted ${result.items.length} items`);
 
-    // Step 5: If we need more items (pagination)
+    // Pagination if needed
     if (result.items.length < config.maxItems && containers.length <= result.items.length) {
       for (const sel of PAGINATION.nextButton) {
         try {
@@ -905,7 +424,6 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
             await nextBtn.click();
             await page.waitForTimeout(3000);
 
-            // Re-extract from new page
             for (const containerSel of TRENDING.itemContainer) {
               const newContainers = await page.$$(containerSel);
               if (newContainers.length > 0) {
@@ -942,7 +460,7 @@ export async function scrapeTrending(config: RunConfig): Promise<ScrapeResult> {
     }
   }
 
-  // Validate and clean scraped items — filter out cookie banners, junk, etc.
+  // Validate and clean scraped items
   if (result.items.length > 0) {
     const { valid, rejected } = validateAndClean(result.items);
     if (rejected > 0) {

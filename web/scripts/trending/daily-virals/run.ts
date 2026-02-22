@@ -45,12 +45,6 @@ import { upsertTrendingItems, uploadScreenshots } from './lib/db';
 import { writeTrendingJson } from './lib/public-export';
 
 const TAG = '[daily-virals]';
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 10_000; // 10s between retries
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 function parseArgs(): RunConfig & { mock: boolean } {
   const args = process.argv.slice(2);
@@ -193,41 +187,19 @@ export async function runDailyViralsJob(options?: {
     console.log(`${TAG} Using mock data (scraper env vars not set)`);
     items = generateMockItems(cfg.maxItems);
   } else {
-    // Scrape with retry logic
-    let lastScrapeResult: Awaited<ReturnType<typeof scrapeTrending>> | null = null;
+    // Single scrape attempt — no repeated logins to avoid rate limits
+    console.log(`${TAG} Scraping Daily Virals trending...`);
+    const scrapeResult = await scrapeTrending(cfg);
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        const delayMs = RETRY_DELAY_MS * attempt;
-        console.log(`${TAG} Retry ${attempt}/${MAX_RETRIES} in ${delayMs / 1000}s...`);
-        await sleep(delayMs);
-      }
-
-      console.log(`${TAG} Scraping Daily Virals trending (attempt ${attempt + 1})...`);
-      lastScrapeResult = await scrapeTrending(cfg);
-
-      // Blocking is not retryable — requires manual intervention
-      if (lastScrapeResult.blocked) break;
-
-      // Success: got items
-      if (lastScrapeResult.items.length > 0) break;
-
-      // No items but not blocked — retryable
-      console.warn(`${TAG} No items extracted on attempt ${attempt + 1}`);
-    }
-
-    const scrapeResult = lastScrapeResult!;
-
-    // Handle blocking
+    // Handle blocking (missing session, Cloudflare, etc.)
     if (scrapeResult.blocked) {
       console.error(`${TAG} BLOCKED: ${scrapeResult.blockReason}`);
 
       if (hasMCToken) {
-        const instructions = `1. Log into Daily Virals manually at ${process.env.DAILY_VIRALS_TRENDING_URL}
-2. Complete any 2FA/CAPTCHA challenge
-3. If credentials changed, update DAILY_VIRALS_EMAIL and DAILY_VIRALS_PASSWORD in web/.env.local
-4. Check screenshots/blocked.png for the page state
-5. Re-run: \`npm run trending:daily-virals -- --dry-run\``;
+        const instructions = `1. Run: npm run trending:daily-virals:bootstrap
+2. Log in manually in the browser window
+3. Press Enter to save the session
+4. Re-run: npm run trending:daily-virals`;
 
         console.log(`${TAG} Posting BLOCKED doc to MC...`);
         const blockResult = await postBlockedDoc(scrapeResult.blockReason!, instructions);
@@ -245,7 +217,7 @@ export async function runDailyViralsJob(options?: {
     }
 
     if (scrapeResult.items.length === 0) {
-      const msg = `No items extracted after ${MAX_RETRIES + 1} attempts — check selectors or page structure`;
+      const msg = 'No items extracted — check selectors or page structure';
       console.error(`${TAG} ${msg}`);
       return { ok: false, itemCount: 0, dbUpserted: false, mcPosted: false, error: msg };
     }

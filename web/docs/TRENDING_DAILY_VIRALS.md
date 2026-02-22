@@ -1,16 +1,36 @@
 # Daily Virals Trending Scraper
 
-Automated Playwright scraper that logs into Daily Virals, extracts the top 20 trending products, and posts a structured report to Mission Control.
+Automated Playwright scraper that extracts the top 20 trending products from Daily Virals and posts a structured report to Mission Control.
 
 ## Quick Start
 
 ```bash
-# Full run (20 items + screenshots + MC post)
+# 1. Bootstrap session (first time, or when session expires after 24h)
+npm run trending:daily-virals:bootstrap
+
+# 2. Full run (20 items + screenshots + MC post)
 npm run trending:daily-virals
 
 # Dry run (3 mock items, no Playwright, writes outputs + MC doc)
 npm run trending:daily-virals -- --dry-run
 ```
+
+## Session Bootstrap
+
+The scraper **never automates login** — Cloudflare Turnstile blocks automated login attempts. Instead, you manually log in once via a headed browser, and the session is saved for reuse.
+
+```bash
+npm run trending:daily-virals:bootstrap
+```
+
+This opens a Chromium window and navigates to the Daily Virals site. You:
+1. Log in manually (email/password)
+2. Complete any Cloudflare challenge
+3. Press ENTER in the terminal once you see the trending page
+
+The session is saved to `data/sessions/daily-virals.storageState.json` and is valid for **24 hours**. The automated scraper loads this session on each run — no login needed.
+
+If the session expires or the scraper reports `BLOCKED`, re-run the bootstrap.
 
 ## Nightly Cron
 
@@ -47,8 +67,6 @@ Add to `web/.env.local`:
 
 ```bash
 # Required for live scraping
-DAILY_VIRALS_EMAIL=your@email.com
-DAILY_VIRALS_PASSWORD=your-password
 DAILY_VIRALS_TRENDING_URL=https://thedailyvirals.com/trending
 
 # Optional (already set for other pipelines)
@@ -60,6 +78,8 @@ CRON_SECRET=your-cron-secret
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+> **Note:** `DAILY_VIRALS_EMAIL` and `DAILY_VIRALS_PASSWORD` are no longer used. Login is handled manually via `bootstrap-session`.
 
 ## Output Files
 
@@ -115,23 +135,18 @@ The doc includes:
 
 ## Session Persistence
 
-The scraper saves browser cookies/localStorage to `.session-state.json` after each successful login. On the next run it loads the saved session, which:
+The scraper loads a Playwright `storageState` file (cookies + localStorage) saved by the bootstrap script. The session:
 
-- Avoids re-login if the session is still valid (< 24 hours old)
-- Reduces bot-detection risk from repeated login flows
-- Falls back to fresh login if the session is expired or missing
+- Is valid for **24 hours** from when it was saved
+- Is stored at `data/sessions/daily-virals.storageState.json`
+- Must be refreshed by re-running `npm run trending:daily-virals:bootstrap`
 
-Session file: `web/data/trending/daily-virals/.session-state.json`
-
-To force a fresh login, delete the session file:
+To force a fresh session:
 
 ```bash
-rm web/data/trending/daily-virals/.session-state.json
+rm data/sessions/daily-virals.storageState.json
+npm run trending:daily-virals:bootstrap
 ```
-
-## Retry Logic
-
-If the scraper extracts zero items (but isn't blocked), it retries up to 2 more times with increasing delays (10s, 20s). Blocking (2FA/CAPTCHA) is not retried — it requires manual intervention.
 
 ## Data Validation
 
@@ -152,17 +167,18 @@ web/scripts/trending/daily-virals/lib/selectors.ts
 
 If the site's HTML changes, update only this file. The scraper tries multiple selector candidates per field and falls back gracefully.
 
-## Blocking (2FA / CAPTCHA)
+## Blocking (Cloudflare / Session Expired)
 
-If login fails due to 2FA or CAPTCHA:
-1. The scraper stops immediately
-2. A `BLOCKED` doc is posted to MC (tags: `blocked, needs-input, daily-virals`)
-3. A screenshot is saved to `screenshots/blocked.png`
+If the session is missing, expired, or Cloudflare blocks the request:
+1. The scraper stops immediately (single attempt, no retries)
+2. A `BLOCKED` doc is posted to MC (if MC token is set)
+3. A screenshot is saved (if Cloudflare 403)
 
 To unblock:
-1. Log in manually and complete the challenge
-2. Update credentials if needed
-3. Re-run: `npm run trending:daily-virals -- --dry-run`
+1. Run `npm run trending:daily-virals:bootstrap`
+2. Log in manually in the browser window
+3. Press ENTER to save the session
+4. Re-run: `npm run trending:daily-virals`
 
 ## Dry Run
 
@@ -177,31 +193,31 @@ To unblock:
 
 ```
 web/scripts/trending/daily-virals/
-├── run.ts              # CLI entry point + retry logic
+├── run.ts                  # CLI entry point (single attempt, no retries)
+├── bootstrap-session.ts    # Manual login → saves Playwright storageState
 └── lib/
-    ├── types.ts        # TypeScript interfaces
-    ├── selectors.ts    # DOM selectors (patch here if HTML changes)
-    ├── scraper.ts      # Playwright browser automation + session persistence
-    ├── exporter.ts     # JSON/CSV file export
-    ├── mc-poster.ts    # Mission Control HTTP client
-    ├── db.ts           # Supabase persistence + screenshot upload
-    └── public-export.ts # Public trending.json for frontend
+    ├── types.ts            # TypeScript interfaces
+    ├── selectors.ts        # DOM selectors (patch here if HTML changes)
+    ├── scraper.ts          # Playwright scraper (session-only, no login automation)
+    ├── exporter.ts         # JSON/CSV file export
+    ├── mc-poster.ts        # Mission Control HTTP client
+    ├── db.ts               # Supabase persistence + screenshot upload
+    └── public-export.ts    # Public trending.json for frontend
 
-web/app/api/cron/daily-virals/route.ts   # Next.js API cron route
-web/data/trending/daily-virals/          # Output data directory
-web/skills/daily-virals-trending/SKILL.md # OpenClaw skill definition
+web/app/api/cron/daily-virals/route.ts       # Next.js API cron route
+web/data/sessions/daily-virals.storageState.json  # Saved browser session
+web/data/trending/daily-virals/              # Output data directory
+web/skills/daily-virals-trending/SKILL.md    # OpenClaw skill definition
 ```
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| "Missing required env vars" | Add `DAILY_VIRALS_*` vars to `web/.env.local` |
+| "No valid session found" | Run `npm run trending:daily-virals:bootstrap` to log in and save session |
+| "Cloudflare blocked (HTTP 403)" | Session expired or invalid. Re-run bootstrap |
 | "No trending items found" | Check `screenshots/YYYY-MM-DD/debug-page.html` for raw HTML. Update `selectors.ts` |
-| "Login blocked by 2FA" | Log in manually, complete challenge, then re-run |
 | MC post fails | Check `MC_API_TOKEN` is set and MC is running (`mc state`) |
 | Selectors broken | Edit `lib/selectors.ts` — each field has multiple fallback selectors |
 | Playwright not installed | Run `npx playwright install chromium` |
-| Session stale | Delete `.session-state.json` and re-run |
 | "Filtered N junk items" | Selectors are matching wrong elements. Check `debug-page.html` and update `selectors.ts` |
-| Zero items after retries | Site structure changed. Inspect `debug-page.html` + `00-full-page.png` and rebuild selectors |

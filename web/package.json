@@ -26,6 +26,7 @@
     "job:weekly-digest:dry": "tsx scripts/daily-intel/agents/weekly-digest.ts --dry-run",
     "trending:daily-virals": "tsx scripts/trending/daily-virals/run.ts",
     "trending:daily-virals:dry": "tsx scripts/trending/daily-virals/run.ts --dry-run",
+    "trending:daily-virals:bootstrap": "tsx scripts/trending/daily-virals/bootstrap-session.ts",
     "finops:rollup": "tsx scripts/finops/rollup-daily.ts",
     "finops:daily": "tsx scripts/finops/daily-report.ts",
     "finops:weekly": "tsx scripts/finops/weekly-report.ts",

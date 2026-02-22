@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkipLink } from '@/components/ui/SkipLink';
 import { AriaLiveProvider } from '@/components/ui/AriaLive';
 import { PlanDebugBanner } from '@/components/PlanDebugBanner';
+import { MainOnboardingTour } from '@/components/onboarding/MainOnboardingTour';
 import dynamic from 'next/dynamic';
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
@@ -232,6 +233,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={onItemClick}
+                  data-tour={item.tourId || undefined}
                   className={`
                     flex items-center gap-4 mx-2 rounded-xl transition-colors
                     ${isMobile
@@ -601,6 +603,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
     </div>
+    <MainOnboardingTour isMobile={isMobile} onOpenSidebar={() => setSidebarOpen(true)} />
     <FeedbackWidget />
     <CommandPalette />
     <KeyboardShortcutsModal />

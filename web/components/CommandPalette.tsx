@@ -26,6 +26,7 @@ import {
   UserCircle,
   Lightbulb,
   Sparkles,
+  GraduationCap,
 } from 'lucide-react';
 
 interface SearchResult {
@@ -70,6 +71,7 @@ const PAGES: PageEntry[] = [
   { name: 'Tasks', href: '/admin/tasks', icon: ListChecks, keywords: ['tasks', 'todo', 'checklist'] },
   { name: 'Review', href: '/admin/review', icon: Eye, keywords: ['review', 'approve', 'moderate'] },
   { name: 'Billing', href: '/admin/billing', icon: CreditCard, keywords: ['billing', 'plan', 'subscription', 'payment', 'upgrade'] },
+  { name: 'Restart Walkthrough', href: '#restart-tour', icon: GraduationCap, keywords: ['tour', 'walkthrough', 'onboarding', 'guide', 'tutorial'] },
 ];
 
 const RECENT_KEY = 'ff_recent_searches';
@@ -260,6 +262,11 @@ export function CommandPalette() {
   const navigateTo = (href: string) => {
     if (query) saveRecentSearch(query);
     setOpen(false);
+    if (href === '#restart-tour') {
+      localStorage.removeItem('ff-main-tour-seen');
+      window.dispatchEvent(new Event('flashflow:restart-tour'));
+      return;
+    }
     router.push(href);
   };
 

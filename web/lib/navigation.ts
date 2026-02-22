@@ -72,6 +72,8 @@ export interface NavItem {
   ownerOnly?: boolean;
   /** Minimum plan required to access (shown locked if user doesn't meet it) */
   minPlan?: 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
+  /** data-tour attribute value for guided walkthrough targeting */
+  tourId?: string;
 }
 
 /** Nav item with resolved lock state for rendering */
@@ -97,10 +99,10 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator' },
+      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator', tourId: 'nav-content-studio' },
       { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
-      { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite' },
-      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic },
+      { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
+      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, tourId: 'nav-transcriber' },
       { name: 'YT Transcriber', href: '/admin/youtube-transcribe', icon: Youtube },
     ],
   },
@@ -108,8 +110,8 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro' },
-      { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro' },
+      { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro', tourId: 'nav-pipeline' },
+      { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
     ],
   },
   {
@@ -117,7 +119,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro' },
+      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
     ],
   },
@@ -125,7 +127,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PRODUCTS',
     subscriptionType: 'saas',
     items: [
-      { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog' },
+      { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog', tourId: 'nav-products' },
       { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
       { name: 'Briefs', href: '/admin/briefs', icon: FileText, minPlan: 'creator_pro' },
       { name: 'Retainers & Bonuses', href: '/admin/retainers', icon: Target, minPlan: 'creator_pro' },

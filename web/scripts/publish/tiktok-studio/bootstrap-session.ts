@@ -24,9 +24,8 @@ import { CONFIG, getLaunchOptions } from '../../../../skills/tiktok-studio-uploa
 const TAG = '[tiktok:bootstrap]';
 
 const PROFILE_DIR = CONFIG.profileDir;
-const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
-const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
-const META_FILE = path.join(STATE_DIR, 'tiktok-studio.meta.json');
+const STATE_FILE = CONFIG.storageStatePath;
+const META_FILE = CONFIG.metaFilePath;
 const UPLOAD_URL = CONFIG.uploadUrl;
 
 const POLL_INTERVAL_MS = 5_000;
@@ -179,7 +178,7 @@ async function main() {
 }
 
 async function saveState(context: BrowserContext, page: Page, verified: boolean) {
-  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
 
   // Save storageState as backup
   const state = await context.storageState();

@@ -10,16 +10,38 @@ import * as path from 'path';
 export const STABLE_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+const _sessionsDir =
+  process.env.TIKTOK_SESSIONS_DIR ||
+  path.join(process.cwd(), 'data', 'sessions');
+
 export const CONFIG = {
   uploadUrl:
     process.env.TIKTOK_STUDIO_UPLOAD_URL ||
     'https://www.tiktok.com/tiktokstudio/upload',
 
+  /** Persistent Chromium profile directory — cookies/localStorage survive restarts. */
   profileDir:
     process.env.TIKTOK_BROWSER_PROFILE ||
-    path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile'),
+    path.join(_sessionsDir, 'tiktok-studio-profile'),
+
+  /** storageState JSON backup — used as fallback when persistent profile fails. */
+  storageStatePath:
+    process.env.TIKTOK_STORAGE_STATE ||
+    path.join(_sessionsDir, 'tiktok-studio.storageState.json'),
+
+  /** Session metadata (last save timestamp, verified flag, etc.). */
+  metaFilePath: path.join(_sessionsDir, 'tiktok-studio.meta.json'),
+
+  /** Directory for error screenshots / reports. */
+  errorDir: path.join(process.cwd(), 'data', 'tiktok-errors'),
 
   headless: process.env.TIKTOK_HEADLESS === 'true',
+
+  /** Launch headed and wait for manual login, then save session and exit. */
+  bootstrapLogin: process.env.TIKTOK_BOOTSTRAP_LOGIN === '1',
+
+  /** When session is expired, run bootstrap flow instead of failing fast. */
+  forceRelogin: process.env.FORCE_RELOGIN === '1',
 
   /** 'draft' (default) or 'post'. POST_NOW=true overrides to 'post'. */
   postMode:

@@ -22,30 +22,24 @@
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
-import { chromium, type BrowserContext, type Page } from 'playwright';
+import { type Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Reuse step functions from existing skill modules
+// Reuse step functions and session management from skill module
 import { uploadVideoFile } from '../../../../skills/tiktok-studio-uploader/upload.js';
 import { fillDescription } from '../../../../skills/tiktok-studio-uploader/description.js';
 import { attachProductByID } from '../../../../skills/tiktok-studio-uploader/product.js';
 import { saveDraft, publishPost } from '../../../../skills/tiktok-studio-uploader/draft.js';
-import { LOGIN_INDICATORS } from '../../../../skills/tiktok-studio-uploader/selectors.js';
-import { CONFIG, TIMEOUTS, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
+import {
+  openUploadStudio,
+  closeSession,
+} from '../../../../skills/tiktok-studio-uploader/browser.js';
+import { CONFIG } from '../../../../skills/tiktok-studio-uploader/types.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const UPLOAD_URL = CONFIG.uploadUrl;
-const PROFILE_DIR = CONFIG.profileDir;
-
-const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
-const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
-const META_FILE = path.join(STATE_DIR, 'tiktok-studio.meta.json');
-const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
-
-const FAIL_FAST_MSG =
-  'TikTok session expired — run `npm run tiktok:bootstrap` (one-time phone approval).';
+const ERROR_DIR = CONFIG.errorDir;
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
 
@@ -221,47 +215,7 @@ async function captureError(page: Page | null, error: string, context?: Record<s
   return dir;
 }
 
-// ─── Browser (persistent context) ───────────────────────────────────────────
-
-async function launchBrowser(): Promise<{
-  context: BrowserContext;
-  page: Page;
-}> {
-  if (!fs.existsSync(PROFILE_DIR)) {
-    console.error(`\n${FAIL_FAST_MSG}`);
-    console.error(`No persistent profile found at ${PROFILE_DIR}\n`);
-    process.exit(1);
-  }
-
-  // Clean stale lock files from previous crashed runs
-  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
-    const lockPath = path.join(PROFILE_DIR, lock);
-    try { fs.unlinkSync(lockPath); } catch { /* doesn't exist */ }
-  }
-
-  // Use shared launch options for consistent fingerprint
-  const launchOpts = getLaunchOptions({ headless: false });
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, launchOpts);
-
-  const page = context.pages()[0] || (await context.newPage());
-  return { context, page };
-}
-
-async function isLoggedIn(page: Page): Promise<boolean> {
-  const url = page.url();
-  if (url.includes('/login') || url.includes('/auth') || url.includes('/signup')) {
-    return false;
-  }
-  for (const sel of LOGIN_INDICATORS) {
-    try {
-      const visible = await page.locator(sel).first().isVisible({ timeout: 2_000 });
-      if (visible) return false;
-    } catch {
-      // selector not found — good
-    }
-  }
-  return true;
-}
+// ─── Modal Dismissal ────────────────────────────────────────────────────────
 
 async function dismissModals(page: Page): Promise<void> {
   const dismissSelectors = [
@@ -297,27 +251,11 @@ async function dismissModals(page: Page): Promise<void> {
   } catch { /* no modal */ }
 }
 
-async function saveBackupState(context: BrowserContext): Promise<void> {
-  try {
-    fs.mkdirSync(STATE_DIR, { recursive: true });
-    await context.storageState({ path: STATE_FILE });
-    const now = new Date();
-    fs.writeFileSync(
-      META_FILE,
-      JSON.stringify({ saved_at: now.toISOString(), profile_dir: PROFILE_DIR }, null, 2),
-    );
-    console.log(`StorageState backup saved to ${STATE_FILE}`);
-  } catch {
-    // non-critical — persistent profile is the primary
-  }
-}
-
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log('=== TikTok Studio Upload (persistent profile) ===\n');
   console.log(`Mode:    ${SHOULD_POST ? 'POST (publish immediately)' : 'DRAFT (save as draft)'}`);
-  console.log(`Profile: ${PROFILE_DIR}`);
 
   // 1. Read pack
   const pack = readPack(packDir!);
@@ -332,26 +270,17 @@ async function main() {
   console.log(`Description: ${pack.description.slice(0, 80)}...`);
   console.log(`Product ID:  ${pack.productId}`);
 
-  // 3. Launch browser with persistent context (no newContext!)
-  const { context, page } = await launchBrowser();
+  // 3. Open browser via skill module (persistent context + session checks)
+  const session = await openUploadStudio();
+  if (!session) {
+    // openUploadStudio already logged the reason and wrote session-invalid event
+    process.exit(1);
+  }
+
+  const { page } = session;
 
   try {
-    // 4. Navigate to upload page
-    await page.goto(UPLOAD_URL, {
-      waitUntil: 'domcontentloaded',
-      timeout: TIMEOUTS.navigation,
-    });
-    await page.waitForTimeout(3_000);
-
-    // 5. Login check — FAIL FAST, no retries
-    if (!(await isLoggedIn(page))) {
-      console.error(`\n${FAIL_FAST_MSG}\n`);
-      await captureError(page, 'Not logged in', { pack_dir: packDir });
-      await context.close();
-      process.exit(1);
-    }
-
-    // 6. Upload video
+    // 4. Upload video
     console.log('\n[1/4] Uploading video...');
     await uploadVideoFile(page, videoPath);
     console.log('      Video accepted.');
@@ -359,12 +288,12 @@ async function main() {
     // Dismiss any overlay modal TikTok shows after upload
     await dismissModals(page);
 
-    // 7. Fill description + hashtags
+    // 5. Fill description + hashtags
     console.log('[2/4] Filling description + hashtags...');
     await fillDescription(page, pack.description);
     console.log('      Description filled.');
 
-    // 8. Attach product
+    // 6. Attach product
     console.log(`[3/4] Attaching product ${pack.productId}...`);
     const productResult = await attachProductByID(page, pack.productId);
     if (productResult.linked) {
@@ -373,7 +302,7 @@ async function main() {
       console.log(`      Product linking issues: ${productResult.errors.join('; ')}`);
     }
 
-    // 9. Save as draft or post
+    // 7. Save as draft or post
     let result;
     if (SHOULD_POST) {
       console.log('[4/4] Publishing...');
@@ -393,13 +322,10 @@ async function main() {
       }
     }
 
-    // 10. Brief wait before closing to let TikTok finalize
+    // 8. Brief wait before closing to let TikTok finalize
     await page.waitForTimeout(5_000);
 
-    // 11. Save storageState as backup
-    await saveBackupState(context);
-
-    // 12. Output JSON result
+    // 9. Output JSON result
     const output = {
       status: SHOULD_POST ? 'posted' : 'drafted',
       pack_dir: path.resolve(packDir!),
@@ -415,10 +341,11 @@ async function main() {
   } catch (err: any) {
     console.error(`\nError: ${err.message}`);
     await captureError(page, err.message, { pack_dir: packDir, product_id: pack.productId });
-    await context.close();
+    await closeSession(session);
     process.exit(1);
   } finally {
-    try { await context.close(); } catch { /* already closed */ }
+    // closeSession saves storageState backup automatically
+    try { await closeSession(session); } catch { /* already closed */ }
   }
 }
 

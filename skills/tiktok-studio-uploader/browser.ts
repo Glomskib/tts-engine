@@ -5,14 +5,23 @@
  * Uses a persistent Chromium profile so login survives between runs.
  * The user logs in manually once; subsequent runs reuse the session.
  *
+ * Session strategy (in priority order):
+ *   1. launchPersistentContext(profileDir) — primary, cookies survive restarts
+ *   2. storageState JSON fallback — if persistent profile is corrupt/missing
+ *
  * Includes captcha/2FA detection with "needs-human" pause mode.
  *
  * IMPORTANT: By default, openUploadStudio runs in NON-INTERACTIVE mode
  * (fail-fast if not logged in). Only bootstrap uses interactive=true.
+ *
+ * Env vars that affect behavior:
+ *   TIKTOK_BOOTSTRAP_LOGIN=1  → launch headed, wait for manual login, save & exit
+ *   FORCE_RELOGIN=1           → if session expired, run bootstrap instead of fail-fast
  */
 
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as readline from 'readline';
 import { CONFIG, TIMEOUTS, getLaunchOptions } from './types.js';
 import {
@@ -21,6 +30,8 @@ import {
   TWO_FA_INDICATORS,
   BLOCKER_INDICATORS,
 } from './selectors.js';
+
+const TAG = '[tiktok-session]';
 
 export interface StudioSession {
   context: BrowserContext;
@@ -39,8 +50,114 @@ export interface OpenStudioOptions {
 const FAIL_FAST_MSG =
   'TikTok session expired — run `npm run tiktok:bootstrap` (one-time phone approval).';
 
+// ─── StorageState Helpers ────────────────────────────────────────────────────
+
+/**
+ * Validate and load storageState JSON. If corrupt, move it aside and return null.
+ */
+function loadStorageState(): object | null {
+  const ssPath = CONFIG.storageStatePath;
+  if (!fs.existsSync(ssPath)) {
+    console.log(`${TAG} No storageState backup at ${ssPath}`);
+    return null;
+  }
+
+  try {
+    const raw = fs.readFileSync(ssPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+
+    // Basic shape validation — must have cookies array
+    if (!parsed || !Array.isArray(parsed.cookies)) {
+      throw new Error('Missing or invalid cookies array');
+    }
+
+    console.log(`${TAG} StorageState loaded (${parsed.cookies.length} cookies) from ${ssPath}`);
+    return parsed;
+  } catch (err: any) {
+    // Corrupt — move aside with timestamp
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const corruptPath = `${ssPath}.corrupt-${ts}`;
+    try {
+      fs.renameSync(ssPath, corruptPath);
+      console.warn(`${TAG} StorageState corrupt: ${err.message}`);
+      console.warn(`${TAG} Moved to ${corruptPath}`);
+    } catch {
+      console.warn(`${TAG} StorageState corrupt and could not be moved aside: ${err.message}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Save storageState backup + meta file after a successful session.
+ */
+export async function saveSessionBackup(context: BrowserContext): Promise<void> {
+  try {
+    const ssDir = path.dirname(CONFIG.storageStatePath);
+    fs.mkdirSync(ssDir, { recursive: true });
+
+    await context.storageState({ path: CONFIG.storageStatePath });
+
+    const now = new Date();
+    const meta = {
+      saved_at: now.toISOString(),
+      profile_dir: CONFIG.profileDir,
+      storage_state: CONFIG.storageStatePath,
+    };
+    fs.writeFileSync(CONFIG.metaFilePath, JSON.stringify(meta, null, 2));
+
+    console.log(`${TAG} Session backup saved → ${CONFIG.storageStatePath}`);
+  } catch (err: any) {
+    // Non-critical — persistent profile is the primary store
+    console.warn(`${TAG} Failed to save session backup: ${err.message}`);
+  }
+}
+
+/**
+ * Write a session-invalid event file so external monitoring can detect it.
+ */
+function writeSessionInvalidEvent(reason: string): void {
+  try {
+    const dir = CONFIG.errorDir;
+    fs.mkdirSync(dir, { recursive: true });
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const eventFile = path.join(dir, `session-invalid-${ts}.json`);
+    const event = {
+      type: 'session_invalid',
+      timestamp: new Date().toISOString(),
+      reason,
+      profile_dir: CONFIG.profileDir,
+      action_required: 'Run: npm run tiktok:bootstrap',
+    };
+    fs.writeFileSync(eventFile, JSON.stringify(event, null, 2));
+    console.log(`${TAG} Session-invalid event written → ${eventFile}`);
+  } catch {
+    // Best-effort
+  }
+}
+
+// ─── Singleton Lock Cleanup ──────────────────────────────────────────────────
+
+function cleanStaleLocks(): void {
+  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    try {
+      fs.unlinkSync(path.join(CONFIG.profileDir, lock));
+    } catch {
+      /* doesn't exist */
+    }
+  }
+}
+
+// ─── Main Entry Point ────────────────────────────────────────────────────────
+
 /**
  * Launch the persistent browser and navigate to TikTok Studio upload page.
+ *
+ * Modes (auto-detected from env vars):
+ *   TIKTOK_BOOTSTRAP_LOGIN=1 → headed + interactive (manual login bootstrap)
+ *   FORCE_RELOGIN=1          → if not logged in, switch to interactive bootstrap
+ *   (default)                → fail-fast if not logged in
  *
  * In non-interactive mode (default): fails fast if not logged in or blocked.
  * In interactive mode (bootstrap): pauses for human intervention.
@@ -48,18 +165,67 @@ const FAIL_FAST_MSG =
 export async function openUploadStudio(
   opts: OpenStudioOptions = {},
 ): Promise<StudioSession | null> {
-  const interactive = opts.interactive ?? false;
-  const headless = opts.headless ?? CONFIG.headless;
+  // Resolve effective mode from opts + env vars
+  const isBootstrap = CONFIG.bootstrapLogin;
+  const allowForceRelogin = CONFIG.forceRelogin;
+  let interactive = opts.interactive ?? isBootstrap;
+  const headless = isBootstrap ? false : (opts.headless ?? CONFIG.headless);
 
+  // ── Verbose startup logging ──
+  console.log('');
+  console.log(`${TAG} ── Session startup ──`);
+  console.log(`${TAG} Mode:           ${isBootstrap ? 'BOOTSTRAP (manual login)' : allowForceRelogin ? 'UPLOAD (force-relogin enabled)' : 'UPLOAD (fail-fast)'}`);
+  console.log(`${TAG} Headless:       ${headless}`);
+  console.log(`${TAG} Profile dir:    ${CONFIG.profileDir}`);
+  console.log(`${TAG} StorageState:   ${CONFIG.storageStatePath}`);
+  console.log(`${TAG} Upload URL:     ${CONFIG.uploadUrl}`);
+  console.log(`${TAG} Interactive:    ${interactive}`);
+  console.log('');
+
+  // Ensure profile directory exists
   fs.mkdirSync(CONFIG.profileDir, { recursive: true });
+  cleanStaleLocks();
 
-  // Clean stale lock files from previous crashed runs
-  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
-    try { fs.unlinkSync(`${CONFIG.profileDir}/${lock}`); } catch { /* doesn't exist */ }
-  }
-
+  // ── Launch persistent context (primary approach) ──
+  console.log(`${TAG} Launching persistent context...`);
   const launchOpts = getLaunchOptions({ headless });
-  const context = await chromium.launchPersistentContext(CONFIG.profileDir, launchOpts);
+  let context: BrowserContext;
+
+  try {
+    context = await chromium.launchPersistentContext(CONFIG.profileDir, launchOpts);
+    console.log(`${TAG} Persistent context launched (profile reused).`);
+  } catch (err: any) {
+    console.warn(`${TAG} Persistent context failed: ${err.message}`);
+    console.log(`${TAG} Attempting fallback with storageState...`);
+
+    // Fallback: launch non-persistent with storageState
+    const ssData = loadStorageState();
+    if (!ssData) {
+      console.error(`${TAG} No valid storageState fallback available.`);
+      console.error(`${TAG} ${FAIL_FAST_MSG}`);
+      writeSessionInvalidEvent('Persistent context launch failed and no storageState fallback');
+      return null;
+    }
+
+    try {
+      const browser = await chromium.launch({
+        headless,
+        args: launchOpts.args,
+      });
+      context = await browser.newContext({
+        ...launchOpts,
+        storageState: CONFIG.storageStatePath,
+      });
+      console.log(`${TAG} Fallback: launched with storageState (non-persistent).`);
+      console.warn(`${TAG} WARNING: Session changes will NOT persist across restarts.`);
+      console.warn(`${TAG} Re-run tiktok:bootstrap to fix the persistent profile.`);
+    } catch (err2: any) {
+      console.error(`${TAG} StorageState fallback also failed: ${err2.message}`);
+      console.error(`${TAG} ${FAIL_FAST_MSG}`);
+      writeSessionInvalidEvent('Both persistent context and storageState fallback failed');
+      return null;
+    }
+  }
 
   const page = context.pages()[0] || (await context.newPage());
 
@@ -75,15 +241,17 @@ export async function openUploadStudio(
   if (blocker) {
     if (!interactive) {
       // Non-interactive: fail fast, never retry login
-      console.error(`[tiktok-uploader] BLOCKED: ${blocker} detected.`);
-      console.error(`[tiktok-uploader] ${FAIL_FAST_MSG}`);
+      console.error(`${TAG} BLOCKED: ${blocker} detected.`);
+      console.error(`${TAG} ${FAIL_FAST_MSG}`);
+      writeSessionInvalidEvent(`Blocker detected: ${blocker}`);
       await context.close();
       return null;
     }
 
     if (headless) {
-      console.error(`[tiktok-uploader] BLOCKED: ${blocker} detected in headless mode.`);
+      console.error(`${TAG} BLOCKED: ${blocker} detected in headless mode.`);
       console.error('Re-run with TIKTOK_HEADLESS=false to handle manually.');
+      writeSessionInvalidEvent(`Blocker in headless: ${blocker}`);
       await context.close();
       return null;
     }
@@ -99,25 +267,43 @@ export async function openUploadStudio(
   // ── Login check ──
   const loggedIn = await checkLogin(page);
   if (!loggedIn) {
+    // If FORCE_RELOGIN=1, escalate to interactive mode
+    if (allowForceRelogin && !interactive) {
+      console.log(`${TAG} Session expired + FORCE_RELOGIN=1 → switching to interactive bootstrap.`);
+      interactive = true;
+    }
+
     if (!interactive) {
       // Non-interactive: fail fast with explicit message
-      console.error(`[tiktok-uploader] NOT LOGGED IN.`);
-      console.error(`[tiktok-uploader] ${FAIL_FAST_MSG}`);
+      console.error(`${TAG} NOT LOGGED IN.`);
+      console.error(`${TAG} ${FAIL_FAST_MSG}`);
+      writeSessionInvalidEvent('Not logged in — session expired');
       await context.close();
       return null;
     }
 
     if (headless) {
-      console.error('[tiktok-uploader] Not logged in and running headless — cannot log in.');
-      console.error(`[tiktok-uploader] ${FAIL_FAST_MSG}`);
+      console.error(`${TAG} Not logged in and running headless — cannot log in.`);
+      console.error(`${TAG} ${FAIL_FAST_MSG}`);
+      writeSessionInvalidEvent('Not logged in in headless mode');
       await context.close();
       return null;
     }
 
     // Interactive + headed — wait for manual login
-    console.log('[tiktok-uploader] Not logged in. Please log in manually in the browser...');
+    console.log(`${TAG} Not logged in. Please log in manually in the browser...`);
     const resolved = await waitForHumanIntervention(page, 'login');
     if (resolved) {
+      // Save session immediately after login
+      await saveSessionBackup(context);
+
+      // If bootstrap mode, we're done — save and exit
+      if (isBootstrap) {
+        console.log(`${TAG} Bootstrap complete — session saved. Exiting.`);
+        await context.close();
+        process.exit(0);
+      }
+
       // Re-navigate to upload page after login
       await page.goto(CONFIG.uploadUrl, {
         waitUntil: 'domcontentloaded',
@@ -130,8 +316,21 @@ export async function openUploadStudio(
     return null;
   }
 
+  // Already logged in
+  console.log(`${TAG} Login confirmed — session is valid.`);
+
+  // If bootstrap mode and already logged in, just save and exit
+  if (isBootstrap) {
+    await saveSessionBackup(context);
+    console.log(`${TAG} Bootstrap: already logged in — session saved. Exiting.`);
+    await context.close();
+    process.exit(0);
+  }
+
   return { context, page };
 }
+
+// ─── Blocker Detection ───────────────────────────────────────────────────────
 
 /**
  * Detect captcha, 2FA, or other blockers on the page.
@@ -148,7 +347,7 @@ async function detectBlocker(page: Page): Promise<BlockerType> {
       try {
         const visible = await page.locator(sel).first().isVisible({ timeout: 1_500 });
         if (visible) {
-          console.log(`[tiktok-uploader] Detected ${type}: ${sel}`);
+          console.log(`${TAG} Detected ${type}: ${sel}`);
           return type;
         }
       } catch {
@@ -160,19 +359,25 @@ async function detectBlocker(page: Page): Promise<BlockerType> {
   return null;
 }
 
+// ─── Login Check ─────────────────────────────────────────────────────────────
+
 /**
  * Returns true if the page shows a logged-in state.
  */
 async function checkLogin(page: Page): Promise<boolean> {
   const url = page.url();
   if (url.includes('/login') || url.includes('/auth') || url.includes('/signup')) {
+    console.log(`${TAG} Login check: URL indicates not logged in (${url})`);
     return false;
   }
 
   for (const sel of LOGIN_INDICATORS) {
     try {
       const visible = await page.locator(sel).first().isVisible({ timeout: 2_000 });
-      if (visible) return false;
+      if (visible) {
+        console.log(`${TAG} Login check: found login indicator "${sel}"`);
+        return false;
+      }
     } catch {
       // selector not found — good
     }
@@ -180,6 +385,8 @@ async function checkLogin(page: Page): Promise<boolean> {
 
   return true;
 }
+
+// ─── Human Intervention ──────────────────────────────────────────────────────
 
 /**
  * Pause execution and wait for the user to resolve a blocker manually.
@@ -224,7 +431,7 @@ async function waitForHumanIntervention(
         resolved = true;
         clearInterval(pollTimer);
         rl.close();
-        console.log('[tiktok-uploader] Blocker resolved! Continuing...\n');
+        console.log(`${TAG} Blocker resolved! Continuing...\n`);
         resolve(true);
         return;
       }
@@ -233,7 +440,7 @@ async function waitForHumanIntervention(
         resolved = true;
         clearInterval(pollTimer);
         rl.close();
-        console.log('[tiktok-uploader] Timed out waiting for human intervention.');
+        console.log(`${TAG} Timed out waiting for human intervention.`);
         resolve(false);
       }
     }, POLL_INTERVAL);
@@ -246,24 +453,30 @@ async function waitForHumanIntervention(
         resolved = true;
         clearInterval(pollTimer);
         rl.close();
-        console.log('[tiktok-uploader] Aborted by user.');
+        console.log(`${TAG} Aborted by user.`);
         resolve(false);
       } else {
         // User pressed Enter — assume they resolved it
         resolved = true;
         clearInterval(pollTimer);
         rl.close();
-        console.log('[tiktok-uploader] Continuing...\n');
+        console.log(`${TAG} Continuing...\n`);
         resolve(true);
       }
     });
   });
 }
 
+// ─── Session Teardown ────────────────────────────────────────────────────────
+
 /**
- * Gracefully close the browser session.
+ * Gracefully close the browser session. Saves storageState backup before closing.
  */
 export async function closeSession(session: StudioSession, delayMs = 0): Promise<void> {
   if (delayMs > 0) await session.page.waitForTimeout(delayMs);
+
+  // Always save session backup on close to keep cookies fresh
+  await saveSessionBackup(session.context);
+
   await session.context.close();
 }

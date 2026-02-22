@@ -127,12 +127,10 @@ export async function POST(request: NextRequest) {
         responseText += "\n\nRelated docs: " + parsed.doc_links.join(", ");
       }
     } catch (parseErr) {
-      // Fallback: if JSON parsing fails, treat raw text as general response
+      // Fallback: if JSON parsing fails, use a friendly generic response
       console.warn("[support/live] Intent JSON parse failed, using fallback:", parseErr);
       intentResult = { intent: "general", response: "" };
-      responseText = parseErr instanceof SyntaxError
-        ? "I'm sorry, I had trouble processing that. Could you rephrase your question?"
-        : String(parseErr);
+      responseText = "Hi there! I'm FlashFlow's support assistant. How can I help you today? Feel free to ask about our features, report an issue, or request something new.";
     }
 
     // Insert bot response as support_message

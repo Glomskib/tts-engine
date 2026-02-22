@@ -230,59 +230,93 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     console.warn(`${TAG} Login tab click attempt:`, err);
   }
 
-  // Step 5+6: Fill login form using click + keyboard.type().
-  // React controlled inputs only respond to real keystroke events, not fill()/JS value setters.
-  // click() focuses the input, then keyboard.type() sends real keystrokes character-by-character.
-  console.log(`${TAG} Filling login form...`);
+  // Step 5+6: Fill + submit login form entirely via page.evaluate().
+  //
+  // Why JS-only: React controlled inputs ignore keyboard.type() values
+  // (the DOM shows text visually but React state stays ""). And the AuthModal
+  // backdrop div intercepts Playwright clicks. So we must:
+  //   1. Set input values via nativeInputValueSetter (bypasses React's setter)
+  //   2. Dispatch 'input' events (React's onChange listens for these)
+  //   3. Click the submit button via dispatchEvent (bypasses overlay)
+  console.log(`${TAG} Filling + submitting login form via JS...`);
 
   const modal = '#AuthModal';
 
-  // Email — click to focus, then type
-  const emailLoc = page.locator(`${modal} input[placeholder="Email"]`).first();
-  const emailAlt = page.locator(`${modal} input[type="email"]`).first();
-  const emailTarget = (await emailLoc.count()) > 0 ? emailLoc : emailAlt;
+  // Monitor network requests
+  const loginApiCalls: string[] = [];
+  page.on('request', (req) => {
+    const url = req.url();
+    if (url.includes('login') || url.includes('auth') || url.includes('signin') || url.includes('session') || url.includes('api')) {
+      loginApiCalls.push(`→ ${req.method()} ${url}`);
+    }
+  });
+  page.on('response', (res) => {
+    const url = res.url();
+    if (url.includes('login') || url.includes('auth') || url.includes('signin') || url.includes('session') || url.includes('api')) {
+      loginApiCalls.push(`← ${res.status()} ${url}`);
+    }
+  });
 
-  if (await emailTarget.count() === 0) {
+  const fillResult = await page.evaluate(
+    `(function() {
+      var modal = document.querySelector('#AuthModal');
+      if (!modal) return { ok: false, error: 'No modal found' };
+
+      var emailEl = modal.querySelector('input[placeholder="Email"]')
+        || modal.querySelector('input[type="email"]');
+      var pwEl = modal.querySelector('input[type="password"]')
+        || modal.querySelector('input[placeholder="Password"]');
+
+      if (!emailEl) return { ok: false, error: 'Email input not found' };
+      if (!pwEl) return { ok: false, error: 'Password input not found' };
+
+      // Use nativeInputValueSetter + React _valueTracker reset.
+      // React caches the last-known value internally; we must clear it
+      // so React's onChange handler sees the new value as a change.
+      var nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, 'value'
+      ).set;
+
+      function setReactInputValue(el, value) {
+        // Reset React's internal value tracker so it detects the change
+        var tracker = el._valueTracker;
+        if (tracker) tracker.setValue('');
+
+        nativeSetter.call(el, value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      // Set email
+      setReactInputValue(emailEl, ${JSON.stringify(email)});
+
+      // Set password
+      setReactInputValue(pwEl, ${JSON.stringify(password)});
+
+      // Verify values stuck
+      var emailVal = emailEl.value;
+      var pwVal = pwEl.value;
+
+      return {
+        ok: true,
+        emailLen: emailVal.length,
+        pwLen: pwVal.length,
+        emailMatch: emailVal === ${JSON.stringify(email)},
+      };
+    })()`
+  ) as { ok: boolean; error?: string; emailLen?: number; pwLen?: number; emailMatch?: boolean };
+
+  console.log(`${TAG} Fill result:`, JSON.stringify(fillResult));
+
+  if (!fillResult.ok) {
     const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
     fs.mkdirSync(ssDir, { recursive: true });
     const debugPath = path.join(ssDir, 'fill-failed.png');
     await page.screenshot({ path: debugPath, fullPage: true });
-    return { ok: false, blocked: true, reason: `Email input not found. Screenshot: ${debugPath}` };
+    return { ok: false, blocked: true, reason: `${fillResult.error}. Screenshot: ${debugPath}` };
   }
 
-  await emailTarget.click({ force: true });
-  await page.waitForTimeout(200);
-  // Select all + delete to clear any existing value
-  await page.keyboard.press('Meta+a');
-  await page.keyboard.press('Backspace');
-  await page.keyboard.type(email, { delay: 40 });
-  console.log(`${TAG} Email typed via click + keyboard`);
-
-  await page.waitForTimeout(300);
-
-  // Password — click to focus, then type
-  const pwLoc = page.locator(`${modal} input[placeholder="Password"]`).first();
-  const pwAlt = page.locator(`${modal} input[type="password"]`).first();
-  const pwTarget = (await pwLoc.count()) > 0 ? pwLoc : pwAlt;
-
-  if (await pwTarget.count() === 0) {
-    const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
-    fs.mkdirSync(ssDir, { recursive: true });
-    const debugPath = path.join(ssDir, 'password-not-found.png');
-    await page.screenshot({ path: debugPath, fullPage: true });
-    return { ok: false, blocked: true, reason: `Password input not found. Screenshot: ${debugPath}` };
-  }
-
-  await pwTarget.click({ force: true });
-  await page.waitForTimeout(200);
-  await page.keyboard.press('Meta+a');
-  await page.keyboard.press('Backspace');
-  await page.keyboard.type(password, { delay: 40 });
-  console.log(`${TAG} Password typed via click + keyboard`);
-
-  await page.waitForTimeout(500);
-
-  // Take a pre-submit screenshot for debugging
+  // Take pre-submit screenshot
   {
     const ssDir = path.join(process.cwd(), 'data/trending/daily-virals/screenshots');
     fs.mkdirSync(ssDir, { recursive: true });
@@ -290,10 +324,42 @@ async function login(page: Page): Promise<{ ok: boolean; blocked: boolean; reaso
     console.log(`${TAG} Pre-submit screenshot saved`);
   }
 
-  // Submit: Press Enter from the password field (most reliable for React forms).
-  // Clicking the button with force:true can bypass React's event chain.
-  console.log(`${TAG} Submitting form via Enter key from password field`);
-  await page.keyboard.press('Enter');
+  // Small delay to let React reconcile
+  await page.waitForTimeout(500);
+
+  // Click the submit button via JS dispatchEvent (bypasses overlay interception)
+  console.log(`${TAG} Clicking submit button via JS...`);
+  const clickResult = await page.evaluate(
+    `(function() {
+      var modal = document.querySelector('#AuthModal');
+      if (!modal) return 'MODAL_GONE';
+
+      // Find the orange Login button (not a tab, not the close button)
+      var buttons = modal.querySelectorAll('button');
+      for (var i = 0; i < buttons.length; i++) {
+        var btn = buttons[i];
+        var text = (btn.textContent || '').trim();
+        var role = btn.getAttribute('role');
+        var label = btn.getAttribute('aria-label');
+        // The submit button has text "Login", no role, no aria-label="Close"
+        if (text === 'Login' && !role && label !== 'Close') {
+          // Dispatch a full click event chain that React will handle
+          btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+          btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+          btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+          btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          return 'CLICKED:' + text;
+        }
+      }
+      return 'NOT_FOUND';
+    })()`
+  ) as string;
+  console.log(`${TAG} Click result: ${clickResult}`);
+
+  // Wait for API call
+  await page.waitForTimeout(3000);
+  console.log(`${TAG} Network activity: ${loginApiCalls.length > 0 ? loginApiCalls.join(' | ') : 'NO login API calls detected'}`);
 
   // Wait for login to process — watch for "Processing..." → result
   console.log(`${TAG} Waiting for login to complete...`);

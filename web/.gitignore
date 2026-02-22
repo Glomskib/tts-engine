@@ -44,3 +44,7 @@ next-env.d.ts
 /supabase/.temp/
 .env*.local
 bin/
+
+# debug screenshots and logs
+/data/trending/daily-virals/screenshots/
+/logs/

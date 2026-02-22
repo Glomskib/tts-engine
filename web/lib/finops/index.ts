@@ -6,5 +6,7 @@
  */
 export { costFromUsage, hasPricing, getAllPricing } from './cost';
 export type { ModelPricing, CostFromUsageInput } from './cost';
-export { logUsageEvent, logUsageEventAsync } from './log-usage';
+export { logUsageEvent, logUsageEventAsync, estimateTokens } from './log-usage';
 export type { LogUsageEventInput, UsageEventRow } from './log-usage';
+export { logToolUsageEvent, logToolUsageEventAsync } from './log-tool-usage';
+export type { LogToolUsageEventInput, ToolUsageEventRow } from './log-tool-usage';

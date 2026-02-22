@@ -264,6 +264,7 @@ export default function CommandCenterDashboard() {
           { label: 'Idea Dump', href: '/admin/command-center/ideas' },
           { label: 'Finance', href: '/admin/command-center/finance' },
           { label: 'Agent Scoreboard', href: '/admin/command-center/agents' },
+          { label: 'FinOps', href: '/admin/command-center/finops' },
           { label: 'CRM Pipeline', href: '/admin/command-center/crm' },
         ].map((item) => (
           <Link

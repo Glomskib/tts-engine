@@ -29,6 +29,7 @@ export interface LogUsageEventInput {
   generation_id?: string;
   task_id?: string;
   latency_ms?: number;
+  estimated?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -80,6 +81,7 @@ export async function logUsageEvent(
         generation_id: input.generation_id ?? null,
         task_id: input.task_id ?? null,
         latency_ms: input.latency_ms ?? null,
+        estimated: input.estimated ?? false,
         metadata: input.metadata ?? {},
       })
       .select('id, created_at, source, lane, cost_usd')
@@ -102,4 +104,12 @@ export async function logUsageEvent(
  */
 export function logUsageEventAsync(input: LogUsageEventInput): void {
   logUsageEvent(input).catch(() => {});
+}
+
+/**
+ * Best-effort token estimate from raw text (~4 chars per token).
+ * Use when the API does not return token counts.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
 }

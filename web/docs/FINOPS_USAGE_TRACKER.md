@@ -26,6 +26,25 @@ Per-call token usage and cost. One row per LLM API call.
 | correlation_id | text | links to ff_generations.correlation_id |
 | endpoint | text | API route that generated the cost |
 | template_key | text | e.g. `hook_generate`, `script_generate` |
+| estimated | boolean | `true` if token counts are best-effort estimates |
+| metadata | jsonb | arbitrary extra data |
+
+### tool_usage_events
+Non-LLM tool usage events (HeyGen, ElevenLabs, Runway, Replicate, etc.).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| created_at | timestamptz | auto |
+| tool_name | text | `heygen`, `elevenlabs`, `runway`, `replicate` |
+| lane | text | same as ff_usage_events |
+| agent_id | text | optional |
+| user_id | uuid | optional |
+| run_id | text | optional |
+| duration_ms | integer | optional |
+| success | boolean | default `true` |
+| error_code | text | optional |
+| cost_usd | numeric(12,6) | default 0 |
 | metadata | jsonb | arbitrary extra data |
 
 ### ff_usage_rollups_daily
@@ -120,6 +139,64 @@ Wired endpoints:
 - `POST /api/scripts/generate` (Anthropic, via unified-script-generator)
 - `POST /api/public/generate-script` (Anthropic claude-haiku-4-5)
 - `POST /api/ai/generate-free` (OpenAI gpt-4o-mini)
+- `POST /api/ai/draft-video-brief` (Anthropic claude-haiku-4-5 or OpenAI gpt-4-turbo-preview)
+
+## Tool Usage Logging
+
+Non-LLM tools (HeyGen, ElevenLabs, etc.) log to `tool_usage_events` via `logToolUsageEventAsync()`:
+
+```ts
+import { logToolUsageEventAsync } from '@/lib/finops';
+
+logToolUsageEventAsync({
+  tool_name: 'heygen',
+  lane: 'FlashFlow',
+  duration_ms: 12000,
+  cost_usd: 0.50,
+  metadata: { video_id: '...' },
+});
+```
+
+## Token Estimation
+
+When API responses don't include token counts, use the `estimated` flag:
+
+```ts
+import { logUsageEventAsync, estimateTokens } from '@/lib/finops';
+
+logUsageEventAsync({
+  ...baseFields,
+  input_tokens: estimateTokens(prompt),   // ~text.length/4
+  output_tokens: estimateTokens(response),
+  estimated: true,
+});
+```
+
+## FinOps Dashboard
+
+**Page:** `/admin/command-center/finops`
+**API:** `GET /api/finops/dashboard` (owner-only)
+
+Displays:
+- Summary cards: Spend Today, 7-Day Spend, MTD Spend, Projected Monthly
+- 30-day cost bar chart
+- Top Models table (30d, sorted by cost)
+- Top Endpoints table (7d, sorted by cost)
+- Cost by Lane table (30d)
+
+### Burn Rate Formula
+
+```
+projected_monthly = mtd_cost * (days_in_month / days_elapsed)
+```
+
+## CSV Export
+
+`GET /api/finops/export?start=YYYY-MM-DD&end=YYYY-MM-DD` (owner-only)
+
+Downloads a CSV of `ff_usage_events` for the given date range (max 10,000 rows).
+
+Columns: `id, created_at, source, lane, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, estimated, endpoint, template_key, agent_id, latency_ms`
 
 ## Daily Report Contents
 
@@ -145,4 +222,5 @@ supabase migration up --linked
 
 Migration files:
 - `supabase/migrations/20260226000001_finops.sql` — base tables
-- `supabase/migrations/20260221000001_finops_extend.sql` — adds correlation_id + endpoint
+- `supabase/migrations/20260226000002_finops_extend.sql` — adds correlation_id + endpoint
+- `supabase/migrations/20260302000002_finops_tool_events_and_estimated.sql` — adds `estimated` flag + `tool_usage_events` table

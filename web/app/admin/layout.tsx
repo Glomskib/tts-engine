@@ -100,6 +100,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/command-center/ideas': 'Idea Dump',
       '/admin/command-center/finance': 'Finance',
       '/admin/command-center/agents': 'Agent Scoreboard',
+      '/admin/command-center/finops': 'FinOps',
     };
     const title = PAGE_TITLES[pathname] || 'Admin';
     document.title = `${title} | FlashFlow AI`;

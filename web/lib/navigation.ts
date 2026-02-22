@@ -50,6 +50,7 @@ import {
   Target,
   Download,
   Youtube,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -189,6 +190,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Idea Dump', href: '/admin/command-center/ideas', icon: Lightbulb, ownerOnly: true },
       { name: 'Finance', href: '/admin/command-center/finance', icon: DollarSign, ownerOnly: true },
       { name: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap, ownerOnly: true },
+      { name: 'FinOps', href: '/admin/command-center/finops', icon: Gauge, ownerOnly: true },
     ],
   },
 ];

@@ -3,6 +3,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
 import { singleFlight, generateFlightKey, createConflictResponse, SingleFlightConflictError } from "@/lib/single-flight";
+import { logUsageEventAsync } from '@/lib/finops';
 import { NextResponse } from "next/server";
 import { scoreAndSortHookOptions, type HookScoringContext, type HookScoreResult } from "@/lib/ai/scoreHookOption";
 import { getHookFamilyKey, selectDiverseOptions, type ScoredOptionWithFamily } from "@/lib/ai/hookFamily";
@@ -1613,6 +1614,17 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
       }
 
       const anthropicResult = await response.json();
+      logUsageEventAsync({
+        source: 'flashflow', lane: 'FlashFlow', provider: 'anthropic',
+        model: 'claude-haiku-4-5-20251001',
+        input_tokens: anthropicResult.usage?.input_tokens ?? 0,
+        output_tokens: anthropicResult.usage?.output_tokens ?? 0,
+        cache_read_tokens: anthropicResult.usage?.cache_read_input_tokens ?? 0,
+        cache_write_tokens: anthropicResult.usage?.cache_creation_input_tokens ?? 0,
+        estimated: !anthropicResult.usage,
+        endpoint: '/api/ai/draft-video-brief', template_key: 'draft_video_brief',
+        agent_id: 'flash', correlation_id: correlationId,
+      });
       rawAiResponse = anthropicResult.content?.[0]?.text || "";
 
       if (!rawAiResponse) {
@@ -1656,6 +1668,15 @@ async function executeAIGeneration(params: ExecuteAIGenerationParams): Promise<N
       }
 
       const openaiResult = await response.json();
+      logUsageEventAsync({
+        source: 'flashflow', lane: 'FlashFlow', provider: 'openai',
+        model: 'gpt-4-turbo-preview',
+        input_tokens: openaiResult.usage?.prompt_tokens ?? 0,
+        output_tokens: openaiResult.usage?.completion_tokens ?? 0,
+        estimated: !openaiResult.usage,
+        endpoint: '/api/ai/draft-video-brief', template_key: 'draft_video_brief',
+        agent_id: 'flash', correlation_id: correlationId,
+      });
       rawAiResponse = openaiResult.choices?.[0]?.message?.content || "";
 
       if (!rawAiResponse) {

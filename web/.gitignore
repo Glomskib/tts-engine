@@ -56,4 +56,4 @@ bin/
 /data/tiktok-errors/
 
 # Regression test reports
-/var/run-reports/
+/var/run-reports/**

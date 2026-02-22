@@ -51,3 +51,6 @@ bin/
 
 # browser sessions (contain cookies — never commit)
 /data/sessions/
+
+# TikTok error screenshots and reports
+/data/tiktok-errors/

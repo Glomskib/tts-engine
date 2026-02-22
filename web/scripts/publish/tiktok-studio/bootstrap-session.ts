@@ -19,18 +19,16 @@ config({ path: '.env.local' });
 import { chromium, type Page, type BrowserContext } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CONFIG, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
 
 const TAG = '[tiktok:bootstrap]';
 
-const PROFILE_DIR =
-  process.env.TIKTOK_BROWSER_PROFILE ||
-  path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile');
-
+const PROFILE_DIR = CONFIG.profileDir;
 const STATE_DIR = path.join(process.cwd(), 'data', 'sessions');
 const STATE_FILE = path.join(STATE_DIR, 'tiktok-studio.storageState.json');
 const META_FILE = path.join(STATE_DIR, 'tiktok-studio.meta.json');
+const UPLOAD_URL = CONFIG.uploadUrl;
 
-const UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
 const POLL_INTERVAL_MS = 5_000;
 const MAX_WAIT_MS = 5 * 60_000; // 5 minutes
 
@@ -80,11 +78,15 @@ async function main() {
 
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
 
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: false,
-    viewport: { width: 1280, height: 900 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  // Clean stale lock files from previous crashed runs
+  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    const lockPath = path.join(PROFILE_DIR, lock);
+    try { fs.unlinkSync(lockPath); } catch { /* doesn't exist */ }
+  }
+
+  // Use shared launch options for consistent fingerprint — always headed for bootstrap
+  const launchOpts = getLaunchOptions({ headless: false });
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, launchOpts);
 
   const page = context.pages()[0] || (await context.newPage());
 

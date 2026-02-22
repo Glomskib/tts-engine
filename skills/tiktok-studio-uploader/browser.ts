@@ -6,12 +6,15 @@
  * The user logs in manually once; subsequent runs reuse the session.
  *
  * Includes captcha/2FA detection with "needs-human" pause mode.
+ *
+ * IMPORTANT: By default, openUploadStudio runs in NON-INTERACTIVE mode
+ * (fail-fast if not logged in). Only bootstrap uses interactive=true.
  */
 
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { CONFIG, TIMEOUTS } from './types.js';
+import { CONFIG, TIMEOUTS, getLaunchOptions } from './types.js';
 import {
   LOGIN_INDICATORS,
   CAPTCHA_INDICATORS,
@@ -26,19 +29,37 @@ export interface StudioSession {
 
 export type BlockerType = 'captcha' | '2fa' | 'blocker' | 'login' | null;
 
+export interface OpenStudioOptions {
+  /** Allow human intervention for captcha/login? Default: false (fail-fast). */
+  interactive?: boolean;
+  /** Override headless. Default: CONFIG.headless */
+  headless?: boolean;
+}
+
+const FAIL_FAST_MSG =
+  'TikTok session expired — run `npm run tiktok:bootstrap` (one-time phone approval).';
+
 /**
  * Launch the persistent browser and navigate to TikTok Studio upload page.
- * Returns null if the user is not logged in.
- * Pauses for human intervention if captcha/2FA is detected.
+ *
+ * In non-interactive mode (default): fails fast if not logged in or blocked.
+ * In interactive mode (bootstrap): pauses for human intervention.
  */
-export async function openUploadStudio(): Promise<StudioSession | null> {
+export async function openUploadStudio(
+  opts: OpenStudioOptions = {},
+): Promise<StudioSession | null> {
+  const interactive = opts.interactive ?? false;
+  const headless = opts.headless ?? CONFIG.headless;
+
   fs.mkdirSync(CONFIG.profileDir, { recursive: true });
 
-  const context = await chromium.launchPersistentContext(CONFIG.profileDir, {
-    headless: CONFIG.headless,
-    viewport: { width: 1280, height: 900 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  // Clean stale lock files from previous crashed runs
+  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    try { fs.unlinkSync(`${CONFIG.profileDir}/${lock}`); } catch { /* doesn't exist */ }
+  }
+
+  const launchOpts = getLaunchOptions({ headless });
+  const context = await chromium.launchPersistentContext(CONFIG.profileDir, launchOpts);
 
   const page = context.pages()[0] || (await context.newPage());
 
@@ -52,15 +73,22 @@ export async function openUploadStudio(): Promise<StudioSession | null> {
   // ── Blocker detection (captcha, 2FA, errors) ──
   const blocker = await detectBlocker(page);
   if (blocker) {
-    if (CONFIG.headless) {
-      // Can't pause in headless — close and report
+    if (!interactive) {
+      // Non-interactive: fail fast, never retry login
+      console.error(`[tiktok-uploader] BLOCKED: ${blocker} detected.`);
+      console.error(`[tiktok-uploader] ${FAIL_FAST_MSG}`);
+      await context.close();
+      return null;
+    }
+
+    if (headless) {
       console.error(`[tiktok-uploader] BLOCKED: ${blocker} detected in headless mode.`);
       console.error('Re-run with TIKTOK_HEADLESS=false to handle manually.');
       await context.close();
       return null;
     }
 
-    // Headed mode — pause for human intervention
+    // Interactive + headed — pause for human intervention
     const resolved = await waitForHumanIntervention(page, blocker);
     if (!resolved) {
       await context.close();
@@ -71,18 +99,32 @@ export async function openUploadStudio(): Promise<StudioSession | null> {
   // ── Login check ──
   const loggedIn = await checkLogin(page);
   if (!loggedIn) {
-    if (!CONFIG.headless) {
-      console.log('[tiktok-uploader] Not logged in. Please log in manually in the browser...');
-      const resolved = await waitForHumanIntervention(page, 'login');
-      if (resolved) {
-        // Re-navigate to upload page after login
-        await page.goto(CONFIG.uploadUrl, {
-          waitUntil: 'domcontentloaded',
-          timeout: TIMEOUTS.navigation,
-        });
-        await page.waitForTimeout(3_000);
-        return { context, page };
-      }
+    if (!interactive) {
+      // Non-interactive: fail fast with explicit message
+      console.error(`[tiktok-uploader] NOT LOGGED IN.`);
+      console.error(`[tiktok-uploader] ${FAIL_FAST_MSG}`);
+      await context.close();
+      return null;
+    }
+
+    if (headless) {
+      console.error('[tiktok-uploader] Not logged in and running headless — cannot log in.');
+      console.error(`[tiktok-uploader] ${FAIL_FAST_MSG}`);
+      await context.close();
+      return null;
+    }
+
+    // Interactive + headed — wait for manual login
+    console.log('[tiktok-uploader] Not logged in. Please log in manually in the browser...');
+    const resolved = await waitForHumanIntervention(page, 'login');
+    if (resolved) {
+      // Re-navigate to upload page after login
+      await page.goto(CONFIG.uploadUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: TIMEOUTS.navigation,
+      });
+      await page.waitForTimeout(3_000);
+      return { context, page };
     }
     await context.close();
     return null;
@@ -149,10 +191,10 @@ async function waitForHumanIntervention(
   blockerType: BlockerType,
 ): Promise<boolean> {
   const messages: Record<string, string> = {
-    captcha: '🔒 CAPTCHA detected. Please solve it in the browser window.',
-    '2fa': '🔐 Two-factor authentication required. Please enter the code in the browser.',
-    blocker: '⚠️  TikTok is blocking access. Please resolve the issue in the browser.',
-    login: '🔑 Login required. Please log in to TikTok in the browser window.',
+    captcha: 'CAPTCHA detected. Please solve it in the browser window.',
+    '2fa': 'Two-factor authentication required. Please enter the code in the browser.',
+    blocker: 'TikTok is blocking access. Please resolve the issue in the browser.',
+    login: 'Login required. Please log in to TikTok in the browser window.',
   };
 
   console.log('\n' + '='.repeat(60));
@@ -182,7 +224,7 @@ async function waitForHumanIntervention(
         resolved = true;
         clearInterval(pollTimer);
         rl.close();
-        console.log('[tiktok-uploader] ✓ Blocker resolved! Continuing...\n');
+        console.log('[tiktok-uploader] Blocker resolved! Continuing...\n');
         resolve(true);
         return;
       }
@@ -211,7 +253,7 @@ async function waitForHumanIntervention(
         resolved = true;
         clearInterval(pollTimer);
         rl.close();
-        console.log('[tiktok-uploader] ✓ Continuing...\n');
+        console.log('[tiktok-uploader] Continuing...\n');
         resolve(true);
       }
     });

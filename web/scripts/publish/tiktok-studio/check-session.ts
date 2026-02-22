@@ -6,6 +6,11 @@
  * Opens the persistent Chromium profile, navigates to TikTok Studio,
  * and prints LOGGED_IN=true or LOGGED_IN=false.
  *
+ * Exit codes:
+ *   0 = logged in
+ *   1 = error
+ *   2 = not logged in (session expired)
+ *
  * Usage:
  *   npm run tiktok:check-session
  */
@@ -16,14 +21,12 @@ config({ path: '.env.local' });
 import { chromium } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CONFIG, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
 
 const TAG = '[tiktok:check-session]';
 
-const PROFILE_DIR =
-  process.env.TIKTOK_BROWSER_PROFILE ||
-  path.join(process.cwd(), 'data', 'sessions', 'tiktok-studio-profile');
-
-const UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
+const PROFILE_DIR = CONFIG.profileDir;
+const UPLOAD_URL = CONFIG.uploadUrl;
 
 /** Selectors that prove the user is NOT logged in. */
 const NOT_LOGGED_IN = [
@@ -45,17 +48,21 @@ async function main() {
     console.log(`${TAG} LOGGED_IN=false`);
     console.log(`${TAG} Reason: No profile directory at ${PROFILE_DIR}`);
     console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
-    process.exit(1);
+    process.exit(2);
   }
 
   console.log(`${TAG} Profile: ${PROFILE_DIR}`);
   console.log(`${TAG} Opening browser...`);
 
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: false,
-    viewport: { width: 1280, height: 900 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  // Clean stale lock files from previous crashed runs
+  for (const lock of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    const lockPath = path.join(PROFILE_DIR, lock);
+    try { fs.unlinkSync(lockPath); } catch { /* doesn't exist */ }
+  }
+
+  // Use shared launch options for consistent fingerprint — headed for check
+  const launchOpts = getLaunchOptions({ headless: false });
+  const context = await chromium.launchPersistentContext(PROFILE_DIR, launchOpts);
 
   const page = context.pages()[0] || (await context.newPage());
 
@@ -71,7 +78,7 @@ async function main() {
       console.log(`${TAG} Reason: Redirected to ${url}`);
       console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
       await context.close();
-      process.exit(1);
+      process.exit(2);
     }
 
     // Check for not-logged-in selectors
@@ -83,7 +90,7 @@ async function main() {
           console.log(`${TAG} Reason: Found login indicator: ${sel}`);
           console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
           await context.close();
-          process.exit(1);
+          process.exit(2);
         }
       } catch { /* next */ }
     }

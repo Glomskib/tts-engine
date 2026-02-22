@@ -8,11 +8,11 @@
  * Includes retry logic and human-intervention pause for captcha/2FA.
  */
 
-export { CONFIG, TIMEOUTS } from './types.js';
+export { CONFIG, TIMEOUTS, getLaunchOptions, STABLE_USER_AGENT } from './types.js';
 export type { StudioUploadInput, StudioUploadResult } from './types.js';
 
 export { openUploadStudio, closeSession } from './browser.js';
-export type { StudioSession } from './browser.js';
+export type { StudioSession, OpenStudioOptions } from './browser.js';
 
 export { uploadVideoFile } from './upload.js';
 export { fillDescription } from './description.js';

@@ -6,6 +6,10 @@ import * as path from 'path';
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
+/** Stable Chrome UA string — pinned to avoid fingerprint drift. */
+export const STABLE_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
 export const CONFIG = {
   uploadUrl:
     process.env.TIKTOK_STUDIO_UPLOAD_URL ||
@@ -23,6 +27,12 @@ export const CONFIG = {
       ? 'post' as const
       : (process.env.POST_MODE === 'post' ? 'post' as const : 'draft' as const),
 
+  /** Stable browser fingerprint to avoid detection across runs. */
+  locale: 'en-US',
+  timezoneId: 'America/Los_Angeles',
+  userAgent: STABLE_USER_AGENT,
+  viewport: { width: 1280, height: 900 } as const,
+
   /** FlashFlow API URL for status callbacks. */
   flashflowApiUrl:
     process.env.FF_API_URL ||
@@ -33,11 +43,27 @@ export const CONFIG = {
   flashflowApiToken: process.env.FF_API_TOKEN || '',
 } as const;
 
+/** Standard Playwright launch options for TikTok persistent context. */
+export function getLaunchOptions(opts?: { headless?: boolean }) {
+  return {
+    headless: opts?.headless ?? CONFIG.headless,
+    viewport: CONFIG.viewport,
+    locale: CONFIG.locale,
+    timezoneId: CONFIG.timezoneId,
+    userAgent: CONFIG.userAgent,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--no-first-run',
+      '--no-default-browser-check',
+    ],
+  };
+}
+
 // ─── Timeouts ───────────────────────────────────────────────────────────────
 
 export const TIMEOUTS = {
   navigation: 30_000,
-  upload: 120_000,    // video processing can be slow
+  upload: 1_200_000,  // 20 minutes — video processing can be very slow
   action: 10_000,
   selector: 3_000,    // per-selector probe
   searchResults: 8_000,

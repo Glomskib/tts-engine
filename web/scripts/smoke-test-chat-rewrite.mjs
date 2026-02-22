@@ -148,6 +148,38 @@ async function runTests() {
   }
 
   console.log('');
+
+  // ── Test 4: "Make it longer" preserves original hook (regression) ──
+  console.log('Test 4: "Make it longer" preserves hook and adds beats');
+  try {
+    const data = await postChat('Make it longer', SEED_SKIT);
+
+    if (!data.ok) {
+      fail('API returned error', data.error || JSON.stringify(data));
+    } else if (!data.rewritten_skit) {
+      fail('No rewritten_skit in response (instruction was ignored)', `response=${(data.response || '').slice(0, 200)}`);
+    } else {
+      const newBeats = data.rewritten_skit.beats?.length ?? 0;
+      if (newBeats > SEED_SKIT.beats.length) {
+        pass(`Beat count increased: ${SEED_SKIT.beats.length} → ${newBeats}`);
+      } else {
+        fail('Beat count did NOT increase', `expected > ${SEED_SKIT.beats.length}, got ${newBeats}`);
+      }
+
+      // Regression check: hook should be preserved (or very similar), not replaced with a generic default
+      const originalHook = SEED_SKIT.hook_line.toLowerCase();
+      const newHook = (data.rewritten_skit.hook_line || '').toLowerCase();
+      if (newHook.includes('wait') || newHook.includes('actually works') || newHook === originalHook) {
+        pass(`Hook preserved: "${data.rewritten_skit.hook_line.slice(0, 60)}"`);
+      } else {
+        fail('Hook was replaced with a generic default (instruction ignored)', `original="${SEED_SKIT.hook_line}", got="${data.rewritten_skit.hook_line}"`);
+      }
+    }
+  } catch (err) {
+    fail('Network/parse error', err.message);
+  }
+
+  console.log('');
   console.log(process.exitCode ? '=== SOME TESTS FAILED ===' : '=== ALL TESTS PASSED ===');
 }
 

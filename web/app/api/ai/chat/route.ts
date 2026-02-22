@@ -129,16 +129,19 @@ export async function POST(request: Request) {
 
   const isRewrite = mode === "rewrite" && context?.current_skit;
 
+  // Sanitize user instruction early so it can be embedded in the system prompt
+  const sanitizedMessage = message.trim().slice(0, 2000);
+
   try {
     let systemPrompt: string;
 
     if (isRewrite) {
-      // Rewrite mode: AI returns a modified skit as JSON
-      systemPrompt = `You are a TikTok script rewriter. The user wants you to modify an existing script.
-Apply the user's edit instruction to the current script and return the FULL rewritten script as JSON.
+      // Rewrite mode: AI modifies an existing skit and returns JSON
+      systemPrompt = `You are a TikTok script MODIFIER. Your ONLY job is to apply the user's edit instruction to an existing script.
 
-Current script JSON:
-${JSON.stringify(context.current_skit, null, 2)}`;
+=== EDIT INSTRUCTION (apply this) ===
+"${sanitizedMessage}"
+=== END INSTRUCTION ===`;
 
       if (context.brand) systemPrompt += `\n\nBrand: ${context.brand}`;
       if (context.product) systemPrompt += `\nProduct: ${context.product}`;
@@ -149,19 +152,16 @@ ${JSON.stringify(context.current_skit, null, 2)}`;
 
       systemPrompt += `
 
-CRITICAL: Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
-{
-  "hook_line": "Opening hook text",
-  "beats": [{"t": "0:00-0:03", "action": "description", "dialogue": "spoken words", "on_screen_text": "overlay text"}],
-  "b_roll": ["shot suggestion 1"],
-  "overlays": ["text overlay 1"],
-  "cta_line": "Call to action spoken text",
-  "cta_overlay": "CTA overlay text"
-}
+=== CURRENT SCRIPT (modify this) ===
+${JSON.stringify(context.current_skit, null, 2)}
+=== END SCRIPT ===
 
-Keep all existing beats/structure unless the user specifically asks to change them.
-Apply the edit instruction precisely — if they say "make it longer", add more beats. If they say "punchier hook", rewrite only the hook.
-DO NOT include any explanation, commentary, or markdown. Return ONLY the JSON object.`;
+RULES:
+1. Apply ONLY the changes requested in the edit instruction above.
+2. PRESERVE everything else exactly — hook, beats, CTA, overlays — unless the instruction explicitly asks to change them.
+3. If the instruction says "make it longer", ADD beats to the existing script. If it says "punchier hook", rewrite ONLY the hook_line and first beat.
+4. Return ONLY valid JSON, no markdown, no explanation.
+5. JSON schema: {"hook_line":"string","beats":[{"t":"string","action":"string","dialogue":"string","on_screen_text":"string"}],"b_roll":["string"],"overlays":["string"],"cta_line":"string","cta_overlay":"string"}`;
     } else {
       // Chat mode: text advice
       systemPrompt = `You are a creative copywriting assistant for TikTok video scripts.
@@ -186,14 +186,11 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
     let response: string = "";
     let rewrittenSkit: SkitData | null = null;
 
-    // Sanitize user instruction for prompt injection safety
-    const sanitizedMessage = message.trim().slice(0, 2000);
-
     if (anthropicKey) {
       if (isRewrite) {
         // Use callAnthropicAPI + robust JSON repair for rewrite mode.
-        // Wraps user instruction in delimiters to prevent prompt injection.
-        const rewriteUserPrompt = `<user_instruction>\n${sanitizedMessage}\n</user_instruction>\n\nApply the instruction above to the current script. Return the full rewritten script as valid JSON only.`;
+        // The user's instruction is embedded in the system prompt for prominence.
+        const rewriteUserPrompt = "Apply the edit instruction from the system prompt to the existing script. Return ONLY the modified JSON.";
 
         const aiResult = await callAnthropicAPI(rewriteUserPrompt, {
           model: "claude-haiku-4-5-20251001",
@@ -222,7 +219,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
           logGeneration({
             user_id: authContext.user.id,
             template_id: "chat_rewrite",
-            prompt_version: "1.2.0",
+            prompt_version: "1.3.0",
             inputs_json: {
               user_instruction: sanitizedMessage,
               current_skit_beats: context.current_skit?.beats?.length ?? 0,
@@ -238,7 +235,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
             correlation_id: correlationId,
           }).then((gen) => {
             if (gen) {
-              logGenerationEvent(gen.id, "generator_modified", authContext.user!.id, {
+              logGenerationEvent(gen.id, "generation_modified", authContext.user!.id, {
                 instruction: sanitizedMessage,
                 beats_before: context.current_skit?.beats?.length ?? 0,
                 beats_after: rewrittenSkit?.beats?.length ?? 0,
@@ -261,7 +258,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
       }
     } else if (openaiKey) {
       const userContent = isRewrite
-        ? `<user_instruction>\n${sanitizedMessage}\n</user_instruction>\n\nApply the instruction above to the current script. Return the full rewritten script as valid JSON only.`
+        ? "Apply the edit instruction from the system prompt to the existing script. Return ONLY the modified JSON."
         : sanitizedMessage;
 
       const start = Date.now();
@@ -319,7 +316,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
           logGeneration({
             user_id: authContext.user.id,
             template_id: "chat_rewrite",
-            prompt_version: "1.2.0",
+            prompt_version: "1.3.0",
             inputs_json: {
               user_instruction: sanitizedMessage,
               current_skit_beats: context.current_skit?.beats?.length ?? 0,
@@ -335,7 +332,7 @@ Maintain a casual, UGC-friendly tone in all suggestions.`;
             correlation_id: correlationId,
           }).then((gen) => {
             if (gen) {
-              logGenerationEvent(gen.id, "generator_modified", authContext.user!.id, {
+              logGenerationEvent(gen.id, "generation_modified", authContext.user!.id, {
                 instruction: sanitizedMessage,
                 beats_before: context.current_skit?.beats?.length ?? 0,
                 beats_after: rewrittenSkit?.beats?.length ?? 0,

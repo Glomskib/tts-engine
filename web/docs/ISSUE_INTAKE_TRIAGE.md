@@ -60,3 +60,21 @@ No body required. Pulls all `status=new` issues (up to 20), then for each:
 | `FF_ISSUES_SECRET` | Yes | Shared secret for intake/triage API auth |
 | `MC_BASE_URL` | No | Mission Control URL (default: `http://127.0.0.1:3100`) |
 | `MC_API_TOKEN` | No | Mission Control bearer token |
+
+## Smoke Test
+
+```bash
+npx tsx scripts/issues/smoke.ts
+npx tsx scripts/issues/smoke.ts --base http://localhost:3000
+```
+
+Creates a test issue, verifies dedupe, runs triage, and checks auth guard.
+Requires `FF_ISSUES_SECRET` in `.env.local`.
+
+## Migration
+
+```bash
+supabase db push
+```
+
+Migration file: `supabase/migrations/20260302100000_ff_issue_reports.sql`

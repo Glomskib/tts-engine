@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Trophy } from "lucide-react";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { useDebounce } from "@/hooks/useDebounce";
-import { VideoCreationSheet } from "@/components/VideoCreationSheet";
+// VideoCreationSheet removed — "Create Video" now calls /api/videos/create-from-script directly
 
 const MarkAsWinnerModal = dynamic(() => import("@/components/MarkAsWinnerModal").then(m => ({ default: m.MarkAsWinnerModal })), { ssr: false });
 import { Toast } from "@/components/Toast";
@@ -202,15 +202,8 @@ export default function SkitLibraryPage() {
   // Duplicate
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
-  // Video Creation Sheet
-  const [videoSheetOpen, setVideoSheetOpen] = useState(false);
-  const [videoSheetScript, setVideoSheetScript] = useState<{
-    id: string;
-    title: string;
-    content: string;
-    hook?: string;
-    cta?: string;
-  } | null>(null);
+  // Pipeline send
+  const [sendingToPipelineId, setSendingToPipelineId] = useState<string | null>(null);
 
   // Winners
   const [winnerModalSkit, setWinnerModalSkit] = useState<SavedSkit | null>(null);
@@ -654,36 +647,39 @@ export default function SkitLibraryPage() {
     }
   };
 
-  // Open video creation sheet for a skit
-  const handleOpenVideoSheet = (skitId: string) => {
+  // Add script directly to pipeline via /api/videos/create-from-script
+  const handleAddToPipeline = async (skitId: string) => {
     const skit = skits.find(s => s.id === skitId);
     if (!skit || skit.video_id) return;
 
-    // Build content from skit data
-    const skitData = skit.skit_data;
-    let content = "";
-    if (skitData) {
-      content = `HOOK: ${skitData.hook_line}\n\n`;
-      content += skitData.beats.map((beat, i) =>
-        `${i + 1}. [${beat.t}] ${beat.action}${beat.dialogue ? `\n   "${beat.dialogue}"` : ""}`
-      ).join("\n\n");
-      content += `\n\nCTA: ${skitData.cta_line}`;
+    setSendingToPipelineId(skitId);
+    try {
+      const res = await fetch('/api/videos/create-from-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script_id: skitId,
+          title: skit.title,
+          product_name: skit.product_name,
+          product_brand: skit.product_brand,
+          hook_line: skit.skit_data?.hook_line,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // Optimistically update local state with video_id
+        setSkits(prev => prev.map(s =>
+          s.id === skitId ? { ...s, video_id: data.data.id } : s
+        ));
+        showSuccess(data.duplicate ? 'Video already in pipeline' : 'Added to pipeline!');
+      } else {
+        showError(data.error || 'Failed to add to pipeline');
+      }
+    } catch {
+      showError('Failed to add to pipeline');
+    } finally {
+      setSendingToPipelineId(null);
     }
-
-    setVideoSheetScript({
-      id: skit.id,
-      title: skit.title || `${skit.product_name || "Untitled"} Script`,
-      content: content || "Script content not available",
-      hook: skitData?.hook_line,
-      cta: skitData?.cta_line,
-    });
-    setVideoSheetOpen(true);
-  };
-
-  // Handle video creation success
-  const handleVideoCreationSuccess = () => {
-    // Refresh the list to show updated status
-    fetchSkits();
   };
 
   // Open winner modal - uses new MarkAsWinnerModal component
@@ -1734,7 +1730,7 @@ export default function SkitLibraryPage() {
                           {duplicatingId === skit.id ? "Duplicating..." : "Duplicate"}
                         </button>
 
-                        {/* Create Video Button */}
+                        {/* Add to Pipeline / View Video Button */}
                         {skit.video_id ? (
                           <Link
                             href={`/admin/pipeline/${skit.video_id}`}
@@ -1750,19 +1746,19 @@ export default function SkitLibraryPage() {
                           </Link>
                         ) : (
                           <button type="button"
-                            onClick={(e) => { e.stopPropagation(); handleOpenVideoSheet(skit.id); }}
-                            disabled={!skit.product_name}
-                            title={!skit.product_name ? "Script must have a product to create a video" : "Create video from this script"}
+                            onClick={(e) => { e.stopPropagation(); handleAddToPipeline(skit.id); }}
+                            disabled={sendingToPipelineId === skit.id}
+                            title="Add this script to the video pipeline"
                             style={{
                               ...secondaryButtonStyle,
                               backgroundColor: "#059669",
                               borderColor: "#059669",
                               color: "white",
-                              opacity: !skit.product_name ? 0.6 : 1,
-                              cursor: !skit.product_name ? "not-allowed" : "pointer",
+                              opacity: sendingToPipelineId === skit.id ? 0.6 : 1,
+                              cursor: sendingToPipelineId === skit.id ? "wait" : "pointer",
                             }}
                           >
-                            Create Video
+                            {sendingToPipelineId === skit.id ? "Adding..." : "Add to Pipeline"}
                           </button>
                         )}
 
@@ -2099,14 +2095,6 @@ export default function SkitLibraryPage() {
           productName={winnerModalSkit.product_name || undefined}
         />
       )}
-
-      {/* Video Creation Sheet */}
-      <VideoCreationSheet
-        isOpen={videoSheetOpen}
-        onClose={() => setVideoSheetOpen(false)}
-        script={videoSheetScript}
-        onSuccess={handleVideoCreationSuccess}
-      />
 
       {/* Manual Script Creation Modal */}
       {manualModalOpen && (

@@ -15,15 +15,22 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Get counts by status
+    // Get counts by status — scoped to current user
     const counts: Record<string, number> = {};
     let totalQueued = 0;
 
     for (const status of VIDEO_STATUSES) {
-      const { count, error } = await supabaseAdmin
+      let query = supabaseAdmin
         .from("videos")
         .select("*", { count: "exact", head: true })
         .eq("status", status);
+
+      // Data isolation: scope to current user
+      if (!authContext.isAdmin) {
+        query = query.eq("client_user_id", authContext.user.id);
+      }
+
+      const { count, error } = await query;
 
       if (error) {
         console.error(`GET /api/observability/queue-summary count error for ${status}:`, error);

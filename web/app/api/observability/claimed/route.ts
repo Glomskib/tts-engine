@@ -32,13 +32,20 @@ export async function GET(request: Request) {
   try {
     const now = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("videos")
       .select("id,claimed_by,claimed_at,claim_expires_at")
       .not("claimed_by", "is", null)
       .gte("claim_expires_at", now)
       .order("claimed_at", { ascending: false })
       .limit(limit);
+
+    // Data isolation: scope to current user
+    if (!authContext.isAdmin) {
+      query = query.eq("client_user_id", authContext.user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       // If columns don't exist, return gracefully

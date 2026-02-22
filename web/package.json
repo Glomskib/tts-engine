@@ -35,6 +35,8 @@
     "tiktok:bootstrap": "tsx scripts/publish/tiktok-studio/bootstrap-session.ts",
     "tiktok:upload": "tsx scripts/publish/tiktok-studio/upload.ts",
     "tiktok:check-session": "tsx scripts/publish/tiktok-studio/check-session.ts",
+    "tiktok:regression": "tsx scripts/tiktok-studio/regression-test.ts",
+    "tiktok:regression:invalid-session": "tsx scripts/tiktok-studio/regression-test.ts --test-invalid-session",
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
     "ff:build": "tsx scripts/creator-style/build.ts"
   },

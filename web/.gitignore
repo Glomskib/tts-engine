@@ -54,3 +54,6 @@ bin/
 
 # TikTok error screenshots and reports
 /data/tiktok-errors/
+
+# Regression test reports
+/var/run-reports/

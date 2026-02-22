@@ -2,6 +2,29 @@
 
 Automated issue reporting and AI-powered triage for FlashFlow.
 
+## Telegram Integration
+
+**Important:** The Telegram webhook and OpenClaw/Bolt polling are **mutually exclusive**.
+When the webhook is registered, Bolt cannot receive Telegram messages — all messages
+go directly to the issue intake handler instead.
+
+**Current state:** Webhook is **DELETED** — Bolt handles Telegram normally.
+
+To enable Telegram issue intake (disables Bolt):
+```bash
+npx tsx scripts/telegram-webhook.ts set   # ⚠️ Disables Bolt!
+```
+
+To restore Bolt:
+```bash
+npx tsx scripts/telegram-webhook.ts delete
+```
+
+When the webhook is active, the handler at `/api/webhooks/telegram` uses intent detection:
+- `/log`, `/issue`, `/bug` commands → create issue immediately
+- Messages with bug/error keywords → asks "Do you want me to log this?" confirmation
+- Normal messages → ignored (no response)
+
 ## Tables
 
 ### `ff_issue_reports`

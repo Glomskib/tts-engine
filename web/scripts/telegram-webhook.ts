@@ -2,10 +2,15 @@
 /**
  * Register / unregister the Telegram bot webhook.
  *
+ * ⚠️  WARNING: Setting a webhook DISABLES OpenClaw/Bolt's Telegram polling.
+ * All messages will be routed to /api/webhooks/telegram instead of Bolt.
+ * Only set this if you want issue-intake-only mode from Telegram.
+ * For normal Bolt behavior, keep the webhook DELETED.
+ *
  * Usage:
- *   npx tsx scripts/telegram-webhook.ts set
+ *   npx tsx scripts/telegram-webhook.ts set          # ⚠️  Disables Bolt!
  *   npx tsx scripts/telegram-webhook.ts set --base https://flashflowai.com
- *   npx tsx scripts/telegram-webhook.ts delete
+ *   npx tsx scripts/telegram-webhook.ts delete        # Restores Bolt
  *   npx tsx scripts/telegram-webhook.ts info
  *
  * Requires TELEGRAM_BOT_TOKEN in .env.local (or set as env var).
@@ -60,6 +65,9 @@ async function main() {
     const url = `${BASE}/api/webhooks/telegram`;
     const secret = webhookSecret();
 
+    console.log('⚠️  WARNING: Setting this webhook will DISABLE OpenClaw/Bolt Telegram polling.');
+    console.log('   All Telegram messages will route to the issue intake handler instead of Bolt.');
+    console.log('   Run "npx tsx scripts/telegram-webhook.ts delete" to restore Bolt.\n');
     console.log(`Setting webhook → ${url}`);
     console.log(`Secret token: ${secret.slice(0, 8)}...`);
 

@@ -1,8 +1,16 @@
 /**
  * POST /api/webhooks/telegram
  *
- * Incoming Telegram webhook — receives messages from the bot and
- * creates issue reports via the intake system.
+ * Incoming Telegram webhook — receives messages and routes them:
+ *
+ * 1. Explicit issue commands (/log, /issue, /bug) → create issue immediately
+ * 2. Keyword triggers (bug, error, broken, etc.) → ask for confirmation first
+ * 3. Everything else → ignore (let OpenClaw handle it)
+ *
+ * IMPORTANT: This webhook and OpenClaw polling are MUTUALLY EXCLUSIVE.
+ * When this webhook is registered, OpenClaw/Bolt cannot receive messages.
+ * Only register this webhook if you want issue-intake-only mode.
+ * For normal Bolt behavior, keep the webhook DELETED.
  *
  * Security: verifies X-Telegram-Bot-Api-Secret-Token header against
  * a SHA-256 digest of the bot token (set when registering the webhook).
@@ -27,11 +35,56 @@ interface TelegramMessage {
   chat: { id: number; type: string };
   date: number;
   text?: string;
+  reply_to_message?: TelegramMessage;
 }
 
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
+}
+
+// ── Intent detection ────────────────────────────────────────────────────────
+
+/** Commands that explicitly trigger issue logging */
+const ISSUE_COMMANDS = ['/log', '/issue', '/bug', '/report'];
+
+/** Keywords that suggest the message MIGHT be an issue (needs confirmation) */
+const ISSUE_KEYWORDS = /\b(bug|error|broken|failed|crash|issue|not working|doesn't work|can't|cannot|fix this|wrong|glitch|down)\b/i;
+
+/** Phrases that explicitly request logging */
+const EXPLICIT_LOG_PHRASES = /\b(log (this|it)|file (a |an )?(bug|issue|report)|report (this|a |an )?(bug|issue|error)|triage this|save (this|it) as (an? )?(issue|bug))\b/i;
+
+type Intent = 'explicit_issue' | 'maybe_issue' | 'confirm_yes' | 'normal';
+
+/**
+ * Classify message intent.
+ *
+ * - explicit_issue: /log command OR explicit "log this" / "file a bug" phrases
+ * - confirm_yes: user replied "yes" to a confirmation prompt
+ * - maybe_issue: contains issue keywords but not explicit
+ * - normal: everything else
+ */
+function classifyIntent(text: string, isReply: boolean, replyText?: string): Intent {
+  const lower = text.trim().toLowerCase();
+
+  // Check for explicit issue commands
+  const firstWord = lower.split(/\s/)[0];
+  if (ISSUE_COMMANDS.includes(firstWord)) return 'explicit_issue';
+
+  // Check for explicit logging phrases
+  if (EXPLICIT_LOG_PHRASES.test(lower)) return 'explicit_issue';
+
+  // Check if this is a "yes" reply to our confirmation prompt
+  if (isReply && replyText?.includes('Do you want me to log this as an issue?')) {
+    if (/^(yes|y|yeah|yep|sure|do it|log it|confirm)\b/i.test(lower)) {
+      return 'confirm_yes';
+    }
+  }
+
+  // Check for issue-like keywords (but don't auto-log)
+  if (ISSUE_KEYWORDS.test(lower)) return 'maybe_issue';
+
+  return 'normal';
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -47,18 +100,82 @@ function makeFingerprint(source: string, message: string): string {
     .slice(0, 40);
 }
 
-async function replyToChat(chatId: number, text: string) {
+async function replyToChat(chatId: number, text: string, replyToMessageId?: number) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
+      }),
     });
   } catch {
     // best-effort reply
   }
+}
+
+async function createIssue(text: string, msg: TelegramMessage): Promise<string | null> {
+  const from = msg.from;
+  const reporter = from?.username
+    ? `@${from.username}`
+    : [from?.first_name, from?.last_name].filter(Boolean).join(' ') || `tg:${msg.chat.id}`;
+
+  // For /log commands, strip the command prefix to get the actual issue text
+  let issueText = text;
+  for (const cmd of ISSUE_COMMANDS) {
+    if (issueText.toLowerCase().startsWith(cmd)) {
+      issueText = issueText.slice(cmd.length).trim();
+      break;
+    }
+  }
+  if (!issueText) issueText = text; // fallback to full text if command had no body
+
+  const fingerprint = makeFingerprint('telegram', issueText);
+
+  const { data: issue, error } = await supabaseAdmin
+    .from('ff_issue_reports')
+    .upsert(
+      {
+        source: 'telegram',
+        reporter,
+        message_text: issueText,
+        context_json: {
+          telegram_chat_id: msg.chat.id,
+          telegram_message_id: msg.message_id,
+          telegram_user_id: from?.id,
+          telegram_username: from?.username,
+          telegram_date: msg.date,
+        },
+        severity: 'unknown',
+        status: 'new',
+        fingerprint,
+      },
+      { onConflict: 'fingerprint' }
+    )
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('[telegram-webhook] Issue insert error:', error);
+    return null;
+  }
+
+  // Log intake action (fire-and-forget)
+  supabaseAdmin
+    .from('ff_issue_actions')
+    .insert({
+      issue_id: issue.id,
+      action_type: 'intake',
+      payload_json: { source: 'telegram', reporter, telegram_chat_id: msg.chat.id },
+    })
+    .then(({ error: e }) => e && console.error('[telegram-webhook] Action log error:', e));
+
+  return issue.id;
 }
 
 // ── POST handler ────────────────────────────────────────────────────────────
@@ -78,68 +195,71 @@ export async function POST(request: Request) {
 
   const msg = update.message;
   if (!msg?.text) {
-    // Ignore non-text messages (stickers, photos, etc.)
     return NextResponse.json({ ok: true });
   }
 
-  // Skip bot commands that aren't feedback
   const text = msg.text.trim();
-  if (text === '/start') {
-    await replyToChat(msg.chat.id, 'Send me any message and it will be logged as a FlashFlow issue report.');
+
+  // /start — show help
+  if (text === '/start' || text === '/help') {
+    await replyToChat(
+      msg.chat.id,
+      [
+        '<b>FlashFlow Issue Bot</b>',
+        '',
+        'Commands:',
+        '/log &lt;description&gt; — Log an issue',
+        '/issue &lt;description&gt; — Log an issue',
+        '/bug &lt;description&gt; — Log a bug',
+        '',
+        'Or just describe a bug/error and I\'ll ask if you want to log it.',
+      ].join('\n')
+    );
     return NextResponse.json({ ok: true });
   }
 
-  const from = msg.from;
-  const reporter = from?.username
-    ? `@${from.username}`
-    : [from?.first_name, from?.last_name].filter(Boolean).join(' ') || `tg:${msg.chat.id}`;
+  // Classify intent
+  const isReply = !!msg.reply_to_message;
+  const replyText = msg.reply_to_message?.text;
+  const intent = classifyIntent(text, isReply, replyText);
 
-  const fingerprint = makeFingerprint('telegram', text);
+  switch (intent) {
+    case 'explicit_issue':
+    case 'confirm_yes': {
+      // For confirm_yes, the actual issue text is in the message they replied to
+      const issueText = intent === 'confirm_yes' && msg.reply_to_message?.reply_to_message?.text
+        ? msg.reply_to_message.reply_to_message.text
+        : text;
 
-  // Upsert into ff_issue_reports (same pattern as intake endpoint)
-  const { data: issue, error } = await supabaseAdmin
-    .from('ff_issue_reports')
-    .upsert(
-      {
-        source: 'telegram',
-        reporter,
-        message_text: text,
-        context_json: {
-          telegram_chat_id: msg.chat.id,
-          telegram_message_id: msg.message_id,
-          telegram_user_id: from?.id,
-          telegram_username: from?.username,
-          telegram_date: msg.date,
-        },
-        severity: 'unknown',
-        status: 'new',
-        fingerprint,
-      },
-      { onConflict: 'fingerprint' }
-    )
-    .select('id')
-    .single();
+      const issueId = await createIssue(issueText, msg);
+      if (issueId) {
+        await replyToChat(
+          msg.chat.id,
+          `Issue logged (<code>${issueId.slice(0, 8)}</code>). It will be triaged automatically.`
+        );
+      } else {
+        await replyToChat(msg.chat.id, 'Failed to log issue. Please try again.');
+      }
+      break;
+    }
 
-  if (error) {
-    console.error('[telegram-webhook] Issue insert error:', error);
-    await replyToChat(msg.chat.id, 'Failed to log your issue. Please try again.');
-    return NextResponse.json({ ok: true });
+    case 'maybe_issue': {
+      // Ask for confirmation — don't auto-log
+      await replyToChat(
+        msg.chat.id,
+        'Do you want me to log this as an issue? Reply <b>YES</b> to confirm.',
+        msg.message_id
+      );
+      break;
+    }
+
+    case 'normal':
+    default:
+      // Don't respond — this is a normal message, not an issue.
+      // If the webhook is active, this means OpenClaw won't see it either.
+      // That's why the webhook should only be registered for issue-intake-only mode.
+      break;
   }
-
-  // Log intake action
-  await supabaseAdmin
-    .from('ff_issue_actions')
-    .insert({
-      issue_id: issue.id,
-      action_type: 'intake',
-      payload_json: { source: 'telegram', reporter, telegram_chat_id: msg.chat.id },
-    })
-    .then(({ error: e }) => e && console.error('[telegram-webhook] Action log error:', e));
-
-  await replyToChat(
-    msg.chat.id,
-    `Issue logged (${issue.id.slice(0, 8)}). It will be triaged automatically.`
-  );
 
   return NextResponse.json({ ok: true });
 }

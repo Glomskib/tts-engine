@@ -22,13 +22,13 @@ export async function GET(request: Request) {
     if (error) {
       console.error('[tiktok/callback] OAuth error:', error);
       return NextResponse.redirect(
-        new URL('/admin/settings?tiktok=error&message=' + encodeURIComponent(error), request.url)
+        new URL('/admin/settings/tiktok?partner_error=' + encodeURIComponent(error), request.url)
       );
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        new URL('/admin/settings?tiktok=error&message=missing_params', request.url)
+        new URL('/admin/settings/tiktok?partner_error=missing_params', request.url)
       );
     }
 
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     const storedState = request.headers.get('cookie')?.match(/tiktok_oauth_state=([^;]+)/)?.[1];
     if (!storedState || storedState !== state) {
       return NextResponse.redirect(
-        new URL('/admin/settings?tiktok=error&message=invalid_state', request.url)
+        new URL('/admin/settings/tiktok?partner_error=invalid_state', request.url)
       );
     }
 
@@ -72,20 +72,20 @@ export async function GET(request: Request) {
       const errorData = await tokenResponse.text();
       console.error('[tiktok/callback] Token exchange failed:', errorData);
       return NextResponse.redirect(
-        new URL('/admin/settings?tiktok=error&message=token_exchange_failed', request.url)
+        new URL('/admin/settings/tiktok?partner_error=token_exchange_failed', request.url)
       );
     }
 
     const tokenData = await tokenResponse.json();
-    const { access_token, refresh_token, expires_in, open_id } = tokenData;
+    const { access_token, refresh_token, expires_in, refresh_expires_in, open_id, scope } = tokenData;
 
     if (!access_token || !open_id) {
       return NextResponse.redirect(
-        new URL('/admin/settings?tiktok=error&message=invalid_token_response', request.url)
+        new URL('/admin/settings/tiktok?partner_error=invalid_token_response', request.url)
       );
     }
 
-    // Store connection in database (assumes tiktok_connections table exists)
+    // Store connection in database
     const { error: insertError } = await supabaseAdmin.from('tiktok_connections').upsert(
       {
         user_id: authContext.user.id,
@@ -93,7 +93,12 @@ export async function GET(request: Request) {
         access_token,
         refresh_token,
         expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
-        created_at: new Date().toISOString(),
+        refresh_token_expires_at: refresh_expires_in
+          ? new Date(Date.now() + refresh_expires_in * 1000).toISOString()
+          : null,
+        scopes: scope || null,
+        status: 'active',
+        disconnected_at: null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,tiktok_open_id' }
@@ -102,19 +107,19 @@ export async function GET(request: Request) {
     if (insertError) {
       console.error('[tiktok/callback] Database insert failed:', insertError);
       return NextResponse.redirect(
-        new URL('/admin/settings?tiktok=error&message=database_error', request.url)
+        new URL('/admin/settings/tiktok?partner_error=database_error', request.url)
       );
     }
 
     // Clear state cookie and redirect to settings
-    const response = NextResponse.redirect(new URL('/admin/settings?tiktok=connected', request.url));
+    const response = NextResponse.redirect(new URL('/admin/settings/tiktok?partner_connected=true', request.url));
     response.cookies.delete('tiktok_oauth_state');
 
     return response;
   } catch (error) {
     console.error('[tiktok/callback] Error:', error);
     return NextResponse.redirect(
-      new URL('/admin/settings?tiktok=error&message=unexpected_error', request.url)
+      new URL('/admin/settings/tiktok?partner_error=unexpected_error', request.url)
     );
   }
 }

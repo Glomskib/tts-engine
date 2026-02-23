@@ -556,7 +556,7 @@ function BrandEditModal({
   const [productTypeInput, setProductTypeInput] = useState('');
 
   // Accordion state
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [quotaOpen, setQuotaOpen] = useState(
     brand?.retainer_type !== undefined && brand.retainer_type !== 'none'
   );
@@ -571,12 +571,30 @@ function BrandEditModal({
     });
   };
 
-  // Count filled optional detail fields (out of 9)
-  const detailsFilledCount = [
+  // Count filled fields in Advanced accordion (11 fields)
+  const advancedFilledCount = [
+    formData.brand_profile_json.product_types.length > 0 ? 'yes' : '',
+    formData.tone_of_voice,
     formData.description,
     formData.website,
     formData.logo_url,
     formData.brand_image_url,
+    formData.colors.length > 0 ? 'yes' : '',
+    formData.target_audience,
+    formData.guidelines,
+    formData.brand_profile_json.compliance_notes,
+    formData.brand_profile_json.claims_to_avoid,
+  ].filter(Boolean).length;
+
+  // Completeness score (12 optional fields; logo/brand image combined as one)
+  const completenessCount = [
+    formData.brand_profile_json.category,
+    formData.brand_profile_json.key_angles.length > 0 ? 'yes' : '',
+    formData.brand_profile_json.product_types.length > 0 ? 'yes' : '',
+    formData.tone_of_voice,
+    formData.description,
+    formData.website,
+    (formData.logo_url || formData.brand_image_url) ? 'yes' : '',
     formData.colors.length > 0 ? 'yes' : '',
     formData.target_audience,
     formData.guidelines,
@@ -703,6 +721,20 @@ function BrandEditModal({
           </button>
         </div>
 
+        {/* Completeness progress bar */}
+        <div className="px-4 pt-3 pb-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-zinc-400">Brand Profile: {completenessCount} of 12 complete</span>
+            <span className="text-xs text-zinc-500">{Math.round((completenessCount / 12) * 100)}%</span>
+          </div>
+          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-teal-500 rounded-full transition-all duration-300"
+              style={{ width: `${(completenessCount / 12) * 100}%` }}
+            />
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
             {error && (
@@ -744,65 +776,6 @@ function BrandEditModal({
                     ))}
                   </select>
                   <p className="text-xs text-zinc-500 mt-1">The primary industry this brand operates in</p>
-                </div>
-
-                {/* Product Types — tag input */}
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-1">
-                    Product Types
-                    {formData.brand_profile_json.product_types.length > 0 && (
-                      <span className="text-zinc-600 ml-1">({formData.brand_profile_json.product_types.length}/10)</span>
-                    )}
-                  </label>
-                  <p className="text-[10px] text-zinc-600 mb-2">What this brand sells — helps AI tailor scripts</p>
-                  {formData.brand_profile_json.product_types.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {formData.brand_profile_json.product_types.map((tag) => (
-                        <span key={tag} className="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-2.5 py-1 text-xs text-zinc-300">
-                          {tag}
-                          <button type="button" onClick={() => removeProductType(tag)} className="text-zinc-500 hover:text-red-400">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {formData.brand_profile_json.product_types.length < 10 && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={productTypeInput}
-                        onChange={(e) => setProductTypeInput(e.target.value.slice(0, 100))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProductType(); } }}
-                        className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        placeholder="e.g., CBD Oil, Gummies, Capsules"
-                      />
-                      <button
-                        type="button"
-                        onClick={addProductType}
-                        className="px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 text-sm"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tone of Voice */}
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-1">Tone of Voice</label>
-                  <input
-                    type="text"
-                    value={formData.tone_of_voice}
-                    onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value.slice(0, 500) })}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    placeholder="e.g., Professional, Friendly, Bold..."
-                    maxLength={500}
-                  />
-                  <div className="flex justify-between mt-0.5">
-                    <p className="text-[10px] text-zinc-600">How the brand should sound in generated scripts</p>
-                    <p className="text-[10px] text-zinc-600">{formData.tone_of_voice.length}/500</p>
-                  </div>
                 </div>
 
                 {/* Key Angles — dynamic 0-5 inputs */}
@@ -858,13 +831,72 @@ function BrandEditModal({
               </div>
             </div>
 
-            {/* ── Section B: Optional Details (collapsed accordion) ── */}
+            {/* ── Section B: Advanced (collapsed accordion) ── */}
             <CollapsibleSection
-              title="Optional Details"
-              isOpen={detailsOpen}
-              onToggle={() => setDetailsOpen(!detailsOpen)}
-              badge={detailsFilledCount > 0 ? `${detailsFilledCount} of 9 filled` : undefined}
+              title="Advanced"
+              isOpen={advancedOpen}
+              onToggle={() => setAdvancedOpen(!advancedOpen)}
+              badge={advancedFilledCount > 0 ? `${advancedFilledCount} of 11 filled` : undefined}
             >
+              {/* Product Types — tag input */}
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">
+                  Product Types
+                  {formData.brand_profile_json.product_types.length > 0 && (
+                    <span className="text-zinc-600 ml-1">({formData.brand_profile_json.product_types.length}/10)</span>
+                  )}
+                </label>
+                <p className="text-[10px] text-zinc-600 mb-2">What this brand sells — helps AI tailor scripts</p>
+                {formData.brand_profile_json.product_types.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {formData.brand_profile_json.product_types.map((tag) => (
+                      <span key={tag} className="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-2.5 py-1 text-xs text-zinc-300">
+                        {tag}
+                        <button type="button" onClick={() => removeProductType(tag)} className="text-zinc-500 hover:text-red-400">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {formData.brand_profile_json.product_types.length < 10 && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={productTypeInput}
+                      onChange={(e) => setProductTypeInput(e.target.value.slice(0, 100))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProductType(); } }}
+                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder="e.g., CBD Oil, Gummies, Capsules"
+                    />
+                    <button
+                      type="button"
+                      onClick={addProductType}
+                      className="px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 text-sm"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Tone of Voice */}
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Tone of Voice</label>
+                <input
+                  type="text"
+                  value={formData.tone_of_voice}
+                  onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value.slice(0, 500) })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="e.g., Professional, Friendly, Bold..."
+                  maxLength={500}
+                />
+                <div className="flex justify-between mt-0.5">
+                  <p className="text-[10px] text-zinc-600">How the brand should sound in generated scripts</p>
+                  <p className="text-[10px] text-zinc-600">{formData.tone_of_voice.length}/500</p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Description</label>
                 <textarea

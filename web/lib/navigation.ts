@@ -200,6 +200,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Finance', href: '/admin/command-center/finance', icon: DollarSign, ownerOnly: true },
       { name: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap, ownerOnly: true },
       { name: 'FinOps', href: '/admin/command-center/finops', icon: Gauge, ownerOnly: true },
+      { name: 'Feedback Inbox', href: '/admin/command-center/feedback', icon: MessageSquare, ownerOnly: true },
     ],
   },
 ];

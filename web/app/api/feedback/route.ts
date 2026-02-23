@@ -231,6 +231,25 @@ export async function POST(request: NextRequest) {
       (screenshotUrl ? `\n<b>Screenshot:</b> ${screenshotUrl}` : "")
     );
 
+    // Write to ff_feedback_items for Command Center inbox (fire-and-forget)
+    void supabaseAdmin
+      .from("ff_feedback_items")
+      .insert({
+        source: "widget",
+        type,
+        title,
+        description,
+        page: pageUrl ? pageUrl.replace(/https?:\/\/[^/]+/, "") : null,
+        device,
+        reporter_email: authContext.user.email || null,
+        reporter_user_id: userId,
+        status: "new",
+        priority: 3,
+        raw_json: { plan_id: planId, user_agent: userAgent, screenshot_url: screenshotUrl },
+        user_feedback_id: saved.id,
+      })
+      .then(() => {});
+
     // Forward to issue intake for AI triage (fire-and-forget)
     const issueText = `[${type}] ${title}: ${description}`;
     const fingerprint = computeFingerprint("feedback", issueText);

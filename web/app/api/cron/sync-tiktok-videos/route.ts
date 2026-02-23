@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getTikTokContentClient } from '@/lib/tiktok-content';
+import { detectWinner, type VideoStats } from '@/lib/winner-detection';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
   const client = getTikTokContentClient();
   let totalSynced = 0;
   let totalNew = 0;
+  let totalWinners = 0;
   const errors: string[] = [];
 
   try {
@@ -180,6 +182,102 @@ export async function GET(request: Request) {
 
         totalNew += accountNew;
 
+        // ── Phase 2: Winner Detection ──────────────────────────────
+        // Evaluate mature videos (>24h old) for winner status
+        try {
+          const twentyFourHoursAgo = Math.floor(Date.now() / 1000) - 86400;
+          const { data: matureVideos } = await supabaseAdmin
+            .from('tiktok_videos')
+            .select('id, video_id, product_id, view_count, like_count, comment_count, share_count, content_grade, attributed_orders, attributed_gmv')
+            .eq('user_id', account.user_id)
+            .eq('account_id', account.id)
+            .lt('create_time', twentyFourHoursAgo);
+
+          for (const mv of matureVideos || []) {
+            const stats: VideoStats = {
+              views: Number(mv.view_count) || 0,
+              likes: Number(mv.like_count) || 0,
+              comments: Number(mv.comment_count) || 0,
+              shares: Number(mv.share_count) || 0,
+              sales_count: Number(mv.attributed_orders) || undefined,
+              revenue: Number(mv.attributed_gmv) || undefined,
+            };
+
+            // Compute product average for relative comparison
+            let productAverage: VideoStats | null = null;
+            if (mv.product_id) {
+              const { data: siblings } = await supabaseAdmin
+                .from('tiktok_videos')
+                .select('view_count, like_count, comment_count, share_count')
+                .eq('user_id', account.user_id)
+                .eq('product_id', mv.product_id);
+
+              if (siblings && siblings.length > 1) {
+                const n = siblings.length;
+                productAverage = {
+                  views: Math.round(siblings.reduce((s, v) => s + (Number(v.view_count) || 0), 0) / n),
+                  likes: Math.round(siblings.reduce((s, v) => s + (Number(v.like_count) || 0), 0) / n),
+                  comments: Math.round(siblings.reduce((s, v) => s + (Number(v.comment_count) || 0), 0) / n),
+                  shares: Math.round(siblings.reduce((s, v) => s + (Number(v.share_count) || 0), 0) / n),
+                };
+              }
+            }
+
+            const result = detectWinner(stats, productAverage);
+
+            if (result.is_winner) {
+              totalWinners++;
+              const grade = result.confidence === 'high' ? 'A' : 'B';
+
+              // Update content_grade on tiktok_videos
+              if (mv.content_grade !== grade) {
+                await supabaseAdmin
+                  .from('tiktok_videos')
+                  .update({ content_grade: grade })
+                  .eq('id', mv.id);
+              }
+
+              // If FlashFlow-generated (has video_id FK), upsert ff_outcomes
+              if (mv.video_id) {
+                // Check if there's an ff_generations row linked via the videos table
+                const { data: gen } = await supabaseAdmin
+                  .from('ff_generations')
+                  .select('id')
+                  .eq('user_id', account.user_id)
+                  .limit(1)
+                  .maybeSingle();
+
+                // Try to find generation linked through video's generation metadata
+                const { data: videoRow } = await supabaseAdmin
+                  .from('videos')
+                  .select('id, metadata')
+                  .eq('id', mv.video_id)
+                  .single();
+
+                const generationId = (videoRow?.metadata as any)?.generation_id || gen?.id;
+                if (generationId) {
+                  await supabaseAdmin
+                    .from('ff_outcomes')
+                    .upsert({
+                      generation_id: generationId,
+                      user_id: account.user_id,
+                      is_winner: true,
+                      views: stats.views,
+                      winner_score: result.score,
+                      tags: result.reasons,
+                    }, {
+                      onConflict: 'generation_id',
+                      ignoreDuplicates: false,
+                    });
+                }
+              }
+            }
+          }
+        } catch (winnerErr: any) {
+          console.warn(`[sync-tiktok-videos] Winner detection error for ${account.handle}:`, winnerErr.message);
+          errors.push(`${account.handle}: winner detection — ${winnerErr.message}`);
+        }
+
         // Update account sync metadata
         await supabaseAdmin
           .from('tiktok_accounts')
@@ -201,6 +299,7 @@ export async function GET(request: Request) {
       accounts_processed: accounts.length,
       videos_synced: totalSynced,
       new_videos_queued: totalNew,
+      winners_detected: totalWinners,
       errors: errors.length > 0 ? errors : undefined,
     });
 

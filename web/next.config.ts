@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import type { Configuration as WebpackConfig } from "webpack";
 
 // Security headers for production
 const securityHeaders = [
@@ -97,7 +96,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack(config: WebpackConfig, { isServer }: { isServer: boolean }) {
+  webpack(config: Record<string, unknown> & { resolve?: { alias?: Record<string, string> } }, { isServer }: { isServer: boolean }) {
     // react-joyride@2.9.3 imports unmountComponentAtNode which was removed in
     // React 19.  Alias the import to a tiny shim so webpack can resolve it
     // without crashing at compile time.  The shim is client-only (SSR is

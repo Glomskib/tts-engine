@@ -160,20 +160,21 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
           </p>
 
           {/* Progress dots */}
-          <div className="flex justify-center gap-2 mb-4 sm:mb-6">
+          <div className="flex justify-center items-center gap-3 mb-4 sm:mb-6">
             {steps.map((_, index) => (
               <button
                 type="button"
                 key={index}
                 onClick={() => setCurrentStep(index)}
-                className="rounded-full transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="group p-2 -m-1"
+                aria-label={`Go to step ${index + 1}`}
               >
-                <span className={`h-2 rounded-full transition-all ${
+                <span className={`block rounded-full transition-all duration-200 ${
                   index === currentStep
-                    ? 'bg-teal-500 w-6'
+                    ? 'bg-teal-500 w-6 h-2.5'
                     : index < currentStep
-                    ? 'bg-teal-500/50 w-2'
-                    : 'bg-zinc-700 w-2'
+                    ? 'bg-teal-500/50 w-2.5 h-2.5 group-hover:bg-teal-500/70'
+                    : 'bg-zinc-700 w-2.5 h-2.5 group-hover:bg-zinc-600'
                 }`} />
               </button>
             ))}

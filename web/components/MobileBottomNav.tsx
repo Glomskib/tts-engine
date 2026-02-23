@@ -12,12 +12,14 @@ import {
   Calendar,
   Trophy,
   BarChart3,
-  Package
+  Package,
+  Youtube
 } from 'lucide-react';
 
 // All available nav items for middle slots (content-studio is the fixed first slot)
 const AVAILABLE_NAV_ITEMS = [
   { id: 'transcribe', href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
+  { id: 'youtube-transcribe', href: '/admin/youtube-transcribe', icon: Youtube, label: 'YT Transcribe' },
   { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Library' },
   { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Pipeline' },
   { id: 'calendar', href: '/admin/calendar', icon: Calendar, label: 'Planner' },

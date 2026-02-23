@@ -174,18 +174,23 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   // --- Render helpers ---
 
   const renderProgressDots = () => (
-    <div className="flex justify-center gap-2 mb-6">
+    <div className="flex justify-center items-center gap-3 mb-6">
       {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-        <div
+        <button
+          type="button"
           key={i}
-          className={`h-2 rounded-full transition-all ${
+          onClick={() => setStep(i)}
+          className="group p-2 -m-1"
+          aria-label={`Go to step ${i + 1}`}
+        >
+          <span className={`block rounded-full transition-all duration-200 ${
             i === step
-              ? 'bg-teal-500 w-6'
+              ? 'bg-teal-500 w-6 h-2.5'
               : i < step
-              ? 'bg-teal-500/50 w-2'
-              : 'bg-zinc-700 w-2'
-          }`}
-        />
+              ? 'bg-teal-500/50 w-2.5 h-2.5 group-hover:bg-teal-500/70'
+              : 'bg-zinc-700 w-2.5 h-2.5 group-hover:bg-zinc-600'
+          }`} />
+        </button>
       ))}
     </div>
   );

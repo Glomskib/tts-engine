@@ -14,7 +14,7 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Create',
-    itemHrefs: ['/admin/content-studio', '/admin/transcribe', '/admin/script-library'],
+    itemHrefs: ['/admin/content-studio', '/admin/transcribe', '/admin/youtube-transcribe', '/admin/script-library'],
   },
   {
     label: 'Pipeline',

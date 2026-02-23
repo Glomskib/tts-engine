@@ -426,6 +426,23 @@ export async function generateUnifiedScript(
     }
   }
 
+  // ── Fetch user style profile (from their own approved scripts) ──
+  let userStyleProfile: string | null = null;
+  if (input.userId) {
+    try {
+      const { data: profile } = await supabaseAdmin
+        .from('ff_style_profiles')
+        .select('prompt_context')
+        .eq('user_id', input.userId)
+        .single();
+      if (profile?.prompt_context) {
+        userStyleProfile = profile.prompt_context;
+      }
+    } catch {
+      // Non-fatal — proceed without style profile
+    }
+  }
+
   // ── Fetch audience persona ──
   let audiencePersona: AudiencePersonaData | null = null;
   if (input.audiencePersonaId) {
@@ -527,6 +544,11 @@ export async function generateUnifiedScript(
   // Creator style fingerprint
   if (creatorStyleContext) {
     promptParts.push(`\n${creatorStyleContext.promptContext}`);
+  }
+
+  // User style profile (from their own approved scripts)
+  if (userStyleProfile) {
+    promptParts.push(`\n${userStyleProfile}`);
   }
 
   // Scorer feedback (for regeneration)

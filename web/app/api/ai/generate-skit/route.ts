@@ -1387,6 +1387,21 @@ export async function POST(request: Request) {
       // DNA not yet built — that's fine, continue without it
     }
 
+    // Fetch user style profile (from their own approved scripts)
+    let userStyleProfileContext = '';
+    try {
+      const { data: styleProfile } = await supabaseAdmin
+        .from('ff_style_profiles')
+        .select('prompt_context')
+        .eq('user_id', authContext.user.id)
+        .single();
+      if (styleProfile?.prompt_context) {
+        userStyleProfileContext = styleProfile.prompt_context;
+      }
+    } catch {
+      // Style profile not yet built — continue without it
+    }
+
     // Fetch render pipeline winner patterns for this product
     let renderWinnersPrompt = "";
     if (product.id) {
@@ -1526,6 +1541,7 @@ export async function POST(request: Request) {
       contentSubtypeId: input.content_subtype_id || null,
       demographicPrompt,
       renderWinnersPrompt,
+      userStyleProfileContext,
     });
 
     // Determine variation count (default 3)
@@ -1741,10 +1757,12 @@ interface PromptParams {
   demographicPrompt: string;
   // Render pipeline winner patterns (from approved videos)
   renderWinnersPrompt: string;
+  // User style profile (from their own approved scripts)
+  userStyleProfileContext: string;
 }
 
 function buildSkitPrompt(params: PromptParams): string {
-  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, creatorDNAContext, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt, renderWinnersPrompt } = params;
+  const { productName, brandName, category, description, ctaOverlay, riskTier, persona, creatorPersona, template, preset, intensity, plotStyle, creativeDirection, actorType, targetDuration, contentFormat, productContext, pacing, hookStrength, authenticity, presentationStyle, dialogueDensity, audiencePersona, painPoint, painPointFocus, useAudienceLanguage, winnersIntelligence, winnerVariation, creatorDNAContext, brandContextPrompt, painPointsPrompt, contentTypeId, contentSubtypeId, demographicPrompt, renderWinnersPrompt, userStyleProfileContext } = params;
 
   // Get content-type-aware prompt config (defaults to skit if unset)
   const formatConfig = getOutputFormatConfig(contentTypeId, contentSubtypeId);
@@ -1795,6 +1813,7 @@ ${creativeDirectionSection}
 ${winnerVariationSection}
 ${winnersContext}
 ${creatorDNAContext}
+${userStyleProfileContext}
 ${renderWinnersPrompt}
 ${audienceContext}
 ${demographicPrompt}

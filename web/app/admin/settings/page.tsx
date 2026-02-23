@@ -124,6 +124,18 @@ export default function SettingsPage() {
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifSaving, setNotifSaving] = useState<string | null>(null);
 
+  // Style profile state
+  const [styleProfile, setStyleProfile] = useState<{
+    scripts_analyzed: number;
+    version: number;
+    built_at: string;
+    voice?: { tone: string; formality: string };
+    hooks?: { dominant_types: string[] };
+  } | null>(null);
+  const [styleProfileLoading, setStyleProfileLoading] = useState(false);
+  const [styleProfileRebuilding, setStyleProfileRebuilding] = useState(false);
+  const [styleProfileFetched, setStyleProfileFetched] = useState(false);
+
   const fetchNotifPrefs = useCallback(async () => {
     setNotifLoading(true);
     try {
@@ -161,6 +173,46 @@ export default function SettingsPage() {
       setNotifSaving(null);
     }
   }, [notifPrefs, showError]);
+
+  const fetchStyleProfile = useCallback(async () => {
+    setStyleProfileLoading(true);
+    try {
+      const res = await fetch('/api/style-profile');
+      if (res.ok) {
+        const json = await res.json();
+        setStyleProfile(json.profile || null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch style profile:', err);
+    } finally {
+      setStyleProfileLoading(false);
+      setStyleProfileFetched(true);
+    }
+  }, []);
+
+  const rebuildStyleProfile = useCallback(async () => {
+    setStyleProfileRebuilding(true);
+    try {
+      const res = await fetch('/api/style-profile/rebuild', { method: 'POST' });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setStyleProfile({
+          scripts_analyzed: json.profile.scripts_analyzed,
+          version: (styleProfile?.version ?? 0) + 1,
+          built_at: json.profile.built_at,
+          voice: json.profile.voice,
+          hooks: json.profile.hooks,
+        });
+        showSuccess('Style profile rebuilt successfully');
+      } else {
+        showError(json.message || 'Failed to rebuild style profile');
+      }
+    } catch {
+      showError('Failed to rebuild style profile');
+    } finally {
+      setStyleProfileRebuilding(false);
+    }
+  }, [styleProfile?.version, showSuccess, showError]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -470,7 +522,10 @@ export default function SettingsPage() {
     if (activeTab === 'notifications' && !notifPrefs) {
       fetchNotifPrefs();
     }
-  }, [activeTab, notifPrefs, fetchNotifPrefs]);
+    if (activeTab === 'preferences' && !styleProfileFetched) {
+      fetchStyleProfile();
+    }
+  }, [activeTab, notifPrefs, fetchNotifPrefs, styleProfileFetched, fetchStyleProfile]);
 
   const isUnlimited = credits?.remaining === -1;
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -1240,6 +1295,83 @@ export default function SettingsPage() {
                   />
                 </label>
               </div>
+            </div>
+
+            <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Style Profile</h2>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    AI learns your writing voice from approved scripts to generate content that sounds like you
+                  </p>
+                </div>
+              </div>
+
+              {styleProfileLoading ? (
+                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading profile...
+                </div>
+              ) : styleProfile ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3 rounded-lg bg-zinc-800/50 border border-white/5">
+                      <div className="text-xs text-zinc-500 mb-1">Scripts Analyzed</div>
+                      <div className="text-lg font-semibold text-white">{styleProfile.scripts_analyzed}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-zinc-800/50 border border-white/5">
+                      <div className="text-xs text-zinc-500 mb-1">Version</div>
+                      <div className="text-lg font-semibold text-white">v{styleProfile.version}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-zinc-800/50 border border-white/5">
+                      <div className="text-xs text-zinc-500 mb-1">Last Built</div>
+                      <div className="text-sm font-medium text-white">
+                        {new Date(styleProfile.built_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  {styleProfile.voice && (
+                    <div className="text-sm text-zinc-400">
+                      <span className="text-zinc-500">Voice:</span> {styleProfile.voice.tone} / {styleProfile.voice.formality}
+                    </div>
+                  )}
+                  {styleProfile.hooks?.dominant_types && (
+                    <div className="text-sm text-zinc-400">
+                      <span className="text-zinc-500">Hook types:</span> {styleProfile.hooks.dominant_types.join(', ')}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={rebuildStyleProfile}
+                    disabled={styleProfileRebuilding}
+                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 text-sm font-medium"
+                  >
+                    {styleProfileRebuilding ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Rebuilding...</>
+                    ) : (
+                      'Rebuild Style Profile'
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-zinc-500">
+                    No style profile yet. Approve at least 3 scripts in Content Studio, then build your profile.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={rebuildStyleProfile}
+                    disabled={styleProfileRebuilding}
+                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 text-sm font-medium"
+                  >
+                    {styleProfileRebuilding ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Building...</>
+                    ) : (
+                      'Build Style Profile'
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="p-6 rounded-xl border border-white/10 bg-zinc-900/50">

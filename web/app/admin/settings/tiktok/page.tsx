@@ -18,7 +18,13 @@ import {
   Video,
   Link2,
   User,
+  Trash2,
+  Shield,
+  Database,
+  ClipboardList,
 } from 'lucide-react';
+
+const REVIEW_MODE = process.env.NEXT_PUBLIC_TIKTOK_REVIEW_MODE === 'true';
 
 interface ConnectionStatus {
   app_configured: boolean;
@@ -69,6 +75,42 @@ function ContentPostingSection() {
   const [loading, setLoading] = useState(true);
   const [appConfigured, setAppConfigured] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  const refreshAccounts = useCallback(() => {
+    fetch('/api/tiktok-content/status')
+      .then(res => res.json())
+      .then(json => {
+        if (json.ok) {
+          setAccounts(json.data.accounts || []);
+          setAppConfigured(json.data.app_configured);
+        }
+      })
+      .catch(() => showError('Failed to load content posting status'));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleContentDisconnect = async (accountId: string) => {
+    if (!confirm('Disconnect content posting for this account?')) return;
+    setDisconnecting(accountId);
+    try {
+      const res = await fetch('/api/tiktok-content/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('Content posting disconnected');
+        refreshAccounts();
+      } else {
+        showError(json.error || 'Failed to disconnect');
+      }
+    } catch {
+      showError('Failed to disconnect');
+    } finally {
+      setDisconnecting(null);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -89,7 +131,7 @@ function ContentPostingSection() {
       })
       .catch(() => showError('Failed to load content posting status'))
       .finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshAccounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleConnect = (accountId: string) => {
     setConnecting(accountId);
@@ -189,10 +231,24 @@ function ContentPostingSection() {
                     )}
                   </div>
                   {isConnected ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
-                      <Check className="w-3 h-3" />
-                      Connected
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
+                        <Check className="w-3 h-3" />
+                        Connected
+                      </span>
+                      <AdminButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleContentDisconnect(account.account_id)}
+                        disabled={disconnecting === account.account_id}
+                      >
+                        {disconnecting === account.account_id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Unlink className="w-3 h-3" />
+                        )}
+                      </AdminButton>
+                    </div>
                   ) : appConfigured ? (
                     <AdminButton
                       variant="secondary"
@@ -410,6 +466,202 @@ function TikTokLoginSection() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Partner API Section
+// ---------------------------------------------------------------------------
+
+interface PartnerConnection {
+  tiktok_open_id: string;
+  scopes: string | null;
+  expires_at: string | null;
+  status: string;
+}
+
+function PartnerApiSection() {
+  const { showSuccess, showError } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [appConfigured, setAppConfigured] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [tokenExpired, setTokenExpired] = useState(false);
+  const [connection, setConnection] = useState<PartnerConnection | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('partner_connected') === 'true') {
+      showSuccess('TikTok Partner API connected successfully!');
+      window.history.replaceState({}, '', '/admin/settings/tiktok');
+    }
+    const partnerError = params.get('partner_error');
+    if (partnerError) {
+      showError(`Partner API error: ${decodeURIComponent(partnerError)}`);
+      window.history.replaceState({}, '', '/admin/settings/tiktok');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchStatus = useCallback(() => {
+    fetch('/api/tiktok/connection-status')
+      .then(res => res.json())
+      .then(json => {
+        if (json.ok) {
+          setAppConfigured(json.data.app_configured);
+          setConnected(json.data.connected);
+          setTokenExpired(json.data.token_expired);
+          setConnection(json.data.connection);
+        }
+      })
+      .catch(() => showError('Failed to load Partner API status'))
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  const handleConnect = () => {
+    setConnecting(true);
+    window.location.href = '/api/tiktok/auth';
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect the TikTok Partner API?')) return;
+    setDisconnecting(true);
+    try {
+      const res = await fetch('/api/tiktok/partner-disconnect', { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('TikTok Partner API disconnected');
+        setConnected(false);
+        setConnection(null);
+        setTokenExpired(false);
+      } else {
+        showError(json.error || 'Failed to disconnect');
+      }
+    } catch {
+      showError('Failed to disconnect');
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminCard title="Partner API" subtitle="TikTok Partner API connection (user.info.basic, video.list)">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+          <span className="ml-2 text-sm text-zinc-500">Loading...</span>
+        </div>
+      </AdminCard>
+    );
+  }
+
+  return (
+    <AdminCard
+      title="Partner API"
+      subtitle="TikTok Partner API connection (user.info.basic, video.list)"
+    >
+      <div className="space-y-4">
+        {!appConfigured && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-300">
+              Partner API not configured. Set{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_PARTNER_CLIENT_KEY
+              </code>
+              ,{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_PARTNER_CLIENT_SECRET
+              </code>
+              , and{' '}
+              <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">
+                TIKTOK_REDIRECT_URI
+              </code>{' '}
+              in Vercel environment variables.
+            </p>
+          </div>
+        )}
+
+        {tokenExpired && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-300">
+              Your access token has expired. Reconnect to refresh your credentials.
+            </p>
+          </div>
+        )}
+
+        {connected && connection ? (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700">
+            <div className={`w-3 h-3 rounded-full shrink-0 ${
+              tokenExpired
+                ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+                : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+            }`} />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-zinc-200">
+                open_id: {connection.tiktok_open_id}
+              </div>
+              {connection.scopes && (
+                <div className="text-xs text-zinc-500">
+                  Scopes: {connection.scopes}
+                </div>
+              )}
+              {connection.expires_at && (
+                <div className="text-xs text-zinc-600 mt-0.5">
+                  Token expires: {new Date(connection.expires_at).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
+              <Check className="w-3 h-3" />
+              Connected
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700">
+            <div className="w-3 h-3 rounded-full shrink-0 bg-zinc-600" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-zinc-400">Not connected</div>
+              <div className="text-xs text-zinc-600">
+                Connect your TikTok Partner API for video analytics and user data.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-1">
+          {!connected && appConfigured && (
+            <AdminButton onClick={handleConnect} disabled={connecting}>
+              {connecting ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Link2 className="w-4 h-4 mr-1" />
+              )}
+              Connect TikTok
+            </AdminButton>
+          )}
+          {connected && (
+            <AdminButton
+              variant="secondary"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Unlink className="w-4 h-4 mr-2" />
+              )}
+              {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+            </AdminButton>
+          )}
+        </div>
+      </div>
+    </AdminCard>
+  );
+}
+
 export default function TikTokShopSettingsPage() {
   const { showSuccess, showError } = useToast();
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
@@ -425,6 +677,7 @@ export default function TikTokShopSettingsPage() {
     updated: number;
     skipped: number;
   } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Check URL params for callback results
   useEffect(() => {
@@ -528,6 +781,25 @@ export default function TikTokShopSettingsPage() {
     }
   };
 
+  const handleDeleteData = async () => {
+    if (!confirm('This will permanently delete all TikTok data (tokens, profile info, shop info) and disconnect all integrations. This cannot be undone. Continue?')) return;
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/tiktok/delete-data', { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('All TikTok data deleted successfully');
+        window.location.reload();
+      } else {
+        showError(json.error || 'Failed to delete data');
+      }
+    } catch {
+      showError('Failed to delete data');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <AdminPageLayout
@@ -552,16 +824,43 @@ export default function TikTokShopSettingsPage() {
       title="TikTok Shop"
       subtitle="Connect your TikTok Shop for product sync and analytics"
       headerActions={
-        isConnected ? (
-          <AdminButton variant="secondary" onClick={handleSync} disabled={syncing}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-            Sync Products
-          </AdminButton>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          {REVIEW_MODE && (
+            <AdminButton
+              variant="secondary"
+              onClick={() => window.location.href = '/admin/settings/tiktok/review-checklist'}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Review Checklist
+            </AdminButton>
+          )}
+          {isConnected && (
+            <AdminButton variant="secondary" onClick={handleSync} disabled={syncing}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              Sync Products
+            </AdminButton>
+          )}
+        </div>
       }
     >
+      {/* Review Mode Banner */}
+      {REVIEW_MODE && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <Shield className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-300">TikTok Review Mode Active</p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              This environment is configured for TikTok developer app review. All integrations are available for demonstration.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* TikTok Login Kit */}
       <TikTokLoginSection />
+
+      {/* TikTok Partner API */}
+      <PartnerApiSection />
 
       {/* Connection Status */}
       <AdminCard title="Connection Status">
@@ -806,6 +1105,94 @@ export default function TikTokShopSettingsPage() {
 
       {/* Content Posting Section */}
       <ContentPostingSection />
+
+      {/* Data Controls */}
+      <AdminCard title="TikTok Data Controls" subtitle="What we store and how to manage it">
+        <div className="space-y-6">
+          {/* Data Stored */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-zinc-400" />
+              <h4 className="text-sm font-medium text-zinc-200">Data Stored</h4>
+            </div>
+            <div className="space-y-2">
+              {[
+                {
+                  integration: 'Login Kit',
+                  fields: 'open_id, display_name, avatar_url, access/refresh tokens',
+                },
+                {
+                  integration: 'Shop',
+                  fields: 'shop_id, shop_name, seller_name, seller_region, access/refresh tokens',
+                },
+                {
+                  integration: 'Content Posting',
+                  fields: 'open_id, display_name, privacy_level, access/refresh tokens',
+                },
+              ].map((row) => (
+                <div
+                  key={row.integration}
+                  className="flex items-start gap-3 px-4 py-2.5 rounded-lg bg-zinc-900/50 border border-white/5"
+                >
+                  <span className="text-xs font-medium text-zinc-300 w-32 shrink-0">
+                    {row.integration}
+                  </span>
+                  <span className="text-xs text-zinc-500">{row.fields}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* How to Disable */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Unlink className="w-4 h-4 text-zinc-400" />
+              <h4 className="text-sm font-medium text-zinc-200">How to Disable</h4>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Each integration has a &quot;Disconnect&quot; button in its section above. Disconnecting clears OAuth tokens and stops all API access. No new data will be fetched or posted after disconnecting.
+            </p>
+          </div>
+
+          {/* Data Retention */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="w-4 h-4 text-zinc-400" />
+              <h4 className="text-sm font-medium text-zinc-200">Data Retention</h4>
+            </div>
+            <ul className="space-y-1 text-xs text-zinc-500">
+              <li>&bull; Access tokens expire per TikTok&apos;s schedule (typically 24h for Login Kit, varies for Shop/Content).</li>
+              <li>&bull; Refresh tokens are stored encrypted and cleared on disconnect.</li>
+              <li>&bull; Profile data (display names, avatars) is kept until disconnect or explicit deletion.</li>
+              <li>&bull; No data is shared with third parties.</li>
+            </ul>
+          </div>
+
+          {/* Request Data Deletion */}
+          <div className="pt-2 border-t border-white/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-zinc-200">Request Data Deletion</h4>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Permanently delete all TikTok data including tokens, profile info, and shop data across all integrations.
+                </p>
+              </div>
+              <AdminButton
+                variant="danger"
+                onClick={handleDeleteData}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                {deleting ? 'Deleting...' : 'Delete All TikTok Data'}
+              </AdminButton>
+            </div>
+          </div>
+        </div>
+      </AdminCard>
 
       {/* Setup Instructions */}
       <AdminCard

@@ -163,8 +163,8 @@ export function AdminButton({
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
+    sm: 'px-3 py-1.5 text-sm min-h-[36px]',
+    md: 'px-4 py-2 text-sm min-h-[44px]',
     lg: 'px-5 py-2.5 text-base',
   };
 
@@ -210,7 +210,7 @@ export function StatCard({
   };
 
   return (
-    <div className={`px-4 py-3 rounded-xl border ${variantClasses[variant]}`}>
+    <div className={`px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border ${variantClasses[variant]}`}>
       <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">{label}</div>
       <div className={`text-xl font-semibold ${valueColors[variant]}`}>{value}</div>
       {trend && <div className="text-xs text-zinc-500 mt-0.5">{trend}</div>}

@@ -270,7 +270,7 @@ export default function HookDoctorPage() {
 
         {/* Usage Gate */}
         {showGate && (
-          <div className="bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-2xl p-8 mb-12 text-center">
+          <div className="bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-2xl p-5 sm:p-8 mb-12 text-center">
             <Lock className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
             <h3 className="text-2xl font-bold mb-3">You've used your free hooks!</h3>
             <p className="text-gray-300 mb-6">
@@ -289,7 +289,7 @@ export default function HookDoctorPage() {
         {hooks.length > 0 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Your Scroll-Stopping Hooks</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Your Scroll-Stopping Hooks</h2>
               <span className="text-sm text-gray-400">
                 {hooks.length} hooks generated
               </span>
@@ -298,13 +298,13 @@ export default function HookDoctorPage() {
             {hooks.map((hook, index) => (
               <div
                 key={index}
-                className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 hover:border-emerald-500/30 transition-all"
+                className="bg-gray-800/50 rounded-2xl p-4 sm:p-6 border border-gray-700/50 hover:border-emerald-500/30 transition-all"
               >
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex items-start justify-between gap-3 mb-4 sm:mb-6">
                   <span className="text-lg font-bold text-emerald-400">Hook #{index + 1}</span>
                   <button
                     onClick={() => copyHook(hook, index)}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-700/50 hover:bg-emerald-500/10 border border-gray-600 hover:border-emerald-500/30 rounded-lg transition-all text-sm"
+                    className="flex items-center gap-2 px-3 py-2 min-h-[44px] bg-gray-700/50 hover:bg-emerald-500/10 border border-gray-600 hover:border-emerald-500/30 rounded-lg transition-all text-sm"
                   >
                     {copiedIndex === index ? (
                       <>
@@ -322,8 +322,8 @@ export default function HookDoctorPage() {
 
                 <div className="space-y-4">
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                      <Eye className="w-5 h-5 text-emerald-400" />
+                    <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                      <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium text-emerald-400 mb-1">🎬 Visual Hook</div>
@@ -332,8 +332,8 @@ export default function HookDoctorPage() {
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                      <MessageCircle className="w-5 h-5 text-blue-400" />
+                    <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                      <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium text-blue-400 mb-1">📝 Text on Screen</div>
@@ -342,8 +342,8 @@ export default function HookDoctorPage() {
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                      <Mic className="w-5 h-5 text-purple-400" />
+                    <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+                      <Mic className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium text-purple-400 mb-1">🗣️ Verbal Hook</div>
@@ -371,7 +371,7 @@ export default function HookDoctorPage() {
         )}
 
         {/* CTA Banner */}
-        <div className="mt-12 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-2xl p-8">
+        <div className="mt-12 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-2xl p-5 sm:p-8">
           <h3 className="text-2xl font-bold mb-3">Hooks are just the beginning.</h3>
           <p className="text-gray-300 mb-6">
             Generate full scripts with pain points, CTAs, scene directions, and AI video generation. Join FlashFlow to unlock the complete content creation pipeline.
@@ -388,13 +388,13 @@ export default function HookDoctorPage() {
       {/* Footer Links */}
       <div className="max-w-4xl mx-auto px-4 py-8 border-t border-gray-800">
         <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400">
-          <Link href="/" className="hover:text-emerald-400 transition-colors">
+          <Link href="/" className="hover:text-emerald-400 transition-colors min-h-[44px] flex items-center">
             Home
           </Link>
-          <Link href="/about" className="hover:text-emerald-400 transition-colors">
+          <Link href="/about" className="hover:text-emerald-400 transition-colors min-h-[44px] flex items-center">
             About
           </Link>
-          <Link href="/auth/sign-up" className="hover:text-emerald-400 transition-colors">
+          <Link href="/auth/sign-up" className="hover:text-emerald-400 transition-colors min-h-[44px] flex items-center">
             Sign Up
           </Link>
         </div>

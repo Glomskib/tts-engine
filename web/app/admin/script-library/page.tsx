@@ -946,6 +946,7 @@ export default function SkitLibraryPage() {
               fontSize: "13px",
               fontWeight: 500,
               cursor: "pointer",
+              minHeight: "44px",
             }}
           >
             + Manual Script
@@ -960,6 +961,9 @@ export default function SkitLibraryPage() {
               textDecoration: "none",
               fontSize: "13px",
               fontWeight: 500,
+              minHeight: "44px",
+              display: "inline-flex",
+              alignItems: "center",
             }}
           >
             Create New Script
@@ -974,6 +978,9 @@ export default function SkitLibraryPage() {
               borderRadius: "6px",
               textDecoration: "none",
               fontSize: "13px",
+              minHeight: "44px",
+              display: "inline-flex",
+              alignItems: "center",
             }}
           >
             Production Board
@@ -1634,7 +1641,7 @@ export default function SkitLibraryPage() {
                   ) : expandedSkit?.skit_data ? (
                     <div>
                       {/* Hook & CTA */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ marginBottom: "16px" }}>
                         <div>
                           <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, textTransform: "uppercase", marginBottom: "6px" }}>Hook</div>
                           <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: "6px", padding: "12px", fontSize: "14px", color: colors.text }}>
@@ -1677,7 +1684,7 @@ export default function SkitLibraryPage() {
 
                       {/* B-Roll & Overlays */}
                       {(expandedSkit.skit_data.b_roll?.length > 0 || expandedSkit.skit_data.overlays?.length > 0) && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ marginBottom: "16px" }}>
                           {expandedSkit.skit_data.b_roll?.length > 0 && (
                             <div>
                               <div style={{ fontSize: "11px", fontWeight: 600, color: colors.textMuted, textTransform: "uppercase", marginBottom: "6px" }}>B-Roll</div>
@@ -1737,7 +1744,7 @@ export default function SkitLibraryPage() {
                             </div>
 
                             {/* Individual Scores */}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", marginBottom: "12px" }}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "6px", marginBottom: "12px" }}>
                               {[
                                 { key: 'hook_strength', label: 'Hook' },
                                 { key: 'humor_level', label: 'Humor' },
@@ -1762,7 +1769,7 @@ export default function SkitLibraryPage() {
                             </div>
 
                             {/* Strengths & Improvements */}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "12px" }}>
                               {expandedSkit.ai_score.strengths.length > 0 && (
                                 <div>
                                   <div style={{ fontSize: "10px", fontWeight: 600, color: "#10b981", marginBottom: "4px" }}>Strengths</div>
@@ -1808,7 +1815,7 @@ export default function SkitLibraryPage() {
                       </div>
 
                       {/* Actions */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", paddingTop: "12px", borderTop: `1px solid ${colors.border}` }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px", paddingTop: "12px", borderTop: `1px solid ${colors.border}` }}>
                         <Link href={`/admin/skit-generator?load=${skit.id}`} onClick={(e) => e.stopPropagation()} style={secondaryButtonStyle}>
                           Edit in Generator
                         </Link>

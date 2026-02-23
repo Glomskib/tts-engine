@@ -125,7 +125,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
       {/* Modal */}
       <div
-        className={`relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl transform transition-all duration-200 flex flex-col overflow-hidden ${
+        className={`relative w-full max-w-md mx-3 sm:mx-4 bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl transform transition-all duration-200 flex flex-col overflow-hidden ${
           isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
         }`}
         style={{
@@ -166,14 +166,16 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 type="button"
                 key={index}
                 onClick={() => setCurrentStep(index)}
-                className={`w-2 h-2 rounded-full transition-all min-h-[44px] min-w-[44px] flex items-center justify-center ${
+                className="rounded-full transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <span className={`h-2 rounded-full transition-all ${
                   index === currentStep
                     ? 'bg-teal-500 w-6'
                     : index < currentStep
-                    ? 'bg-teal-500/50'
-                    : 'bg-zinc-700'
-                }`}
-              />
+                    ? 'bg-teal-500/50 w-2'
+                    : 'bg-zinc-700 w-2'
+                }`} />
+              </button>
             ))}
           </div>
         </div>
@@ -212,7 +214,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors py-2"
+                className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors py-2 min-h-[44px]"
               >
                 Skip tour
               </button>

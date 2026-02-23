@@ -232,7 +232,7 @@ export default function AnalyticsPage() {
       {!loading && !error && data && (
         <>
           {/* Top Metrics Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               label="Total Videos"
               value={data.metrics.total_videos}
@@ -255,7 +255,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Charts Row 1: Scripts per Day + Video Status */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             {/* Scripts per Day Bar Chart */}
             <AdminCard title="Scripts Generated per Day">
               <div className="h-[280px]">
@@ -319,7 +319,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Charts Row 2: Score Distribution + Top Personas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             {/* Score Distribution Histogram */}
             <AdminCard title="Script Score Distribution" subtitle="AI quality scores (1-10)">
               <div className="h-[280px]">

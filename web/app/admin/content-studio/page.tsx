@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { postJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
+import { postJson, patchJson, isApiError, type ApiClientError } from '@/lib/http/fetchJson';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useCredits } from '@/hooks/useCredits';
 import UpsellBanner from '@/components/UpsellBanner';
@@ -66,6 +66,8 @@ import {
 } from '@/lib/content-types';
 import TalkThroughItModal, { type VoiceBriefParams } from '@/components/TalkThroughItModal';
 import ScriptAssistantChat from './_components/ScriptAssistantChat';
+import { BottomSheet } from '@/components/BottomSheet';
+import { MobileTextarea } from '@/components/ui/MobileInput';
 
 // Icon mapping for content types
 const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -386,6 +388,9 @@ export default function ContentStudioPage() {
   const [savedAsTemplate, setSavedAsTemplate] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
 
+  // Track saved skit ID for persisting edits
+  const [savedSkitId, setSavedSkitId] = useState<string | null>(null);
+
   // Approve & pipeline state
   const [approvingToPipeline, setApprovingToPipeline] = useState(false);
   const [approvedToPipeline, setApprovedToPipeline] = useState(false);
@@ -419,6 +424,10 @@ export default function ContentStudioPage() {
   const [editedVisualHook, setEditedVisualHook] = useState('');
   const [editedTextHook, setEditedTextHook] = useState('');
   const [editedVerbalHook, setEditedVerbalHook] = useState('');
+
+  // Mobile hook editor state
+  const [mobileHookField, setMobileHookField] = useState<'visual' | 'text' | 'verbal' | null>(null);
+  const [mobileHookValue, setMobileHookValue] = useState('');
 
   // Hook rescore state
   const [rescoring, setRescoring] = useState(false);
@@ -469,6 +478,36 @@ export default function ContentStudioPage() {
     } finally {
       setRescoring(false);
     }
+  };
+
+  // Persist skit_data to DB after inline edits
+  const persistSkitData = async (skitData: SkitData) => {
+    if (!savedSkitId) return;
+    try {
+      await patchJson(`/api/skits/${savedSkitId}`, {
+        skit_data: skitData,
+      });
+      showSuccess('Hook saved to library');
+    } catch {
+      // Non-blocking — in-memory edit already applied
+    }
+  };
+
+  // Mobile hook save handler (for BottomSheet)
+  const handleSaveMobileHook = () => {
+    if (!result || !mobileHookField) return;
+    const variation = result.variations?.[selectedVariationIndex];
+    const targetSkit = variation ? variation.skit : result.skit;
+    if (!targetSkit) return;
+
+    if (mobileHookField === 'visual') targetSkit.visual_hook = mobileHookValue;
+    else if (mobileHookField === 'text') targetSkit.text_on_screen_hook = mobileHookValue;
+    else if (mobileHookField === 'verbal') targetSkit.verbal_hook = mobileHookValue;
+
+    setResult({ ...result });
+    rescoreAfterEdit(targetSkit);
+    persistSkitData(targetSkit);
+    setMobileHookField(null);
   };
 
   // Beat/scene editing state
@@ -1105,6 +1144,7 @@ export default function ContentStudioPage() {
     setError(null);
     setResult(null);
     setSelectedVariationIndex(0);
+    setSavedSkitId(null);
 
     // Map frontend fields to API schema
     // presentation_style → actor_type
@@ -1235,7 +1275,7 @@ export default function ContentStudioPage() {
     setSavingToLibrary(true);
     try {
       const currentSkit = result.variations?.[selectedVariationIndex]?.skit || result.skit;
-      const response = await postJson('/api/skits', {
+      const response = await postJson<{ id: string }>('/api/skits', {
         title: saveTitle.trim(),
         status: saveStatus,
         product_id: selectedProductId || null,
@@ -1255,6 +1295,7 @@ export default function ContentStudioPage() {
       });
 
       if (!isApiError(response)) {
+        if (response.data?.id) setSavedSkitId(response.data.id);
         setSavedToLibrary(true);
         setSaveModalOpen(false);
         setTimeout(() => setSavedToLibrary(false), 3000);
@@ -1441,13 +1482,14 @@ export default function ContentStudioPage() {
         throw new Error(saveRes.message || 'Failed to save script');
       }
 
-      const savedSkitId = saveRes.data?.id;
-      if (!savedSkitId) throw new Error('No script ID returned');
+      const approvedSkitId = saveRes.data?.id;
+      if (!approvedSkitId) throw new Error('No script ID returned');
+      setSavedSkitId(approvedSkitId);
 
       // 2. Send to pipeline
       if (selectedProductId) {
         // Product-based: use send-to-video (creates via createVideoFromProduct)
-        const pipelineRes = await postJson(`/api/skits/${savedSkitId}/send-to-video`, {
+        const pipelineRes = await postJson(`/api/skits/${approvedSkitId}/send-to-video`, {
           priority: 'normal',
         });
         if (isApiError(pipelineRes)) {
@@ -1457,7 +1499,7 @@ export default function ContentStudioPage() {
       } else {
         // Manual product: use lightweight create-from-script
         const pipelineRes = await postJson('/api/videos/create-from-script', {
-          script_id: savedSkitId,
+          script_id: approvedSkitId,
           title: currentSkit.hook_line?.substring(0, 50) || 'Untitled',
           product_name: productName,
           product_brand: productBrand,
@@ -1499,7 +1541,7 @@ export default function ContentStudioPage() {
         ? products.find(p => p.id === selectedProductId)?.brand || ''
         : manualBrandName || '';
 
-      const res = await postJson('/api/skits', {
+      const res = await postJson<{ id: string }>('/api/skits', {
         title: `${productName} - V${variationIndex + 1} - ${new Date().toLocaleDateString()}`,
         status: 'draft',
         product_id: selectedProductId || null,
@@ -1516,6 +1558,7 @@ export default function ContentStudioPage() {
       });
 
       if (!isApiError(res)) {
+        if (res.data?.id) setSavedSkitId(res.data.id);
         setSavedVariations(prev => new Set([...prev, variationIndex]));
         showSuccess(`Variation ${variationIndex + 1} saved to library`);
       }
@@ -1559,14 +1602,15 @@ export default function ContentStudioPage() {
 
       if (isApiError(saveRes)) throw new Error(saveRes.message || 'Failed to save');
 
-      const savedSkitId = saveRes.data?.id;
-      if (!savedSkitId) throw new Error('No script ID returned');
+      const approvedSkitId = saveRes.data?.id;
+      if (!approvedSkitId) throw new Error('No script ID returned');
+      setSavedSkitId(approvedSkitId);
 
       if (selectedProductId) {
-        await postJson(`/api/skits/${savedSkitId}/send-to-video`, { priority: 'normal' });
+        await postJson(`/api/skits/${approvedSkitId}/send-to-video`, { priority: 'normal' });
       } else {
         await postJson('/api/videos/create-from-script', {
-          script_id: savedSkitId,
+          script_id: approvedSkitId,
           title: (skit.hook_line || skit.visual_hook || skit.verbal_hook || 'Untitled').substring(0, 50),
           product_name: productName,
           product_brand: productBrand,
@@ -3740,7 +3784,10 @@ export default function ContentStudioPage() {
                                 result.skit.hook_line = editedHookLine;
                               }
                               setResult({ ...result });
-                              if (targetSkit) rescoreAfterEdit(targetSkit);
+                              if (targetSkit) {
+                                rescoreAfterEdit(targetSkit);
+                                persistSkitData(targetSkit);
+                              }
                             }
                             setEditingHook(false);
                           }}
@@ -3767,7 +3814,15 @@ export default function ContentStudioPage() {
                                     🎬 Visual Hook
                                   </div>
                                   {editingHookField !== 'visual' && (
-                                    <button type="button" onClick={() => { setEditedVisualHook(currentSkit.visual_hook || ''); setEditingHookField('visual'); }}
+                                    <button type="button" onClick={() => {
+                                      if (isMobile) {
+                                        setMobileHookValue(currentSkit.visual_hook || '');
+                                        setMobileHookField('visual');
+                                      } else {
+                                        setEditedVisualHook(currentSkit.visual_hook || '');
+                                        setEditingHookField('visual');
+                                      }
+                                    }}
                                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: colors.textSecondary, opacity: 0.5, minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '-8px' }}
                                       title="Edit visual hook"
                                     >
@@ -3793,6 +3848,7 @@ export default function ContentStudioPage() {
                                             targetSkit.visual_hook = editedVisualHook;
                                             setResult({ ...result });
                                             rescoreAfterEdit(targetSkit);
+                                            persistSkitData(targetSkit);
                                           }
                                         }
                                         setEditingHookField(null);
@@ -3822,7 +3878,15 @@ export default function ContentStudioPage() {
                                     📝 Text on Screen Hook
                                   </div>
                                   {editingHookField !== 'text' && (
-                                    <button type="button" onClick={() => { setEditedTextHook(currentSkit.text_on_screen_hook || ''); setEditingHookField('text'); }}
+                                    <button type="button" onClick={() => {
+                                      if (isMobile) {
+                                        setMobileHookValue(currentSkit.text_on_screen_hook || '');
+                                        setMobileHookField('text');
+                                      } else {
+                                        setEditedTextHook(currentSkit.text_on_screen_hook || '');
+                                        setEditingHookField('text');
+                                      }
+                                    }}
                                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: colors.textSecondary, opacity: 0.5, minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '-8px' }}
                                       title="Edit text on screen hook"
                                     >
@@ -3848,6 +3912,7 @@ export default function ContentStudioPage() {
                                             targetSkit.text_on_screen_hook = editedTextHook;
                                             setResult({ ...result });
                                             rescoreAfterEdit(targetSkit);
+                                            persistSkitData(targetSkit);
                                           }
                                         }
                                         setEditingHookField(null);
@@ -3877,7 +3942,15 @@ export default function ContentStudioPage() {
                                     🗣️ Verbal Hook
                                   </div>
                                   {editingHookField !== 'verbal' && (
-                                    <button type="button" onClick={() => { setEditedVerbalHook(currentSkit.verbal_hook || ''); setEditingHookField('verbal'); }}
+                                    <button type="button" onClick={() => {
+                                      if (isMobile) {
+                                        setMobileHookValue(currentSkit.verbal_hook || '');
+                                        setMobileHookField('verbal');
+                                      } else {
+                                        setEditedVerbalHook(currentSkit.verbal_hook || '');
+                                        setEditingHookField('verbal');
+                                      }
+                                    }}
                                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: colors.textSecondary, opacity: 0.5, minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '-8px' }}
                                       title="Edit verbal hook"
                                     >
@@ -3903,6 +3976,7 @@ export default function ContentStudioPage() {
                                             targetSkit.verbal_hook = editedVerbalHook;
                                             setResult({ ...result });
                                             rescoreAfterEdit(targetSkit);
+                                            persistSkitData(targetSkit);
                                           }
                                         }
                                         setEditingHookField(null);
@@ -4166,6 +4240,7 @@ export default function ContentStudioPage() {
                       <button type="button" onClick={() => {
                         if (result) {
                           const variation = result.variations?.[selectedVariationIndex];
+                          const targetSkit = variation ? variation.skit : result.skit;
                           if (variation) {
                             variation.skit.cta_line = editedCTALine;
                             variation.skit.cta_overlay = editedCTAOverlay;
@@ -4174,6 +4249,7 @@ export default function ContentStudioPage() {
                             result.skit.cta_overlay = editedCTAOverlay;
                           }
                           setResult({ ...result });
+                          if (targetSkit) persistSkitData(targetSkit);
                         }
                         setEditingCTA(false);
                       }}
@@ -5097,6 +5173,53 @@ export default function ContentStudioPage() {
           display: none;
         }
       `}</style>
+
+      {/* Mobile Hook Editor BottomSheet */}
+      {isMobile && mobileHookField && (
+        <BottomSheet
+          isOpen={!!mobileHookField}
+          onClose={() => setMobileHookField(null)}
+          title={`Edit ${mobileHookField === 'visual' ? 'Visual' : mobileHookField === 'text' ? 'Text on Screen' : 'Verbal'} Hook`}
+          size="medium"
+          stickyFooter={
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={handleSaveMobileHook}
+                disabled={rescoring}
+                style={{
+                  flex: 1, height: '48px',
+                  backgroundColor: '#3b82f6', border: 'none', borderRadius: '12px',
+                  color: 'white', fontSize: '16px', fontWeight: 600,
+                  cursor: rescoring ? 'not-allowed' : 'pointer',
+                  opacity: rescoring ? 0.5 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                }}
+              >
+                <Check size={16} /> Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileHookField(null)}
+                style={{
+                  flex: 1, height: '48px',
+                  backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px',
+                  color: '#a1a1aa', fontSize: '16px', fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          }
+        >
+          <MobileTextarea
+            label=""
+            value={mobileHookValue}
+            onChange={(e) => setMobileHookValue(e.target.value)}
+            autoFocus
+          />
+        </BottomSheet>
+      )}
     </div>
   );
 }

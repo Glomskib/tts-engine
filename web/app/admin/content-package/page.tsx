@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import AdminPageLayout, { AdminCard, AdminButton } from '../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
 import { celebrate } from '@/lib/celebrations';
-import { Package, Loader2, Check, X, Plus, Zap, RefreshCw, ArrowRight, Star, Trash2, SlidersHorizontal, ChevronDown, ChevronRight } from 'lucide-react';
+import { Package, Loader2, Check, X, Zap, RefreshCw, ArrowRight, Star, Trash2, SlidersHorizontal, ChevronDown, ChevronRight } from 'lucide-react';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
 // --- Helpers ---
@@ -86,6 +87,16 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Build "Use in Studio" URL for a package item
+const studioUrl = (item: PackageItem) => {
+  const hook = item.full_script?.hook || item.hook;
+  const params = new URLSearchParams();
+  params.set("hook", hook);
+  if (item.content_type) params.set("content_type", item.content_type);
+  if (item.product_name) params.set("inspiration", item.product_name);
+  return `/admin/content-studio?${params.toString()}`;
+};
+
 // --- Component ---
 
 export default function ContentPackagePage() {
@@ -96,7 +107,6 @@ export default function ContentPackagePage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [addingToPipeline, setAddingToPipeline] = useState<Set<string>>(new Set());
-  const [bulkAdding, setBulkAdding] = useState(false);
   const [discardedIds, setDiscardedIds] = useState<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -258,19 +268,6 @@ export default function ContentPackagePage() {
     }
   };
 
-  // Toggle kept status
-  const toggleKept = useCallback((itemId: string) => {
-    setPkg(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        items: prev.items.map(item =>
-          item.id === itemId ? { ...item, kept: !item.kept } : item
-        ),
-      };
-    });
-  }, []);
-
   // Add single item to pipeline
   const addToPipeline = async (item: PackageItem) => {
     setAddingToPipeline(prev => new Set(prev).add(item.id));
@@ -319,67 +316,6 @@ export default function ContentPackagePage() {
         return next;
       });
     }
-  };
-
-  // Add all kept items to pipeline
-  const addAllKeptToPipeline = async () => {
-    if (!pkg) return;
-
-    const keptItems = pkg.items.filter(i => i.kept && !i.added_to_pipeline);
-    if (keptItems.length === 0) {
-      showError('No selected items to add');
-      return;
-    }
-
-    setBulkAdding(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const item of keptItems) {
-      try {
-        const res = await fetch('/api/pipeline', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            product_name: item.product_name,
-            brand: item.brand,
-            content_type: item.content_type,
-            hook_text: item.hook,
-            score: item.score,
-            source: 'content_package',
-            package_id: pkg.id,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.ok) {
-          successCount++;
-          setPkg(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              items: prev.items.map(i =>
-                i.id === item.id ? { ...i, added_to_pipeline: true } : i
-              ),
-            };
-          });
-        } else {
-          failCount++;
-        }
-      } catch {
-        failCount++;
-      }
-    }
-
-    if (successCount > 0) {
-      showSuccess(`Added ${successCount} item${successCount !== 1 ? 's' : ''} to pipeline`);
-    }
-    if (failCount > 0) {
-      showError(`Failed to add ${failCount} item${failCount !== 1 ? 's' : ''}`);
-    }
-
-    setBulkAdding(false);
   };
 
   // Computed stats
@@ -561,33 +497,15 @@ export default function ContentPackagePage() {
             </div>
           )}
 
-          {/* Bulk Action Bar */}
+          {/* Info Bar */}
           {pkg.status === 'complete' && keptNotAdded > 0 && (
-            <div className="flex items-center justify-between p-4 bg-violet-500/10 rounded-xl border border-violet-500/20">
+            <div className="flex items-center justify-between p-4 bg-teal-500/10 rounded-xl border border-teal-500/20">
               <div className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-violet-400" />
+                <Zap className="w-4 h-4 text-teal-400" />
                 <span className="text-sm text-zinc-200">
-                  <span className="font-semibold text-violet-400">{keptNotAdded}</span> selected item{keptNotAdded !== 1 ? 's' : ''} ready to add
+                  <span className="font-semibold text-teal-400">{keptNotAdded}</span> item{keptNotAdded !== 1 ? 's' : ''} ready — click <span className="font-medium text-teal-300">Use in Studio</span> on any card to start creating
                 </span>
               </div>
-              <AdminButton
-                variant="primary"
-                size="sm"
-                onClick={addAllKeptToPipeline}
-                disabled={bulkAdding}
-              >
-                {bulkAdding ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="w-4 h-4 mr-1.5" />
-                    Add All Selected to Pipeline
-                  </>
-                )}
-              </AdminButton>
             </div>
           )}
 
@@ -805,30 +723,16 @@ export default function ContentPackagePage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 pt-3 border-t border-white/5">
-                      {/* Keep Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => toggleKept(item.id)}
-                        className={`
-                          flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                          ${item.kept
-                            ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30 hover:bg-violet-500/30'
-                            : 'bg-zinc-800 text-zinc-400 border border-white/5 hover:bg-zinc-700 hover:text-zinc-300'
-                          }
-                        `}
-                      >
-                        {item.kept ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            Selected
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            Select
-                          </>
-                        )}
-                      </button>
+                      {/* Use in Studio — Primary CTA */}
+                      {!discardedIds.has(item.id) && (
+                        <Link
+                          href={studioUrl(item)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-teal-500/20 to-violet-500/20 text-teal-300 border border-teal-500/30 hover:from-teal-500/30 hover:to-violet-500/30 hover:text-teal-200 transition-all"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          Use in Studio
+                        </Link>
+                      )}
 
                       {/* Discard Toggle */}
                       {!item.added_to_pipeline && (
@@ -848,13 +752,13 @@ export default function ContentPackagePage() {
                         </button>
                       )}
 
-                      {/* Add to Pipeline */}
+                      {/* Add to Pipeline — Secondary CTA */}
                       {!item.added_to_pipeline && !discardedIds.has(item.id) && (
                         <button
                           type="button"
                           onClick={() => addToPipeline(item)}
                           disabled={addingToPipeline.has(item.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-300 border border-white/5 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800/50 text-zinc-500 border border-white/5 hover:bg-zinc-700 hover:text-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
                         >
                           {addingToPipeline.has(item.id) ? (
                             <>
@@ -864,7 +768,7 @@ export default function ContentPackagePage() {
                           ) : (
                             <>
                               <ArrowRight className="w-3.5 h-3.5" />
-                              Add to Pipeline
+                              Pipeline
                             </>
                           )}
                         </button>

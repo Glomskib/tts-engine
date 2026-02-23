@@ -18,12 +18,15 @@ const SkitBeatSchema = z.object({
 
 const SkitDataSchema = z.object({
   hook_line: z.string(),
+  visual_hook: z.string().optional(),
+  text_on_screen_hook: z.string().optional(),
+  verbal_hook: z.string().optional(),
   beats: z.array(SkitBeatSchema),
   b_roll: z.array(z.string()),
   overlays: z.array(z.string()),
   cta_line: z.string(),
   cta_overlay: z.string(),
-});
+}).passthrough();
 
 const GenerationConfigSchema = z.object({
   risk_tier: z.string().optional(),

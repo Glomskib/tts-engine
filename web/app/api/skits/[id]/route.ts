@@ -29,6 +29,25 @@ const PerformanceMetricsSchema = z.object({
   shares: z.number().int().min(0).optional(),
 }).optional().nullable();
 
+const SkitBeatSchema = z.object({
+  t: z.string(),
+  action: z.string(),
+  dialogue: z.string().optional(),
+  on_screen_text: z.string().optional(),
+});
+
+const PatchSkitDataSchema = z.object({
+  hook_line: z.string().optional(),
+  visual_hook: z.string().optional(),
+  text_on_screen_hook: z.string().optional(),
+  verbal_hook: z.string().optional(),
+  beats: z.array(SkitBeatSchema).optional(),
+  b_roll: z.array(z.string()).optional(),
+  overlays: z.array(z.string()).optional(),
+  cta_line: z.string().optional(),
+  cta_overlay: z.string().optional(),
+}).passthrough().optional();
+
 const UpdateSkitSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   status: z.enum(['draft', 'approved', 'produced', 'posted', 'archived']).optional(),
@@ -38,7 +57,8 @@ const UpdateSkitSchema = z.object({
   performance_metrics: PerformanceMetricsSchema,
   posted_video_url: z.string().url().optional().nullable(),
   marked_winner_at: z.string().datetime().optional().nullable(),
-}).strict();
+  skit_data: PatchSkitDataSchema,
+});
 
 // --- GET: Fetch a single skit ---
 
@@ -160,7 +180,7 @@ export async function PATCH(
       .update(updatePayload)
       .eq("id", id.trim())
       .eq("user_id", authContext.user.id)
-      .select("id, title, status, user_rating, updated_at")
+      .select("id, title, status, user_rating, skit_data, updated_at, version")
       .single();
 
     if (error) {

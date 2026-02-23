@@ -7,6 +7,7 @@ import { queueEmailSequence } from "@/lib/email/scheduler";
 import { sendTelegramNotification } from "@/lib/telegram";
 import { syncRoleFromPlan } from "@/lib/sync-role";
 import { syncDiscordRolesIfLinked } from "@/lib/discord/roles";
+import { upsertEntitlement, PLAN_ID_TO_ENTITLEMENT } from "@/lib/entitlements";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -232,6 +233,16 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
   await syncRoleFromPlan(userId, planId);
   await syncDiscordRolesIfLinked(userId);
 
+  // Upsert entitlement (non-fatal)
+  const entitlementPlan = PLAN_ID_TO_ENTITLEMENT[planId] || "free";
+  await upsertEntitlement(userId, {
+    plan: entitlementPlan,
+    status: "active",
+    stripe_customer_id: session.customer as string,
+    stripe_subscription_id: session.subscription as string,
+    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  }, correlationId);
+
   // Initialize credits for the user
   const { error: creditError } = await supabaseAdmin.from("user_credits").upsert(
     {
@@ -334,6 +345,16 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
     console.error(`[${correlationId}] Failed to update subscription:`, error);
   }
 
+  // Upsert entitlement (non-fatal)
+  const entitlementPlan = PLAN_ID_TO_ENTITLEMENT[planId] || "free";
+  const entitlementStatus = status === "active" ? "active" : status === "past_due" ? "past_due" : "active";
+  await upsertEntitlement(userId, {
+    plan: entitlementPlan,
+    status: entitlementStatus,
+    stripe_subscription_id: subscription.id,
+    ...(periodEnd ? { current_period_end: new Date(periodEnd * 1000).toISOString() } : {}),
+  }, correlationId);
+
   // Sync role to match updated plan
   await syncRoleFromPlan(userId, planId);
   await syncDiscordRolesIfLinked(userId);
@@ -367,6 +388,15 @@ async function handleSubscriptionCancelled(correlationId: string, subscription: 
   if (cancelledSub?.user_id) {
     await syncRoleFromPlan(cancelledSub.user_id, 'free');
     await syncDiscordRolesIfLinked(cancelledSub.user_id);
+
+    // Upsert entitlement — downgrade to free (non-fatal)
+    await upsertEntitlement(cancelledSub.user_id, {
+      plan: "free",
+      status: "canceled",
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      current_period_end: null,
+    }, correlationId);
   }
 
   // H8: Reset credits to free tier amount (5 credits)
@@ -464,6 +494,12 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
   if (error) {
     console.error(`[${correlationId}] Failed to reset credits:`, error);
   }
+
+  // Upsert entitlement — confirm active on renewal (non-fatal)
+  await upsertEntitlement(subscription.user_id, {
+    status: "active",
+    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  }, correlationId);
 
   // Reset video quota for video editing clients
   if (isVideoClient) {
@@ -616,6 +652,20 @@ async function handlePaymentFailed(correlationId: string, invoice: Stripe.Invoic
 
   if (error) {
     console.error(`[${correlationId}] Failed to update subscription status:`, error);
+  }
+
+  // Upsert entitlement — mark past_due (non-fatal)
+  // Find user by subscription ID to get user_id
+  const { data: failedSub } = await supabaseAdmin
+    .from("user_subscriptions")
+    .select("user_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .single();
+
+  if (failedSub?.user_id) {
+    await upsertEntitlement(failedSub.user_id, {
+      status: "past_due",
+    }, correlationId);
   }
 
   // Telegram notification

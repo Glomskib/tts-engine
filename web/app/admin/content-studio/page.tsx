@@ -420,6 +420,57 @@ export default function ContentStudioPage() {
   const [editedTextHook, setEditedTextHook] = useState('');
   const [editedVerbalHook, setEditedVerbalHook] = useState('');
 
+  // Hook rescore state
+  const [rescoring, setRescoring] = useState(false);
+
+  const rescoreAfterEdit = async (updatedSkit: SkitData) => {
+    const productName = selectedProductId
+      ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+      : manualProductName || 'Product';
+    const productBrand = selectedProductId
+      ? products.find(p => p.id === selectedProductId)?.brand
+      : manualBrandName || undefined;
+
+    // Synthesize hook_line from 3-part hooks for scoring API
+    const hookLine = updatedSkit.visual_hook || updatedSkit.text_on_screen_hook || updatedSkit.verbal_hook || updatedSkit.hook_line || '';
+
+    setRescoring(true);
+    try {
+      const res = await postJson<AIScore>('/api/ai/score-skit', {
+        skit_data: {
+          hook_line: hookLine,
+          beats: updatedSkit.beats,
+          b_roll: updatedSkit.b_roll || [],
+          overlays: updatedSkit.overlays || [],
+          cta_line: updatedSkit.cta_line || '',
+          cta_overlay: updatedSkit.cta_overlay || '',
+        },
+        product_name: productName,
+        product_brand: productBrand,
+      });
+
+      if (!isApiError(res) && res.data) {
+        const scored = res.data as AIScore;
+        if (result) {
+          const variation = result.variations?.[selectedVariationIndex];
+          if (variation) {
+            variation.ai_score = scored;
+          } else {
+            result.ai_score = scored;
+          }
+          setResult({ ...result });
+        }
+        showSuccess(`Rescored: ${scored.overall_score}/10`);
+      } else {
+        showError('Rescore failed — scores unchanged');
+      }
+    } catch {
+      showError('Rescore failed — scores unchanged');
+    } finally {
+      setRescoring(false);
+    }
+  };
+
   // Beat/scene editing state
   const [editingBeatIndex, setEditingBeatIndex] = useState<number | null>(null);
   const [editedBeatAction, setEditedBeatAction] = useState('');
@@ -3349,10 +3400,13 @@ export default function ContentStudioPage() {
                             {v.variation_angle}
                           </span>
                         )}
-                        {v.ai_score && (
+                        {v.ai_score && !(rescoring && idx === selectedVariationIndex) && (
                           <span style={{ marginLeft: '8px', opacity: 0.8 }}>
                             ({v.ai_score.overall_score}/10)
                           </span>
+                        )}
+                        {rescoring && idx === selectedVariationIndex && (
+                          <Loader2 size={12} className="animate-spin" style={{ marginLeft: '8px' }} />
                         )}
                       </button>
                     ))}
@@ -3674,19 +3728,21 @@ export default function ContentStudioPage() {
                           autoFocus
                         />
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button type="button" onClick={() => {
+                          <button type="button" disabled={rescoring} onClick={() => {
                             if (result) {
                               const variation = result.variations?.[selectedVariationIndex];
+                              const targetSkit = variation ? variation.skit : result.skit;
                               if (variation) {
                                 variation.skit.hook_line = editedHookLine;
                               } else if (result.skit) {
                                 result.skit.hook_line = editedHookLine;
                               }
                               setResult({ ...result });
+                              if (targetSkit) rescoreAfterEdit(targetSkit);
                             }
                             setEditingHook(false);
                           }}
-                            style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                            style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
                           >
                             <Check size={14} /> Save
                           </button>
@@ -3727,16 +3783,19 @@ export default function ContentStudioPage() {
                                       autoFocus
                                     />
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                      <button type="button" onClick={() => {
+                                      <button type="button" disabled={rescoring} onClick={() => {
                                         if (result) {
                                           const variation = result.variations?.[selectedVariationIndex];
                                           const targetSkit = variation ? variation.skit : result.skit;
-                                          if (targetSkit) { targetSkit.visual_hook = editedVisualHook; }
-                                          setResult({ ...result });
+                                          if (targetSkit) {
+                                            targetSkit.visual_hook = editedVisualHook;
+                                            setResult({ ...result });
+                                            rescoreAfterEdit(targetSkit);
+                                          }
                                         }
                                         setEditingHookField(null);
                                       }}
-                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
                                       >
                                         <Check size={14} /> Save
                                       </button>
@@ -3779,16 +3838,19 @@ export default function ContentStudioPage() {
                                       autoFocus
                                     />
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                      <button type="button" onClick={() => {
+                                      <button type="button" disabled={rescoring} onClick={() => {
                                         if (result) {
                                           const variation = result.variations?.[selectedVariationIndex];
                                           const targetSkit = variation ? variation.skit : result.skit;
-                                          if (targetSkit) { targetSkit.text_on_screen_hook = editedTextHook; }
-                                          setResult({ ...result });
+                                          if (targetSkit) {
+                                            targetSkit.text_on_screen_hook = editedTextHook;
+                                            setResult({ ...result });
+                                            rescoreAfterEdit(targetSkit);
+                                          }
                                         }
                                         setEditingHookField(null);
                                       }}
-                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
                                       >
                                         <Check size={14} /> Save
                                       </button>
@@ -3831,16 +3893,19 @@ export default function ContentStudioPage() {
                                       autoFocus
                                     />
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                      <button type="button" onClick={() => {
+                                      <button type="button" disabled={rescoring} onClick={() => {
                                         if (result) {
                                           const variation = result.variations?.[selectedVariationIndex];
                                           const targetSkit = variation ? variation.skit : result.skit;
-                                          if (targetSkit) { targetSkit.verbal_hook = editedVerbalHook; }
-                                          setResult({ ...result });
+                                          if (targetSkit) {
+                                            targetSkit.verbal_hook = editedVerbalHook;
+                                            setResult({ ...result });
+                                            rescoreAfterEdit(targetSkit);
+                                          }
                                         }
                                         setEditingHookField(null);
                                       }}
-                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
                                       >
                                         <Check size={14} /> Save
                                       </button>
@@ -4163,7 +4228,15 @@ export default function ContentStudioPage() {
                     border: '1px solid #2d3748',
                     borderRadius: '10px',
                     marginBottom: '16px',
+                    opacity: rescoring ? 0.6 : 1,
+                    transition: 'opacity 0.3s',
                   }}>
+                    {rescoring && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        <Loader2 size={14} className="animate-spin" style={{ color: '#3b82f6' }} />
+                        <span style={{ fontSize: '12px', color: '#9CA3AF' }}>Rescoring...</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>
                         AI Score

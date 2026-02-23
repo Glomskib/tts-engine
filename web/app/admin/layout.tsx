@@ -10,6 +10,7 @@ import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation
 import { CreditsBadge } from '@/components/CreditsBadge';
 import { ClawbotStatus } from '@/components/ClawbotStatus';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { MobileNavSheet } from '@/components/MobileNavSheet';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
@@ -60,6 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navSheetOpen, setNavSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [customizeNavOpen, setCustomizeNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true); // Default to mobile to prevent flash
@@ -125,9 +127,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // Nav filtering + plan gating handles per-page access control.
   // Command Center routes are owner-gated separately.
 
-  // Close sidebar on route change
+  // Close sidebar/sheet on route change
   useEffect(() => {
     setSidebarOpen(false);
+    setNavSheetOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
 
@@ -481,8 +484,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Mobile Bottom Navigation */}
           <MobileBottomNav
-            onMoreClick={() => setSidebarOpen(true)}
+            onMoreClick={() => setNavSheetOpen(true)}
             unreadCount={unreadCount}
+          />
+
+          {/* Mobile Nav Sheet (grouped accordion) */}
+          <MobileNavSheet
+            open={navSheetOpen}
+            onClose={() => setNavSheetOpen(false)}
+            navSections={navSections}
+            pathname={pathname}
           />
 
           {/* Development Test Checklist */}

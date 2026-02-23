@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import type { Configuration as WebpackConfig } from "webpack";
 
 // Security headers for production
 const securityHeaders = [
@@ -95,6 +96,20 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  webpack(config: WebpackConfig, { isServer }: { isServer: boolean }) {
+    // react-joyride@2.9.3 imports unmountComponentAtNode which was removed in
+    // React 19.  Alias the import to a tiny shim so webpack can resolve it
+    // without crashing at compile time.  The shim is client-only (SSR is
+    // already excluded via next/dynamic ssr:false).
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        'react-dom$': require.resolve('./lib/react-dom-compat.js'),
+      };
+    }
+    return config;
   },
   async headers() {
     return [

@@ -2,14 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/contexts/ToastContext";
-import { celebrate } from "@/lib/celebrations";
 import Link from "next/link";
 import { CONTENT_TYPES } from "@/lib/content-types";
 import {
   Sparkles,
   RefreshCw,
-  Plus,
-  Check,
   Trophy,
   ArrowRight,
   Zap,
@@ -19,7 +16,6 @@ import {
   Loader2,
   Camera,
   MessageSquare,
-  Film,
   User,
 } from "lucide-react";
 
@@ -89,7 +85,6 @@ export default function ScriptOfTheDayPage() {
   const [pkg, setPkg] = useState<ContentPackage | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [addingToPipeline, setAddingToPipeline] = useState<Set<string>>(new Set());
 
   // Fetch today's content package
   const fetchPackage = useCallback(async () => {
@@ -177,47 +172,14 @@ export default function ScriptOfTheDayPage() {
   const runnerUps = topPicks.slice(1, 3);
   const otherPicks = topPicks.slice(3);
 
-  // Add to pipeline
-  const addToPipeline = async (item: PackageItem) => {
-    setAddingToPipeline((prev) => new Set(prev).add(item.id));
-    try {
-      const res = await fetch("/api/pipeline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product_name: item.product_name,
-          brand: item.brand,
-          content_type: item.content_type,
-          hook_text: item.hook,
-          score: item.score,
-          source: "script_of_the_day",
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        showSuccess(`"${item.product_name}" added to pipeline`);
-        celebrate("first-pipeline", showSuccess);
-        setPkg((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            items: prev.items.map((i) =>
-              i.id === item.id ? { ...i, added_to_pipeline: true } : i
-            ),
-          };
-        });
-      } else {
-        showError(data.error || "Failed to add to pipeline");
-      }
-    } catch {
-      showError("Network error");
-    } finally {
-      setAddingToPipeline((prev) => {
-        const next = new Set(prev);
-        next.delete(item.id);
-        return next;
-      });
-    }
+  // Build "Use in Studio" URL for a package item
+  const studioUrl = (item: PackageItem) => {
+    const hook = item.full_script?.hook || item.hook;
+    const params = new URLSearchParams();
+    params.set("hook", hook);
+    if (item.content_type) params.set("content_type", item.content_type);
+    if (item.product_name) params.set("inspiration", item.product_name);
+    return `/admin/content-studio?${params.toString()}`;
   };
 
   return (
@@ -446,23 +408,13 @@ export default function ScriptOfTheDayPage() {
 
               {/* Actions */}
               <div className="flex gap-3 mt-5">
-                <button
-                  onClick={() => addToPipeline(scriptOfTheDay)}
-                  disabled={addingToPipeline.has(scriptOfTheDay.id) || scriptOfTheDay.added_to_pipeline}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-colors ${
-                    scriptOfTheDay.added_to_pipeline
-                      ? "bg-green-800 text-green-200"
-                      : "bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
-                  }`}
+                <Link
+                  href={studioUrl(scriptOfTheDay)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-colors bg-teal-600 hover:bg-teal-500"
                 >
-                  {scriptOfTheDay.added_to_pipeline ? (
-                    <><Check className="w-4 h-4" /> Added to Pipeline</>
-                  ) : addingToPipeline.has(scriptOfTheDay.id) ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Adding...</>
-                  ) : (
-                    <><Film className="w-4 h-4" /> Film This — Add to Pipeline</>
-                  )}
-                </button>
+                  <Sparkles className="w-4 h-4" /> Use in Studio
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
             </div>
           </div>
@@ -511,23 +463,13 @@ export default function ScriptOfTheDayPage() {
                       </p>
                     )}
 
-                    <button
-                      onClick={() => addToPipeline(item)}
-                      disabled={addingToPipeline.has(item.id) || item.added_to_pipeline}
-                      className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        item.added_to_pipeline
-                          ? "bg-green-800/50 text-green-300"
-                          : "bg-zinc-800 hover:bg-teal-600/20 hover:text-teal-300 border border-white/5 hover:border-teal-500/30"
-                      }`}
+                    <Link
+                      href={studioUrl(item)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors bg-zinc-800 hover:bg-teal-600/20 hover:text-teal-300 border border-white/5 hover:border-teal-500/30"
                     >
-                      {item.added_to_pipeline ? (
-                        <><Check className="w-3.5 h-3.5" /> In Pipeline</>
-                      ) : addingToPipeline.has(item.id) ? (
-                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Adding...</>
-                      ) : (
-                        <><Plus className="w-3.5 h-3.5" /> Add to Pipeline</>
-                      )}
-                    </button>
+                      <Sparkles className="w-3.5 h-3.5" /> Use in Studio
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
                 ))}
               </div>
@@ -560,21 +502,13 @@ export default function ScriptOfTheDayPage() {
                         &quot;{item.hook}&quot;
                       </p>
                     </div>
-                    <button
-                      onClick={() => addToPipeline(item)}
-                      disabled={addingToPipeline.has(item.id) || item.added_to_pipeline}
-                      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        item.added_to_pipeline
-                          ? "bg-green-800/50 text-green-300"
-                          : "bg-zinc-800 hover:bg-teal-600/20 hover:text-teal-300 border border-white/5"
-                      }`}
+                    <Link
+                      href={studioUrl(item)}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-zinc-800 hover:bg-teal-600/20 hover:text-teal-300 border border-white/5"
                     >
-                      {item.added_to_pipeline ? (
-                        <><Check className="w-3 h-3" /> Added</>
-                      ) : (
-                        <><Plus className="w-3 h-3" /> Pipeline</>
-                      )}
-                    </button>
+                      <Sparkles className="w-3 h-3" /> Studio
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
                   </div>
                 ))}
               </div>

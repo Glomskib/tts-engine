@@ -37,6 +37,7 @@ import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { createLogger } from '../../lib/logger.js';
 import { safeInsert } from '../../lib/db/safeInsert.js';
+import { logUploadStep } from '../../lib/uploader-status.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -364,21 +365,6 @@ async function triggerAutoGenerate(productId: string): Promise<AutoGenerateResul
   };
 }
 
-// ─── Write video_events row ─────────────────────────────────────────────────
-
-async function writeVideoEvent(videoId: string, productId: string): Promise<void> {
-  const { error } = await supabase.from('video_events').insert({
-    video_id: videoId,
-    event_type: 'nightly_selector_enqueued',
-    actor: 'nightly_selector_job',
-    details: { source: 'nightly-selector.ts', product_id: productId },
-  });
-
-  if (error) {
-    console.error(`${TAG} Failed to write video_event for ${videoId}: ${error.message}`);
-  }
-}
-
 // ─── Write report JSON ──────────────────────────────────────────────────────
 
 function writeReport(report: SelectorReport): void {
@@ -546,7 +532,11 @@ async function main() {
       if (result.ok && result.video_id) {
         log.info('product_enqueued', { product_id: product.id, product_name: product.name, video_id: result.video_id });
         console.log(`${TAG} ${num} Enqueued — video_id: ${result.video_id}`);
-        await writeVideoEvent(result.video_id, product.id);
+        await logUploadStep(supabase, {
+          video_id: result.video_id, from: 'queued', to: 'queued', step: 'enqueue',
+          actor: 'nightly_selector_job', correlation_id: `selector-${RUN_ID}`,
+          meta: { product_id: product.id, product_name: product.name },
+        });
 
         // Duplicate protection: skip if video_id already has pending row
         const alreadyQueued = await hasPendingQueueRow(result.video_id);

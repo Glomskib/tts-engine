@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getTikTokContentClient } from '@/lib/tiktok-content';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { logSessionValidity } from '@/lib/session-logger';
+import { logUploadStep } from '@/lib/uploader-status';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -97,6 +98,11 @@ async function checkProcessingVideos(
           `📱 <b>Auto-posted to TikTok!</b>\nProduct: ${productLabel}\nVideo: <code>${video.id.slice(0, 8)}</code>${postId ? `\nPost: ${postId}` : ''}`
         );
 
+        await logUploadStep(supabaseAdmin, {
+          video_id: video.id, from: 'uploading', to: 'posted', step: 'publish_complete',
+          actor: 'auto_post_cron', meta: { postId },
+        });
+
         results.push({ id: video.id, phase: 'check', status: 'published', postId });
       } else if (publishStatus.status === 'FAILED') {
         const reason = publishStatus.fail_reason || 'unknown';
@@ -112,6 +118,11 @@ async function checkProcessingVideos(
 
         const productLabel = await getVideoProductLabel(video.id);
         sendTelegramNotification(`❌ TikTok auto-post failed: ${productLabel} — ${reason}`);
+
+        await logUploadStep(supabaseAdmin, {
+          video_id: video.id, from: 'uploading', to: 'failed', step: 'publish_failed',
+          actor: 'auto_post_cron', error: reason,
+        });
 
         results.push({ id: video.id, phase: 'check', status: 'failed', reason });
       } else {
@@ -129,6 +140,11 @@ async function checkProcessingVideos(
               auto_post_error: 'Timed out after 2 hours',
             })
             .eq('id', video.id);
+
+          await logUploadStep(supabaseAdmin, {
+            video_id: video.id, from: 'uploading', to: 'failed', step: 'publish_timeout',
+            actor: 'auto_post_cron', error: 'Timed out after 2 hours',
+          });
 
           results.push({ id: video.id, phase: 'check', status: 'timeout' });
         } else {
@@ -217,6 +233,11 @@ async function submitNewPosts(
         })
         .eq('id', video.id);
 
+      await logUploadStep(supabaseAdmin, {
+        video_id: video.id, from: 'queued', to: 'uploading', step: 'submit_post',
+        actor: 'auto_post_cron', meta: { publish_id: publishResult.publish_id },
+      });
+
       results.push({
         id: video.id,
         phase: 'submit',
@@ -238,6 +259,11 @@ async function submitNewPosts(
 
       const productLabel = await getVideoProductLabel(video.id);
       sendTelegramNotification(`❌ TikTok auto-post submit failed: ${productLabel} — ${errorMsg}`);
+
+      await logUploadStep(supabaseAdmin, {
+        video_id: video.id, from: 'queued', to: 'failed', step: 'submit_error',
+        actor: 'auto_post_cron', error: errorMsg,
+      });
 
       results.push({ id: video.id, phase: 'submit', status: 'error', error: errorMsg });
     }

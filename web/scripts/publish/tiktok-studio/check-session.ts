@@ -20,10 +20,55 @@ config({ path: '.env.local' });
 
 import { chromium } from 'playwright';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { CONFIG, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
 
 const TAG = '[tiktok:check-session]';
+const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS || '24', 10);
+
+// ─── Session validity logging (standalone Supabase client) ──────────────────
+
+async function logSessionValidity(isValid: boolean, reason: string): Promise<void> {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.log(`${TAG} Skipping session-status log (no Supabase credentials).`);
+    return;
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_TTL_HOURS * 60 * 60 * 1000);
+
+    const { error } = await supabase
+      .from('ff_session_status')
+      .upsert(
+        {
+          node_name: os.hostname(),
+          platform: 'tiktok_studio',
+          account_id: null,
+          is_valid: isValid,
+          reason,
+          last_validated_at: now.toISOString(),
+          expires_at: expiresAt.toISOString(),
+          updated_at: now.toISOString(),
+        },
+        { onConflict: 'node_name,platform', ignoreDuplicates: false },
+      );
+
+    if (error) {
+      console.error(`${TAG} Session-status log error: ${error.message}`);
+    } else {
+      console.log(`${TAG} Session-status logged: is_valid=${isValid}, reason=${reason}`);
+    }
+  } catch (err: any) {
+    console.error(`${TAG} Session-status log exception: ${err.message}`);
+  }
+}
 
 const PROFILE_DIR = CONFIG.profileDir;
 const UPLOAD_URL = CONFIG.uploadUrl;
@@ -48,6 +93,7 @@ async function main() {
     console.log(`${TAG} LOGGED_IN=false`);
     console.log(`${TAG} Reason: No profile directory at ${PROFILE_DIR}`);
     console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
+    await logSessionValidity(false, 'No profile directory');
     process.exit(42);
   }
 
@@ -77,6 +123,7 @@ async function main() {
       console.log(`${TAG} LOGGED_IN=false`);
       console.log(`${TAG} Reason: Redirected to ${url}`);
       console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
+      await logSessionValidity(false, `Redirected to ${url}`);
       await context.close();
       process.exit(42);
     }
@@ -89,6 +136,7 @@ async function main() {
           console.log(`${TAG} LOGGED_IN=false`);
           console.log(`${TAG} Reason: Found login indicator: ${sel}`);
           console.log(`${TAG} Run:    npm run tiktok:bootstrap`);
+          await logSessionValidity(false, `Found login indicator: ${sel}`);
           await context.close();
           process.exit(42);
         }
@@ -107,13 +155,15 @@ async function main() {
       } catch { /* next */ }
     }
 
+    const reason = foundIndicator
+      ? `Found ${foundIndicator}`
+      : 'No login prompts detected';
+
     console.log(`${TAG} LOGGED_IN=true`);
-    if (foundIndicator) {
-      console.log(`${TAG} Reason: Found ${foundIndicator}`);
-    } else {
-      console.log(`${TAG} Reason: No login prompts detected`);
-    }
+    console.log(`${TAG} Reason: ${reason}`);
     console.log(`${TAG} URL:    ${url}`);
+
+    await logSessionValidity(true, reason);
   } finally {
     await context.close();
   }

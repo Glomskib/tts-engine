@@ -34,13 +34,23 @@ export async function POST(request: Request) {
   // Filter by user_id to prevent cross-account access
   const { data: skit } = await supabaseAdmin
     .from('saved_skits')
-    .select('id, video_id, product_id')
+    .select('id, video_id, product_id, status, skit_data')
     .eq('id', script_id)
     .eq('user_id', authContext.user.id)
     .maybeSingle();
 
   if (!skit) {
     return NextResponse.json({ ok: false, error: 'Script not found or access denied' }, { status: 404 });
+  }
+
+  // Guard: reject recommendations that haven't been turned into real scripts
+  const skitData = skit.skit_data as Record<string, unknown> | null;
+  const hasScriptContent = skitData && Object.keys(skitData).length > 0;
+  if (skit.status === 'draft' && !hasScriptContent) {
+    return NextResponse.json(
+      { ok: false, error: 'Recommendations cannot be added to pipeline. Use Content Studio to create a script first.' },
+      { status: 400 }
+    );
   }
 
   if (skit.video_id) {

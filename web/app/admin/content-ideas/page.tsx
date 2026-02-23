@@ -24,7 +24,6 @@ import {
   ChevronUp,
   Bookmark,
   BookmarkCheck,
-  Plus,
   Play,
   X,
 } from 'lucide-react';
@@ -135,8 +134,6 @@ export default function ContentIdeasPage() {
 
   // Action states
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [pipelineAdded, setPipelineAdded] = useState<Set<string>>(new Set());
-  const [pipelineAdding, setPipelineAdding] = useState<string | null>(null);
 
   // Load base data + brands
   useEffect(() => {
@@ -198,30 +195,6 @@ export default function ContentIdeasPage() {
       persistSavedIdeas(next);
       return next;
     });
-  }, []);
-
-  // Add to pipeline
-  const addToPipeline = useCallback(async (idea: ContentIdea) => {
-    setPipelineAdding(idea.id);
-    try {
-      const res = await fetch('/api/admin/videos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          title: idea.title,
-          script_text: `Hook: ${idea.hook}\n\n${idea.format_notes}\n\nOn-screen text: ${idea.on_screen_text}`,
-          status: 'SCRIPT_READY',
-        }),
-      });
-      if (res.ok) {
-        setPipelineAdded(prev => new Set([...prev, idea.id]));
-      }
-    } catch (e) {
-      console.error('Failed to add to pipeline:', e);
-    } finally {
-      setPipelineAdding(null);
-    }
   }, []);
 
   // Filter and sort ideas
@@ -438,8 +411,6 @@ export default function ContentIdeasPage() {
                 const priority = PRIORITY_CONFIG(idea.priority);
                 const effort = EFFORT_CONFIG[idea.effort] || EFFORT_CONFIG.medium;
                 const isSaved = savedIdSet.has(idea.id);
-                const isAdded = pipelineAdded.has(idea.id);
-                const isAdding = pipelineAdding === idea.id;
 
                 return (
                   <div
@@ -537,20 +508,17 @@ export default function ContentIdeasPage() {
                       >
                         Use in Studio <ArrowRight size={12} />
                       </Link>
-                      {isAdded ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-400">
-                          <Check size={12} /> Added
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => addToPipeline(idea)}
-                          disabled={isAdding}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          {isAdding ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                          Pipeline
-                        </button>
-                      )}
+                      <button
+                        onClick={() => toggleSave(idea)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          isSaved
+                            ? 'bg-amber-600/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-zinc-700 hover:bg-zinc-600 text-white'
+                        }`}
+                      >
+                        {isSaved ? <BookmarkCheck size={12} /> : <Bookmark size={12} />}
+                        {isSaved ? 'Saved' : 'Save Idea'}
+                      </button>
                     </div>
                   </div>
                 );

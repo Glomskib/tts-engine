@@ -55,6 +55,8 @@ import {
   reportStatus,
   type StudioUploadResult,
 } from '../../../skills/tiktok-studio-uploader/index.js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type UploaderStatus, mapResultToUploaderStatus, logUploadStep } from '../../lib/uploader-status.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -62,6 +64,8 @@ const TAG = '[nightly-upload]';
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
 const EXIT_SESSION_INVALID = 42;
+
+const ACTOR = `nightly_upload/${os.hostname()}`;
 
 const BETWEEN_VIDEO_DELAY_MS = 3_000;
 const DEFAULT_LIMIT = 10;
@@ -88,6 +92,15 @@ function parseMode(): 'draft' | 'post' {
 const LIMIT = parseLimit();
 const MODE = parseMode();
 const SHOULD_POST = MODE === 'post';
+
+// ─── Optional Supabase client (for upload-step event logging) ───────────────
+
+function getOptionalSupabase(): SupabaseClient | null {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 // ─── Preflight Checks ──────────────────────────────────────────────────────
 
@@ -258,7 +271,7 @@ function cleanupTempVideo(videoPath: string): void {
 
 interface VideoResult {
   video_id: string;
-  status: 'drafted' | 'posted' | 'error' | 'skipped';
+  status: UploaderStatus | 'skipped';
   tiktok_draft_id?: string;
   url?: string;
   errors: string[];
@@ -297,7 +310,7 @@ async function uploadSingleVideo(
 ): Promise<VideoResult> {
   const videoResult: VideoResult = {
     video_id: pack.video_id,
-    status: 'error',
+    status: 'failed',
     errors: [],
   };
 
@@ -405,6 +418,8 @@ async function runDryRun(): Promise<void> {
 async function main() {
   const startedAt = new Date();
   const dateStr = startedAt.toISOString().slice(0, 10);
+  const correlationId = `nightly-upload-${startedAt.toISOString()}`;
+  const optionalSupabase = getOptionalSupabase();
 
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  TikTok Nightly Upload — ${dateStr}`);
@@ -464,15 +479,32 @@ async function main() {
       console.error(`${TAG} ${num} Failed to fetch upload pack: ${err.message}`);
       results.push({
         video_id: video.id,
-        status: 'error',
+        status: 'failed',
         errors: [`Failed to fetch upload pack: ${err.message}`],
       });
       continue;
     }
 
+    // Log queued → uploading
+    if (optionalSupabase) {
+      await logUploadStep(optionalSupabase, {
+        video_id: video.id, from: 'queued', to: 'uploading', step: 'upload_start',
+        actor: ACTOR, correlation_id: correlationId,
+      });
+    }
+
     // Upload the video
     const result = await uploadSingleVideo(page, pack, SHOULD_POST);
     results.push(result);
+
+    // Log upload result
+    if (optionalSupabase && result.status !== 'skipped') {
+      await logUploadStep(optionalSupabase, {
+        video_id: video.id, from: 'uploading', to: result.status as UploaderStatus,
+        step: 'upload_result', actor: ACTOR, correlation_id: correlationId,
+        ...(result.status === 'failed' ? { error: result.errors.join('; ') } : {}),
+      });
+    }
 
     const statusIcon = result.status === 'drafted' || result.status === 'posted' ? 'OK' : 'FAIL';
     console.log(`${TAG} ${num} Result: ${statusIcon} (${result.status})`);
@@ -485,7 +517,7 @@ async function main() {
 
     // Report status back to FlashFlow (non-blocking)
     const uploadResult: StudioUploadResult = {
-      status: result.status === 'drafted' || result.status === 'posted' ? result.status : 'error',
+      status: result.status === 'drafted' || result.status === 'posted' ? result.status : 'error' as const,
       tiktok_draft_id: result.tiktok_draft_id,
       product_id: pack.product?.tiktok_product_id || pack.product_id,
       video_file: 'video.mp4',
@@ -504,6 +536,12 @@ async function main() {
       if (!stillLoggedIn) {
         console.error(`\n${TAG} SESSION EXPIRED mid-batch after video ${i + 1}/${videos.length}.`);
         sessionExpired = true;
+        if (optionalSupabase) {
+          await logUploadStep(optionalSupabase, {
+            video_id: video.id, from: 'uploading', to: 'failed', step: 'session_expired',
+            actor: ACTOR, correlation_id: correlationId, error: 'session_expired_mid_batch',
+          });
+        }
 
         // Mark remaining videos as skipped
         for (let j = i + 1; j < videos.length; j++) {
@@ -537,7 +575,7 @@ async function main() {
   const succeeded = results.filter(
     (r) => r.status === 'drafted' || r.status === 'posted',
   ).length;
-  const failed = results.filter((r) => r.status === 'error').length;
+  const failed = results.filter((r) => r.status === 'failed').length;
   const skipped = results.filter((r) => r.status === 'skipped').length;
 
   const summary: NightlySummary = {

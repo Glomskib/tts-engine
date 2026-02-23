@@ -33,6 +33,11 @@ import { execFile } from 'child_process';
 import { createClient } from '@supabase/supabase-js';
 import { atomicClaimVideo, atomicReleaseVideo } from '../../lib/video-claim.js';
 import { createLogger } from '../../lib/logger.js';
+import {
+  EXIT_SESSION_INVALID,
+  isSessionCooldownActive,
+} from '../../lib/tiktok/session.js';
+import { logUploadStep } from '../../lib/uploader-status.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -40,15 +45,12 @@ const log = createLogger('nightly-draft');
 const TAG = '[nightly-draft]';
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
-const EXIT_SESSION_INVALID = 42;
 
 const MAX_UPLOADS = Number(process.env.MAX_NIGHTLY_UPLOADS) || 3;
 const DRY_RUN = process.env.DRY_RUN === '1';
 
 const WEB_DIR = process.cwd();
 const LOG_DIR = path.join(WEB_DIR, 'data', 'sessions', 'logs');
-const COOLDOWN_LOCKFILE = path.join(WEB_DIR, 'data', 'sessions', '.session-invalid.lock');
-const COOLDOWN_HOURS = Number(process.env.SESSION_INVALID_COOLDOWN_HOURS) || 6;
 
 const ACTOR = `nightly_draft_job/${os.hostname()}`;
 const CLAIM_TTL_MINUTES = 30; // 5-min upload timeout + buffer
@@ -65,26 +67,26 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ─── Session cooldown ───────────────────────────────────────────────────────
+// ─── Pre-flight session health check ────────────────────────────────────────
 
-function isSessionCooldownActive(): boolean {
+async function preflightSessionCheck(): Promise<boolean> {
   try {
-    const stat = fs.statSync(COOLDOWN_LOCKFILE);
-    const ageMs = Date.now() - stat.mtimeMs;
-    const cooldownMs = COOLDOWN_HOURS * 3_600_000;
-    if (ageMs < cooldownMs) {
-      const hoursAgo = (ageMs / 3_600_000).toFixed(1);
-      console.error(
-        `${TAG} Session-invalid cooldown active (reported ${hoursAgo}h ago, ` +
-        `window=${COOLDOWN_HOURS}h). Exiting.`,
-      );
-      return true;
+    const res = await fetch('http://localhost:3000/api/tiktok/session-health', {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const health = await res.json();
+      if (!health.valid) {
+        console.error(`${TAG} [preflight] Session unhealthy: valid=${health.valid}, cooldown=${health.cooldown_active}`);
+        return false;
+      }
+      console.log(`${TAG} [preflight] Session healthy (expires in ${health.expires_in_hours}h)`);
     }
-    fs.unlinkSync(COOLDOWN_LOCKFILE);
   } catch {
-    // No lockfile = no cooldown
+    // Server not running — fall back to local cooldown check
+    if (isSessionCooldownActive()) return false;
   }
-  return false;
+  return true;
 }
 
 // ─── Fetch eligible videos ──────────────────────────────────────────────────
@@ -127,23 +129,6 @@ async function stampAttempted(videoId: string): Promise<void> {
 
   if (error) {
     throw new Error(`Failed to stamp nightly_draft_attempted_at: ${error.message}`);
-  }
-}
-
-// ─── Write video_events row ─────────────────────────────────────────────────
-
-async function writeVideoEvent(videoId: string): Promise<void> {
-  const { error } = await supabase.from('video_events').insert({
-    video_id: videoId,
-    event_type: 'nightly_draft_uploaded',
-    actor: 'nightly_draft_job',
-    from_status: 'READY_TO_POST',
-    to_status: 'READY_TO_POST',
-    details: { source: 'nightly-draft.ts' },
-  });
-
-  if (error) {
-    console.error(`${TAG} Failed to write video_event for ${videoId}: ${error.message}`);
   }
 }
 
@@ -218,9 +203,12 @@ async function main() {
   console.log(`${TAG} Dry run:     ${DRY_RUN}`);
   console.log('');
 
-  // Preflight: check session cooldown
-  if (!DRY_RUN && isSessionCooldownActive()) {
-    process.exit(EXIT_SESSION_INVALID);
+  // Preflight: check session health (API first, local cooldown fallback)
+  if (!DRY_RUN) {
+    const healthy = await preflightSessionCheck();
+    if (!healthy) {
+      process.exit(EXIT_SESSION_INVALID);
+    }
   }
 
   // Fetch eligible videos
@@ -295,6 +283,10 @@ async function main() {
     if (claimResult.ok) {
       claimedVideoIds.push(video.id);
       console.log(`${TAG}   ✓ Claimed ${video.id}`);
+      await logUploadStep(supabase, {
+        video_id: video.id, from: 'queued', to: 'claimed', step: 'claim',
+        actor: ACTOR, correlation_id: correlationId,
+      });
     } else {
       console.log(`${TAG}   ✗ Skipped ${video.id} (${claimResult.action}: ${claimResult.message})`);
       videoReports.push({
@@ -344,6 +336,10 @@ async function main() {
 
       // Spawn upload-from-pack.ts
       console.log(`${TAG} ${num} Spawning upload-from-pack.ts --video-id ${videoId} --mode draft`);
+      await logUploadStep(supabase, {
+        video_id: videoId, from: 'claimed', to: 'uploading', step: 'spawn',
+        actor: ACTOR, correlation_id: correlationId,
+      });
       const result = await spawnUpload(videoId);
 
       const durationMs = Date.now() - videoStart;
@@ -362,6 +358,10 @@ async function main() {
       if (result.exitCode === EXIT_SESSION_INVALID) {
         // ── Exit 42: release this claim + remaining, stop loop ──
         console.error(`${TAG} ${num} SESSION INVALID (exit 42). Stopping loop.`);
+        await logUploadStep(supabase, {
+          video_id: videoId, from: 'uploading', to: 'failed', step: 'session_invalid',
+          actor: ACTOR, correlation_id: correlationId, error: 'session_invalid',
+        });
 
         // Release this video's claim (failed, should be retryable)
         await atomicReleaseVideo(supabase, {
@@ -401,7 +401,10 @@ async function main() {
         console.log(`${TAG} ${num} Draft saved successfully.`);
         await stampAttempted(videoId);
         console.log(`${TAG} ${num} Stamped nightly_draft_attempted_at`);
-        await writeVideoEvent(videoId);
+        await logUploadStep(supabase, {
+          video_id: videoId, from: 'uploading', to: 'drafted', step: 'draft_saved',
+          actor: ACTOR, correlation_id: correlationId, meta: { duration_ms: durationMs },
+        });
         await atomicReleaseVideo(supabase, {
           video_id: videoId, actor: ACTOR, correlation_id: correlationId,
         });
@@ -415,6 +418,11 @@ async function main() {
         // ── Failure: release claim (no stamp — allows retry) ──
         log.error('video_failed', { video_id: videoId, exit_code: result.exitCode, duration_ms: durationMs });
         console.error(`${TAG} ${num} Upload failed (exit ${result.exitCode}).`);
+        await logUploadStep(supabase, {
+          video_id: videoId, from: 'uploading', to: 'failed', step: 'upload_failed',
+          actor: ACTOR, correlation_id: correlationId,
+          error: `exit_code_${result.exitCode}`, meta: { duration_ms: durationMs },
+        });
         if (result.stderr) {
           const stderrTail = result.stderr.trim().split('\n').slice(-5);
           for (const line of stderrTail) {

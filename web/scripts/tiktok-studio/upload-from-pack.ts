@@ -48,6 +48,7 @@ import {
   isSessionCooldownActive,
   setSessionCooldown,
 } from '../../lib/tiktok/session.js';
+import { mapResultToUploaderStatus, logUploadStep } from '../../lib/uploader-status.js';
 
 import {
   CONFIG,
@@ -64,6 +65,19 @@ import * as sel from '../../../skills/tiktok-studio-uploader/selectors.js';
 
 const log = createLogger('uploader');
 const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
+
+// ─── Optional Supabase client (for upload-step event logging) ───────────────
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+const ACTOR = `upload_from_pack/${os.hostname()}`;
+
+function getOptionalSupabase(): SupabaseClient | null {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 // ─── PID lockfile — prevent concurrent upload runs ──────────────────────────
 
@@ -457,6 +471,20 @@ async function main() {
   };
 
   const result = await runUploadToDraft(input, shouldPost);
+
+  // Log upload step event (non-blocking)
+  const optionalSupabase = getOptionalSupabase();
+  if (optionalSupabase && pack.videoId) {
+    const uploaderStatus = mapResultToUploaderStatus(result.status);
+    await logUploadStep(optionalSupabase, {
+      video_id: pack.videoId, from: 'uploading', to: uploaderStatus, step: 'upload_result',
+      actor: ACTOR,
+      ...(result.status === 'error' || result.status === 'login_required'
+        ? { error: result.errors.join('; ') }
+        : {}),
+      meta: { mode, product_id: pack.productId },
+    });
+  }
 
   log.info('upload_result', { status: result.status, video_id: pack.videoId, product_id: pack.productId, mode });
 

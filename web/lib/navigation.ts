@@ -117,6 +117,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
+      { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro', tourId: 'nav-pipeline' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
     ],

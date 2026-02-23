@@ -268,8 +268,7 @@ export default function QuickActionsPage() {
       {/* Quick Links */}
       <div className="space-y-2">
         {[
-          { href: "/admin/calendar", icon: Clock, label: "Content Calendar" },
-          { href: "/admin/content-package", icon: FileText, label: "Content Planner" },
+          { href: "/admin/calendar", icon: Clock, label: "Content Planner" },
           { href: "/admin/analytics", icon: BarChart, label: "Analytics" },
           { href: "/admin/guide", icon: Bell, label: "User Guide" },
         ].map((link) => (

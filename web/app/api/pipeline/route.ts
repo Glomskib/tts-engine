@@ -14,6 +14,7 @@ const PipelineAddSchema = z.object({
   score: z.number().optional(),
   source: z.string().default('content_package'),
   package_id: z.string().optional(),
+  scheduled_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 /**
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { product_name, brand, content_type, hook_text, score, source, package_id } = parsed.data;
+  const { product_name, brand, content_type, hook_text, score, source, package_id, scheduled_date } = parsed.data;
 
   try {
     // 1. Try to resolve product_id from product name
@@ -118,6 +119,10 @@ export async function POST(request: NextRequest) {
 
     if (productId) {
       videoInsert.product_id = productId;
+    }
+
+    if (scheduled_date) {
+      videoInsert.scheduled_date = scheduled_date;
     }
 
     const { data: video, error: videoError } = await supabaseAdmin

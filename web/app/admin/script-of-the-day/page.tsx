@@ -517,7 +517,7 @@ export default function ScriptOfTheDayPage() {
 
           {/* Link to full package */}
           <Link
-            href="/admin/content-package"
+            href="/admin/calendar?view=grid"
             className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
           >
             Not feeling it? See all {pkg.items.length} scripts

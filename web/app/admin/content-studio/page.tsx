@@ -256,7 +256,6 @@ interface SavedSettings {
   humorLevelId: string;
   riskTier: RiskTier;
   variationCount: number;
-  showAdvanced: boolean;
 }
 
 // --- Helper Functions ---
@@ -645,7 +644,6 @@ export default function ContentStudioPage() {
         if (settings.humorLevelId) setSelectedHumorId(settings.humorLevelId);
         if (settings.riskTier) setRiskTier(settings.riskTier);
         if (typeof settings.variationCount === 'number') setVariationCount(settings.variationCount);
-        if (typeof settings.showAdvanced === 'boolean') setShowAdvanced(settings.showAdvanced);
       }
     } catch {
       // Ignore parse errors
@@ -663,10 +661,9 @@ export default function ContentStudioPage() {
       humorLevelId: selectedHumorId,
       riskTier,
       variationCount,
-      showAdvanced,
     };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  }, [selectedMainTabId, selectedContentTypeId, selectedSubtypeId, selectedPresentationStyleId, selectedLengthId, selectedHumorId, riskTier, variationCount, showAdvanced]);
+  }, [selectedMainTabId, selectedContentTypeId, selectedSubtypeId, selectedPresentationStyleId, selectedLengthId, selectedHumorId, riskTier, variationCount]);
 
   // URL param handling
   useEffect(() => {
@@ -3202,6 +3199,29 @@ export default function ContentStudioPage() {
                   <BookOpen size={14} />
                   Save to Library
                 </button>
+                <button type="button"
+                  onClick={() => handleMakeVariation(selectedVariationIndex)}
+                  disabled={variatingIndex !== null}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: variatingIndex !== null ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.15)',
+                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                    borderRadius: '8px',
+                    color: '#c084fc',
+                    fontSize: '13px',
+                    cursor: variatingIndex !== null ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: variatingIndex !== null ? 0.7 : 1,
+                  }}
+                >
+                  {variatingIndex !== null ? (
+                    <><Loader2 size={14} className="animate-spin" /> Generating variation...</>
+                  ) : (
+                    <><RefreshCw size={14} /> Make a Variation</>
+                  )}
+                </button>
               </div>
             )}
           </div>
@@ -3267,6 +3287,25 @@ export default function ContentStudioPage() {
           {/* Results Display */}
           {result && currentSkit && (
             <div ref={resultsRef}>
+              {/* Optimistic variation indicator for single-variation results */}
+              {variatingIndex !== null && (!result.variations || result.variations.length <= 1) && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 16px',
+                  marginBottom: '16px',
+                  border: '1px dashed rgba(168, 85, 247, 0.4)',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(168, 85, 247, 0.05)',
+                  color: '#c084fc',
+                  fontSize: '13px',
+                  animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                }}>
+                  <Loader2 size={14} className="animate-spin" />
+                  Generating a new variation...
+                </div>
+              )}
               {/* Variation Tabs with Per-Variation Actions */}
               {result.variations && result.variations.length > 1 && (
                 <div style={{ marginBottom: '16px' }}>
@@ -3298,6 +3337,21 @@ export default function ContentStudioPage() {
                         )}
                       </button>
                     ))}
+                    {variatingIndex !== null && (
+                      <span style={{
+                        padding: '8px 16px',
+                        border: '1px dashed rgba(168, 85, 247, 0.4)',
+                        borderRadius: '8px',
+                        color: '#c084fc',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                      }}>
+                        <Loader2 size={12} className="animate-spin" /> Generating...
+                      </span>
+                    )}
                   </div>
                   {/* Per-variation action buttons */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>

@@ -394,6 +394,7 @@ export default function ContentStudioPage() {
   const [savingVariation, setSavingVariation] = useState<number | null>(null);
   const [approvingVariation, setApprovingVariation] = useState<number | null>(null);
   const [sharingVariation, setSharingVariation] = useState<number | null>(null);
+  const [variatingIndex, setVariatingIndex] = useState<number | null>(null);
 
   // Pipeline success modal
   const [pipelineSuccessOpen, setPipelineSuccessOpen] = useState(false);
@@ -1628,6 +1629,65 @@ export default function ContentStudioPage() {
     if (!hasCredits) { noCreditsModal.open(); return; }
     // Re-generate with same settings, keeping variation count at 3
     await handleGenerate();
+  };
+
+  // Per-variation "Make a Variation" handler
+  const handleMakeVariation = async (variationIndex: number) => {
+    if (!result || !result.variations?.[variationIndex]) return;
+    if (!hasCredits) { noCreditsModal.open(); return; }
+
+    setVariatingIndex(variationIndex);
+    try {
+      const skit = result.variations[variationIndex].skit;
+      const productName = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.name || 'Unknown'
+        : manualProductName || 'Manual Entry';
+      const productBrand = selectedProductId
+        ? products.find(p => p.id === selectedProductId)?.brand || ''
+        : manualBrandName || '';
+
+      const res = await postJson<{ skit: SkitData; risk_tier_applied: string; risk_score: number; risk_flags: string[] }>('/api/skits/variation', {
+        skit_data: skit,
+        generation_config: manualWriteMode ? undefined : {
+          content_type: selectedContentTypeId,
+          presentation_style: selectedPresentationStyleId,
+          risk_tier: riskTier,
+        },
+        product_name: productName,
+        product_brand: productBrand,
+        product_id: selectedProductId || undefined,
+      });
+
+      if (isApiError(res)) {
+        showError(res.message || 'Failed to create variation');
+        return;
+      }
+
+      const newVariation: SkitVariation = {
+        skit: res.data!.skit,
+        ai_score: null,
+        risk_tier_applied: (res.data!.risk_tier_applied as 'SAFE' | 'BALANCED' | 'SPICY') || 'SAFE',
+        risk_score: res.data!.risk_score,
+        risk_flags: res.data!.risk_flags,
+        variation_angle: `Variation of V${variationIndex + 1}`,
+      };
+
+      setResult(prev => {
+        if (!prev) return prev;
+        const updatedVariations = [...(prev.variations || []), newVariation];
+        return { ...prev, variations: updatedVariations, variation_count: updatedVariations.length };
+      });
+
+      // Switch to the new tab
+      setSelectedVariationIndex((result.variations?.length || 0));
+      refetchCredits();
+      showSuccess('Variation created!');
+    } catch (err) {
+      console.error('Make variation failed:', err);
+      showError('Failed to create variation');
+    } finally {
+      setVariatingIndex(null);
+    }
   };
 
   // --- Loading state ---
@@ -3291,6 +3351,22 @@ export default function ContentStudioPage() {
                     >
                       {sharingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sharing...</> :
                        <><Send size={12} /> Share</>}
+                    </button>
+                    <button type="button"
+                      onClick={() => handleMakeVariation(selectedVariationIndex)}
+                      disabled={variatingIndex === selectedVariationIndex}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: variatingIndex === selectedVariationIndex ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        borderRadius: '8px',
+                        color: '#c084fc',
+                        fontSize: '12px', fontWeight: 500, cursor: variatingIndex === selectedVariationIndex ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                      }}
+                    >
+                      {variatingIndex === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Varying...</> :
+                       <><RefreshCw size={12} /> Vary</>}
                     </button>
                   </div>
                 </div>

@@ -51,7 +51,8 @@
     "ff:ingest": "tsx scripts/creator-style/ingest.ts",
     "ff:build": "tsx scripts/creator-style/build.ts",
     "agent:run-task": "tsx scripts/agents/run-agent-task.ts",
-    "agent:execute": "tsx scripts/agents/execute-task.ts"
+    "agent:execute": "tsx scripts/agents/execute-task.ts",
+    "job:affiliate-statement": "tsx scripts/affiliate-monthly-statement.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

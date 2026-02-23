@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Plus, Building2, Edit, Trash2, ExternalLink, X, Loader2,
   TrendingUp, Video, Trophy, Target, AlertCircle, CheckCircle,
-  DollarSign,
+  DollarSign, ChevronDown,
 } from 'lucide-react';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 import { SkeletonAuthCheck, SkeletonTable } from '@/components/ui/Skeleton';
@@ -41,6 +41,13 @@ interface Brand {
   retainer_payout_amount?: number;
   retainer_bonus_tiers?: BonusTier[];
   retainer_notes?: string | null;
+  brand_profile_json?: {
+    category?: string;
+    product_types?: string[];
+    key_angles?: string[];
+    compliance_notes?: string | null;
+    claims_to_avoid?: string | null;
+  };
 }
 
 interface BrandStats {
@@ -550,6 +557,61 @@ export default function BrandsPage() {
   );
 }
 
+// Accordion wrapper component
+function CollapsibleSection({
+  title,
+  isOpen,
+  onToggle,
+  badge,
+  children,
+}: {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-white/10 rounded-lg overflow-hidden bg-zinc-900">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-center justify-between bg-zinc-800/50 hover:bg-zinc-800 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-zinc-200">{title}</span>
+          {badge && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-zinc-700 text-zinc-400">{badge}</span>
+          )}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && <div className="border-t border-white/10 p-4 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
+const CATEGORY_OPTIONS = [
+  'Health & Wellness',
+  'Beauty & Skincare',
+  'Supplements',
+  'Food & Beverage',
+  'Fitness',
+  'Tech & Gadgets',
+  'Home & Garden',
+  'Fashion',
+  'Pet',
+  'Other',
+];
+
+const KEY_ANGLE_PLACEHOLDERS = [
+  'e.g., All-natural ingredients',
+  'e.g., Doctor recommended',
+  'e.g., Made in the USA',
+  'e.g., 30-day money back guarantee',
+  'e.g., Featured on major publications',
+];
+
 // Brand Edit Modal Component
 function BrandEditModal({
   brand,
@@ -560,6 +622,7 @@ function BrandEditModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const profile = brand?.brand_profile_json || {};
   const [formData, setFormData] = useState({
     name: brand?.name || '',
     logo_url: brand?.logo_url || '',
@@ -578,12 +641,50 @@ function BrandEditModal({
     retainer_payout_amount: brand?.retainer_payout_amount || 0,
     retainer_bonus_tiers: (brand?.retainer_bonus_tiers || []) as BonusTier[],
     retainer_notes: brand?.retainer_notes || '',
+    brand_profile_json: {
+      category: profile.category || '',
+      product_types: profile.product_types || [],
+      key_angles: profile.key_angles || [],
+      compliance_notes: profile.compliance_notes || '',
+      claims_to_avoid: profile.claims_to_avoid || '',
+    },
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newColor, setNewColor] = useState('#10b981');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [productTypeInput, setProductTypeInput] = useState('');
+
+  // Accordion state
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [quotaOpen, setQuotaOpen] = useState(
+    brand?.retainer_type !== undefined && brand.retainer_type !== 'none'
+  );
+
+  const updateProfile = <K extends keyof typeof formData.brand_profile_json>(
+    key: K,
+    val: (typeof formData.brand_profile_json)[K]
+  ) => {
+    setFormData({
+      ...formData,
+      brand_profile_json: { ...formData.brand_profile_json, [key]: val },
+    });
+  };
+
+  // Count filled optional detail fields (out of 10)
+  const detailsFilledCount = [
+    formData.description,
+    formData.website,
+    formData.logo_url,
+    formData.brand_image_url,
+    formData.colors.length > 0 ? 'yes' : '',
+    formData.tone_of_voice,
+    formData.target_audience,
+    formData.guidelines,
+    formData.brand_profile_json.compliance_notes,
+    formData.brand_profile_json.claims_to_avoid,
+  ].filter(Boolean).length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -612,6 +713,13 @@ function BrandEditModal({
         retainer_payout_amount: formData.retainer_payout_amount,
         retainer_bonus_tiers: formData.retainer_bonus_tiers,
         retainer_notes: formData.retainer_notes || null,
+        brand_profile_json: {
+          category: formData.brand_profile_json.category || undefined,
+          product_types: formData.brand_profile_json.product_types.filter(t => t.trim()),
+          key_angles: formData.brand_profile_json.key_angles.filter(a => a.trim()),
+          compliance_notes: formData.brand_profile_json.compliance_notes || null,
+          claims_to_avoid: formData.brand_profile_json.claims_to_avoid || null,
+        },
       };
 
       const res = await fetch(url, {
@@ -673,6 +781,18 @@ function BrandEditModal({
     setFormData({ ...formData, colors: formData.colors.filter(c => c !== color) });
   };
 
+  const addProductType = () => {
+    const trimmed = productTypeInput.trim();
+    if (trimmed && formData.brand_profile_json.product_types.length < 10 && !formData.brand_profile_json.product_types.includes(trimmed)) {
+      updateProfile('product_types', [...formData.brand_profile_json.product_types, trimmed]);
+      setProductTypeInput('');
+    }
+  };
+
+  const removeProductType = (tag: string) => {
+    updateProfile('product_types', formData.brand_profile_json.product_types.filter(t => t !== tag));
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
@@ -693,358 +813,494 @@ function BrandEditModal({
               </div>
             )}
 
+            {/* ── Section A: Essentials (always visible) ── */}
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">Brand Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Logo URL</label>
-              <input
-                type="url"
-                value={formData.logo_url}
-                onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="https://..."
-              />
-            </div>
-
-            {/* Brand Image Upload */}
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Brand Image (for video generation)</label>
-
-              {formData.brand_image_url && (
-                <div className="mb-2">
-                  <img
-                    src={formData.brand_image_url}
-                    alt="Brand preview"
-                    className="w-32 h-32 object-cover rounded-lg border border-zinc-700"
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-3">Essentials</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Brand Name *</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    required
                   />
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <input
-                  type="url"
-                  value={formData.brand_image_url}
-                  onChange={(e) => setFormData({ ...formData, brand_image_url: e.target.value })}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="Paste image URL or upload file below..."
-                />
-
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImageUpload(file);
-                      }}
-                      disabled={uploadingImage}
-                    />
-                    <div className="w-full bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-lg px-3 py-2 text-center transition-colors">
-                      {uploadingImage ? 'Uploading...' : 'Upload File'}
-                    </div>
-                  </label>
-                </div>
-
-                {imageUploadError && (
-                  <p className="text-xs text-red-400">{imageUploadError}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Website</label>
-              <input
-                type="url"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-20 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="Brief description of the brand..."
-              />
-            </div>
-
-            {/* Brand Colors */}
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Brand Colors</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {formData.colors.map((color, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1 bg-zinc-800 rounded-lg px-2 py-1"
-                  >
-                    <div
-                      className="w-5 h-5 rounded border border-white/20"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-xs text-zinc-400">{color}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeColor(color)}
-                      className="text-zinc-500 hover:text-red-400"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className="w-10 h-10 rounded cursor-pointer bg-transparent"
-                />
-                <input
-                  type="text"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="#000000"
-                />
-                <button
-                  type="button"
-                  onClick={addColor}
-                  className="px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 text-sm"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Tone of Voice</label>
-              <input
-                type="text"
-                value={formData.tone_of_voice}
-                onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="e.g., Professional, Friendly, Bold..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Target Audience</label>
-              <input
-                type="text"
-                value={formData.target_audience}
-                onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="e.g., Young professionals, 25-35..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Brand Guidelines</label>
-              <textarea
-                value={formData.guidelines}
-                onChange={(e) => setFormData({ ...formData, guidelines: e.target.value })}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-24 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="Dos, don'ts, specific requirements..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Monthly Video Quota</label>
-              <input
-                type="number"
-                value={formData.monthly_video_quota}
-                onChange={(e) => setFormData({ ...formData, monthly_video_quota: parseInt(e.target.value) || 0 })}
-                min="0"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <p className="text-xs text-zinc-500 mt-1">Set to 0 for unlimited</p>
-            </div>
-
-            {/* Retainer / Partnership Section */}
-            <div className="border-t border-zinc-700 pt-4 mt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <DollarSign className="w-4 h-4 text-green-400" />
-                <h3 className="text-sm font-semibold text-zinc-200">Retainer / Partnership</h3>
-              </div>
-
-              <div className="space-y-3">
                 <div>
-                  <label className="block text-sm text-zinc-400 mb-1">Type</label>
+                  <label className="block text-sm text-zinc-400 mb-1">Category</label>
                   <select
-                    value={formData.retainer_type}
-                    onChange={(e) => setFormData({ ...formData, retainer_type: e.target.value })}
+                    value={formData.brand_profile_json.category}
+                    onChange={(e) => updateProfile('category', e.target.value)}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
-                    <option value="none">None</option>
-                    <option value="retainer">Retainer</option>
-                    <option value="bonus">Bonus</option>
-                    <option value="challenge">Challenge</option>
-                    <option value="affiliate">Affiliate</option>
+                    <option value="">Select category...</option>
+                    {CATEGORY_OPTIONS.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
+                  <p className="text-xs text-zinc-500 mt-1">The primary industry this brand operates in</p>
                 </div>
 
-                {formData.retainer_type !== 'none' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm text-zinc-400 mb-1">Video Goal</label>
-                        <input
-                          type="number"
-                          value={formData.retainer_video_goal}
-                          onChange={(e) => setFormData({ ...formData, retainer_video_goal: parseInt(e.target.value) || 0 })}
-                          min="0"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-zinc-400 mb-1">Base Payout ($)</label>
-                        <input
-                          type="number"
-                          value={formData.retainer_payout_amount}
-                          onChange={(e) => setFormData({ ...formData, retainer_payout_amount: parseFloat(e.target.value) || 0 })}
-                          min="0"
-                          step="0.01"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm text-zinc-400 mb-1">Period Start</label>
-                        <input
-                          type="date"
-                          value={formData.retainer_period_start}
-                          onChange={(e) => setFormData({ ...formData, retainer_period_start: e.target.value })}
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-zinc-400 mb-1">Period End</label>
-                        <input
-                          type="date"
-                          value={formData.retainer_period_end}
-                          onChange={(e) => setFormData({ ...formData, retainer_period_end: e.target.value })}
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Bonus Tiers */}
-                    <div>
-                      <label className="block text-sm text-zinc-400 mb-1">Bonus Tiers</label>
-                      <div className="space-y-2">
-                        {formData.retainer_bonus_tiers.map((tier, i) => (
-                          <div key={i} className="flex items-center gap-2 bg-zinc-800/50 rounded-lg p-2">
-                            <input
-                              type="text"
-                              value={tier.label}
-                              onChange={(e) => {
-                                const tiers = [...formData.retainer_bonus_tiers];
-                                tiers[i] = { ...tiers[i], label: e.target.value };
-                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
-                              }}
-                              className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              placeholder="Label"
-                            />
-                            <input
-                              type="number"
-                              value={tier.videos ?? tier.gmv ?? ''}
-                              onChange={(e) => {
-                                const tiers = [...formData.retainer_bonus_tiers];
-                                const val = parseFloat(e.target.value) || 0;
-                                if (tier.videos !== undefined) {
-                                  tiers[i] = { ...tiers[i], videos: val };
-                                } else {
-                                  tiers[i] = { ...tiers[i], gmv: val };
-                                }
-                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
-                              }}
-                              className="w-20 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              placeholder="Threshold"
-                            />
-                            <span className="text-zinc-500 text-xs">$</span>
-                            <input
-                              type="number"
-                              value={tier.payout ?? tier.bonus ?? ''}
-                              onChange={(e) => {
-                                const tiers = [...formData.retainer_bonus_tiers];
-                                const val = parseFloat(e.target.value) || 0;
-                                if (tier.payout !== undefined) {
-                                  tiers[i] = { ...tiers[i], payout: val };
-                                } else {
-                                  tiers[i] = { ...tiers[i], bonus: val };
-                                }
-                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
-                              }}
-                              className="w-20 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              placeholder="Payout"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const tiers = formData.retainer_bonus_tiers.filter((_, idx) => idx !== i);
-                                setFormData({ ...formData, retainer_bonus_tiers: tiers });
-                              }}
-                              className="text-zinc-500 hover:text-red-400"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setFormData({
-                              ...formData,
-                              retainer_bonus_tiers: [...formData.retainer_bonus_tiers, { videos: 0, payout: 0, label: '' }],
-                            })}
-                            className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
-                          >
-                            + Video tier
+                {/* Product Types — tag input */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Product Types
+                    {formData.brand_profile_json.product_types.length > 0 && (
+                      <span className="text-zinc-600 ml-1">({formData.brand_profile_json.product_types.length}/10)</span>
+                    )}
+                  </label>
+                  {formData.brand_profile_json.product_types.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {formData.brand_profile_json.product_types.map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-2.5 py-1 text-xs text-zinc-300">
+                          {tag}
+                          <button type="button" onClick={() => removeProductType(tag)} className="text-zinc-500 hover:text-red-400">
+                            <X className="w-3 h-3" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormData({
-                              ...formData,
-                              retainer_bonus_tiers: [...formData.retainer_bonus_tiers, { gmv: 0, bonus: 0, label: '' }],
-                            })}
-                            className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
-                          >
-                            + GMV tier
-                          </button>
-                        </div>
-                      </div>
+                        </span>
+                      ))}
                     </div>
-
-                    <div>
-                      <label className="block text-sm text-zinc-400 mb-1">Notes</label>
-                      <textarea
-                        value={formData.retainer_notes}
-                        onChange={(e) => setFormData({ ...formData, retainer_notes: e.target.value })}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-16 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        placeholder="Partnership details, terms, etc."
+                  )}
+                  {formData.brand_profile_json.product_types.length < 10 && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={productTypeInput}
+                        onChange={(e) => setProductTypeInput(e.target.value.slice(0, 100))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProductType(); } }}
+                        className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        placeholder="e.g., CBD Oil, Gummies, Capsules"
                       />
+                      <button
+                        type="button"
+                        onClick={addProductType}
+                        className="px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 text-sm"
+                      >
+                        Add
+                      </button>
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
+
+                {/* Key Angles — dynamic 0-5 inputs */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Key Angles
+                    {formData.brand_profile_json.key_angles.length > 0 && (
+                      <span className="text-zinc-600 ml-1">({formData.brand_profile_json.key_angles.length}/5)</span>
+                    )}
+                  </label>
+                  <div className="space-y-2">
+                    {formData.brand_profile_json.key_angles.map((angle, i) => (
+                      <div key={i} className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={angle}
+                            onChange={(e) => {
+                              const updated = [...formData.brand_profile_json.key_angles];
+                              updated[i] = e.target.value.slice(0, 200);
+                              updateProfile('key_angles', updated);
+                            }}
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            placeholder={KEY_ANGLE_PLACEHOLDERS[i] || 'Key selling angle...'}
+                            maxLength={200}
+                          />
+                          <p className="text-[10px] text-zinc-600 text-right mt-0.5">{angle.length}/200</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = formData.brand_profile_json.key_angles.filter((_, idx) => idx !== i);
+                            updateProfile('key_angles', updated);
+                          }}
+                          className="mt-2 text-zinc-500 hover:text-red-400"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {formData.brand_profile_json.key_angles.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => updateProfile('key_angles', [...formData.brand_profile_json.key_angles, ''])}
+                        className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
+                      >
+                        + Add angle
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* ── Section B: Brand Details (collapsed accordion) ── */}
+            <CollapsibleSection
+              title="Brand Details"
+              isOpen={detailsOpen}
+              onToggle={() => setDetailsOpen(!detailsOpen)}
+              badge={detailsFilledCount > 0 ? `${detailsFilledCount} of 10 filled` : undefined}
+            >
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value.slice(0, 5000) })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-20 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Brief description of the brand..."
+                  maxLength={5000}
+                />
+                <p className="text-[10px] text-zinc-600 text-right mt-0.5">{formData.description.length}/5000</p>
+              </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Website</label>
+                <input
+                  type="url"
+                  value={formData.website}
+                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Logo URL</label>
+                <input
+                  type="url"
+                  value={formData.logo_url}
+                  onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="https://..."
+                />
+              </div>
+
+              {/* Brand Image Upload */}
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Brand Image (for video generation)</label>
+                {formData.brand_image_url && (
+                  <div className="mb-2">
+                    <img
+                      src={formData.brand_image_url}
+                      alt="Brand preview"
+                      className="w-32 h-32 object-cover rounded-lg border border-zinc-700"
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <input
+                    type="url"
+                    value={formData.brand_image_url}
+                    onChange={(e) => setFormData({ ...formData, brand_image_url: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="Paste image URL or upload file below..."
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUpload(file);
+                        }}
+                        disabled={uploadingImage}
+                      />
+                      <div className="w-full bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-lg px-3 py-2 text-center transition-colors">
+                        {uploadingImage ? 'Uploading...' : 'Upload File'}
+                      </div>
+                    </label>
+                  </div>
+                  {imageUploadError && (
+                    <p className="text-xs text-red-400">{imageUploadError}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Brand Colors */}
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Brand Colors</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {formData.colors.map((color, i) => (
+                    <div key={i} className="flex items-center gap-1 bg-zinc-800 rounded-lg px-2 py-1">
+                      <div className="w-5 h-5 rounded border border-white/20" style={{ backgroundColor: color }} />
+                      <span className="text-xs text-zinc-400">{color}</span>
+                      <button type="button" onClick={() => removeColor(color)} className="text-zinc-500 hover:text-red-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={newColor}
+                    onChange={(e) => setNewColor(e.target.value)}
+                    className="w-10 h-10 rounded cursor-pointer bg-transparent"
+                  />
+                  <input
+                    type="text"
+                    value={newColor}
+                    onChange={(e) => setNewColor(e.target.value)}
+                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="#000000"
+                  />
+                  <button type="button" onClick={addColor} className="px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 text-sm">
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Tone of Voice</label>
+                <input
+                  type="text"
+                  value={formData.tone_of_voice}
+                  onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="e.g., Professional, Friendly, Bold..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Target Audience</label>
+                <input
+                  type="text"
+                  value={formData.target_audience}
+                  onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="e.g., Young professionals, 25-35..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Brand Guidelines</label>
+                <textarea
+                  value={formData.guidelines}
+                  onChange={(e) => setFormData({ ...formData, guidelines: e.target.value.slice(0, 5000) })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-24 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Dos, don'ts, specific requirements..."
+                  maxLength={5000}
+                />
+                <p className="text-[10px] text-zinc-600 text-right mt-0.5">{formData.guidelines.length}/5000</p>
+              </div>
+
+              {/* Compliance Notes (NEW) */}
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Compliance Notes</label>
+                <textarea
+                  value={formData.brand_profile_json.compliance_notes}
+                  onChange={(e) => updateProfile('compliance_notes', e.target.value.slice(0, 2000))}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-20 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="e.g., Must include FDA disclaimer. Cannot reference clinical studies without approval."
+                  maxLength={2000}
+                />
+                <div className="flex justify-between mt-0.5">
+                  <p className="text-[10px] text-zinc-600">Legal disclaimers, required disclosures, or regulatory notes</p>
+                  <p className="text-[10px] text-zinc-600">{formData.brand_profile_json.compliance_notes.length}/2000</p>
+                </div>
+              </div>
+
+              {/* Claims to Avoid (NEW) */}
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Claims to Avoid</label>
+                <textarea
+                  value={formData.brand_profile_json.claims_to_avoid}
+                  onChange={(e) => updateProfile('claims_to_avoid', e.target.value.slice(0, 2000))}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-20 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder={`e.g., No cure/treatment claims. Don't say "clinically proven" without approval.`}
+                  maxLength={2000}
+                />
+                <div className="flex justify-between mt-0.5">
+                  <p className="text-[10px] text-zinc-600">Specific claims or phrases that must not appear in scripts</p>
+                  <p className="text-[10px] text-zinc-600">{formData.brand_profile_json.claims_to_avoid.length}/2000</p>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            {/* ── Section C: Quota & Partnership (collapsed accordion) ── */}
+            <CollapsibleSection
+              title="Quota & Partnership"
+              isOpen={quotaOpen}
+              onToggle={() => setQuotaOpen(!quotaOpen)}
+              badge={formData.retainer_type !== 'none' ? formData.retainer_type : undefined}
+            >
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Monthly Video Quota</label>
+                <input
+                  type="number"
+                  value={formData.monthly_video_quota}
+                  onChange={(e) => setFormData({ ...formData, monthly_video_quota: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Set to 0 for unlimited</p>
+              </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Retainer Type</label>
+                <select
+                  value={formData.retainer_type}
+                  onChange={(e) => setFormData({ ...formData, retainer_type: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="none">None</option>
+                  <option value="retainer">Retainer</option>
+                  <option value="bonus">Bonus</option>
+                  <option value="challenge">Challenge</option>
+                  <option value="affiliate">Affiliate</option>
+                </select>
+              </div>
+
+              {formData.retainer_type !== 'none' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-zinc-400 mb-1">Video Goal</label>
+                      <input
+                        type="number"
+                        value={formData.retainer_video_goal}
+                        onChange={(e) => setFormData({ ...formData, retainer_video_goal: parseInt(e.target.value) || 0 })}
+                        min="0"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-zinc-400 mb-1">Base Payout ($)</label>
+                      <input
+                        type="number"
+                        value={formData.retainer_payout_amount}
+                        onChange={(e) => setFormData({ ...formData, retainer_payout_amount: parseFloat(e.target.value) || 0 })}
+                        min="0"
+                        step="0.01"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-zinc-400 mb-1">Period Start</label>
+                      <input
+                        type="date"
+                        value={formData.retainer_period_start}
+                        onChange={(e) => setFormData({ ...formData, retainer_period_start: e.target.value })}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-zinc-400 mb-1">Period End</label>
+                      <input
+                        type="date"
+                        value={formData.retainer_period_end}
+                        onChange={(e) => setFormData({ ...formData, retainer_period_end: e.target.value })}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bonus Tiers */}
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">Bonus Tiers</label>
+                    <div className="space-y-2">
+                      {formData.retainer_bonus_tiers.map((tier, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-zinc-800/50 rounded-lg p-2">
+                          <input
+                            type="text"
+                            value={tier.label}
+                            onChange={(e) => {
+                              const tiers = [...formData.retainer_bonus_tiers];
+                              tiers[i] = { ...tiers[i], label: e.target.value };
+                              setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                            }}
+                            className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            placeholder="Label"
+                          />
+                          <input
+                            type="number"
+                            value={tier.videos ?? tier.gmv ?? ''}
+                            onChange={(e) => {
+                              const tiers = [...formData.retainer_bonus_tiers];
+                              const val = parseFloat(e.target.value) || 0;
+                              if (tier.videos !== undefined) {
+                                tiers[i] = { ...tiers[i], videos: val };
+                              } else {
+                                tiers[i] = { ...tiers[i], gmv: val };
+                              }
+                              setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                            }}
+                            className="w-20 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            placeholder="Threshold"
+                          />
+                          <span className="text-zinc-500 text-xs">$</span>
+                          <input
+                            type="number"
+                            value={tier.payout ?? tier.bonus ?? ''}
+                            onChange={(e) => {
+                              const tiers = [...formData.retainer_bonus_tiers];
+                              const val = parseFloat(e.target.value) || 0;
+                              if (tier.payout !== undefined) {
+                                tiers[i] = { ...tiers[i], payout: val };
+                              } else {
+                                tiers[i] = { ...tiers[i], bonus: val };
+                              }
+                              setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                            }}
+                            className="w-20 bg-zinc-700 border border-zinc-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            placeholder="Payout"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const tiers = formData.retainer_bonus_tiers.filter((_, idx) => idx !== i);
+                              setFormData({ ...formData, retainer_bonus_tiers: tiers });
+                            }}
+                            className="text-zinc-500 hover:text-red-400"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            retainer_bonus_tiers: [...formData.retainer_bonus_tiers, { videos: 0, payout: 0, label: '' }],
+                          })}
+                          className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
+                        >
+                          + Video tier
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            retainer_bonus_tiers: [...formData.retainer_bonus_tiers, { gmv: 0, bonus: 0, label: '' }],
+                          })}
+                          className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 bg-zinc-800 rounded"
+                        >
+                          + GMV tier
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">Notes</label>
+                    <textarea
+                      value={formData.retainer_notes}
+                      onChange={(e) => setFormData({ ...formData, retainer_notes: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white h-16 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder="Partnership details, terms, etc."
+                    />
+                  </div>
+                </>
+              )}
+            </CollapsibleSection>
           </div>
 
           <div className="flex gap-3 p-4 border-t border-zinc-800">

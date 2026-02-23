@@ -25,6 +25,13 @@ const UpdateBrandSchema = z.object({
   retainer_payout_amount: z.number().min(0).optional(),
   retainer_bonus_tiers: z.array(z.record(z.string(), z.unknown())).optional(),
   retainer_notes: z.string().max(5000).optional().nullable(),
+  brand_profile_json: z.object({
+    category: z.string().max(100).optional(),
+    product_types: z.array(z.string().max(100)).max(10).optional().default([]),
+    key_angles: z.array(z.string().max(200)).max(5).optional().default([]),
+    compliance_notes: z.string().max(2000).optional().nullable(),
+    claims_to_avoid: z.string().max(2000).optional().nullable(),
+  }).optional(),
 });
 
 /**

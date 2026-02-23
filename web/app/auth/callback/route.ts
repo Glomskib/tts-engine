@@ -7,6 +7,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { recordReferralSignup, ensureReferralCode } from '@/lib/referrals';
+import { recordAffiliateAttribution } from '@/lib/affiliate-tracking';
 import { queueEmailSequence } from '@/lib/email/scheduler';
 import { syncRoleFromPlan } from '@/lib/sync-role';
 
@@ -129,6 +130,23 @@ export async function GET(request: Request) {
         }
       }
 
+      // Record affiliate attribution from cookie or URL param (non-fatal)
+      try {
+        const cookieHeader = request.headers.get('cookie') || '';
+        const ffRefMatch = cookieHeader.match(/(?:^|;\s*)ff_ref=([^;]+)/);
+        const cookieRef = ffRefMatch ? decodeURIComponent(ffRefMatch[1]) : null;
+        const effectiveRef = referralCode || cookieRef;
+
+        if (effectiveRef) {
+          const method = referralCode && cookieRef ? 'both'
+            : referralCode ? 'url_param'
+            : 'cookie';
+          await recordAffiliateAttribution(effectiveRef, data.user.id, method);
+        }
+      } catch (e) {
+        console.error('Affiliate attribution recording error (non-fatal):', e);
+      }
+
       // Process promo code if present (non-fatal)
       if (promoCode) {
         try {
@@ -156,12 +174,17 @@ export async function GET(request: Request) {
       }
 
       // Successfully authenticated - redirect to destination
+      // Clear ff_ref cookie after attribution is recorded
       if (explicitRedirect) {
-        return NextResponse.redirect(`${origin}${explicitRedirect}`);
+        const redirectRes = NextResponse.redirect(`${origin}${explicitRedirect}`);
+        redirectRes.cookies.set('ff_ref', '', { maxAge: 0, path: '/' });
+        return redirectRes;
       }
 
       // Default redirect to dashboard
-      return NextResponse.redirect(`${origin}/admin/dashboard`);
+      const dashboardRes = NextResponse.redirect(`${origin}/admin/dashboard`);
+      dashboardRes.cookies.set('ff_ref', '', { maxAge: 0, path: '/' });
+      return dashboardRes;
     }
   }
 

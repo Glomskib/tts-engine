@@ -23,6 +23,13 @@ const CreateBrandSchema = z.object({
   retainer_payout_amount: z.number().min(0).optional().default(0),
   retainer_bonus_tiers: z.array(z.record(z.string(), z.unknown())).optional().default([]),
   retainer_notes: z.string().max(5000).optional().nullable(),
+  brand_profile_json: z.object({
+    category: z.string().max(100).optional(),
+    product_types: z.array(z.string().max(100)).max(10).optional().default([]),
+    key_angles: z.array(z.string().max(200)).max(5).optional().default([]),
+    compliance_notes: z.string().max(2000).optional().nullable(),
+    claims_to_avoid: z.string().max(2000).optional().nullable(),
+  }).optional().default({ product_types: [], key_angles: [] }),
 });
 
 /**
@@ -123,6 +130,7 @@ export async function POST(request: NextRequest) {
       retainer_payout_amount: input.retainer_payout_amount,
       retainer_bonus_tiers: input.retainer_bonus_tiers,
       retainer_notes: input.retainer_notes,
+      brand_profile_json: input.brand_profile_json,
     })
     .select()
     .single();

@@ -66,6 +66,29 @@ export async function middleware(request: NextRequest) {
     user = data.user
   }
 
+  // Affiliate tracking: capture ?ref= param → 30-day cookie + fire click
+  const refCode = request.nextUrl.searchParams.get('ref')
+  if (refCode) {
+    response.cookies.set('ff_ref', refCode, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    })
+
+    // Fire-and-forget click tracking
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const userAgent = request.headers.get('user-agent') || 'unknown'
+    const referrer = request.headers.get('referer') || null
+    const origin = request.nextUrl.origin
+    fetch(`${origin}/api/affiliates/click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: refCode, ip, userAgent, referrer }),
+    }).catch(() => {}) // fire-and-forget
+  }
+
   // Add CORS headers to API responses
   if (isApiRoute) {
     for (const [key, value] of Object.entries(CORS_HEADERS)) {

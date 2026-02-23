@@ -2,9 +2,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId } from "@/lib/api-errors";
 import { recordReferralConversion } from "@/lib/referrals";
 import { recordCommission } from "@/lib/affiliates";
+import { updateAttributionOnPlanChange } from "@/lib/affiliate-tracking";
 import { queueEmailSequence } from "@/lib/email/scheduler";
 import { sendTelegramNotification } from "@/lib/telegram";
 import { syncRoleFromPlan } from "@/lib/sync-role";
+import { syncDiscordRolesIfLinked } from "@/lib/discord/roles";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -228,6 +230,7 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
 
   // Sync role to match new plan
   await syncRoleFromPlan(userId, planId);
+  await syncDiscordRolesIfLinked(userId);
 
   // Initialize credits for the user
   const { error: creditError } = await supabaseAdmin.from("user_credits").upsert(
@@ -333,6 +336,7 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
 
   // Sync role to match updated plan
   await syncRoleFromPlan(userId, planId);
+  await syncDiscordRolesIfLinked(userId);
 }
 
 async function handleSubscriptionCancelled(correlationId: string, subscription: Stripe.Subscription) {
@@ -362,6 +366,7 @@ async function handleSubscriptionCancelled(correlationId: string, subscription: 
   // Sync role to free on cancellation
   if (cancelledSub?.user_id) {
     await syncRoleFromPlan(cancelledSub.user_id, 'free');
+    await syncDiscordRolesIfLinked(cancelledSub.user_id);
   }
 
   // H8: Reset credits to free tier amount (5 credits)
@@ -507,6 +512,13 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
     }
   } catch (commErr) {
     console.error(`[${correlationId}] Affiliate commission error (non-fatal):`, commErr);
+  }
+
+  // Update affiliate attribution status on payment
+  try {
+    await updateAttributionOnPlanChange(subscription.user_id, planId, true);
+  } catch (attrErr) {
+    console.error(`[${correlationId}] Attribution update error (non-fatal):`, attrErr);
   }
 }
 

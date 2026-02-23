@@ -11,6 +11,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getAffiliateForUser } from '@/lib/affiliate-tracking';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,29 +94,39 @@ export async function recordCommission(
   invoiceId: string,
   subscriptionAmount: number,
 ): Promise<void> {
-  // 1. Find the referral record for this user
+  // 1. Find the referrer for this user
+  //    Primary: check user_subscriptions.referred_by → referral_codes
+  //    Fallback: check ff_affiliate_attributions
+  let referrerUserId: string | null = null;
+
   const { data: sub } = await supabaseAdmin
     .from('user_subscriptions')
     .select('referred_by')
     .eq('user_id', referredUserId)
     .single();
 
-  if (!sub?.referred_by) return; // Not a referred user
+  if (sub?.referred_by) {
+    // Look up the code owner
+    const { data: codeRow } = await supabaseAdmin
+      .from('referral_codes')
+      .select('user_id')
+      .eq('code', sub.referred_by)
+      .single();
+    referrerUserId = codeRow?.user_id || null;
+  }
 
-  // 2. Find the referrer via their referral code
-  const { data: referrer } = await supabaseAdmin
-    .from('user_subscriptions')
-    .select('user_id')
-    .eq('referral_code', sub.referred_by)
-    .single();
+  // Fallback: check attribution table
+  if (!referrerUserId) {
+    referrerUserId = await getAffiliateForUser(referredUserId);
+  }
 
-  if (!referrer) return;
+  if (!referrerUserId) return; // Not a referred user
 
-  // 3. Find the referrer's affiliate account
+  // 2. Find the referrer's affiliate account
   const { data: affiliate } = await supabaseAdmin
     .from('affiliate_accounts')
     .select('id, commission_rate, status')
-    .eq('user_id', referrer.user_id)
+    .eq('user_id', referrerUserId)
     .single();
 
   if (!affiliate || affiliate.status !== 'approved') return;

@@ -262,6 +262,10 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [savedConceptId, setSavedConceptId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
 
+  // Variation state
+  const [variationLoading, setVariationLoading] = useState(false);
+  const [variationError, setVariationError] = useState('');
+
   // GAP 2: Track saved alternative hooks
   const [savedHookIndexes, setSavedHookIndexes] = useState<Set<number>>(new Set());
   const [savingHookIndex, setSavingHookIndex] = useState<number | null>(null);
@@ -582,6 +586,62 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       setSaveError('Network error. Please try again.');
     } finally {
       setSavingToStudio(false);
+    }
+  }
+
+  async function handleMakeVariation() {
+    if (!rewriteResult || !result || variationLoading) return;
+    setVariationLoading(true);
+    setVariationError('');
+
+    try {
+      const res = await fetch('/api/transcribe/variation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: result.transcript,
+          analysis: result.analysis,
+          persona: selectedPersona,
+          tone: selectedTone,
+          custom_persona: selectedPersona === 'custom' ? customPersona : undefined,
+          previous_rewrite: {
+            rewritten_hook: rewriteResult.rewritten_hook,
+            rewritten_script: rewriteResult.rewritten_script,
+            on_screen_text: rewriteResult.on_screen_text,
+            cta: rewriteResult.cta,
+            persona_used: rewriteResult.persona_used,
+            tone_used: rewriteResult.tone_used,
+          },
+          original_concept_id: savedConceptId || undefined,
+          source_url: url.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          setVariationError(data.error || 'Rate limit reached');
+          setUsageRemaining(0);
+          setRateLimitRemaining(0);
+          return;
+        }
+        if (res.status === 401) {
+          setVariationError('Sign in to create variations');
+          setIsLoggedIn(false);
+          return;
+        }
+        setVariationError(data.error || 'Failed to create variation.');
+        return;
+      }
+
+      updateRateLimits(res);
+      setRewriteResult(data.data);
+      if (data.concept_id) setSavedConceptId(data.concept_id);
+    } catch {
+      setVariationError('Network error. Please try again.');
+    } finally {
+      setVariationLoading(false);
     }
   }
 
@@ -1383,12 +1443,31 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       <div className="flex flex-wrap gap-3 pt-2">
                         <button
                           onClick={handleRewrite}
-                          disabled={rewriteLoading}
+                          disabled={rewriteLoading || variationLoading}
                           className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors disabled:opacity-50"
                         >
                           <RefreshCw size={14} />
                           Regenerate
                         </button>
+                        {isLoggedIn && isPaid && (
+                          <button
+                            onClick={handleMakeVariation}
+                            disabled={variationLoading || rewriteLoading}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-400 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {variationLoading ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                Creating variation...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles size={14} />
+                                Make a Variation
+                              </>
+                            )}
+                          </button>
+                        )}
                         <CopyButton
                           text={`Hook: "${rewriteResult.rewritten_hook}"\n\n${rewriteResult.rewritten_script}\n\nCTA: ${rewriteResult.cta}\n\nOn-screen text:\n${rewriteResult.on_screen_text?.map((t, i) => `${i + 1}. ${t}`).join('\n') || 'None'}`}
                           copyKey="rewrite-all"
@@ -1428,6 +1507,9 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         )}
                         {saveError && (
                           <p className="text-red-400 text-sm w-full">{saveError}</p>
+                        )}
+                        {variationError && (
+                          <p className="text-red-400 text-sm w-full">{variationError}</p>
                         )}
                       </div>
                     </div>

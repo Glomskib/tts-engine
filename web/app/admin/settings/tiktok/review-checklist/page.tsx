@@ -32,9 +32,9 @@ const STEPS: ChecklistStep[] = [
   },
   {
     id: 2,
-    title: 'Show Connected Status (All 3 Integrations)',
+    title: 'Show Integration Overview',
     description:
-      'Pan across the page showing Login Kit, Shop, and Content Posting sections all in a connected state with green status indicators.',
+      'Show the Integration Overview card at the top with all 4 integrations (Login Kit, Partner API, Shop, Content Posting) displaying green "Connected" status. Then scroll through each individual section.',
     icon: <CheckCircle2 className="w-4 h-4" />,
   },
   {

@@ -467,6 +467,96 @@ function TikTokLoginSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Integration Overview (at-a-glance status for all 4 integrations)
+// ---------------------------------------------------------------------------
+
+interface IntegrationStatus {
+  name: string;
+  description: string;
+  status: 'loading' | 'connected' | 'disconnected' | 'expired' | 'not_configured';
+}
+
+function IntegrationOverview() {
+  const [integrations, setIntegrations] = useState<IntegrationStatus[]>([
+    { name: 'Login Kit', description: 'User identity & profile', status: 'loading' },
+    { name: 'Partner API', description: 'Video analytics & user data', status: 'loading' },
+    { name: 'Shop', description: 'Product catalog & sync', status: 'loading' },
+    { name: 'Content Posting', description: 'Auto-post videos', status: 'loading' },
+  ]);
+
+  useEffect(() => {
+    const update = (index: number, status: IntegrationStatus['status']) => {
+      setIntegrations(prev => prev.map((item, i) => i === index ? { ...item, status } : item));
+    };
+
+    // Login Kit
+    fetch('/api/tiktok/status').then(r => r.json()).then(json => {
+      if (!json.ok || !json.data.app_configured) update(0, 'not_configured');
+      else if (json.data.connected) update(0, 'connected');
+      else update(0, 'disconnected');
+    }).catch(() => update(0, 'disconnected'));
+
+    // Partner API
+    fetch('/api/tiktok/connection-status').then(r => r.json()).then(json => {
+      if (!json.ok || !json.data.app_configured) update(1, 'not_configured');
+      else if (json.data.token_expired) update(1, 'expired');
+      else if (json.data.connected) update(1, 'connected');
+      else update(1, 'disconnected');
+    }).catch(() => update(1, 'disconnected'));
+
+    // Shop
+    fetch('/api/tiktok-shop/status').then(r => r.json()).then(json => {
+      if (!json.ok || !json.data.app_configured) update(2, 'not_configured');
+      else if (json.data.token_expired) update(2, 'expired');
+      else if (json.data.connected) update(2, 'connected');
+      else update(2, 'disconnected');
+    }).catch(() => update(2, 'disconnected'));
+
+    // Content Posting
+    fetch('/api/tiktok-content/status').then(r => r.json()).then(json => {
+      if (!json.ok || !json.data.app_configured) update(3, 'not_configured');
+      else {
+        const hasActive = (json.data.accounts || []).some(
+          (a: ContentAccount) => a.content_connection?.status === 'active'
+        );
+        update(3, hasActive ? 'connected' : 'disconnected');
+      }
+    }).catch(() => update(3, 'disconnected'));
+  }, []);
+
+  const statusConfig = {
+    loading: { dot: 'bg-zinc-600 animate-pulse', label: 'Loading...', labelClass: 'text-zinc-500' },
+    connected: { dot: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]', label: 'Connected', labelClass: 'text-emerald-400' },
+    disconnected: { dot: 'bg-zinc-600', label: 'Not connected', labelClass: 'text-zinc-500' },
+    expired: { dot: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]', label: 'Token expired', labelClass: 'text-amber-400' },
+    not_configured: { dot: 'bg-zinc-700', label: 'Not configured', labelClass: 'text-zinc-600' },
+  };
+
+  return (
+    <AdminCard title="Integration Overview" subtitle="Connection status across all TikTok integrations">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {integrations.map((item) => {
+          const cfg = statusConfig[item.status];
+          return (
+            <div
+              key={item.name}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700"
+            >
+              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-zinc-200">{item.name}</div>
+                <div className="text-xs text-zinc-500">{item.description}</div>
+              </div>
+              <span className={`text-xs font-medium ${cfg.labelClass}`}>{cfg.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </AdminCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Partner API Section
 // ---------------------------------------------------------------------------
 
@@ -851,10 +941,14 @@ export default function TikTokShopSettingsPage() {
             <p className="text-sm font-medium text-amber-300">TikTok Review Mode Active</p>
             <p className="text-xs text-amber-400/70 mt-0.5">
               This environment is configured for TikTok developer app review. All integrations are available for demonstration.
+              Scope &amp; data documentation is available at <code className="px-1 py-0.5 rounded bg-zinc-800 text-amber-200 font-mono text-xs">docs/tiktok-submission.md</code>.
             </p>
           </div>
         </div>
       )}
+
+      {/* Integration Overview */}
+      <IntegrationOverview />
 
       {/* TikTok Login Kit */}
       <TikTokLoginSection />
@@ -862,8 +956,8 @@ export default function TikTokShopSettingsPage() {
       {/* TikTok Partner API */}
       <PartnerApiSection />
 
-      {/* Connection Status */}
-      <AdminCard title="Connection Status">
+      {/* Shop Connection */}
+      <AdminCard title="Shop Connection">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div
@@ -1120,6 +1214,10 @@ export default function TikTokShopSettingsPage() {
                 {
                   integration: 'Login Kit',
                   fields: 'open_id, display_name, avatar_url, access/refresh tokens',
+                },
+                {
+                  integration: 'Partner API',
+                  fields: 'open_id, scopes, access/refresh tokens, token expiry',
                 },
                 {
                   integration: 'Shop',

@@ -4,7 +4,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 
 /**
  * POST /api/tiktok/delete-data
- * Deletes all TikTok PII for the current user across all 3 connection tables.
+ * Deletes all TikTok PII for the current user across all 4 connection tables.
  * Clears tokens, nulls display names / avatars, sets status to disconnected.
  */
 export async function POST(request: Request) {
@@ -69,6 +69,20 @@ export async function POST(request: Request) {
 
     if (contentErr) errors.push(`content: ${contentErr.message}`);
   }
+
+  // 4. Clear tiktok_connections (Partner API)
+  const { error: partnerErr } = await supabaseAdmin
+    .from('tiktok_connections')
+    .update({
+      status: 'disconnected',
+      access_token: '',
+      refresh_token: '',
+      disconnected_at: now,
+      updated_at: now,
+    })
+    .eq('user_id', userId);
+
+  if (partnerErr) errors.push(`partner: ${partnerErr.message}`);
 
   if (errors.length > 0) {
     return NextResponse.json({

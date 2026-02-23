@@ -1,6 +1,6 @@
 # TikTok Developer App Submission
 
-Scope document for TikTok developer app review. Covers all three integrations: Login Kit, Content Posting, and Shop.
+Scope document for TikTok developer app review. Covers all four integrations: Login Kit, Partner API, Content Posting, and Shop.
 
 ---
 
@@ -8,6 +8,10 @@ Scope document for TikTok developer app review. Covers all three integrations: L
 
 ### Login Kit
 - `user.info.basic` — Read basic profile (display_name, avatar_url, open_id)
+
+### Partner API
+- `user.info.basic` — Read user profile and identity
+- `video.list` — Read user's video list and analytics
 
 ### Content Posting API
 - `video.publish` — Publish videos to user's TikTok account
@@ -28,6 +32,10 @@ Scope document for TikTok developer app review. Covers all three integrations: L
 | Login Kit | `avatar_url` | TikTok user profile | Yes |
 | Login Kit | `access_token`, `refresh_token` | OAuth token exchange | Credential |
 | Login Kit | `token_expires_at` | OAuth token exchange | No |
+| Partner API | `open_id` | TikTok OAuth response | Pseudonymous ID |
+| Partner API | `scopes` | OAuth token exchange | No |
+| Partner API | `access_token`, `refresh_token` | OAuth token exchange | Credential |
+| Partner API | `expires_at`, `refresh_token_expires_at` | OAuth token exchange | No |
 | Shop | `shop_id` | TikTok Shop auth | Business ID |
 | Shop | `shop_name` | TikTok Shop metadata | Business data |
 | Shop | `seller_name`, `seller_region` | TikTok Shop metadata | Business data |
@@ -59,14 +67,15 @@ Scope document for TikTok developer app review. Covers all three integrations: L
 | Integration | UI Location | API Endpoint |
 |---|---|---|
 | Login Kit | TikTok Login section → Disconnect button | `POST /api/tiktok/disconnect` |
-| Shop | Connection Status section → Disconnect button | `POST /api/tiktok-shop/disconnect` |
+| Partner API | Partner API section → Disconnect button | `POST /api/tiktok/partner-disconnect` |
+| Shop | Shop Connection section → Disconnect button | `POST /api/tiktok-shop/disconnect` |
 | Content Posting | Content Posting section → Unlink button per account | `POST /api/tiktok-content/disconnect` |
 
 ### Bulk Data Deletion
 
 - **UI:** TikTok Data Controls section → "Delete All TikTok Data" button
 - **API:** `POST /api/tiktok/delete-data`
-- **Behavior:** Clears all tokens, nulls all PII fields, sets all connections to `disconnected` across all three tables (`tiktok_login_connections`, `tiktok_shop_connections`, `tiktok_content_connections`)
+- **Behavior:** Clears all tokens, nulls all PII fields, sets all connections to `disconnected` across all four tables (`tiktok_login_connections`, `tiktok_connections`, `tiktok_shop_connections`, `tiktok_content_connections`)
 - **Confirmation:** User must confirm via browser dialog before deletion proceeds
 
 ---
@@ -91,7 +100,7 @@ When enabled:
 Record a Loom walkthrough covering these 7 steps:
 
 1. **Demo Login Kit Connect** — Click "Connect TikTok", complete OAuth, show connected badge with display name and avatar
-2. **Show Connected Status (All 3)** — Pan across Login Kit, Shop, and Content Posting sections all in connected state
+2. **Show Integration Overview** — Show the Integration Overview card with all 4 integrations' status at a glance, then scroll through individual sections
 3. **Sync Products from Shop** — Click "Sync Products", show the sync result banner and product table
 4. **Show Content Posting Section** — Show connected accounts with handles, privacy levels, token expiry
 5. **Show Data Controls Panel** — Show stored data table, disable instructions, retention policy, and deletion button

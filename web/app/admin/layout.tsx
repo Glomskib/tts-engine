@@ -494,6 +494,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             onClose={() => setNavSheetOpen(false)}
             navSections={navSections}
             pathname={pathname}
+            isAdmin={auth.isAdmin}
           />
 
           {/* Development Test Checklist */}

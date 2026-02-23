@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home,
   Sparkles,
   FileText,
   Folder,
@@ -16,9 +15,8 @@ import {
   Package
 } from 'lucide-react';
 
-// All available nav items for middle slots
+// All available nav items for middle slots (content-studio is the fixed first slot)
 const AVAILABLE_NAV_ITEMS = [
-  { id: 'content-studio', href: '/admin/content-studio', icon: Sparkles, label: 'Create' },
   { id: 'transcribe', href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
   { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Library' },
   { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Pipeline' },
@@ -28,7 +26,7 @@ const AVAILABLE_NAV_ITEMS = [
   { id: 'brands', href: '/admin/brands', icon: Package, label: 'Brands' },
 ];
 
-const DEFAULT_MIDDLE_SLOTS = ['content-studio', 'transcribe', 'script-library'];
+const DEFAULT_MIDDLE_SLOTS = ['pipeline', 'script-library', 'analytics'];
 
 interface MobileBottomNavProps {
   onMoreClick: () => void;
@@ -61,9 +59,9 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
     .filter((item): item is typeof AVAILABLE_NAV_ITEMS[0] => item !== undefined);
 
   const NAV_ITEMS = [
-    { href: '/admin/dashboard', icon: Home, label: 'Home', isDrawerTrigger: false },
+    { href: '/admin/content-studio', icon: Sparkles, label: 'Studio', isDrawerTrigger: false },
     ...middleItems.map(item => ({ ...item, isDrawerTrigger: false })),
-    { href: '#more', icon: Menu, label: 'Menu', isDrawerTrigger: true },
+    { href: '#more', icon: Menu, label: 'More', isDrawerTrigger: true },
   ];
 
   return (

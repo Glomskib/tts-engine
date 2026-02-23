@@ -43,6 +43,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { createLogger } from '../../lib/logger.js';
+import {
+  EXIT_SESSION_INVALID,
+  isSessionCooldownActive,
+  setSessionCooldown,
+} from '../../lib/tiktok/session.js';
 
 import {
   CONFIG,
@@ -60,48 +65,47 @@ import * as sel from '../../../skills/tiktok-studio-uploader/selectors.js';
 const log = createLogger('uploader');
 const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
 
-// ─── Session-invalid guardrails ─────────────────────────────────────────────
-// Exit code 42 = "needs manual login" — distinct from generic error (1).
-// Callers (cron, OpenClaw, scripts) should watch for 42 and stop retrying.
-const EXIT_SESSION_INVALID = 42;
+// ─── PID lockfile — prevent concurrent upload runs ──────────────────────────
 
-// Cooldown lockfile prevents repeated identical "session expired" noise.
-// Set SESSION_INVALID_COOLDOWN_HOURS (default: 6) to control suppression window.
-const COOLDOWN_HOURS = Number(process.env.SESSION_INVALID_COOLDOWN_HOURS) || 6;
-const COOLDOWN_LOCKFILE = path.join(
-  process.cwd(), 'data', 'sessions', '.session-invalid.lock',
-);
+const RUN_LOCKFILE = path.join(process.cwd(), 'data', 'sessions', '.upload-running.lock');
 
-/** Returns true if cooldown is active (we already reported session-invalid recently). */
-function isSessionCooldownActive(): boolean {
+function acquireRunLock(): boolean {
   try {
-    const stat = fs.statSync(COOLDOWN_LOCKFILE);
-    const ageMs = Date.now() - stat.mtimeMs;
-    const cooldownMs = COOLDOWN_HOURS * 3_600_000;
-    if (ageMs < cooldownMs) {
-      const hoursAgo = (ageMs / 3_600_000).toFixed(1);
-      console.error(
-        `[session-guard] Session-invalid cooldown active (reported ${hoursAgo}h ago, ` +
-        `window=${COOLDOWN_HOURS}h). Exiting silently.`,
-      );
-      return true;
+    if (fs.existsSync(RUN_LOCKFILE)) {
+      const pid = parseInt(fs.readFileSync(RUN_LOCKFILE, 'utf-8').trim(), 10);
+      try { process.kill(pid, 0); return false; } // process alive → locked
+      catch { fs.unlinkSync(RUN_LOCKFILE); }       // process dead → stale
     }
-    // Lockfile expired — allow re-report
-    fs.unlinkSync(COOLDOWN_LOCKFILE);
-  } catch {
-    // No lockfile = no cooldown
-  }
-  return false;
+    fs.mkdirSync(path.dirname(RUN_LOCKFILE), { recursive: true });
+    fs.writeFileSync(RUN_LOCKFILE, String(process.pid));
+    return true;
+  } catch { return true; }
 }
 
-/** Write the cooldown lockfile after emitting the first session-invalid event. */
-function setSessionCooldown(): void {
+function releaseRunLock(): void {
+  try { fs.unlinkSync(RUN_LOCKFILE); } catch {}
+}
+
+// ─── Pre-flight session health check ────────────────────────────────────────
+
+async function preflightSessionCheck(): Promise<boolean> {
   try {
-    fs.mkdirSync(path.dirname(COOLDOWN_LOCKFILE), { recursive: true });
-    fs.writeFileSync(COOLDOWN_LOCKFILE, new Date().toISOString() + '\n');
-  } catch (err: any) {
-    console.error(`[session-guard] Failed to write cooldown lockfile: ${err.message}`);
+    const res = await fetch('http://localhost:3000/api/tiktok/session-health', {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const health = await res.json();
+      if (!health.valid) {
+        console.error(`[preflight] Session unhealthy: valid=${health.valid}, cooldown=${health.cooldown_active}`);
+        return false;
+      }
+      console.log(`[preflight] Session healthy (expires in ${health.expires_in_hours}h)`);
+    }
+  } catch {
+    // Server not running — fall back to local cooldown check
+    if (isSessionCooldownActive()) return false;
   }
+  return true;
 }
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -407,6 +411,21 @@ async function runDryRun(): Promise<void> {
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
+  // ── PID lock: prevent concurrent runs ──
+  if (!acquireRunLock()) {
+    console.error('[run-lock] Another upload-from-pack is already running. Exiting.');
+    process.exit(1);
+  }
+  process.on('exit', releaseRunLock);
+
+  // ── Pre-flight session check ──
+  if (!DRY_RUN) {
+    const healthy = await preflightSessionCheck();
+    if (!healthy) {
+      process.exit(EXIT_SESSION_INVALID);
+    }
+  }
+
   const { packDir, videoId, mode } = parseArgs();
   const shouldPost = mode === 'post';
 
@@ -460,7 +479,7 @@ async function main() {
     });
     console.error('\n[session-guard] SESSION INVALID — exit 42.');
     console.error('[session-guard] Manual login required: npm run tiktok:bootstrap');
-    console.error(`[session-guard] Cooldown set: ${COOLDOWN_HOURS}h (no repeated alerts).`);
+    console.error('[session-guard] Cooldown set (no repeated alerts).');
     setSessionCooldown();
     process.exit(EXIT_SESSION_INVALID);
   }

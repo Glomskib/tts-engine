@@ -272,6 +272,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
 
   // Track concepts saved to ideas
   const [savedIdeaIndexes, setSavedIdeaIndexes] = useState<Set<number>>(new Set());
+  const [confirmingIdeaIndex, setConfirmingIdeaIndex] = useState<number | null>(null);
 
   // GAP 7: Rate limit state
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(-1);
@@ -1062,7 +1063,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                     <p className="text-sm text-zinc-400 mt-1">{concept.outline}</p>
                                     {/* Action buttons: Use in Studio + Save to Ideas */}
                                     {isLoggedIn && (
-                                      <div className="flex flex-wrap gap-2 mt-2">
+                                      <div className="flex flex-wrap gap-2 mt-3">
                                         <button
                                           onClick={() => {
                                             const params = new URLSearchParams({
@@ -1071,13 +1072,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                             });
                                             window.location.href = `/admin/content-studio?${params.toString()}`;
                                           }}
-                                          className="text-xs bg-teal-600 hover:bg-teal-500 text-white rounded-lg px-3 py-1.5 font-medium transition-colors"
+                                          className="text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-lg px-4 py-2.5 font-medium transition-colors min-h-[44px]"
                                         >
                                           Use in Studio →
                                         </button>
                                         {savedIdeaIndexes.has(i) ? (
-                                          <span className="text-xs text-green-400 font-medium px-3 py-1.5">✓ Saved</span>
-                                        ) : (
+                                          <span className="text-sm text-green-400 font-medium px-4 py-2.5 min-h-[44px] flex items-center">✓ Saved</span>
+                                        ) : confirmingIdeaIndex === i ? (
                                           <button
                                             onClick={() => {
                                               try {
@@ -1101,11 +1102,20 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                                 existing.push(newIdea);
                                                 localStorage.setItem('flashflow_saved_ideas', JSON.stringify(existing));
                                                 setSavedIdeaIndexes(prev => new Set([...prev, i]));
+                                                setConfirmingIdeaIndex(null);
                                               } catch (e) {
                                                 console.error('Failed to save idea:', e);
                                               }
                                             }}
-                                            className="text-xs bg-zinc-700 hover:bg-zinc-600 text-amber-400 rounded-lg px-3 py-1.5 font-medium transition-colors"
+                                            onBlur={() => setTimeout(() => setConfirmingIdeaIndex(null), 200)}
+                                            className="text-sm bg-amber-600 hover:bg-amber-500 text-white rounded-lg px-4 py-2.5 font-medium transition-colors min-h-[44px] animate-pulse"
+                                          >
+                                            Confirm Save?
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => setConfirmingIdeaIndex(i)}
+                                            className="text-sm bg-zinc-700 hover:bg-zinc-600 text-amber-400 rounded-lg px-4 py-2.5 font-medium transition-colors min-h-[44px]"
                                           >
                                             Save to Ideas
                                           </button>
@@ -1144,7 +1154,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   {isLoggedIn && (
                                     savedHookIndexes.has(i) ? (
-                                      <span className="text-xs text-green-400 font-medium px-2 py-1">✓ Saved</span>
+                                      <span className="text-sm text-green-400 font-medium px-3 py-2">✓ Saved</span>
                                     ) : (
                                       <button
                                         onClick={async () => {
@@ -1172,9 +1182,9 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                           }
                                         }}
                                         disabled={savingHookIndex === i}
-                                        className="text-xs bg-zinc-700 hover:bg-zinc-600 text-teal-400 rounded px-2 py-1 font-medium transition-colors disabled:opacity-50"
+                                        className="text-sm bg-zinc-700 hover:bg-zinc-600 text-teal-400 rounded-lg px-3 py-2 font-medium transition-colors disabled:opacity-50 min-h-[44px]"
                                       >
-                                        {savingHookIndex === i ? '...' : '💾 Save Hook'}
+                                        {savingHookIndex === i ? '...' : 'Save Hook'}
                                       </button>
                                     )
                                   )}

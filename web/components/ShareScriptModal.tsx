@@ -97,29 +97,34 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl">
+      <div
+        className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        style={{
+          maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-zinc-800 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0">
               <Share2 className="w-5 h-5 text-teal-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-white">Export Script</h2>
-              <p className="text-sm text-zinc-400 truncate max-w-[250px]">{skit.title}</p>
+              <p className="text-sm text-zinc-400 truncate">{skit.title}</p>
             </div>
           </div>
           <button type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-lg hover:bg-zinc-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
             aria-label="Close"
           >
             <X className="w-5 h-5 text-zinc-400" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+        {/* Content — scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           {/* Include metadata toggle */}
           <label className="flex items-center gap-3 cursor-pointer">
             <input

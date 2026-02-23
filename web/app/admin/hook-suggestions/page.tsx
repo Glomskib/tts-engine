@@ -253,7 +253,7 @@ export default function HookSuggestionsPage() {
           <button type="button"
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            className={`px-4 py-2.5 text-sm rounded-lg transition-colors min-h-[44px] ${
               statusFilter === status
                 ? 'bg-violet-600 text-white'
                 : 'bg-zinc-800 text-zinc-300 border border-white/10 hover:bg-zinc-700'
@@ -278,72 +278,130 @@ export default function HookSuggestionsPage() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-zinc-800/50 border-b border-white/10">
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Type</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Hook Text</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Brand</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-400">Created</th>
-                  <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {suggestions.map((suggestion) => (
-                  <tr
-                    key={suggestion.id}
-                    className="border-b border-white/5 hover:bg-white/5 cursor-pointer"
-                    onClick={() => openDrawer(suggestion)}
-                  >
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-700/50 text-zinc-300">
-                        {HOOK_TYPE_LABELS[suggestion.hook_type] || suggestion.hook_type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-zinc-300 max-w-[400px]" title={suggestion.hook_text}>
-                      {truncateText(suggestion.hook_text)}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-400">
-                      {suggestion.brand_name || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">
-                      {formatDate(suggestion.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {statusFilter === 'pending' && (
-                        <div className="flex gap-2 justify-end" onClick={e => e.stopPropagation()}>
-                          <button type="button"
-                            onClick={() => {
-                              setSelectedSuggestion(suggestion);
-                              handleApprove();
-                            }}
-                            className="text-xs text-green-400 hover:underline"
-                          >
-                            Approve
-                          </button>
-                          <button type="button"
-                            onClick={() => {
-                              setSelectedSuggestion(suggestion);
-                              handleReject();
-                            }}
-                            className="text-xs text-red-400 hover:underline"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                      {statusFilter !== 'pending' && (
-                        <span className="text-xs text-zinc-500">
-                          {suggestion.reviewed_at ? formatDate(suggestion.reviewed_at) : '-'}
-                        </span>
-                      )}
-                    </td>
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-800/50 border-b border-white/10">
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400">Type</th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400">Hook Text</th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400">Brand</th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-400">Created</th>
+                    <th className="px-4 py-3 text-right font-medium text-zinc-400">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {suggestions.map((suggestion) => (
+                    <tr
+                      key={suggestion.id}
+                      className="border-b border-white/5 hover:bg-white/5 cursor-pointer"
+                      onClick={() => openDrawer(suggestion)}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-700/50 text-zinc-300">
+                          {HOOK_TYPE_LABELS[suggestion.hook_type] || suggestion.hook_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-300 max-w-[400px]" title={suggestion.hook_text}>
+                        {truncateText(suggestion.hook_text)}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-400">
+                        {suggestion.brand_name || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">
+                        {formatDate(suggestion.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {statusFilter === 'pending' && (
+                          <div className="flex gap-2 justify-end" onClick={e => e.stopPropagation()}>
+                            <button type="button"
+                              onClick={() => {
+                                setSelectedSuggestion(suggestion);
+                                handleApprove();
+                              }}
+                              className="text-xs text-green-400 hover:underline"
+                            >
+                              Approve
+                            </button>
+                            <button type="button"
+                              onClick={() => {
+                                setSelectedSuggestion(suggestion);
+                                handleReject();
+                              }}
+                              className="text-xs text-red-400 hover:underline"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                        {statusFilter !== 'pending' && (
+                          <span className="text-xs text-zinc-500">
+                            {suggestion.reviewed_at ? formatDate(suggestion.reviewed_at) : '-'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="md:hidden divide-y divide-white/5">
+              {suggestions.map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  className="p-4 active:bg-white/5 cursor-pointer"
+                  onClick={() => openDrawer(suggestion)}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <span className="px-2 py-1 rounded text-xs font-medium bg-zinc-700/50 text-zinc-300 shrink-0">
+                      {HOOK_TYPE_LABELS[suggestion.hook_type] || suggestion.hook_type}
+                    </span>
+                    <span className="text-xs text-zinc-500 shrink-0">
+                      {formatDate(suggestion.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed mb-2">
+                    {suggestion.hook_text}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    {suggestion.brand_name && (
+                      <span className="text-xs text-zinc-500">{suggestion.brand_name}</span>
+                    )}
+                    {statusFilter === 'pending' && (
+                      <div className="flex gap-3 ml-auto" onClick={e => e.stopPropagation()}>
+                        <button type="button"
+                          onClick={() => {
+                            setSelectedSuggestion(suggestion);
+                            handleApprove();
+                          }}
+                          className="text-sm text-green-400 font-medium py-1 px-2 min-h-[44px] flex items-center"
+                        >
+                          Approve
+                        </button>
+                        <button type="button"
+                          onClick={() => {
+                            setSelectedSuggestion(suggestion);
+                            handleReject();
+                          }}
+                          className="text-sm text-red-400 font-medium py-1 px-2 min-h-[44px] flex items-center"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {statusFilter !== 'pending' && (
+                      <span className="text-xs text-zinc-500 ml-auto">
+                        {suggestion.reviewed_at ? formatDate(suggestion.reviewed_at) : '-'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </AdminCard>
 

@@ -125,45 +125,48 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
       {/* Modal */}
       <div
-        className={`relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl transform transition-all duration-200 ${
+        className={`relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl transform transition-all duration-200 flex flex-col overflow-hidden ${
           isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
         }`}
+        style={{
+          maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+        }}
       >
         {/* Close button */}
         <button
           type="button"
           onClick={handleDismiss}
-          className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="absolute top-3 right-3 z-10 p-2 text-zinc-500 hover:text-zinc-300 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Content */}
-        <div className="p-8 text-center">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 text-center">
           {/* Icon */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-4 sm:mb-6">
             {step.icon}
           </div>
 
           {/* Title */}
-          <h2 className="text-2xl font-bold text-white mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
             {step.title}
           </h2>
 
           {/* Description */}
-          <p className="text-zinc-400 mb-8 leading-relaxed">
+          <p className="text-zinc-400 mb-4 sm:mb-8 leading-relaxed text-sm sm:text-base">
             {step.description}
           </p>
 
           {/* Progress dots */}
-          <div className="flex justify-center gap-2 mb-6">
+          <div className="flex justify-center gap-2 mb-4 sm:mb-6">
             {steps.map((_, index) => (
               <button
                 type="button"
                 key={index}
                 onClick={() => setCurrentStep(index)}
-                className={`w-2 h-2 rounded-full transition-all ${
+                className={`w-2 h-2 rounded-full transition-all min-h-[44px] min-w-[44px] flex items-center justify-center ${
                   index === currentStep
                     ? 'bg-teal-500 w-6'
                     : index < currentStep
@@ -173,45 +176,48 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               />
             ))}
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3">
-            {isLastStep ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => handleFinish(step.primaryHref || '/admin/products')}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-semibold rounded-lg transition-all shadow-lg shadow-teal-500/25"
-                >
-                  {step.primaryLabel || 'Get Started'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleFinish()}
-                  className="w-full py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium rounded-lg transition-colors border border-white/10"
-                >
-                  Skip — I know my way around
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-semibold rounded-lg transition-colors"
-                >
-                  Next
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDismiss}
-                  className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
-                >
-                  Skip tour
-                </button>
-              </>
-            )}
-          </div>
+        {/* Sticky footer actions */}
+        <div
+          className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 px-6 sm:px-8 py-4 flex flex-col gap-3"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        >
+          {isLastStep ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleFinish(step.primaryHref || '/admin/products')}
+                className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-semibold rounded-lg transition-all shadow-lg shadow-teal-500/25"
+              >
+                {step.primaryLabel || 'Get Started'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFinish()}
+                className="w-full py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium rounded-lg transition-colors border border-white/10"
+              >
+                Skip — I know my way around
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleNext}
+                className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-semibold rounded-lg transition-colors"
+              >
+                Next
+              </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors py-2"
+              >
+                Skip tour
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

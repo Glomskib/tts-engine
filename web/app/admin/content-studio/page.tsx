@@ -3742,12 +3742,12 @@ export default function ContentStudioPage() {
                             }
                             setEditingHook(false);
                           }}
-                            style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
+                            style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '8px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, opacity: rescoring ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           >
                             <Check size={14} /> Save
                           </button>
                           <button type="button" onClick={() => setEditingHook(false)}
-                            style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                            style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.textSecondary, cursor: 'pointer', fontSize: '14px' }}
                           >
                             Cancel
                           </button>
@@ -3766,10 +3766,10 @@ export default function ContentStudioPage() {
                                   </div>
                                   {editingHookField !== 'visual' && (
                                     <button type="button" onClick={() => { setEditedVisualHook(currentSkit.visual_hook || ''); setEditingHookField('visual'); }}
-                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: colors.textSecondary, opacity: 0.5 }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: colors.textSecondary, opacity: 0.5, minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '-8px' }}
                                       title="Edit visual hook"
                                     >
-                                      <Pencil size={12} />
+                                      <Pencil size={16} />
                                     </button>
                                   )}
                                 </div>
@@ -3779,7 +3779,7 @@ export default function ContentStudioPage() {
                                       value={editedVisualHook}
                                       onChange={(e) => setEditedVisualHook(e.target.value)}
                                       rows={2}
-                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', resize: 'vertical' }}
+                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px', color: '#fff', fontSize: '16px', resize: 'vertical' }}
                                       autoFocus
                                     />
                                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -3795,12 +3795,12 @@ export default function ContentStudioPage() {
                                         }
                                         setEditingHookField(null);
                                       }}
-                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
+                                        style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '8px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, opacity: rescoring ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                       >
                                         <Check size={14} /> Save
                                       </button>
                                       <button type="button" onClick={() => setEditingHookField(null)}
-                                        style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                                        style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.textSecondary, cursor: 'pointer', fontSize: '14px' }}
                                       >
                                         Cancel
                                       </button>
@@ -3821,10 +3821,10 @@ export default function ContentStudioPage() {
                                   </div>
                                   {editingHookField !== 'text' && (
                                     <button type="button" onClick={() => { setEditedTextHook(currentSkit.text_on_screen_hook || ''); setEditingHookField('text'); }}
-                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: colors.textSecondary, opacity: 0.5 }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: colors.textSecondary, opacity: 0.5, minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '-8px' }}
                                       title="Edit text on screen hook"
                                     >
-                                      <Pencil size={12} />
+                                      <Pencil size={16} />
                                     </button>
                                   )}
                                 </div>
@@ -3834,7 +3834,7 @@ export default function ContentStudioPage() {
                                       value={editedTextHook}
                                       onChange={(e) => setEditedTextHook(e.target.value)}
                                       rows={2}
-                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', fontStyle: 'italic', resize: 'vertical' }}
+                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px', color: '#fff', fontSize: '16px', fontStyle: 'italic', resize: 'vertical' }}
                                       autoFocus
                                     />
                                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -3850,12 +3850,12 @@ export default function ContentStudioPage() {
                                         }
                                         setEditingHookField(null);
                                       }}
-                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
+                                        style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '8px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, opacity: rescoring ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                       >
                                         <Check size={14} /> Save
                                       </button>
                                       <button type="button" onClick={() => setEditingHookField(null)}
-                                        style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                                        style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.textSecondary, cursor: 'pointer', fontSize: '14px' }}
                                       >
                                         Cancel
                                       </button>
@@ -3876,10 +3876,10 @@ export default function ContentStudioPage() {
                                   </div>
                                   {editingHookField !== 'verbal' && (
                                     <button type="button" onClick={() => { setEditedVerbalHook(currentSkit.verbal_hook || ''); setEditingHookField('verbal'); }}
-                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: colors.textSecondary, opacity: 0.5 }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: colors.textSecondary, opacity: 0.5, minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '-8px' }}
                                       title="Edit verbal hook"
                                     >
-                                      <Pencil size={12} />
+                                      <Pencil size={16} />
                                     </button>
                                   )}
                                 </div>
@@ -3889,7 +3889,7 @@ export default function ContentStudioPage() {
                                       value={editedVerbalHook}
                                       onChange={(e) => setEditedVerbalHook(e.target.value)}
                                       rows={2}
-                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', resize: 'vertical' }}
+                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px', color: '#fff', fontSize: '16px', resize: 'vertical' }}
                                       autoFocus
                                     />
                                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -3905,12 +3905,12 @@ export default function ContentStudioPage() {
                                         }
                                         setEditingHookField(null);
                                       }}
-                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: rescoring ? 0.5 : 1 }}
+                                        style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '8px', color: 'white', cursor: rescoring ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, opacity: rescoring ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                       >
                                         <Check size={14} /> Save
                                       </button>
                                       <button type="button" onClick={() => setEditingHookField(null)}
-                                        style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                                        style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.textSecondary, cursor: 'pointer', fontSize: '14px' }}
                                       >
                                         Cancel
                                       </button>
@@ -4079,7 +4079,7 @@ export default function ContentStudioPage() {
                               <Check size={14} /> Save
                             </button>
                             <button type="button" onClick={(e) => { e.stopPropagation(); setEditingBeatIndex(null); }}
-                              style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                              style={{ padding: '8px 16px', minHeight: '44px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.textSecondary, cursor: 'pointer', fontSize: '14px' }}
                             >
                               Cancel
                             </button>

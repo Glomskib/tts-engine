@@ -180,7 +180,7 @@ export default function AnalyticsPage() {
   }
 
   const dateButtons = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       {[
         { label: '7d', value: 7 },
         { label: '30d', value: 30 },
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
           key={opt.value}
           type="button"
           onClick={() => setDays(opt.value)}
-          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+          className={`px-4 py-2 text-sm rounded-lg transition-colors min-h-[44px] ${
             days === opt.value
               ? 'bg-violet-600 text-white'
               : 'bg-zinc-800 text-zinc-400 border border-white/10 hover:bg-zinc-700'
@@ -298,14 +298,10 @@ export default function AnalyticsPage() {
                         nameKey="status"
                         cx="50%"
                         cy="50%"
-                        outerRadius={90}
-                        innerRadius={50}
+                        outerRadius="70%"
+                        innerRadius="40%"
                         paddingAngle={2}
-                        label={(props) => {
-                          const name = (props as { name?: string }).name || '';
-                          return `${STATUS_LABELS[name] || name} (${props.value})`;
-                        }}
-                        labelLine={{ stroke: '#52525b' }}
+                        label={false}
                       >
                         {data.status_breakdown.map((_, i) => (
                           <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -382,8 +378,9 @@ export default function AnalyticsPage() {
                       <YAxis
                         dataKey="name"
                         type="category"
-                        tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                        width={120}
+                        tick={{ fontSize: 10, fill: '#a1a1aa' }}
+                        width={100}
+                        tickFormatter={(name) => name.length > 14 ? name.slice(0, 12) + '...' : name}
                       />
                       <Tooltip
                         contentStyle={TOOLTIP_STYLE}

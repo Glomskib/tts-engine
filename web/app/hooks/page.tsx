@@ -16,6 +16,10 @@ export default function HookDoctorPage() {
   const [product, setProduct] = useState('');
   const [platform, setPlatform] = useState('tiktok');
   const [niche, setNiche] = useState('');
+  const [tone, setTone] = useState('');
+  const [audience, setAudience] = useState('');
+  const [hookStyle, setHookStyle] = useState('');
+  const [constraints, setConstraints] = useState('');
   const [loading, setLoading] = useState(false);
   const [hooks, setHooks] = useState<Hook[]>([]);
   const [usageCount, setUsageCount] = useState(0);
@@ -45,7 +49,7 @@ export default function HookDoctorPage() {
       const res = await fetch('/api/hooks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product, platform, niche }),
+        body: JSON.stringify({ product, platform, niche, tone, audience, hookStyle, constraints }),
       });
 
       if (!res.ok) {
@@ -93,20 +97,20 @@ export default function HookDoctorPage() {
       </Head>
       <div className="min-h-screen bg-gray-900 text-white">
       {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-emerald-900/20 to-gray-900 py-20 px-4">
+      <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-emerald-900/20 to-gray-900 py-12 md:py-20 px-4">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
         <div className="relative max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-6">
             <Sparkles className="w-4 h-4 text-emerald-400" />
             <span className="text-sm text-emerald-400 font-medium">Free AI-Powered Tool</span>
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-emerald-200 to-white bg-clip-text text-transparent">
+          <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-white via-emerald-200 to-white bg-clip-text text-transparent">
             Hook Doctor
           </h1>
-          <p className="text-xl text-gray-300 mb-8">
+          <p className="text-lg md:text-xl text-gray-300 mb-8">
             Generate 3-part scroll-stopping hooks that stop thumbs and keep viewers watching
           </p>
-          <p className="text-sm text-gray-400 max-w-2xl mx-auto">
+          <p className="hidden md:block text-sm text-gray-400 max-w-2xl mx-auto">
             Every great video starts with a great hook. Our AI analyzes top-performing content across TikTok, YouTube Shorts, and Instagram Reels to generate hooks that combine visual pattern interrupts, curiosity-driving text overlays, and compelling verbal openers.
           </p>
         </div>
@@ -115,7 +119,7 @@ export default function HookDoctorPage() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-12">
         {/* Input Form */}
-        <div className="bg-gray-800/50 rounded-2xl p-8 border border-gray-700/50 backdrop-blur-sm mb-12">
+        <div className="bg-gray-800/50 rounded-2xl p-4 md:p-8 border border-gray-700/50 backdrop-blur-sm mb-12">
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -169,10 +173,80 @@ export default function HookDoctorPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Tone (optional)
+                </label>
+                <select
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  disabled={loading || showGate}
+                >
+                  <option value="">Auto</option>
+                  <option value="Funny">Funny</option>
+                  <option value="Aggressive">Aggressive</option>
+                  <option value="Clinical">Clinical</option>
+                  <option value="Luxury">Luxury</option>
+                  <option value="Sarcastic">Sarcastic</option>
+                  <option value="Hype">Hype</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Hook Style (optional)
+                </label>
+                <select
+                  value={hookStyle}
+                  onChange={(e) => setHookStyle(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  disabled={loading || showGate}
+                >
+                  <option value="">Mix</option>
+                  <option value="Shock/Stat">Shock / Stat</option>
+                  <option value="Story">Story</option>
+                  <option value="Contrarian">Contrarian</option>
+                  <option value="Problem-Solution">Problem-Solution</option>
+                  <option value="Before/After">Before / After</option>
+                  <option value="POV">POV</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Target Audience (optional)
+              </label>
+              <input
+                type="text"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+                placeholder="e.g., Women 25-34, new moms, gym beginners"
+                className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                disabled={loading || showGate}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Constraints (optional)
+              </label>
+              <input
+                type="text"
+                value={constraints}
+                onChange={(e) => setConstraints(e.target.value)}
+                placeholder="e.g., No profanity, avoid medical claims"
+                className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                disabled={loading || showGate}
+              />
+            </div>
+
             <button
               onClick={generateHooks}
               disabled={loading || !product.trim() || showGate}
-              className="w-full px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full px-6 py-4 mb-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

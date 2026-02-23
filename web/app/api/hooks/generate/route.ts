@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { product, platform = 'tiktok', niche = '', audience_persona_id } = body;
+    const { product, platform = 'tiktok', niche = '', audience_persona_id, tone, audience, hookStyle, constraints } = body;
 
     if (!product || typeof product !== 'string' || product.trim().length === 0) {
       return NextResponse.json(
@@ -68,6 +68,10 @@ export async function POST(request: NextRequest) {
 
     const platformContext = PLATFORM_CONTEXT[platform as keyof typeof PLATFORM_CONTEXT] || PLATFORM_CONTEXT.tiktok;
     const nicheContext = niche ? `Niche/Category: ${niche}` : '';
+    const toneCtx = tone ? `\nTONE: Write in a ${tone} tone.` : '';
+    const audienceCtx = audience ? `\nAUDIENCE: ${audience}` : '';
+    const styleCtx = hookStyle ? `\nHOOK STYLE: Focus on "${hookStyle}" style hooks.` : '';
+    const constraintsCtx = constraints ? `\nCONSTRAINTS: ${constraints}` : '';
 
     // Fetch persona context if provided
     let personaContext = '';
@@ -110,7 +114,7 @@ Each hook MUST have exactly 3 parts designed to work together:
 3. VERBAL HOOK (Opening Line): The first spoken words that either create intrigue, challenge a belief, or start a story. Must pair with the visual. Examples: "Okay but why is nobody talking about this?" or "I got fired for saying this on camera"
 
 Platform context: ${platformContext}
-${nicheContext}${personaContext}
+${nicheContext}${personaContext}${toneCtx}${audienceCtx}${styleCtx}${constraintsCtx}
 
 Return ONLY a valid JSON array of 5 hooks in this exact format:
 [
@@ -180,7 +184,7 @@ Do not include any markdown formatting or additional text - only the JSON array.
         user_id: user.id,
         template_id: 'hook_generate',
         prompt_version: '1.0.0',
-        inputs_json: { product: product.trim(), platform, niche, audience_persona_id },
+        inputs_json: { product: product.trim(), platform, niche, audience_persona_id, tone, audience, hookStyle, constraints },
         output_text: JSON.stringify(validHooks.slice(0, 5)),
         model: 'gpt-4o-mini',
       });

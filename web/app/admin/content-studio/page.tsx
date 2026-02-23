@@ -63,6 +63,7 @@ import {
   getGenerationCreditCost,
 } from '@/lib/content-types';
 import TalkThroughItModal, { type VoiceBriefParams } from '@/components/TalkThroughItModal';
+import ScriptAssistantChat from './_components/ScriptAssistantChat';
 
 // Icon mapping for content types
 const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -2057,6 +2058,18 @@ export default function ContentStudioPage() {
                 />
               </div>
 
+              {/* AI Script Assistant */}
+              <ScriptAssistantChat
+                scriptBody={manualBodyText}
+                hookLine={manualHookLine}
+                productName={
+                  (selectedProductId
+                    ? filteredProducts.find(p => p.id === selectedProductId)?.name
+                    : manualProductName) || ''
+                }
+                brandName={selectedBrand || manualBrandName || ''}
+              />
+
               {/* CTA */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>Call to Action</div>
@@ -2590,7 +2603,7 @@ export default function ContentStudioPage() {
                 <div style={sectionTitleStyle}>
                   <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4b</span>
                   Target Audience
-                  <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional - who you're talking to)</span>
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional - who you&apos;re talking to)</span>
                 </div>
                 {audiencePersonas.length > 0 ? (
                   <div ref={personaDropdownRef} style={{ position: 'relative' }}>
@@ -3632,7 +3645,7 @@ export default function ContentStudioPage() {
                                   📝 Text on Screen Hook
                                 </div>
                                 <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6', fontStyle: 'italic' }}>
-                                  "{currentSkit.text_on_screen_hook}"
+                                  &ldquo;{currentSkit.text_on_screen_hook}&rdquo;
                                 </div>
                               </div>
                             )}

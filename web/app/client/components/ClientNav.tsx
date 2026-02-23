@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/client/projects', label: 'Projects' },
   { href: '/client/billing', label: 'Billing' },
   { href: '/client/support', label: 'Support' },
+  { href: '/client/account', label: 'Account' },
   { href: '/admin/status', label: 'Status' },
 ];
 

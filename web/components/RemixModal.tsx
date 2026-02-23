@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   X, Sparkles, Shuffle, Users, Mic, Minus, Plus,
-  Target, Loader2, Copy, Check, Send,
+  Target, Loader2, Copy, Check,
 } from 'lucide-react';
 
 interface RemixModalProps {
@@ -12,7 +12,6 @@ interface RemixModalProps {
   sourceType: 'winner' | 'script' | 'competitor';
   sourceText: string;
   sourceTitle?: string;
-  onSendToPipeline?: (scriptJson: Record<string, unknown>) => void;
 }
 
 const REMIX_STYLES = [
@@ -30,7 +29,6 @@ export function RemixModal({
   sourceType,
   sourceText,
   sourceTitle,
-  onSendToPipeline,
 }: RemixModalProps) {
   const [selectedStyle, setSelectedStyle] = useState<string>('variation');
   const [customInstructions, setCustomInstructions] = useState('');
@@ -93,13 +91,6 @@ export function RemixModal({
       navigator.clipboard.writeText(result.raw_text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleSendToPipeline = () => {
-    if (result?.remixed_script && onSendToPipeline) {
-      onSendToPipeline(result.remixed_script);
-      onClose();
     }
   };
 
@@ -204,14 +195,6 @@ export function RemixModal({
                     {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
                     {copied ? 'Copied' : 'Copy'}
                   </button>
-                  {onSendToPipeline && (
-                    <button
-                      onClick={handleSendToPipeline}
-                      className="flex items-center gap-1 px-2 py-1 text-xs bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors"
-                    >
-                      <Send className="w-3 h-3" /> To Pipeline
-                    </button>
-                  )}
                 </div>
               </div>
 

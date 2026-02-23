@@ -67,6 +67,19 @@ export async function POST(
       return createApiErrorResponse("NOT_FOUND", "Skit not found", 404, correlationId, { skit_id: skitId.trim() });
     }
 
+    // Guard: reject recommendation-sourced skits — they must go through Content Studio first
+    const genConfig = skit.generation_config as { source?: string } | null;
+    const skitSource = genConfig?.source;
+    if (skitSource === 'recommendation' || skitSource === 'transcriber_concept' || skitSource === 'ai_recommendation') {
+      return createApiErrorResponse(
+        "BAD_REQUEST",
+        "Cannot send a recommendation directly to pipeline. Use Content Studio to create a proper script first.",
+        400,
+        correlationId,
+        { source: skitSource }
+      );
+    }
+
     // Check if skit already has a linked video
     if (skit.video_id) {
       return createApiErrorResponse(

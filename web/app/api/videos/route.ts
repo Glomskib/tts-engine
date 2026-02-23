@@ -124,8 +124,36 @@ export async function POST(request: Request) {
       product_id,
       caption_used,
       hashtags_used,
-      status
+      status,
+      type,
+      source,
     } = body as Record<string, unknown>;
+
+    // Guard: reject recommendation/idea content — must go through Content Studio first
+    if (type === 'recommendation' || source === 'recommendation' || source === 'transcriber_concept') {
+      return createApiErrorResponse(
+        "BAD_REQUEST",
+        "Cannot add a recommendation directly to the pipeline. Use Content Studio to create a proper script first.",
+        400,
+        correlationId
+      );
+    }
+
+    // Guard: reject pipeline inserts from raw content ideas (no variant or video URL)
+    // This catches attempts to POST with SCRIPT_READY status but no backing variant —
+    // e.g. the old Transcriber "Add to Pipeline" button that bypassed Content Studio.
+    if (
+      status === "SCRIPT_READY" &&
+      (!variant_id || (typeof variant_id === "string" && variant_id.trim() === "")) &&
+      (!google_drive_url && !final_video_url)
+    ) {
+      return createApiErrorResponse(
+        "BAD_REQUEST",
+        "Cannot create SCRIPT_READY video without a variant_id. Use Content Studio to create a proper script first.",
+        400,
+        correlationId
+      );
+    }
 
     // Validate variant_id
     if (typeof variant_id !== "string" || variant_id.trim() === "") {

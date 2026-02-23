@@ -270,9 +270,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [savedHookIndexes, setSavedHookIndexes] = useState<Set<number>>(new Set());
   const [savingHookIndex, setSavingHookIndex] = useState<number | null>(null);
 
-  // GAP 6: Track concepts added to pipeline
-  const [pipelineAddedIndexes, setPipelineAddedIndexes] = useState<Set<number>>(new Set());
-  const [pipelineAddingIndex, setPipelineAddingIndex] = useState<number | null>(null);
+  // Track concepts saved to ideas
+  const [savedIdeaIndexes, setSavedIdeaIndexes] = useState<Set<number>>(new Set());
 
   // GAP 7: Rate limit state
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(-1);
@@ -1061,7 +1060,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                     <p className="text-sm text-zinc-400 mt-1">{concept.angle}</p>
                                     <p className="text-sm text-amber-400 mt-2 font-medium">&ldquo;{concept.hook}&rdquo;</p>
                                     <p className="text-sm text-zinc-400 mt-1">{concept.outline}</p>
-                                    {/* GAP 1 + GAP 6: Action buttons */}
+                                    {/* Action buttons: Use in Studio + Save to Ideas */}
                                     {isLoggedIn && (
                                       <div className="flex flex-wrap gap-2 mt-2">
                                         <button
@@ -1076,39 +1075,40 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                         >
                                           Use in Studio →
                                         </button>
-                                        {planId && planId !== 'free' && (
-                                          pipelineAddedIndexes.has(i) ? (
-                                            <span className="text-xs text-green-400 font-medium px-3 py-1.5">✓ Added</span>
-                                          ) : (
-                                            <button
-                                              onClick={async () => {
-                                                setPipelineAddingIndex(i);
-                                                try {
-                                                  const res = await fetch('/api/admin/videos', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    credentials: 'include',
-                                                    body: JSON.stringify({
-                                                      title: concept.title || 'Transcriber Script',
-                                                      script_text: `Hook: ${concept.hook}\n\n${concept.outline}`,
-                                                      status: 'SCRIPT_READY',
-                                                    }),
-                                                  });
-                                                  if (res.ok) {
-                                                    setPipelineAddedIndexes(prev => new Set([...prev, i]));
-                                                  }
-                                                } catch (e) {
-                                                  console.error('Failed to add to pipeline:', e);
-                                                } finally {
-                                                  setPipelineAddingIndex(null);
-                                                }
-                                              }}
-                                              disabled={pipelineAddingIndex === i}
-                                              className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 font-medium transition-colors disabled:opacity-50"
-                                            >
-                                              {pipelineAddingIndex === i ? '...' : '+ Add to Pipeline'}
-                                            </button>
-                                          )
+                                        {savedIdeaIndexes.has(i) ? (
+                                          <span className="text-xs text-green-400 font-medium px-3 py-1.5">✓ Saved</span>
+                                        ) : (
+                                          <button
+                                            onClick={() => {
+                                              try {
+                                                const raw = localStorage.getItem('flashflow_saved_ideas');
+                                                const existing: unknown[] = raw ? JSON.parse(raw) : [];
+                                                const newIdea = {
+                                                  id: `transcriber_${Date.now()}_${i}`,
+                                                  title: concept.title,
+                                                  hook: concept.hook,
+                                                  content_type: 'script_concept',
+                                                  format_notes: concept.outline,
+                                                  target_product: null,
+                                                  target_brand: null,
+                                                  why_it_works: concept.angle,
+                                                  effort: 'medium' as const,
+                                                  priority: 5,
+                                                  estimated_duration: '30-60s',
+                                                  hashtags: [],
+                                                  on_screen_text: '',
+                                                };
+                                                existing.push(newIdea);
+                                                localStorage.setItem('flashflow_saved_ideas', JSON.stringify(existing));
+                                                setSavedIdeaIndexes(prev => new Set([...prev, i]));
+                                              } catch (e) {
+                                                console.error('Failed to save idea:', e);
+                                              }
+                                            }}
+                                            className="text-xs bg-zinc-700 hover:bg-zinc-600 text-amber-400 rounded-lg px-3 py-1.5 font-medium transition-colors"
+                                          >
+                                            Save to Ideas
+                                          </button>
                                         )}
                                       </div>
                                     )}

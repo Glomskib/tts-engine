@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
     void supabaseAdmin
       .from("ff_feedback_items")
       .insert({
-        source: "widget",
+        source: "web",
         type,
         title,
         description,
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
         reporter_user_id: userId,
         status: "new",
         priority: 3,
-        raw_json: { plan_id: planId, user_agent: userAgent, screenshot_url: screenshotUrl },
+        raw_json: { ...record, user_feedback_id: saved.id },
         user_feedback_id: saved.id,
       })
       .then(() => {});

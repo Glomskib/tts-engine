@@ -5,7 +5,7 @@
 
 export type FeedbackStatus = 'new' | 'triaged' | 'in_progress' | 'shipped' | 'rejected';
 export type FeedbackType = 'bug' | 'feature' | 'improvement' | 'support' | 'other';
-export type FeedbackSource = 'widget' | 'api' | 'email' | 'slack' | 'manual';
+export type FeedbackSource = 'widget' | 'web' | 'telegram' | 'api' | 'email' | 'slack' | 'manual';
 
 export interface FeedbackItem {
   id: string;

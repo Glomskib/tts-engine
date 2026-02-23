@@ -80,7 +80,11 @@ async function replyToChat(chatId: number, text: string, replyToMessageId?: numb
   }
 }
 
-async function createIssue(text: string, msg: TelegramMessage): Promise<string | null> {
+async function createIssue(
+  text: string,
+  msg: TelegramMessage,
+  update: TelegramUpdate,
+): Promise<string | null> {
   const from = msg.from;
   const reporter = from?.username
     ? `@${from.username}`
@@ -95,6 +99,9 @@ async function createIssue(text: string, msg: TelegramMessage): Promise<string |
     }
   }
   if (!issueText) issueText = text; // fallback to full text if command had no body
+
+  // Derive feedback type from command prefix
+  const feedbackType = text.toLowerCase().startsWith('/bug') ? 'bug' : 'other';
 
   const fingerprint = makeFingerprint('telegram', issueText);
 
@@ -135,6 +142,27 @@ async function createIssue(text: string, msg: TelegramMessage): Promise<string |
       payload_json: { source: 'telegram', reporter, telegram_chat_id: msg.chat.id },
     })
     .then(({ error: e }) => e && console.error('[telegram-webhook] Action log error:', e));
+
+  // Mirror into ff_feedback_items for Command Center inbox (fire-and-forget)
+  const title = issueText.length > 200 ? issueText.slice(0, 197) + '...' : issueText;
+  void supabaseAdmin
+    .from('ff_feedback_items')
+    .insert({
+      source: 'telegram' as const,
+      type: feedbackType,
+      title,
+      description: issueText,
+      page: null,
+      device: null,
+      reporter_email: null,
+      reporter_user_id: null,
+      status: 'new',
+      priority: 3,
+      raw_json: update,
+    })
+    .then(({ error: e }) =>
+      e && console.error('[telegram-webhook] ff_feedback_items insert error:', e)
+    );
 
   return issue.id;
 }
@@ -192,7 +220,7 @@ export async function POST(request: Request) {
         ? msg.reply_to_message.reply_to_message.text
         : text;
 
-      const issueId = await createIssue(issueText, msg);
+      const issueId = await createIssue(issueText, msg, update);
       if (issueId) {
         await replyToChat(
           msg.chat.id,

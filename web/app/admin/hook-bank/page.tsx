@@ -277,7 +277,7 @@ export default function AdminHookBankPage() {
           </select>
         </div>
 
-        {/* Table */}
+        {/* Content */}
         {loading ? (
           <div className="py-12 text-center text-zinc-500">Loading hooks...</div>
         ) : error ? (
@@ -288,52 +288,92 @@ export default function AdminHookBankPage() {
             description="Import hooks from a Mission Control document or adjust your filters."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">ID</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Category</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Hook Text</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Status</th>
-                  <th className="px-5 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wide">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {hooks.map((hook) => (
-                  <tr key={hook.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-3 text-zinc-500 font-mono text-xs">{hook.id}</td>
-                    <td className="px-5 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                        {hook.category}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-zinc-200 max-w-md">{hook.hook_text}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
-                        hook.status === 'active'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : hook.status === 'draft'
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
-                      }`}>
-                        {hook.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(hook)}
-                        className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
-                      >
-                        {copiedId === hook.id ? 'Copied!' : 'Copy'}
-                      </button>
-                    </td>
+          <>
+            {/* Mobile card view */}
+            <div className="sm:hidden divide-y divide-white/5">
+              {hooks.map((hook) => (
+                <div key={hook.id} className="px-4 py-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm text-zinc-200 leading-relaxed flex-1">{hook.hook_text}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(hook)}
+                      className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors min-h-[36px] ${
+                        copiedId === hook.id
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-zinc-800 text-zinc-400 active:bg-zinc-700'
+                      }`}
+                    >
+                      {copiedId === hook.id ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                      {hook.category}
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+                      hook.status === 'active'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : hook.status === 'draft'
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                    }`}>
+                      {hook.status}
+                    </span>
+                    <span className="text-xs text-zinc-600 font-mono">#{hook.id}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">ID</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Category</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Hook Text</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Status</th>
+                    <th className="px-5 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wide">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {hooks.map((hook) => (
+                    <tr key={hook.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-5 py-3 text-zinc-500 font-mono text-xs">{hook.id}</td>
+                      <td className="px-5 py-3">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                          {hook.category}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-zinc-200 max-w-md">{hook.hook_text}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+                          hook.status === 'active'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : hook.status === 'draft'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                        }`}>
+                          {hook.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(hook)}
+                          className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                        >
+                          {copiedId === hook.id ? 'Copied!' : 'Copy'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </AdminCard>
     </AdminPageLayout>

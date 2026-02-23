@@ -30,17 +30,27 @@ export async function GET(request: Request) {
     // Generate random state for CSRF protection
     const state = randomBytes(16).toString('hex');
 
-    // Build TikTok OAuth URL
+    // Build TikTok OAuth URL manually to avoid URL-encoding commas in scope.
+    // TikTok's v2 auth endpoint expects literal commas between scope values,
+    // but URL.searchParams.set() encodes commas as %2C which TikTok rejects.
     const scope = 'user.info.basic,video.list';
-    const authUrl = new URL('https://www.tiktok.com/v2/auth/authorize/');
-    authUrl.searchParams.set('client_key', clientKey);
-    authUrl.searchParams.set('scope', scope);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('state', state);
+    const params = [
+      `client_key=${encodeURIComponent(clientKey)}`,
+      `scope=${scope}`, // literal commas — TikTok requirement
+      `response_type=code`,
+      `redirect_uri=${encodeURIComponent(redirectUri)}`,
+      `state=${encodeURIComponent(state)}`,
+    ].join('&');
+    const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params}`;
+
+    // Log masked diagnostics for debugging in production
+    const maskedKey = clientKey.length > 6
+      ? clientKey.slice(0, 2) + '***' + clientKey.slice(-4)
+      : '***';
+    console.log(`[tiktok/auth] Redirecting to TikTok OAuth (client_key=${maskedKey}, redirect_uri=${redirectUri}, scope=${scope}, cid=${correlationId})`);
 
     // Store state in cookie for verification in callback
-    const response = NextResponse.redirect(authUrl.toString());
+    const response = NextResponse.redirect(authUrl);
     response.cookies.set('tiktok_oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

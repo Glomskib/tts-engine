@@ -9,16 +9,13 @@ function mask(value: string | undefined | null): {
   preview: string;
   hasWhitespace: boolean;
   lastSixCharCodes: number[];
-  raw: string;
 } {
-  if (!value) return { length: 0, preview: '(empty)', hasWhitespace: false, lastSixCharCodes: [], raw: '' };
-  const trimmed = value;
+  if (!value) return { length: 0, preview: '(empty)', hasWhitespace: false, lastSixCharCodes: [] };
   return {
-    length: trimmed.length,
-    preview: trimmed.length > 6 ? trimmed.slice(0, 2) + '***' + trimmed.slice(-4) : '***',
-    hasWhitespace: /\s/.test(trimmed),
-    lastSixCharCodes: [...trimmed.slice(-6)].map(c => c.charCodeAt(0)),
-    raw: trimmed,
+    length: value.length,
+    preview: value.length > 6 ? value.slice(0, 2) + '***' + value.slice(-4) : '***',
+    hasWhitespace: /\s/.test(value),
+    lastSixCharCodes: [...value.slice(-6)].map(c => c.charCodeAt(0)),
   };
 }
 
@@ -26,11 +23,15 @@ function mask(value: string | undefined | null): {
  * GET /api/tiktok/debug-auth
  * Debug endpoint to inspect TikTok OAuth config. Admin only.
  * Returns masked env var values and the constructed auth URL.
+ * Never returns raw secret values.
  */
 export async function GET(request: Request) {
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
   const rawClientKey = process.env.TIKTOK_PARTNER_CLIENT_KEY;
@@ -88,9 +89,13 @@ export async function GET(request: Request) {
       hasWhitespace: /\s/.test(rawClientSecret ?? ''),
     },
     redirect_uri: {
-      raw: rawRedirectUri,
-      trimmed: redirectUri,
+      length: rawRedirectUri?.length ?? 0,
+      trimmed_length: redirectUri.length,
       differs_from_raw: rawRedirectUri !== redirectUri,
+      hasWhitespace: /\s/.test(rawRedirectUri ?? ''),
+      // Show redirect URI masked (domain visible, path visible) since it's needed for debugging
+      // but don't leak full value in case it contains tokens
+      preview: redirectUri ? new URL(redirectUri).origin + new URL(redirectUri).pathname : '(empty)',
     },
     auth_url_masked: maskedUrl,
     scope,

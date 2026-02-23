@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Trophy } from "lucide-react";
+import { Trophy, SlidersHorizontal } from "lucide-react";
+import { BottomSheet } from "@/components/BottomSheet";
+import { MobileInput, MobileSelect } from "@/components/ui/MobileInput";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { useDebounce } from "@/hooks/useDebounce";
 // VideoCreationSheet removed — "Create Video" now calls /api/videos/create-from-script directly
@@ -208,6 +210,9 @@ export default function SkitLibraryPage() {
   // Winners
   const [winnerModalSkit, setWinnerModalSkit] = useState<SavedSkit | null>(null);
   const [showWinnersOnly, setShowWinnersOnly] = useState(false);
+
+  // Mobile filters
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Toast notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -836,6 +841,18 @@ export default function SkitLibraryPage() {
     highScoreCount: skits.filter(s => (s.ai_score?.overall_score || 0) >= 7).length,
   }), [skits]);
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter) count++;
+    if (brandFilter) count++;
+    if (productFilter) count++;
+    if (showWinnersOnly) count++;
+    if (sortBy !== "newest") count++;
+    if (aiScoreMin || aiScoreMax) count++;
+    if (startDate || endDate) count++;
+    return count;
+  }, [statusFilter, brandFilter, productFilter, showWinnersOnly, sortBy, aiScoreMin, aiScoreMax, startDate, endDate]);
+
   // Styles
   const containerStyle: React.CSSProperties = {
     padding: "24px",
@@ -890,7 +907,7 @@ export default function SkitLibraryPage() {
   };
 
   return (
-    <div style={containerStyle} className="pb-24 lg:pb-6">
+    <div style={containerStyle} className="pb-24 lg:pb-6 script-library-container">
       {/* Breadcrumb Navigation */}
       <nav style={{ marginBottom: "12px", fontSize: "13px" }}>
         <Link href="/admin/pipeline" style={{ color: colors.textMuted, textDecoration: "none" }}>
@@ -964,9 +981,9 @@ export default function SkitLibraryPage() {
         </div>
       </div>
 
-      {/* Stats Dashboard */}
+      {/* Stats Dashboard (desktop only) */}
       {!loading && skits.length > 0 && (
-        <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
+        <div className="hidden lg:block" style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "16px" }}>
             {/* Status breakdown */}
             <div>
@@ -1067,6 +1084,73 @@ export default function SkitLibraryPage() {
       {/* Controls - Only show for Scripts tab */}
       {activeTab === 'scripts' && (
         <div style={{ ...cardStyle, padding: "16px", marginBottom: "24px" }}>
+          {/* Mobile controls row */}
+          <div className="flex lg:hidden items-center gap-2 mb-3">
+            <input
+              type="text"
+              placeholder="Search by title..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ ...inputStyle, flex: 1, minWidth: 0, height: "44px", fontSize: "16px" }}
+              aria-label="Search scripts by title"
+            />
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(true)}
+              style={{
+                ...secondaryButtonStyle,
+                padding: "0 14px",
+                height: "44px",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                flexShrink: 0,
+                position: "relative",
+              }}
+            >
+              <SlidersHorizontal size={16} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: "-6px",
+                  right: "-6px",
+                  backgroundColor: colors.accent,
+                  color: "#fff",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            <Link
+              href="/admin/skit-generator"
+              style={{
+                ...primaryButtonStyle,
+                padding: "0 14px",
+                height: "44px",
+                fontSize: "20px",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textDecoration: "none",
+              }}
+            >
+              +
+            </Link>
+          </div>
+
+          {/* Desktop controls */}
+          <div className="hidden lg:block">
           <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
             {/* Search */}
             <input
@@ -1250,8 +1334,10 @@ export default function SkitLibraryPage() {
             )}
           </div>
         )}
+          </div>{/* end desktop controls wrapper */}
 
-          {/* Active Filters */}
+          {/* Active Filters (desktop only) */}
+          <div className="hidden lg:block">
           {(searchTerm || statusFilter || brandFilter || productFilter || aiScoreMin || aiScoreMax || startDate || endDate) && (
             <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${colors.border}`, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <span style={{ fontSize: "12px", color: colors.textMuted }}>Filters:</span>
@@ -1296,6 +1382,7 @@ export default function SkitLibraryPage() {
               </button>
             </div>
           )}
+          </div>{/* end hidden lg:block for active filters */}
         </div>
       )}
 
@@ -1395,7 +1482,13 @@ export default function SkitLibraryPage() {
             @media (max-width: 768px) {
               input, select { font-size: 16px !important; min-height: 44px; }
               button { min-height: 44px; }
-              .skit-row-right { flex-wrap: wrap; gap: 8px !important; }
+              .skit-row-right { flex-wrap: wrap; gap: 8px !important; justify-content: flex-start; }
+              .mobile-card-header { padding: 14px 12px !important; gap: 10px !important; }
+              .script-title { font-size: 16px !important; font-weight: 600 !important; white-space: normal !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+              .script-subtitle { font-size: 13px !important; }
+              .mobile-checkbox { width: 20px !important; height: 20px !important; }
+              .status-pill { font-size: 11px !important; padding: 3px 8px !important; }
+              .script-library-container { padding-left: 12px !important; padding-right: 12px !important; }
             }
           `}</style>
         </div>
@@ -1420,24 +1513,26 @@ export default function SkitLibraryPage() {
             <div key={skit.id} style={cardStyle}>
               {/* Script Header */}
               <div
+                className="mobile-card-header"
                 onClick={() => handleExpand(skit.id)}
-                style={{ padding: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}
+                style={{ padding: "16px", cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}
               >
                 {/* Checkbox */}
                 <input
+                  className="mobile-checkbox"
                   type="checkbox"
                   checked={selectedIds.has(skit.id)}
                   onChange={(e) => { e.stopPropagation(); toggleSelect(skit.id); }}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ width: "16px", height: "16px", cursor: "pointer", flexShrink: 0 }}
+                  style={{ width: "16px", height: "16px", cursor: "pointer", flexShrink: 0, marginTop: "2px" }}
                 />
 
                 {/* Left */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 500, color: colors.text, marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div className="script-title" style={{ fontWeight: 600, color: colors.text, marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {skit.title}
                   </div>
-                  <div style={{ fontSize: "13px", color: colors.textMuted, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <div className="script-subtitle" style={{ fontSize: "13px", color: colors.textMuted, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     {skit.product_name && (
                       <>
                         <span>{skit.product_brand ? `${skit.product_brand} / ` : ""}{skit.product_name}</span>
@@ -1519,7 +1614,7 @@ export default function SkitLibraryPage() {
                       )}
                     </span>
                   )}
-                  <span style={{ ...getStatusStyle(skit.status, isDark), padding: "4px 10px", borderRadius: "4px", fontSize: "12px", fontWeight: 500, textTransform: "capitalize" }}>
+                  <span className="status-pill" style={{ ...getStatusStyle(skit.status, isDark), padding: "4px 10px", borderRadius: "4px", fontSize: "12px", fontWeight: 500, textTransform: "capitalize" }}>
                     {skit.status}
                   </span>
                   <div style={{ width: "70px", textAlign: "right", fontSize: "14px" }}>
@@ -2258,6 +2353,136 @@ export default function SkitLibraryPage() {
           </div>
         </div>
       )}
+
+      {/* Mobile Filter BottomSheet */}
+      <BottomSheet
+        isOpen={showMobileFilters}
+        onClose={() => setShowMobileFilters(false)}
+        title="Filters"
+        size="large"
+        stickyFooter={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("");
+                setBrandFilter("");
+                setProductFilter("");
+                setSortBy("newest");
+                setShowWinnersOnly(false);
+                setAiScoreMin("");
+                setAiScoreMax("");
+                setStartDate("");
+                setEndDate("");
+              }}
+              className="flex-1 h-12 rounded-xl font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 active:bg-zinc-700"
+            >
+              Clear All
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(false)}
+              className="flex-1 h-12 rounded-xl font-medium bg-teal-600 text-white active:bg-teal-700"
+            >
+              Done
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          {/* Search */}
+          <MobileInput
+            label="Search"
+            type="text"
+            placeholder="Search by title..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-3">Status</label>
+            <div className="flex flex-wrap gap-2">
+              {["", ...STATUSES].map((status) => (
+                <button
+                  type="button"
+                  key={status || "all"}
+                  onClick={() => setStatusFilter(status)}
+                  className={`
+                    h-10 px-4 rounded-full text-sm font-medium transition-colors capitalize
+                    ${statusFilter === status
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-zinc-800 text-zinc-300 border border-zinc-700 active:bg-zinc-700'}
+                  `}
+                >
+                  {status || "All"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Brand */}
+          {uniqueBrands.length > 0 && (
+            <MobileSelect
+              label="Brand"
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+              options={[
+                { value: "", label: "All Brands" },
+                ...uniqueBrands.map((b) => ({ value: b, label: b })),
+              ]}
+            />
+          )}
+
+          {/* Product */}
+          {uniqueProducts.length > 0 && (
+            <MobileSelect
+              label="Product"
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              options={[
+                { value: "", label: "All Products" },
+                ...uniqueProducts.map((p) => ({ value: p, label: p })),
+              ]}
+            />
+          )}
+
+          {/* Sort */}
+          <MobileSelect
+            label="Sort By"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            options={[
+              { value: "newest", label: "Newest First" },
+              { value: "oldest", label: "Oldest First" },
+              { value: "recently_modified", label: "Recently Modified" },
+              { value: "highest_rated", label: "Highest Rated" },
+              { value: "highest_ai_score", label: "Highest AI Score" },
+              { value: "title_az", label: "Title A-Z" },
+              { value: "title_za", label: "Title Z-A" },
+            ]}
+          />
+
+          {/* Winners Only */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-3">Winners</label>
+            <button
+              type="button"
+              onClick={() => setShowWinnersOnly(!showWinnersOnly)}
+              className={`
+                w-full h-12 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2
+                ${showWinnersOnly
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 border border-zinc-700 active:bg-zinc-700'}
+              `}
+            >
+              <Trophy size={16} />
+              Winners Only
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
 
       {/* Toast Notifications */}
       {toast && (

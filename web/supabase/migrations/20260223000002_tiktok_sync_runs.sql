@@ -15,7 +15,12 @@ CREATE TABLE IF NOT EXISTS public.tiktok_sync_runs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_tiktok_sync_runs_user ON tiktok_sync_runs(user_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tiktok_sync_runs_user ON tiktok_sync_runs(user_id, started_at DESC);
 
 ALTER TABLE tiktok_sync_runs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see own sync runs" ON tiktok_sync_runs FOR ALL USING (auth.uid() = user_id);
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users see own sync runs') THEN
+    CREATE POLICY "Users see own sync runs" ON tiktok_sync_runs FOR ALL USING (auth.uid() = user_id);
+  END IF;
+END $$;

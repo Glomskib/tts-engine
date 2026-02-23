@@ -22,6 +22,11 @@ import {
   Shield,
   Database,
   ClipboardList,
+  BarChart3,
+  Eye,
+  Heart,
+  MessageCircle,
+  Share2,
 } from 'lucide-react';
 
 const REVIEW_MODE = process.env.NEXT_PUBLIC_TIKTOK_REVIEW_MODE === 'true';
@@ -460,6 +465,134 @@ function TikTokLoginSection() {
               {disconnecting ? 'Disconnecting...' : 'Disconnect'}
             </AdminButton>
           )}
+        </div>
+      </div>
+    </AdminCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TikTok Data Sync Section (Metrics + Comments)
+// ---------------------------------------------------------------------------
+
+function TikTokSyncSection() {
+  const { showSuccess, showError } = useToast();
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ videos_fetched: number; videos_upserted: number } | null>(null);
+  const [metrics, setMetrics] = useState<{
+    totals: { views: number; likes: number; comments: number; shares: number; videos: number };
+    last_sync: string | null;
+  } | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/tiktok/videos?range=30d')
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) {
+          setMetrics(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setMetricsLoading(false));
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch('/api/tiktok/sync', { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setSyncResult(json);
+        showSuccess(`Synced ${json.videos_upserted} videos from TikTok`);
+        // Refresh metrics
+        const metricsRes = await fetch('/api/tiktok/videos?range=30d');
+        const metricsJson = await metricsRes.json();
+        if (metricsJson.ok) setMetrics(metricsJson.data);
+      } else {
+        showError(json.error || 'Sync failed');
+      }
+    } catch {
+      showError('Failed to sync TikTok data');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <AdminCard
+      title="TikTok Metrics"
+      subtitle="Video performance data synced from TikTok (last 30 days)"
+    >
+      <div className="space-y-4">
+        {/* Metrics Grid */}
+        {metricsLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+            <span className="ml-2 text-sm text-zinc-500">Loading metrics...</span>
+          </div>
+        ) : metrics ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { label: 'Videos', value: metrics.totals.videos, icon: Video },
+                { label: 'Views', value: metrics.totals.views, icon: Eye },
+                { label: 'Likes', value: metrics.totals.likes, icon: Heart },
+                { label: 'Comments', value: metrics.totals.comments, icon: MessageCircle },
+                { label: 'Shares', value: metrics.totals.shares, icon: Share2 },
+              ].map(({ label, value, icon: Icon }) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700"
+                >
+                  <Icon className="w-4 h-4 text-zinc-500 shrink-0" />
+                  <div>
+                    <div className="text-xs text-zinc-500">{label}</div>
+                    <div className="text-sm font-semibold text-zinc-200">
+                      {value >= 1000 ? `${(value / 1000).toFixed(1)}K` : value}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {metrics.last_sync && (
+              <div className="text-xs text-zinc-600">
+                Last sync: {new Date(metrics.last_sync).toLocaleString()}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <BarChart3 className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+            <p className="text-sm text-zinc-500">No video data yet.</p>
+            <p className="text-xs text-zinc-600 mt-1">
+              Click &quot;Sync TikTok Data&quot; to fetch your video metrics.
+            </p>
+          </div>
+        )}
+
+        {/* Sync Result Banner */}
+        {syncResult && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-teal-500/10 border border-teal-500/20">
+            <Check className="w-5 h-5 text-teal-400 shrink-0" />
+            <p className="text-sm text-teal-300">
+              Fetched {syncResult.videos_fetched} videos, upserted {syncResult.videos_upserted}
+            </p>
+          </div>
+        )}
+
+        {/* Sync Button */}
+        <div className="flex items-center gap-3 pt-1">
+          <AdminButton onClick={handleSync} disabled={syncing}>
+            {syncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            {syncing ? 'Syncing...' : 'Sync TikTok Data'}
+          </AdminButton>
         </div>
       </div>
     </AdminCard>
@@ -955,6 +1088,9 @@ export default function TikTokShopSettingsPage() {
 
       {/* TikTok Partner API */}
       <PartnerApiSection />
+
+      {/* TikTok Data Sync */}
+      <TikTokSyncSection />
 
       {/* Shop Connection */}
       <AdminCard title="Shop Connection">

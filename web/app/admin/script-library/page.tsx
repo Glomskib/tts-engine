@@ -212,7 +212,7 @@ export default function SkitLibraryPage() {
   const [showWinnersOnly, setShowWinnersOnly] = useState(false);
 
   // Mobile filters
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
 
   // Toast notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -1096,7 +1096,7 @@ export default function SkitLibraryPage() {
             />
             <button
               type="button"
-              onClick={() => setShowMobileFilters(true)}
+              onClick={() => setShowFilterSheet(true)}
               style={{
                 ...secondaryButtonStyle,
                 padding: "0 14px",
@@ -2356,8 +2356,8 @@ export default function SkitLibraryPage() {
 
       {/* Mobile Filter BottomSheet */}
       <BottomSheet
-        isOpen={showMobileFilters}
-        onClose={() => setShowMobileFilters(false)}
+        isOpen={showFilterSheet}
+        onClose={() => setShowFilterSheet(false)}
         title="Filters"
         size="large"
         stickyFooter={
@@ -2382,7 +2382,7 @@ export default function SkitLibraryPage() {
             </button>
             <button
               type="button"
-              onClick={() => setShowMobileFilters(false)}
+              onClick={() => setShowFilterSheet(false)}
               className="flex-1 h-12 rounded-xl font-medium bg-teal-600 text-white active:bg-teal-700"
             >
               Done

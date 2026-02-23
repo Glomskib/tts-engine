@@ -53,9 +53,9 @@ export class TikTokPartnerClient {
   private redirectUri: string;
 
   constructor(config?: Partial<TikTokPartnerConfig>) {
-    this.clientKey = config?.clientKey || process.env.TIKTOK_PARTNER_CLIENT_KEY || '';
-    this.clientSecret = config?.clientSecret || process.env.TIKTOK_PARTNER_CLIENT_SECRET || '';
-    this.redirectUri = config?.redirectUri || process.env.TIKTOK_REDIRECT_URI || '';
+    this.clientKey = (config?.clientKey || process.env.TIKTOK_PARTNER_CLIENT_KEY || '').trim();
+    this.clientSecret = (config?.clientSecret || process.env.TIKTOK_PARTNER_CLIENT_SECRET || '').trim();
+    this.redirectUri = (config?.redirectUri || process.env.TIKTOK_REDIRECT_URI || '').trim();
   }
 
   isConfigured(): boolean {

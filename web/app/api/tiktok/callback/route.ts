@@ -5,6 +5,16 @@ import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 
 export const runtime = 'nodejs';
 
+/** Read and trim an env var; throw if empty. */
+function requireEnv(name: string): string {
+  const raw = process.env[name];
+  const value = raw?.trim() ?? '';
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`);
+  }
+  return value;
+}
+
 export async function GET(request: Request) {
   const correlationId = generateCorrelationId();
 
@@ -40,18 +50,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const clientKey = process.env.TIKTOK_PARTNER_CLIENT_KEY;
-    const clientSecret = process.env.TIKTOK_PARTNER_CLIENT_SECRET;
-    const redirectUri = process.env.TIKTOK_REDIRECT_URI;
-
-    if (!clientKey || !clientSecret || !redirectUri) {
-      return createApiErrorResponse(
-        'INTERNAL',
-        'TikTok OAuth not configured',
-        503,
-        correlationId
-      );
-    }
+    const clientKey = requireEnv('TIKTOK_PARTNER_CLIENT_KEY');
+    const clientSecret = requireEnv('TIKTOK_PARTNER_CLIENT_SECRET');
+    const redirectUri = requireEnv('TIKTOK_REDIRECT_URI');
 
     // Exchange code for access token
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {

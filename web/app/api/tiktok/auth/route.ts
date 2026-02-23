@@ -5,6 +5,16 @@ import { randomBytes } from 'crypto';
 
 export const runtime = 'nodejs';
 
+/** Read and trim an env var; throw if empty. */
+function requireEnv(name: string): string {
+  const raw = process.env[name];
+  const value = raw?.trim() ?? '';
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`);
+  }
+  return value;
+}
+
 export async function GET(request: Request) {
   const correlationId = generateCorrelationId();
 
@@ -14,17 +24,8 @@ export async function GET(request: Request) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
     }
 
-    const clientKey = process.env.TIKTOK_PARTNER_CLIENT_KEY;
-    const redirectUri = process.env.TIKTOK_REDIRECT_URI;
-
-    if (!clientKey || !redirectUri) {
-      return createApiErrorResponse(
-        'INTERNAL',
-        'TikTok OAuth not configured. Coming soon!',
-        503,
-        correlationId
-      );
-    }
+    const clientKey = requireEnv('TIKTOK_PARTNER_CLIENT_KEY');
+    const redirectUri = requireEnv('TIKTOK_REDIRECT_URI');
 
     // Generate random state for CSRF protection
     const state = randomBytes(16).toString('hex');

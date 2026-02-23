@@ -10,7 +10,7 @@ import {
   type SavedSkit,
 } from '@/lib/export';
 import { useToast } from '@/contexts/ToastContext';
-import { handleShare } from '@/lib/share';
+import { handleShare, canShare } from '@/lib/share';
 
 interface ShareScriptModalProps {
   isOpen: boolean;
@@ -181,25 +181,27 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
             })}
           </div>
 
-          {/* Copy link section */}
-          <div className="pt-4 border-t border-zinc-800">
-            <button type="button"
-              onClick={handleCopyLink}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-            >
-              {copied === 'link' ? (
-                <>
-                  <Check className="w-4 h-4 text-teal-400" />
-                  <span className="text-sm text-teal-400">Link copied!</span>
-                </>
-              ) : (
-                <>
-                  <Link2 className="w-4 h-4 text-zinc-400" />
-                  <span className="text-sm text-zinc-300">Copy shareable link</span>
-                </>
-              )}
-            </button>
-          </div>
+          {/* Share / copy link — hidden when neither native share nor clipboard is available */}
+          {canShare() && (
+            <div className="pt-4 border-t border-zinc-800">
+              <button type="button"
+                onClick={handleCopyLink}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors min-h-[44px]"
+              >
+                {copied === 'link' ? (
+                  <>
+                    <Check className="w-4 h-4 text-teal-400" />
+                    <span className="text-sm text-teal-400">Link copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-4 h-4 text-zinc-400" />
+                    <span className="text-sm text-zinc-300">Share link</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

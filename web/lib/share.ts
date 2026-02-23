@@ -1,5 +1,13 @@
 import { track } from '@/lib/tracking';
 
+/** True if the device supports native share or clipboard — false means hide the button. */
+export function canShare(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  if (typeof navigator.share === 'function') return true;
+  if (typeof navigator.clipboard?.writeText === 'function') return true;
+  return false;
+}
+
 interface SharePayload {
   title: string;
   text?: string;

@@ -12,7 +12,7 @@ import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 import { useToast } from '@/contexts/ToastContext';
 import { celebrate } from '@/lib/celebrations';
 import { track } from '@/lib/tracking';
-import { handleShare } from '@/lib/share';
+import { handleShare, canShare } from '@/lib/share';
 import {
   Megaphone,
   Search,
@@ -3476,22 +3476,24 @@ export default function ContentStudioPage() {
                     >
                       {copiedField === `var-${selectedVariationIndex}` ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
                     </button>
-                    <button type="button"
-                      onClick={() => handleShareVariation(selectedVariationIndex)}
-                      disabled={sharingVariation === selectedVariationIndex}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        border: '1px solid rgba(99, 102, 241, 0.3)',
-                        borderRadius: '8px',
-                        color: '#a5b4fc',
-                        fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                      }}
-                    >
-                      {sharingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sharing...</> :
-                       <><Send size={12} /> Share</>}
-                    </button>
+                    {canShare() && (
+                      <button type="button"
+                        onClick={() => handleShareVariation(selectedVariationIndex)}
+                        disabled={sharingVariation === selectedVariationIndex}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          borderRadius: '8px',
+                          color: '#a5b4fc',
+                          fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                        }}
+                      >
+                        {sharingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sharing...</> :
+                         <><Send size={12} /> Share</>}
+                      </button>
+                    )}
                     <button type="button"
                       onClick={() => handleMakeVariation(selectedVariationIndex)}
                       disabled={variatingIndex === selectedVariationIndex}

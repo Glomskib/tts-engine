@@ -50,7 +50,6 @@ const EXCLUDE_DAYS = Number(process.env.EXCLUDE_DAYS) || 2;
 const DRY_RUN = process.env.DRY_RUN === '1';
 const BASE_URL = process.env.PIPELINE_BASE_URL || 'https://flashflowai.com';
 const CRON_SECRET = process.env.CRON_SECRET;
-const SERVICE_USER_ID = process.env.SERVICE_USER_ID;
 const RECENT_QUEUE_HOURS = 48;
 
 const RUN_ID = log.runId;
@@ -63,22 +62,10 @@ const LOG_DIR = path.join(WEB_DIR, 'data', 'sessions', 'logs');
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error(`${TAG} SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.`);
-  process.exit(EXIT_ERROR);
-}
+let supabase: ReturnType<typeof createClient>;
 
-if (!CRON_SECRET) {
-  console.error(`${TAG} CRON_SECRET is required.`);
-  process.exit(EXIT_ERROR);
-}
-
-if (!SERVICE_USER_ID) {
-  console.error(`${TAG} SERVICE_USER_ID is required for posting_queue inserts.`);
-  process.exit(EXIT_ERROR);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Resolved lazily inside the async IIFE
+let SERVICE_USER_ID: string | undefined = process.env.SERVICE_USER_ID;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -248,6 +235,11 @@ async function insertPostingQueue(
   videoId: string,
   product: ProductCandidate,
 ): Promise<string | null> {
+  if (!SERVICE_USER_ID) {
+    console.warn(`${TAG} SERVICE_USER_ID not resolved — skipping posting_queue insert for ${videoId}`);
+    return null;
+  }
+
   const result = await safeInsert(
     () =>
       supabase
@@ -686,9 +678,65 @@ async function main() {
   process.exit(finalExitCode);
 }
 
-// ─── Entry ──────────────────────────────────────────────────────────────────
+// ─── Resolve SERVICE_USER_ID from Supabase if not set ────────────────────────
 
-main().catch((err) => {
-  console.error(`${TAG} Fatal error:`, err);
-  process.exit(EXIT_ERROR);
-});
+async function resolveServiceUserId(): Promise<string | undefined> {
+  // Try DEFAULT_ADMIN_EMAIL, then first ADMIN_USERS entry
+  const email =
+    process.env.DEFAULT_ADMIN_EMAIL ||
+    (process.env.ADMIN_USERS || '').split(',').map((s) => s.trim()).filter(Boolean)[0];
+
+  if (!email) {
+    console.warn(`${TAG} No DEFAULT_ADMIN_EMAIL or ADMIN_USERS to look up service user.`);
+    return undefined;
+  }
+
+  console.log(`${TAG} SERVICE_USER_ID not set — looking up user by email: ${email}`);
+  const { data, error } = await supabase.auth.admin.listUsers();
+
+  if (error) {
+    console.error(`${TAG} Failed to list users for service user lookup: ${error.message}`);
+    return undefined;
+  }
+
+  const user = data.users.find((u) => u.email === email);
+  if (!user) {
+    console.warn(`${TAG} No user found for email ${email}`);
+    return undefined;
+  }
+
+  console.log(`${TAG} Resolved SERVICE_USER_ID=${user.id} from ${email}`);
+  return user.id;
+}
+
+// ─── Entry (async IIFE to avoid CJS top-level await) ────────────────────────
+
+(async () => {
+  try {
+    // Validate Supabase credentials
+    if (!supabaseUrl || !supabaseKey) {
+      console.error(`${TAG} SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.`);
+      process.exit(EXIT_ERROR);
+    }
+
+    supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Warn (don't crash) if CRON_SECRET is missing
+    if (!CRON_SECRET) {
+      console.warn(`${TAG} CRON_SECRET is not set — auto-generate API calls will fail.`);
+    }
+
+    // Resolve SERVICE_USER_ID: env var → Supabase lookup
+    if (!SERVICE_USER_ID) {
+      SERVICE_USER_ID = await resolveServiceUserId();
+      if (!SERVICE_USER_ID) {
+        console.warn(`${TAG} SERVICE_USER_ID could not be resolved — posting_queue inserts will be skipped.`);
+      }
+    }
+
+    await main();
+  } catch (err) {
+    console.error(`${TAG} Fatal error:`, err);
+    process.exit(EXIT_ERROR);
+  }
+})();

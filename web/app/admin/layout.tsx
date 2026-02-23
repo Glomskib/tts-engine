@@ -17,8 +17,8 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkipLink } from '@/components/ui/SkipLink';
 import { AriaLiveProvider } from '@/components/ui/AriaLive';
 import { PlanDebugBanner } from '@/components/PlanDebugBanner';
-import { MainOnboardingTour } from '@/components/onboarding/MainOnboardingTour';
 import dynamic from 'next/dynamic';
+const MainOnboardingTour = dynamic(() => import('@/components/onboarding/MainOnboardingTour').then(m => ({ default: m.MainOnboardingTour })), { ssr: false });
 
 const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
 const NotificationsBell = dynamic(() => import('@/components/NotificationsBell'), { ssr: false });

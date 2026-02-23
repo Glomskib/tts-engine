@@ -14,16 +14,34 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Joyride, {
-  ACTIONS,
-  EVENTS,
-  STATUS,
-  type CallBackProps,
-  type Step,
-  type TooltipRenderProps,
-} from 'react-joyride';
+import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
 import { buildTourSteps, TOUR_STORAGE_KEY, getMobilePlacement } from '@/lib/onboarding-tour';
 import { useCredits } from '@/hooks/useCredits';
+
+// react-joyride@2.9.3 uses unmountComponentAtNode which was removed in React 19.
+// Dynamically import to defer the error, and provide a noop shim to prevent crash.
+let Joyride: typeof import('react-joyride').default | null = null;
+let ACTIONS: typeof import('react-joyride').ACTIONS;
+let EVENTS: typeof import('react-joyride').EVENTS;
+let STATUS: typeof import('react-joyride').STATUS;
+let joyrideReady = false;
+
+if (typeof window !== 'undefined') {
+  // Shim unmountComponentAtNode before react-joyride loads
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ReactDOM = require('react-dom') as Record<string, unknown>;
+  if (!ReactDOM.unmountComponentAtNode) {
+    ReactDOM.unmountComponentAtNode = () => false;
+  }
+  // Now safe to load react-joyride synchronously
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('react-joyride');
+  Joyride = mod.default;
+  ACTIONS = mod.ACTIONS;
+  EVENTS = mod.EVENTS;
+  STATUS = mod.STATUS;
+  joyrideReady = true;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Mobile-only custom tooltip — stacked buttons + compact sizing     */

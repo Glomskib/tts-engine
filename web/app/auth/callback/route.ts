@@ -54,44 +54,57 @@ export async function GET(request: Request) {
     if (data?.user) {
       // Try to ensure user has subscription and credits (non-fatal errors)
       try {
-        // Use upsert to handle race conditions with the database trigger
-        const { error: subError } = await supabase
+        // Check if user already has subscription and credits (returning user)
+        const { data: existingSub } = await supabase
           .from('user_subscriptions')
-          .upsert({
-            user_id: data.user.id,
-            plan_id: 'free',
-            subscription_type: 'saas',
-            status: 'active',
-          }, {
-            onConflict: 'user_id'
-          });
+          .select('user_id')
+          .eq('user_id', data.user.id)
+          .single();
 
-        if (subError) {
-          console.error('Subscription upsert error (non-fatal):', subError);
+        if (!existingSub) {
+          // New user — create default subscription
+          const { error: subError } = await supabase
+            .from('user_subscriptions')
+            .insert({
+              user_id: data.user.id,
+              plan_id: 'free',
+              subscription_type: 'saas',
+              status: 'active',
+            });
+
+          if (subError) {
+            console.error('Subscription insert error (non-fatal):', subError);
+          }
         }
 
-        // Also ensure credits exist
-        const { error: creditError } = await supabase
+        const { data: existingCredits } = await supabase
           .from('user_credits')
-          .upsert({
-            user_id: data.user.id,
-            credits_remaining: 5,
-            free_credits_total: 5,
-            free_credits_used: 0,
-            credits_used_this_period: 0,
-            lifetime_credits_used: 0,
-            period_start: new Date().toISOString(),
-            period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          }, {
-            onConflict: 'user_id'
-          });
+          .select('user_id')
+          .eq('user_id', data.user.id)
+          .single();
 
-        if (creditError) {
-          console.error('Credit upsert error (non-fatal):', creditError);
+        if (!existingCredits) {
+          // New user — create default credits
+          const { error: creditError } = await supabase
+            .from('user_credits')
+            .insert({
+              user_id: data.user.id,
+              credits_remaining: 5,
+              free_credits_total: 5,
+              free_credits_used: 0,
+              credits_used_this_period: 0,
+              lifetime_credits_used: 0,
+              period_start: new Date().toISOString(),
+              period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+
+          if (creditError) {
+            console.error('Credit insert error (non-fatal):', creditError);
+          }
+
+          // Only sync role for new users
+          await syncRoleFromPlan(data.user.id, 'free');
         }
-
-        // Sync role to match plan
-        await syncRoleFromPlan(data.user.id, 'free');
       } catch (e) {
         // Log but don't fail - user is authenticated
         console.error('Error initializing user data (non-fatal):', e);

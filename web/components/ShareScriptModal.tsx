@@ -9,6 +9,8 @@ import {
   copyToClipboard,
   type SavedSkit,
 } from '@/lib/export';
+import { useToast } from '@/contexts/ToastContext';
+import { handleShare } from '@/lib/share';
 
 interface ShareScriptModalProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ interface ShareScriptModalProps {
 export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const [includeMetadata, setIncludeMetadata] = useState(true);
+  const { showSuccess, showError } = useToast();
 
   if (!isOpen) return null;
 
@@ -45,15 +48,20 @@ export function ShareScriptModal({ isOpen, onClose, skit }: ShareScriptModalProp
   };
 
   const handleCopyLink = async () => {
-    // Generate a shareable link (if sharing is enabled)
     const shareUrl = `${window.location.origin}/shared/script/${skit.id}`;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied('link');
-      setTimeout(() => setCopied(null), 2000);
-    } catch {
-      console.error('Failed to copy link');
-    }
+    await handleShare(
+      { title: skit.title || 'FlashFlow Script', text: skit.title || 'Check out this script', url: shareUrl },
+      {
+        onSuccess: (method) => {
+          if (method === 'clipboard') {
+            setCopied('link');
+            showSuccess('Link copied!');
+            setTimeout(() => setCopied(null), 2000);
+          }
+        },
+        onError: (msg) => showError(msg),
+      },
+    );
   };
 
   const formats = [

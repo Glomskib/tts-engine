@@ -11,6 +11,8 @@ import { NoCreditsModal, useNoCreditsModal } from '@/components/FeatureGate';
 import PersonaPreviewCard from '@/components/PersonaPreviewCard';
 import { useToast } from '@/contexts/ToastContext';
 import { celebrate } from '@/lib/celebrations';
+import { track } from '@/lib/tracking';
+import { handleShare } from '@/lib/share';
 import {
   Megaphone,
   Search,
@@ -408,9 +410,15 @@ export default function ContentStudioPage() {
   const [editedCTALine, setEditedCTALine] = useState('');
   const [editedCTAOverlay, setEditedCTAOverlay] = useState('');
 
-  // Hook editing state
+  // Hook editing state (legacy single hook_line)
   const [editingHook, setEditingHook] = useState(false);
   const [editedHookLine, setEditedHookLine] = useState('');
+
+  // 3-part hook editing state
+  const [editingHookField, setEditingHookField] = useState<'visual' | 'text' | 'verbal' | null>(null);
+  const [editedVisualHook, setEditedVisualHook] = useState('');
+  const [editedTextHook, setEditedTextHook] = useState('');
+  const [editedVerbalHook, setEditedVerbalHook] = useState('');
 
   // Beat/scene editing state
   const [editingBeatIndex, setEditingBeatIndex] = useState<number | null>(null);
@@ -1527,9 +1535,12 @@ export default function ContentStudioPage() {
   };
 
   // Share variation handler
+  const isMobile = typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent);
+
   const handleShareVariation = async (variationIndex: number) => {
     if (!result) return;
     setSharingVariation(variationIndex);
+    track('share_clicked', { source: 'content_studio', mobile: isMobile });
     try {
       const skit = result.variations?.[variationIndex]?.skit;
       if (!skit) return;
@@ -1550,8 +1561,16 @@ export default function ContentStudioPage() {
       if (!isApiError(saveRes) && saveRes.data?.id) {
         const url = `${window.location.origin}/s/${saveRes.data.id}`;
         setShareUrl(url);
-        setShareModalOpen(true);
-        await navigator.clipboard.writeText(url).catch(() => {});
+        const { method } = await handleShare(
+          { title: `${productName} - Script`, text: `Check out this script: ${productName}`, url },
+          {
+            onSuccess: (m) => { if (m === 'clipboard') showSuccess('Link copied!'); },
+            onError: (msg) => showError(msg),
+          },
+        );
+        if (method !== 'native') {
+          setShareModalOpen(true);
+        }
       }
     } catch (err) {
       console.error('Share failed:', err);
@@ -3685,32 +3704,158 @@ export default function ContentStudioPage() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {currentSkit.visual_hook && (
                               <div>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>
-                                  🎬 Visual Hook
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase' }}>
+                                    🎬 Visual Hook
+                                  </div>
+                                  {editingHookField !== 'visual' && (
+                                    <button type="button" onClick={() => { setEditedVisualHook(currentSkit.visual_hook || ''); setEditingHookField('visual'); }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: colors.textSecondary, opacity: 0.5 }}
+                                      title="Edit visual hook"
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                  )}
                                 </div>
-                                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6' }}>
-                                  {currentSkit.visual_hook}
-                                </div>
+                                {editingHookField === 'visual' ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <textarea
+                                      value={editedVisualHook}
+                                      onChange={(e) => setEditedVisualHook(e.target.value)}
+                                      rows={2}
+                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', resize: 'vertical' }}
+                                      autoFocus
+                                    />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <button type="button" onClick={() => {
+                                        if (result) {
+                                          const variation = result.variations?.[selectedVariationIndex];
+                                          const targetSkit = variation ? variation.skit : result.skit;
+                                          if (targetSkit) { targetSkit.visual_hook = editedVisualHook; }
+                                          setResult({ ...result });
+                                        }
+                                        setEditingHookField(null);
+                                      }}
+                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                      >
+                                        <Check size={14} /> Save
+                                      </button>
+                                      <button type="button" onClick={() => setEditingHookField(null)}
+                                        style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6' }}>
+                                    {currentSkit.visual_hook}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {currentSkit.text_on_screen_hook && (
                               <div>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>
-                                  📝 Text on Screen Hook
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase' }}>
+                                    📝 Text on Screen Hook
+                                  </div>
+                                  {editingHookField !== 'text' && (
+                                    <button type="button" onClick={() => { setEditedTextHook(currentSkit.text_on_screen_hook || ''); setEditingHookField('text'); }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: colors.textSecondary, opacity: 0.5 }}
+                                      title="Edit text on screen hook"
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                  )}
                                 </div>
-                                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6', fontStyle: 'italic' }}>
-                                  &ldquo;{currentSkit.text_on_screen_hook}&rdquo;
-                                </div>
+                                {editingHookField === 'text' ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <textarea
+                                      value={editedTextHook}
+                                      onChange={(e) => setEditedTextHook(e.target.value)}
+                                      rows={2}
+                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', fontStyle: 'italic', resize: 'vertical' }}
+                                      autoFocus
+                                    />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <button type="button" onClick={() => {
+                                        if (result) {
+                                          const variation = result.variations?.[selectedVariationIndex];
+                                          const targetSkit = variation ? variation.skit : result.skit;
+                                          if (targetSkit) { targetSkit.text_on_screen_hook = editedTextHook; }
+                                          setResult({ ...result });
+                                        }
+                                        setEditingHookField(null);
+                                      }}
+                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                      >
+                                        <Check size={14} /> Save
+                                      </button>
+                                      <button type="button" onClick={() => setEditingHookField(null)}
+                                        style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6', fontStyle: 'italic' }}>
+                                    &ldquo;{currentSkit.text_on_screen_hook}&rdquo;
+                                  </div>
+                                )}
                               </div>
                             )}
                             {currentSkit.verbal_hook && (
                               <div>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>
-                                  🗣️ Verbal Hook
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase' }}>
+                                    🗣️ Verbal Hook
+                                  </div>
+                                  {editingHookField !== 'verbal' && (
+                                    <button type="button" onClick={() => { setEditedVerbalHook(currentSkit.verbal_hook || ''); setEditingHookField('verbal'); }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: colors.textSecondary, opacity: 0.5 }}
+                                      title="Edit verbal hook"
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                  )}
                                 </div>
-                                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6' }}>
-                                  {currentSkit.verbal_hook}
-                                </div>
+                                {editingHookField === 'verbal' ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <textarea
+                                      value={editedVerbalHook}
+                                      onChange={(e) => setEditedVerbalHook(e.target.value)}
+                                      rows={2}
+                                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '14px', resize: 'vertical' }}
+                                      autoFocus
+                                    />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <button type="button" onClick={() => {
+                                        if (result) {
+                                          const variation = result.variations?.[selectedVariationIndex];
+                                          const targetSkit = variation ? variation.skit : result.skit;
+                                          if (targetSkit) { targetSkit.verbal_hook = editedVerbalHook; }
+                                          setResult({ ...result });
+                                        }
+                                        setEditingHookField(null);
+                                      }}
+                                        style={{ padding: '6px 14px', backgroundColor: '#3b82f6', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                      >
+                                        <Check size={14} /> Save
+                                      </button>
+                                      <button type="button" onClick={() => setEditingHookField(null)}
+                                        style={{ padding: '6px 14px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '6px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: '1.6' }}>
+                                    {currentSkit.verbal_hook}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -3728,7 +3873,7 @@ export default function ContentStudioPage() {
                       </div>
                     )}
                   </div>
-                  {!editingHook && (
+                  {!editingHook && editingHookField === null && (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button type="button"
                         onClick={() => handleSaveHook(currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || '')}
@@ -4816,10 +4961,13 @@ export default function ContentStudioPage() {
                 style={{ flex: 1, background: 'none', border: 'none', color: colors.text, fontSize: '13px', outline: 'none' }}
               />
               <button type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(shareUrl);
-                  showSuccess('Link copied!');
-                }}
+                onClick={() => handleShare(
+                  { title: 'FlashFlow Script', url: shareUrl },
+                  {
+                    onSuccess: (m) => { if (m === 'clipboard') showSuccess('Link copied!'); },
+                    onError: (msg) => showError(msg),
+                  },
+                )}
                 style={{
                   padding: '6px 12px',
                   backgroundColor: '#6366f1',

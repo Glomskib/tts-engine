@@ -33,6 +33,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  outputFileTracingExcludes: {
+    '*': [
+      './data/sessions/**',
+      './screenshots/**',
+      './var/**',
+    ],
+  },
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },

@@ -672,14 +672,13 @@ function BrandEditModal({
     });
   };
 
-  // Count filled optional detail fields (out of 10)
+  // Count filled optional detail fields (out of 9)
   const detailsFilledCount = [
     formData.description,
     formData.website,
     formData.logo_url,
     formData.brand_image_url,
     formData.colors.length > 0 ? 'yes' : '',
-    formData.tone_of_voice,
     formData.target_audience,
     formData.guidelines,
     formData.brand_profile_json.compliance_notes,
@@ -822,10 +821,15 @@ function BrandEditModal({
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value.slice(0, 255) })}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                     required
+                    maxLength={255}
                   />
+                  <div className="flex justify-between mt-0.5">
+                    <p className="text-[10px] text-zinc-600">Appears in scripts and video captions</p>
+                    <p className="text-[10px] text-zinc-600">{formData.name.length}/255</p>
+                  </div>
                 </div>
 
                 <div>
@@ -851,6 +855,7 @@ function BrandEditModal({
                       <span className="text-zinc-600 ml-1">({formData.brand_profile_json.product_types.length}/10)</span>
                     )}
                   </label>
+                  <p className="text-[10px] text-zinc-600 mb-2">What this brand sells — helps AI tailor scripts</p>
                   {formData.brand_profile_json.product_types.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {formData.brand_profile_json.product_types.map((tag) => (
@@ -884,6 +889,23 @@ function BrandEditModal({
                   )}
                 </div>
 
+                {/* Tone of Voice */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Tone of Voice</label>
+                  <input
+                    type="text"
+                    value={formData.tone_of_voice}
+                    onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value.slice(0, 500) })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="e.g., Professional, Friendly, Bold..."
+                    maxLength={500}
+                  />
+                  <div className="flex justify-between mt-0.5">
+                    <p className="text-[10px] text-zinc-600">How the brand should sound in generated scripts</p>
+                    <p className="text-[10px] text-zinc-600">{formData.tone_of_voice.length}/500</p>
+                  </div>
+                </div>
+
                 {/* Key Angles — dynamic 0-5 inputs */}
                 <div>
                   <label className="block text-sm text-zinc-400 mb-1">
@@ -892,6 +914,7 @@ function BrandEditModal({
                       <span className="text-zinc-600 ml-1">({formData.brand_profile_json.key_angles.length}/5)</span>
                     )}
                   </label>
+                  <p className="text-[10px] text-zinc-600 mb-2">Top selling points used when generating scripts</p>
                   <div className="space-y-2">
                     {formData.brand_profile_json.key_angles.map((angle, i) => (
                       <div key={i} className="flex gap-2 items-start">
@@ -936,12 +959,12 @@ function BrandEditModal({
               </div>
             </div>
 
-            {/* ── Section B: Brand Details (collapsed accordion) ── */}
+            {/* ── Section B: Optional Details (collapsed accordion) ── */}
             <CollapsibleSection
-              title="Brand Details"
+              title="Optional Details"
               isOpen={detailsOpen}
               onToggle={() => setDetailsOpen(!detailsOpen)}
-              badge={detailsFilledCount > 0 ? `${detailsFilledCount} of 10 filled` : undefined}
+              badge={detailsFilledCount > 0 ? `${detailsFilledCount} of 9 filled` : undefined}
             >
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Description</label>
@@ -952,7 +975,10 @@ function BrandEditModal({
                   placeholder="Brief description of the brand..."
                   maxLength={5000}
                 />
-                <p className="text-[10px] text-zinc-600 text-right mt-0.5">{formData.description.length}/5000</p>
+                <div className="flex justify-between mt-0.5">
+                  <p className="text-[10px] text-zinc-600">Overview of the brand — gives AI additional context</p>
+                  <p className="text-[10px] text-zinc-600">{formData.description.length}/5000</p>
+                </div>
               </div>
 
               <div>
@@ -1055,25 +1081,19 @@ function BrandEditModal({
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-1">Tone of Voice</label>
-                <input
-                  type="text"
-                  value={formData.tone_of_voice}
-                  onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value })}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="e.g., Professional, Friendly, Bold..."
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm text-zinc-400 mb-1">Target Audience</label>
                 <input
                   type="text"
                   value={formData.target_audience}
-                  onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, target_audience: e.target.value.slice(0, 500) })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="e.g., Young professionals, 25-35..."
+                  maxLength={500}
                 />
+                <div className="flex justify-between mt-0.5">
+                  <p className="text-[10px] text-zinc-600">Who the brand&apos;s content is aimed at</p>
+                  <p className="text-[10px] text-zinc-600">{formData.target_audience.length}/500</p>
+                </div>
               </div>
 
               <div>
@@ -1085,10 +1105,13 @@ function BrandEditModal({
                   placeholder="Dos, don'ts, specific requirements..."
                   maxLength={5000}
                 />
-                <p className="text-[10px] text-zinc-600 text-right mt-0.5">{formData.guidelines.length}/5000</p>
+                <div className="flex justify-between mt-0.5">
+                  <p className="text-[10px] text-zinc-600">Dos, don&apos;ts, and specific content requirements</p>
+                  <p className="text-[10px] text-zinc-600">{formData.guidelines.length}/5000</p>
+                </div>
               </div>
 
-              {/* Compliance Notes (NEW) */}
+              {/* Compliance Notes */}
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Compliance Notes</label>
                 <textarea
@@ -1104,7 +1127,7 @@ function BrandEditModal({
                 </div>
               </div>
 
-              {/* Claims to Avoid (NEW) */}
+              {/* Claims to Avoid */}
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Claims to Avoid</label>
                 <textarea

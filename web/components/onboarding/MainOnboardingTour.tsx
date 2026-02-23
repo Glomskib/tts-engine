@@ -421,10 +421,14 @@ export function MainOnboardingTour({ isMobile, onOpenSidebar }: MainOnboardingTo
     );
   }
 
-  if (!runTour || activeSteps.length === 0) return null;
+  if (!runTour || activeSteps.length === 0 || !Joyride) return null;
+
+  // Local const so TS narrows away the `null` union for JSX usage
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const JoyrideComponent = Joyride as any;
 
   return (
-    <Joyride
+    <JoyrideComponent
       steps={activeSteps}
       stepIndex={stepIndex}
       run={runTour}

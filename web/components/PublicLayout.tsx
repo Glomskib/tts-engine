@@ -4,31 +4,34 @@ import { useState, ReactNode } from 'react';
 import Link from 'next/link';
 
 const NAV_LINKS = [
-  { name: 'Creators', href: '/creators' },
-  { name: 'Agencies', href: '/agencies' },
-  { name: 'Brands', href: '/brands' },
+  { name: 'Script Generator', href: '/script-generator' },
+  { name: 'TikTok Transcriber', href: '/transcribe' },
+  { name: 'YouTube Transcriber', href: '/youtube-transcribe' },
   { name: 'Pricing', href: '/pricing' },
   { name: 'Blog', href: '/blog' },
 ];
 
 const FOOTER_COLUMNS = [
   {
-    title: 'Product',
+    title: 'Free Tools',
     links: [
-      { name: 'Pricing', href: '/pricing' },
-      { name: 'Examples', href: '/examples' },
-      { name: 'Blog', href: '/blog' },
+      { name: 'Script Generator', href: '/script-generator' },
+      { name: 'TikTok Transcriber', href: '/transcribe' },
+      { name: 'YouTube Transcriber', href: '/youtube-transcribe' },
     ],
   },
   {
     title: 'Resources',
     links: [
+      { name: 'Pricing', href: '/pricing' },
+      { name: 'Blog', href: '/blog' },
       { name: 'Script Vault', href: '/free-scripts' },
     ],
   },
   {
     title: 'Company',
     links: [
+      { name: 'About', href: '/about' },
       { name: 'Privacy', href: '/privacy' },
       { name: 'Terms', href: '/terms' },
     ],

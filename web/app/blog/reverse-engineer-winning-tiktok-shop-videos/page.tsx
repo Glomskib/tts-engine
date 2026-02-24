@@ -267,6 +267,18 @@ export default function ReverseEngineerArticle() {
           </Link>
         </div>
 
+        {/* Cross-tool links */}
+        <div className="mt-8 grid sm:grid-cols-2 gap-4">
+          <Link href="/script-generator" className="p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-teal-500/30 transition group">
+            <h4 className="font-semibold text-sm text-zinc-200 group-hover:text-teal-400 transition-colors">AI Script Generator</h4>
+            <p className="text-xs text-zinc-500 mt-1">Generate scripts based on winning patterns you found — free</p>
+          </Link>
+          <Link href="/youtube-transcribe" className="p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-red-500/30 transition group">
+            <h4 className="font-semibold text-sm text-zinc-200 group-hover:text-red-400 transition-colors">YouTube Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Transcribe any YouTube video with AI — free</p>
+          </Link>
+        </div>
+
         <div className="mt-12 text-center">
           <Link href="/blog" className="text-teal-400 hover:text-teal-300">
             ← Back to Blog

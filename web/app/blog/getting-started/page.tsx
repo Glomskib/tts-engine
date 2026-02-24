@@ -79,7 +79,7 @@ export default function GettingStartedArticle() {
           <section>
             <h2 className="text-3xl font-bold mb-4">Step 1: Sign Up (15 seconds)</h2>
             <p className="text-gray-300 leading-relaxed">
-              Go to <Link href="/signup" className="text-teal-400 hover:text-teal-300">FlashFlow's signup page</Link>. Enter your email and create a password. That's it. No credit card required for the free tier.
+              Go to <Link href="/script-generator" className="text-teal-400 hover:text-teal-300">FlashFlow&apos;s free script generator</Link>. You can generate your first script without even signing up. When you&apos;re ready for more, create a free account in seconds.
             </p>
             <p className="text-gray-300 leading-relaxed mt-4">
               <strong>Screenshot:</strong> Sign-up form with email field, password field, and "Create Account" button.
@@ -114,12 +114,12 @@ export default function GettingStartedArticle() {
               Pick one:
             </p>
             <ul className="list-disc list-inside space-y-2 text-gray-300 mt-4">
-              <li><strong>The Skeptic:</strong> "I was skeptical too, but then..." (relatable, honest)</li>
-              <li><strong>The Educator:</strong> "Here's why this works..." (informative, expert)</li>
-              <li><strong>The Entertainer:</strong> "This is insanely fun..." (funny, high-energy)</li>
-              <li><strong>The Aspirational:</strong> "This is the lifestyle hack you need..." (aspirational, cool)</li>
-              <li><strong>The Relatable:</strong> "You know that problem when..." (relatable, empathetic)</li>
-              <li><strong>The Performance:</strong> "Watch what happens..." (dramatic, surprising)</li>
+              <li><strong>Skeptic Convert:</strong> &quot;I was skeptical too, but then...&quot; (relatable, honest)</li>
+              <li><strong>Authority Expert:</strong> &quot;Here&apos;s why this works...&quot; (informative, expert)</li>
+              <li><strong>Excited Discovery:</strong> &quot;OMG I just found the best thing!&quot; (high-energy, trending)</li>
+              <li><strong>Storyteller:</strong> &quot;Let me tell you what happened...&quot; (lifestyle, narrative)</li>
+              <li><strong>Relatable Friend:</strong> &quot;Girl, you NEED this in your life.&quot; (casual, everyday)</li>
+              <li><strong>+ 15 more personas</strong> for every niche and style</li>
             </ul>
             <p className="text-gray-300 leading-relaxed mt-4">
               Start with "The Skeptic" if you're unsure — it works for most products.
@@ -186,19 +186,19 @@ export default function GettingStartedArticle() {
             <h2 className="text-3xl font-bold mb-4">Pro Tips for Beginners</h2>
             <ul className="space-y-4 text-gray-300">
               <li>
-                <strong>🎯 Test Multiple Personas:</strong> Generate scripts with all 6 personas for the same product. See which one feels most natural to film.
+                <strong>Test Multiple Personas:</strong> Generate scripts with all 20+ personas for the same product. See which one feels most natural to film.
               </li>
               <li>
-                <strong>🎯 Regenerate If You Don't Like It:</strong> Click "Regenerate" to get completely different scripts. Keep clicking until you find one you love.
+                <strong>Regenerate If You Don&apos;t Like It:</strong> Click &quot;Regenerate&quot; to get completely different scripts. Keep clicking until you find one you love.
               </li>
               <li>
-                <strong>🎯 Read It Out Loud:</strong> Before filming, read the script aloud. Does it sound natural? If not, edit it or regenerate.
+                <strong>Read It Out Loud:</strong> Before filming, read the script aloud. Does it sound natural? If not, edit it or regenerate.
               </li>
               <li>
-                <strong>🎯 Add Your Own Personality:</strong> The script is a skeleton. Improvise. Add pauses. Add reactions. Make it feel like YOU.
+                <strong>Add Your Own Personality:</strong> The script is a skeleton. Improvise. Add pauses. Add reactions. Make it feel like YOU.
               </li>
               <li>
-                <strong>🎯 Track What Works:</strong> Film 3 versions with different scripts. Post them. See which hook gets the most engagement. Double down on the winner.
+                <strong>Track What Works:</strong> Film 3 versions with different scripts. Post them. See which hook gets the most engagement. Double down on the winner.
               </li>
             </ul>
           </section>
@@ -224,13 +224,25 @@ export default function GettingStartedArticle() {
         <div className="mt-16 p-8 bg-teal-500/10 border border-teal-500/20 rounded-lg">
           <h3 className="text-2xl font-bold mb-4">Ready to Generate Your First Script?</h3>
           <p className="text-gray-300 mb-6">
-            Join thousands of creators using FlashFlow to generate TikTok scripts in seconds. Free to start.
+            Generate a TikTok script in seconds — no signup required. Try it now and see for yourself.
           </p>
           <Link
-            href="/signup"
+            href="/script-generator"
             className="inline-block px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
           >
-            Get Started Free
+            Try Free Script Generator
+          </Link>
+        </div>
+
+        {/* Cross-tool links */}
+        <div className="mt-8 grid sm:grid-cols-2 gap-4">
+          <Link href="/transcribe" className="p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-teal-500/30 transition group">
+            <h4 className="font-semibold text-sm text-zinc-200 group-hover:text-teal-400 transition-colors">TikTok Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Transcribe &amp; analyze any TikTok video — free</p>
+          </Link>
+          <Link href="/youtube-transcribe" className="p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-red-500/30 transition group">
+            <h4 className="font-semibold text-sm text-zinc-200 group-hover:text-red-400 transition-colors">YouTube Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Transcribe any YouTube video with AI — free</p>
           </Link>
         </div>
 

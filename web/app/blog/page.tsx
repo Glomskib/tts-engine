@@ -26,13 +26,22 @@ export const metadata: Metadata = {
 export default function BlogPage() {
   const articles = [
     {
-      slug: 'ai-tools-tiktok-shop',
-      title: '5 AI Tools Every TikTok Shop Seller Needs in 2026',
-      excerpt: 'Complete AI toolkit for TikTok Shop sellers. FlashFlow + CapCut + Kalodata + ChatGPT + Adobe Firefly = unstoppable content machine.',
-      date: 'Feb 14, 2026',
-      readTime: '10 min read',
-      category: 'Tools',
-      image: '🤖',
+      slug: 'tiktok-script-templates',
+      title: 'TikTok Shop Script Templates: 10 Ready-to-Film Scripts for Any Product',
+      excerpt: 'Get 10 proven TikTok Shop script templates that work for any product niche. Copy, customize, and film today.',
+      date: 'Jan 15, 2026',
+      readTime: '8 min read',
+      category: 'Scripts',
+      image: '📋',
+    },
+    {
+      slug: 'viral-tiktok-hooks',
+      title: '50 TikTok Hooks That Generated Millions in Sales',
+      excerpt: 'The most effective TikTok Shop hooks categorized by niche. Use these proven openers to grab attention in the first 1.5 seconds.',
+      date: 'Jan 22, 2026',
+      readTime: '12 min read',
+      category: 'Hooks',
+      image: '🔥',
     },
     {
       slug: 'getting-started',
@@ -110,14 +119,28 @@ export default function BlogPage() {
 
       {/* CTA */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center border-t border-gray-700">
-        <h2 className="text-2xl font-bold mb-4">Ready to level up your content?</h2>
-        <p className="text-gray-300 mb-8">Start with our free TikTok transcriber to analyze winning videos.</p>
-        <Link
-          href="/transcribe"
-          className="inline-block px-8 py-4 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
-        >
-          Try Free Transcriber
-        </Link>
+        <h2 className="text-2xl font-bold mb-4">Try Our Free AI Tools — No Signup Required</h2>
+        <p className="text-gray-300 mb-8">Generate scripts, transcribe TikTok videos, or extract YouTube transcripts. All free, all instant.</p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link
+            href="/script-generator"
+            className="px-8 py-4 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
+          >
+            Generate a Script Free
+          </Link>
+          <Link
+            href="/transcribe"
+            className="px-8 py-4 border border-teal-500/50 text-teal-400 rounded-lg font-semibold hover:bg-teal-500/10 transition"
+          >
+            TikTok Transcriber
+          </Link>
+          <Link
+            href="/youtube-transcribe"
+            className="px-8 py-4 border border-red-500/50 text-red-400 rounded-lg font-semibold hover:bg-red-500/10 transition"
+          >
+            YouTube Transcriber
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -87,8 +87,8 @@ export const blogPosts: BlogPost[] = [
 </ol>
 
 <h2>Want Unlimited Custom Scripts?</h2>
-<p>Templates are a great starting point. But if you want scripts tailored to YOUR specific products with 7 different creator personas, FlashFlow AI generates them in seconds.</p>
-<p><a href="/login?mode=signup">Try FlashFlow free — 5 scripts, no credit card →</a></p>
+<p>Templates are a great starting point. But if you want scripts tailored to YOUR specific products with 20+ different creator personas, FlashFlow AI generates them in seconds — no signup required.</p>
+<p><a href="/script-generator">Try the free AI Script Generator →</a></p>
     `,
   },
   {
@@ -141,8 +141,8 @@ export const blogPosts: BlogPost[] = [
 <p><strong>Rotate your style.</strong> If every video starts with "I was skeptical...", your audience will tune out. Mix up your hook formula.</p>
 
 <h2>Generate Fresh Hooks Automatically</h2>
-<p>These 50 hooks are a great starting point. But what happens when you've used them all? FlashFlow AI generates unlimited unique hooks tailored to your specific products. Every hook is different because FlashFlow uses 7 different creator personas.</p>
-<p><a href="/login?mode=signup">Try FlashFlow free — generate your first custom hooks →</a></p>
+<p>These 50 hooks are a great starting point. But what happens when you've used them all? FlashFlow AI generates unlimited unique hooks tailored to your specific products. Every hook is different because FlashFlow uses 20+ different creator personas.</p>
+<p><a href="/script-generator">Try the free AI Script Generator →</a></p>
     `,
   },
 ];

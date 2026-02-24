@@ -239,7 +239,7 @@ export default function HookFormulasArticle() {
               Scale the winner. Iterate. Repeat with another formula.
             </p>
             <p className="text-gray-300 leading-relaxed mt-4">
-              Need help creating scripts with these hooks? <Link href="/signup" className="text-teal-400 hover:text-teal-300">FlashFlow's AI script generator</Link> can generate variations with different hooks in seconds.
+              Need help creating scripts with these hooks? <Link href="/script-generator" className="text-teal-400 hover:text-teal-300">FlashFlow&apos;s free AI script generator</Link> can generate variations with different hooks in seconds — no signup required.
             </p>
           </section>
 
@@ -261,10 +261,22 @@ export default function HookFormulasArticle() {
             Use AI to generate 5-10 hook variations for your product. Test multiple angles and find your winner in hours, not days.
           </p>
           <Link
-            href="/signup"
+            href="/script-generator"
             className="inline-block px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
           >
-            Try Script Generator
+            Try Free Script Generator
+          </Link>
+        </div>
+
+        {/* Cross-tool links */}
+        <div className="mt-8 grid sm:grid-cols-2 gap-4">
+          <Link href="/transcribe" className="p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-teal-500/30 transition group">
+            <h4 className="font-semibold text-sm text-zinc-200 group-hover:text-teal-400 transition-colors">TikTok Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Transcribe &amp; analyze any TikTok video — free</p>
+          </Link>
+          <Link href="/youtube-transcribe" className="p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-red-500/30 transition group">
+            <h4 className="font-semibold text-sm text-zinc-200 group-hover:text-red-400 transition-colors">YouTube Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Transcribe any YouTube video with AI — free</p>
           </Link>
         </div>
 

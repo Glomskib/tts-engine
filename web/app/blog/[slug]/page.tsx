@@ -103,6 +103,22 @@ export default async function BlogPostPage({ params }: PageProps) {
           </Link>
         </div>
 
+        {/* Cross-tool links */}
+        <div className="mt-8 grid sm:grid-cols-3 gap-4">
+          <Link href="/script-generator" className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 hover:border-teal-500/30 transition-colors group text-center">
+            <h4 className="text-sm font-semibold text-zinc-200 group-hover:text-teal-400 transition-colors">AI Script Generator</h4>
+            <p className="text-xs text-zinc-500 mt-1">Generate scripts instantly — free</p>
+          </Link>
+          <Link href="/transcribe" className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 hover:border-teal-500/30 transition-colors group text-center">
+            <h4 className="text-sm font-semibold text-zinc-200 group-hover:text-teal-400 transition-colors">TikTok Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Analyze any TikTok video — free</p>
+          </Link>
+          <Link href="/youtube-transcribe" className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 hover:border-red-500/30 transition-colors group text-center">
+            <h4 className="text-sm font-semibold text-zinc-200 group-hover:text-red-400 transition-colors">YouTube Transcriber</h4>
+            <p className="text-xs text-zinc-500 mt-1">Transcribe YouTube videos — free</p>
+          </Link>
+        </div>
+
         {/* Related Posts */}
         {related.length > 0 && (
           <div className="mt-12">

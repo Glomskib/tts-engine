@@ -702,10 +702,13 @@ export default function SettingsPage() {
               {/* Credit Usage Bar */}
               {!isUnlimited && credits && (
                 <div className="mt-4">
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="text-zinc-400">Credits remaining</span>
+                    <span className="text-zinc-100">{credits.remaining} / {(credits.remaining || 0) + (credits.usedThisPeriod || 0)}</span>
+                  </div>
                   <Progress
                     value={Math.min(1, (credits.remaining || 0) / Math.max(1, (credits.remaining || 0) + (credits.usedThisPeriod || 0)))}
-                    label="Credits remaining"
-                    sublabel={`${credits.remaining} / ${(credits.remaining || 0) + (credits.usedThisPeriod || 0)}`}
+                    showLabels={false}
                     intent="gradient"
                   />
                   {credits.remaining !== undefined && credits.remaining <= 5 && (

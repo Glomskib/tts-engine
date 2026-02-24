@@ -519,12 +519,19 @@ export default function RetainersPage() {
                   </div>
 
                   {/* Progress Bar */}
-                  <Progress
-                    value={Math.min(1, r.completion / 100)}
-                    label={<><span className="text-white font-semibold">{r.videos_posted}</span>{` of ${r.video_goal} videos`}</>}
-                    sublabel={`${r.completion}%`}
-                    size="lg"
-                  />
+                  <div>
+                    <div className="flex items-baseline justify-between text-sm mb-1.5">
+                      <span className="text-zinc-400">
+                        <span className="text-white font-semibold">{r.videos_posted}</span> of {r.video_goal} videos
+                      </span>
+                      <span className="text-zinc-300 font-medium">{r.completion}%</span>
+                    </div>
+                    <Progress
+                      value={Math.min(1, r.completion / 100)}
+                      showLabels={false}
+                      size="lg"
+                    />
+                  </div>
 
                   {/* Stats Row */}
                   <div className="flex flex-wrap gap-4 text-sm">

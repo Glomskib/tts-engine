@@ -258,9 +258,6 @@ export default function BrandsPage() {
               const healthColor = stat.health_label === 'excellent' ? 'text-green-400' :
                 stat.health_label === 'good' ? 'text-teal-400' :
                 stat.health_label === 'needs_attention' ? 'text-yellow-400' : 'text-red-400';
-              const healthBg = stat.health_label === 'excellent' ? 'bg-green-500' :
-                stat.health_label === 'good' ? 'bg-teal-500' :
-                stat.health_label === 'needs_attention' ? 'bg-yellow-500' : 'bg-red-500';
               const HealthIcon = stat.health_label === 'excellent' || stat.health_label === 'good'
                 ? CheckCircle : AlertCircle;
 
@@ -426,11 +423,14 @@ export default function BrandsPage() {
                 {/* Quota progress */}
                 {brand.monthly_video_quota > 0 && (
                   <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="text-zinc-400">Monthly Quota</span>
+                      <span className="text-zinc-100">{brand.videos_this_month} / {brand.monthly_video_quota}</span>
+                    </div>
                     <Progress
                       current={brand.videos_this_month}
                       total={brand.monthly_video_quota}
-                      label="Monthly Quota"
-                      sublabel={`${brand.videos_this_month} / ${brand.monthly_video_quota}`}
+                      showLabels={false}
                       intent={brand.videos_this_month >= brand.monthly_video_quota ? 'danger' : 'default'}
                     />
                   </div>

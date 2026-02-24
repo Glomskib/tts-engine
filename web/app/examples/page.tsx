@@ -37,14 +37,22 @@ export default function ExamplesPage() {
         {/* CTA */}
         <section className="py-16 text-center">
           <div className="bg-zinc-900/60 border border-white/10 rounded-2xl p-8 sm:p-12">
-            <h2 className="text-2xl font-bold mb-3">Generate scripts like these</h2>
+            <h2 className="text-2xl font-bold mb-3">Generate scripts like these — free</h2>
             <p className="text-zinc-400 mb-6 max-w-lg mx-auto">
               Pick your product, choose a persona, and get a unique script in seconds.
-              5 free scripts, no credit card required.
+              No signup required to try.
             </p>
-            <Link href="/login?mode=signup" className="inline-block px-8 py-3.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl transition-colors">
-              Try FlashFlow Free
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/script-generator" className="px-8 py-3.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl transition-colors">
+                Try Free Script Generator
+              </Link>
+              <Link href="/transcribe" className="px-8 py-3.5 border border-teal-500/50 text-teal-400 font-semibold rounded-xl hover:bg-teal-500/10 transition-colors">
+                TikTok Transcriber
+              </Link>
+              <Link href="/youtube-transcribe" className="px-8 py-3.5 border border-red-500/50 text-red-400 font-semibold rounded-xl hover:bg-red-500/10 transition-colors">
+                YouTube Transcriber
+              </Link>
+            </div>
           </div>
         </section>
       </div>

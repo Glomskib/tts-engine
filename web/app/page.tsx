@@ -596,7 +596,7 @@ export default function LandingPage() {
               credits="5 credits/month"
               features={[
                 '5 scripts per month',
-                '3 persona voices',
+                'Built-in personas',
                 '3 products',
                 'Free Transcriber',
               ]}
@@ -620,7 +620,7 @@ export default function LandingPage() {
                 'Built-in personas',
                 'Referral program',
               ]}
-              cta="Start Trial"
+              cta="Choose Lite"
               ctaLink="/login?mode=signup&plan=creator_lite"
               highlight={false}
             />
@@ -635,14 +635,14 @@ export default function LandingPage() {
               credits="Unlimited"
               features={[
                 'Unlimited scripts',
-                'All 20 personas',
+                'All 20+ personas',
                 'Full Winners Bank',
                 'Unlimited products',
                 'Content Calendar',
                 'Retainer tracking',
                 'Advanced analytics',
               ]}
-              cta="Start Trial"
+              cta="Choose Creator Pro"
               ctaLink="/login?mode=signup&plan=creator_pro"
               highlight={true}
               badge="Most Popular"
@@ -663,7 +663,7 @@ export default function LandingPage() {
                 'Team accounts (3 seats)',
                 'Priority support',
               ]}
-              cta="Start Trial"
+              cta="Choose Business"
               ctaLink="/login?mode=signup&plan=business"
               highlight={false}
             />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export function FreeScriptsForm() {
   const [name, setName] = useState('');
@@ -60,6 +61,24 @@ export function FreeScriptsForm() {
             Download Now
           </a>
         )}
+
+        <div className="mt-8 pt-6 border-t border-white/10">
+          <p className="text-sm text-zinc-400 mb-4">While you wait, try our free AI tools:</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/script-generator"
+              className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-zinc-200 text-sm font-medium rounded-lg transition-colors"
+            >
+              Generate a Script Free
+            </Link>
+            <Link
+              href="/transcribe"
+              className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-zinc-200 text-sm font-medium rounded-lg transition-colors"
+            >
+              TikTok Transcriber
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

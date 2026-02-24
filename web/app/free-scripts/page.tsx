@@ -102,6 +102,25 @@ export default function FreeScriptsPage() {
             <FreeScriptsForm />
           </div>
         </div>
+
+        {/* Cross-tool links */}
+        <div className="mt-16 pt-12 border-t border-white/5">
+          <h2 className="text-lg font-semibold text-zinc-200 mb-4 text-center">Also try our free AI tools</h2>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <Link href="/script-generator" className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 hover:border-teal-500/30 transition-colors group text-center">
+              <h3 className="text-sm font-semibold text-zinc-200 group-hover:text-teal-400 transition-colors">AI Script Generator</h3>
+              <p className="text-xs text-zinc-500 mt-1">Generate TikTok scripts instantly — free</p>
+            </Link>
+            <Link href="/transcribe" className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 hover:border-teal-500/30 transition-colors group text-center">
+              <h3 className="text-sm font-semibold text-zinc-200 group-hover:text-teal-400 transition-colors">TikTok Transcriber</h3>
+              <p className="text-xs text-zinc-500 mt-1">Analyze any TikTok video — free</p>
+            </Link>
+            <Link href="/youtube-transcribe" className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 hover:border-red-500/30 transition-colors group text-center">
+              <h3 className="text-sm font-semibold text-zinc-200 group-hover:text-red-400 transition-colors">YouTube Transcriber</h3>
+              <p className="text-xs text-zinc-500 mt-1">Transcribe YouTube videos — free</p>
+            </Link>
+          </div>
+        </div>
       </div>
     </PublicLayout>
   );

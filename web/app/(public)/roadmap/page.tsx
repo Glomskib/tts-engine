@@ -62,6 +62,22 @@ export default function RoadmapPage() {
         </Link>
       </div>
 
+      {/* Cross-tool links */}
+      <div className="mt-12 grid sm:grid-cols-3 gap-4">
+        <Link href="/script-generator" className="p-4 bg-zinc-900/50 border border-white/10 rounded-xl hover:border-teal-500/30 transition-colors group text-center">
+          <h3 className="text-sm font-semibold text-zinc-200 group-hover:text-teal-400 transition-colors">AI Script Generator</h3>
+          <p className="text-xs text-zinc-500 mt-1">Generate TikTok scripts — free</p>
+        </Link>
+        <Link href="/transcribe" className="p-4 bg-zinc-900/50 border border-white/10 rounded-xl hover:border-teal-500/30 transition-colors group text-center">
+          <h3 className="text-sm font-semibold text-zinc-200 group-hover:text-teal-400 transition-colors">TikTok Transcriber</h3>
+          <p className="text-xs text-zinc-500 mt-1">Analyze any TikTok video — free</p>
+        </Link>
+        <Link href="/youtube-transcribe" className="p-4 bg-zinc-900/50 border border-white/10 rounded-xl hover:border-red-500/30 transition-colors group text-center">
+          <h3 className="text-sm font-semibold text-zinc-200 group-hover:text-red-400 transition-colors">YouTube Transcriber</h3>
+          <p className="text-xs text-zinc-500 mt-1">Transcribe YouTube videos — free</p>
+        </Link>
+      </div>
+
       {/* JSON-LD */}
       <script
         type="application/ld+json"

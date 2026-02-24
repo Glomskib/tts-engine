@@ -8,13 +8,15 @@ function SignupRedirect() {
   const searchParams = useSearchParams();
   const plan = searchParams.get('plan');
   const ref = searchParams.get('ref');
+  const promo = searchParams.get('promo');
 
   useEffect(() => {
     const params = new URLSearchParams({ mode: 'signup' });
     if (plan) params.set('plan', plan);
     if (ref) params.set('ref', ref);
+    if (promo) params.set('promo', promo);
     router.replace(`/login?${params.toString()}`);
-  }, [router, plan, ref]);
+  }, [router, plan, ref, promo]);
 
   return (
     <div className="min-h-screen bg-[#09090b] flex items-center justify-center">

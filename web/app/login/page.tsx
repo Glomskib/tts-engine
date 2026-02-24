@@ -17,6 +17,13 @@ function LoginForm() {
 
   const planParam = searchParams.get('plan') || '';
 
+  const planNames: Record<string, string> = {
+    creator_lite: 'Lite',
+    creator_pro: 'Creator Pro',
+    business: 'Business',
+  };
+  const planLabel = planNames[planParam] || '';
+
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -182,12 +189,16 @@ function LoginForm() {
         {/* Form card */}
         <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-8">
           <h1 className="text-xl font-semibold text-zinc-100 text-center mb-2">
-            {mode === 'signin' ? 'Welcome back' : 'Start generating scripts'}
+            {mode === 'signin'
+              ? 'Welcome back'
+              : planLabel
+                ? `Get started with ${planLabel}`
+                : 'Start generating scripts'}
           </h1>
           <p className="text-zinc-400 text-center text-sm mb-1">
             {mode === 'signin'
-              ? 'Sign in to continue to your dashboard'
-              : 'AI-powered TikTok Shop scripts in seconds'}
+              ? 'Sign in to your FlashFlow dashboard'
+              : 'AI-powered TikTok scripts with 20+ persona voices'}
           </p>
           {mode === 'signup' && (
             <p className="text-center text-xs text-emerald-400/80 mb-6">
@@ -196,12 +207,12 @@ function LoginForm() {
           )}
           {mode === 'signin' && <div className="mb-6" />}
 
-          {/* Google Sign In */}
+          {/* Google Sign In — primary path */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={googleLoading}
-            className="w-full py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-medium rounded-lg transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 px-4 bg-white hover:bg-zinc-100 text-zinc-900 font-semibold rounded-lg transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             {googleLoading ? (
               <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -293,7 +304,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-white text-zinc-900 font-semibold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading && (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -347,6 +358,13 @@ function LoginForm() {
           {' '}and{' '}
           <Link href="/privacy" className="text-zinc-400 hover:text-white">Privacy Policy</Link>
         </p>
+
+        {mode === 'signup' && (
+          <p className="text-center text-xs text-zinc-600 mt-3">
+            Not ready to sign up?{' '}
+            <Link href="/script-generator" className="text-teal-400 hover:text-teal-300">Try the script generator free →</Link>
+          </p>
+        )}
       </div>
     </div>
   );

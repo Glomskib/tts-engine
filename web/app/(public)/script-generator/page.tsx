@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { PERSONAS } from '@/lib/personas';
-import { Copy, Check, Sparkles, ArrowRight, ChevronDown, Loader2 } from 'lucide-react';
+import { Copy, Check, Sparkles, ArrowRight, ChevronDown, Loader2, Bookmark, Zap } from 'lucide-react';
 
 // ============================================================================
 // SEO Metadata (exported from a separate metadata file since this is 'use client')
@@ -384,8 +384,29 @@ export default function ScriptGeneratorPage() {
         </button>
 
         {remaining !== null && remaining >= 0 && (
-          <p className="text-center text-xs text-zinc-600 mt-2">
-            {remaining} generation{remaining !== 1 ? 's' : ''} remaining today
+          <p className={`text-center text-xs mt-2 ${
+            remaining === 0 ? 'text-red-400' : remaining <= 1 ? 'text-amber-400' : 'text-zinc-500'
+          }`}>
+            {remaining === 0 ? (
+              <>
+                Daily limit reached.{' '}
+                <Link href="/signup" className="underline hover:text-amber-300 font-medium">
+                  Sign up free for 5 daily generations
+                </Link>
+              </>
+            ) : (
+              <>
+                {remaining} generation{remaining !== 1 ? 's' : ''} remaining today
+                {remaining <= 1 && (
+                  <>
+                    {' '}&mdash;{' '}
+                    <Link href="/signup" className="underline hover:text-amber-300 font-medium">
+                      Sign up for more
+                    </Link>
+                  </>
+                )}
+              </>
+            )}
           </p>
         )}
 
@@ -439,14 +460,23 @@ export default function ScriptGeneratorPage() {
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={copyScript}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/10 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
-              >
-                {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/signup"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-sm text-violet-400 hover:bg-violet-500/20 transition-colors"
+                >
+                  <Bookmark size={14} />
+                  Save
+                </Link>
+                <button
+                  type="button"
+                  onClick={copyScript}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/10 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+                >
+                  {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
             </div>
 
             {/* Script Card */}
@@ -518,32 +548,40 @@ export default function ScriptGeneratorPage() {
 
             {/* Conversion CTA */}
             <div className="p-6 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-teal-500/5">
-              <h3 className="text-base font-semibold text-zinc-200 mb-2">
-                Want more scripts like this?
-              </h3>
-              <p className="text-sm text-zinc-400 mb-4">
-                Unlock 20 persona presets, audience targeting, winner pattern analysis, AI video
-                rendering, and unlimited generations.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/signup"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-white text-zinc-900 font-medium text-sm hover:bg-zinc-100 transition-colors"
-                >
-                  Start Free Trial
-                  <ArrowRight size={14} />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResult(null);
-                    setScore(null);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
-                >
-                  Generate Another
-                </button>
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-violet-500/20 shrink-0">
+                  <Zap size={18} className="text-violet-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-zinc-200 mb-1">
+                    Like this script? There&apos;s way more inside.
+                  </h3>
+                  <p className="text-sm text-zinc-400 mb-4">
+                    Free accounts get <span className="text-zinc-200 font-medium">5 scripts/day</span>,{' '}
+                    <span className="text-zinc-200 font-medium">20 persona voices</span>, a script library to save your best work,
+                    and audience targeting. No credit card to start.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href="/signup"
+                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-white text-zinc-900 font-semibold text-sm hover:bg-zinc-100 transition-colors"
+                    >
+                      Create Free Account
+                      <ArrowRight size={14} />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResult(null);
+                        setScore(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
+                    >
+                      Generate Another
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -670,19 +708,27 @@ export default function ScriptGeneratorPage() {
           {/* Final CTA */}
           <div className="text-center py-8">
             <h3 className="text-2xl font-bold text-zinc-200 mb-3">
-              Ready to scale your content?
+              Stop writing scripts from scratch
             </h3>
             <p className="text-zinc-400 mb-6 max-w-lg mx-auto">
-              Get unlimited scripts, 20 personas, audience intelligence, AI video rendering, and
-              more. Start free — no credit card required.
+              FlashFlow creators generate 10x more content. Free plan includes 5 scripts/day,
+              20 persona voices, and a script library. No credit card required.
             </p>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-colors"
-            >
-              Start Free Trial
-              <ArrowRight size={18} />
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-colors"
+              >
+                Create Free Account
+                <ArrowRight size={18} />
+              </Link>
+              <Link
+                href="/pricing"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-white/10 text-zinc-300 font-medium text-base hover:bg-white/5 transition-colors"
+              >
+                View Pricing
+              </Link>
+            </div>
           </div>
         </section>
       </div>

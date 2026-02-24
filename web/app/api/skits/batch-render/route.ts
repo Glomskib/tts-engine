@@ -162,6 +162,7 @@ export async function POST(request: NextRequest) {
           script_draft: scriptLines.join('\n'),
           brief: { hook: skitData.hook_line, notes: `Batch render from skit: ${skit.title}` },
           priority: 'normal',
+          client_user_id: authContext.user.id,
         },
         correlationId,
         'batch-render'

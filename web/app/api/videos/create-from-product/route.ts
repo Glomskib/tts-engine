@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   }
 
   const params = body as CreateVideoParams;
+  params.client_user_id = authContext.user.id;
   const result = await createVideoFromProduct(params, correlationId);
 
   if (!result.ok) {

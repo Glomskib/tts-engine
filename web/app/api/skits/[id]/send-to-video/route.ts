@@ -166,6 +166,7 @@ export async function POST(
       },
       priority: input.priority,
       posting_account_id: input.posting_account_id,
+      client_user_id: authContext.user.id,
     };
 
     const videoResult = await createVideoFromProduct(videoParams, correlationId, "skit-to-video");

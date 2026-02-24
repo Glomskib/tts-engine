@@ -195,6 +195,8 @@ export interface CreateVideoParams {
   product_display_name?: string;
   /** Persuasive CTA script line for the script body */
   cta_script?: string;
+  /** Supabase auth user ID for data isolation */
+  client_user_id?: string;
 }
 
 export interface CreateVideoResult {
@@ -230,6 +232,7 @@ export async function createVideoFromProduct(
     target_account, // deprecated, kept for backwards compatibility
     product_display_name,
     cta_script,
+    client_user_id,
   } = params;
 
   // Validate product_id
@@ -386,6 +389,12 @@ export async function createVideoFromProduct(
       recording_status: recordingStatus,
       google_drive_url: "", // Will be set later
     };
+
+    // CRITICAL: Set client_user_id for data isolation (without this, the video
+    // won't appear in the pipeline queue which filters by client_user_id)
+    if (client_user_id) {
+      videoPayload.client_user_id = client_user_id;
+    }
 
     // Set script_not_required flag
     if (script_path === "not_required") {

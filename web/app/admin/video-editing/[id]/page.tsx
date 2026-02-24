@@ -51,12 +51,12 @@ interface Editor {
 }
 
 const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgColor: string }> = {
-  pending: { label: 'Pending', color: '#6b7280', bgColor: 'bg-zinc-700' },
-  assigned: { label: 'Assigned', color: '#3b82f6', bgColor: 'bg-teal-600' },
-  in_progress: { label: 'In Progress', color: '#f59e0b', bgColor: 'bg-amber-600' },
-  review: { label: 'In Review', color: '#8b5cf6', bgColor: 'bg-teal-600' },
-  revision: { label: 'Needs Revision', color: '#f97316', bgColor: 'bg-orange-600' },
-  completed: { label: 'Completed', color: '#10b981', bgColor: 'bg-green-600' },
+  pending: { label: 'Queued', color: '#a78bfa', bgColor: 'bg-violet-600' },
+  assigned: { label: 'Claimed', color: '#818cf8', bgColor: 'bg-indigo-600' },
+  in_progress: { label: 'Editing', color: '#60a5fa', bgColor: 'bg-blue-600' },
+  review: { label: 'Submitted', color: '#fb923c', bgColor: 'bg-orange-600' },
+  revision: { label: 'Changes Requested', color: '#f87171', bgColor: 'bg-red-600' },
+  completed: { label: 'Approved', color: '#4ade80', bgColor: 'bg-green-600' },
   cancelled: { label: 'Cancelled', color: '#ef4444', bgColor: 'bg-red-600' },
 };
 
@@ -230,8 +230,39 @@ export default function VideoRequestDetailPage() {
 
   if (loading || !request) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+      <div className="pb-24 lg:pb-6 max-w-5xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-10 h-10 bg-zinc-800 rounded-lg animate-pulse" />
+          <div className="flex-1">
+            <div className="h-6 w-48 bg-zinc-800 rounded animate-pulse" />
+            <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse mt-2" />
+          </div>
+          <div className="h-8 w-24 bg-zinc-800 rounded-full animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                <div className="h-4 w-24 bg-zinc-800 rounded animate-pulse mb-3" />
+                <div className="h-16 bg-zinc-800 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse mb-3" />
+              <div className="h-10 bg-zinc-800 rounded-lg animate-pulse" />
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse mb-3" />
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="h-5 bg-zinc-800 rounded animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -386,7 +417,7 @@ export default function VideoRequestDetailPage() {
               {request.status === 'pending' && (
                 <button type="button"
                   onClick={() => setShowAssignModal(true)}
-                  className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 flex items-center justify-center gap-2 font-medium"
                 >
                   <Users className="w-4 h-4" />
                   Assign Editor
@@ -397,7 +428,7 @@ export default function VideoRequestDetailPage() {
                 <button type="button"
                   onClick={() => handleStatusChange('in_progress')}
                   disabled={updating}
-                  className="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50 font-medium"
                 >
                   <Play className="w-4 h-4" />
                   Start Editing
@@ -407,7 +438,7 @@ export default function VideoRequestDetailPage() {
               {(request.status === 'in_progress' || request.status === 'revision') && (
                 <button type="button"
                   onClick={() => setShowDeliveryModal(true)}
-                  className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2 font-medium"
                 >
                   <Send className="w-4 h-4" />
                   Submit for Review
@@ -419,17 +450,17 @@ export default function VideoRequestDetailPage() {
                   <button type="button"
                     onClick={() => handleStatusChange('completed')}
                     disabled={updating}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-50 font-medium"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Approve & Complete
+                    Approve
                   </button>
                   <button type="button"
                     onClick={() => setShowRevisionModal(true)}
-                    className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 font-medium"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    Request Revision
+                    Request Changes
                   </button>
                 </>
               )}

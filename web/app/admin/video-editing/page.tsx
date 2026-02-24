@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import DeadlineWidget from './components/DeadlineWidget';
+import MetricsPanel from './components/MetricsPanel';
 
 type RequestStatus = 'pending' | 'assigned' | 'in_progress' | 'review' | 'revision' | 'completed' | 'cancelled';
 
@@ -39,17 +40,37 @@ interface Editor {
 }
 
 const STATUS_COLUMNS: { key: RequestStatus; label: string; color: string; bgColor: string }[] = [
-  { key: 'pending', label: 'Pending', color: '#6b7280', bgColor: 'bg-zinc-800' },
-  { key: 'assigned', label: 'Assigned', color: '#3b82f6', bgColor: 'bg-teal-900/30' },
-  { key: 'in_progress', label: 'In Progress', color: '#f59e0b', bgColor: 'bg-amber-900/30' },
-  { key: 'review', label: 'Review', color: '#8b5cf6', bgColor: 'bg-purple-900/30' },
-  { key: 'completed', label: 'Completed', color: '#10b981', bgColor: 'bg-green-900/30' },
+  { key: 'pending', label: 'Queued', color: '#a78bfa', bgColor: 'bg-violet-900/20' },
+  { key: 'assigned', label: 'Claimed', color: '#818cf8', bgColor: 'bg-indigo-900/20' },
+  { key: 'in_progress', label: 'Editing', color: '#60a5fa', bgColor: 'bg-blue-900/20' },
+  { key: 'review', label: 'Submitted', color: '#fb923c', bgColor: 'bg-orange-900/20' },
+  { key: 'completed', label: 'Approved', color: '#4ade80', bgColor: 'bg-green-900/20' },
 ];
 
 const PRIORITY_LABELS: Record<number, { label: string; color: string }> = {
-  0: { label: 'Normal', color: 'text-zinc-400' },
+  0: { label: 'Normal', color: 'text-zinc-500' },
   1: { label: 'High', color: 'text-amber-400' },
   2: { label: 'Urgent', color: 'text-red-400' },
+};
+
+const STATUS_PILL_COLORS: Record<RequestStatus, string> = {
+  pending: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+  assigned: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+  in_progress: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  review: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  revision: 'bg-red-500/15 text-red-400 border-red-500/30',
+  completed: 'bg-green-500/15 text-green-400 border-green-500/30',
+  cancelled: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',
+};
+
+const STATUS_LABELS: Record<RequestStatus, string> = {
+  pending: 'Queued',
+  assigned: 'Claimed',
+  in_progress: 'Editing',
+  review: 'Submitted',
+  revision: 'Changes Req.',
+  completed: 'Approved',
+  cancelled: 'Cancelled',
 };
 
 export default function VideoEditingPipelinePage() {
@@ -251,8 +272,42 @@ export default function VideoEditingPipelinePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+      <div className="pb-24 lg:pb-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="h-7 w-56 bg-zinc-800 rounded animate-pulse" />
+            <div className="h-4 w-72 bg-zinc-800 rounded animate-pulse mt-2" />
+          </div>
+          <div className="flex gap-3">
+            <div className="h-10 w-24 bg-zinc-800 rounded-lg animate-pulse" />
+            <div className="h-10 w-24 bg-zinc-800 rounded-lg animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3">
+              <div className="h-3 w-16 bg-zinc-800 rounded animate-pulse" />
+              <div className="h-8 w-10 bg-zinc-800 rounded animate-pulse mt-2" />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="flex-shrink-0 w-72 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              <div className="p-3 border-b border-zinc-800">
+                <div className="h-5 w-24 bg-zinc-800 rounded animate-pulse" />
+              </div>
+              <div className="p-2 space-y-2">
+                {[1, 2].map(j => (
+                  <div key={j} className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                    <div className="h-4 w-32 bg-zinc-700 rounded animate-pulse mb-2" />
+                    <div className="h-3 w-24 bg-zinc-700 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -425,6 +480,11 @@ export default function VideoEditingPipelinePage() {
         })}
       </div>
 
+      {/* Metrics Panel */}
+      <div className="mt-6">
+        <MetricsPanel />
+      </div>
+
       {/* Deadline Widget - Hidden on mobile */}
       <div className="hidden lg:block mt-6">
         <DeadlineWidget requests={filteredRequests} />
@@ -513,60 +573,72 @@ function RequestCard({
 }) {
   const priority = PRIORITY_LABELS[request.priority] || PRIORITY_LABELS[0];
 
+  const statusPill = STATUS_PILL_COLORS[request.status];
+  const statusLabel = STATUS_LABELS[request.status];
+
   return (
     <div
-      className={`bg-zinc-800 border rounded-lg p-3 hover:border-zinc-600 transition-colors ${
+      className={`bg-zinc-800 border rounded-lg p-4 hover:border-zinc-600 transition-colors ${
         isOverdue ? 'border-red-500/50' : 'border-zinc-700'
       }`}
     >
-      {/* Title & Priority */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <Link
-          href={`/admin/video-editing/${request.id}`}
-          className="text-sm font-medium text-white hover:text-teal-400 line-clamp-2"
-        >
-          {request.title}
-        </Link>
+      {/* Status pill + Priority */}
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${statusPill}`}>
+          {statusLabel}
+        </span>
         {request.priority > 0 && (
-          <span className={`text-xs font-medium ${priority.color} shrink-0`}>
+          <span className={`text-[11px] font-medium ${priority.color}`}>
             {priority.label}
+          </span>
+        )}
+        {request.status === 'revision' && (
+          <span className="flex items-center gap-1 text-[11px] text-red-400">
+            <RotateCcw className="w-3 h-3" />
+            #{request.revision_count}
           </span>
         )}
       </div>
 
-      {/* Client */}
-      <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-2">
-        <User className="w-3 h-3" />
-        <span className="truncate">{request.user_email || 'Unknown'}</span>
+      {/* Title */}
+      <Link
+        href={`/admin/video-editing/${request.id}`}
+        className="block text-sm font-medium text-white hover:text-teal-400 line-clamp-2 mb-2.5"
+      >
+        {request.title}
+      </Link>
+
+      {/* Meta rows */}
+      <div className="space-y-1.5 mb-3">
+        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+          <User className="w-3 h-3 shrink-0" />
+          <span className="truncate">{request.user_email || 'Unknown'}</span>
+        </div>
+
+        {/* SLA timer */}
+        {deadlineText && (
+          <div className={`flex items-center gap-1.5 text-xs ${isOverdue ? 'text-red-400 font-medium' : 'text-zinc-500'}`}>
+            {isOverdue ? <AlertTriangle className="w-3 h-3 shrink-0" /> : <Calendar className="w-3 h-3 shrink-0" />}
+            <span>{deadlineText}</span>
+          </div>
+        )}
+
+        {/* Editor assignment */}
+        {request.editor_email ? (
+          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+            <Users className="w-3 h-3 shrink-0" />
+            <span className="truncate">{request.editor_email}</span>
+          </div>
+        ) : request.status !== 'pending' && (
+          <div className="flex items-center gap-1.5 text-xs text-zinc-600">
+            <Users className="w-3 h-3 shrink-0" />
+            <span>Unassigned</span>
+          </div>
+        )}
       </div>
 
-      {/* Revision badge */}
-      {request.status === 'revision' && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-400 mb-2">
-          <RotateCcw className="w-3 h-3" />
-          <span>Revision #{request.revision_count}</span>
-        </div>
-      )}
-
-      {/* Deadline */}
-      {deadlineText && (
-        <div className={`flex items-center gap-1.5 text-xs mb-2 ${isOverdue ? 'text-red-400' : 'text-zinc-500'}`}>
-          {isOverdue ? <AlertTriangle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
-          <span>{deadlineText}</span>
-        </div>
-      )}
-
-      {/* Editor */}
-      {request.editor_email && (
-        <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-2">
-          <Users className="w-3 h-3" />
-          <span className="truncate">{request.editor_email}</span>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-zinc-700">
-        {/* Quick Links */}
+      {/* Actions — right-aligned */}
+      <div className="flex items-center gap-2 pt-2.5 border-t border-zinc-700">
         <a
           href={request.source_drive_link}
           target="_blank"
@@ -591,11 +663,10 @@ function RequestCard({
 
         <div className="flex-1" />
 
-        {/* Status Actions */}
         {request.status === 'pending' && (
           <button type="button"
             onClick={onAssign}
-            className="px-2 py-1 text-xs bg-teal-600 text-white rounded hover:bg-teal-700"
+            className="px-2.5 py-1 text-xs bg-violet-600 text-white rounded hover:bg-violet-700 font-medium"
           >
             Assign
           </button>
@@ -604,7 +675,7 @@ function RequestCard({
         {request.status === 'assigned' && (
           <button type="button"
             onClick={() => onStatusChange(request.id, 'in_progress')}
-            className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 flex items-center gap-1"
+            className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1 font-medium"
           >
             <Play className="w-3 h-3" />
             Start
@@ -614,7 +685,7 @@ function RequestCard({
         {(request.status === 'in_progress' || request.status === 'revision') && (
           <button type="button"
             onClick={() => onStatusChange(request.id, 'review')}
-            className="px-2 py-1 text-xs bg-teal-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
+            className="px-2.5 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center gap-1 font-medium"
           >
             <Eye className="w-3 h-3" />
             Submit
@@ -624,10 +695,10 @@ function RequestCard({
         {request.status === 'review' && (
           <button type="button"
             onClick={() => onStatusChange(request.id, 'completed')}
-            className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-1"
+            className="px-2.5 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-1 font-medium"
           >
             <CheckCircle2 className="w-3 h-3" />
-            Complete
+            Approve
           </button>
         )}
 

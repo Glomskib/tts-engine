@@ -28,13 +28,13 @@ interface Stats {
 }
 
 const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgColor: string; icon: typeof Clock }> = {
-  pending: { label: 'Pending', color: 'text-zinc-600', bgColor: 'bg-zinc-100', icon: Clock },
-  assigned: { label: 'Assigned', color: 'text-teal-600', bgColor: 'bg-teal-100', icon: Clock },
-  in_progress: { label: 'In Progress', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: Clock },
-  review: { label: 'Ready for Review', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: Eye },
-  revision: { label: 'Revision', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: Clock },
-  completed: { label: 'Completed', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle2 },
-  cancelled: { label: 'Cancelled', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertCircle },
+  pending: { label: 'Queued', color: 'text-violet-600', bgColor: 'bg-violet-100', icon: Clock },
+  assigned: { label: 'Editor Assigned', color: 'text-indigo-600', bgColor: 'bg-indigo-100', icon: Clock },
+  in_progress: { label: 'Editing', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Clock },
+  review: { label: 'Ready for Review', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: Eye },
+  revision: { label: 'Changes Requested', color: 'text-red-600', bgColor: 'bg-red-100', icon: Clock },
+  completed: { label: 'Approved', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle2 },
+  cancelled: { label: 'Cancelled', color: 'text-slate-500', bgColor: 'bg-slate-100', icon: AlertCircle },
 };
 
 export default function ClientMyVideosPage() {
@@ -76,8 +76,37 @@ export default function ClientMyVideosPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <div className="h-7 w-32 bg-slate-200 rounded animate-pulse" />
+              <div className="h-4 w-56 bg-slate-200 rounded animate-pulse mt-2" />
+            </div>
+            <div className="h-10 w-28 bg-slate-200 rounded-lg animate-pulse" />
+          </div>
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-4">
+                <div className="h-8 w-8 bg-slate-200 rounded animate-pulse mx-auto" />
+                <div className="h-3 w-12 bg-slate-200 rounded animate-pulse mx-auto mt-2" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-200 animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-48 bg-slate-200 rounded animate-pulse" />
+                    <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -101,17 +130,17 @@ export default function ClientMyVideosPage() {
 
         {/* Review Alert */}
         {needsReviewCount > 0 && (
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6 flex items-center gap-3">
-            <Eye className="w-5 h-5 text-purple-600" />
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+            <Eye className="w-5 h-5 text-orange-600" />
             <div className="flex-1">
-              <p className="font-medium text-purple-900">
+              <p className="font-medium text-orange-900">
                 {needsReviewCount} video{needsReviewCount !== 1 ? 's' : ''} ready for review
               </p>
-              <p className="text-sm text-purple-700">Please review and approve your edited videos</p>
+              <p className="text-sm text-orange-700">Please review and approve your edited videos</p>
             </div>
             <button type="button"
               onClick={() => setFilter('review')}
-              className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-purple-700"
+              className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"
             >
               View
             </button>
@@ -126,16 +155,16 @@ export default function ClientMyVideosPage() {
               <p className="text-sm text-slate-500">Total</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-              <p className="text-2xl font-bold text-amber-600">{stats.in_progress}</p>
-              <p className="text-sm text-slate-500">In Progress</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.in_progress}</p>
+              <p className="text-sm text-slate-500">Editing</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-              <p className="text-2xl font-bold text-purple-600">{stats.review}</p>
-              <p className="text-sm text-slate-500">Ready for Review</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.review}</p>
+              <p className="text-sm text-slate-500">Needs Review</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
               <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-              <p className="text-sm text-slate-500">Completed</p>
+              <p className="text-sm text-slate-500">Approved</p>
             </div>
           </div>
         )}
@@ -184,29 +213,52 @@ export default function ClientMyVideosPage() {
                 <Link
                   key={request.id}
                   href={`/client/my-videos/${request.id}`}
-                  className={`block bg-white rounded-xl border p-4 hover:shadow-md transition-all ${
+                  className={`block bg-white rounded-xl border p-5 hover:shadow-md transition-all ${
                     request.status === 'review'
-                      ? 'border-purple-300 bg-purple-50/50'
+                      ? 'border-orange-300 bg-orange-50/30'
                       : 'border-slate-200'
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${statusConfig.bgColor}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${statusConfig.bgColor}`}>
                       <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-slate-900 truncate">{request.title}</h3>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
-                        <span className={statusConfig.color}>{statusConfig.label}</span>
-                        {request.due_date && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Due {new Date(request.due_date).toLocaleDateString()}
-                          </span>
-                        )}
+                      <div className="flex items-center gap-3 mt-1.5 text-sm">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
+                          {statusConfig.label}
+                        </span>
+                        {request.due_date && (() => {
+                          const due = new Date(request.due_date);
+                          const now = new Date();
+                          const diff = due.getTime() - now.getTime();
+                          const hours = Math.round(diff / (1000 * 60 * 60));
+                          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                          const isOverdue = diff < 0 && !['completed', 'cancelled'].includes(request.status);
+                          const isDueSoon = hours >= 0 && hours < 24 && !['completed', 'cancelled'].includes(request.status);
+
+                          return (
+                            <span className={`flex items-center gap-1 text-xs ${
+                              isOverdue ? 'text-red-600 font-medium' : isDueSoon ? 'text-amber-600 font-medium' : 'text-slate-500'
+                            }`}>
+                              <Calendar className="w-3 h-3" />
+                              {isOverdue
+                                ? `${Math.abs(days)}d overdue`
+                                : isDueSoon
+                                  ? `Due in ${hours}h`
+                                  : days === 0
+                                    ? 'Due today'
+                                    : days === 1
+                                      ? 'Due tomorrow'
+                                      : `Due in ${days}d`
+                              }
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
+                    <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
                   </div>
                 </Link>
               );

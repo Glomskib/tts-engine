@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Free TikTok Script Generator | AI-Powered',
   description:
-    'Generate scroll-stopping TikTok scripts in seconds. Choose from 20 creator personas, set your tone, and get a ready-to-film script with hooks, dialogue, and CTAs. Free — no sign up required.',
+    'Generate scroll-stopping TikTok scripts in seconds. Choose from 20+ creator personas, set your tone, and get a ready-to-film script with hooks, dialogue, and CTAs. Free — no sign up required.',
   keywords: [
     'tiktok script generator',
     'ai script writer',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Free TikTok Script Generator | FlashFlow AI',
     description:
-      'Generate viral TikTok scripts in seconds. 20 persona presets, TikTok Shop compliant.',
+      'Generate viral TikTok scripts in seconds. 20+ persona presets, TikTok Shop compliant.',
   },
   alternates: {
     canonical: 'https://flashflowai.com/script-generator',

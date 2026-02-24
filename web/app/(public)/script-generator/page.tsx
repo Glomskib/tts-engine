@@ -322,7 +322,7 @@ export default function ScriptGeneratorPage() {
             <p className="text-xs text-zinc-600 mt-2">
               Optional — skip to use a generic narrator voice.{' '}
               <Link href="/signup" className="text-violet-400 hover:text-violet-300">
-                Sign up for 20 personas
+                Sign up free for all 20+ personas
               </Link>
             </p>
           </div>
@@ -558,8 +558,8 @@ export default function ScriptGeneratorPage() {
                   </h3>
                   <p className="text-sm text-zinc-400 mb-4">
                     Free accounts get <span className="text-zinc-200 font-medium">5 scripts/day</span>,{' '}
-                    <span className="text-zinc-200 font-medium">20 persona voices</span>, a script library to save your best work,
-                    and audience targeting. No credit card to start.
+                    <span className="text-zinc-200 font-medium">all 20+ persona voices</span>, a script library to save your best work,
+                    and a TikTok transcriber to study viral content. No credit card required.
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <Link
@@ -653,7 +653,7 @@ export default function ScriptGeneratorPage() {
                   desc: 'Every script avoids prohibited claims. No health promises, no fake urgency. Safe for monetized content.',
                 },
                 {
-                  title: '20 creator personas',
+                  title: '20+ creator personas',
                   desc: 'From Gen-Z trendsetter to trusted expert advisor. Each persona writes with a distinct voice and style.',
                 },
                 {
@@ -712,7 +712,7 @@ export default function ScriptGeneratorPage() {
             </h3>
             <p className="text-zinc-400 mb-6 max-w-lg mx-auto">
               FlashFlow creators generate 10x more content. Free plan includes 5 scripts/day,
-              20 persona voices, and a script library. No credit card required.
+              20+ persona voices, and a script library. No credit card required.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -729,6 +729,13 @@ export default function ScriptGeneratorPage() {
                 View Pricing
               </Link>
             </div>
+            <p className="text-xs text-zinc-600 mt-4">
+              Also try our{' '}
+              <Link href="/transcribe" className="text-teal-400 hover:text-teal-300">Free TikTok Transcriber</Link>
+              {' '}and{' '}
+              <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300">YouTube Transcriber</Link>
+              {' '}&mdash; no signup needed.
+            </p>
           </div>
         </section>
       </div>

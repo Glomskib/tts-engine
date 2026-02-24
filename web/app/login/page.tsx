@@ -15,6 +15,8 @@ function LoginForm() {
   const refCode = searchParams.get('ref') || '';
   const promoCodeParam = searchParams.get('promo') || '';
 
+  const planParam = searchParams.get('plan') || '';
+
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -180,13 +182,19 @@ function LoginForm() {
         {/* Form card */}
         <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-8">
           <h1 className="text-xl font-semibold text-zinc-100 text-center mb-2">
-            {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+            {mode === 'signin' ? 'Welcome back' : 'Start generating scripts'}
           </h1>
-          <p className="text-zinc-400 text-center text-sm mb-6">
+          <p className="text-zinc-400 text-center text-sm mb-1">
             {mode === 'signin'
               ? 'Sign in to continue to your dashboard'
-              : 'Start creating with AI-powered scripts'}
+              : 'AI-powered TikTok Shop scripts in seconds'}
           </p>
+          {mode === 'signup' && (
+            <p className="text-center text-xs text-emerald-400/80 mb-6">
+              Free forever plan &bull; No credit card required
+            </p>
+          )}
+          {mode === 'signin' && <div className="mb-6" />}
 
           {/* Google Sign In */}
           <button
@@ -295,7 +303,7 @@ function LoginForm() {
               )}
               {loading
                 ? (mode === 'signin' ? 'Signing in...' : 'Creating account...')
-                : (mode === 'signin' ? 'Sign In' : 'Create Account')}
+                : (mode === 'signin' ? 'Sign In' : 'Create Free Account')}
             </button>
           </form>
 
@@ -313,6 +321,23 @@ function LoginForm() {
               </span>
             </button>
           </div>
+
+          {mode === 'signup' && (
+            <div className="mt-6 pt-5 border-t border-white/5 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-sm font-semibold text-zinc-200">20+</div>
+                <div className="text-[10px] text-zinc-500">Persona voices</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-zinc-200">30s</div>
+                <div className="text-[10px] text-zinc-500">Avg script time</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-zinc-200">Free</div>
+                <div className="text-[10px] text-zinc-500">To get started</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

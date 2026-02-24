@@ -1500,20 +1500,42 @@ export default function SkitLibraryPage() {
           `}</style>
         </div>
       ) : activeTab === 'scripts' && skits.length === 0 ? (
-        <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
-          <div style={{ fontSize: "32px", marginBottom: "16px" }}>📝</div>
-          <h3 style={{ fontSize: "18px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
-            {totalCount === 0 ? "No scripts yet" : "No matches found"}
-          </h3>
-          <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "16px" }}>
-            {totalCount === 0 ? "Generate your first script to see it here." : "Try adjusting your search or filters."}
-          </p>
-          {totalCount === 0 && (
-            <Link href="/admin/skit-generator" style={primaryButtonStyle}>
-              Create Your First Script
-            </Link>
-          )}
-        </div>
+        totalCount === 0 ? (
+          <div style={{ ...cardStyle, padding: "48px 24px", textAlign: "center" }}>
+            <div style={{ fontSize: "32px", marginBottom: "12px" }}>📝</div>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: colors.text, marginBottom: "8px" }}>
+              Your Script Library
+            </h3>
+            <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "24px", maxWidth: "380px", margin: "0 auto 24px" }}>
+              Every script you generate or save lands here. Rate them, track which ones get filmed, and reuse your best performers.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+              <Link href="/admin/content-studio" style={primaryButtonStyle}>
+                Generate a Script
+              </Link>
+              <Link
+                href="/admin/transcribe"
+                style={{
+                  ...primaryButtonStyle,
+                  backgroundColor: "transparent",
+                  border: `1px solid ${colors.border}`,
+                  color: colors.text,
+                }}
+              >
+                Transcribe a Winner
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
+              No matches found
+            </h3>
+            <p style={{ fontSize: "14px", color: colors.textMuted }}>
+              Try adjusting your search or filters.
+            </p>
+          </div>
+        )
       ) : activeTab === 'scripts' ? (
         <div>
           {skits.map((skit) => (
@@ -2044,13 +2066,13 @@ export default function SkitLibraryPage() {
               <div style={{ fontSize: "14px", color: colors.textMuted }}>Loading saved hooks...</div>
             </div>
           ) : hooks.length === 0 ? (
-            <div style={{ ...cardStyle, padding: "48px", textAlign: "center" }}>
-              <div style={{ fontSize: "32px", marginBottom: "16px" }}>🪝</div>
-              <h3 style={{ fontSize: "18px", fontWeight: 500, color: colors.text, marginBottom: "8px" }}>
+            <div style={{ ...cardStyle, padding: "48px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: "32px", marginBottom: "12px" }}>🪝</div>
+              <h3 style={{ fontSize: "18px", fontWeight: 600, color: colors.text, marginBottom: "8px" }}>
                 No saved hooks yet
               </h3>
-              <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "16px" }}>
-                Save your best hooks from Content Studio to reuse them later.
+              <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "24px", maxWidth: "380px", margin: "0 auto 24px" }}>
+                When you generate scripts in Content Studio, save the best hooks here. Build a swipe file of scroll-stopping openers you can reuse anytime.
               </p>
               <Link href="/admin/content-studio" style={primaryButtonStyle}>
                 Go to Content Studio

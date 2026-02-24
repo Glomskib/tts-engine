@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trophy, Wand2, Upload, Download } from "lucide-react";
+import { Trophy, Wand2, Upload, Download, Sparkles, FileText, TrendingUp } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -159,6 +159,7 @@ export default function WinnersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   // Submit form
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const [submitUrl, setSubmitUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -625,6 +626,7 @@ export default function WinnersPage() {
         <div style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "8px", padding: "16px", marginBottom: "20px" }}>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             <input
+              ref={urlInputRef}
               type="url"
               value={submitUrl}
               onChange={(e) => setSubmitUrl(e.target.value)}
@@ -725,14 +727,64 @@ export default function WinnersPage() {
             </div>
           </>
         ) : filteredWinners.length === 0 ? (
-          <EmptyState
-            icon={Trophy}
-            title={winners.length === 0 ? "No winners yet" : "No matching winners"}
-            description={winners.length === 0
-              ? "Add your first TikTok URL above to start building your winners bank."
-              : "Try adjusting your filters to find what you're looking for."
-            }
-          />
+          winners.length === 0 ? (
+            /* Rich first-visit empty state */
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+                <Trophy className="w-8 h-8 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Build Your Winners Bank</h3>
+              <p className="text-sm text-zinc-400 max-w-md mb-8">
+                Save TikToks that are crushing it. FlashFlow AI analyzes the hook, pacing, and emotional triggers so you can replicate what works.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg w-full mb-8">
+                <div className="flex flex-col items-center gap-2 p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+                    <Upload className="w-4 h-4 text-teal-400" />
+                  </div>
+                  <span className="text-xs text-zinc-300 font-medium">Paste a URL</span>
+                  <span className="text-[11px] text-zinc-500">Any TikTok link</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <span className="text-xs text-zinc-300 font-medium">AI Analyzes</span>
+                  <span className="text-[11px] text-zinc-500">Hook, pacing, tone</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-xs text-zinc-300 font-medium">Learn Patterns</span>
+                  <span className="text-[11px] text-zinc-500">Replicate winners</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  urlInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  setTimeout(() => urlInputRef.current?.focus(), 300);
+                }}
+                className="h-11 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 active:bg-teal-800 transition-colors"
+              >
+                Add Your First Winner
+              </button>
+
+              <p className="text-xs text-zinc-500 mt-4">
+                Or use the <Link href="/admin/transcribe" className="text-teal-400 hover:text-teal-300">Transcriber</Link> to find winners from any TikTok
+              </p>
+            </div>
+          ) : (
+            /* Filtered results empty */
+            <EmptyState
+              icon={Trophy}
+              title="No matching winners"
+              description="Try adjusting your filters to find what you're looking for."
+            />
+          )
         ) : (
           <>
             {/* Mobile Card View */}

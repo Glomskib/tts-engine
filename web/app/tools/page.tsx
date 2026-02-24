@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Tools | FlashFlow AI - Free & Paid Tools',
+  title: 'Free TikTok Tools | FlashFlow AI - Transcriber, Script Generator & More',
   description:
-    'Explore FlashFlow tools: Free TikTok transcriber, AI script generator, avatar video creation, and Winners Bank. Start free.',
+    'Free TikTok transcriber, AI script generator with 20+ personas, avatar video creation, and Winners Bank. No signup required for free tools.',
   openGraph: {
-    title: 'Tools | FlashFlow AI',
-    description: 'Complete toolkit for TikTok content creation.',
+    title: 'Free TikTok Tools | FlashFlow AI',
+    description: 'Free transcriber, AI script generator, and full TikTok content toolkit. Start free, no signup required.',
     type: 'website',
     images: [{ url: '/FFAI.png', width: 512, height: 512 }],
   },
@@ -49,19 +49,19 @@ export default function ToolsPage() {
     },
     {
       name: 'AI Script Generator',
-      description: 'Input a product. Get 5–10 script variations in different personas. Choose the winner. Download or feed into avatar video creation.',
+      description: 'Type any product name, pick a persona, and get a full TikTok script in seconds. 20+ voice styles from Skeptic to Hype Man.',
       features: [
-        '6 unique personas',
-        'Multiple variations per product',
-        'Hook optimization',
-        'CTA customization',
-        'Export as text or markdown',
-        'Use with avatar videos',
+        'No signup required to try',
+        '20+ persona voices',
+        'Hook optimization built in',
+        'Multiple content styles',
+        'Copy or save scripts',
+        'Upgrade for 5+ daily scripts',
       ],
-      cta: 'Start Free Trial',
-      href: '/signup',
-      free: false,
-      icon: '🎬',
+      cta: 'Try Free Now',
+      href: '/script-generator',
+      free: true,
+      icon: '✍️',
     },
     {
       name: 'AI Avatar Video Creator',
@@ -133,23 +133,29 @@ export default function ToolsPage() {
     <div className="min-h-screen bg-[#09090b] text-white">
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-5xl font-bold mb-6">All Tools in One Place</h1>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-sm mb-6">
+          3 free tools — no signup required
+        </div>
+        <h1 className="text-5xl font-bold mb-6">TikTok Content Toolkit</h1>
         <p className="text-xl text-gray-300 mb-8">
-          Free tools and premium features. Start free, upgrade when you're ready.
+          Transcribe viral TikToks, generate scripts with AI, and create videos. Start with our free tools — upgrade when you need more.
         </p>
       </div>
 
       {/* Tools Grid */}
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="space-y-6">
-          {tools.map((tool, idx) => (
+          {/* Free tools label */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-teal-500/20" />
+            <span className="text-sm font-semibold text-teal-400 uppercase tracking-wider">Free Tools</span>
+            <div className="h-px flex-1 bg-teal-500/20" />
+          </div>
+
+          {tools.filter(t => t.free).map((tool, idx) => (
             <div
               key={idx}
-              className={`rounded-xl p-8 border transition-all ${
-                tool.free
-                  ? 'border-teal-500 bg-teal-500/5'
-                  : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
-              }`}
+              className="rounded-xl p-8 border transition-all border-teal-500 bg-teal-500/5"
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -157,11 +163,9 @@ export default function ToolsPage() {
                   <h3 className="text-2xl font-bold mb-2">{tool.name}</h3>
                   <p className="text-gray-300 mb-4 max-w-2xl">{tool.description}</p>
                 </div>
-                {tool.free && (
-                  <div className="px-3 py-1 bg-teal-500 text-white text-sm rounded-full font-semibold whitespace-nowrap">
-                    Free
-                  </div>
-                )}
+                <div className="px-3 py-1 bg-teal-500 text-white text-sm rounded-full font-semibold whitespace-nowrap">
+                  Free
+                </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
@@ -175,11 +179,45 @@ export default function ToolsPage() {
 
               <Link
                 href={tool.href}
-                className={`inline-block px-6 py-3 rounded-lg font-semibold transition ${
-                  tool.free
-                    ? 'bg-teal-500 text-white hover:bg-teal-600'
-                    : 'bg-gray-700 text-white hover:bg-gray-600'
-                }`}
+                className="inline-block px-6 py-3 rounded-lg font-semibold transition bg-teal-500 text-white hover:bg-teal-600"
+              >
+                {tool.cta}
+              </Link>
+            </div>
+          ))}
+
+          {/* Premium tools label */}
+          <div className="flex items-center gap-3 pt-4">
+            <div className="h-px flex-1 bg-gray-700" />
+            <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Premium Tools</span>
+            <div className="h-px flex-1 bg-gray-700" />
+          </div>
+
+          {tools.filter(t => !t.free).map((tool, idx) => (
+            <div
+              key={idx}
+              className="rounded-xl p-8 border transition-all border-gray-700 bg-gray-800/30 hover:border-gray-600"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="text-4xl mb-3">{tool.icon}</div>
+                  <h3 className="text-2xl font-bold mb-2">{tool.name}</h3>
+                  <p className="text-gray-300 mb-4 max-w-2xl">{tool.description}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                {tool.features.map((feature, fidx) => (
+                  <div key={fidx} className="flex items-start">
+                    <span className="text-teal-500 mr-2 mt-1">✓</span>
+                    <span className="text-sm text-gray-300">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                href={tool.href}
+                className="inline-block px-6 py-3 rounded-lg font-semibold transition bg-gray-700 text-white hover:bg-gray-600"
               >
                 {tool.cta}
               </Link>
@@ -284,14 +322,20 @@ export default function ToolsPage() {
 
       {/* CTA */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center border-t border-gray-700">
-        <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-        <p className="text-gray-300 mb-8">Try our free TikTok transcriber right now. No signup required.</p>
+        <h2 className="text-3xl font-bold mb-4">Start creating in 30 seconds</h2>
+        <p className="text-gray-300 mb-8">No signup, no credit card. Pick a free tool and see results instantly.</p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link
-            href="/transcribe"
+            href="/script-generator"
             className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
           >
-            Try Free Tool
+            Generate a Script
+          </Link>
+          <Link
+            href="/transcribe"
+            className="px-6 py-3 border border-gray-600 text-white rounded-lg font-semibold hover:bg-gray-800 transition"
+          >
+            Transcribe a TikTok
           </Link>
           <Link
             href="/pricing"

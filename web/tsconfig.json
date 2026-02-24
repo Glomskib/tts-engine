@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "../skills", "scripts/discord-bot"]
+  "exclude": ["node_modules", "../skills", "scripts/discord-bot", "scripts/tiktok-studio", "scripts/publish"]
 }

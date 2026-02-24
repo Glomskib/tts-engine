@@ -88,7 +88,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@types/node": "^20",
+    "@types/node": "^20.19.33",
     "@types/papaparse": "^5.5.2",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",

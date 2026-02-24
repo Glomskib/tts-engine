@@ -21,6 +21,7 @@ export async function middleware(request: NextRequest) {
   const skipSession =
     path.startsWith('/api/cron/') ||
     path.startsWith('/api/webhooks/') ||
+    path.startsWith('/api/internal/') ||
     path === '/pricing' ||
     path === '/features' ||
     path === '/about' ||

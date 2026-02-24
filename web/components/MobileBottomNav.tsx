@@ -28,7 +28,7 @@ const AVAILABLE_NAV_ITEMS = [
   { id: 'brands', href: '/admin/brands', icon: Package, label: 'Brands' },
 ];
 
-const DEFAULT_MIDDLE_SLOTS = ['pipeline', 'script-library', 'analytics'];
+const DEFAULT_MIDDLE_SLOTS = ['pipeline', 'script-library', 'transcribe'];
 
 interface MobileBottomNavProps {
   onMoreClick: () => void;

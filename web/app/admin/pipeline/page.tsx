@@ -10,7 +10,7 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
 import { FilterSheet } from '@/components/FilterSheet';
-import { Filter, Film, Download, LayoutGrid, List } from 'lucide-react';
+import { Filter, Film, Download, LayoutGrid, List, Sparkles, FileText, Video } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import UpsellBanner from '@/components/UpsellBanner';
@@ -2471,18 +2471,41 @@ export default function AdminPipelinePage() {
         {queueLoading && queueVideos.length === 0 ? (
           <SkeletonVideoList count={5} />
         ) : getIntentFilteredVideos().length === 0 ? (
-          <EmptyState
-            icon={Film}
-            title="No videos in queue"
-            description={activeRecordingTab !== 'ALL'
-              ? `No videos with status "${activeRecordingTab.replace(/_/g, ' ').toLowerCase()}". Try changing your filter.`
-              : "Videos will appear here as they enter the workflow."
-            }
-            action={{
-              label: 'Create Video',
-              onClick: () => setShowCreateDrawer(true)
-            }}
-          />
+          queueVideos.length === 0 ? (
+            /* First-visit empty state */
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+                <Film className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Your Production Board</h3>
+              <p className="text-sm text-zinc-400 max-w-sm mb-6">
+                Track every video from script to posted. Generate a script first, then move it through your pipeline.
+              </p>
+              <div className="flex gap-3 flex-wrap justify-center">
+                <a
+                  href="/admin/content-studio"
+                  className="h-11 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 active:bg-teal-800 transition-colors inline-flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Generate a Script
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateDrawer(true)}
+                  className="h-11 px-6 bg-zinc-800 text-white rounded-xl font-medium hover:bg-zinc-700 active:bg-zinc-600 transition-colors border border-zinc-700 inline-flex items-center gap-2"
+                >
+                  <Video className="w-4 h-4" />
+                  Create Video
+                </button>
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              icon={Film}
+              title="No videos match this filter"
+              description={`No videos with status "${activeRecordingTab.replace(/_/g, ' ').toLowerCase()}". Try changing your filter.`}
+            />
+          )
         ) : (
           <PullToRefresh onRefresh={fetchQueueVideos} className="min-h-[calc(100vh-200px)]">
             <VideoQueueMobile
@@ -2809,6 +2832,37 @@ export default function AdminPipelinePage() {
             })}
           </tbody>
         </table>
+      ) : queueVideos.length === 0 ? (
+        <div style={{
+          padding: '48px 24px',
+          textAlign: 'center',
+          backgroundColor: colors.surface,
+          borderRadius: '10px',
+          border: `1px solid ${colors.border}`,
+        }}>
+          <Film size={40} style={{ margin: '0 auto 12px', opacity: 0.3, color: colors.textMuted }} />
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, marginBottom: '8px' }}>
+            Your Production Board
+          </h3>
+          <p style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
+            Track every video from script to posted. Generate a script first, then move it through your pipeline.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <a
+              href="/admin/content-studio"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: '#0d9488', color: 'white', borderRadius: '12px', fontWeight: 500, fontSize: '14px', textDecoration: 'none' }}
+            >
+              Generate a Script
+            </a>
+            <button
+              type="button"
+              onClick={() => setShowCreateDrawer(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: colors.surface, color: colors.text, borderRadius: '12px', fontWeight: 500, fontSize: '14px', border: `1px solid ${colors.border}`, cursor: 'pointer' }}
+            >
+              Create Video
+            </button>
+          </div>
+        </div>
       ) : (
         <div style={{
           padding: '40px',

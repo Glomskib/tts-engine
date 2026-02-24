@@ -1637,7 +1637,30 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
         </section>
       )}
 
-      {/* How it works — shown when no results, public only */}
+      {/* How it works — shown when no results, portal users get compact version */}
+      {isPortal && !result && !loading && (
+        <section className="pb-6">
+          <div className="max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { icon: Clipboard, title: 'Paste a URL', desc: 'Any public TikTok or YouTube video' },
+                { icon: Target, title: 'AI analyzes it', desc: 'Hook, pacing, triggers & structure' },
+                { icon: Sparkles, title: 'Get insights', desc: 'Rewrite it in any persona or tone' },
+              ].map((item) => (
+                <div key={item.title} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-900/30 border border-white/5">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
+                    <item.icon size={14} className="text-teal-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-zinc-200">{item.title}</div>
+                    <div className="text-[11px] text-zinc-500">{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
       {!isPortal && !result && !loading && (
         <section className="relative py-16 sm:py-24">
           <div className="max-w-4xl mx-auto px-6">

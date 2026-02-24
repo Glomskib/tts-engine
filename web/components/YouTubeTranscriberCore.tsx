@@ -419,6 +419,31 @@ export default function YouTubeTranscriberCore() {
         </div>
       </section>
 
+      {/* Quick guide — shown before any results */}
+      {!hasResults && !isProcessing && videos.length === 0 && (
+        <section className="pb-6">
+          <div className="max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { icon: Youtube, title: 'Paste URLs', desc: 'One or multiple YouTube videos' },
+                { icon: FileText, title: 'AI summarizes', desc: 'Key points, topics & takeaways' },
+                { icon: MessageSquareText, title: 'Ask questions', desc: 'Chat with the video content' },
+              ].map((item) => (
+                <div key={item.title} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-900/30 border border-white/5">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                    <item.icon size={14} className="text-red-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-zinc-200">{item.title}</div>
+                    <div className="text-[11px] text-zinc-500">{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Per-Video Progress */}
       {videos.length > 0 && isProcessing && (
         <section className="pb-6">

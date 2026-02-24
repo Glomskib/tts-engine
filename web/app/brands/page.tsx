@@ -132,9 +132,22 @@ export default function BrandsPage() {
           <p className="text-zinc-400 mb-8 max-w-lg mx-auto">
             Start free. Upload your products and see the difference AI-powered scripts make.
           </p>
-          <Link href="/login?mode=signup" className="inline-block px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl text-lg transition-colors">
-            Improve Your Affiliate Content
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/login?mode=signup" className="px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl text-lg transition-colors">
+              Improve Your Affiliate Content
+            </Link>
+            <Link href="/pricing" className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium rounded-xl text-lg transition-colors border border-white/10">
+              View Pricing
+            </Link>
+          </div>
+          <p className="text-xs text-zinc-500 mt-4">
+            Try free:{' '}
+            <Link href="/script-generator" className="text-teal-400 hover:text-teal-300">Script Generator</Link>
+            {' '}&bull;{' '}
+            <Link href="/transcribe" className="text-teal-400 hover:text-teal-300">TikTok Transcriber</Link>
+            {' '}&bull;{' '}
+            <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300">YouTube Transcriber</Link>
+          </p>
         </section>
       </div>
     </PublicLayout>

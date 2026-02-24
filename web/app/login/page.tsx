@@ -361,8 +361,12 @@ function LoginForm() {
 
         {mode === 'signup' && (
           <p className="text-center text-xs text-zinc-600 mt-3">
-            Not ready to sign up?{' '}
-            <Link href="/script-generator" className="text-teal-400 hover:text-teal-300">Try the script generator free →</Link>
+            Not ready to sign up? Try free:{' '}
+            <Link href="/script-generator" className="text-teal-400 hover:text-teal-300">Script Generator</Link>
+            {' '}&bull;{' '}
+            <Link href="/transcribe" className="text-teal-400 hover:text-teal-300">TikTok Transcriber</Link>
+            {' '}&bull;{' '}
+            <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300">YouTube Transcriber</Link>
           </p>
         )}
       </div>

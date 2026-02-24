@@ -121,11 +121,21 @@ export default function CreatorsPage() {
         <section className="py-16 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to stop the creative block?</h2>
           <p className="text-zinc-400 mb-8 max-w-lg mx-auto">
-            5 free scripts. No credit card. Generate your first script in under 2 minutes.
+            Try our free tools first — no signup required. Or create a free account for 5 scripts/month.
           </p>
-          <Link href="/login?mode=signup" className="inline-block px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl text-lg transition-colors">
-            Generate Your First Script Free
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/script-generator" className="px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl text-lg transition-colors">
+              Try Free Script Generator
+            </Link>
+            <Link href="/transcribe" className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium rounded-xl text-lg transition-colors border border-white/10">
+              TikTok Transcriber
+            </Link>
+          </div>
+          <p className="text-xs text-zinc-500 mt-4">
+            <Link href="/pricing" className="text-teal-400 hover:text-teal-300">View pricing</Link>
+            {' '}&bull;{' '}
+            <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300">YouTube Transcriber</Link>
+          </p>
         </section>
       </div>
     </PublicLayout>

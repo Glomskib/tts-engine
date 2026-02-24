@@ -20,6 +20,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyApiKeyFromRequest } from '@/lib/api-keys';
+import { isAdmin as checkIsAdmin, getAdminRoleSource } from '@/lib/isAdmin';
+export { getAdminRoleSource };
 
 export type UserRole = 'admin' | 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
 
@@ -33,15 +35,6 @@ export interface AuthContext {
   isUploader: boolean;
 }
 
-/**
- * Parse ADMIN_USERS environment variable into a Set of lowercase emails.
- * ADMIN_USERS is authoritative - if email is in this list, user is admin.
- */
-function parseAdminUsersEnv(): Set<string> {
-  const raw = process.env.ADMIN_USERS || "";
-  const list = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return new Set(list);
-}
 
 /**
  * Safely get user role from user_roles table.
@@ -70,15 +63,22 @@ async function safeGetUserRole(
 /**
  * Resolve role for a given user ID and email.
  * Shared between session auth and API key auth paths.
+ *
+ * Admin check order (via isAdmin from lib/isAdmin.ts):
+ *   1. app_metadata.role === 'admin'
+ *   2. user_metadata.role === 'admin'
+ *   3. Email in ADMIN_USERS env
  */
 async function resolveUserRole(
   userId: string,
-  email: string | undefined
+  email: string | undefined,
+  supabaseUser?: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> }
 ): Promise<AuthContext> {
-  const adminEmails = parseAdminUsersEnv();
-  const userEmail = email?.toLowerCase();
+  // Build a minimal User-like object for the isAdmin helper
+  const userLike = { id: userId, email, app_metadata: supabaseUser?.app_metadata ?? {}, user_metadata: supabaseUser?.user_metadata ?? {} } as Parameters<typeof checkIsAdmin>[0];
+  const adminOk = checkIsAdmin(userLike);
 
-  if (userEmail && adminEmails.has(userEmail)) {
+  if (adminOk) {
     return {
       user: { id: userId, email },
       role: 'admin',
@@ -125,11 +125,11 @@ export async function getApiAuthContext(request?: Request): Promise<AuthContext>
         return { user: null, role: null, isAdmin: false, isUploader: false };
       }
 
-      // Look up user email for role resolution
+      // Look up user email + metadata for role resolution
       const { data: userData } = await supabaseAdmin.auth.admin.getUserById(keyResult.userId);
-      const email = userData?.user?.email;
+      const supaUser = userData?.user;
 
-      return resolveUserRole(keyResult.userId, email);
+      return resolveUserRole(keyResult.userId, supaUser?.email, supaUser ?? undefined);
     }
   }
 
@@ -141,7 +141,7 @@ export async function getApiAuthContext(request?: Request): Promise<AuthContext>
       try {
         const { data: { user } } = await supabaseAdmin.auth.getUser(token);
         if (user) {
-          return resolveUserRole(user.id, user.email);
+          return resolveUserRole(user.id, user.email, user);
         }
       } catch {
         // Invalid/expired token — fall through to session auth
@@ -183,14 +183,14 @@ export async function getApiAuthContext(request?: Request): Promise<AuthContext>
     }
   );
 
-  // Get authenticated user
+  // Get authenticated user (verifies JWT with Supabase, not just local decode)
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
     return { user: null, role: null, isAdmin: false, isUploader: false };
   }
 
-  return resolveUserRole(user.id, user.email);
+  return resolveUserRole(user.id, user.email, user);
 }
 
 /**

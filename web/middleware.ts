@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAdmin, getAdminRoleSource } from '@/lib/isAdmin'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -65,6 +66,17 @@ export async function middleware(request: NextRequest) {
     // Refresh session if needed
     const { data } = await supabase.auth.getUser()
     user = data.user
+
+    // Debug logging for admin routes — expires 2026-02-25
+    if (path.startsWith('/admin/')) {
+      const hasSbCookie = request.cookies.getAll().some((c) => c.name.startsWith('sb-'))
+      const roleSource = getAdminRoleSource(user as Parameters<typeof getAdminRoleSource>[0])
+      console.log(
+        `[FF-AUTH] route=${path} hasSession=${!!user} ` +
+        `userId=${user?.id ?? 'none'} email=${user?.email ?? 'none'} ` +
+        `roleSource=${roleSource} isAdmin=${isAdmin(user as Parameters<typeof isAdmin>[0])} hasSbCookie=${hasSbCookie}`
+      )
+    }
   }
 
   // Affiliate tracking: capture ?ref= param → 30-day cookie + fire click

@@ -203,8 +203,8 @@ export default function LandingPage() {
             <span className="font-semibold text-lg tracking-tight">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link href="/transcriber" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
-              Free Transcriber
+            <Link href="/tools" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Tools
             </Link>
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors">
               Pricing
@@ -364,18 +364,18 @@ export default function LandingPage() {
             {[
               {
                 step: '01',
-                title: 'Add Your Brand',
-                desc: 'Upload your brand brief or enter details manually. Our AI learns your voice.',
+                title: 'Try the Script Generator',
+                desc: 'Type a product name, pick a persona. Get a full TikTok script in under 30 seconds — free, no signup.',
               },
               {
                 step: '02',
-                title: 'Generate Scripts',
-                desc: 'Choose your content type, target audience, and tone. Get scroll-stopping scripts in seconds.',
+                title: 'Create an Account',
+                desc: 'Sign up free to unlock more daily scripts, save your library, and access Winners Bank.',
               },
               {
                 step: '03',
-                title: 'Post & Track',
-                desc: 'Use the content calendar to schedule, track winners, and refine your strategy.',
+                title: 'Scale Your Content',
+                desc: 'Add products, track retainers, manage your pipeline. Everything from script to posted in one place.',
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
@@ -407,38 +407,47 @@ export default function LandingPage() {
               {
                 icon: '✨',
                 title: 'AI Script Generator',
-                desc: '7 content types with 3-part hooks designed to stop the scroll',
+                desc: '20+ persona voices — Skeptic, Hype Man, Educator & more. Scripts that sound like a real creator, not ChatGPT.',
+                link: '/script-generator',
+                linkText: 'Try free',
               },
               {
                 icon: '🎙️',
                 title: 'Free Transcriber',
-                desc: 'Paste any video URL, get a complete transcript instantly',
-              },
-              {
-                icon: '📅',
-                title: 'Content Calendar',
-                desc: 'Plan and schedule your content pipeline',
+                desc: 'Paste any TikTok or YouTube URL. Get the transcript, hook analysis, and emotional triggers in seconds.',
+                link: '/transcribe',
+                linkText: 'Try free',
               },
               {
                 icon: '🏆',
                 title: 'Winners Bank',
-                desc: 'Save and analyze your top-performing content',
+                desc: 'Save viral TikToks. AI breaks down what hooks, pacing, and triggers make them work — so you can replicate it.',
               },
               {
                 icon: '📊',
                 title: 'Production Board',
-                desc: 'Track videos from script to posted',
+                desc: 'Track every video from script to posted. Never lose a draft or miss a deadline.',
+              },
+              {
+                icon: '📅',
+                title: 'Content Calendar',
+                desc: 'Plan your posting schedule. See retainer goals by brand. Stay on pace for payouts.',
               },
               {
                 icon: '📈',
-                title: 'Analytics',
-                desc: 'Track what\'s working and double down',
+                title: 'Analytics & Retainers',
+                desc: 'Track video performance and retainer progress. Know exactly where you stand with every brand.',
               },
             ].map((feature) => (
               <div key={feature.title} className="p-6 rounded-xl bg-zinc-900/50 border border-white/10 hover:border-white/20 transition-all">
                 <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3 className="text-lg font-semibold text-zinc-200 mb-2">{feature.title}</h3>
                 <p className="text-sm text-zinc-500 leading-relaxed">{feature.desc}</p>
+                {'link' in feature && feature.link && (
+                  <Link href={feature.link} className="inline-block mt-3 text-sm text-teal-400 hover:text-teal-300 font-medium">
+                    {feature.linkText} &rarr;
+                  </Link>
+                )}
               </div>
             ))}
           </div>
@@ -520,17 +529,25 @@ export default function LandingPage() {
                 {/* Conversion CTA */}
                 <div className="pt-4 border-t border-white/5 text-center">
                   <p className="text-sm text-zinc-400 mb-3">
-                    Like it? Get unlimited scripts with 20 persona presets.
+                    Want more? Sign up free for 5 daily scripts, 20+ persona voices, and a full script library.
                   </p>
-                  <Link
-                    href="/signup"
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all"
-                  >
-                    Start Free — No Credit Card
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </Link>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Link
+                      href="/signup"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all"
+                    >
+                      Create Free Account
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </Link>
+                    <Link
+                      href="/script-generator"
+                      className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      or try the full generator &rarr;
+                    </Link>
+                  </div>
                 </div>
               </div>
             )}
@@ -570,18 +587,18 @@ export default function LandingPage() {
 
           {/* Pricing cards — 4 tiers: Free, Lite, Creator Pro (Most Popular), Business */}
           <div className="grid lg:grid-cols-4 gap-6">
-            {/* Free Trial */}
+            {/* Free */}
             <PricingCard
-              name="Free Trial"
+              name="Free"
               description="Try the platform"
               price={0}
               period=""
-              credits="5 credits"
+              credits="5 credits/month"
               features={[
                 '5 scripts per month',
-                '3 personas',
+                '3 persona voices',
                 '3 products',
-                'TikTok Shop import',
+                'Free Transcriber',
               ]}
               cta="Get Started Free"
               ctaLink="/signup"
@@ -779,7 +796,8 @@ export default function LandingPage() {
               <span className="font-medium text-sm text-zinc-400">{BRAND.name}</span>
             </Link>
             <div className="flex items-center gap-6 text-sm text-zinc-500">
-              <Link href="/transcriber" className="hover:text-zinc-300 transition-colors">Free Transcriber</Link>
+              <Link href="/tools" className="hover:text-zinc-300 transition-colors">Tools</Link>
+              <Link href="/transcribe" className="hover:text-zinc-300 transition-colors">Transcriber</Link>
               <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>
               <button type="button" onClick={() => setContactOpen(true)} className="hover:text-zinc-300 transition-colors">Contact</button>

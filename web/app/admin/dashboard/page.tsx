@@ -8,6 +8,8 @@ import {
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import SetupChecklist from './SetupChecklist';
+import RetainerTracker from './RetainerTracker';
 
 interface DashboardStats {
   scriptsCount: number;
@@ -88,7 +90,6 @@ export default function DashboardPage() {
   const { credits } = useCredits();
   const [stats, setStats] = useState<DashboardStats>({ scriptsCount: 0, activeBrands: 0 });
   const [loading, setLoading] = useState(true);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [customizingQuickLinks, setCustomizingQuickLinks] = useState(false);
   const [selectedQuickLinks, setSelectedQuickLinks] = useState<string[]>(DEFAULT_QUICK_LINKS);
   const [incomeGoal, setIncomeGoal] = useState(5000);
@@ -100,13 +101,8 @@ export default function DashboardPage() {
   const [autoCalcIncome, setAutoCalcIncome] = useState<number | null>(null);
   const [goalsOverridden, setGoalsOverridden] = useState(false);
 
-  // Check if onboarding was dismissed
+  // Load saved preferences from localStorage
   useEffect(() => {
-    const dismissed = localStorage.getItem('flashflow_onboarding_dismissed');
-    if (dismissed === 'true') {
-      setOnboardingDismissed(true);
-    }
-
     // Load saved quick links
     const saved = localStorage.getItem('flashflow_quick_links');
     if (saved) {
@@ -228,11 +224,6 @@ export default function DashboardPage() {
 
   const userName = user?.email?.split('@')[0] || '';
 
-  const handleDismissOnboarding = () => {
-    localStorage.setItem('flashflow_onboarding_dismissed', 'true');
-    setOnboardingDismissed(true);
-  };
-
   const handleToggleQuickLink = (id: string) => {
     setSelectedQuickLinks(prev => {
       if (prev.includes(id)) {
@@ -263,9 +254,6 @@ export default function DashboardPage() {
     setEditingGoals(false);
   };
 
-  // Show onboarding if: not loading, not dismissed, AND (no brands OR no scripts)
-  const showOnboarding = !loading && !onboardingDismissed && (stats.scriptsCount === 0 || stats.activeBrands === 0);
-
   const displayedQuickLinks = ALL_QUICK_NAV_ITEMS.filter(item => selectedQuickLinks.includes(item.id));
 
   return (
@@ -278,68 +266,8 @@ export default function DashboardPage() {
         <p className="text-zinc-400 text-sm mt-1">Here's what's happening with your content today</p>
       </div>
 
-      {/* Onboarding Card - Show when user has 0 brands OR 0 scripts, dismissable */}
-      {showOnboarding && (
-        <div className="bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-purple-500/10 border border-teal-500/20 rounded-xl p-6 relative">
-          <button
-            onClick={handleDismissOnboarding}
-            className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 rounded-lg transition-colors"
-            aria-label="Dismiss onboarding"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <div className="flex items-start gap-4">
-            <Sparkles className="w-6 h-6 text-teal-400 shrink-0 mt-1" />
-            <div className="flex-1 pr-8">
-              <h3 className="text-xl font-bold text-white mb-2">Welcome! Get started in 3 steps:</h3>
-              <div className="space-y-4 mt-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 font-bold flex-shrink-0">
-                    1
-                  </div>
-                  <div className="flex-1 flex items-center justify-between gap-4">
-                    <span className="text-zinc-200">Add Your First Brand</span>
-                    <Link
-                      href="/admin/brands"
-                      className="px-4 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors whitespace-nowrap"
-                    >
-                      Create Brand
-                    </Link>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold flex-shrink-0">
-                    2
-                  </div>
-                  <div className="flex-1 flex items-center justify-between gap-4">
-                    <span className="text-zinc-200">Generate a Script</span>
-                    <Link
-                      href="/admin/content-studio"
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors whitespace-nowrap"
-                    >
-                      Content Studio
-                    </Link>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold flex-shrink-0">
-                    3
-                  </div>
-                  <div className="flex-1 flex items-center justify-between gap-4">
-                    <span className="text-zinc-200">Try the Transcriber</span>
-                    <Link
-                      href="/admin/transcribe"
-                      className="px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-colors whitespace-nowrap"
-                    >
-                      Open Transcriber
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Setup Checklist — data-driven, collapsible, auto-dismisses when complete */}
+      <SetupChecklist scriptsCount={stats.scriptsCount} totalVideos={currentVideos} />
 
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -371,6 +299,11 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          {!loading && stats.scriptsCount === 0 && (
+            <Link href="/admin/content-studio" className="text-xs text-teal-400 hover:text-teal-300 mt-1 inline-block">
+              Generate your first script &rarr;
+            </Link>
+          )}
         </div>
 
         {/* Active Brands */}
@@ -386,6 +319,11 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          {!loading && stats.activeBrands === 0 && (
+            <Link href="/admin/brands" className="text-xs text-teal-400 hover:text-teal-300 mt-1 inline-block">
+              Add your first brand &rarr;
+            </Link>
+          )}
         </div>
       </div>
 
@@ -468,6 +406,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Retainer Tracker — shows active brand retainers with pace tracking */}
+      <RetainerTracker />
 
       {/* Edit Goals Modal */}
       {editingGoals && (
@@ -631,19 +572,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Getting Started Tip */}
-      <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-6">
-        <div className="flex items-start gap-3">
-          <Sparkles className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-semibold text-white mb-1">New to FlashFlow?</h3>
-            <p className="text-sm text-zinc-300">
-              Start by generating your first script in the <Link href="/admin/content-studio" className="text-teal-400 hover:text-teal-300 underline">Content Studio</Link>,
-              or browse winning content in the <Link href="/admin/winners" className="text-teal-400 hover:text-teal-300 underline">Winners Bank</Link>.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'TikTok Shop Script Generator',
+  title: 'TikTok Shop Script Generator | FlashFlow AI',
   description:
-    'Turn TikTok Shop products into viral content. AI-powered script generator built for TikTok Shop sellers. Generate compliant, scroll-stopping scripts in seconds.',
+    'Turn TikTok Shop products into viral content. AI-powered script generator with 20+ personas built for TikTok Shop sellers. Try free — no signup required.',
   openGraph: {
     title: 'TikTok Shop Script Generator | FlashFlow AI',
-    description: 'Turn TikTok Shop products into viral content with AI-generated scripts.',
+    description: 'Turn TikTok Shop products into viral content with AI-generated scripts. 20+ personas, free to try.',
     type: 'website',
     url: 'https://flashflowai.com/lp/tiktok-shop',
   },
@@ -40,6 +40,7 @@ export default function TikTokShopLP() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
         </Link>
+        <p className="text-xs text-zinc-500 mt-3">No signup required. 5 free scripts included.</p>
       </section>
 
       {/* Pain Points */}
@@ -68,37 +69,23 @@ export default function TikTokShopLP() {
         </div>
       </section>
 
-      {/* Product Import Feature */}
+      {/* How It Works */}
       <section className="py-12">
-        <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8 sm:p-10">
-          <div className="flex flex-col sm:flex-row gap-8 items-center">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-violet-400 uppercase tracking-widest mb-3">Featured</p>
-              <h2 className="text-2xl font-bold mb-4">One-Click Product Import</h2>
-              <p className="text-zinc-400 leading-relaxed mb-4">
-                Paste your TikTok Shop product URL. FlashFlow pulls the product name, description,
-                and images — then generates scripts using your actual product data.
-              </p>
-              <ul className="space-y-2">
-                {[
-                  'Auto-imports product details from TikTok Shop',
-                  'Scripts reference real features & benefits',
-                  'All content is TikTok Shop compliant',
-                  'Batch generate for your entire catalog',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
-                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
+        <h2 className="text-2xl font-bold text-center mb-8">How It Works</h2>
+        <div className="grid sm:grid-cols-3 gap-6">
+          {[
+            { step: '1', title: 'Enter your product', desc: 'Type the product name or paste a TikTok Shop URL. FlashFlow pulls the details automatically.' },
+            { step: '2', title: 'Pick a persona', desc: 'Choose from 20+ voice styles — Skeptic, Hype Man, Relatable Friend, Educator, and more.' },
+            { step: '3', title: 'Get your script', desc: 'AI generates a scroll-stopping script with hook, body, and CTA. Copy it and film.' },
+          ].map((item) => (
+            <div key={item.step} className="p-5 rounded-xl bg-zinc-900/50 border border-white/5 text-center">
+              <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 text-sm font-bold flex items-center justify-center mx-auto mb-3">
+                {item.step}
+              </div>
+              <h3 className="text-base font-semibold text-zinc-200 mb-2">{item.title}</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">{item.desc}</p>
             </div>
-            <div className="w-full sm:w-72 aspect-square rounded-xl bg-zinc-800/50 border border-white/5 flex items-center justify-center shrink-0">
-              <span className="text-xs text-zinc-600">Product Import Demo</span>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -120,10 +107,10 @@ export default function TikTokShopLP() {
           <ul className="space-y-2 mb-6 text-left">
             {[
               'Unlimited scripts',
-              'All 20 creator personas',
-              '50 products',
-              'TikTok Shop import',
-              'Content Planner',
+              'All 20+ persona voices',
+              'Winners Bank',
+              'Video pipeline',
+              'Analytics & performance tracking',
             ].map((f) => (
               <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
                 <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -138,6 +125,12 @@ export default function TikTokShopLP() {
             className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
           >
             Get Started Free
+          </Link>
+          <p className="text-xs text-zinc-600 mt-2">Free plan also available</p>
+        </div>
+        <div className="text-center mt-4">
+          <Link href="/pricing" className="text-sm text-teal-400 hover:text-teal-300 font-medium transition">
+            Compare all plans →
           </Link>
         </div>
       </section>
@@ -163,18 +156,32 @@ export default function TikTokShopLP() {
           Start Generating TikTok Shop Scripts Now
         </h2>
         <p className="text-zinc-400 mb-8 max-w-lg mx-auto">
-          3 free scripts. No signup. See for yourself why sellers are switching to FlashFlow.
+          5 free scripts. No signup. See for yourself why sellers are switching to FlashFlow.
         </p>
-        <Link
-          href="/script-generator"
-          className="group inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all"
-        >
-          Try the Script Generator Free
-          <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </Link>
-        <p className="text-xs text-zinc-600 mt-4">Free forever plan available. No credit card required.</p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link
+            href="/script-generator"
+            className="group inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all"
+          >
+            Try the Script Generator Free
+            <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+          <Link
+            href="/transcribe"
+            className="text-sm text-zinc-400 hover:text-zinc-300 transition"
+          >
+            or analyze a TikTok with Free Transcriber →
+          </Link>
+        </div>
+        <div className="flex items-center justify-center gap-4 text-xs text-zinc-600 mt-6">
+          <span>No credit card required</span>
+          <span className="text-zinc-700">|</span>
+          <span>Free forever plan</span>
+          <span className="text-zinc-700">|</span>
+          <span>Cancel anytime</span>
+        </div>
       </section>
     </div>
   );

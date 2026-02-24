@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'AI Content Platform for Agencies',
+  title: 'AI Content Platform for Agencies | FlashFlow AI',
   description:
-    'Scale client content without scaling headcount. Multi-brand management, API access, client portal, and unlimited AI script generation for agencies.',
+    'Scale client content without scaling headcount. Multi-brand management, team seats, and unlimited AI script generation for agencies. Try free.',
   openGraph: {
     title: 'AI Content Platform for Agencies | FlashFlow AI',
     description: 'Scale client content without scaling headcount. AI-powered content generation for agencies.',
@@ -28,8 +28,8 @@ export default function AgencyLP() {
           </span>
         </h1>
         <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-          Manage 10 brands with the output of a 50-person content team. FlashFlow gives your agency
-          unlimited AI scripts, client portals, and API access — all in one platform.
+          Manage 10+ brands with the output of a 50-person content team. FlashFlow gives your agency
+          unlimited AI scripts, multi-brand management, and team seats — all in one platform.
         </p>
         <Link
           href="/script-generator"
@@ -40,6 +40,7 @@ export default function AgencyLP() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
         </Link>
+        <p className="text-xs text-zinc-500 mt-3">No signup required. See the quality for yourself.</p>
       </section>
 
       {/* Pain Points */}
@@ -81,24 +82,24 @@ export default function AgencyLP() {
               desc: 'Each client gets their own brand space with separate products, personas, and content libraries. No cross-contamination.',
             },
             {
-              title: 'Client Portal',
-              desc: 'Clients review and approve content directly. No more email chains and Slack threads.',
+              title: 'Team Seats',
+              desc: 'Invite your writers, strategists, and editors. Everyone works from the same platform with role-based access.',
             },
             {
-              title: 'API Access',
-              desc: 'Build custom workflows and integrate FlashFlow into your existing tools. Full REST API with docs.',
+              title: 'Multi-Brand Management',
+              desc: 'Switch between client brands instantly. Track quotas, content calendars, and script libraries per brand.',
             },
             {
-              title: 'Team Collaboration',
-              desc: 'Invite your writers, strategists, and editors. Everyone works from the same platform.',
+              title: 'Unlimited Scripts',
+              desc: 'No per-script limits. Generate as many scripts as your clients need across all brands, every month.',
             },
             {
-              title: 'Content Approval Flow',
-              desc: 'Draft → Review → Approve → Publish. Built-in approval workflows keep clients in the loop.',
+              title: 'Winners Bank',
+              desc: 'Save and analyze top-performing TikToks across all client niches. Replicate winning patterns.',
             },
             {
-              title: 'Creator Invite Links',
-              desc: 'Invite creators to generate scripts within brand guardrails. They create, you approve.',
+              title: 'Analytics & Performance',
+              desc: 'Track which scripts convert best per brand. Make data-driven content decisions for every client.',
             },
           ].map((item) => (
             <div key={item.title} className="p-5 rounded-xl bg-zinc-900/50 border border-white/5">
@@ -109,47 +110,79 @@ export default function AgencyLP() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Pricing — Start with Business, upgrade to Agency */}
       <section className="py-12">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold mb-2">The ROI is Clear</h2>
-          <p className="text-zinc-400">$149/month. Unlimited everything. Do the math.</p>
+          <h2 className="text-2xl font-bold mb-2">Start with Business, Scale to Agency</h2>
+          <p className="text-zinc-400">Most agencies start on Business ($59/mo) and upgrade when they need custom features.</p>
         </div>
-        <div className="max-w-md mx-auto p-6 rounded-2xl bg-zinc-900/80 border border-teal-500/50 text-center">
-          <div className="px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white inline-block mb-4">
-            Agency Plan
+        <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          {/* Business */}
+          <div className="p-6 rounded-2xl bg-zinc-900/80 border border-teal-500/50 relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white">
+              Start Here
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1 mt-1">Business</h3>
+            <div className="mb-4">
+              <span className="text-3xl font-bold text-white">$59</span>
+              <span className="text-zinc-500 text-sm">/mo</span>
+            </div>
+            <ul className="space-y-2 mb-6">
+              {[
+                'Unlimited scripts',
+                'Unlimited brands',
+                'Priority support',
+                'Custom integrations',
+                'All 20+ personas',
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
+                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/signup?plan=business"
+              className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
+            >
+              Choose Business
+            </Link>
           </div>
-          <h3 className="text-xl font-semibold text-white mb-1">Agency</h3>
-          <div className="mb-2">
-            <span className="text-4xl font-bold text-white">$149</span>
-            <span className="text-zinc-500 text-sm">/mo</span>
+
+          {/* Agency */}
+          <div className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
+            <h3 className="text-lg font-semibold text-white mb-1">Agency</h3>
+            <div className="mb-4">
+              <span className="text-2xl font-bold text-zinc-400">Custom Pricing</span>
+            </div>
+            <ul className="space-y-2 mb-6">
+              {[
+                'Everything in Business',
+                'Multi-brand management',
+                'Team seats',
+                'Dedicated support',
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
+                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="mailto:brandon@flashflowai.com"
+              className="block w-full py-3 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-all text-center"
+            >
+              Contact Sales
+            </a>
           </div>
-          <p className="text-sm text-zinc-400 mb-6">
-            That&apos;s less than $15/client if you manage 10 brands.
-          </p>
-          <ul className="space-y-2 mb-6 text-left">
-            {[
-              'Unlimited scripts & video edits',
-              'Unlimited brands & products',
-              'Client portal',
-              'API access',
-              'Creator invite links',
-              'Content approval workflow',
-              'Priority support',
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
-                <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                {f}
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/signup?plan=agency"
-            className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
-          >
-            Get Started Free
+        </div>
+        <div className="text-center mt-4">
+          <Link href="/pricing" className="text-sm text-teal-400 hover:text-teal-300 font-medium transition">
+            Compare all plans →
           </Link>
         </div>
       </section>
@@ -160,7 +193,7 @@ export default function AgencyLP() {
           <p className="text-zinc-300 leading-relaxed mb-4">
             &ldquo;Our agency manages 12 creator accounts. FlashFlow cut our script turnaround
             from 2 days to 20 minutes. The brand separation is clean — no voice bleeding between
-            clients. It&apos;s like adding 3 writers to the team for $149/month.&rdquo;
+            clients. It&apos;s like adding 3 writers to the team.&rdquo;
           </p>
           <div>
             <p className="font-medium text-white text-sm">Mark R.</p>
@@ -177,16 +210,30 @@ export default function AgencyLP() {
         <p className="text-zinc-400 mb-8 max-w-lg mx-auto">
           Try the script generator. Then imagine it running across every client account, every day.
         </p>
-        <Link
-          href="/script-generator"
-          className="group inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all"
-        >
-          Try the Script Generator Free
-          <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </Link>
-        <p className="text-xs text-zinc-600 mt-4">Free forever plan available. No credit card required.</p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link
+            href="/script-generator"
+            className="group inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all"
+          >
+            Try the Script Generator Free
+            <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+          <Link
+            href="/transcribe"
+            className="text-sm text-zinc-400 hover:text-zinc-300 transition"
+          >
+            or analyze a TikTok with Free Transcriber →
+          </Link>
+        </div>
+        <div className="flex items-center justify-center gap-4 text-xs text-zinc-600 mt-6">
+          <span>No credit card required</span>
+          <span className="text-zinc-700">|</span>
+          <span>Free forever plan</span>
+          <span className="text-zinc-700">|</span>
+          <span>Cancel anytime</span>
+        </div>
       </section>
     </div>
   );

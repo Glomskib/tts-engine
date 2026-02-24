@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'AI Script Writer for Content Creators',
+  title: 'AI Script Writer for Content Creators | FlashFlow AI',
   description:
-    'Stop staring at blank scripts. AI-powered TikTok script generator with 20 persona presets. Beat writer\'s block and post consistently. Free to try.',
+    'Stop staring at blank scripts. AI-powered TikTok script generator with 20+ persona presets. Beat writer\'s block and post consistently. Free to try — no signup.',
   openGraph: {
     title: 'AI Script Writer for Content Creators | FlashFlow AI',
-    description: 'Stop staring at blank scripts. Start going viral with AI-generated TikTok scripts.',
+    description: 'Stop staring at blank scripts. Start going viral with AI-generated TikTok scripts. 20+ voices, free to try.',
     type: 'website',
     url: 'https://flashflowai.com/lp/content-creator',
   },
@@ -40,6 +40,7 @@ export default function ContentCreatorLP() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
         </Link>
+        <p className="text-xs text-zinc-500 mt-3">No signup required. 5 free scripts included.</p>
       </section>
 
       {/* Pain Points */}
@@ -71,33 +72,37 @@ export default function ContentCreatorLP() {
       {/* Persona Feature */}
       <section className="py-12">
         <div className="rounded-2xl bg-zinc-900/50 border border-white/5 p-8 sm:p-10">
-          <div className="flex flex-col sm:flex-row gap-8 items-center">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-violet-400 uppercase tracking-widest mb-3">Featured</p>
-              <h2 className="text-2xl font-bold mb-4">20 Persona Presets — Your Voice, Amplified</h2>
-              <p className="text-zinc-400 leading-relaxed mb-4">
-                Each persona has a unique tone, humor style, and delivery. Pick the one that matches
-                your brand — or try different voices to find what resonates.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  'Gen-Z Trendsetter',
-                  'Skeptical Reviewer',
-                  'Hype Machine',
-                  'Dad Jokester',
-                  'Trusted Expert',
-                  'Chaotic Comedy',
-                ].map((p) => (
-                  <span key={p} className="px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs text-violet-400">
-                    {p}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="w-full sm:w-72 aspect-square rounded-xl bg-zinc-800/50 border border-white/5 flex items-center justify-center shrink-0">
-              <span className="text-xs text-zinc-600">Persona Selector Preview</span>
-            </div>
+          <p className="text-sm font-medium text-violet-400 uppercase tracking-widest mb-3">Featured</p>
+          <h2 className="text-2xl font-bold mb-4">20+ Persona Presets — Your Voice, Amplified</h2>
+          <p className="text-zinc-400 leading-relaxed mb-6">
+            Each persona has a unique tone, humor style, and delivery. Pick the one that matches
+            your brand — or try different voices to find what resonates with your audience.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-6">
+            {[
+              'Gen-Z Trendsetter',
+              'Skeptical Reviewer',
+              'Hype Machine',
+              'Relatable Friend',
+              'Trusted Expert',
+              'Chronic Warrior',
+              'Sober Curious',
+              'Honest Reviewer',
+            ].map((p) => (
+              <span key={p} className="px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs text-violet-400">
+                {p}
+              </span>
+            ))}
+            <span className="px-3 py-1.5 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-500">
+              + 12 more
+            </span>
           </div>
+          <Link
+            href="/script-generator"
+            className="inline-flex items-center text-sm font-medium text-violet-400 hover:text-violet-300 transition"
+          >
+            Try all personas free →
+          </Link>
         </div>
       </section>
 
@@ -105,18 +110,18 @@ export default function ContentCreatorLP() {
       <section className="py-12">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold mb-2">Plans That Grow With You</h2>
-          <p className="text-zinc-400">Start free. Upgrade when you need more firepower.</p>
+          <p className="text-zinc-400">Start free. Upgrade when you need more scripts.</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {/* Creator Lite */}
           <div className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
-            <h3 className="text-lg font-semibold text-white mb-1">Creator Lite</h3>
+            <h3 className="text-lg font-semibold text-white mb-1">Lite</h3>
             <div className="mb-4">
               <span className="text-3xl font-bold text-white">$9</span>
               <span className="text-zinc-500 text-sm">/mo</span>
             </div>
             <ul className="space-y-2 mb-6">
-              {['25 scripts/month', '5 personas', '10 products', 'Script of the Day'].map((f) => (
+              {['50 scripts/month', 'Full transcriber', '3 brands', 'Content calendar'].map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
                   <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -129,7 +134,7 @@ export default function ContentCreatorLP() {
               href="/signup?plan=creator_lite"
               className="block w-full py-3 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-all text-center"
             >
-              Start Trial
+              Choose Lite
             </Link>
           </div>
 
@@ -138,13 +143,13 @@ export default function ContentCreatorLP() {
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-teal-500 text-xs font-medium text-white">
               Most Popular
             </div>
-            <h3 className="text-lg font-semibold text-white mb-1">Creator Pro</h3>
+            <h3 className="text-lg font-semibold text-white mb-1 mt-1">Creator Pro</h3>
             <div className="mb-4">
               <span className="text-3xl font-bold text-white">$29</span>
               <span className="text-zinc-500 text-sm">/mo</span>
             </div>
             <ul className="space-y-2 mb-6">
-              {['Unlimited scripts', 'All 20 personas', '50 products', 'Content Planner', '25 AI video edits'].map((f) => (
+              {['Unlimited scripts', 'All 20+ personas', 'Winners Bank', 'Video pipeline', 'Analytics'].map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-400">
                   <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -157,9 +162,14 @@ export default function ContentCreatorLP() {
               href="/signup?plan=creator_pro"
               className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
             >
-              Start Trial
+              Choose Creator Pro
             </Link>
           </div>
+        </div>
+        <div className="text-center mt-4">
+          <Link href="/pricing" className="text-sm text-teal-400 hover:text-teal-300 font-medium transition">
+            Compare all plans →
+          </Link>
         </div>
       </section>
 
@@ -183,18 +193,32 @@ export default function ContentCreatorLP() {
           Your Next Viral Script is 60 Seconds Away
         </h2>
         <p className="text-zinc-400 mb-8 max-w-lg mx-auto">
-          3 free scripts. No signup. No credit card. Just type your product and hit generate.
+          5 free scripts. No signup. No credit card. Just type your product and hit generate.
         </p>
-        <Link
-          href="/script-generator"
-          className="group inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all"
-        >
-          Try the Script Generator Free
-          <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </Link>
-        <p className="text-xs text-zinc-600 mt-4">Free forever plan available. No credit card required.</p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link
+            href="/script-generator"
+            className="group inline-flex items-center px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all"
+          >
+            Try the Script Generator Free
+            <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+          <Link
+            href="/transcribe"
+            className="text-sm text-zinc-400 hover:text-zinc-300 transition"
+          >
+            or analyze a TikTok with Free Transcriber →
+          </Link>
+        </div>
+        <div className="flex items-center justify-center gap-4 text-xs text-zinc-600 mt-6">
+          <span>No credit card required</span>
+          <span className="text-zinc-700">|</span>
+          <span>Free forever plan</span>
+          <span className="text-zinc-700">|</span>
+          <span>Cancel anytime</span>
+        </div>
       </section>
     </div>
   );

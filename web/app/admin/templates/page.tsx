@@ -343,14 +343,19 @@ export default function TemplatesPage() {
                 <Loader2 className="w-5 h-5 animate-spin" /> Loading templates...
               </div>
             ) : filteredCustom.length === 0 && !showEditor ? (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-                <p className="text-zinc-400">No custom templates yet</p>
-                <p className="text-sm text-zinc-500 mt-1">Create templates with variables like {"{{product_name}}"} for reusable content</p>
+              <div className="text-center py-10 max-w-sm mx-auto">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-violet-400" />
+                </div>
+                <p className="text-sm font-medium text-zinc-200 mb-1">Build your own templates</p>
+                <p className="text-xs text-zinc-500 mb-4 leading-relaxed">
+                  Create reusable script structures with variables like <code className="text-violet-400 text-[11px]">{"{"}{"{"} product_name {"}"}{"}"}</code>.
+                  Save time on repeat formats — just swap in a new product and generate.
+                </p>
                 <button
                   type="button"
                   onClick={() => openEditor()}
-                  className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-500 text-sm font-medium"
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-500 text-sm font-medium transition-colors"
                 >
                   Create Your First Template
                 </button>

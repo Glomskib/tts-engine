@@ -261,8 +261,17 @@ export default function VideosPage() {
             <div className="p-8 text-center text-zinc-500 text-sm">Loading performance data...</div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center">
-              <BarChart className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-              <p className="text-sm text-zinc-500">No posted videos found for this period</p>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                <BarChart className="w-5 h-5 text-teal-400" />
+              </div>
+              <p className="text-sm font-medium text-zinc-200 mb-1">
+                {videos.length === 0 ? 'No video performance data yet' : 'No videos match this period'}
+              </p>
+              <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                {videos.length === 0
+                  ? 'Once you post TikToks and log them in your Pipeline, performance stats will appear here.'
+                  : 'Try adjusting the date range or filters above.'}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-800/50">

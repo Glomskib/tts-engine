@@ -279,9 +279,17 @@ export default function CompetitorsPage() {
           {/* Competitor List - hide on mobile when detail selected */}
           <div className={`lg:col-span-1 space-y-3 ${selectedId ? 'hidden lg:block' : ''}`}>
             {competitors.length === 0 ? (
-              <div className="text-center py-12 text-zinc-500">
-                <Search className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                <p>No competitors tracked yet</p>
+              <div className="text-center py-10 px-4">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                  <Eye className="w-5 h-5 text-teal-400" />
+                </div>
+                <p className="text-sm font-medium text-zinc-200 mb-1">Track your competitors</p>
+                <p className="text-xs text-zinc-500 mb-4 max-w-[220px] mx-auto leading-relaxed">
+                  Add TikTok creators in your niche. See what hooks, formats, and products are working for them.
+                </p>
+                <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm text-white font-medium transition-colors">
+                  <Plus className="w-4 h-4 inline mr-1" />Add Competitor
+                </button>
               </div>
             ) : competitors.map(c => (
               <div

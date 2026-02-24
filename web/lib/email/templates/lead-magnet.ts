@@ -52,7 +52,7 @@ export const leadMagnetEmails = [
       <p>&bull; <strong>Honest Reviewer</strong> for tech and gadgets</p>
       <p>&bull; <strong>Excited Discovery</strong> for trending items</p>
       <p>&bull; <strong>Storyteller</strong> for lifestyle products</p>
-      <p>FlashFlow has 7 personas built in. Each one writes differently. Your content stays fresh without you having to reinvent the wheel.</p>
+      <p>FlashFlow has 20+ personas built in. Each one writes differently. Your content stays fresh without you having to reinvent the wheel.</p>
       <a href="https://flashflowai.com/login?mode=signup&ref=email-nurture" class="btn">Generate Your First Script Free</a>
     `, 'This one mistake is killing your TikTok engagement', data.unsubscribeUrl),
   },

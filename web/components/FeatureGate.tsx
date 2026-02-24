@@ -392,11 +392,11 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
                 backgroundColor: colors.surface,
                 border: `1px solid ${colors.border}`,
               }}>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: colors.textMuted, marginBottom: '4px' }}>Starter</div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: colors.textMuted, marginBottom: '4px' }}>Creator Lite</div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: colors.text }}>
                   $9<span style={{ fontSize: '13px', fontWeight: 400, color: colors.textMuted }}>/mo</span>
                 </div>
-                <div style={{ fontSize: '12px', color: colors.accent, marginTop: '4px' }}>75 credits</div>
+                <div style={{ fontSize: '12px', color: colors.accent, marginTop: '4px' }}>50 credits/mo</div>
               </div>
               <div style={{
                 padding: '16px',
@@ -404,11 +404,11 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
                 backgroundColor: colors.surface,
                 border: '1px solid rgba(59, 130, 246, 0.3)',
               }}>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: '#3b82f6', marginBottom: '4px' }}>Creator</div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#3b82f6', marginBottom: '4px' }}>Creator Pro</div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: colors.text }}>
                   $29<span style={{ fontSize: '13px', fontWeight: 400, color: colors.textMuted }}>/mo</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '4px' }}>300 credits</div>
+                <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '4px' }}>Unlimited credits</div>
               </div>
             </div>
           )}

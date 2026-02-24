@@ -10,6 +10,17 @@ export const metadata: Metadata = {
     title: 'Free UGC Script Vault — 50 TikTok Hooks + 10 Script Templates',
     description: 'Download 50 proven TikTok hooks and 10 ready-to-film script templates for TikTok Shop.',
     type: 'website',
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/free-scripts',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Free UGC Script Vault — 50 TikTok Hooks + 10 Templates',
+    description: '50 proven TikTok hooks and 10 ready-to-film script templates. Free download.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/free-scripts',
   },
 };
 

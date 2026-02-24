@@ -25,7 +25,7 @@ const SAAS_FEATURES = [
   { name: 'Scripts/month', values: ['5', '25', 'Unlimited', 'Unlimited', 'Unlimited'] },
   { name: 'AI Credits/month', values: ['5', '75', '300', '1,000', 'Unlimited'] },
   { name: 'AI Video Edits', values: ['0', '5', '25', '50', 'Unlimited'] },
-  { name: 'Creator Personas', values: ['3', '5', 'All 7+', 'All', 'All'] },
+  { name: 'Creator Personas', values: ['3', '5', 'All 20+', 'All', 'All'] },
   { name: 'Products', values: ['3', '10', '50', 'Unlimited', 'Unlimited'] },
   { name: 'Brands', values: ['1', '1', '3', '5', 'Unlimited'] },
   { name: 'Content Planner', values: [false, false, true, true, true] },

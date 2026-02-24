@@ -11,7 +11,17 @@ export const metadata: Metadata = {
     description:
       'See what we\'re building next at FlashFlow AI. Planned features, work in progress, and recently shipped updates.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/roadmap',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'FlashFlow AI Roadmap — What\'s Coming Next',
+    description: 'Planned features, work in progress, and recently shipped updates.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/roadmap',
   },
 };
 

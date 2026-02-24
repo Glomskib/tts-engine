@@ -34,8 +34,8 @@ const FAQ_ITEMS = [
     a: "FlashFlow is built specifically for TikTok Shop affiliates. It gives you script generation + Winners Bank (competitive intelligence) + Content Calendar + Retainer tracking. ChatGPT doesn't know about TikTok compliance, affiliate psychology, or your brand deals.",
   },
   {
-    q: 'Is there a free trial?',
-    a: 'Yes! Free tier includes 5 scripts/month and access to 3 products in Winners Bank. Create an account instantly — no credit card needed.',
+    q: 'Is it really free?',
+    a: 'Yes! The free plan includes 5 scripts/month, free TikTok and YouTube transcribers, and access to 3 products. No credit card needed, no time limit.',
   },
   {
     q: 'Can I cancel anytime?',

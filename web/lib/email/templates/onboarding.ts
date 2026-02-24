@@ -68,8 +68,8 @@ export const onboardingEmails = [
         </div>
       </div>
       <p>Each script you generate gets better as FlashFlow learns your products' selling angles.</p>
-      <p>Pro users get <strong>unlimited scripts</strong>, <strong>Script of the Day</strong>, and the <strong>Content Planner</strong> &mdash; all for less than the cost of one freelance script.</p>
-      <a href="https://flashflowai.com/upgrade" class="btn">See Pro Features</a>
+      <p>Creator Pro users get <strong>unlimited scripts</strong>, <strong>Script of the Day</strong>, and the <strong>Content Planner</strong> &mdash; all for less than the cost of one freelance script.</p>
+      <a href="https://flashflowai.com/upgrade" class="btn">See Creator Pro Features</a>
     `, "Here's what you've created so far", data.unsubscribeUrl),
   },
   {
@@ -79,7 +79,7 @@ export const onboardingEmails = [
       <h1>Let's talk numbers</h1>
       <p>Hey ${data.userName},</p>
       <p>One viral TikTok Shop video can generate <strong>$500 - $5,000</strong> in affiliate commissions.</p>
-      <p>FlashFlow Pro costs <strong>$29/month</strong>.</p>
+      <p>Creator Pro costs <strong>$29/month</strong>.</p>
       <p>That means you need <strong>one script to hit</strong> and FlashFlow has paid for itself 17x over.</p>
       <p>But it's not just about one viral video. It's about consistency. FlashFlow gives you fresh, unique scripts every day so you're never staring at your phone trying to figure out what to say.</p>
       <p>The creators who win on TikTok Shop aren't the most talented. They're the most consistent.</p>

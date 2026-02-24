@@ -2,14 +2,24 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'About - TikTok Video Creator Platform',
+  title: 'About FlashFlow AI — AI-Powered Script & Video Tools',
   description:
-    'FlashFlow AI empowers TikTok Shop sellers and content creators to generate viral scripts and videos at scale. Learn how we help creators succeed.',
+    'FlashFlow AI empowers TikTok Shop sellers, content creators, and agencies to generate viral scripts, transcribe videos, and analyze winning content. Free tools available — no signup required.',
   openGraph: {
     title: 'About FlashFlow AI',
-    description: 'AI-powered TikTok content creation for creators and brands.',
+    description: 'AI-powered TikTok & YouTube content creation for creators, sellers, and agencies. Free transcriber and script generator included.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/about',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'About FlashFlow AI',
+    description: 'AI-powered script generator and video transcriber for TikTok & YouTube creators.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/about',
   },
 };
 
@@ -35,6 +45,9 @@ export default function AboutPage() {
 
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 py-16">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 mb-4">
+          3 free tools — no signup required
+        </div>
         <h1 className="text-5xl font-bold mb-6">About FlashFlow AI</h1>
         <p className="text-xl text-gray-300 mb-8">
           We empower content creators, TikTok Shop sellers, and marketing agencies to generate viral scripts and videos at scale using artificial intelligence.
@@ -86,7 +99,7 @@ export default function AboutPage() {
         <h2 className="text-3xl font-bold mb-6">What We Do Now</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-3 text-teal-500">Free TikTok Video Transcriber</h3>
+            <h3 className="text-xl font-bold mb-3 text-teal-500">Free TikTok Transcriber</h3>
             <p className="text-gray-300">
               Paste any TikTok link. Get the transcript, hook analysis, emotional triggers, and content breakdown. No signup required.
             </p>
@@ -95,22 +108,31 @@ export default function AboutPage() {
             </Link>
           </div>
           <div>
-            <h3 className="text-xl font-bold mb-3 text-teal-500">AI Script Generator</h3>
+            <h3 className="text-xl font-bold mb-3 text-teal-500">Free YouTube Transcriber</h3>
             <p className="text-gray-300">
-              Feed it a product. Get 5–10 script variations in different personas (skeptic, aspirational, educational). Pick the winner, generate a video.
+              Transcribe any YouTube video — standard videos, Shorts, and youtu.be links. Get AI-powered hook analysis and content recommendations. No signup required.
             </p>
+            <Link href="/youtube-transcribe" className="text-teal-500 hover:text-teal-400 font-semibold mt-4 inline-block">
+              Try it free →
+            </Link>
           </div>
           <div>
-            <h3 className="text-xl font-bold mb-3 text-teal-500">AI Avatar Video Creation</h3>
+            <h3 className="text-xl font-bold mb-3 text-teal-500">Free AI Script Generator</h3>
             <p className="text-gray-300">
-              Scripts → automatic video generation with AI avatars. No filming, no editing. One-click TikTok Shop posting.
+              Choose from 20+ creator personas and get a scroll-stopping script in seconds. Skeptic, educator, hype man — pick the voice that fits your brand.
             </p>
+            <Link href="/script-generator" className="text-teal-500 hover:text-teal-400 font-semibold mt-4 inline-block">
+              Generate a script free →
+            </Link>
           </div>
           <div>
-            <h3 className="text-xl font-bold mb-3 text-teal-500">Winners Bank</h3>
+            <h3 className="text-xl font-bold mb-3 text-teal-500">Winners Bank & Pipeline</h3>
             <p className="text-gray-300">
-              Database of viral TikTok patterns. See what hooks convert for each product category. Data-driven content strategy.
+              Database of viral TikTok patterns plus a full content pipeline. See what hooks convert for each product category and manage scripts from draft to published.
             </p>
+            <Link href="/features" className="text-teal-500 hover:text-teal-400 font-semibold mt-4 inline-block">
+              See all features →
+            </Link>
           </div>
         </div>
       </section>
@@ -175,30 +197,36 @@ export default function AboutPage() {
 
       {/* CTA */}
       <section className="max-w-4xl mx-auto px-4 py-16 border-t border-gray-700 text-center">
-        <h2 className="text-3xl font-bold mb-4">Ready to Create Viral Content?</h2>
-        <p className="text-lg text-gray-300 mb-8">
-          Start with our free TikTok transcriber. No signup required.
+        <h2 className="text-3xl font-bold mb-4">Try It Free — No Signup Required</h2>
+        <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
+          Start with any of our free tools. Generate a script, transcribe a TikTok, or analyze a YouTube video — all free, right now.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link
-            href="/transcribe"
+            href="/script-generator"
             className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
           >
-            Try Free Tool
+            Generate a Script Free
           </Link>
           <Link
-            href="/pricing"
-            className="px-6 py-3 border border-teal-500 text-teal-500 rounded-lg font-semibold hover:bg-teal-500/10 transition"
+            href="/transcribe"
+            className="px-6 py-3 border border-teal-500 text-teal-400 rounded-lg font-semibold hover:bg-teal-500/10 transition"
           >
-            View Pricing
+            TikTok Transcriber
           </Link>
           <Link
-            href="/signup"
-            className="px-6 py-3 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+            href="/youtube-transcribe"
+            className="px-6 py-3 border border-red-500/50 text-red-400 rounded-lg font-semibold hover:bg-red-500/10 transition"
           >
-            Sign Up
+            YouTube Transcriber
           </Link>
         </div>
+        <p className="text-sm text-gray-500 mt-6">
+          Ready for more?{' '}
+          <Link href="/pricing" className="text-teal-400 hover:text-teal-300">View pricing</Link>
+          {' '}or{' '}
+          <Link href="/login?mode=signup" className="text-teal-400 hover:text-teal-300">create a free account</Link>.
+        </p>
       </section>
     </div>
   );

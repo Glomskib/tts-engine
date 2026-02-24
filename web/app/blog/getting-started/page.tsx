@@ -9,7 +9,17 @@ export const metadata: Metadata = {
     title: 'Getting Started with FlashFlow AI',
     description: 'Your first AI script in 60 seconds. Beginner-friendly guide.',
     type: 'article',
-    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/blog/getting-started',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Getting Started with FlashFlow AI',
+    description: 'Your first AI script in 60 seconds. Beginner-friendly guide.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/blog/getting-started',
   },
 };
 

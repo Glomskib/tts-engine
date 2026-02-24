@@ -9,7 +9,17 @@ export const metadata: Metadata = {
     title: 'How to Reverse-Engineer Winning TikTok Shop Videos',
     description: 'Extract winning product hooks, emotional angles, and sales strategies from top TikTok Shop videos.',
     type: 'article',
-    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/blog/reverse-engineer-winning-tiktok-shop-videos',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'How to Reverse-Engineer Winning TikTok Shop Videos',
+    description: 'Extract winning hooks and sales strategies from top TikTok Shop videos.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/blog/reverse-engineer-winning-tiktok-shop-videos',
   },
 };
 

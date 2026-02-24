@@ -6,26 +6,30 @@ const suggestions = [
   {
     label: 'Script Generator',
     href: '/script-generator',
-    description: 'Create viral TikTok scripts with AI',
+    description: 'Create viral TikTok scripts with AI — free',
     icon: FileText,
+    free: true,
   },
   {
-    label: 'Transcriber',
+    label: 'TikTok Transcriber',
     href: '/transcribe',
-    description: 'Transcribe & analyze any TikTok video',
+    description: 'Transcribe & analyze any TikTok video — free',
     icon: Mic,
+    free: true,
   },
   {
-    label: 'Blog',
-    href: '/blog',
-    description: 'Tips, hooks, and content strategy guides',
+    label: 'YouTube Transcriber',
+    href: '/youtube-transcribe',
+    description: 'Transcribe any YouTube video with AI — free',
     icon: BookOpen,
+    free: true,
   },
   {
     label: 'Pricing',
     href: '/pricing',
     description: 'Plans for creators, brands, and agencies',
     icon: CreditCard,
+    free: false,
   },
 ];
 
@@ -61,7 +65,7 @@ export default function NotFound() {
             This page doesn&apos;t exist
           </h1>
           <p className="text-zinc-400 mb-10 leading-relaxed">
-            The link may be broken, or the page may have been removed.
+            The link may be broken, or the page may have been removed. Try one of our free tools instead&nbsp;&mdash; no signup required.
           </p>
 
           {/* Suggestions */}
@@ -82,6 +86,9 @@ export default function NotFound() {
                   <div className="min-w-0">
                     <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">
                       {item.label}
+                      {item.free && (
+                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-teal-500/20 text-teal-400 rounded">Free</span>
+                      )}
                     </span>
                     <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">
                       {item.description}
@@ -92,14 +99,22 @@ export default function NotFound() {
             </div>
           </div>
 
-          {/* Go Home */}
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-colors"
-          >
-            Go Home
-            <ArrowRight size={16} />
-          </Link>
+          {/* CTAs */}
+          <div className="flex gap-3 justify-center flex-wrap">
+            <Link
+              href="/script-generator"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-teal-500 text-white font-semibold hover:bg-teal-600 transition-colors"
+            >
+              Generate a Script Free
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 text-zinc-300 font-semibold hover:bg-white/5 transition-colors"
+            >
+              Go Home
+            </Link>
+          </div>
         </div>
       </main>
 

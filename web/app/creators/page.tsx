@@ -4,10 +4,10 @@ import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
   title: 'FlashFlow AI for Creators — AI TikTok Scripts in 30 Seconds',
-  description: 'Stop staring at your phone. FlashFlow generates ready-to-film TikTok Shop scripts in 30 seconds. 7 creator personas. Unlimited variety. Zero creative burnout.',
+  description: 'Stop staring at your phone. FlashFlow generates ready-to-film TikTok Shop scripts in 30 seconds. 20+ creator personas. Unlimited variety. Zero creative burnout.',
   openGraph: {
     title: 'FlashFlow AI for Creators',
-    description: 'AI-generated TikTok scripts in 30 seconds. 7 personas. Zero creative burnout.',
+    description: 'AI-generated TikTok scripts in 30 seconds. 20+ personas. Zero creative burnout.',
     type: 'website',
   },
 };
@@ -39,7 +39,7 @@ export default function CreatorsPage() {
           </h1>
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
             FlashFlow generates ready-to-film TikTok scripts in 30 seconds.
-            7 creator personas. Unlimited variety. Zero creative burnout.
+            20+ creator personas. Unlimited variety. Zero creative burnout.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/login?mode=signup" className="px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl text-lg transition-colors">
@@ -60,7 +60,7 @@ export default function CreatorsPage() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { step: '1', title: 'Pick a product', desc: 'Paste a TikTok Shop link or add your product manually. FlashFlow auto-extracts selling points.' },
-              { step: '2', title: 'Choose your voice', desc: 'Select from 7 creator personas. Each one writes differently so your content stays fresh.' },
+              { step: '2', title: 'Choose your voice', desc: 'Select from 20+ creator personas. Each one writes differently so your content stays fresh.' },
               { step: '3', title: 'Film it', desc: 'Get a complete script with hook, setup, body, and CTA. Copy it, open your camera, and go.' },
             ].map((item) => (
               <div key={item.step} className="bg-zinc-900/60 border border-white/10 rounded-2xl p-6 text-center">
@@ -74,9 +74,9 @@ export default function CreatorsPage() {
           </div>
         </section>
 
-        {/* 7 Personas */}
+        {/* Personas */}
         <section className="py-16">
-          <h2 className="text-3xl font-bold text-center mb-4">7 voices, one tool</h2>
+          <h2 className="text-3xl font-bold text-center mb-4">20+ voices, one tool</h2>
           <p className="text-zinc-400 text-center mb-12 max-w-lg mx-auto">
             Each persona writes differently. Your audience never hears the same formula twice.
           </p>

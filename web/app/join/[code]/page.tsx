@@ -126,7 +126,7 @@ export default function BrandJoinPage({
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-400 mt-0.5">&#10003;</span>
-                  <span>7 creator personas for unique content</span>
+                  <span>20+ creator personas for unique content</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-400 mt-0.5">&#10003;</span>

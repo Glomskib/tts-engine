@@ -101,7 +101,7 @@ export default function PricingPage() {
             <p className="text-xs text-emerald-400 mb-6">No credit card required</p>
 
             <Link
-              href="/signup"
+              href="/login?mode=signup"
               className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-6 transition bg-gray-700 text-white hover:bg-gray-600"
             >
               Get Started Free
@@ -349,7 +349,7 @@ export default function PricingPage() {
         <p className="text-gray-300 mb-8">Free plan. No credit card. No commitment.</p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link
-            href="/signup"
+            href="/login?mode=signup"
             className="px-8 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
           >
             Create Free Account

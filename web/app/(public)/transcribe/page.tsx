@@ -126,7 +126,7 @@ export default function TranscribePage() {
             <Link href="/script-generator" className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition">
               Generate a Script Free
             </Link>
-            <Link href="/signup" className="px-6 py-3 border border-gray-600 text-white rounded-lg font-semibold hover:bg-gray-800 transition">
+            <Link href="/login?mode=signup" className="px-6 py-3 border border-gray-600 text-white rounded-lg font-semibold hover:bg-gray-800 transition">
               Create Free Account
             </Link>
             <Link href="/pricing" className="px-6 py-3 border border-teal-500 text-teal-400 rounded-lg font-semibold hover:bg-teal-500/10 transition">

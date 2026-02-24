@@ -131,7 +131,7 @@ export default function ContentCreatorLP() {
               ))}
             </ul>
             <Link
-              href="/signup?plan=creator_lite"
+              href="/login?mode=signup&plan=creator_lite"
               className="block w-full py-3 rounded-lg bg-zinc-800 text-zinc-200 font-medium hover:bg-zinc-700 transition-all text-center"
             >
               Choose Lite
@@ -159,7 +159,7 @@ export default function ContentCreatorLP() {
               ))}
             </ul>
             <Link
-              href="/signup?plan=creator_pro"
+              href="/login?mode=signup&plan=creator_pro"
               className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
             >
               Choose Creator Pro

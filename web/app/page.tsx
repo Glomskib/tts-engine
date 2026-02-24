@@ -533,7 +533,7 @@ export default function LandingPage() {
                   </p>
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                     <Link
-                      href="/signup"
+                      href="/login?mode=signup"
                       className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all"
                     >
                       Create Free Account
@@ -601,7 +601,7 @@ export default function LandingPage() {
                 'Free Transcriber',
               ]}
               cta="Get Started Free"
-              ctaLink="/signup"
+              ctaLink="/login?mode=signup"
               highlight={false}
             />
 
@@ -621,7 +621,7 @@ export default function LandingPage() {
                 'Referral program',
               ]}
               cta="Start Trial"
-              ctaLink="/signup?plan=creator_lite"
+              ctaLink="/login?mode=signup&plan=creator_lite"
               highlight={false}
             />
 
@@ -643,7 +643,7 @@ export default function LandingPage() {
                 'Advanced analytics',
               ]}
               cta="Start Trial"
-              ctaLink="/signup?plan=creator_pro"
+              ctaLink="/login?mode=signup&plan=creator_pro"
               highlight={true}
               badge="Most Popular"
             />
@@ -664,7 +664,7 @@ export default function LandingPage() {
                 'Priority support',
               ]}
               cta="Start Trial"
-              ctaLink="/signup?plan=brand"
+              ctaLink="/login?mode=signup&plan=business"
               highlight={false}
             />
           </div>

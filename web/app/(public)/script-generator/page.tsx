@@ -321,7 +321,7 @@ export default function ScriptGeneratorPage() {
             </div>
             <p className="text-xs text-zinc-600 mt-2">
               Optional — skip to use a generic narrator voice.{' '}
-              <Link href="/signup" className="text-violet-400 hover:text-violet-300">
+              <Link href="/login?mode=signup" className="text-violet-400 hover:text-violet-300">
                 Sign up free for all 20+ personas
               </Link>
             </p>
@@ -390,7 +390,7 @@ export default function ScriptGeneratorPage() {
             {remaining === 0 ? (
               <>
                 Daily limit reached.{' '}
-                <Link href="/signup" className="underline hover:text-amber-300 font-medium">
+                <Link href="/login?mode=signup" className="underline hover:text-amber-300 font-medium">
                   Sign up free for 5 daily generations
                 </Link>
               </>
@@ -400,7 +400,7 @@ export default function ScriptGeneratorPage() {
                 {remaining <= 1 && (
                   <>
                     {' '}&mdash;{' '}
-                    <Link href="/signup" className="underline hover:text-amber-300 font-medium">
+                    <Link href="/login?mode=signup" className="underline hover:text-amber-300 font-medium">
                       Sign up for more
                     </Link>
                   </>
@@ -432,7 +432,7 @@ export default function ScriptGeneratorPage() {
               )}
               {showSignup && (
                 <Link
-                  href="/signup"
+                  href="/login?mode=signup"
                   className="inline-flex items-center gap-1 text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors"
                 >
                   Create free account for 5 daily generations
@@ -462,7 +462,7 @@ export default function ScriptGeneratorPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Link
-                  href="/signup"
+                  href="/login?mode=signup"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-sm text-violet-400 hover:bg-violet-500/20 transition-colors"
                 >
                   <Bookmark size={14} />
@@ -563,7 +563,7 @@ export default function ScriptGeneratorPage() {
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <Link
-                      href="/signup"
+                      href="/login?mode=signup"
                       className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-white text-zinc-900 font-semibold text-sm hover:bg-zinc-100 transition-colors"
                     >
                       Create Free Account
@@ -716,7 +716,7 @@ export default function ScriptGeneratorPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                href="/signup"
+                href="/login?mode=signup"
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-colors"
               >
                 Create Free Account

@@ -265,7 +265,7 @@ export default function AIToolsArticle() {
             FlashFlow AI is the #1 tool every TikTok Shop seller needs. Start generating scripts today.
           </p>
           <Link
-            href="/signup"
+            href="/login?mode=signup"
             className="inline-block px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition"
           >
             Get Started Free

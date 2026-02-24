@@ -144,7 +144,7 @@ export default function AgencyLP() {
               ))}
             </ul>
             <Link
-              href="/signup?plan=business"
+              href="/login?mode=signup&plan=business"
               className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
             >
               Choose Business

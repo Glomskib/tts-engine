@@ -150,7 +150,7 @@ export default function FreeGeneratorPage() {
             </p>
             <div className="flex gap-4 justify-center">
               <Link
-                href="/signup"
+                href="/login?mode=signup"
                 className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition inline-flex items-center gap-2"
               >
                 Sign Up Free

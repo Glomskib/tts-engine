@@ -737,7 +737,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             <p className={`text-sm mt-4 ${usageRemaining === 0 ? 'text-red-400' : 'text-zinc-500'}`}>
               {usageRemaining} of {usageLimit} {isLoggedIn ? '' : 'free '}AI use{usageLimit === 1 ? '' : 's'} remaining today
               {!isPortal && !isLoggedIn && usageRemaining <= 3 && (
-                <> &mdash; <Link href="/signup" className="text-teal-400 hover:text-teal-300 underline underline-offset-2">sign up</Link> for more /day</>
+                <> &mdash; <Link href="/login?mode=signup" className="text-teal-400 hover:text-teal-300 underline underline-offset-2">sign up</Link> for more /day</>
               )}
             </p>
           )}

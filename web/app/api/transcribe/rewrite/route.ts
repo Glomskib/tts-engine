@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       ? "You've reached your daily AI limit. Check back tomorrow!"
       : "You've reached your daily limit. Sign up for FlashFlow to get more AI uses!";
     return NextResponse.json(
-      { error: msg, signupUrl: userId ? undefined : '/signup' },
+      { error: msg, signupUrl: userId ? undefined : '/login?mode=signup' },
       {
         status: 429,
         headers: {

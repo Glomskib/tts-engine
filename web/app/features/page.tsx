@@ -50,7 +50,7 @@ export default function FeaturesPage() {
       title: 'Winners Bank',
       description: 'Save viral TikToks. AI analyzes the hook, pacing, and emotional triggers that make them work — so you can replicate the pattern with your own products.',
       icon: '🏆',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
     {
       title: 'Hook Strength Scoring',
@@ -70,37 +70,37 @@ export default function FeaturesPage() {
       title: 'Production Board',
       description: 'Track every video from script to filmed to posted. Never lose a draft. See your full pipeline at a glance with drag-and-drop status management.',
       icon: '📊',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
     {
       title: 'Content Calendar & Retainers',
       description: 'Plan your posting schedule by brand. Set retainer video goals, track bonus tiers, and see exactly where you stand on every brand deal.',
       icon: '📅',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
     {
       title: 'Script Library',
       description: 'Every script you generate is saved and searchable. Rate your best performers, track which ones get filmed, and build a reusable content library.',
       icon: '📚',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
     {
       title: 'Multi-Brand Management',
       description: 'Organize products, scripts, and retainers by brand. Switch between brands instantly. Track quota progress across all your partnerships.',
       icon: '🏢',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
     {
       title: 'Competitor Tracking',
       description: 'Add TikTok creators in your niche. See what hooks, formats, and products are working for them. Study the competition, then outperform them.',
       icon: '👀',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
     {
       title: 'Analytics & Performance',
       description: 'Track video views, engagement, and revenue. See which scripts convert best. Make data-driven decisions about what to create next.',
       icon: '📈',
-      link: '/signup',
+      link: '/login?mode=signup',
     },
   ];
 

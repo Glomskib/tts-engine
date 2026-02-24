@@ -88,7 +88,7 @@ export default async function SharedScriptPage({ params }: { params: Promise<{ i
             Create viral scripts like this for free
           </span>
           <Link
-            href="/signup"
+            href="/login?mode=signup"
             style={{
               padding: '6px 16px',
               backgroundColor: 'white',
@@ -285,7 +285,7 @@ export default async function SharedScriptPage({ params }: { params: Promise<{ i
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link
-              href="/signup"
+              href="/login?mode=signup"
               style={{
                 padding: '12px 24px',
                 backgroundColor: '#6366f1',

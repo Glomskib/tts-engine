@@ -137,7 +137,7 @@ export default function TikTokShopLP() {
             href="/signup?plan=creator_pro"
             className="block w-full py-3 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-100 transition-all text-center"
           >
-            Start Free Trial
+            Get Started Free
           </Link>
         </div>
       </section>

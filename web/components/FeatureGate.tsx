@@ -368,7 +368,7 @@ export function NoCreditsModal({ isOpen, onClose }: NoCreditsModalProps) {
           </div>
 
           <h2 style={{ fontSize: '24px', fontWeight: 700, color: colors.text, marginBottom: '8px' }}>
-            {isFreeUser ? 'Free Trial Complete' : 'Out of Credits'}
+            {isFreeUser ? 'Free Plan Limit Reached' : 'Out of Credits'}
           </h2>
 
           <p style={{ color: colors.textMuted, marginBottom: '24px' }}>

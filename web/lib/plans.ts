@@ -29,11 +29,11 @@ export interface PricingPlan {
 
 export const PRICING_PLANS: Record<string, PricingPlan> = {
   free: {
-    name: 'Free Trial',
+    name: 'Free',
     monthly: { price: 0, display: 'Free', stripePriceId: null },
     annual: { price: 0, display: 'Free', stripePriceId: null },
     credits: 5,
-    features: ['5 AI scripts', 'Basic transcriber', '1 brand'],
+    features: ['5 AI scripts/mo', 'Free TikTok transcriber', 'Free YouTube transcriber', '1 brand'],
   },
   lite: {
     name: 'Lite',

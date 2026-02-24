@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState } from '../components/AdminPageLayout';
 import { SkeletonAuthCheck, SkeletonTable } from '@/components/ui/Skeleton';
+import { Progress } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { computeBrandStats, BrandStats, BrandVideo, BrandProduct, BrandWinner } from '@/lib/brands/brand-stats';
 
@@ -273,9 +274,18 @@ export default function BrandsPage() {
                     </div>
                   </div>
                   {/* Health bar */}
-                  <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-3">
-                    <div className={`h-full ${healthBg} rounded-full transition-all`} style={{ width: `${stat.health_score}%` }} />
-                  </div>
+                  <Progress
+                    value={stat.health_score / 100}
+                    size="sm"
+                    showLabels={false}
+                    intent={
+                      stat.health_label === 'excellent' ? 'success' :
+                      stat.health_label === 'good'      ? 'default' :
+                      stat.health_label === 'needs_attention' ? 'warn' : 'danger'
+                    }
+                    className="mb-3"
+                    aria-label={`Health score ${stat.health_score}%`}
+                  />
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center gap-1.5 text-zinc-400">
                       <Video className="w-3 h-3" /> {stat.posted_videos}/{stat.total_videos} posted
@@ -416,24 +426,13 @@ export default function BrandsPage() {
                 {/* Quota progress */}
                 {brand.monthly_video_quota > 0 && (
                   <div className="mt-3 pt-3 border-t border-white/10">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-zinc-400">Monthly Quota</span>
-                      <span className="text-zinc-100">
-                        {brand.videos_this_month} / {brand.monthly_video_quota}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all ${
-                          brand.videos_this_month >= brand.monthly_video_quota
-                            ? 'bg-red-500'
-                            : 'bg-teal-500'
-                        }`}
-                        style={{
-                          width: `${Math.min(100, (brand.videos_this_month / brand.monthly_video_quota) * 100)}%`
-                        }}
-                      />
-                    </div>
+                    <Progress
+                      current={brand.videos_this_month}
+                      total={brand.monthly_video_quota}
+                      label="Monthly Quota"
+                      sublabel={`${brand.videos_this_month} / ${brand.monthly_video_quota}`}
+                      intent={brand.videos_this_month >= brand.monthly_video_quota ? 'danger' : 'default'}
+                    />
                   </div>
                 )}
 
@@ -747,16 +746,11 @@ function BrandEditModal({
 
         {/* Completeness progress bar */}
         <div className="px-4 pt-3 pb-1">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-zinc-400">Brand Profile: {completenessCount} of 12 complete</span>
-            <span className="text-xs text-zinc-500">{Math.round((completenessCount / 12) * 100)}%</span>
-          </div>
-          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-teal-500 rounded-full transition-all duration-300"
-              style={{ width: `${(completenessCount / 12) * 100}%` }}
-            />
-          </div>
+          <Progress
+            current={completenessCount}
+            total={12}
+            label={`Brand Profile: ${completenessCount} of 12 complete`}
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">

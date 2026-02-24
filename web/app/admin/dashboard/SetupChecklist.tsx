@@ -6,6 +6,7 @@ import {
   Package, Sparkles, Video, CheckCircle2,
   ChevronDown, ChevronUp, X, Mic,
 } from 'lucide-react';
+import { Progress } from '@/components/ui';
 
 const DISMISSED_KEY = 'ff-setup-checklist-dismissed';
 
@@ -144,12 +145,12 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
               <span className="ml-2 text-xs font-normal text-zinc-500">{completedCount}/{STEPS.length}</span>
             </h3>
             {/* Mini progress bar */}
-            <div className="w-32 h-1 bg-zinc-700 rounded-full mt-1.5 overflow-hidden">
-              <div
-                className="h-full bg-teal-500 rounded-full transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <Progress
+              value={progress / 100}
+              size="xs"
+              showLabels={false}
+              className="w-32 mt-1.5"
+            />
           </div>
         </div>
         <div className="flex items-center gap-2">

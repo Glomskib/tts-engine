@@ -5,6 +5,7 @@ import AdminPageLayout, { AdminCard, AdminButton } from '../../components/AdminP
 import PlanGate from '@/components/PlanGate';
 import { useToast } from '@/contexts/ToastContext';
 import { Trophy, Loader2, RefreshCw, TrendingUp, BarChart, Lightbulb, Zap, Star, Target } from 'lucide-react';
+import { Progress } from '@/components/ui';
 
 // --- Types ---
 
@@ -185,9 +186,12 @@ export default function WinnerPatternsPage() {
               Claude is reviewing your winners bank and extracting patterns.
               This usually takes 10-20 seconds.
             </p>
-            <div className="mt-4 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-violet-500 to-teal-500 rounded-full animate-indeterminate" />
-            </div>
+            <Progress
+              indeterminate
+              intent="gradient-teal"
+              size="sm"
+              className="mt-4"
+            />
           </div>
         </div>
       )}

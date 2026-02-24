@@ -80,3 +80,7 @@ export { OfflineIndicator } from './OfflineIndicator';
 
 // Images
 export { LazyImage, LazyThumbnail } from './LazyImage';
+
+// Progress
+export { Progress } from './Progress';
+export type { ProgressProps, ProgressSize, ProgressIntent } from './Progress';

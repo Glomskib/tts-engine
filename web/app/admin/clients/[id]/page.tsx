@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Progress } from '@/components/ui';
 
 interface Client {
   id: string;
@@ -673,18 +674,13 @@ export default function ClientDetailPage() {
                     </div>
                     <div className="space-y-3">
                       {report.content_breakdown.map((ct) => (
-                        <div key={ct.type}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm text-white capitalize">{ct.type.replace(/_/g, ' ')}</span>
-                            <span className="text-sm text-zinc-400">{ct.count} ({ct.percentage}%)</span>
-                          </div>
-                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-teal-500 to-purple-500 rounded-full"
-                              style={{ width: `${ct.percentage}%` }}
-                            />
-                          </div>
-                        </div>
+                        <Progress
+                          key={ct.type}
+                          value={ct.percentage / 100}
+                          label={<span className="capitalize">{ct.type.replace(/_/g, ' ')}</span>}
+                          sublabel={`${ct.count} (${ct.percentage}%)`}
+                          intent="gradient-teal"
+                        />
                       ))}
                     </div>
                   </div>

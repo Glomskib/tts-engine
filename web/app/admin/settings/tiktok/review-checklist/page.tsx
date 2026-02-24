@@ -14,6 +14,7 @@ import {
   Unlink,
   Trash2,
 } from 'lucide-react';
+import { Progress } from '@/components/ui';
 
 interface ChecklistStep {
   id: number;
@@ -107,20 +108,12 @@ export default function ReviewChecklistPage() {
     >
       {/* Progress Bar */}
       <AdminCard>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-300 font-medium">
-              {completed.size} of {STEPS.length} steps completed
-            </span>
-            <span className="text-zinc-500">{progress}%</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-violet-600 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        <Progress
+          current={completed.size}
+          total={STEPS.length}
+          label={`${completed.size} of ${STEPS.length} steps completed`}
+          intent="violet"
+        />
       </AdminCard>
 
       {/* Checklist Steps */}

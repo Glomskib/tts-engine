@@ -27,6 +27,7 @@ import {
   Mail,
   ExternalLink,
 } from 'lucide-react';
+import { Progress } from '@/components/ui';
 
 // ─── Step tracker (persisted in localStorage) ────────────────────────────────
 
@@ -125,18 +126,12 @@ export default function GuidePage() {
         </p>
 
         {/* Progress bar */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between text-xs text-zinc-500 mb-1.5">
-            <span>{completedCount} of {totalSteps} complete</span>
-            <span>{progressPct}%</span>
-          </div>
-          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-teal-500 rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
+        <Progress
+          current={completedCount}
+          total={totalSteps}
+          label={`${completedCount} of ${totalSteps} complete`}
+          className="mb-5"
+        />
 
         {/* Steps */}
         <div className="space-y-3">

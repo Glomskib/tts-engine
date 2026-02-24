@@ -6,6 +6,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useToast } from '@/contexts/ToastContext';
 import { User, CreditCard, Bell, Palette, Shield, Loader2, Check, Key, Copy, Trash2, Plus, AlertTriangle, Zap, Send, ToggleLeft, ToggleRight, Download, Upload } from 'lucide-react';
+import { Progress } from '@/components/ui';
 import { SkeletonForm, SkeletonPageHeader } from '@/components/ui/Skeleton';
 import PlanGate from '@/components/PlanGate';
 
@@ -701,18 +702,12 @@ export default function SettingsPage() {
               {/* Credit Usage Bar */}
               {!isUnlimited && credits && (
                 <div className="mt-4">
-                  <div className="flex justify-between text-sm text-zinc-400 mb-2">
-                    <span>Credits remaining</span>
-                    <span>{credits.remaining} / {(credits.remaining || 0) + (credits.usedThisPeriod || 0)}</span>
-                  </div>
-                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full"
-                      style={{
-                        width: `${Math.min(100, ((credits.remaining || 0) / ((credits.remaining || 0) + (credits.usedThisPeriod || 0))) * 100)}%`
-                      }}
-                    />
-                  </div>
+                  <Progress
+                    value={Math.min(1, (credits.remaining || 0) / Math.max(1, (credits.remaining || 0) + (credits.usedThisPeriod || 0)))}
+                    label="Credits remaining"
+                    sublabel={`${credits.remaining} / ${(credits.remaining || 0) + (credits.usedThisPeriod || 0)}`}
+                    intent="gradient"
+                  />
                   {credits.remaining !== undefined && credits.remaining <= 5 && (
                     <p className="text-amber-400 text-sm mt-2">
                       Running low on credits! <Link href="/upgrade" className="underline">Upgrade now</Link>

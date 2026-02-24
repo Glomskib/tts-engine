@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Target, Clock, TrendingUp, AlertTriangle, CheckCircle2, DollarSign, Video, FileText, Upload, Loader2, X, Sparkles } from 'lucide-react';
+import { Progress } from '@/components/ui';
 
 interface TierProgress {
   hit: boolean;
@@ -518,20 +519,12 @@ export default function RetainersPage() {
                   </div>
 
                   {/* Progress Bar */}
-                  <div>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-sm text-zinc-400">
-                        <span className="text-white font-semibold">{r.videos_posted}</span> of {r.video_goal} videos
-                      </span>
-                      <span className="text-sm font-medium text-zinc-300">{r.completion}%</span>
-                    </div>
-                    <div className="w-full h-3 bg-zinc-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-teal-500 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, r.completion)}%` }}
-                      />
-                    </div>
-                  </div>
+                  <Progress
+                    value={Math.min(1, r.completion / 100)}
+                    label={<><span className="text-white font-semibold">{r.videos_posted}</span>{` of ${r.video_goal} videos`}</>}
+                    sublabel={`${r.completion}%`}
+                    size="lg"
+                  />
 
                   {/* Stats Row */}
                   <div className="flex flex-wrap gap-4 text-sm">

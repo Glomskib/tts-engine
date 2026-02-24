@@ -370,13 +370,19 @@ export default function AccountsPage() {
       </div>
 
       {accounts.length === 0 && !showNewForm && (
-        <div className="text-center py-12">
-          <div className="text-zinc-500 mb-4">No accounts yet</div>
+        <div className="text-center py-10 max-w-sm mx-auto">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+            <Video className="w-5 h-5 text-teal-400" />
+          </div>
+          <p className="text-sm font-medium text-zinc-200 mb-1">Link your TikTok account</p>
+          <p className="text-xs text-zinc-500 mb-4 leading-relaxed">
+            Connect your TikTok handle to track video performance, sync posting data, and see engagement trends.
+          </p>
           <button
             onClick={() => setShowNewForm(true)}
-            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg btn-press min-h-[44px]"
+            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg btn-press min-h-[44px] text-sm font-medium"
           >
-            Add Your First Account
+            <Plus className="w-4 h-4 inline mr-1" />Add Your First Account
           </button>
         </div>
       )}

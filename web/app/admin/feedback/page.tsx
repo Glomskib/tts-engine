@@ -223,7 +223,11 @@ export default function FeedbackPage() {
             <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
           </div>
         ) : feedback.length === 0 ? (
-          <div className="py-16 text-center text-zinc-500">No feedback found.</div>
+          <div className="py-12 text-center">
+            <MessageSquare className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+            <p className="text-sm text-zinc-400">No feedback matching these filters</p>
+            <p className="text-xs text-zinc-500 mt-1">Feedback from users will appear here as it comes in.</p>
+          </div>
         ) : (
           <div className="divide-y divide-zinc-800">
             {feedback.map((item) => {

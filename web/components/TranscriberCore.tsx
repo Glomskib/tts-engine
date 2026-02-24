@@ -1611,13 +1611,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         Want to write scripts like this?
                       </h3>
                       <p className="text-zinc-400 mb-6">
-                        Generate your first AI-powered TikTok script in seconds. Free to start.
+                        Turn this analysis into your own TikTok script. 20+ persona voices, free to try.
                       </p>
                       <Link
-                        href="/signup"
+                        href="/script-generator"
                         className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
                       >
-                        Generate your first script free
+                        Try the Script Generator Free
                         <ArrowRight size={16} />
                       </Link>
                       {!isLoggedIn && (

@@ -26,6 +26,9 @@ export default function TranscribePage() {
     <div className="w-full">
       {/* SEO Content Section */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 mb-4">
+          100% free — no signup required
+        </div>
         <h1 className="text-4xl font-bold mb-4 text-white">Free TikTok Video Transcriber & Script Analyzer</h1>
         <p className="text-lg text-gray-300 mb-8">
           Paste any TikTok video link below to instantly get the full transcript, AI-powered hook analysis, and content recommendations. No signup required.
@@ -54,7 +57,7 @@ export default function TranscribePage() {
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">3</div>
               <h3 className="text-lg font-semibold text-white mb-2">Get Insights & Scripts</h3>
-              <p className="text-gray-300">Export the transcript, download the script structure, or feed it into our script generator to create your own videos.</p>
+              <p className="text-gray-300">Export the transcript, study the hook structure, or use our script generator to create your own videos based on what works.</p>
             </div>
           </div>
         </section>
@@ -115,18 +118,26 @@ export default function TranscribePage() {
 
         {/* CTA */}
         <section className="text-center py-12 border-t border-gray-700">
-          <h2 className="text-2xl font-bold mb-4 text-white">Ready to Scale Your Content?</h2>
+          <h2 className="text-2xl font-bold mb-4 text-white">Turn Analysis Into Action</h2>
           <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
-            Get unlimited transcriptions and advanced AI features with FlashFlow Pro. Analyze competitor content and generate scripts powered by the data.
+            Found a winning hook? Generate your own script based on it. FlashFlow&apos;s AI script generator uses 20+ persona voices to create scroll-stopping content.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Link href="/pricing" className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition">
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Link href="/script-generator" className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition">
+              Generate a Script Free
+            </Link>
+            <Link href="/signup" className="px-6 py-3 border border-gray-600 text-white rounded-lg font-semibold hover:bg-gray-800 transition">
+              Create Free Account
+            </Link>
+            <Link href="/pricing" className="px-6 py-3 border border-teal-500 text-teal-400 rounded-lg font-semibold hover:bg-teal-500/10 transition">
               View Pricing
             </Link>
-            <Link href="/signup" className="px-6 py-3 border border-teal-500 text-teal-500 rounded-lg font-semibold hover:bg-teal-500/10 transition">
-              Get Started Free
-            </Link>
           </div>
+          <p className="text-xs text-gray-500 mt-4">
+            Also try our{' '}
+            <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300">YouTube Transcriber</Link>
+            {' '}&mdash; same AI analysis for YouTube videos.
+          </p>
         </section>
 
         {/* FAQ Schema is rendered via layout.tsx */}

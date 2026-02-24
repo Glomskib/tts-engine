@@ -11,6 +11,9 @@ import {
   RefreshCw,
   Loader2,
   DollarSign,
+  Share2,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
 interface ReferralStats {
@@ -67,6 +70,24 @@ export default function ReferralsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleShare = async () => {
+    if (!stats?.referralLink) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Try FlashFlow AI",
+          text: "I use FlashFlow to generate TikTok Shop scripts in seconds. Sign up with my link and we both get free credits!",
+          url: stats.referralLink,
+        });
+      } catch {
+        // User cancelled or share failed — fall back to copy
+        handleCopy();
+      }
+    } else {
+      handleCopy();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -106,6 +127,13 @@ export default function ReferralsPage() {
           >
             {copied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy</>}
           </button>
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-3 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium rounded-lg transition-colors shrink-0 min-h-[44px] border border-white/10"
+            title="Share referral link"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
         </div>
         {stats?.referralCode && (
           <p className="text-xs text-zinc-500 mt-2">
@@ -119,9 +147,9 @@ export default function ReferralsPage() {
         <h3 className="text-sm font-semibold text-zinc-200 mb-3">How It Works</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { step: "1", title: "Share your link", desc: "Send your referral link to friends" },
-            { step: "2", title: "They sign up", desc: "Your friend creates a FlashFlow account" },
-            { step: "3", title: "You both earn", desc: "Both of you get 1 month of plan credits" },
+            { step: "1", title: "Share your link", desc: "Send it via DM, group chat, or social" },
+            { step: "2", title: "They sign up", desc: "Your friend creates a free account" },
+            { step: "3", title: "You both earn", desc: "1 month of plan credits — instantly" },
           ].map((item) => (
             <div key={item.step} className="flex items-start gap-3">
               <div className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -157,8 +185,19 @@ export default function ReferralsPage() {
           <h3 className="text-sm font-semibold text-zinc-200">People You Referred</h3>
         </div>
         {recent.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm text-zinc-500">
-            No referrals yet. Share your link to get started!
+          <div className="px-5 py-8 text-center">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-teal-500/10 flex items-center justify-center">
+              <Send className="w-5 h-5 text-teal-400" />
+            </div>
+            <p className="text-sm font-medium text-zinc-200 mb-1">No referrals yet</p>
+            <p className="text-xs text-zinc-500 mb-4 max-w-xs mx-auto leading-relaxed">
+              Share your link with friends who create TikTok content. When they sign up, you both get a month of free credits.
+            </p>
+            <div className="flex items-center justify-center gap-4 text-[11px] text-zinc-600">
+              <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> DMs</span>
+              <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Group chats</span>
+              <span className="flex items-center gap-1"><Share2 className="w-3 h-3" /> Social posts</span>
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-white/5">

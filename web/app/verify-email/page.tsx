@@ -122,6 +122,22 @@ function VerifyEmailContent() {
           >
             Go to Sign In
           </Link>
+
+          <div className="mt-6 pt-5 border-t border-white/5">
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-3">What&apos;s waiting for you</p>
+            <div className="space-y-2 text-left">
+              {[
+                { icon: '✦', text: 'AI script generator with 20+ persona voices' },
+                { icon: '◎', text: 'Winners Bank — study viral TikToks' },
+                { icon: '▶', text: 'Video pipeline from script to post' },
+              ].map((item) => (
+                <div key={item.text} className="flex items-center gap-2.5 text-xs text-zinc-400">
+                  <span className="text-teal-400/70 text-[10px]">{item.icon}</span>
+                  {item.text}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

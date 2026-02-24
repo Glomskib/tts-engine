@@ -9,7 +9,17 @@ export const metadata: Metadata = {
     title: 'Free TikTok Tools | FlashFlow AI',
     description: 'Free transcriber, AI script generator, and full TikTok content toolkit. Start free, no signup required.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/tools',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Free TikTok Tools | FlashFlow AI',
+    description: 'Free transcriber, AI script generator, and full TikTok content toolkit.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/tools',
   },
 };
 

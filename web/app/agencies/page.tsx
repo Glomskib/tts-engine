@@ -9,6 +9,17 @@ export const metadata: Metadata = {
     title: 'FlashFlow AI for Agencies',
     description: 'Replace your 5-tool stack with one platform. Scripts, editing, pipeline, and analytics for multi-brand agencies.',
     type: 'website',
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/agencies',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'FlashFlow AI for Agencies',
+    description: 'Replace your 5-tool stack with one platform. Scripts, editing, pipeline, and analytics.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/agencies',
   },
 };
 

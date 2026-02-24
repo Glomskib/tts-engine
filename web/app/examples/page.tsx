@@ -11,6 +11,17 @@ export const metadata: Metadata = {
     title: 'TikTok Script Examples — AI-Generated UGC Scripts',
     description: 'Browse real AI-generated TikTok Shop scripts. 12 examples across health, beauty, tech, home, and fashion.',
     type: 'website',
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/examples',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'TikTok Script Examples | FlashFlow AI',
+    description: 'Browse real AI-generated TikTok Shop scripts across health, beauty, tech, home, and fashion.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/examples',
   },
 };
 

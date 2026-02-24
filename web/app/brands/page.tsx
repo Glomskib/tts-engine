@@ -9,6 +9,17 @@ export const metadata: Metadata = {
     title: 'FlashFlow AI for Brands',
     description: 'Give every affiliate creator product-specific scripts that actually convert.',
     type: 'website',
+    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    url: 'https://flashflowai.com/brands',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'FlashFlow AI for Brands',
+    description: 'Give every affiliate creator product-specific scripts that actually convert.',
+    images: ['/FFAI.png'],
+  },
+  alternates: {
+    canonical: 'https://flashflowai.com/brands',
   },
 };
 

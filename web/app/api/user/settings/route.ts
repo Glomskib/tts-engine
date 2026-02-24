@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
@@ -31,17 +31,6 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return null;
-  }
-
-  return createClient(supabaseUrl, supabaseKey);
-}
-
 export async function GET(request: Request) {
   const correlationId = generateCorrelationId();
 
@@ -50,11 +39,7 @@ export async function GET(request: Request) {
     return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return createApiErrorResponse('INTERNAL', 'Server configuration error', 500, correlationId);
-  }
-
+  const supabase = supabaseAdmin;
   const user = authContext.user;
 
   try {
@@ -86,11 +71,7 @@ export async function PATCH(request: NextRequest) {
     return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return createApiErrorResponse('INTERNAL', 'Server configuration error', 500, correlationId);
-  }
-
+  const supabase = supabaseAdmin;
   const user = authContext.user;
 
   try {

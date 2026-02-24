@@ -1,9 +1,15 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { SUPABASE_COOKIE_OPTIONS } from './cookie-options';
+import { isAdmin } from '@/lib/isAdmin';
 
 /**
  * Create a Supabase client for server-side operations with cookie-based auth.
  * Use this in Server Components, Route Handlers, and Server Actions.
+ *
+ * Single source of truth for all server-side Supabase sessions.
+ * Cookie attributes are set via the shared SUPABASE_COOKIE_OPTIONS constant
+ * so they're identical here and in middleware.ts.
  */
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
@@ -12,6 +18,7 @@ export async function createServerSupabaseClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: SUPABASE_COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -22,7 +29,7 @@ export async function createServerSupabaseClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Called from Server Component - ignore
+            // Called from Server Component — ignore
           }
         },
       },
@@ -49,33 +56,23 @@ export async function getAuthUser() {
 }
 
 /**
- * Get the current user's role from the user_roles table.
- * Returns null if not authenticated or no role found.
+ * Get the current user's role.
+ * Uses isAdmin() (app_metadata → user_metadata → ADMIN_USERS env).
  */
 export async function getUserRole(): Promise<'admin' | 'recorder' | 'editor' | 'uploader' | null> {
   const user = await getAuthUser();
   if (!user) return null;
 
+  if (isAdmin(user)) return 'admin';
+
   const supabase = await createServerSupabaseClient();
-
-  // First check ADMIN_USERS env for legacy admin support
-  const adminUsers = (process.env.ADMIN_USERS || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (user.email && adminUsers.includes(user.email)) {
-    return 'admin';
-  }
-
-  // Query user_roles table
   const { data, error } = await supabase
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
     .single();
 
-  if (error || !data) {
-    // Default to null (no role) if not found
-    return null;
-  }
-
+  if (error || !data) return null;
   return data.role as 'admin' | 'recorder' | 'editor' | 'uploader';
 }
 
@@ -85,19 +82,11 @@ export async function getUserRole(): Promise<'admin' | 'recorder' | 'editor' | '
  */
 export async function getAuthContext() {
   const user = await getAuthUser();
-  if (!user) {
-    return { user: null, role: null };
-  }
+  if (!user) return { user: null, role: null };
+
+  if (isAdmin(user)) return { user, role: 'admin' as const };
 
   const supabase = await createServerSupabaseClient();
-
-  // Check ADMIN_USERS env
-  const adminUsers = (process.env.ADMIN_USERS || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (user.email && adminUsers.includes(user.email)) {
-    return { user, role: 'admin' as const };
-  }
-
-  // Query user_roles table
   const { data } = await supabase
     .from('user_roles')
     .select('role')

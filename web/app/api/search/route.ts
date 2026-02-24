@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
@@ -22,14 +22,7 @@ export async function GET(request: NextRequest) {
     return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return createApiErrorResponse('INTERNAL', 'Server configuration error', 500, correlationId);
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = supabaseAdmin;
   const user = authContext.user;
 
   const { searchParams } = new URL(request.url);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
@@ -60,22 +60,9 @@ export async function GET(request: Request) {
 async function checkSupabase(): Promise<HealthCheck> {
   const start = Date.now();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return {
-      name: 'Supabase',
-      status: 'unhealthy',
-      message: 'Configuration missing',
-      lastChecked: new Date().toISOString(),
-    };
-  }
-
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
     // Simple query to check connection
-    const { error } = await supabase.from('profiles').select('id').limit(1);
+    const { error } = await supabaseAdmin.from('profiles').select('id').limit(1);
 
     if (error) {
       return {

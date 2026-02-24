@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isAdmin, getAdminRoleSource } from '@/lib/isAdmin'
+import { SUPABASE_COOKIE_OPTIONS } from '@/lib/supabase/cookie-options'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,18 +31,21 @@ export async function middleware(request: NextRequest) {
     path === '/tools'
 
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   })
 
   // Only refresh Supabase session for routes that need it
   let user = null
   if (!skipSession) {
+    // Uses the same SUPABASE_COOKIE_OPTIONS as lib/supabase/server.ts so that
+    // cookies produced here and in route handlers have identical attributes.
+    // Middleware must create its own client (not use createServerSupabaseClient)
+    // because it works with request/response cookies, not next/headers cookies().
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        cookieOptions: SUPABASE_COOKIE_OPTIONS,
         cookies: {
           getAll() {
             return request.cookies.getAll()
@@ -51,9 +55,7 @@ export async function middleware(request: NextRequest) {
               request.cookies.set(name, value)
             })
             response = NextResponse.next({
-              request: {
-                headers: request.headers,
-              },
+              request: { headers: request.headers },
             })
             cookiesToSet.forEach(({ name, value, options }) => {
               response.cookies.set(name, value, options)
@@ -63,19 +65,22 @@ export async function middleware(request: NextRequest) {
       }
     )
 
-    // Refresh session if needed
+    // getUser() verifies the JWT with Supabase (not just local decode)
     const { data } = await supabase.auth.getUser()
     user = data.user
 
-    // Debug logging for admin routes — expires 2026-02-25
-    if (path.startsWith('/admin/')) {
+    // Debug log for admin routes — server-side only, no tokens
+    if (path.startsWith('/admin/') || path.startsWith('/mission-control/')) {
       const hasSbCookie = request.cookies.getAll().some((c) => c.name.startsWith('sb-'))
-      const roleSource = getAdminRoleSource(user as Parameters<typeof getAdminRoleSource>[0])
-      console.log(
-        `[FF-AUTH] route=${path} hasSession=${!!user} ` +
-        `userId=${user?.id ?? 'none'} email=${user?.email ?? 'none'} ` +
-        `roleSource=${roleSource} isAdmin=${isAdmin(user as Parameters<typeof isAdmin>[0])} hasSbCookie=${hasSbCookie}`
-      )
+      console.log('[AUTH-MW]', {
+        path,
+        hasSession: !!user,
+        userId: user?.id ?? null,
+        email: user?.email ?? null,
+        roleSource: getAdminRoleSource(user),
+        isAdmin: isAdmin(user),
+        hasCookie: hasSbCookie,
+      })
     }
   }
 
@@ -90,7 +95,6 @@ export async function middleware(request: NextRequest) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
     })
 
-    // Fire-and-forget click tracking
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
     const referrer = request.headers.get('referer') || null
@@ -99,7 +103,7 @@ export async function middleware(request: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: refCode, ip, userAgent, referrer }),
-    }).catch(() => {}) // fire-and-forget
+    }).catch(() => {})
   }
 
   // Add CORS headers to API responses
@@ -120,6 +124,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Covers /admin/:path*, /mission-control/:path*, all pages, API routes.
+    // Excludes static assets.
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

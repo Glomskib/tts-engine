@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { parseBrollSuggestions, generateAiBroll, fetchStockBroll } from '@/lib/marketplace/broll-providers';
 import { createBrollAsset, linkBrollToScript } from '@/lib/marketplace/queries';
 import { createHash } from 'crypto';
-
-function getServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-}
 
 export async function POST(req: NextRequest) {
   // Auth: require internal secret or service role
@@ -22,7 +15,7 @@ export async function POST(req: NextRequest) {
   const { scriptId } = await req.json();
   if (!scriptId) return NextResponse.json({ error: 'scriptId required' }, { status: 400 });
 
-  const svc = getServiceClient();
+  const svc = supabaseAdmin;
 
   // Get script
   const { data: script } = await svc.from('mp_scripts').select('*, clients:clients!mp_scripts_client_id_fkey(client_code)').eq('id', scriptId).single();

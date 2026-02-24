@@ -3,7 +3,7 @@
 // ============================================================
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type {
   MpScript, EditJob, ScriptAsset, JobFeedback, JobDeliverable,
   JobEvent, BrollAsset, ScriptBrollLink, PipelineRow, MetricsSummary,
@@ -12,13 +12,6 @@ import type {
 import { getNextAction } from './types';
 
 // Service-role client for internal operations (bypasses RLS)
-function getServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-}
-
 // ============================================================
 // Auth context helpers
 // ============================================================
@@ -210,7 +203,7 @@ export async function addScriptAsset(
 // ============================================================
 
 export async function queueForEditing(scriptId: string, clientId: string, userId: string) {
-  const svc = getServiceClient();
+  const svc = supabaseAdmin;
 
   // Get plan
   const { data: plan } = await svc.from('client_plans').select('*').eq('client_id', clientId).single();
@@ -600,7 +593,7 @@ export async function createBrollAsset(data: {
   prompt?: string;
   duration_seconds?: number;
 }) {
-  const svc = getServiceClient();
+  const svc = supabaseAdmin;
   // Dedupe by hash
   const { data: existing } = await svc.from('broll_assets').select('id').eq('hash', data.hash).single();
   if (existing) return existing.id as string;
@@ -621,7 +614,7 @@ export async function createBrollAsset(data: {
 }
 
 export async function linkBrollToScript(scriptId: string, brollAssetId: string, recommendedFor?: string, notes?: string) {
-  const svc = getServiceClient();
+  const svc = supabaseAdmin;
   await svc.from('script_broll_links').upsert({
     script_id: scriptId,
     broll_asset_id: brollAssetId,

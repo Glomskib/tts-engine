@@ -24,9 +24,8 @@
  * }
  */
 
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,15 +57,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create Supabase client (service role for API key auth)
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     // Insert task into queue
-    const { data: task, error } = await supabase
+    const { data: task, error } = await supabaseAdmin
       .from('task_queue')
       .insert({
         task_name,
@@ -123,12 +115,7 @@ export async function GET(req: NextRequest) {
 
     const taskId = req.nextUrl.searchParams.get('id');
 
-    // Create Supabase client (service role for API)
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     // If ID provided, fetch single task
     if (taskId) {

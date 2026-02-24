@@ -272,6 +272,22 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </nav>
   );
 
+  // Sidebar upgrade prompt for free users (desktop only)
+  const SidebarUpgradeCard = () => {
+    if (subscription?.planId && subscription.planId !== 'free') return null;
+    return (
+      <div className="px-3 py-4 border-t border-zinc-800">
+        <div className="rounded-xl bg-gradient-to-br from-teal-500/10 to-violet-500/10 border border-teal-500/20 p-3">
+          <p className="text-xs font-medium text-zinc-200 mb-1">Free plan</p>
+          <p className="text-[10px] text-zinc-500 mb-2.5 leading-relaxed">Unlock unlimited scripts, all personas, and priority generation.</p>
+          <Link href="/upgrade" className="block text-center text-xs font-semibold text-white bg-teal-600 hover:bg-teal-500 rounded-lg py-1.5 transition-colors">
+            Upgrade
+          </Link>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <ThemeProvider>
     <ToastProvider>
@@ -518,6 +534,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* Navigation */}
             <SidebarContent />
+            <SidebarUpgradeCard />
           </aside>
 
           {/* Desktop Header */}

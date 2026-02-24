@@ -6,7 +6,8 @@ import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors"
 export const runtime = "nodejs";
 
 const MC_BASE_URL = process.env.MISSION_CONTROL_BASE_URL || "https://mc.flashflowai.com";
-const MC_AGENT_TOKEN = process.env.MISSION_CONTROL_AGENT_TOKEN || "mc-agent-token-2026";
+// Canonical token: prefer MISSION_CONTROL_TOKEN (admin), fall back to agent token
+const MC_AGENT_TOKEN = process.env.MISSION_CONTROL_TOKEN || process.env.MC_API_TOKEN || process.env.MISSION_CONTROL_AGENT_TOKEN || "mc-agent-token-2026";
 
 // Categories to skip when parsing (metadata sections, not hook categories)
 const SKIP_CATEGORIES = new Set(["QA Notes", "Hook Bank Statistics"]);

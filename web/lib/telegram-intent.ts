@@ -16,7 +16,7 @@ export const ISSUE_KEYWORDS =
 export const EXPLICIT_LOG_PHRASES =
   /\b(log (this|it)|file (a |an )?(bug|issue|report)|report (this |a |an )?(bug|issue|error)|triage this|save (this|it) as (an? )?(issue|bug))\b/i;
 
-export type Intent = 'explicit_issue' | 'maybe_issue' | 'confirm_yes' | 'normal';
+export type Intent = 'explicit_issue' | 'maybe_issue' | 'confirm_yes' | 'debug' | 'normal';
 
 /** Confirmation prompt text — used by both the handler and the classifier. */
 export const CONFIRMATION_PROMPT = 'Do you want me to log this as an issue?';
@@ -36,8 +36,11 @@ export function classifyIntent(
 ): Intent {
   const lower = text.trim().toLowerCase();
 
-  // 1. Explicit issue commands
+  // 0. Debug command
   const firstWord = lower.split(/\s/)[0];
+  if (firstWord === '/debug') return 'debug';
+
+  // 1. Explicit issue commands
   if ((ISSUE_COMMANDS as readonly string[]).includes(firstWord)) return 'explicit_issue';
 
   // 2. "Yes" reply to our confirmation prompt (checked BEFORE explicit phrases

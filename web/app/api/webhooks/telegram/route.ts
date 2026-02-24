@@ -23,6 +23,7 @@ import {
   ISSUE_COMMANDS,
   CONFIRMATION_PROMPT,
 } from '@/lib/telegram-intent';
+import { getMCDebugState } from '@/lib/flashflow/mission-control';
 
 export const runtime = 'nodejs';
 
@@ -200,6 +201,7 @@ export async function POST(request: Request) {
         '/log &lt;description&gt; — Log an issue',
         '/issue &lt;description&gt; — Log an issue',
         '/bug &lt;description&gt; — Log a bug',
+        '/debug — MC auth diagnostics',
         '',
         'Or just describe a bug/error and I\'ll ask if you want to log it.',
       ].join('\n')
@@ -213,6 +215,26 @@ export async function POST(request: Request) {
   const intent = classifyIntent(text, isReply, replyText);
 
   switch (intent) {
+    case 'debug': {
+      const dbg = getMCDebugState();
+      const lines = [
+        '<b>MC Debug</b>',
+        '',
+        `<b>Base URL:</b> <code>${dbg.baseUrl}</code>`,
+        `<b>Token env var:</b> <code>${dbg.tokenEnvVar}</code>`,
+        `<b>Env vars present:</b>`,
+        `  MISSION_CONTROL_TOKEN: ${dbg.envVarsPresent.MISSION_CONTROL_TOKEN}`,
+        `  MC_API_TOKEN: ${dbg.envVarsPresent.MC_API_TOKEN}`,
+        `  MISSION_CONTROL_AGENT_TOKEN: ${dbg.envVarsPresent.MISSION_CONTROL_AGENT_TOKEN}`,
+        '',
+        `<b>Last auth-check:</b> ${dbg.lastAuthCheck
+          ? `HTTP ${dbg.lastAuthCheck.status} (ok=${dbg.lastAuthCheck.ok}) at ${dbg.lastAuthCheck.ts}`
+          : 'none yet'}`,
+      ];
+      await replyToChat(msg.chat.id, lines.join('\n'));
+      return NextResponse.json({ ok: true });
+    }
+
     case 'explicit_issue':
     case 'confirm_yes': {
       // For confirm_yes, the actual issue text is in the message they replied to

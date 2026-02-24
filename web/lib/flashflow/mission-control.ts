@@ -1,19 +1,178 @@
 /**
  * @module flashflow/mission-control
  *
- * Thin HTTP client for posting documents to Mission Control.
- * Uses MC_BASE_URL and MC_API_TOKEN from environment.
+ * HTTP client for Mission Control with self-healing 401 handling.
  *
- * Does NOT depend on the ~/.openclaw/bin/mc CLI.
+ * Token resolution (canonical order):
+ *   1. MISSION_CONTROL_TOKEN  (preferred — matches Vercel env var name)
+ *   2. MC_API_TOKEN           (legacy compat)
+ *
+ * On any non-2xx: logs URL, status code, first 80 chars of body.
+ * On 401 specifically: calls /api/auth-check to diagnose, retries once,
+ * and sends a Telegram alert if still failing.
  */
 
 const MC_BASE_URL_DEFAULT = 'https://mc.flashflowai.com';
 
+// ── Token resolution ──────────────────────────────────────────────────────
+
+function getMCBaseUrl(): string {
+  return process.env.MC_BASE_URL || MC_BASE_URL_DEFAULT;
+}
+
+/** Returns { token, source } — source is the env var name for debugging. */
+function getMCTokenInfo(): { token: string | null; source: string } {
+  if (process.env.MISSION_CONTROL_TOKEN) {
+    return { token: process.env.MISSION_CONTROL_TOKEN, source: 'MISSION_CONTROL_TOKEN' };
+  }
+  if (process.env.MC_API_TOKEN) {
+    return { token: process.env.MC_API_TOKEN, source: 'MC_API_TOKEN' };
+  }
+  return { token: null, source: 'none' };
+}
+
+// ── Debug state (exported for /debug command) ─────────────────────────────
+
+let _lastAuthCheck: { status: number; ts: string; ok: boolean } | null = null;
+
+export function getMCDebugState() {
+  const { source } = getMCTokenInfo();
+  return {
+    baseUrl: getMCBaseUrl(),
+    tokenEnvVar: source,
+    envVarsPresent: {
+      MISSION_CONTROL_TOKEN: !!process.env.MISSION_CONTROL_TOKEN,
+      MC_API_TOKEN: !!process.env.MC_API_TOKEN,
+      MISSION_CONTROL_AGENT_TOKEN: !!process.env.MISSION_CONTROL_AGENT_TOKEN,
+    },
+    lastAuthCheck: _lastAuthCheck,
+  };
+}
+
+// ── Logging ───────────────────────────────────────────────────────────────
+
+function logNon2xx(method: string, url: string, status: number, body: string) {
+  const snippet = body.slice(0, 80).replace(/\n/g, ' ');
+  console.error(`[ff:mc] ${method} ${url} → HTTP ${status} | ${snippet}`);
+}
+
+// ── Telegram alert (fire-and-forget) ──────────────────────────────────────
+
+function alertTelegram(msg: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+
+  fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown' }),
+  }).catch(() => {});
+}
+
+// ── Auth-check probe ──────────────────────────────────────────────────────
+
+async function probeAuthCheck(token: string): Promise<number> {
+  const baseUrl = getMCBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/auth-check`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    _lastAuthCheck = { status: res.status, ts: new Date().toISOString(), ok: res.ok };
+    return res.status;
+  } catch {
+    _lastAuthCheck = { status: 0, ts: new Date().toISOString(), ok: false };
+    return 0;
+  }
+}
+
+// ── Core fetch with 401 self-healing ──────────────────────────────────────
+
+async function mcFetch(
+  method: string,
+  path: string,
+  opts?: { body?: string; timeoutMs?: number },
+): Promise<Response> {
+  const baseUrl = getMCBaseUrl();
+  const { token, source } = getMCTokenInfo();
+  const url = `${baseUrl}${path}`;
+
+  if (!token) {
+    throw new Error('No MC token configured (set MISSION_CONTROL_TOKEN)');
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  if (opts?.body) headers['Content-Type'] = 'application/json';
+
+  const doFetch = () =>
+    fetch(url, {
+      method,
+      headers,
+      body: opts?.body,
+      signal: AbortSignal.timeout(opts?.timeoutMs ?? 10000),
+    });
+
+  let res = await doFetch();
+
+  // ── 401 self-healing ──────────────────────────────────────────────────
+  if (res.status === 401) {
+    const bodySnippet = await res.text().catch(() => '');
+    logNon2xx(method, url, 401, bodySnippet);
+
+    // Diagnose: does auth-check also fail?
+    const authStatus = await probeAuthCheck(token);
+    console.error(`[ff:mc] 401 self-diag: auth-check returned ${authStatus} (token source: ${source})`);
+
+    if (authStatus === 401) {
+      // Token is genuinely wrong on the server — alert
+      alertTelegram(
+        `⚠️ *MC Client 401*\n` +
+        `• URL: \`${url}\`\n` +
+        `• Token source: \`${source}\`\n` +
+        `• Env vars present: MISSION\\_CONTROL\\_TOKEN=${!!process.env.MISSION_CONTROL_TOKEN}, MC\\_API\\_TOKEN=${!!process.env.MC_API_TOKEN}\n` +
+        `• auth-check: HTTP ${authStatus}\n` +
+        `• Action needed: token drift — watchdog should auto-fix`,
+      );
+    } else if (authStatus === 200) {
+      // auth-check passed but the original call failed — retry once
+      // (could be a transient edge deployment mismatch)
+      console.error('[ff:mc] auth-check passed but original call got 401 — retrying once');
+      res = await doFetch();
+      if (res.ok) {
+        console.log('[ff:mc] Retry succeeded');
+        return res;
+      }
+      const retryBody = await res.text().catch(() => '');
+      logNon2xx(method, url, res.status, retryBody);
+    }
+
+    // Return the original failed response (caller handles it)
+    return new Response(bodySnippet, { status: 401, headers: res.headers });
+  }
+
+  // ── Log other non-2xx ─────────────────────────────────────────────────
+  if (!res.ok) {
+    const bodySnippet = await res.clone().text().catch(() => '');
+    logNon2xx(method, url, res.status, bodySnippet);
+  }
+
+  return res;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────
+
 interface MCDocInput {
   title: string;
   content: string;
-  category?: string;    // e.g. 'plans', 'notes', 'reports'
-  lane?: string;        // e.g. 'FlashFlow'
+  category?: string;
+  lane?: string;
   tags?: string[];
 }
 
@@ -23,18 +182,6 @@ interface MCDocResponse {
   error?: string;
 }
 
-function getMCBaseUrl(): string {
-  return process.env.MC_BASE_URL || MC_BASE_URL_DEFAULT;
-}
-
-function getMCToken(): string | null {
-  return process.env.MC_API_TOKEN || null;
-}
-
-/**
- * Post a document to Mission Control.
- * Returns { ok, id } on success, { ok: false, error } on failure.
- */
 export interface MCPipelineHealth {
   ok: boolean;
   queued_count: number;
@@ -44,32 +191,17 @@ export interface MCPipelineHealth {
   error?: string;
 }
 
-/**
- * Fetch pipeline health from Mission Control.
- * 5-second timeout so the dashboard doesn't hang if MC is down.
- */
+const EMPTY_HEALTH: MCPipelineHealth = {
+  ok: false, queued_count: 0, executing_count: 0, blocked_count: 0, last_updated: '',
+};
+
 export async function fetchMCPipelineHealth(): Promise<MCPipelineHealth> {
-  const baseUrl = getMCBaseUrl();
-  const token = getMCToken();
-
-  if (!token) {
-    return { ok: false, queued_count: 0, executing_count: 0, blocked_count: 0, last_updated: '', error: 'MC_API_TOKEN not configured' };
-  }
-
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-
-    const res = await fetch(`${baseUrl}/api/pipeline/health`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
+    const res = await mcFetch('GET', '/api/pipeline/health', { timeoutMs: 5000 });
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      return { ok: false, queued_count: 0, executing_count: 0, blocked_count: 0, last_updated: '', error: `HTTP ${res.status}: ${text}` };
+      return { ...EMPTY_HEALTH, error: `HTTP ${res.status}: ${text.slice(0, 80)}` };
     }
 
     const json = await res.json();
@@ -82,26 +214,15 @@ export async function fetchMCPipelineHealth(): Promise<MCPipelineHealth> {
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, queued_count: 0, executing_count: 0, blocked_count: 0, last_updated: '', error: message };
+    return { ...EMPTY_HEALTH, error: message };
   }
 }
 
 export async function postMCDoc(input: MCDocInput): Promise<MCDocResponse> {
-  const baseUrl = getMCBaseUrl();
-  const token = getMCToken();
-
-  if (!token) {
-    console.warn('[ff:mc] MC_API_TOKEN not set — skipping Mission Control post');
-    return { ok: false, error: 'MC_API_TOKEN not configured' };
-  }
+  const { source } = getMCTokenInfo();
 
   try {
-    const res = await fetch(`${baseUrl}/api/documents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+    const res = await mcFetch('POST', '/api/documents', {
       body: JSON.stringify({
         title: input.title,
         content: input.content,
@@ -113,15 +234,14 @@ export async function postMCDoc(input: MCDocInput): Promise<MCDocResponse> {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.error(`[ff:mc] POST /api/docs failed: ${res.status} ${text}`);
-      return { ok: false, error: `HTTP ${res.status}: ${text}` };
+      return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 80)}` };
     }
 
     const json = await res.json();
     return { ok: true, id: json.id ?? json.data?.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[ff:mc] Exception posting to MC:', message);
+    console.error(`[ff:mc] Exception posting to MC (token: ${source}):`, message);
     return { ok: false, error: message };
   }
 }

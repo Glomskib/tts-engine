@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Building2, Edit, Trash2, ExternalLink, X, Loader2,
@@ -305,17 +306,40 @@ export default function BrandsPage() {
         {loading ? (
           <SkeletonTable rows={4} cols={4} />
         ) : brands.length === 0 ? (
-          <EmptyState
-            icon={<Building2 className="w-6 h-6" />}
-            title="No brands yet"
-            description="Add your first brand to organize products and track quotas"
-            action={
+          <div className="py-10 px-6 text-center max-w-lg mx-auto">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+              <Building2 className="w-7 h-7 text-teal-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-zinc-100 mb-2">Organize by brand</h3>
+            <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
+              Brands let you group products, set retainer goals, and track video quotas in one place.
+              If you work with multiple brands, this keeps everything organized.
+            </p>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {[
+                { icon: <Building2 className="w-4 h-4" />, label: 'Create Brand', sub: 'Name & details' },
+                { icon: <Target className="w-4 h-4" />, label: 'Set Quotas', sub: 'Retainers & goals' },
+                { icon: <TrendingUp className="w-4 h-4" />, label: 'Track Progress', sub: 'Dashboard stats' },
+              ].map((s) => (
+                <div key={s.label} className="bg-zinc-800/60 rounded-lg p-3 border border-white/5">
+                  <div className="text-teal-400 mb-1 flex justify-center">{s.icon}</div>
+                  <div className="text-xs font-medium text-zinc-200">{s.label}</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-center gap-3">
               <AdminButton onClick={() => { setEditingBrand(null); setIsModalOpen(true); }}>
                 <Plus className="w-4 h-4 mr-1" />
                 Add Brand
               </AdminButton>
-            }
-          />
+              <Link href="/admin/products" className="text-sm text-zinc-400 hover:text-zinc-300">
+                or add products first &rarr;
+              </Link>
+            </div>
+          </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
             {brands.map(brand => (

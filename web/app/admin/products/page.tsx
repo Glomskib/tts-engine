@@ -954,19 +954,41 @@ export default function ProductsPage() {
       <AdminCard noPadding>
         {loading ? (
           <SkeletonTable rows={5} cols={5} />
+        ) : filteredProducts.length === 0 && productStats.length === 0 ? (
+          <div className="py-10 px-6 text-center max-w-lg mx-auto">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+            </div>
+            <h3 className="text-lg font-semibold text-zinc-100 mb-2">Add your first product</h3>
+            <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
+              Products are the foundation of every script FlashFlow generates. Add a product name, brand, and category — then head to{' '}
+              <Link href="/admin/content-studio" className="text-teal-400 hover:text-teal-300 underline">Content Studio</Link>{' '}
+              to start creating scripts.
+            </p>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {[
+                { step: '1', label: 'Add Product', sub: 'Name, brand & category' },
+                { step: '2', label: 'Generate Script', sub: 'AI writes your hook' },
+                { step: '3', label: 'Film & Post', sub: 'Track in Pipeline' },
+              ].map((s) => (
+                <div key={s.step} className="bg-zinc-800/60 rounded-lg p-3 border border-white/5">
+                  <div className="text-xs font-bold text-teal-400 mb-1">Step {s.step}</div>
+                  <div className="text-xs font-medium text-zinc-200">{s.label}</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <AdminButton onClick={handleAddOpen}>+ Add Product</AdminButton>
+          </div>
         ) : filteredProducts.length === 0 ? (
           <EmptyState
             icon={
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
             }
-            title={productStats.length === 0 ? "Add your first product" : "No matches"}
-            description={productStats.length === 0
-              ? "FlashFlow writes scripts about your products. Add one to get started — just a name, brand, and category."
-              : "No products match the current filters."
-            }
-            action={productStats.length === 0 ? (
-              <AdminButton onClick={handleAddOpen}>+ Add Product</AdminButton>
-            ) : undefined}
+            title="No matches"
+            description="No products match the current filters."
           />
         ) : (
           <>

@@ -13,8 +13,9 @@ import { leadMagnetEmails } from './templates/lead-magnet';
 import { winbackEmails } from './templates/winback';
 import { weeklyDigestEmails } from './templates/weekly-digest';
 import { upgradeNudgeEmails } from './templates/upgrade-nudge';
+import { launchWeekEmails } from './templates/launch-week';
 
-export type EmailSequence = 'onboarding' | 'lead_magnet' | 'winback' | 'weekly_digest' | 'upgrade_nudge';
+export type EmailSequence = 'onboarding' | 'lead_magnet' | 'winback' | 'weekly_digest' | 'upgrade_nudge' | 'launch_week';
 
 const SEQUENCE_MAP = {
   onboarding: onboardingEmails,
@@ -22,6 +23,7 @@ const SEQUENCE_MAP = {
   winback: winbackEmails,
   weekly_digest: weeklyDigestEmails,
   upgrade_nudge: upgradeNudgeEmails,
+  launch_week: launchWeekEmails,
 } as const;
 
 export async function queueEmailSequence(

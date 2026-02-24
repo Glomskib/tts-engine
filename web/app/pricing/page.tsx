@@ -7,8 +7,12 @@ import { PRICING_PLANS } from '@/lib/plans';
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   const handleCheckout = async (planId: string, annual: boolean) => {
+    setCheckoutError(null);
+    setCheckoutLoading(planId);
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -17,7 +21,7 @@ export default function PricingPage() {
       });
 
       if (!res.ok) {
-        alert('Failed to create checkout session');
+        setCheckoutError('Could not start checkout. Please try again or contact support.');
         return;
       }
 
@@ -27,7 +31,9 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('An error occurred. Please try again.');
+      setCheckoutError('Something went wrong. Please check your connection and try again.');
+    } finally {
+      setCheckoutLoading(null);
     }
   };
 
@@ -62,6 +68,16 @@ export default function PricingPage() {
           Annual <span className="text-emerald-500">Save 20%</span>
         </span>
       </div>
+
+      {/* Checkout Error Banner */}
+      {checkoutError && (
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            <span>{checkoutError}</span>
+            <button type="button" onClick={() => setCheckoutError(null)} className="text-red-400 hover:text-red-300 shrink-0">✕</button>
+          </div>
+        </div>
+      )}
 
       {/* Pricing Cards */}
       <div className="max-w-6xl mx-auto px-4 py-12">
@@ -116,9 +132,10 @@ export default function PricingPage() {
             <button
               type="button"
               onClick={() => handleCheckout('lite', isAnnual)}
-              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition bg-gray-700 text-white hover:bg-gray-600"
+              disabled={checkoutLoading !== null}
+              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Free Trial
+              {checkoutLoading === 'lite' ? 'Redirecting…' : 'Start Free Trial'}
             </button>
 
             <ul className="space-y-3">
@@ -156,9 +173,10 @@ export default function PricingPage() {
             <button
               type="button"
               onClick={() => handleCheckout('pro', isAnnual)}
-              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition bg-emerald-500 text-white hover:bg-emerald-600"
+              disabled={checkoutLoading !== null}
+              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Free Trial
+              {checkoutLoading === 'pro' ? 'Redirecting…' : 'Start Free Trial'}
             </button>
 
             <ul className="space-y-3">
@@ -193,9 +211,10 @@ export default function PricingPage() {
             <button
               type="button"
               onClick={() => handleCheckout('business', isAnnual)}
-              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition bg-gray-700 text-white hover:bg-gray-600"
+              disabled={checkoutLoading !== null}
+              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-8 transition bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Free Trial
+              {checkoutLoading === 'business' ? 'Redirecting…' : 'Start Free Trial'}
             </button>
 
             <ul className="space-y-3">

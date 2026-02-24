@@ -32,6 +32,22 @@ export default function ToolsPage() {
       icon: '📝',
     },
     {
+      name: 'Free YouTube Video Transcriber',
+      description: 'Paste any YouTube URL — videos, Shorts, or youtu.be links. Get the full transcript with AI-powered hook analysis and content recommendations.',
+      features: [
+        'No signup required',
+        'YouTube captions + Whisper fallback',
+        'Hook strength scoring (1-10)',
+        'Key phrase extraction',
+        'Emotional trigger detection',
+        'Content structure analysis',
+      ],
+      cta: 'Try Free Now',
+      href: '/youtube-transcribe',
+      free: true,
+      icon: '🎬',
+    },
+    {
       name: 'AI Script Generator',
       description: 'Input a product. Get 5–10 script variations in different personas. Choose the winner. Download or feed into avatar video creation.',
       features: [

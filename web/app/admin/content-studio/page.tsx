@@ -553,6 +553,14 @@ export default function ContentStudioPage() {
   const [manualBodyText, setManualBodyText] = useState('');
   const [manualCtaLine, setManualCtaLine] = useState('');
 
+  // First-visit welcome banner — dismissed via localStorage
+  const [firstVisitDismissed, setFirstVisitDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ff-studio-welcome-dismissed') === 'true';
+    }
+    return false;
+  });
+
   // Simple Mode — hides advanced fields for non-power-users
   const [simpleMode, setSimpleMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1870,6 +1878,36 @@ export default function ContentStudioPage() {
           </div>
         </div>
       </div>
+
+      {/* First-visit Welcome Banner — shown when user has no products */}
+      {!loadingData && products.length === 0 && !firstVisitDismissed && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-violet-500/10 border border-teal-500/20 relative">
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem('ff-studio-welcome-dismissed', 'true');
+              setFirstVisitDismissed(true);
+            }}
+            className="absolute top-3 right-3 p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors"
+            aria-label="Dismiss welcome"
+          >
+            <X size={16} />
+          </button>
+          <div className="flex items-start gap-3 pr-8">
+            <div className="p-2 rounded-lg bg-teal-500/20 shrink-0">
+              <Sparkles size={18} className="text-teal-400" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-sm mb-1">Welcome to Content Studio</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Type any product name below, pick a content style, and hit <span className="text-teal-400 font-medium">Generate</span> to create
+                your first viral script. Or <Link href="/admin/products" className="text-teal-400 hover:text-teal-300 underline">add products</Link> first
+                to unlock AI-powered audience targeting.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clawbot Recommendation Banner */}
       {recommendation && (
@@ -3374,7 +3412,9 @@ export default function ContentStudioPage() {
               <div style={{ fontSize: '14px', maxWidth: '300px' }}>
                 {manualWriteMode
                   ? 'Fill in your script and click Create Script to preview it here.'
-                  : 'Configure your content options and click Generate to create viral video scripts.'}
+                  : products.length === 0
+                  ? 'Type a product name on the left to get started. Your first script takes about 10 seconds.'
+                  : 'Select a product, pick your content style, and hit Generate.'}
               </div>
             </div>
           )}

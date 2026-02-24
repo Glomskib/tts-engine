@@ -222,10 +222,11 @@ export async function POST(request: Request) {
         '',
         `<b>Base URL:</b> <code>${dbg.baseUrl}</code>`,
         `<b>Token env var:</b> <code>${dbg.tokenEnvVar}</code>`,
+        `<b>Headers sent:</b> <code>${dbg.headersSent.join(', ')}</code>`,
         `<b>Env vars present:</b>`,
         `  MISSION_CONTROL_TOKEN: ${dbg.envVarsPresent.MISSION_CONTROL_TOKEN}`,
-        `  MC_API_TOKEN: ${dbg.envVarsPresent.MC_API_TOKEN}`,
         `  MISSION_CONTROL_AGENT_TOKEN: ${dbg.envVarsPresent.MISSION_CONTROL_AGENT_TOKEN}`,
+        `  MC_API_TOKEN (legacy): ${dbg.envVarsPresent.MC_API_TOKEN}`,
         '',
         `<b>Last auth-check:</b> ${dbg.lastAuthCheck
           ? `HTTP ${dbg.lastAuthCheck.status} (ok=${dbg.lastAuthCheck.ok}) at ${dbg.lastAuthCheck.ts}`

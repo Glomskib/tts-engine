@@ -106,15 +106,28 @@ async function resolveUserRole(
  * Get authentication context for API routes.
  * Returns user info and role derived from session or API key.
  *
- * When `request` is provided and contains a Bearer ff_ak_* token,
- * API key auth is used. Otherwise falls back to cookie-based session auth.
- *
- * Resolution order for role:
- * 1. ADMIN_USERS env (authoritative - email match = admin)
- * 2. user_roles table (if exists)
- * 3. Default: no role
+ * Auth resolution order:
+ * 1. Service token (x-service-token header) — for Bolt/agent-to-service calls
+ * 2. API key auth (Bearer ff_ak_* tokens)
+ * 3. Raw Supabase JWT auth (Bearer eyJ... tokens)
+ * 4. Cookie-based session auth (browser sessions)
  */
 export async function getApiAuthContext(request?: Request): Promise<AuthContext> {
+  // Service token auth — for Bolt/agent server-to-server calls.
+  // Never depends on browser cookies or Supabase JWT.
+  if (request) {
+    const serviceToken = request.headers.get('x-service-token');
+    const internalToken = process.env.INTERNAL_SERVICE_TOKEN?.trim();
+    if (serviceToken && internalToken && serviceToken === internalToken) {
+      return {
+        user: { id: 'service', email: 'service@internal' },
+        role: 'admin',
+        isAdmin: true,
+        isUploader: true,
+      };
+    }
+  }
+
   // API key auth path: check Authorization header or x-api-key header
   if (request) {
     const authHeader = request.headers.get('authorization');

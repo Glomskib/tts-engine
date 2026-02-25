@@ -255,6 +255,9 @@ export default function NewRequestPage() {
 
       if (res.ok && data.ok) {
         router.push(`/client/requests/${data.data.request_id}`);
+      } else if (res.status === 409) {
+        setError(data.message || 'A duplicate request was detected. Please wait or change your title.');
+        setShowPreview(false);
       } else {
         setError(data.message || data.error || 'Failed to create request');
         setShowPreview(false);

@@ -90,6 +90,17 @@ export async function GET(request: Request) {
     ? Math.round((editingHours.reduce((a, b) => a + b, 0) / editingHours.length) * 10) / 10
     : null;
 
+  // --- Review Wait ---
+  const inReviewRequests = (requests || []).filter(r => r.status === 'review');
+  const inReviewCount = inReviewRequests.length;
+  const reviewWaitHours = inReviewRequests.map(r => {
+    const updated = new Date(r.updated_at).getTime();
+    return (now.getTime() - updated) / (1000 * 60 * 60);
+  });
+  const avgReviewWait = reviewWaitHours.length > 0
+    ? Math.round((reviewWaitHours.reduce((a, b) => a + b, 0) / reviewWaitHours.length) * 10) / 10
+    : null;
+
   // --- Editor Utilization (anonymous) ---
   const editorMap = new Map<string, { claimed: number; completed: number }>();
   for (const r of requests || []) {
@@ -117,8 +128,13 @@ export async function GET(request: Request) {
       },
       sla: {
         compliance_rate_pct: slaComplianceRate,
-        avg_queue_time_hours: avgQueueTime,
-        avg_editing_time_hours: avgEditingTime,
+        avg_queue_wait_hours: avgQueueTime,
+        avg_queue_time_hours: avgQueueTime, // backward compat alias
+        avg_edit_to_complete_hours: avgEditingTime,
+        avg_editing_time_hours: avgEditingTime, // backward compat alias
+        avg_review_wait_hours: avgReviewWait,
+        avg_total_turnaround_hours: avgTurnaround7d,
+        in_review_count: inReviewCount,
         under_24h_count: under24h.length,
         total_measured: completedWithAssignment.length,
       },

@@ -15,8 +15,13 @@ interface Metrics {
   };
   sla: {
     compliance_rate_pct: number | null;
+    avg_queue_wait_hours: number | null;
     avg_queue_time_hours: number | null;
+    avg_edit_to_complete_hours: number | null;
     avg_editing_time_hours: number | null;
+    avg_review_wait_hours: number | null;
+    avg_total_turnaround_hours: number | null;
+    in_review_count: number;
     under_24h_count: number;
     total_measured: number;
   };
@@ -152,28 +157,53 @@ export default function MetricsPanel() {
             </div>
           </div>
 
-          {/* SLA Compliance Row */}
+          {/* Turnaround Breakdown Row */}
           <div>
             <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" />
-              SLA Compliance
+              Turnaround Breakdown
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard
+                value={formatHours(sla.avg_queue_wait_hours)}
+                label="Avg Queue Wait"
+                color="text-violet-400"
+              />
+              <MetricCard
+                value={formatHours(sla.avg_edit_to_complete_hours)}
+                label="Avg Edit Time"
+                color="text-blue-400"
+              />
+              <MetricCard
+                value={formatHours(sla.avg_review_wait_hours)}
+                label="Avg Review Wait"
+                color="text-orange-400"
+              />
+              <MetricCard
+                value={formatHours(sla.avg_total_turnaround_hours)}
+                label="Avg Total Turnaround"
+                color="text-teal-400"
+              />
+            </div>
+          </div>
+
+          {/* SLA Compliance Row */}
+          <div>
+            <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              SLA Compliance
+            </h4>
+            <div className="grid grid-cols-3 gap-3">
+              <MetricCard
                 value={sla.compliance_rate_pct !== null ? `${sla.compliance_rate_pct}%` : '—'}
-                label="Under 24h"
+                label="SLA Compliance"
                 color={slaColor}
                 warn={sla.compliance_rate_pct !== null && sla.compliance_rate_pct < 50}
               />
               <MetricCard
-                value={formatHours(sla.avg_queue_time_hours)}
-                label="Avg Queue Time"
-                color="text-violet-400"
-              />
-              <MetricCard
-                value={formatHours(sla.avg_editing_time_hours)}
-                label="Avg Editing Time"
-                color="text-blue-400"
+                value={sla.in_review_count}
+                label="In Review Now"
+                color="text-orange-400"
               />
               <MetricCard
                 value={`${sla.under_24h_count}/${sla.total_measured}`}

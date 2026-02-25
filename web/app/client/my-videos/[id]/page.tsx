@@ -31,6 +31,12 @@ interface VideoRequest {
   script_title?: string;
 }
 
+const PRIORITY_CONFIG: Record<number, { label: string; color: string; bgColor: string }> = {
+  0: { label: 'Pool', color: 'text-slate-600', bgColor: 'bg-slate-100' },
+  1: { label: 'Dedicated', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  2: { label: 'Scale', color: 'text-violet-600', bgColor: 'bg-violet-100' },
+};
+
 const STATUS_CONFIG: Record<RequestStatus, { label: string; color: string; bgColor: string; borderColor: string }> = {
   pending: { label: 'Queued', color: 'text-violet-600', bgColor: 'bg-violet-100', borderColor: 'border-violet-200' },
   assigned: { label: 'Editor Assigned', color: 'text-indigo-600', bgColor: 'bg-indigo-100', borderColor: 'border-indigo-200' },
@@ -59,24 +65,32 @@ const STATUS_ORDER: Record<string, number> = {
   completed: 4,
 };
 
-function getSlaInfo(request: VideoRequest) {
-  if (!request.due_date || ['completed', 'cancelled'].includes(request.status)) return null;
-  const due = new Date(request.due_date);
+function formatSlaTimer(dueDate: string | null, status: RequestStatus): { text: string; color: string; bgColor: string } | null {
+  if (!dueDate || ['completed', 'cancelled'].includes(status)) return null;
+  const due = new Date(dueDate);
   const now = new Date();
   const diff = due.getTime() - now.getTime();
-  const hours = Math.round(diff / (1000 * 60 * 60));
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const totalMinutes = Math.floor(Math.abs(diff) / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
 
   if (diff < 0) {
-    return { text: `${Math.abs(days)}d overdue`, isOverdue: true, isDueSoon: false };
+    const text = hours > 0 ? `Overdue by ${hours}h ${minutes}m` : `Overdue by ${minutes}m`;
+    return { text, color: 'text-red-700', bgColor: 'bg-red-100' };
   }
-  if (hours < 24) {
-    return { text: hours <= 1 ? 'Due in <1h' : `Due in ${hours}h`, isOverdue: false, isDueSoon: true };
+
+  if (hours >= 48) {
+    const days = Math.floor(hours / 24);
+    return { text: `Due in ${days}d`, color: 'text-green-700', bgColor: 'bg-green-100' };
   }
-  if (days === 1) {
-    return { text: 'Due tomorrow', isOverdue: false, isDueSoon: false };
+
+  if (hours >= 1) {
+    const color = hours < 24 ? 'text-amber-700' : 'text-green-700';
+    const bgColor = hours < 24 ? 'bg-amber-100' : 'bg-green-100';
+    return { text: `Due in ${hours}h ${minutes}m`, color, bgColor };
   }
-  return { text: `Due in ${days}d`, isOverdue: false, isDueSoon: false };
+
+  return { text: `Due in ${minutes}m`, color: 'text-amber-700', bgColor: 'bg-amber-100' };
 }
 
 export default function ClientVideoReviewPage() {
@@ -222,7 +236,7 @@ export default function ClientVideoReviewPage() {
 
   const statusConfig = STATUS_CONFIG[request.status];
   const canReview = request.status === 'review';
-  const sla = getSlaInfo(request);
+  const sla = formatSlaTimer(request.due_date, request.status);
   const currentStep = STATUS_ORDER[request.status] ?? 0;
 
   return (
@@ -246,15 +260,14 @@ export default function ClientVideoReviewPage() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {sla && (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                sla.isOverdue
-                  ? 'bg-red-100 text-red-700'
-                  : sla.isDueSoon
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-slate-100 text-slate-600'
-              }`}>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${sla.color} ${sla.bgColor}`}>
                 <Timer className="w-3 h-3" />
                 {sla.text}
+              </span>
+            )}
+            {PRIORITY_CONFIG[request.priority] && request.priority > 0 && (
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${PRIORITY_CONFIG[request.priority].bgColor} ${PRIORITY_CONFIG[request.priority].color}`}>
+                {PRIORITY_CONFIG[request.priority].label}
               </span>
             )}
             <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
@@ -571,7 +584,7 @@ export default function ClientVideoReviewPage() {
                     <Calendar className="w-3 h-3" />
                     Due Date
                   </div>
-                  <div className={sla?.isOverdue ? 'text-red-700 font-medium' : 'text-slate-700'}>
+                  <div className={sla?.color.includes('red') ? 'text-red-700 font-medium' : 'text-slate-700'}>
                     {new Date(request.due_date).toLocaleDateString()}
                   </div>
                 </div>
@@ -588,6 +601,14 @@ export default function ClientVideoReviewPage() {
                 <div>
                   <div className="text-slate-500">Revisions</div>
                   <div className="text-slate-700">{request.revision_count}</div>
+                </div>
+              )}
+              {PRIORITY_CONFIG[request.priority] && (
+                <div>
+                  <div className="text-slate-500">Priority</div>
+                  <div className={PRIORITY_CONFIG[request.priority].color}>
+                    {PRIORITY_CONFIG[request.priority].label}
+                  </div>
                 </div>
               )}
             </div>

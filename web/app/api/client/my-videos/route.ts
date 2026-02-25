@@ -47,5 +47,28 @@ export async function GET(request: Request) {
     completed: data?.filter(r => r.status === 'completed').length || 0,
   };
 
-  return NextResponse.json({ ok: true, data, stats });
+  // Daily usage quota
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const submittedToday = (data || []).filter(r => r.created_at >= todayStart).length;
+
+  // Fetch subscription info for quota
+  let quota: { submitted_today: number; daily_limit: number; videos_per_month: number; videos_used_this_month: number; videos_remaining: number } | null = null;
+  const { data: sub } = await supabaseAdmin
+    .from('user_subscriptions')
+    .select('videos_per_month, videos_used_this_month, videos_remaining')
+    .eq('user_id', authContext.user.id)
+    .single();
+
+  if (sub) {
+    quota = {
+      submitted_today: submittedToday,
+      daily_limit: Math.ceil(sub.videos_per_month / 30),
+      videos_per_month: sub.videos_per_month,
+      videos_used_this_month: sub.videos_used_this_month,
+      videos_remaining: sub.videos_remaining,
+    };
+  }
+
+  return NextResponse.json({ ok: true, data, stats, quota });
 }

@@ -82,6 +82,38 @@ export async function POST(request: Request) {
       }
     }
 
+    // Duplicate submission prevention: check for matching title in last 10 minutes
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recentSubmissions } = await supabaseAdmin
+      .from('events_log')
+      .select('entity_id, payload')
+      .eq('entity_type', 'client_request')
+      .eq('event_type', 'client_request_submitted')
+      .gte('created_at', tenMinutesAgo);
+
+    const normalizedTitle = trimmedTitle.toLowerCase();
+    const duplicate = (recentSubmissions || []).find(e => {
+      const p = e.payload as Record<string, unknown>;
+      if (p.requested_by_user_id !== authContext.user!.id) return false;
+      if ((p.title as string)?.toLowerCase() === normalizedTitle) return true;
+      // Also check UGC link match
+      if (request_type === 'UGC_EDIT' && ugc_links?.length > 0) {
+        const existingLinks = (p.ugc_links as string[]) || [];
+        const newLinks = ugc_links.map((l: string) => l.trim().toLowerCase());
+        if (existingLinks.some((el: string) => newLinks.includes(el.toLowerCase()))) return true;
+      }
+      return false;
+    });
+
+    if (duplicate) {
+      return NextResponse.json({
+        ok: false,
+        error: 'duplicate_request',
+        message: 'A request with this title was already submitted in the last 10 minutes. Please wait or use a different title.',
+        correlation_id: correlationId,
+      }, { status: 409 });
+    }
+
     // Create the request
     const result = await createClientRequest(supabaseAdmin, {
       org_id: membership.org_id,

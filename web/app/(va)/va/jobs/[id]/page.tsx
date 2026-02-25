@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Film, Send, Download, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
+import {
+  ArrowLeft, ExternalLink, Film, Send, Download, Clock,
+  AlertTriangle, MessageSquare, Copy, Check, FolderOpen, Video,
+  ChevronDown, ChevronUp, Link2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import type { JobFeedback, JobStatus } from '@/lib/marketplace/types';
+import type { JobFeedback, JobEvent, JobStatus, DeliverableType } from '@/lib/marketplace/types';
 import { JOB_STATUS_LABELS, JOB_STATUS_COLORS } from '@/lib/marketplace/types';
 
 function slaBadge(dueAt: string | null): { text: string; color: string } | null {
@@ -25,6 +29,21 @@ function isValidUrl(url: string): boolean {
   }
 }
 
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button onClick={handleCopy} className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors">
+      {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+      {label || (copied ? 'Copied' : 'Copy')}
+    </button>
+  );
+}
+
 export default function VaJobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -33,8 +52,11 @@ export default function VaJobDetailPage() {
   const [acting, setActing] = useState(false);
   const [message, setMessage] = useState('');
   const [deliverableUrl, setDeliverableUrl] = useState('');
+  const [deliverableLabel, setDeliverableLabel] = useState('');
+  const [deliverableType, setDeliverableType] = useState<DeliverableType>('main');
   const [urlError, setUrlError] = useState('');
   const [error, setError] = useState('');
+  const [eventsOpen, setEventsOpen] = useState(false);
 
   const fetchJob = useCallback(async () => {
     setLoading(true);
@@ -92,20 +114,27 @@ export default function VaJobDetailPage() {
       return;
     }
     setUrlError('');
-    await handleAction('submit', { deliverable_url: deliverableUrl });
+    await handleAction('submit', {
+      deliverable_url: deliverableUrl,
+      ...(deliverableLabel && { label: deliverableLabel }),
+      deliverable_type: deliverableType,
+    });
     setDeliverableUrl('');
+    setDeliverableLabel('');
+    setDeliverableType('main');
   }
 
   if (loading) return <div className="text-zinc-500 text-sm py-12 text-center">Loading...</div>;
   if (!job) return <div className="text-red-400 text-sm py-12 text-center">Job not found</div>;
 
   const canClaim = job.job_status === 'queued';
-  const canStart = job.job_status === 'claimed';
+  const canStart = job.job_status === 'claimed' || job.job_status === 'changes_requested';
   const canSubmit = job.job_status === 'in_progress' || job.job_status === 'changes_requested';
   const isChangesRequested = job.job_status === 'changes_requested';
   const rawAssets = (job.assets || []).filter((a: any) => a.asset_type === 'raw_folder' || a.asset_type === 'raw_video');
   const refAssets = (job.assets || []).filter((a: any) => a.asset_type === 'reference');
   const sla = slaBadge(job.due_at);
+  const events: JobEvent[] = (job.events || []).slice(-10).reverse();
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -150,9 +179,16 @@ export default function VaJobDetailPage() {
       )}
 
       <div className="grid gap-6">
-        {/* Script */}
+        {/* Script with Copy button */}
         <Card>
-          <CardHeader><CardTitle>Script</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Script</CardTitle>
+              {job.script?.script_text && (
+                <CopyButton text={job.script.script_text} label="Copy Script" />
+              )}
+            </div>
+          </CardHeader>
           <CardContent>
             {job.script?.script_text ? (
               <pre className="whitespace-pre-wrap text-sm text-zinc-300 font-mono leading-relaxed bg-zinc-800/50 rounded-lg p-4">
@@ -185,19 +221,34 @@ export default function VaJobDetailPage() {
           </Card>
         )}
 
+        {/* Raw Footage — larger buttons */}
         <Card>
           <CardHeader><CardTitle>Raw Footage</CardTitle></CardHeader>
           <CardContent>
             {rawAssets.length > 0 ? (
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 {rawAssets.map((a: any) => (
-                  <li key={a.id} className="flex items-center gap-3 text-sm">
-                    <Film className="w-4 h-4 text-zinc-500" />
-                    <span className="text-zinc-400">{a.label || a.asset_type}</span>
-                    {a.url && <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 flex items-center gap-1">Open <ExternalLink className="w-3 h-3" /></a>}
-                  </li>
+                  <div key={a.id} className="flex items-center gap-3">
+                    {a.asset_type === 'raw_folder' ? (
+                      <FolderOpen className="w-5 h-5 text-blue-400 shrink-0" />
+                    ) : (
+                      <Video className="w-5 h-5 text-blue-400 shrink-0" />
+                    )}
+                    <span className="text-sm text-zinc-300">{a.label || (a.asset_type === 'raw_folder' ? 'Raw Folder' : 'Raw Video')}</span>
+                    {a.url && (
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-blue-900/30 text-blue-300 hover:bg-blue-900/50 transition-colors"
+                      >
+                        {a.asset_type === 'raw_folder' ? 'Open Folder' : 'Open Video'}
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : <p className="text-zinc-500 text-sm">No raw footage provided</p>}
           </CardContent>
         </Card>
@@ -218,40 +269,92 @@ export default function VaJobDetailPage() {
           </Card>
         )}
 
+        {/* B-roll Pack with signed URLs */}
         {(job.broll_links?.length > 0) && (
           <Card>
-            <CardHeader><CardTitle>Suggested B-roll Pack</CardTitle></CardHeader>
+            <CardHeader><CardTitle>B-roll Pack</CardTitle></CardHeader>
             <CardContent>
-              <ul className="space-y-2">
+              <div className="space-y-3">
                 {job.broll_links.map((bl: any, i: number) => (
-                  <li key={i} className="flex items-center gap-3 text-sm">
-                    <Film className="w-4 h-4 text-purple-400" />
-                    <span className="text-zinc-400">{bl.notes || bl.recommended_for || 'B-roll clip'}</span>
-                    <span className="text-xs text-zinc-600">{bl.asset?.source_type}</span>
-                    {bl.recommended_for && <span className="text-xs bg-purple-900/30 text-purple-300 px-2 py-0.5 rounded">{bl.recommended_for}</span>}
-                  </li>
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-800/30">
+                    <Film className="w-4 h-4 text-purple-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-zinc-300">{bl.notes || bl.recommended_for || 'B-roll clip'}</span>
+                      {bl.asset?.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {bl.asset.tags.map((tag: string, ti: number) => (
+                            <span key={ti} className="text-[10px] bg-purple-900/30 text-purple-300 px-1.5 py-0.5 rounded">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {bl.recommended_for && (
+                      <span className="text-xs bg-purple-900/30 text-purple-300 px-2 py-0.5 rounded shrink-0">{bl.recommended_for}</span>
+                    )}
+                    {bl.signed_url && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <a
+                          href={bl.signed_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-purple-900/30 text-purple-300 hover:bg-purple-900/50 transition-colors"
+                        >
+                          Open <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <CopyButton text={bl.signed_url} label="" />
+                      </div>
+                    )}
+                    {!bl.signed_url && bl.asset?.source_type && (
+                      <span className="text-xs text-zinc-600">{bl.asset.source_type}</span>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </CardContent>
           </Card>
         )}
 
+        {/* Submit Deliverable */}
         {canSubmit && (
           <Card>
             <CardHeader><CardTitle>{isChangesRequested ? 'Submit Revised Deliverable' : 'Submit Deliverable'}</CardTitle></CardHeader>
             <CardContent>
-              <p className="text-xs text-zinc-500 mb-2">Paste the Google Drive link to your finished edit. Each submission creates a new deliverable record.</p>
-              <div className="flex items-center gap-2">
-                <input type="url" placeholder="Paste HTTPS Drive link to final edit..." value={deliverableUrl}
-                  onChange={e => { setDeliverableUrl(e.target.value); setUrlError(''); }}
-                  className="flex-1 bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                <Button size="sm" onClick={handleSubmit} loading={acting} disabled={!deliverableUrl.trim()}>Submit Edit</Button>
+              <p className="text-xs text-zinc-500 mb-3">Paste the Google Drive link to your finished edit. Each submission creates a new deliverable record.</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    placeholder="Paste HTTPS Drive link to final edit..."
+                    value={deliverableUrl}
+                    onChange={e => { setDeliverableUrl(e.target.value); setUrlError(''); }}
+                    className="flex-1 bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Label (optional, e.g. 'V2 with music')"
+                    value={deliverableLabel}
+                    onChange={e => setDeliverableLabel(e.target.value)}
+                    className="flex-1 bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <select
+                    value={deliverableType}
+                    onChange={e => setDeliverableType(e.target.value as DeliverableType)}
+                    className="bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="main">Main</option>
+                    <option value="variant">Variant</option>
+                  </select>
+                  <Button size="sm" onClick={handleSubmit} loading={acting} disabled={!deliverableUrl.trim()}>Submit Edit</Button>
+                </div>
+                {urlError && <p className="text-xs text-red-400">{urlError}</p>}
               </div>
-              {urlError && <p className="text-xs text-red-400 mt-1">{urlError}</p>}
             </CardContent>
           </Card>
         )}
 
+        {/* Submitted Deliverables */}
         {(job.deliverables?.length > 0) && (
           <Card>
             <CardHeader><CardTitle>Submitted Deliverables</CardTitle></CardHeader>
@@ -260,8 +363,13 @@ export default function VaJobDetailPage() {
                 {job.deliverables.map((d: any) => (
                   <li key={d.id} className="flex items-center gap-3 text-sm">
                     <Download className="w-4 h-4 text-green-400" />
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${d.deliverable_type === 'variant' ? 'bg-indigo-900/30 text-indigo-300' : 'bg-green-900/30 text-green-300'}`}>
+                      {d.deliverable_type}
+                    </span>
                     <span className="text-zinc-300">{d.label || d.deliverable_type}</span>
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 flex items-center gap-1">Open <ExternalLink className="w-3 h-3" /></a>
+                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 flex items-center gap-1">
+                      Open <ExternalLink className="w-3 h-3" />
+                    </a>
                     <span className="text-xs text-zinc-600">{new Date(d.created_at).toLocaleDateString()}</span>
                   </li>
                 ))}
@@ -270,6 +378,7 @@ export default function VaJobDetailPage() {
           </Card>
         )}
 
+        {/* Feedback */}
         <Card>
           <CardHeader><CardTitle>Feedback</CardTitle></CardHeader>
           <CardContent>
@@ -299,6 +408,40 @@ export default function VaJobDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Events Audit (collapsed) */}
+        {events.length > 0 && (
+          <Card>
+            <CardHeader>
+              <button
+                onClick={() => setEventsOpen(v => !v)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <CardTitle>Activity Log ({events.length})</CardTitle>
+                {eventsOpen ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+              </button>
+            </CardHeader>
+            {eventsOpen && (
+              <CardContent>
+                <div className="space-y-2">
+                  {events.map((evt) => (
+                    <div key={evt.id} className="flex items-center gap-3 text-xs">
+                      <span className="text-zinc-600 w-32 shrink-0">
+                        {new Date(evt.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="inline-flex px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-medium">
+                        {evt.event_type}
+                      </span>
+                      {evt.payload && Object.keys(evt.payload).length > 0 && (
+                        <span className="text-zinc-500 truncate max-w-xs">{JSON.stringify(evt.payload)}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

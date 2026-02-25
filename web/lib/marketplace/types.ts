@@ -195,7 +195,8 @@ export interface JobWithScript extends EditJob {
   assets: ScriptAsset[];
   deliverables: JobDeliverable[];
   feedback: JobFeedback[];
-  broll_links: (ScriptBrollLink & { asset: BrollAsset })[];
+  events: JobEvent[];
+  broll_links: (ScriptBrollLink & { asset: BrollAsset; signed_url: string | null })[];
 }
 
 export interface PipelineRow {

@@ -43,13 +43,33 @@ npm run dev
 - VA portal: http://localhost:3000/va/jobs
 - Metrics: http://localhost:3000/app/metrics
 
-## RLS Smoke Tests
+## VA Portal
+
+The VA portal lives at `/va/jobs`. Features:
+
+- **Job Board** (`/va/jobs`): Filterable list of active jobs with status tabs (All / Queued / My Jobs), title search, and columns for raw footage, b-roll, and revision count. Due-soon jobs highlight amber (< 6h) and overdue jobs highlight red.
+- **Job Detail** (`/va/jobs/[id]`): Full editor packet with copy-script button, raw footage links, signed b-roll URLs with copy-link, deliverable submission with label and type (main/variant), feedback thread, and collapsible activity log.
+- **State machine**: Jobs follow `queued → claimed → in_progress → submitted → approved → posted`. The "Start" action also works from `changes_requested` status so VAs can go straight to revisions.
+- **Role enforcement**: VA actions (claim, start, submit, add_feedback) require `va_editor` or `admin` role. Client actions (approve, request_changes, mark_posted) require `client_owner`, `client_member`, or `admin`.
+- **No client name leak**: VAs see `client_code` only. The `clients.name` field is never exposed in VA-facing responses.
+
+## Smoke Tests
+
+### RLS Smoke Tests
 
 ```bash
 npx tsx scripts/mp-rls-smoke.ts
 ```
 
 Creates temporary test users, validates RLS policies, then cleans up.
+
+### VA Smoke Tests
+
+```bash
+npx tsx scripts/mp-va-smoke.ts
+```
+
+Tests the VA workflow: list jobs, claim, start, submit. Verifies no client name leaks in any response. Creates temporary data and cleans up.
 
 ## Trigger B-roll Scout
 
@@ -80,9 +100,9 @@ DRY_RUN=1 npx tsx scripts/broll-cache-sync.ts
 | GET | `/api/marketplace/scripts/[id]` | Session | Script detail + assets + job_id + broll_pack (signed URLs) |
 | PATCH | `/api/marketplace/scripts/[id]` | Session | Update fields or trigger actions |
 | POST | `/api/marketplace/scripts/[id]/broll` | Session | Generate b-roll pack for script |
-| GET | `/api/marketplace/jobs` | Session | VA job board |
-| GET | `/api/marketplace/jobs/[id]` | Session | Job detail (full editor packet) |
-| PATCH | `/api/marketplace/jobs/[id]` | Session | Job actions (claim, start, submit, approve, etc.) |
+| GET | `/api/marketplace/jobs` | VA/Admin | VA job board (params: `sort`, `status`, `search`) |
+| GET | `/api/marketplace/jobs/[id]` | Session | Job detail (full editor packet, signed broll URLs, events) |
+| PATCH | `/api/marketplace/jobs/[id]` | Session | Job actions — role-gated (claim, start, submit, approve, etc.) |
 | GET | `/api/marketplace/metrics` | Session | Client metrics dashboard data |
 | POST | `/api/internal/broll/run` | Service key | Internal b-roll scout runner |
 

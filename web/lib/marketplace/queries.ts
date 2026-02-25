@@ -11,6 +11,30 @@ import type {
 } from './types';
 import { getNextAction } from './types';
 
+// ============================================================
+// Valid state transitions
+// ============================================================
+
+const VALID_TRANSITIONS: Record<string, JobStatus[]> = {
+  queued:             ['claimed', 'canceled', 'blocked', 'error'],
+  claimed:            ['in_progress', 'queued', 'canceled'],        // queued = unclaim
+  in_progress:        ['submitted', 'blocked', 'error', 'canceled'],
+  submitted:          ['approved', 'changes_requested'],
+  changes_requested:  ['in_progress', 'submitted', 'canceled'],     // VA can start or re-submit
+  approved:           ['posted'],
+  posted:             [],
+  blocked:            ['queued', 'canceled'],
+  error:              ['queued', 'canceled'],
+  canceled:           [],
+};
+
+function validateTransition(current: JobStatus, next: JobStatus): void {
+  const allowed = VALID_TRANSITIONS[current];
+  if (!allowed || !allowed.includes(next)) {
+    throw new Error(`Invalid transition: ${current} → ${next}`);
+  }
+}
+
 // Service-role client for internal operations (bypasses RLS)
 // ============================================================
 // Auth context helpers
@@ -205,6 +229,20 @@ export async function addScriptAsset(
 export async function queueForEditing(scriptId: string, clientId: string, userId: string) {
   const svc = supabaseAdmin;
 
+  // Idempotency: if an active job already exists, return it instead of creating a new one
+  const ACTIVE_STATUSES: JobStatus[] = ['queued', 'claimed', 'in_progress', 'submitted', 'changes_requested'];
+  const { data: activeJob } = await svc
+    .from('edit_jobs')
+    .select('id, job_status')
+    .eq('script_id', scriptId)
+    .in('job_status', ACTIVE_STATUSES)
+    .limit(1)
+    .single();
+
+  if (activeJob) {
+    return { jobId: activeJob.id as string, status: activeJob.job_status as JobStatus, existing: true };
+  }
+
   // Get plan
   const { data: plan } = await svc.from('client_plans').select('*').eq('client_id', clientId).single();
   const slaHours = plan?.sla_hours || 48;
@@ -233,15 +271,19 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
   // Update script status
   await svc.from('mp_scripts').update({ status: 'queued' }).eq('id', scriptId);
 
-  // Create edit job if not exists
+  // Create edit job or re-queue a terminal one
   const dueAt = new Date(Date.now() + slaHours * 3600_000).toISOString();
-  const { data: existingJob } = await svc.from('edit_jobs').select('id').eq('script_id', scriptId).single();
+  const { data: existingJob } = await svc.from('edit_jobs').select('id, job_status').eq('script_id', scriptId).order('created_at', { ascending: false }).limit(1).single();
 
   let jobId: string;
   if (existingJob) {
     await svc.from('edit_jobs').update({
       job_status: 'queued',
       due_at: dueAt,
+      claimed_by: null,
+      claimed_at: null,
+      started_at: null,
+      submitted_at: null,
     }).eq('id', existingJob.id);
     jobId = existingJob.id;
   } else {
@@ -262,24 +304,46 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
     actor_user_id: userId,
   });
 
-  return jobId;
+  return { jobId, status: 'queued' as JobStatus, existing: false };
 }
 
 // ============================================================
 // VA job board
 // ============================================================
 
-export async function getQueuedJobs(filters?: { sort?: 'newest' | 'due_soon' | 'priority' }) {
+export interface VaBoardFilters {
+  sort?: 'newest' | 'due_soon' | 'priority';
+  status?: 'all' | 'queued' | 'mine';
+  search?: string;
+  userId?: string;
+}
+
+export async function getQueuedJobs(filters?: VaBoardFilters) {
   const sb = await createServerSupabaseClient();
 
   let query = sb
     .from('edit_jobs')
     .select(`
       id, script_id, client_id, job_status, priority, claimed_by, due_at, created_at,
-      mp_scripts:mp_scripts!edit_jobs_script_id_fkey(title, notes, broll_suggestions),
-      clients:clients!edit_jobs_client_id_fkey(client_code)
-    `)
-    .in('job_status', ['queued', 'claimed', 'in_progress', 'submitted', 'changes_requested']);
+      mp_scripts:mp_scripts!edit_jobs_script_id_fkey(
+        id, title, notes, broll_suggestions,
+        script_assets(asset_type),
+        script_broll_links(broll_asset_id)
+      ),
+      clients:clients!edit_jobs_client_id_fkey(client_code),
+      job_deliverables(id)
+    `);
+
+  // Status filter
+  const statusFilter = filters?.status || 'all';
+  if (statusFilter === 'queued') {
+    query = query.eq('job_status', 'queued');
+  } else if (statusFilter === 'mine' && filters?.userId) {
+    query = query.eq('claimed_by', filters.userId)
+      .in('job_status', ['claimed', 'in_progress', 'changes_requested']);
+  } else {
+    query = query.in('job_status', ['queued', 'claimed', 'in_progress', 'submitted', 'changes_requested']);
+  }
 
   const sort = filters?.sort || 'newest';
   if (sort === 'due_soon') {
@@ -293,13 +357,44 @@ export async function getQueuedJobs(filters?: { sort?: 'newest' | 'due_soon' | '
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  return (data || []).map((j: Record<string, unknown>) => ({
-    ...j,
-    client_code: (j.clients as Record<string, string>)?.client_code || 'Unknown',
-    script_title: (j.mp_scripts as Record<string, string>)?.title || 'Untitled',
-    script_notes: (j.mp_scripts as Record<string, string>)?.notes || '',
-    broll_suggestions: (j.mp_scripts as Record<string, string>)?.broll_suggestions || '',
-  }));
+  // Apply title search client-side (PostgREST nested ILIKE is unreliable)
+  let rows = data || [];
+  if (filters?.search) {
+    const term = filters.search.toLowerCase();
+    rows = rows.filter((j: Record<string, unknown>) => {
+      const title = ((j.mp_scripts as Record<string, unknown>)?.title as string) || '';
+      return title.toLowerCase().includes(term);
+    });
+  }
+
+  return rows.map((j: Record<string, unknown>) => {
+    const scriptData = j.mp_scripts as Record<string, unknown> | null;
+    const assets = (scriptData && Array.isArray(scriptData.script_assets))
+      ? scriptData.script_assets as { asset_type: string }[]
+      : [];
+    const brollLinks = (scriptData && Array.isArray(scriptData.script_broll_links))
+      ? scriptData.script_broll_links as unknown[]
+      : [];
+    const deliverables = Array.isArray(j.job_deliverables) ? j.job_deliverables : [];
+
+    return {
+      id: j.id as string,
+      script_id: j.script_id as string,
+      client_id: j.client_id as string,
+      job_status: j.job_status as JobStatus,
+      priority: j.priority as number,
+      claimed_by: j.claimed_by as string | null,
+      due_at: j.due_at as string | null,
+      created_at: j.created_at as string,
+      client_code: (j.clients as Record<string, string>)?.client_code || 'Unknown',
+      script_title: (scriptData?.title as string) || 'Untitled',
+      script_notes: (scriptData?.notes as string) || '',
+      broll_suggestions: (scriptData?.broll_suggestions as string) || '',
+      has_raw_footage: assets.some(a => a.asset_type === 'raw_folder' || a.asset_type === 'raw_video'),
+      has_broll_pack: brollLinks.length > 0,
+      revision_count: deliverables.length,
+    };
+  });
 }
 
 export async function getJobDetail(jobId: string): Promise<JobWithScript | null> {
@@ -324,11 +419,33 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
   // Get script assets
   const { data: assets } = await sb.from('script_assets').select('*').eq('script_id', script.id);
 
-  // Get broll links
+  // Get broll links with signed URLs
   const { data: brollLinks } = await sb
     .from('script_broll_links')
     .select('*, broll_assets:broll_assets!script_broll_links_broll_asset_id_fkey(*)')
     .eq('script_id', script.id);
+
+  const brollLinksWithUrls = await Promise.all(
+    (brollLinks || []).map(async (bl: Record<string, unknown>) => {
+      const asset = bl.broll_assets as Record<string, unknown> | null;
+      let signedUrl: string | null = null;
+      if (asset?.storage_bucket && asset?.storage_path) {
+        const { data: urlData } = await sb.storage
+          .from(asset.storage_bucket as string)
+          .createSignedUrl(asset.storage_path as string, 3600);
+        signedUrl = urlData?.signedUrl || null;
+      }
+      return {
+        script_id: bl.script_id as string,
+        broll_asset_id: bl.broll_asset_id as string,
+        recommended_for: bl.recommended_for as string | null,
+        notes: bl.notes as string | null,
+        created_at: bl.created_at as string,
+        signed_url: signedUrl,
+        asset: bl.broll_assets as unknown as BrollAsset,
+      };
+    })
+  );
 
   return {
     ...job,
@@ -337,14 +454,8 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
     assets: (assets || []) as ScriptAsset[],
     deliverables: (delivRes.data || []) as JobDeliverable[],
     feedback: (feedbackRes.data || []) as JobFeedback[],
-    broll_links: (brollLinks || []).map((bl: Record<string, unknown>) => ({
-      script_id: bl.script_id as string,
-      broll_asset_id: bl.broll_asset_id as string,
-      recommended_for: bl.recommended_for as string | null,
-      notes: bl.notes as string | null,
-      created_at: bl.created_at as string,
-      asset: bl.broll_assets as unknown as BrollAsset,
-    })),
+    events: (eventsRes.data || []) as JobEvent[],
+    broll_links: brollLinksWithUrls,
   } as JobWithScript;
 }
 
@@ -376,26 +487,50 @@ export async function claimJob(jobId: string, userId: string) {
 
 export async function startJob(jobId: string, userId: string) {
   const sb = await createServerSupabaseClient();
+
+  // Fetch current state for validation
+  const { data: current } = await sb.from('edit_jobs').select('job_status, claimed_by').eq('id', jobId).single();
+  if (!current) throw new Error('Job not found');
+  if (current.claimed_by !== userId) throw new Error('Not your job');
+  validateTransition(current.job_status as JobStatus, 'in_progress');
+
   const { data, error } = await sb
     .from('edit_jobs')
     .update({ job_status: 'in_progress', started_at: new Date().toISOString() })
     .eq('id', jobId)
     .eq('claimed_by', userId)
+    .in('job_status', ['claimed', 'changes_requested'])
     .select()
     .single();
   if (error || !data) throw new Error('Cannot start job');
+
+  // Update script status
+  await sb.from('mp_scripts').update({ status: 'editing' }).eq('id', data.script_id);
+
   await sb.from('job_events').insert({ job_id: jobId, event_type: 'started', actor_user_id: userId });
   return data as EditJob;
 }
 
-export async function submitJob(jobId: string, userId: string, deliverableUrl: string, label?: string) {
+export async function submitJob(
+  jobId: string,
+  userId: string,
+  deliverableUrl: string,
+  label?: string,
+  deliverableType: 'main' | 'variant' = 'main',
+) {
   const sb = await createServerSupabaseClient();
+
+  // Validate current state
+  const { data: current } = await sb.from('edit_jobs').select('job_status, claimed_by').eq('id', jobId).single();
+  if (!current) throw new Error('Job not found');
+  if (current.claimed_by !== userId) throw new Error('Not your job');
+  validateTransition(current.job_status as JobStatus, 'submitted');
 
   // Add deliverable
   await sb.from('job_deliverables').insert({
     job_id: jobId,
-    deliverable_type: 'main',
-    label: label || 'Final Edit',
+    deliverable_type: deliverableType,
+    label: label || (deliverableType === 'variant' ? 'Variant' : 'Final Edit'),
     url: deliverableUrl,
     created_by: userId,
   });
@@ -406,6 +541,7 @@ export async function submitJob(jobId: string, userId: string, deliverableUrl: s
     .update({ job_status: 'submitted', submitted_at: new Date().toISOString() })
     .eq('id', jobId)
     .eq('claimed_by', userId)
+    .in('job_status', ['in_progress', 'changes_requested'])
     .select()
     .single();
   if (error || !data) throw new Error('Cannot submit job');
@@ -423,10 +559,16 @@ export async function submitJob(jobId: string, userId: string, deliverableUrl: s
 
 export async function approveJob(jobId: string, userId: string) {
   const sb = await createServerSupabaseClient();
+
+  const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
+  if (!current) throw new Error('Job not found');
+  validateTransition(current.job_status as JobStatus, 'approved');
+
   const { data, error } = await sb
     .from('edit_jobs')
     .update({ job_status: 'approved', approved_at: new Date().toISOString() })
     .eq('id', jobId)
+    .eq('job_status', 'submitted')
     .select()
     .single();
   if (error || !data) throw new Error('Cannot approve job');
@@ -437,10 +579,16 @@ export async function approveJob(jobId: string, userId: string) {
 
 export async function requestChanges(jobId: string, userId: string, message: string) {
   const sb = await createServerSupabaseClient();
+
+  const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
+  if (!current) throw new Error('Job not found');
+  validateTransition(current.job_status as JobStatus, 'changes_requested');
+
   const { data, error } = await sb
     .from('edit_jobs')
     .update({ job_status: 'changes_requested' })
     .eq('id', jobId)
+    .eq('job_status', 'submitted')
     .select()
     .single();
   if (error || !data) throw new Error('Cannot request changes');

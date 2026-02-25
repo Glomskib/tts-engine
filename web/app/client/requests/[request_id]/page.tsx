@@ -3,13 +3,16 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  ArrowLeft, ExternalLink, FolderOpen, Clock,
+  CheckCircle2, XCircle, Eye, Send, Zap, AlertTriangle
+} from 'lucide-react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import ClientNav from '../../components/ClientNav';
 import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
 import { SLA_THRESHOLDS_MS } from '@/lib/client-requests';
 
-// Default threshold for client-facing neutral messaging (uses NORMAL priority threshold)
 const PROCESSING_LONGER_THRESHOLD_MS = SLA_THRESHOLDS_MS.NORMAL;
 
 interface AuthUser {
@@ -33,20 +36,18 @@ interface ClientRequest {
   updated_at: string;
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  SUBMITTED: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
-  IN_REVIEW: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  APPROVED: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  REJECTED: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  CONVERTED: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  SUBMITTED: 'Submitted',
-  IN_REVIEW: 'In Review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  CONVERTED: 'Converted to Video',
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  bg: string;
+  text: string;
+  border: string;
+  icon: typeof Clock;
+}> = {
+  SUBMITTED: { label: 'Submitted', bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200', icon: Send },
+  IN_REVIEW: { label: 'In Review', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: Eye },
+  APPROVED: { label: 'Approved', bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: CheckCircle2 },
+  REJECTED: { label: 'Needs Changes', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle },
+  CONVERTED: { label: 'In Production', bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', icon: Zap },
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -54,9 +55,6 @@ const TYPE_LABELS: Record<string, string> = {
   UGC_EDIT: 'UGC Edit',
 };
 
-/**
- * Format duration in milliseconds to human-readable string.
- */
 function formatProcessingTime(ms: number): string {
   if (ms < 0) return '0m';
   const minutes = Math.floor(ms / 60000);
@@ -72,6 +70,29 @@ function formatProcessingTime(ms: number): string {
     return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
   }
   return minutes > 0 ? `${minutes}m` : '<1m';
+}
+
+function classifyUrl(url: string): 'drive_folder' | 'drive_file' | 'dropbox' | 'url' {
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('drive.google.com')) {
+      return parsed.pathname.includes('/folders/') ? 'drive_folder' : 'drive_file';
+    }
+    if (host.includes('dropbox.com')) return 'dropbox';
+    return 'url';
+  } catch {
+    return 'url';
+  }
+}
+
+function getLinkDisplay(type: ReturnType<typeof classifyUrl>) {
+  switch (type) {
+    case 'drive_folder': return { label: 'Google Drive Folder', icon: FolderOpen, color: 'text-green-700', bg: 'bg-green-50 border-green-200' };
+    case 'drive_file': return { label: 'Google Drive File', icon: ExternalLink, color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' };
+    case 'dropbox': return { label: 'Dropbox', icon: ExternalLink, color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' };
+    default: return { label: 'Link', icon: ExternalLink, color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200' };
+  }
 }
 
 export default function RequestDetailPage({
@@ -90,13 +111,11 @@ export default function RequestDetailPage({
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
 
-  // Update "now" every minute for processing time display
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch authenticated user
   useEffect(() => {
     const fetchAuthUser = async () => {
       try {
@@ -123,7 +142,6 @@ export default function RequestDetailPage({
     fetchAuthUser();
   }, [router, request_id]);
 
-  // Fetch branding
   useEffect(() => {
     if (!authUser) return;
 
@@ -137,8 +155,7 @@ export default function RequestDetailPage({
         } else {
           setBranding(getDefaultOrgBranding());
         }
-      } catch (err) {
-        console.error('Failed to fetch branding:', err);
+      } catch {
         setBranding(getDefaultOrgBranding());
       }
     };
@@ -146,7 +163,6 @@ export default function RequestDetailPage({
     fetchBranding();
   }, [authUser]);
 
-  // Fetch request
   useEffect(() => {
     if (!authUser) return;
 
@@ -196,7 +212,12 @@ export default function RequestDetailPage({
       <div className="min-h-screen bg-slate-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
           <ClientNav userName={authUser.email || undefined} branding={branding} />
-          <div className="text-center py-12 text-slate-500">Loading request...</div>
+          <div className="h-6 w-32 bg-slate-200 rounded animate-pulse mb-6" />
+          <div className="h-8 w-64 bg-slate-200 rounded animate-pulse mb-8" />
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+            <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+            <div className="h-4 w-3/4 bg-slate-100 rounded animate-pulse" />
+          </div>
         </div>
       </div>
     );
@@ -207,11 +228,10 @@ export default function RequestDetailPage({
       <div className="min-h-screen bg-slate-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
           <ClientNav userName={authUser.email || undefined} branding={branding} />
-          <div className="mb-6">
-            <Link href="/client/requests" className="text-sm text-slate-500 hover:text-slate-700 mb-2 inline-block">
-              &larr; Back to Requests
-            </Link>
-          </div>
+          <Link href="/client/requests" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-6">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Requests
+          </Link>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
             <div className="text-red-700 font-medium">{error || 'Request not found'}</div>
           </div>
@@ -220,62 +240,96 @@ export default function RequestDetailPage({
     );
   }
 
-  const statusColors = STATUS_COLORS[request.status] || STATUS_COLORS.SUBMITTED;
+  const statusConfig = STATUS_CONFIG[request.status] || STATUS_CONFIG.SUBMITTED;
+  const StatusIcon = statusConfig.icon;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
         <ClientNav userName={authUser.email || undefined} branding={branding} />
 
+        {/* Back */}
+        <Link href="/client/requests" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-6">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Requests
+        </Link>
+
         {/* Header */}
-        <div className="mb-6">
-          <Link href="/client/requests" className="text-sm text-slate-500 hover:text-slate-700 mb-2 inline-block">
-            &larr; Back to Requests
-          </Link>
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <h1 className={`text-2xl font-semibold ${accentText}`}>{request.title}</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {TYPE_LABELS[request.request_type] || request.request_type}
-              </p>
-            </div>
-            <div className={`px-3 py-1.5 rounded-full text-sm font-medium ${statusColors.bg} ${statusColors.text} border ${statusColors.border}`}>
-              {STATUS_LABELS[request.status] || request.status}
-            </div>
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-6">
+          <div>
+            <h1 className={`text-2xl font-semibold ${accentText}`}>{request.title}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {TYPE_LABELS[request.request_type] || request.request_type}
+            </p>
+          </div>
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border}`}>
+            <StatusIcon className="w-4 h-4" />
+            {statusConfig.label}
           </div>
         </div>
 
-        {/* Status Banner for special states */}
+        {/* Status Banners */}
         {request.status === 'CONVERTED' && request.video_id && (
-          <div className="mb-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="text-purple-700 font-medium">Video Created</div>
+          <div className="mb-6 bg-purple-50 border border-purple-200 rounded-xl p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-purple-600" />
+                <div>
+                  <div className="font-medium text-purple-800">Video Created</div>
+                  <p className="text-sm text-purple-600">Your request has been converted and is now in production.</p>
+                </div>
+              </div>
               <Link
                 href={`/client/videos/${request.video_id}`}
-                className="text-sm text-purple-600 hover:text-purple-800 underline"
+                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
               >
-                View Video &rarr;
+                View Video
               </Link>
             </div>
           </div>
         )}
 
-        {request.status === 'REJECTED' && request.status_reason && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="text-red-700 font-medium mb-1">Rejected</div>
-            <div className="text-sm text-red-600">{request.status_reason}</div>
+        {request.status === 'REJECTED' && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-medium text-red-800 mb-1">Changes Requested</div>
+                {request.status_reason ? (
+                  <p className="text-sm text-red-700">{request.status_reason}</p>
+                ) : (
+                  <p className="text-sm text-red-600">Your request needs changes before it can proceed.</p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Processing Time Warning */}
+        {hydrated && !['CONVERTED', 'REJECTED'].includes(request.status) && (() => {
+          const ageMs = now - new Date(request.created_at).getTime();
+          if (ageMs > PROCESSING_LONGER_THRESHOLD_MS) {
+            return (
+              <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+                <p className="text-sm text-amber-700">
+                  This request is taking longer than usual ({formatProcessingTime(ageMs)}). Our team is working on it.
+                </p>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         {/* Request Details */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm divide-y divide-slate-100">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100 mb-6">
           {/* Brief */}
           <div className="p-6">
             <div className="text-sm font-medium text-slate-500 mb-2">Brief</div>
             <div className="text-slate-800 whitespace-pre-wrap">{request.brief}</div>
           </div>
 
-          {/* Product URL (for AI_CONTENT) */}
+          {/* Product URL (AI_CONTENT) */}
           {request.request_type === 'AI_CONTENT' && request.product_url && (
             <div className="p-6">
               <div className="text-sm font-medium text-slate-500 mb-2">Product URL</div>
@@ -283,31 +337,51 @@ export default function RequestDetailPage({
                 href={request.product_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`text-sm ${accentText} hover:underline`}
+                className="inline-flex items-center gap-2 text-sm text-teal-700 hover:text-teal-900 bg-teal-50 border border-teal-200 px-3 py-2 rounded-lg"
               >
+                <ExternalLink className="w-4 h-4" />
                 {request.product_url}
               </a>
             </div>
           )}
 
-          {/* Footage Links (for UGC_EDIT) */}
+          {/* Raw Footage Links (UGC_EDIT) */}
           {request.request_type === 'UGC_EDIT' && request.ugc_links && request.ugc_links.length > 0 && (
             <div className="p-6">
-              <div className="text-sm font-medium text-slate-500 mb-2">Footage Links</div>
-              <ul className="space-y-1">
-                {request.ugc_links.map((link, i) => (
-                  <li key={i}>
+              <div className="text-sm font-medium text-slate-500 mb-3">
+                Raw Footage ({request.ugc_links.length} link{request.ugc_links.length !== 1 ? 's' : ''})
+              </div>
+              <div className="space-y-2">
+                {request.ugc_links.map((link, i) => {
+                  const linkType = classifyUrl(link);
+                  const display = getLinkDisplay(linkType);
+                  const LinkIcon = display.icon;
+
+                  return (
                     <a
+                      key={i}
                       href={link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`text-sm ${accentText} hover:underline break-all`}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors hover:shadow-sm ${display.bg}`}
                     >
-                      {link}
+                      <LinkIcon className={`w-5 h-5 shrink-0 ${display.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-medium ${display.color}`}>{display.label}</div>
+                        <div className="text-xs text-slate-500 truncate">{link}</div>
+                      </div>
+                      {linkType === 'drive_folder' && (
+                        <span className="shrink-0 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                          Open Folder
+                        </span>
+                      )}
+                      {linkType !== 'drive_folder' && (
+                        <ExternalLink className="w-4 h-4 text-slate-400 shrink-0" />
+                      )}
                     </a>
-                  </li>
-                ))}
-              </ul>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -344,14 +418,6 @@ export default function RequestDetailPage({
                     }
 
                     const ageMs = now - new Date(request.created_at).getTime();
-                    const isTakingLonger = ageMs > PROCESSING_LONGER_THRESHOLD_MS;
-
-                    if (isTakingLonger) {
-                      return (
-                        <span className="text-amber-600">Processing longer than usual</span>
-                      );
-                    }
-
                     return `${formatProcessingTime(ageMs)} so far`;
                   })() : '-'}
                 </div>

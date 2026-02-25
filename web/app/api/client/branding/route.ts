@@ -61,6 +61,7 @@ export async function GET(request: Request) {
       data: {
         org_id: membership.org_id,
         org_name: org?.org_name || membership.org_id,
+        role: membership.role,
         branding,
         plan: orgPlanInfo.plan,
         billing_status: orgPlanInfo.billing_status,

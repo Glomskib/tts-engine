@@ -3,16 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  Clock, CheckCircle2, XCircle, ArrowRight, Eye,
+  Send, Zap, AlertTriangle, FileText
+} from 'lucide-react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { SLA_THRESHOLDS_MS } from '@/lib/client-requests';
+import ClientNav from '../components/ClientNav';
+import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
 
-// Default threshold for client-facing neutral messaging (uses NORMAL priority threshold)
 const PROCESSING_LONGER_THRESHOLD_MS = SLA_THRESHOLDS_MS.NORMAL;
 
-/**
- * Format duration in milliseconds to human-readable string.
- */
 function formatProcessingTime(ms: number): string {
   if (ms < 0) return '0m';
   const minutes = Math.floor(ms / 60000);
@@ -29,8 +31,6 @@ function formatProcessingTime(ms: number): string {
   }
   return minutes > 0 ? `${minutes}m` : '<1m';
 }
-import ClientNav from '../components/ClientNav';
-import { EffectiveOrgBranding, getDefaultOrgBranding } from '@/lib/org-branding';
 
 interface AuthUser {
   id: string;
@@ -48,18 +48,72 @@ interface ClientRequest {
   updated_at: string;
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  SUBMITTED: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  IN_REVIEW: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  APPROVED: { bg: 'bg-green-100', text: 'text-green-700' },
-  REJECTED: { bg: 'bg-red-100', text: 'text-red-700' },
-  CONVERTED: { bg: 'bg-purple-100', text: 'text-purple-700' },
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  bg: string;
+  text: string;
+  icon: typeof Clock;
+  description: string;
+}> = {
+  SUBMITTED: {
+    label: 'Submitted',
+    bg: 'bg-teal-100',
+    text: 'text-teal-700',
+    icon: Send,
+    description: 'Awaiting team review',
+  },
+  IN_REVIEW: {
+    label: 'In Review',
+    bg: 'bg-amber-100',
+    text: 'text-amber-700',
+    icon: Eye,
+    description: 'Being reviewed by our team',
+  },
+  APPROVED: {
+    label: 'Approved',
+    bg: 'bg-green-100',
+    text: 'text-green-700',
+    icon: CheckCircle2,
+    description: 'Approved — converting to video',
+  },
+  REJECTED: {
+    label: 'Needs Changes',
+    bg: 'bg-red-100',
+    text: 'text-red-700',
+    icon: XCircle,
+    description: 'See feedback below',
+  },
+  CONVERTED: {
+    label: 'In Production',
+    bg: 'bg-purple-100',
+    text: 'text-purple-700',
+    icon: Zap,
+    description: 'Video is being produced',
+  },
 };
 
 const TYPE_LABELS: Record<string, string> = {
   AI_CONTENT: 'AI Content',
   UGC_EDIT: 'UGC Edit',
 };
+
+function getNextAction(req: ClientRequest): { label: string; href: string; color: string } | null {
+  switch (req.status) {
+    case 'CONVERTED':
+      if (req.video_id) {
+        return { label: 'View Video', href: `/client/videos/${req.video_id}`, color: 'bg-purple-600 hover:bg-purple-700' };
+      }
+      return null;
+    case 'REJECTED':
+      return { label: 'Revise & Resubmit', href: `/client/requests/${req.request_id}`, color: 'bg-red-600 hover:bg-red-700' };
+    case 'IN_REVIEW':
+    case 'APPROVED':
+    case 'SUBMITTED':
+      return { label: 'View Details', href: `/client/requests/${req.request_id}`, color: 'bg-slate-600 hover:bg-slate-700' };
+    default:
+      return null;
+  }
+}
 
 export default function ClientRequestsPage() {
   const router = useRouter();
@@ -73,13 +127,11 @@ export default function ClientRequestsPage() {
   const [branding, setBranding] = useState<EffectiveOrgBranding | null>(null);
   const [now, setNow] = useState(Date.now());
 
-  // Update "now" every minute for processing time display
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch authenticated user
   useEffect(() => {
     const fetchAuthUser = async () => {
       try {
@@ -106,7 +158,6 @@ export default function ClientRequestsPage() {
     fetchAuthUser();
   }, [router]);
 
-  // Fetch branding
   useEffect(() => {
     if (!authUser) return;
 
@@ -129,7 +180,6 @@ export default function ClientRequestsPage() {
     fetchBranding();
   }, [authUser]);
 
-  // Fetch requests
   useEffect(() => {
     if (!authUser) return;
 
@@ -155,12 +205,6 @@ export default function ClientRequestsPage() {
 
     fetchRequests();
   }, [authUser]);
-
-  const displayTime = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    if (!hydrated) return formatDateString(dateStr);
-    return getTimeAgo(dateStr);
-  };
 
   if (authLoading) {
     return (
@@ -216,7 +260,6 @@ export default function ClientRequestsPage() {
           </div>
         ) : (
           <>
-            {/* Error */}
             {error && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {error}
@@ -224,111 +267,107 @@ export default function ClientRequestsPage() {
             )}
 
             {/* Requests List */}
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-              {loading ? (
-                <div className="p-8 text-center text-slate-500">Loading requests...</div>
-              ) : requests.length === 0 ? (
-                <div className="py-12 text-center">
-                  <div className="text-slate-400 mb-2">No requests yet</div>
-                  <div className="text-sm text-slate-500 mb-4">
-                    Submit your first content request to get started.
-                  </div>
-                  <Link
-                    href="/client/requests/new"
-                    className={`inline-flex px-4 py-2 ${accentBg} text-white text-sm font-medium rounded-md hover:opacity-90`}
-                  >
-                    Create Request
-                  </Link>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Title
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {requests.map((req) => {
-                      const colors = STATUS_COLORS[req.status] || STATUS_COLORS.SUBMITTED;
-                      return (
-                        <tr key={req.request_id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-slate-800">{req.title}</div>
-                            {req.video_id && (
-                              <div className="text-xs text-slate-400 mt-0.5">
-                                Video: {req.video_id.slice(0, 8)}...
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-sm text-slate-600">
-                              {TYPE_LABELS[req.request_type] || req.request_type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors.bg} ${colors.text}`}>
-                              {req.status.replace(/_/g, ' ')}
-                            </span>
-                            {hydrated && req.status !== 'CONVERTED' && req.status !== 'REJECTED' && (() => {
-                              const ageMs = now - new Date(req.created_at).getTime();
-                              const isTakingLonger = ageMs > PROCESSING_LONGER_THRESHOLD_MS;
+            {loading ? (
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-8 text-center text-slate-500">
+                Loading requests...
+              </div>
+            ) : requests.length === 0 ? (
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm py-16 text-center">
+                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <div className="text-lg font-medium text-slate-700 mb-2">No requests yet</div>
+                <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+                  Submit your first content request to kick off your pipeline.
+                  We handle AI content creation and UGC editing.
+                </p>
+                <Link
+                  href="/client/requests/new"
+                  className={`inline-flex items-center gap-2 px-5 py-2.5 ${accentBg} text-white text-sm font-medium rounded-md hover:opacity-90`}
+                >
+                  Create Your First Request
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {requests.map((req) => {
+                  const config = STATUS_CONFIG[req.status] || STATUS_CONFIG.SUBMITTED;
+                  const StatusIcon = config.icon;
+                  const action = getNextAction(req);
 
-                              if (isTakingLonger) {
-                                return (
-                                  <div className="text-xs text-amber-600 mt-1">
-                                    Processing longer than usual
-                                  </div>
-                                );
-                              }
+                  // SLA / timing
+                  let timingLabel: string | null = null;
+                  let timingColor = 'text-slate-400';
+                  if (hydrated && !['CONVERTED', 'REJECTED'].includes(req.status)) {
+                    const ageMs = now - new Date(req.created_at).getTime();
+                    const isTakingLonger = ageMs > PROCESSING_LONGER_THRESHOLD_MS;
 
-                              return (
-                                <div className="text-xs text-slate-400 mt-1">
-                                  {req.status === 'IN_REVIEW'
-                                    ? `In review for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
-                                    : req.status === 'APPROVED'
-                                    ? `Processing for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`
-                                    : `Submitted ${formatProcessingTime(now - new Date(req.created_at).getTime())} ago`}
-                                </div>
-                              );
-                            })()}
-                            {req.status === 'CONVERTED' && (
-                              <div className="text-xs text-slate-400 mt-1">
-                                Completed
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-500">
-                            {displayTime(req.created_at)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
+                    if (isTakingLonger) {
+                      timingLabel = 'Taking longer than usual';
+                      timingColor = 'text-amber-600';
+                    } else if (req.status === 'IN_REVIEW') {
+                      timingLabel = `In review for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`;
+                    } else if (req.status === 'APPROVED') {
+                      timingLabel = `Converting for ${formatProcessingTime(now - new Date(req.updated_at).getTime())}`;
+                    } else {
+                      timingLabel = `Submitted ${formatProcessingTime(ageMs)} ago`;
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={req.request_id}
+                      className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start gap-4">
+                        {/* Status Icon */}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${config.bg}`}>
+                          <StatusIcon className={`w-5 h-5 ${config.text}`} />
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Link
                               href={`/client/requests/${req.request_id}`}
-                              className={`text-sm ${accentText} hover:opacity-80 font-medium`}
+                              className="font-medium text-slate-800 hover:text-slate-600 truncate"
                             >
-                              View
+                              {req.title}
                             </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                            <span className="text-xs text-slate-400 shrink-0">
+                              {TYPE_LABELS[req.request_type] || req.request_type}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+                              {config.label}
+                            </span>
+                            {timingLabel && (
+                              <span className={`flex items-center gap-1 text-xs ${timingColor}`}>
+                                <Clock className="w-3 h-3" />
+                                {timingLabel}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-slate-400 mt-1">{config.description}</p>
+                        </div>
+
+                        {/* Next Action */}
+                        {action && (
+                          <Link
+                            href={action.href}
+                            className={`shrink-0 px-3 py-1.5 text-xs font-medium text-white rounded-md transition-colors ${action.color}`}
+                          >
+                            {action.label}
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Count and Billing Note */}
             {!loading && requests.length > 0 && (

@@ -116,6 +116,62 @@ The metrics endpoint returns time breakdowns:
 - **oldest_in_queue_hours**: How long the oldest queued job has been waiting
 - **on_time_rate_7d/30d**: Percentage of jobs approved before SLA deadline
 
+## Stripe Setup
+
+Three marketplace tiers are configured as Stripe Products with monthly recurring Prices.
+
+### Products & Prices (Live)
+
+| Tier | Plan Key | Price/mo | Daily Cap | SLA | Priority | Stripe Product | Stripe Price |
+|------|----------|----------|-----------|-----|----------|----------------|--------------|
+| Pool | `pool_15` | $1,499 | 15 | 48h | 1 | `prod_U2eJH0yRk551Od` | `price_1T4Z0OKXraIWnC5DBQLeS7XV` |
+| Dedicated | `dedicated_30` | $2,499 | 30 | 24h | 2 | `prod_U2eJWMN722kMvt` | `price_1T4Z0UKXraIWnC5DjeIImEui` |
+| Scale | `scale_50` | $3,999 | 50 | 24h | 3 | `prod_U2eJtJG7j7x9Wr` | `price_1T4Z0aKXraIWnC5DibrKFyqU` |
+
+### Environment Variables
+
+Set these in `.env.local` (local dev) and **Vercel** (production):
+
+```
+STRIPE_PRICE_MP_POOL=price_1T4Z0OKXraIWnC5DBQLeS7XV
+STRIPE_PRICE_MP_DEDICATED=price_1T4Z0UKXraIWnC5DjeIImEui
+STRIPE_PRICE_MP_SCALE=price_1T4Z0aKXraIWnC5DibrKFyqU
+```
+
+**Where to paste in Vercel:** Settings > Environment Variables > add each key/value pair for Production (and optionally Preview).
+
+### Verification
+
+```bash
+npx tsx scripts/verify-mp-stripe-mapping.ts
+```
+
+Expected output — all three tiers show `OK`:
+```
+OK       pool_15        env=STRIPE_PRICE_MP_POOL           id=price_1T4Z...
+OK       dedicated_30   env=STRIPE_PRICE_MP_DEDICATED      id=price_1T4Z...
+OK       scale_50       env=STRIPE_PRICE_MP_SCALE          id=price_1T4Z...
+SKIP     custom         env=(none)
+```
+
+### How Stripe → DB Sync Works
+
+1. When creating a Stripe Checkout or Subscription for a marketplace client, include `mp_client_id` in the subscription metadata.
+2. On `customer.subscription.created/updated`, the webhook reads the price ID, maps it to a tier via `mpTierFromStripePriceId()`, and upserts `client_plans` with the correct `daily_cap`, `sla_hours`, `priority_weight`, and `status`.
+3. On `customer.subscription.deleted`, the webhook marks the client plan as `canceled`.
+4. Idempotency is enforced via the `stripe_webhook_events` table — duplicate event IDs are skipped.
+
+### Source of Truth
+
+| What | Where |
+|------|-------|
+| Plan config (caps, SLA, weights, Stripe IDs) | `lib/marketplace/plan-config.ts` |
+| Per-client entitlements (synced from Stripe) | `client_plans` table |
+| Webhook handler | `app/api/webhooks/stripe/route.ts` |
+| Plan sync module | `lib/marketplace/plan-sync.ts` |
+| Usage helper | `lib/marketplace/usage.ts` |
+| Admin ops dashboard | `GET /api/admin/marketplace/ops` |
+
 ## Known Limitations
 
 - **AI/Stock providers are stubs**: No actual video generation or stock footage fetching yet. The runner creates reference placeholders.

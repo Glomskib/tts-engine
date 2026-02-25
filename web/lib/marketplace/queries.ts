@@ -58,7 +58,54 @@ export function validateTransition(current: JobStatus, next: JobStatus): void {
   }
 }
 
-// Service-role client for internal operations (bypasses RLS)
+// ============================================================
+// Heartbeat & stalled job detection
+// ============================================================
+
+const STALLED_THRESHOLD_MINUTES = 45;
+
+/** Update last_heartbeat_at on a job (fire-and-forget, never throws) */
+async function touchHeartbeat(jobId: string): Promise<void> {
+  try {
+    await supabaseAdmin.from('edit_jobs')
+      .update({ last_heartbeat_at: new Date().toISOString(), stalled_at: null })
+      .eq('id', jobId)
+      .in('job_status', ['claimed', 'in_progress', 'changes_requested']);
+  } catch { /* best-effort */ }
+}
+
+/** List jobs that are in_progress but haven't had a heartbeat in 45+ minutes */
+export async function getStalledJobs() {
+  const cutoff = new Date(Date.now() - STALLED_THRESHOLD_MINUTES * 60_000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('edit_jobs')
+    .select(`
+      id, script_id, client_id, job_status, claimed_by, due_at,
+      last_heartbeat_at, stalled_at, created_at,
+      mp_scripts:mp_scripts!edit_jobs_script_id_fkey(title),
+      clients:clients!edit_jobs_client_id_fkey(client_code)
+    `)
+    .eq('job_status', 'in_progress')
+    .lt('last_heartbeat_at', cutoff)
+    .order('last_heartbeat_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map((j: Record<string, unknown>) => ({
+    id: j.id as string,
+    script_id: j.script_id as string,
+    client_id: j.client_id as string,
+    client_code: (j.clients as Record<string, string>)?.client_code || '',
+    script_title: ((j.mp_scripts as Record<string, unknown>)?.title as string) || '',
+    claimed_by: j.claimed_by as string | null,
+    due_at: j.due_at as string | null,
+    last_heartbeat_at: j.last_heartbeat_at as string | null,
+    stalled_at: j.stalled_at as string | null,
+    stalled_minutes: j.last_heartbeat_at
+      ? Math.round((Date.now() - new Date(j.last_heartbeat_at as string).getTime()) / 60_000)
+      : null,
+  }));
+}
+
 // ============================================================
 // Auth context helpers
 // ============================================================
@@ -470,6 +517,12 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
 
   if (!jobRes.data) return null;
   const job = jobRes.data;
+
+  // Touch heartbeat if job is actively being worked on
+  if (['claimed', 'in_progress', 'changes_requested'].includes(job.job_status)) {
+    touchHeartbeat(jobId); // fire-and-forget
+  }
+
   const script = job.mp_scripts as unknown as MpScript;
   const clientCode = (job.clients as Record<string, string>)?.client_code || '';
   const planData = job.client_plans as Record<string, unknown> | null;
@@ -548,16 +601,17 @@ export async function claimJob(jobId: string, userId: string) {
   validateTransition(current.job_status as JobStatus, 'claimed');
 
   // Atomic claim: only if still queued and unclaimed
+  const now = new Date().toISOString();
   const { data, error } = await sb
     .from('edit_jobs')
-    .update({ job_status: 'claimed', claimed_by: userId, claimed_at: new Date().toISOString() })
+    .update({ job_status: 'claimed', claimed_by: userId, claimed_at: now, last_heartbeat_at: now })
     .eq('id', jobId)
     .eq('job_status', 'queued')
     .is('claimed_by', null)
     .select()
     .single();
 
-  if (error || !data) throw new MarketplaceError('Job already claimed or not available', 'CLAIM_FAILED', 409);
+  if (error || !data) throw new MarketplaceError('Job already claimed or not available', 'JOB_ALREADY_CLAIMED', 409);
 
   // Update script status
   await sb.from('mp_scripts').update({ status: 'editing' }).eq('id', data.script_id);
@@ -576,9 +630,10 @@ export async function startJob(jobId: string, userId: string) {
   if (current.claimed_by !== userId) throw new MarketplaceError('Not your job', 'NOT_OWNER', 403);
   validateTransition(current.job_status as JobStatus, 'in_progress');
 
+  const startNow = new Date().toISOString();
   const { data, error } = await sb
     .from('edit_jobs')
-    .update({ job_status: 'in_progress', started_at: new Date().toISOString() })
+    .update({ job_status: 'in_progress', started_at: startNow, last_heartbeat_at: startNow, stalled_at: null })
     .eq('id', jobId)
     .eq('claimed_by', userId)
     .in('job_status', ['claimed', 'changes_requested'])
@@ -608,19 +663,28 @@ export async function submitJob(
   if (current.claimed_by !== userId) throw new MarketplaceError('Not your job', 'NOT_OWNER', 403);
   validateTransition(current.job_status as JobStatus, 'submitted');
 
+  // Compute next version number (append-only — never overwrites)
+  const { count: existingCount } = await sb
+    .from('job_deliverables')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_id', jobId);
+  const nextVersion = (existingCount ?? 0) + 1;
+
   // Add deliverable
   await sb.from('job_deliverables').insert({
     job_id: jobId,
     deliverable_type: deliverableType,
-    label: label || (deliverableType === 'variant' ? 'Variant' : 'Final Edit'),
+    version: nextVersion,
+    label: label || (deliverableType === 'variant' ? 'Variant' : `Final Edit v${nextVersion}`),
     url: deliverableUrl,
     created_by: userId,
   });
 
   // Update job
+  const submitNow = new Date().toISOString();
   const { data, error } = await sb
     .from('edit_jobs')
-    .update({ job_status: 'submitted', submitted_at: new Date().toISOString() })
+    .update({ job_status: 'submitted', submitted_at: submitNow, last_heartbeat_at: submitNow })
     .eq('id', jobId)
     .eq('claimed_by', userId)
     .in('job_status', ['in_progress', 'changes_requested'])

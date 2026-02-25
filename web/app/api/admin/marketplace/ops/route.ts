@@ -3,6 +3,7 @@ import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors"
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getClientToday } from "@/lib/marketplace/types";
 import { getMpPlanConfig, type MpPlanTier } from "@/lib/marketplace/plan-config";
+import { getStalledJobs } from "@/lib/marketplace/queries";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -128,11 +129,19 @@ export async function GET(request: Request) {
     };
   });
 
+  // 5. Stalled job detection
+  let stalledJobs: Awaited<ReturnType<typeof getStalledJobs>> = [];
+  try {
+    stalledJobs = await getStalledJobs();
+  } catch { /* non-critical */ }
+
   return NextResponse.json({
     ok: true,
     data: rows,
     total_clients: rows.length,
     total_active_jobs: rows.reduce((s, r) => s + r.active_jobs, 0),
     total_overdue: rows.reduce((s, r) => s + r.overdue_jobs, 0),
+    stalled_jobs: stalledJobs,
+    total_stalled: stalledJobs.length,
   });
 }

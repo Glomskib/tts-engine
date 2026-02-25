@@ -192,6 +192,8 @@ export interface EditJob {
   blocked_reason: string | null;
   error_code: string | null;
   error_message: string | null;
+  last_heartbeat_at: string | null;
+  stalled_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -209,6 +211,7 @@ export interface JobDeliverable {
   id: string;
   job_id: string;
   deliverable_type: DeliverableType;
+  version: number;
   label: string | null;
   url: string;
   created_by: string | null;

@@ -5,6 +5,7 @@ import {
   generateCorrelationId,
   createApiErrorResponse,
 } from "@/lib/api-errors";
+import { sanitizeTelegramMessage } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
@@ -114,8 +115,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Format the message and send to Telegram
-    const message = formatter(data);
+    // 5. Format the message, sanitize, and send to Telegram
+    const rawMessage = formatter(data);
+    const message = sanitizeTelegramMessage(rawMessage);
+
+    if (!message) {
+      return NextResponse.json({
+        ok: true,
+        data: { dispatched: false, event, reason: "blocked_by_sanitizer" },
+        correlation_id: correlationId,
+      });
+    }
 
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
     const telegramResponse = await fetch(telegramUrl, {

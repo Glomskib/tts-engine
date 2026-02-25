@@ -383,7 +383,8 @@ export default function VaJobDetailPage() {
 
         {/* Submit Deliverable */}
         {canSubmit && (
-          <Card ref={submitSectionRef}>
+          <div ref={submitSectionRef}>
+          <Card>
             <CardHeader><CardTitle>{isChangesRequested ? 'Submit Revised Deliverable' : 'Submit Deliverable'}</CardTitle></CardHeader>
             <CardContent>
               <p className="text-xs text-zinc-500 mb-3">Paste the Google Drive link to your finished edit. Each submission creates a new deliverable record.</p>
@@ -419,6 +420,7 @@ export default function VaJobDetailPage() {
               </div>
             </CardContent>
           </Card>
+          </div>
         )}
 
         {/* Submitted Deliverables — version-aware */}

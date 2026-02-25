@@ -2,10 +2,76 @@
 // Editing Marketplace Types
 // ============================================================
 
+import {
+  MP_PLAN_CONFIGS,
+  mpPlanLabel,
+  type MpPlanTier,
+  type MpPlanConfig,
+  type MpPlanStatus,
+} from './plan-config';
+
 export type MpRole = 'client_owner' | 'client_member' | 'va_editor' | 'admin';
 export type MemberRole = 'owner' | 'member';
 export type VaRateMode = 'per_video' | 'base_plus_bonus';
-export type PlanTier = 'pool_15' | 'dedicated_30' | 'scale_50' | 'custom';
+
+// Re-export plan tier type & config from the canonical source
+export type PlanTier = MpPlanTier;
+export type { MpPlanConfig, MpPlanStatus };
+
+// ---------- Plan tier configuration ----------
+// Legacy alias — new code should import from plan-config.ts directly.
+
+export interface PlanTierConfig {
+  label: string;
+  daily_cap: number;
+  sla_hours: number;
+  priority_weight: number;
+}
+
+export const PLAN_TIER_DEFAULTS: Record<PlanTier, PlanTierConfig> = Object.fromEntries(
+  Object.entries(MP_PLAN_CONFIGS).map(([k, v]) => [k, {
+    label: v.label,
+    daily_cap: v.daily_cap,
+    sla_hours: v.sla_hours,
+    priority_weight: v.priority_weight,
+  }])
+) as Record<PlanTier, PlanTierConfig>;
+
+/** Get the plan tier label for display (safe for VA view) */
+export function planTierLabel(tier: PlanTier): string {
+  return mpPlanLabel(tier);
+}
+
+/** Compute due_at from now + sla_hours */
+export function computeDueAt(slaHours: number): string {
+  return new Date(Date.now() + slaHours * 3_600_000).toISOString();
+}
+
+/**
+ * Get "today" date string in a client's timezone (YYYY-MM-DD).
+ * Falls back to UTC if timezone is invalid.
+ */
+export function getClientToday(timezone: string | null): string {
+  try {
+    const tz = timezone || 'UTC';
+    const now = new Date();
+    // Intl.DateTimeFormat gives us the date parts in the target timezone
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+    return parts; // en-CA gives YYYY-MM-DD format
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+/** Compute SLA metadata for API responses */
+export function computeSlaFields(dueAt: string | null): { is_overdue: boolean; due_in_hours: number | null } {
+  if (!dueAt) return { is_overdue: false, due_in_hours: null };
+  const diff = new Date(dueAt).getTime() - Date.now();
+  return {
+    is_overdue: diff < 0,
+    due_in_hours: Math.round(diff / 3_600_000),
+  };
+}
 
 export type ScriptStatus =
   | 'draft' | 'ready_to_record' | 'recorded' | 'queued' | 'editing'
@@ -192,6 +258,10 @@ export interface ScriptWithJob extends MpScript {
 export interface JobWithScript extends EditJob {
   script: MpScript;
   client_code: string;
+  plan_tier: string;
+  sla_hours: number;
+  is_overdue: boolean;
+  due_in_hours: number | null;
   assets: ScriptAsset[];
   deliverables: JobDeliverable[];
   feedback: JobFeedback[];

@@ -7,15 +7,19 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type {
   MpScript, EditJob, ScriptAsset, JobFeedback, JobDeliverable,
   JobEvent, BrollAsset, ScriptBrollLink, PipelineRow, MetricsSummary,
-  JobWithScript, ScriptStatus, JobStatus, FeedbackRole,
+  JobWithScript, ScriptStatus, JobStatus, FeedbackRole, PlanTier,
 } from './types';
-import { getNextAction } from './types';
+import {
+  getNextAction, computeDueAt, getClientToday, computeSlaFields,
+  PLAN_TIER_DEFAULTS, planTierLabel,
+} from './types';
+import { checkDailyCap } from './usage';
 
 // ============================================================
 // Valid state transitions
 // ============================================================
 
-const VALID_TRANSITIONS: Record<string, JobStatus[]> = {
+export const VALID_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   queued:             ['claimed', 'canceled', 'blocked', 'error'],
   claimed:            ['in_progress', 'queued', 'canceled'],        // queued = unclaim
   in_progress:        ['submitted', 'blocked', 'error', 'canceled'],
@@ -28,7 +32,7 @@ const VALID_TRANSITIONS: Record<string, JobStatus[]> = {
   canceled:           [],
 };
 
-function validateTransition(current: JobStatus, next: JobStatus): void {
+export function validateTransition(current: JobStatus, next: JobStatus): void {
   const allowed = VALID_TRANSITIONS[current];
   if (!allowed || !allowed.includes(next)) {
     throw new Error(`Invalid transition: ${current} → ${next}`);
@@ -243,23 +247,22 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
     return { jobId: activeJob.id as string, status: activeJob.job_status as JobStatus, existing: true };
   }
 
-  // Get plan
-  const { data: plan } = await svc.from('client_plans').select('*').eq('client_id', clientId).single();
-  const slaHours = plan?.sla_hours || 48;
-  const dailyCap = plan?.daily_cap || 15;
-
-  // Check daily cap
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: usage } = await svc.from('plan_usage_daily')
-    .select('submitted_count')
-    .eq('client_id', clientId)
-    .eq('date', today)
-    .single();
-
-  const currentCount = usage?.submitted_count || 0;
-  if (currentCount >= dailyCap) {
-    throw new Error(`Daily cap reached (${dailyCap}). Try again tomorrow.`);
+  // Check daily cap via shared helper
+  const { allowed, usage: capUsage } = await checkDailyCap(clientId);
+  if (!allowed) {
+    throw new Error(
+      `Daily limit reached (${capUsage.used_today}/${capUsage.daily_cap}). Resets at ${capUsage.resets_at}. Upgrade to increase daily capacity.`
+    );
   }
+
+  // Derive plan fields from cap check result
+  const tier = capUsage.plan_tier;
+  const tierConfig = PLAN_TIER_DEFAULTS[tier] || PLAN_TIER_DEFAULTS.pool_15;
+  const slaHours = capUsage.sla_hours;
+  const dailyCap = capUsage.daily_cap;
+  const priorityWeight = tierConfig.priority_weight;
+  const today = capUsage.date;
+  const currentCount = capUsage.used_today;
 
   // Upsert usage
   await svc.from('plan_usage_daily').upsert({
@@ -272,13 +275,20 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
   await svc.from('mp_scripts').update({ status: 'queued' }).eq('id', scriptId);
 
   // Create edit job or re-queue a terminal one
-  const dueAt = new Date(Date.now() + slaHours * 3600_000).toISOString();
-  const { data: existingJob } = await svc.from('edit_jobs').select('id, job_status').eq('script_id', scriptId).order('created_at', { ascending: false }).limit(1).single();
+  const dueAt = computeDueAt(slaHours);
+  const { data: existingJob } = await svc.from('edit_jobs')
+    .select('id, job_status')
+    .eq('script_id', scriptId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
 
   let jobId: string;
   if (existingJob) {
+    // Re-queue an existing terminal job
     await svc.from('edit_jobs').update({
       job_status: 'queued',
+      priority: priorityWeight,
       due_at: dueAt,
       claimed_by: null,
       claimed_at: null,
@@ -291,6 +301,7 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
       script_id: scriptId,
       client_id: clientId,
       job_status: 'queued',
+      priority: priorityWeight,
       due_at: dueAt,
     }).select().single();
     if (error) throw new Error(error.message);
@@ -321,6 +332,7 @@ export interface VaBoardFilters {
 export async function getQueuedJobs(filters?: VaBoardFilters) {
   const sb = await createServerSupabaseClient();
 
+  // Select client_code and plan_tier only — never client name or email
   let query = sb
     .from('edit_jobs')
     .select(`
@@ -331,6 +343,7 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
         script_broll_links(broll_asset_id)
       ),
       clients:clients!edit_jobs_client_id_fkey(client_code),
+      client_plans:client_plans!edit_jobs_client_id_fkey(plan_tier, sla_hours),
       job_deliverables(id)
     `);
 
@@ -339,19 +352,32 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
   if (statusFilter === 'queued') {
     query = query.eq('job_status', 'queued');
   } else if (statusFilter === 'mine' && filters?.userId) {
+    // "My Jobs" — stable sort by due_at then created_at, regardless of sort param
     query = query.eq('claimed_by', filters.userId)
-      .in('job_status', ['claimed', 'in_progress', 'changes_requested']);
+      .in('job_status', ['claimed', 'in_progress', 'changes_requested'])
+      .order('due_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true });
   } else {
     query = query.in('job_status', ['queued', 'claimed', 'in_progress', 'submitted', 'changes_requested']);
   }
 
-  const sort = filters?.sort || 'newest';
-  if (sort === 'due_soon') {
-    query = query.order('due_at', { ascending: true, nullsFirst: false });
-  } else if (sort === 'priority') {
-    query = query.order('priority', { ascending: false }).order('created_at', { ascending: false });
-  } else {
-    query = query.order('created_at', { ascending: false });
+  // Queue ordering fairness:
+  //   Default: priority_weight desc (higher-tier clients first), then due_at asc
+  //   (most urgent first), then created_at asc (FIFO tiebreak).
+  //   "My Jobs" already has its own stable sort applied above — skip here.
+  if (statusFilter !== 'mine') {
+    const sort = filters?.sort || 'priority';
+    if (sort === 'due_soon') {
+      query = query.order('due_at', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
+    } else if (sort === 'newest') {
+      query = query.order('created_at', { ascending: false });
+    } else {
+      // 'priority' (default): priority desc → due_at asc → created_at asc
+      query = query
+        .order('priority', { ascending: false })
+        .order('due_at', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
+    }
   }
 
   const { data, error } = await query;
@@ -376,6 +402,10 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
       ? scriptData.script_broll_links as unknown[]
       : [];
     const deliverables = Array.isArray(j.job_deliverables) ? j.job_deliverables : [];
+    const planData = j.client_plans as Record<string, unknown> | null;
+    const tier = (planData?.plan_tier as PlanTier) || 'pool_15';
+    const slaHours = (planData?.sla_hours as number) || PLAN_TIER_DEFAULTS[tier].sla_hours;
+    const sla = computeSlaFields(j.due_at as string | null);
 
     return {
       id: j.id as string,
@@ -386,7 +416,12 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
       claimed_by: j.claimed_by as string | null,
       due_at: j.due_at as string | null,
       created_at: j.created_at as string,
+      // VA-safe fields — never includes client name or email
       client_code: (j.clients as Record<string, string>)?.client_code || 'Unknown',
+      plan_tier: planTierLabel(tier),
+      sla_hours: slaHours,
+      is_overdue: sla.is_overdue,
+      due_in_hours: sla.due_in_hours,
       script_title: (scriptData?.title as string) || 'Untitled',
       script_notes: (scriptData?.notes as string) || '',
       broll_suggestions: (scriptData?.broll_suggestions as string) || '',
@@ -404,7 +439,8 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
     sb.from('edit_jobs').select(`
       *,
       mp_scripts:mp_scripts!edit_jobs_script_id_fkey(*),
-      clients:clients!edit_jobs_client_id_fkey(client_code)
+      clients:clients!edit_jobs_client_id_fkey(client_code),
+      client_plans:client_plans!edit_jobs_client_id_fkey(plan_tier, sla_hours)
     `).eq('id', jobId).single(),
     sb.from('job_feedback').select('*').eq('job_id', jobId).order('created_at'),
     sb.from('job_deliverables').select('*').eq('job_id', jobId).order('created_at'),
@@ -415,6 +451,10 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
   const job = jobRes.data;
   const script = job.mp_scripts as unknown as MpScript;
   const clientCode = (job.clients as Record<string, string>)?.client_code || '';
+  const planData = job.client_plans as Record<string, unknown> | null;
+  const tier = (planData?.plan_tier as PlanTier) || 'pool_15';
+  const slaHours = (planData?.sla_hours as number) || PLAN_TIER_DEFAULTS[tier].sla_hours;
+  const sla = computeSlaFields(job.due_at);
 
   // Get script assets
   const { data: assets } = await sb.from('script_assets').select('*').eq('script_id', script.id);
@@ -451,6 +491,10 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
     ...job,
     script,
     client_code: clientCode,
+    plan_tier: planTierLabel(tier),
+    sla_hours: slaHours,
+    is_overdue: sla.is_overdue,
+    due_in_hours: sla.due_in_hours,
     assets: (assets || []) as ScriptAsset[],
     deliverables: (delivRes.data || []) as JobDeliverable[],
     feedback: (feedbackRes.data || []) as JobFeedback[],
@@ -465,6 +509,12 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
 
 export async function claimJob(jobId: string, userId: string) {
   const sb = await createServerSupabaseClient();
+
+  // Validate transition before atomic claim
+  const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
+  if (!current) throw new Error('Job not found');
+  validateTransition(current.job_status as JobStatus, 'claimed');
+
   // Atomic claim: only if still queued and unclaimed
   const { data, error } = await sb
     .from('edit_jobs')
@@ -610,13 +660,18 @@ export async function requestChanges(jobId: string, userId: string, message: str
 
 export async function markPosted(scriptId: string, userId: string) {
   const sb = await createServerSupabaseClient();
-  await sb.from('mp_scripts').update({ status: 'posted' }).eq('id', scriptId);
 
-  const { data: job } = await sb.from('edit_jobs').select('id').eq('script_id', scriptId).single();
+  const { data: job } = await sb.from('edit_jobs').select('id, job_status').eq('script_id', scriptId).single();
   if (job) {
-    await sb.from('edit_jobs').update({ job_status: 'posted', posted_at: new Date().toISOString() }).eq('id', job.id);
+    validateTransition(job.job_status as JobStatus, 'posted');
+    await sb.from('edit_jobs')
+      .update({ job_status: 'posted', posted_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('job_status', 'approved');
     await sb.from('job_events').insert({ job_id: job.id, event_type: 'posted', actor_user_id: userId });
   }
+
+  await sb.from('mp_scripts').update({ status: 'posted' }).eq('id', scriptId);
 }
 
 // ============================================================

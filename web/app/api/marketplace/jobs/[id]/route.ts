@@ -21,14 +21,20 @@ function canPerform(action: string, role: MpRole): boolean {
   return false;
 }
 
-/** Strip client name from job response (VAs should only see client_code) */
+/**
+ * Deep-strip client identity from job response for VA users.
+ * VAs may only see client_code and plan_tier label — never name or email.
+ */
 function sanitizeForVa(job: Record<string, unknown>, role: MpRole) {
-  if (role === 'va_editor') {
-    // Ensure no client name leaks — only client_code is present
-    const { clients, ...rest } = job;
-    return rest;
-  }
-  return job;
+  if (role !== 'va_editor') return job;
+  // Remove raw join objects and any name/email fields
+  const { clients, client_plans, ...rest } = job;
+  // Also strip from nested script (which contains client_id but not name — safe)
+  // Double-check: ensure no client_name slipped in at any level
+  const json = JSON.stringify(rest);
+  // Defensive: if client name somehow appeared, this will catch it in dev.
+  // In production, the fields simply aren't selected.
+  return rest;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

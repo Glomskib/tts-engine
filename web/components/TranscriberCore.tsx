@@ -175,6 +175,7 @@ const VOICE_TONES = [
 ] as const;
 
 const TARGET_LANGUAGES = [
+  { id: 'english', name: 'English' },
   { id: 'spanish', name: 'Spanish' },
   { id: 'french', name: 'French' },
   { id: 'portuguese', name: 'Portuguese' },
@@ -393,6 +394,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
 
       updateRateLimits(res);
       setResult(data);
+
+      // Smart default: if transcript is not English, default translate target to English
+      if (data.language && data.language !== 'en') {
+        setSelectedLanguage('english');
+      } else {
+        setSelectedLanguage('spanish');
+      }
 
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1331,7 +1339,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white">Translate</h3>
-                    <p className="text-sm text-zinc-400">Translate this transcript into another language</p>
+                    <p className="text-sm text-zinc-400">AI-powered translation to or from any language</p>
                   </div>
                 </div>
                 {translateOpen ? <ChevronUp size={20} className="text-zinc-400" /> : <ChevronDown size={20} className="text-zinc-400" />}

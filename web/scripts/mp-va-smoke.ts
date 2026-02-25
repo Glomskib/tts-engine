@@ -149,10 +149,26 @@ async function main() {
     const { data: vaClients } = await vaSb.from('clients').select('name').eq('id', client.id);
     assert(!vaClients || vaClients.length === 0, 'VA cannot read clients table (no name leak)');
 
-    // ---- Claim Job ----
-    console.log('\n--- Testing Claim Flow ---');
+    // ---- Verify VA cannot write directly (RLS blocks) ----
+    console.log('\n--- Testing RLS Write Protection ---');
 
-    const { data: claimed, error: claimErr } = await vaSb
+    const { data: directClaim } = await vaSb
+      .from('edit_jobs')
+      .update({ job_status: 'claimed', claimed_by: vaUserId })
+      .eq('id', job.id)
+      .select();
+    assert(!directClaim || directClaim.length === 0, 'VA cannot directly update edit_jobs (RLS blocks writes)');
+
+    const { error: directDelivErr } = await vaSb.from('job_deliverables').insert({
+      job_id: job.id, deliverable_type: 'main', label: 'Direct Insert',
+      url: 'https://example.com/test', created_by: vaUserId,
+    });
+    assert(!!directDelivErr, 'VA cannot directly insert deliverables (RLS blocks writes)');
+
+    // ---- Claim Job (via service client, simulating API route) ----
+    console.log('\n--- Testing Claim Flow (via API layer) ---');
+
+    const { data: claimed, error: claimErr } = await svc
       .from('edit_jobs')
       .update({ job_status: 'claimed', claimed_by: vaUserId, claimed_at: new Date().toISOString() })
       .eq('id', job.id)
@@ -161,13 +177,17 @@ async function main() {
       .select()
       .single();
 
-    assert(!!claimed && claimed.job_status === 'claimed', 'VA can claim a queued job');
+    assert(!!claimed && claimed.job_status === 'claimed', 'Claim succeeds (service client)');
     assert(claimed?.claimed_by === vaUserId, 'Claimed_by set to VA user');
 
-    // ---- Start Job ----
-    console.log('\n--- Testing Start Flow ---');
+    // VA can now read the claimed job
+    const { data: vaClaimedJob } = await vaSb.from('edit_jobs').select('id, job_status, claimed_by').eq('id', job.id).single();
+    assert(vaClaimedJob?.job_status === 'claimed', 'VA can read claimed job status');
 
-    const { data: started, error: startErr } = await vaSb
+    // ---- Start Job ----
+    console.log('\n--- Testing Start Flow (via API layer) ---');
+
+    const { data: started } = await svc
       .from('edit_jobs')
       .update({ job_status: 'in_progress', started_at: new Date().toISOString() })
       .eq('id', job.id)
@@ -176,18 +196,18 @@ async function main() {
       .select()
       .single();
 
-    assert(!!started && started.job_status === 'in_progress', 'VA can start a claimed job');
+    assert(!!started && started.job_status === 'in_progress', 'Start succeeds (service client)');
 
     // ---- Submit Deliverable ----
-    console.log('\n--- Testing Submit Flow ---');
+    console.log('\n--- Testing Submit Flow (via API layer) ---');
 
-    const { error: delivErr } = await vaSb.from('job_deliverables').insert({
+    const { error: delivErr } = await svc.from('job_deliverables').insert({
       job_id: job.id, deliverable_type: 'main', label: 'Smoke Test Edit',
       url: 'https://drive.google.com/file/d/smoke-test', created_by: vaUserId,
     });
-    assert(!delivErr, 'VA can insert a deliverable');
+    assert(!delivErr, 'Deliverable insert succeeds (service client)');
 
-    const { data: submitted } = await vaSb
+    const { data: submitted } = await svc
       .from('edit_jobs')
       .update({ job_status: 'submitted', submitted_at: new Date().toISOString() })
       .eq('id', job.id)
@@ -196,7 +216,7 @@ async function main() {
       .select()
       .single();
 
-    assert(!!submitted && submitted.job_status === 'submitted', 'VA can submit the job');
+    assert(!!submitted && submitted.job_status === 'submitted', 'Submit succeeds (service client)');
 
     // ---- Verify no client name in any VA-accessible response ----
     console.log('\n--- Verifying No Client Name Leak ---');

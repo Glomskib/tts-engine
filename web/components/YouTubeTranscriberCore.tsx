@@ -17,6 +17,8 @@ import {
   Youtube,
   X,
   Play,
+  Languages,
+  Lock,
 } from 'lucide-react';
 
 // ============================================================================
@@ -45,6 +47,33 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+interface TranslateResult {
+  translated_text: string;
+  source_language: string;
+  target_language: string;
+  notes?: string;
+}
+
+const TARGET_LANGUAGES = [
+  { id: 'english', name: 'English' },
+  { id: 'spanish', name: 'Spanish' },
+  { id: 'french', name: 'French' },
+  { id: 'portuguese', name: 'Portuguese' },
+  { id: 'german', name: 'German' },
+  { id: 'italian', name: 'Italian' },
+  { id: 'dutch', name: 'Dutch' },
+  { id: 'japanese', name: 'Japanese' },
+  { id: 'korean', name: 'Korean' },
+  { id: 'chinese', name: 'Chinese (Simplified)' },
+  { id: 'arabic', name: 'Arabic' },
+  { id: 'hindi', name: 'Hindi' },
+  { id: 'russian', name: 'Russian' },
+  { id: 'turkish', name: 'Turkish' },
+  { id: 'vietnamese', name: 'Vietnamese' },
+  { id: 'thai', name: 'Thai' },
+  { id: 'custom', name: 'Custom...' },
+] as const;
 
 // ============================================================================
 // Copy helper
@@ -117,6 +146,14 @@ export default function YouTubeTranscriberCore() {
 
   // Per-video transcript collapse
   const [openTranscripts, setOpenTranscripts] = useState<Set<number>>(new Set());
+
+  // Translation state
+  const [translateOpen, setTranslateOpen] = useState(false);
+  const [translateLoading, setTranslateLoading] = useState(false);
+  const [translateResult, setTranslateResult] = useState<TranslateResult | null>(null);
+  const [translateError, setTranslateError] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('spanish');
+  const [customLanguage, setCustomLanguage] = useState('');
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -272,6 +309,40 @@ export default function YouTubeTranscriberCore() {
     return doneVideos
       .map((v) => `=== ${v.label} (${v.url}) ===\n${v.transcript}`)
       .join('\n\n');
+  }
+
+  // ---- AI Translation ----
+  async function handleTranslate() {
+    const transcript = getCombinedTranscript();
+    if (!transcript) return;
+    const targetLang = selectedLanguage === 'custom' ? customLanguage.trim() : TARGET_LANGUAGES.find(l => l.id === selectedLanguage)?.name || selectedLanguage;
+    if (!targetLang) return;
+    setTranslateLoading(true);
+    setTranslateError('');
+
+    try {
+      const res = await fetch('/api/transcribe/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript,
+          targetLanguage: targetLang,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTranslateError(data.error || 'Failed to translate transcript.');
+        return;
+      }
+
+      setTranslateResult(data.data);
+    } catch {
+      setTranslateError('Network error. Please try again.');
+    } finally {
+      setTranslateLoading(false);
+    }
   }
 
   // ---- Chat ----
@@ -682,6 +753,122 @@ export default function YouTubeTranscriberCore() {
                 </div>
               );
             })}
+
+            {/* ============================================================ */}
+            {/* AI Translation Section */}
+            {/* ============================================================ */}
+            <div className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setTranslateOpen(!translateOpen)}
+                className="w-full flex items-center justify-between p-6 text-left hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                    <Languages size={20} className="text-sky-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Translate</h3>
+                    <p className="text-sm text-zinc-400">AI-powered translation to or from any language</p>
+                  </div>
+                </div>
+                {translateOpen ? <ChevronUp size={20} className="text-zinc-400" /> : <ChevronDown size={20} className="text-zinc-400" />}
+              </button>
+
+              {translateOpen && (
+                <div className="px-6 pb-6 space-y-4">
+                  {/* Language selector */}
+                  <div>
+                    <label className="text-xs text-zinc-500 uppercase tracking-wide block mb-1.5">Translate to</label>
+                    <select
+                      value={selectedLanguage}
+                      onChange={(e) => setSelectedLanguage(e.target.value)}
+                      className="w-full h-11 px-3 bg-zinc-800 border border-white/10 rounded-lg text-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none appearance-none"
+                    >
+                      {TARGET_LANGUAGES
+                        .filter((lang) => lang.id !== 'english')
+                        .map((lang) => (
+                          <option key={lang.id} value={lang.id}>{lang.name}</option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Custom language input */}
+                  {selectedLanguage === 'custom' && (
+                    <div>
+                      <label className="text-xs text-zinc-500 uppercase tracking-wide block mb-1.5">Enter Language</label>
+                      <input
+                        type="text"
+                        value={customLanguage}
+                        onChange={(e) => setCustomLanguage(e.target.value)}
+                        placeholder="e.g. Tagalog, Swahili, Urdu..."
+                        className="w-full h-11 px-3 bg-zinc-800 border border-white/10 rounded-lg text-white text-sm placeholder-zinc-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Translate button */}
+                  <div className="flex justify-center">
+                    <button
+                      onClick={handleTranslate}
+                      disabled={translateLoading || (selectedLanguage === 'custom' && !customLanguage.trim())}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {translateLoading ? (
+                        <><Loader2 size={18} className="animate-spin" /> Translating...</>
+                      ) : (
+                        <><Languages size={18} /> {translateResult ? 'Translate Again' : 'Translate Transcript'}</>
+                      )}
+                    </button>
+                  </div>
+
+                  {translateError && (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+                      <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+                      <p className="text-red-300 text-sm">{translateError}</p>
+                    </div>
+                  )}
+
+                  {/* Translation Result */}
+                  {translateResult && (
+                    <div className="space-y-4 pt-2">
+                      {/* Language badges */}
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-2.5 py-1 rounded-full bg-zinc-700/50 text-zinc-300 text-xs font-medium">
+                          {translateResult.source_language}
+                        </span>
+                        <span className="text-zinc-500 text-xs flex items-center">→</span>
+                        <span className="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-400 text-xs font-medium">
+                          {translateResult.target_language}
+                        </span>
+                      </div>
+
+                      {/* Translated text */}
+                      <div className="bg-zinc-800/50 border border-white/5 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-zinc-400 uppercase tracking-wide font-semibold">Translated Transcript</span>
+                          <CopyButton
+                            text={translateResult.translated_text}
+                            copyKey="translate-text"
+                            copiedKey={copiedKey}
+                            copy={copy}
+                            size="xs"
+                          />
+                        </div>
+                        <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-sm">{translateResult.translated_text}</p>
+                      </div>
+
+                      {/* Translation notes */}
+                      {translateResult.notes && (
+                        <div className="bg-sky-500/5 border border-sky-500/20 rounded-lg p-3">
+                          <span className="text-xs text-sky-400 uppercase tracking-wide font-semibold">Translation Notes</span>
+                          <p className="text-zinc-400 text-sm mt-1">{translateResult.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* ============================================================ */}
             {/* Chat Interface */}

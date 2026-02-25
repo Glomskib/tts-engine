@@ -1363,17 +1363,40 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     </div>
                   ) : (
                     <>
-                      {/* Language selector */}
+                      {/* Language selector — filter out the transcript's own language */}
                       <div>
-                        <label className="text-xs text-zinc-500 uppercase tracking-wide block mb-1.5">Target Language</label>
+                        <label className="text-xs text-zinc-500 uppercase tracking-wide block mb-1.5">Translate to</label>
                         <select
                           value={selectedLanguage}
                           onChange={(e) => setSelectedLanguage(e.target.value)}
                           className="w-full h-11 px-3 bg-zinc-800 border border-white/10 rounded-lg text-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none appearance-none"
                         >
-                          {TARGET_LANGUAGES.map((lang) => (
-                            <option key={lang.id} value={lang.id}>{lang.name}</option>
-                          ))}
+                          {TARGET_LANGUAGES
+                            .filter((lang) => {
+                              if (lang.id === 'custom') return true;
+                              const srcLang = (result?.language || '').toLowerCase();
+                              // Hide English target for English transcripts, etc.
+                              if (srcLang === 'en' && lang.id === 'english') return false;
+                              if (srcLang === 'es' && lang.id === 'spanish') return false;
+                              if (srcLang === 'fr' && lang.id === 'french') return false;
+                              if (srcLang === 'pt' && lang.id === 'portuguese') return false;
+                              if (srcLang === 'de' && lang.id === 'german') return false;
+                              if (srcLang === 'it' && lang.id === 'italian') return false;
+                              if (srcLang === 'ja' && lang.id === 'japanese') return false;
+                              if (srcLang === 'ko' && lang.id === 'korean') return false;
+                              if (srcLang === 'zh' && lang.id === 'chinese') return false;
+                              if (srcLang === 'ar' && lang.id === 'arabic') return false;
+                              if (srcLang === 'hi' && lang.id === 'hindi') return false;
+                              if (srcLang === 'ru' && lang.id === 'russian') return false;
+                              if (srcLang === 'tr' && lang.id === 'turkish') return false;
+                              if (srcLang === 'vi' && lang.id === 'vietnamese') return false;
+                              if (srcLang === 'th' && lang.id === 'thai') return false;
+                              if (srcLang === 'nl' && lang.id === 'dutch') return false;
+                              return true;
+                            })
+                            .map((lang) => (
+                              <option key={lang.id} value={lang.id}>{lang.name}</option>
+                            ))}
                         </select>
                       </div>
 

@@ -9,6 +9,9 @@
  *   - Daily cap enforcement (exceed cap → clear error)
  *   - Priority weight propagation from plan tier
  *   - Invalid state transitions are rejected
+ *   - Concurrent claim atomicity (JOB_ALREADY_CLAIMED)
+ *   - Deliverable versioning (version column)
+ *   - Stalled job detection (heartbeat fallback)
  *
  * Usage:
  *   npx tsx scripts/mp-va-smoke.ts
@@ -66,6 +69,7 @@ async function main() {
   const ts = Date.now();
   const clientEmail = `va-smoke-client-${ts}@test.local`;
   const vaEmail = `va-smoke-va-${ts}@test.local`;
+  const va2Email = `va-smoke-va2-${ts}@test.local`;
 
   console.log('Creating test auth users...');
   const { data: clientAuthData, error: e1 } = await svc.auth.admin.createUser({
@@ -74,18 +78,23 @@ async function main() {
   const { data: vaAuthData, error: e2 } = await svc.auth.admin.createUser({
     email: vaEmail, password: 'testpass123456', email_confirm: true,
   });
+  const { data: va2AuthData, error: e3 } = await svc.auth.admin.createUser({
+    email: va2Email, password: 'testpass123456', email_confirm: true,
+  });
 
   const clientUserId = clientAuthData?.user?.id;
   const vaUserId = vaAuthData?.user?.id;
+  const va2UserId = va2AuthData?.user?.id;
 
-  if (!clientUserId || !vaUserId) {
-    console.error('Failed to create test users:', e1?.message, e2?.message);
+  if (!clientUserId || !vaUserId || !va2UserId) {
+    console.error('Failed to create test users:', e1?.message, e2?.message, e3?.message);
     if (clientUserId) await svc.auth.admin.deleteUser(clientUserId);
     if (vaUserId) await svc.auth.admin.deleteUser(vaUserId);
+    if (va2UserId) await svc.auth.admin.deleteUser(va2UserId);
     process.exit(1);
   }
 
-  const userIds = [clientUserId, vaUserId];
+  const userIds = [clientUserId, vaUserId, va2UserId];
   const clientIds: string[] = [];
   const scriptIds: string[] = [];
   const jobIds: string[] = [];
@@ -97,6 +106,7 @@ async function main() {
     await svc.from('mp_profiles').insert([
       { id: clientUserId, email: clientEmail, role: 'client_owner' },
       { id: vaUserId, email: vaEmail, role: 'va_editor' },
+      { id: va2UserId, email: va2Email, role: 'va_editor' },
     ]);
 
     const { data: client } = await svc.from('clients').insert({
@@ -108,7 +118,10 @@ async function main() {
     await svc.from('client_memberships').insert({
       client_id: client.id, user_id: clientUserId, member_role: 'owner',
     });
-    await svc.from('va_profiles').insert({ user_id: vaUserId, languages: ['en'] });
+    await svc.from('va_profiles').insert([
+      { user_id: vaUserId, languages: ['en'] },
+      { user_id: va2UserId, languages: ['en'] },
+    ]);
 
     // Use dedicated_30 plan: daily_cap=2 (lowered for test), priority_weight=2
     await svc.from('client_plans').insert({
@@ -281,8 +294,8 @@ async function main() {
     const { data: jobPriority } = await svc.from('edit_jobs').select('priority').eq('id', job.id).single();
     assert(jobPriority?.priority === 2, `Job priority = 2 (dedicated_30 tier weight)`);
 
-    // ---- A2: Concurrent Claim Regression ----
-    console.log('\n--- Testing Concurrent Claim (race condition) ---');
+    // ---- Concurrent Claim (JOB_ALREADY_CLAIMED) ----
+    console.log('\n--- Testing JOB_ALREADY_CLAIMED ---');
 
     // Create a fresh queued job for the race test
     const { data: raceScript } = await svc.from('mp_scripts').insert({
@@ -296,23 +309,12 @@ async function main() {
     }).select().single();
     if (raceJob) jobIds.push(raceJob.id);
 
-    // Create a second VA user for the race
-    const { data: va2AuthData } = await svc.auth.admin.createUser({
-      email: `va-smoke-va2-${ts}@test.local`, password: 'testpass123456', email_confirm: true,
-    });
-    const va2UserId = va2AuthData?.user?.id;
-    if (va2UserId) {
-      userIds.push(va2UserId);
-      await svc.from('mp_profiles').insert({ id: va2UserId, email: `va-smoke-va2-${ts}@test.local`, role: 'va_editor' });
-      await svc.from('va_profiles').insert({ user_id: va2UserId, languages: ['en'] });
-    }
-
-    // Fire two concurrent atomic claims (use .select() without .single() to avoid PostgREST error on 0 rows)
+    // Fire two concurrent atomic claims — only one should succeed
     const claimA = svc.from('edit_jobs')
       .update({ job_status: 'claimed', claimed_by: vaUserId, claimed_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
       .eq('id', raceJob!.id).eq('job_status', 'queued').is('claimed_by', null).select();
     const claimB = svc.from('edit_jobs')
-      .update({ job_status: 'claimed', claimed_by: va2UserId!, claimed_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
+      .update({ job_status: 'claimed', claimed_by: va2UserId, claimed_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
       .eq('id', raceJob!.id).eq('job_status', 'queued').is('claimed_by', null).select();
 
     const [resultA, resultB] = await Promise.all([claimA, claimB]);
@@ -320,44 +322,127 @@ async function main() {
     const bRows = resultB.data?.length || 0;
     assert(aRows + bRows === 1, `Exactly one concurrent claim succeeds (atomic): A=${aRows}, B=${bRows}`);
 
-    // Verify the final state has exactly one claimer
     const { data: raceVerify } = await svc.from('edit_jobs').select('claimed_by').eq('id', raceJob!.id).single();
     assert(
       raceVerify?.claimed_by === vaUserId || raceVerify?.claimed_by === va2UserId,
       'Claimed_by is one of the two VAs'
     );
 
-    // ---- C: Deliverable Versioning (append-only safety) ----
+    // ---- Deliverable Versioning (submit flow with version column) ----
     console.log('\n--- Testing Deliverable Versioning ---');
 
-    // Reset the original job to in_progress so we can submit multiple deliverables
-    await svc.from('edit_jobs').update({ job_status: 'in_progress' }).eq('id', job.id);
+    // Create a fresh job and drive it through the submit flow
+    const { data: verScript } = await svc.from('mp_scripts').insert({
+      client_id: client.id, title: 'Version Test Script', status: 'queued', created_by: clientUserId,
+    }).select().single();
+    if (verScript) scriptIds.push(verScript.id);
 
-    // Insert additional deliverables (append-only — each creates a new row, never overwrites)
-    const { error: d1Err } = await svc.from('job_deliverables').insert({
-      job_id: job.id, deliverable_type: 'main',
-      label: 'Final Edit v2', url: 'https://example.com/v2.mp4', created_by: vaUserId,
+    const { data: verJob } = await svc.from('edit_jobs').insert({
+      script_id: verScript!.id, client_id: client.id, job_status: 'queued', priority: 1,
+    }).select().single();
+    if (verJob) jobIds.push(verJob.id);
+
+    // Claim → Start
+    await svc.from('edit_jobs')
+      .update({ job_status: 'claimed', claimed_by: vaUserId, claimed_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
+      .eq('id', verJob!.id).eq('job_status', 'queued').is('claimed_by', null);
+    await svc.from('edit_jobs')
+      .update({ job_status: 'in_progress', started_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
+      .eq('id', verJob!.id).eq('claimed_by', vaUserId);
+
+    // Submit v1: count existing + insert with version (mirrors submitJob logic)
+    const { count: v1Count } = await svc.from('job_deliverables')
+      .select('*', { count: 'exact', head: true })
+      .eq('job_id', verJob!.id).eq('deliverable_type', 'main');
+    const v1 = (v1Count || 0) + 1;
+    await svc.from('job_deliverables').insert({
+      job_id: verJob!.id, deliverable_type: 'main', label: `Final Edit v${v1}`,
+      url: 'https://example.com/v1.mp4', created_by: vaUserId, version: v1,
     });
-    assert(!d1Err, 'Second deliverable insert succeeds');
+    await svc.from('edit_jobs')
+      .update({ job_status: 'submitted', submitted_at: new Date().toISOString() })
+      .eq('id', verJob!.id).eq('claimed_by', vaUserId);
 
-    const { error: d2Err } = await svc.from('job_deliverables').insert({
-      job_id: job.id, deliverable_type: 'main',
-      label: 'Final Edit v3', url: 'https://example.com/v3.mp4', created_by: vaUserId,
+    assert(v1 === 1, `First submit: version ${v1} (expected 1)`);
+
+    // Request changes → back to in_progress → Submit v2
+    await svc.from('edit_jobs').update({ job_status: 'changes_requested' }).eq('id', verJob!.id);
+    await svc.from('edit_jobs')
+      .update({ job_status: 'in_progress', started_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
+      .eq('id', verJob!.id).eq('claimed_by', vaUserId);
+
+    const { count: v2Count } = await svc.from('job_deliverables')
+      .select('*', { count: 'exact', head: true })
+      .eq('job_id', verJob!.id).eq('deliverable_type', 'main');
+    const v2 = (v2Count || 0) + 1;
+    await svc.from('job_deliverables').insert({
+      job_id: verJob!.id, deliverable_type: 'main', label: `Final Edit v${v2}`,
+      url: 'https://example.com/v2.mp4', created_by: vaUserId, version: v2,
     });
-    assert(!d2Err, 'Third deliverable insert succeeds');
+    await svc.from('edit_jobs')
+      .update({ job_status: 'submitted', submitted_at: new Date().toISOString() })
+      .eq('id', verJob!.id).eq('claimed_by', vaUserId);
 
-    // Verify all versions still exist (append-only, no overwrite)
+    assert(v2 === 2, `Second submit: version ${v2} (expected 2)`);
+
+    // Verify both deliverables preserved (not overwritten)
     const { data: allDeliverables } = await svc.from('job_deliverables')
-      .select('id, url, label, created_at')
-      .eq('job_id', job.id)
-      .order('created_at');
+      .select('version, label')
+      .eq('job_id', verJob!.id)
+      .eq('deliverable_type', 'main')
+      .order('version');
+    const versions = (allDeliverables || []).map(d => d.version);
+    assert(versions.length === 2 && versions[0] === 1 && versions[1] === 2,
+      `Both deliverables preserved: versions [${versions.join(', ')}]`);
 
-    assert((allDeliverables || []).length >= 3, `Total deliverables = ${(allDeliverables || []).length} (>= 3 versions intact)`);
+    // ---- Stalled Job Detection ----
+    console.log('\n--- Testing Stalled Job Detection ---');
 
-    // Verify distinct URLs (no overwrite)
-    const urls = (allDeliverables || []).map((d: { url: string }) => d.url);
-    const uniqueUrls = new Set(urls);
-    assert(uniqueUrls.size === urls.length, 'All deliverable URLs are distinct (no overwrite)');
+    // Create a job with stale heartbeat
+    const { data: stallScript } = await svc.from('mp_scripts').insert({
+      client_id: client.id, title: 'Stall Test Script', status: 'queued', created_by: clientUserId,
+    }).select().single();
+    if (stallScript) scriptIds.push(stallScript.id);
+
+    const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+    const ninetyMinAgo = new Date(Date.now() - 90 * 60_000).toISOString();
+    const { data: stallJob } = await svc.from('edit_jobs').insert({
+      script_id: stallScript!.id, client_id: client.id, job_status: 'in_progress',
+      priority: 1, claimed_by: vaUserId, claimed_at: ninetyMinAgo,
+      started_at: ninetyMinAgo, last_heartbeat_at: sixtyMinAgo,
+    }).select().single();
+    if (stallJob) jobIds.push(stallJob.id);
+
+    // Query stalled jobs (threshold 45 min) — heartbeat is 60min old
+    const cutoff45 = new Date(Date.now() - 45 * 60_000).toISOString();
+    const cutoffMs = Date.now() - 45 * 60_000;
+    const { data: stalledJobs } = await svc.from('edit_jobs')
+      .select('id, job_status, last_heartbeat_at, started_at, claimed_at, created_at')
+      .in('job_status', ['claimed', 'in_progress'])
+      .or(`last_heartbeat_at.lt.${cutoff45},last_heartbeat_at.is.null`);
+
+    // Apply fallback filter (same logic as getStalledJobs)
+    const stalledFiltered = (stalledJobs || []).filter(j => {
+      const lastActivity = j.last_heartbeat_at || j.started_at || j.claimed_at || j.created_at;
+      return new Date(lastActivity).getTime() < cutoffMs;
+    });
+    assert(stalledFiltered.map(j => j.id).includes(stallJob!.id), 'Stalled job detected (heartbeat 60min old)');
+
+    // Touch heartbeat to make it fresh
+    await svc.from('edit_jobs')
+      .update({ last_heartbeat_at: new Date().toISOString() })
+      .eq('id', stallJob!.id);
+
+    // Query again — should no longer be stalled
+    const { data: stalledAfter } = await svc.from('edit_jobs')
+      .select('id, last_heartbeat_at, started_at, claimed_at, created_at')
+      .in('job_status', ['claimed', 'in_progress'])
+      .or(`last_heartbeat_at.lt.${new Date(Date.now() - 45 * 60_000).toISOString()},last_heartbeat_at.is.null`);
+    const stalledAfterFiltered = (stalledAfter || []).filter(j => {
+      const lastActivity = j.last_heartbeat_at || j.started_at || j.claimed_at || j.created_at;
+      return new Date(lastActivity).getTime() < cutoffMs;
+    });
+    assert(!stalledAfterFiltered.map(j => j.id).includes(stallJob!.id), 'Job no longer stalled after heartbeat touch');
 
   } finally {
     // ---- Cleanup ----

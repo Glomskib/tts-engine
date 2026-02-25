@@ -281,6 +281,84 @@ async function main() {
     const { data: jobPriority } = await svc.from('edit_jobs').select('priority').eq('id', job.id).single();
     assert(jobPriority?.priority === 2, `Job priority = 2 (dedicated_30 tier weight)`);
 
+    // ---- A2: Concurrent Claim Regression ----
+    console.log('\n--- Testing Concurrent Claim (race condition) ---');
+
+    // Create a fresh queued job for the race test
+    const { data: raceScript } = await svc.from('mp_scripts').insert({
+      client_id: client.id, title: 'Race Condition Script', status: 'queued', created_by: clientUserId,
+    }).select().single();
+    if (raceScript) scriptIds.push(raceScript.id);
+
+    const { data: raceJob } = await svc.from('edit_jobs').insert({
+      script_id: raceScript!.id, client_id: client.id, job_status: 'queued', priority: 2,
+      due_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+    }).select().single();
+    if (raceJob) jobIds.push(raceJob.id);
+
+    // Create a second VA user for the race
+    const { data: va2AuthData } = await svc.auth.admin.createUser({
+      email: `va-smoke-va2-${ts}@test.local`, password: 'testpass123456', email_confirm: true,
+    });
+    const va2UserId = va2AuthData?.user?.id;
+    if (va2UserId) {
+      userIds.push(va2UserId);
+      await svc.from('mp_profiles').insert({ id: va2UserId, email: `va-smoke-va2-${ts}@test.local`, role: 'va_editor' });
+      await svc.from('va_profiles').insert({ user_id: va2UserId, languages: ['en'] });
+    }
+
+    // Fire two concurrent atomic claims (use .select() without .single() to avoid PostgREST error on 0 rows)
+    const claimA = svc.from('edit_jobs')
+      .update({ job_status: 'claimed', claimed_by: vaUserId, claimed_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
+      .eq('id', raceJob!.id).eq('job_status', 'queued').is('claimed_by', null).select();
+    const claimB = svc.from('edit_jobs')
+      .update({ job_status: 'claimed', claimed_by: va2UserId!, claimed_at: new Date().toISOString(), last_heartbeat_at: new Date().toISOString() })
+      .eq('id', raceJob!.id).eq('job_status', 'queued').is('claimed_by', null).select();
+
+    const [resultA, resultB] = await Promise.all([claimA, claimB]);
+    const aRows = resultA.data?.length || 0;
+    const bRows = resultB.data?.length || 0;
+    assert(aRows + bRows === 1, `Exactly one concurrent claim succeeds (atomic): A=${aRows}, B=${bRows}`);
+
+    // Verify the final state has exactly one claimer
+    const { data: raceVerify } = await svc.from('edit_jobs').select('claimed_by').eq('id', raceJob!.id).single();
+    assert(
+      raceVerify?.claimed_by === vaUserId || raceVerify?.claimed_by === va2UserId,
+      'Claimed_by is one of the two VAs'
+    );
+
+    // ---- C: Deliverable Versioning (append-only safety) ----
+    console.log('\n--- Testing Deliverable Versioning ---');
+
+    // Reset the original job to in_progress so we can submit multiple deliverables
+    await svc.from('edit_jobs').update({ job_status: 'in_progress' }).eq('id', job.id);
+
+    // Insert additional deliverables (append-only — each creates a new row, never overwrites)
+    const { error: d1Err } = await svc.from('job_deliverables').insert({
+      job_id: job.id, deliverable_type: 'main',
+      label: 'Final Edit v2', url: 'https://example.com/v2.mp4', created_by: vaUserId,
+    });
+    assert(!d1Err, 'Second deliverable insert succeeds');
+
+    const { error: d2Err } = await svc.from('job_deliverables').insert({
+      job_id: job.id, deliverable_type: 'main',
+      label: 'Final Edit v3', url: 'https://example.com/v3.mp4', created_by: vaUserId,
+    });
+    assert(!d2Err, 'Third deliverable insert succeeds');
+
+    // Verify all versions still exist (append-only, no overwrite)
+    const { data: allDeliverables } = await svc.from('job_deliverables')
+      .select('id, url, label, created_at')
+      .eq('job_id', job.id)
+      .order('created_at');
+
+    assert((allDeliverables || []).length >= 3, `Total deliverables = ${(allDeliverables || []).length} (>= 3 versions intact)`);
+
+    // Verify distinct URLs (no overwrite)
+    const urls = (allDeliverables || []).map((d: { url: string }) => d.url);
+    const uniqueUrls = new Set(urls);
+    assert(uniqueUrls.size === urls.length, 'All deliverable URLs are distinct (no overwrite)');
+
   } finally {
     // ---- Cleanup ----
     console.log('\nCleaning up test data...');

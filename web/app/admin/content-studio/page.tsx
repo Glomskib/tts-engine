@@ -2715,6 +2715,81 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
+              {/* Simple Mode: compact persona + length */}
+              {simpleMode && (
+                <div style={sectionStyle}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Target Audience (compact) */}
+                    {audiencePersonas.length > 0 && (
+                      <div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>
+                          <Users size={12} />
+                          Customer Persona
+                          <span style={{ fontSize: '10px', opacity: 0.6 }}>(optional)</span>
+                        </label>
+                        <select
+                          value={selectedPersonaId}
+                          onChange={(e) => {
+                            setSelectedPersonaId(e.target.value);
+                            setSelectedPainPoints([]);
+                          }}
+                          style={{
+                            ...inputStyle,
+                            cursor: 'pointer',
+                            appearance: 'none' as const,
+                            backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M2 4l4 4 4-4\'/%3E%3C/svg%3E")',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right 12px center',
+                            paddingRight: '32px',
+                          }}
+                        >
+                          <option value="">No specific persona</option>
+                          {audiencePersonas.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        {selectedPersona?.description && (
+                          <div style={{ marginTop: '6px', fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                            {selectedPersona.description.slice(0, 120)}{selectedPersona.description.length > 120 ? '...' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Target Length (compact) */}
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>
+                        <Clock size={12} />
+                        Target Length
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                        {TARGET_LENGTHS.map((length) => {
+                          const isSelected = selectedLengthId === length.id;
+                          return (
+                            <button type="button"
+                              key={length.id}
+                              onClick={() => setSelectedLengthId(length.id)}
+                              style={{
+                                padding: '8px 4px',
+                                backgroundColor: isSelected ? '#3b82f6' : colors.bg,
+                                border: `1px solid ${isSelected ? '#3b82f6' : colors.border}`,
+                                borderRadius: '8px',
+                                color: isSelected ? 'white' : colors.text,
+                                cursor: 'pointer',
+                                textAlign: 'center',
+                              }}
+                            >
+                              <div style={{ fontSize: '12px', fontWeight: 600 }}>{length.name}</div>
+                              <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>{length.sceneCount}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* STEP 4a: Creator Voice (hidden in Simple Mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>

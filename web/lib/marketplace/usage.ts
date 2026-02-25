@@ -4,7 +4,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getClientToday } from "./types";
-import { getMpPlanConfig, type MpPlanTier } from "./plan-config";
+import { getMpPlanConfig, type MpPlanTier, type MpPlanStatus } from "./plan-config";
 
 export interface UsageToday {
   client_id: string;
@@ -16,7 +16,12 @@ export interface UsageToday {
   resets_at: string;
   plan_tier: MpPlanTier;
   plan_label: string;
+  plan_status: MpPlanStatus;
   sla_hours: number;
+  /** Jobs claimed by VAs today for this client */
+  claimed_today: number;
+  /** True when used_today >= 80% of daily_cap — triggers soft upsell nudge */
+  upgrade_hint: boolean;
 }
 
 /**
@@ -36,20 +41,33 @@ export async function getUsageToday(clientId: string): Promise<UsageToday> {
   const cfg = getMpPlanConfig(tier);
   const dailyCap = plan?.daily_cap ?? cfg.daily_cap;
   const slaHours = plan?.sla_hours ?? cfg.sla_hours;
+  const planStatus = (plan?.status as MpPlanStatus) || "active";
   const today = getClientToday(tz);
 
-  // Get submitted count for today
-  const { data: usage } = await supabaseAdmin
-    .from("plan_usage_daily")
-    .select("submitted_count")
-    .eq("client_id", clientId)
-    .eq("date", today)
-    .maybeSingle();
+  // Get submitted count + claimed count in parallel
+  const [usageRes, claimedRes] = await Promise.all([
+    supabaseAdmin
+      .from("plan_usage_daily")
+      .select("submitted_count")
+      .eq("client_id", clientId)
+      .eq("date", today)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("edit_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+      .gte("claimed_at", `${today}T00:00:00`)
+      .lt("claimed_at", `${today}T23:59:59.999`),
+  ]);
 
-  const usedToday = usage?.submitted_count ?? 0;
+  const usedToday = usageRes.data?.submitted_count ?? 0;
+  const claimedToday = claimedRes.count ?? 0;
 
   // Compute reset time: midnight tomorrow in client TZ
   const resetsAt = computeResetTime(tz);
+
+  // Soft upsell: trigger at 80% of daily cap
+  const upgradeHint = dailyCap > 0 && usedToday >= Math.ceil(dailyCap * 0.8);
 
   return {
     client_id: clientId,
@@ -60,7 +78,10 @@ export async function getUsageToday(clientId: string): Promise<UsageToday> {
     resets_at: resetsAt,
     plan_tier: tier,
     plan_label: cfg.label,
+    plan_status: planStatus,
     sla_hours: slaHours,
+    claimed_today: claimedToday,
+    upgrade_hint: upgradeHint,
   };
 }
 
@@ -73,6 +94,46 @@ export async function checkDailyCap(
 ): Promise<{ allowed: boolean; usage: UsageToday }> {
   const usage = await getUsageToday(clientId);
   return { allowed: usage.remaining_today > 0, usage };
+}
+
+// ── Entitlement checks ───────────────────────────────────
+
+/** Plan statuses that allow job creation and VA dispatch */
+const BILLABLE_STATUSES: MpPlanStatus[] = ["active", "trialing"];
+
+/**
+ * Check whether a client's plan is in a billable state.
+ * Returns the plan status. Throws MarketplaceError if not billable.
+ *
+ * Import MarketplaceError lazily to avoid circular deps with queries.ts.
+ */
+export async function checkPlanActive(clientId: string): Promise<MpPlanStatus> {
+  const { data: plan } = await supabaseAdmin
+    .from("client_plans")
+    .select("status")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  const status = (plan?.status as MpPlanStatus) || "active";
+
+  if (!BILLABLE_STATUSES.includes(status)) {
+    // Dynamic import to avoid circular dependency with queries.ts
+    const { MarketplaceError } = await import("./queries");
+    throw new MarketplaceError(
+      `Plan is ${status}. Please update your billing to continue submitting jobs.`,
+      "PLAN_INACTIVE",
+      402,
+    );
+  }
+
+  return status;
+}
+
+/**
+ * Check if a plan status allows VA dispatch (used for queue filtering).
+ */
+export function isPlanBillable(status: MpPlanStatus | string | null): boolean {
+  return BILLABLE_STATUSES.includes((status || "active") as MpPlanStatus);
 }
 
 // ── Internal helpers ───────────────────────────────────────

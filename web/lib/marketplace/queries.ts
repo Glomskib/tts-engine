@@ -13,7 +13,7 @@ import {
   getNextAction, computeDueAt, getClientToday, computeSlaFields,
   PLAN_TIER_DEFAULTS, planTierLabel,
 } from './types';
-import { checkDailyCap } from './usage';
+import { checkDailyCap, checkPlanActive, isPlanBillable } from './usage';
 
 // ============================================================
 // Structured error class
@@ -313,6 +313,9 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
     return { jobId: activeJob.id as string, status: activeJob.job_status as JobStatus, existing: true };
   }
 
+  // Entitlement gate: plan must be active or trialing
+  await checkPlanActive(clientId);
+
   // Check daily cap via shared helper
   const { allowed, usage: capUsage } = await checkDailyCap(clientId);
   if (!allowed) {
@@ -411,7 +414,7 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
         script_broll_links(broll_asset_id)
       ),
       clients:clients!edit_jobs_client_id_fkey(client_code),
-      client_plans:client_plans!edit_jobs_client_id_fkey(plan_tier, sla_hours),
+      client_plans:client_plans!edit_jobs_client_id_fkey(plan_tier, sla_hours, status),
       job_deliverables(id)
     `);
 
@@ -460,6 +463,13 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
       return title.toLowerCase().includes(term);
     });
   }
+
+  // Billing-safe guard: exclude jobs from clients with inactive plans
+  // VAs should not see/claim jobs from clients who haven't paid
+  rows = rows.filter((j: Record<string, unknown>) => {
+    const planData = j.client_plans as Record<string, unknown> | null;
+    return isPlanBillable((planData?.status as string) || null);
+  });
 
   return rows.map((j: Record<string, unknown>) => {
     const scriptData = j.mp_scripts as Record<string, unknown> | null;
